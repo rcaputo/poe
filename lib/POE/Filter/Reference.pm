@@ -4,7 +4,22 @@
 package POE::Filter::Reference;
 
 use strict;
-use Storable qw(freeze thaw);
+
+BEGIN {
+  eval {
+    require Storable;
+    import Storable qw(freeze thaw);
+  };
+  if ($@ ne '') {
+    eval {
+      require FreezeThaw;
+      import FreezeThaw qw(freeze thaw);
+    };
+  }
+  if ($@ ne '') {
+    die "Filter::Reference requires Storable or FreezeThaw";
+  }
+}
 
 #------------------------------------------------------------------------------
 
@@ -32,7 +47,7 @@ sub get {
   }
   while($string ne "") {
     die "LOOP EXISTS:" if($i++ == 500);
-    $string =~s/\A(\d\d\d\d\d)//;
+    $string =~s/\A(\d+)\0//;
     my $bytes_to_get = $1;
     if(length($string) < $bytes_to_get) {
       $self->{'pre_get'} = $bytes_to_get - length($string);
@@ -50,13 +65,16 @@ sub get {
 }
 
 #------------------------------------------------------------------------------
+# freeze one or more references, and return a string representing them
 
 sub put {
   my $self = shift;
-  my $raw = join('', @_);
-  $raw = freeze($raw);
-  my $length = sprintf "%05d",length($raw);
-  return length($raw).$raw;
+  my $return = '';
+  foreach my $raw (@_) {
+    my $frozen = freeze($raw);
+    $return .= length($frozen) . "\0" . $frozen;
+  }
+  $return;
 }
 
 ###############################################################################
@@ -79,7 +97,7 @@ POE::Filter::Reference - pass objects between references and streams
 
 =head1 DESCRIPTION
 
-Breaks up a stream into references, based on a /(\d{5})(.{$1})/s
+Breaks up a stream into references, based on a /(\d+)\0(.{$1})/s
 format.  Takes a reference and turns it into a sendable string.  Works
 with any kind of reference that Storable works with, it is a fairly
 easy task to exchange Storable with something else.
@@ -88,14 +106,23 @@ easy task to exchange Storable with something else.
 
 Please see C<POE::Filter> for explanations.
 
+=item C<put()>
+
+Accepts one or more references, freezes them, and returns a string
+suitable for streaming.
+
+=item C<get()>
+
+Accepts a block of streamed data.  Breaks it into zero or more frozen
+objects, thaws them, and returns references to them.
+
 =head1 EXAMPLES
 
-Please see tests/refserver.perl and tests/refclient.perl.
+Please see tests/refserver.perl and tests/refsender.perl.
 
 =head1 BUGS
 
-Only works with references which data is up to 99999 bytes, this needs
-to be fixed.
+None currently known.
 
 =head1 CONTACT AND COPYRIGHT
 
