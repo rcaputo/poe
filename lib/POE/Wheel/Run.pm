@@ -201,7 +201,10 @@ sub new {
       my $lflag = $tio->getlflag;
       $lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL | ICANON);
       $tio->setlflag($lflag);
-      $tio->setattr(fileno($stdin_read));
+      my $oflag = $tio->getoflag;
+      $oflag &= ~(OPOST);
+      $tio->setoflag($oflag);
+      $tio->setattr(fileno($stdin_read), TCSANOW);
     }
 
     # Fix the priority delta.  -><- Hardcoded constants mean this

@@ -78,6 +78,10 @@ Added TRACE_RESULTS to lib/TestSetup.  One of the tests in 0.1204 hung
 on a user's machine, and it was impossible to figure it out remotely
 without first seeing which test hung.
 
+Solaris wasn't setting termios parameters without TCSANOW.  Wheel::Run
+wouldn't work in pty mode because the terminal parameters weren't
+being set.
+
 
 0.1204 2001.01.13
 -----------------
