@@ -12,11 +12,13 @@
 # and from HTTPD filters, they should say so on POE's mailing list.
 
 package POE::Filter::HTTPD;
+use strict;
+
+use Carp qw(croak);
 use HTTP::Status;
 use HTTP::Request;
 use HTTP::Date qw(time2str);
 use URI::URL qw(url);
-use strict;
 
 my $HTTP_1_0 = _http_version("HTTP/1.0");
 my $HTTP_1_1 = _http_version("HTTP/1.1");
@@ -181,7 +183,7 @@ sub put {
 
 sub get_pending {
   my $self = shift;
-  warn ref($self)." does not support the get_pending() method\n";
+  croak ref($self)." does not support the get_pending() method\n";
   return;
 }
 
