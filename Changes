@@ -20,6 +20,12 @@ To Do
 Overhaul Kernel and Session manpages' DESCRIPTIONs.
 
 
+0.1002 2000.??.??
+-----------------
+
+Added t/05_macros.t to test POE::Preprocessor.
+
+
 0.1001 2000.04.17 (!!!)
 -----------------------
 
