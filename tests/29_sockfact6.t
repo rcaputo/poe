@@ -42,7 +42,8 @@ POE::Component::Server::TCP->new
     ClientInput        => \&server_got_input,
     ClientFlushed      => \&server_got_flush,
     ClientDisconnected => \&server_got_disconnect,
-    ClientError        => \&server_got_error,
+    Error              => \&server_got_error,
+    ClientError        => sub { }, # Hush a warning.
   );
 
 sub server_got_connect {
@@ -70,9 +71,7 @@ sub server_got_disconnect {
 
 sub server_got_error {
   my ($syscall, $errno, $error) = @_[ARG0..ARG2];
-  unless ($syscall eq 'read' or $syscall eq 'write') {
-    ok(2, "# skipped: AF_INET6 probably not supported");
-  }
+  ok(2, "# skipped: AF_INET6 probably not supported");
 }
 
 ###############################################################################
@@ -124,7 +123,6 @@ sub client_got_connect_error {
   my ($syscall, $errno, $error) = @_[ARG0..ARG2];
   ok(3, "# skipped: AF_INET6 probably not supported");
   ok(4, "# skipped: AF_INET6 probably not supported");
-  warn "$syscall error $errno: $error\n";
 }
 
 ### main loop
