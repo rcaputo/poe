@@ -1163,7 +1163,7 @@ sub queue_peek_alarms {
   foreach my $state (@{$self->[KR_STATES]}) {
     last unless $state_count;
     next unless $state->[ST_SESSION] eq $kr_active_session;
-    next unless $state->[ST_SESSION]->[ST_TYPE] & ET_ALARM;
+    next unless $state->[ST_TYPE] & ET_ALARM;
     push @pending_alarms, $state->[ST_NAME];
     $state_count--;
   }
@@ -1752,7 +1752,9 @@ state.
 POE::Kernel::queue_peek_alarms()
 
 Peeks at the current session's event queue, returning a list of
-pending alarms.  The list is empty if no alarms are pending.
+pending alarms.  The list is empty if no alarms are pending.  The
+list's order is undefined as of version 0.0904 (it's really in time
+order, but that may change).
 
 =back
 
