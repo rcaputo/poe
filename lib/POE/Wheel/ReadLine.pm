@@ -1608,6 +1608,16 @@ History searching:
 
 =back
 
+=head1 GOTCHAS / FAQ
+
+Q: Why do I lose my ReadLine prompt every time I send output to the
+   screen?
+
+A: You probably are using print or printf to write screen output.
+   ReadLine doesn't track STDOUT itself, so it doesn't know when to
+   refresh the prompt after you do this.  Use ReadLine's put() method
+   to write lines to the console.
+
 =head1 AUTHORS & COPYRIGHTS
 
 Please see L<POE> for more information about authors and contributors.
