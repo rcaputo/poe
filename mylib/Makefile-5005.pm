@@ -69,6 +69,9 @@ ExtUtils::AutoInstall->import
     ],
 );
 
+# Touch CHANGES so it exists.
+# open(CHANGES, ">>CHANGES") and close CHANGES;
+
 WriteMakefile
   ( NAME           => 'POE',
 
@@ -83,7 +86,7 @@ WriteMakefile
     dist           =>
     { COMPRESS => 'gzip -9f',
       SUFFIX   => 'gz',
-    # PREOP    => qq(cvs2cl.pl -l "-d'a year ago<'" --utc --file CHANGES.TEST),
+    # PREOP    => qq(cvs2cl.pl -l "-d'a year ago<'" --utc --file CHANGES),
     },
 
     PMLIBDIRS      => [ 'POE' ],
