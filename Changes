@@ -19,8 +19,7 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 | After 0.11
 |
 | Filter::HTTPD test.
-| Filter::Reference test.
-| Wheel::ListenAccept test.
+| Wheel::ListenAccept rewrite & tests.
 |
 | Add new newlines to Filter::Line.
 |
@@ -32,12 +31,14 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 0.1012 2000.??.??
 -----------------
 
-Changed SocketFactory's connect code to throw a FailureEvent if
-getpeername() fails on a connected socket.  Also made the code
-surrounding unpack_sockaddr_in a little more robust while I was at it.
-Thanks to a-mused for spotting the getpeername() failure.  FYI, he
-only saw it happen on Rehdat 6.0 with Perl 5.005_03.  The same test on
-a SPARC box with Solaris 7 and Perl 5.005_02 ran fine.
+A-mused found samples/thrash.perl failing on Redhat 6.0.  The chain of
+events goes something like this: (1) select says a non-blocking
+connecting socket's ready for writing.  (2) getsockopt(SO_ERROR)
+reports that the socket is fine.  (3) getpeername returns undef, and
+$! becomes ENOTCONN.  (4) unpack_sockaddr_in predictably fails.
+... The same test passes on other machines, including Solaris 7, OS/2,
+and FreeBSD 4.0-STABLE.  I patched SocketFactory to report an error if
+getpeername fails, and this cleared up the failure's symptom.
 
 
 0.1011 2000.06.29
