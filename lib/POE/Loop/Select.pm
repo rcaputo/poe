@@ -36,7 +36,7 @@ BEGIN {
 # Signal handlers.
 
 sub _substrate_signal_handler_generic {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
+  TRACE_SIGNALS and warn "Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
@@ -47,7 +47,7 @@ sub _substrate_signal_handler_generic {
 }
 
 sub _substrate_signal_handler_pipe {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
+  TRACE_SIGNALS and warn "Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
@@ -60,7 +60,7 @@ sub _substrate_signal_handler_pipe {
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
 sub _substrate_signal_handler_child {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
+  TRACE_SIGNALS and warn "Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
