@@ -30,6 +30,13 @@ my $tcp_server_port = 31909;
 test_setup(5);
 ok(1);
 
+warn(
+  "***\n",
+  "*** This test may hang if your firewall blocks IPv6\n",
+  "*** packets across your localhost interface.\n",
+  "***\n",
+);
+
 ###############################################################################
 # Start the TCP server.
 
