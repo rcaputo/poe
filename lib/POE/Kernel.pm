@@ -2244,9 +2244,11 @@ sub _dispatch_event {
   };
 
   if (TRACE_EVENTS) {
+    my $log_session = $session;
+    $log_session =  $self->_data_alias_loggable($session)
+      unless $type & ET_START;
     warn( "<ev> Dispatching event $seq ``$event'' (@$etc) from ",
-          $self->_data_alias_loggable($source_session), " to ",
-          $self->_data_alias_loggable($session)
+          $self->_data_alias_loggable($source_session), " to $log_session"
         );
   }
 
