@@ -1449,7 +1449,9 @@ sub call {
   my $return_value;
   if (wantarray) {
     $return_value = [
-      $self->_dispatch_event(
+      $session == $kr_active_session
+      ? $session->_invoke_state($session, $event_name, \@etc, (caller)[1,2])
+      : $self->_dispatch_event(
         $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
         (caller)[1,2], time(), -__LINE__
@@ -1457,10 +1459,14 @@ sub call {
     ];
   }
   else {
-    $return_value = $self->_dispatch_event(
-      $session, $kr_active_session,
-      $event_name, ET_CALL, \@etc,
-      (caller)[1,2], time(), -__LINE__
+    $return_value = (
+      $session == $kr_active_session
+      ? $session->_invoke_state($session, $event_name, \@etc, (caller)[1,2])
+      : $self->_dispatch_event(
+        $session, $kr_active_session,
+        $event_name, ET_CALL, \@etc,
+        (caller)[1,2], time(), -__LINE__
+      )
     );
   }
 
