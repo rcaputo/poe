@@ -1187,6 +1187,11 @@ sub put {
   }
 }
 
+# Clear the screen.
+sub clear {
+  my $self = shift;
+  $termcap->Tputs( cl => 1, *STDOUT );
+}
 
 # Add things to the edit history.
 sub addhistory {
@@ -1233,6 +1238,9 @@ POE::Wheel::ReadLine - prompted terminal input with basic editing keys
       print "\tException: $exception\n";
     }
   }
+
+  # Clear the terminal.
+  $wheel->clear();
 
 =head1 DESCRIPTION
 
@@ -1467,6 +1475,16 @@ cursor before and after M-u are pressed.
 
 =over 2
 
+=item addhistory LIST_OF_LINES
+
+Adds a list of lines, presumably from previous input, into the
+ReadLine wheel's input history.  They will be available with C-p, C-n,
+and/or the up- and down arrow keys.
+
+=item clear
+
+Clears the terminal.
+
 =item get PROMPT
 
 Provide a prompt and enable input.  The wheel will display the prompt
@@ -1476,8 +1494,6 @@ resume its quiescent state wherein it ignores keystrokes.
 
 The quiet period between input events gives a program the opportunity
 to change the prompt or process lines before the next one arrives.
-
-=item addhistory LIST_OF_LINES
 
 =back
 
