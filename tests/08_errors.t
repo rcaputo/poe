@@ -54,7 +54,9 @@ BEGIN {
     # Event + Tk
     @INC{'Event.pm', 'Tk.pm'} = (1,1);
     $Tk::VERSION = 800.021;
+    stderr_pause();
     eval 'use POE::Kernel';
+    stderr_resume();
     print 'not ' unless defined $@ and length $@;
     print "ok 1\n";
     test_cleanup();
@@ -62,14 +64,18 @@ BEGIN {
     # Gtk + Tk
     @INC{'Gtk.pm', 'Tk.pm'} = (1, 1);
     $Tk::VERSION = 800.021;
+    stderr_pause();
     eval 'use POE::Kernel';
+    stderr_resume();
     print 'not ' unless defined $@ and length $@;
     print "ok 2\n";
     test_cleanup();
 
     # Event + Gtk
     @INC{'Event.pm', 'Gtk.pm'} = (1, 1);
+    stderr_pause();
     eval 'use POE::Kernel';
+    stderr_resume();
     print 'not ' unless defined $@ and length $@;
     print "ok 3\n";
     test_cleanup();
