@@ -205,7 +205,14 @@ print "ok 19\n";
       );
     stderr_resume();
 
-    print "not " unless $warnings == 2;
+    # Cygwin doesn't generate warnings here.  Everybody else gets two
+    # warnings.
+    if ($^O eq "cygwin") {
+      print "not" if $warnings;
+    }
+    else {
+      print "not " unless $warnings == 2;
+    }
     print "ok 21\n";
 
     # Any protocol on UNIX sockets.
