@@ -64,7 +64,7 @@ POE::Session->create
             }
             else {
               # Child side sleeps. With the fishes.
-              $SIG{INT} = sub { exit; };
+              $SIG{INT} = 'DEFAULT';
               sleep 3600;
               exit;
             }
