@@ -11,15 +11,33 @@ use Carp;
 
 use POE::Session;
 
+#------------------------------------------------------------------------------
+
 # states  : [ [ $session, $source_session, $state, $time, \@etc ], ... ]
 #
-# selects:  { $handle  => [ [ [ $r_sess, $r_state ], ... ],
-#                           [ [ $w_sess, $w_state ], ... ],
-#                           [ [ $x_sess, $x_state ], ... ],
+# selects:  { $handle  => [ [ [ $r_sess, $r_state], ... ],
+#                           [ [ $w_sess, $w_state], ... ],
+#                           [ [ $x_sess, $x_state], ... ],
 #                         ],
 #           }
 #
+# signals:  { $signal => [ [ $session, $state ], ... ] }
+#
 # sessions: { $session => [ $parent, \@children, $states, $selects ] }
+
+sub _signal_handler {
+  if (defined $_[0]) {
+    foreach my $kernel (@POE::Kernel::instances) {
+      $kernel->_enqueue_state($kernel, $kernel, '_signal', time(), [ $_[0] ]);
+    }
+    $SIG{$_[0]} = \&_signal_handler;
+  }
+  else {
+    die "undefined signal caught";
+  }
+}
+
+#------------------------------------------------------------------------------
 
 sub new {
   my $type = shift;
@@ -32,6 +50,15 @@ sub new {
   $self->{'sel_r'} = new IO::Select() || die $!;
   $self->{'sel_w'} = new IO::Select() || die $!;
   $self->{'sel_e'} = new IO::Select() || die $!;
+
+  my @signals = qw(ILL QUIT BREAK EMT ABRT BUS USR1 INT USR2 ALRM KILL HUP
+                   PIPE SEGV TRAP TERM FPE CHLD SYS);
+  foreach my $signal_name (@signals) {
+    $self->{'signals'}->{$signal_name} = [ ];
+    $SIG{$signal_name} = \&_signal_handler;
+  }
+
+  push(@POE::Kernel::instances, $self);
 
   $self->{'running'} = $self;
   $self->session_alloc($self);
@@ -106,13 +133,15 @@ sub _dispatch_state {
 # should read or write from the selected filehandle so that select won't
 # re-trigger immediately (unless that's okay by the session).
 
-sub _dispatch_select {
-  my ($self, $select_handles, $selects, $selects_index) = @_;
+sub _dispatch_selects {
+  my ($self, $select_handles, $selects_index) = @_;
+
   foreach my $handle (@$select_handles) {
-    if (exists $selects->{$handle}) {
-      foreach my $notify (@{$selects->{$handle}->[$selects_index]}) {
+    if (exists $self->{'selects'}->{$handle}) {
+      my @selects = @{$self->{'selects'}->{$handle}->[$selects_index]};
+      foreach my $notify (@selects) {
         my ($session, $state) = @$notify;
-        $self->_dispatch_state($session, $session, $state, []);
+        $self->_dispatch_state($session, $session, $state, [ $handle ]);
       }
     }
     else {
@@ -125,18 +154,26 @@ sub _dispatch_select {
 
 sub run {
   my $self = shift;
-  my ($sessions, $selects, $states, $sel_r, $sel_w, $sel_e) =
-    @$self{qw(sessions selects states sel_r sel_w sel_e)};
 
-  while (@$states || keys(%$selects)) {
+  while (@{$self->{'states'}} || keys(%{$self->{'selects'}})) {
                                         # select, if necessary
-    my $timeout = (@$states) ? ($states->[0]->[3] - time()) : 60;
+    my $timeout = (@{$self->{'states'}}) ?
+      ($self->{'states'}->[0]->[3] - time()) : 3600;
     $timeout = 0 if ($timeout < 0);
-    if ($sel_r->count() || $sel_w->count() || $sel_e->count()) {
-      if (my @got = IO::Select::select($sel_r, $sel_w, $sel_e, $timeout)) {
-        scalar(@{$got[0]}) && $self->_dispatch_selects($got[0], $selects, 0);
-        scalar(@{$got[1]}) && $self->_dispatch_selects($got[1], $selects, 1);
-        scalar(@{$got[2]}) && $self->_dispatch_selects($got[2], $selects, 2);
+    if ($self->{'sel_r'}->count() ||
+        $self->{'sel_w'}->count() ||
+        $self->{'sel_e'}->count()
+    ) {
+                                        # IO::Select::select doesn't clear $!
+      $! = 0;
+      if (my @got = IO::Select::select($self->{'sel_r'},
+                                       $self->{'sel_w'},
+                                       $self->{'sel_e'},
+                                       $timeout)
+      ) {
+        scalar(@{$got[0]}) && $self->_dispatch_selects($got[0], 0);
+        scalar(@{$got[1]}) && $self->_dispatch_selects($got[1], 1);
+        scalar(@{$got[2]}) && $self->_dispatch_selects($got[2], 2);
       }
       else {
         die "select: $!" if ($! && ($! != EINPROGRESS));
@@ -147,11 +184,11 @@ sub run {
       sleep($timeout);
     }
                                         # dispatch queued events
-    if (@$states) {
-      if ($states->[0]->[3] <= time()) {
+    if (@{$self->{'states'}}) {
+      if ($self->{'states'}->[0]->[3] <= time()) {
         my ($session, $source_session, $state, $time, $etc)
-          = @{shift @$states};
-        $sessions->{$session}->[2]--;
+          = @{shift @{$self->{'states'}}};
+        $self->{'sessions'}->{$session}->[2]--;
         $self->_dispatch_state($session, $source_session, $state, $etc);
       }
     }
@@ -204,27 +241,24 @@ sub _enqueue_state {
 
 sub session_alloc {
   my ($self, $session) = @_;
-  my $sessions = $self->{'sessions'};
   my $active_session = $self->{'running'};
 
-  warn "session $session already exists" if (exists $sessions->{$session});
+  warn "session $session already exists"
+    if (exists $self->{'sessions'}->{$session});
   
-  $sessions->{$session} = [ $active_session, [ ], 0, 0 ];
-  push(@{$sessions->{$active_session}->[1]}, $session);
+  $self->{'sessions'}->{$session} = [ $active_session, [ ], 0, 0 ];
+  push(@{$self->{'sessions'}->{$active_session}->[1]}, $session);
 
-#  $self->_dispatch_state($session, $active_session, '_start', []);
   $self->_enqueue_state($session, $active_session, '_start', time(), []);
 }
 
 sub session_free {
   my ($self, $session) = @_;
-  my $sessions = $self->{'sessions'};
-  my $active_session = $self->{'running'};
 
-  warn "session $session doesn't exist" unless (exists $sessions->{$session});
+  warn "session $session doesn't exist"
+    unless (exists $self->{'sessions'}->{$session});
 
-#  $self->_dispatch_state($session, $active_session, '_stop', []);
-  $self->_enqueue_state($session, $active_session, '_stop', time(), []);
+  $self->_enqueue_state($session, $self->{'running'}, '_stop', time(), []);
 }
 
 #------------------------------------------------------------------------------
@@ -239,63 +273,71 @@ sub alarm {
 
 #------------------------------------------------------------------------------
 
+sub _internal_select {
+  my ($self, $session, $handle, $state, $select, $select_index) = @_;
+                                        # add select state
+  if ($state) {
+    my $written = 0;
+    foreach my $notify (@{$self->{'selects'}->{$handle}->[$select_index]}) {
+      if ($notify->[0] eq $session) {
+        $written = 1;
+        $notify->[1] = $state;
+        last;
+      }
+    }
+    unless ($written) {
+      push(@{$self->{'selects'}->{$handle}->[$select_index]},
+           [ $session, $state ]
+          );
+      $self->{'sessions'}->{$session}->[3]++;
+    }
+    $self->{$select}->add($handle);
+  }
+                                        # remove select state
+  else {
+    my $removed = 0;
+    my $index = scalar(@{$self->{'selects'}->{$handle}->[$select_index]});
+    while ($index--) {
+      if ($self->{'selects'}->{$handle}->[$select_index]->[$index]->[0]
+          eq $session
+      ) {
+        splice(@{$self->{'selects'}->{$handle}->[$select_index]},
+               $index, 1
+              );
+        $removed = 1;
+        last;
+      }
+    }
+    if ($removed) {
+      $self->{'sessions'}->{$session}->[3]--;
+      $self->{$select}->remove($handle);
+    }
+  }
+}
+
+#------------------------------------------------------------------------------
+
 sub select {
-  my ($self, $handle, $state_read, $state_write, $state_exception) = @_;
-  my $selects = $self->{'selects'};
-  my $sessions = $self->{'sessions'};
+  my ($self, $handle, $state_r, $state_w, $state_e) = @_;
   my $active_session = $self->{'running'};
-
-  $handle->binmode(1);
-  $handle->blocking(0);
-  $handle->autoflush();
-
-  if ($state_read) {
-    if (exists $selects->{$handle}->[0]->{$active_session}) {
-      carp "redefining session($active_session), read state";
-    }
-    else {
-      $sessions->{$active_session}->[3]++;
-    }
-    $selects->{$handle}->[0]->{$active_session} = $state_read;
-  }
-  else {
-    if (exists $selects->{$handle}->[0]->{$active_session}) {
-      $sessions->{$active_session}->[3]--;
-    }
-    delete $selects->{$handle}->[0]->{$active_session};
+                                        # condition the handle
+  if ($state_r || $state_w || $state_e) {
+    binmode($handle);
+    $handle->blocking(0);
+    $handle->autoflush();
   }
 
-  if ($state_write) {
-    if (exists $selects->{$handle}->[1]->{$active_session}) {
-      carp "redefining session($active_session), write state";
-    }
-    else {
-      $sessions->{$active_session}->[3]++;
-    }
-    $selects->{$handle}->[1]->{$active_session} = $state_read;
-  }
-  else {
-    if (exists $selects->{$handle}->[1]->{$active_session}) {
-      $sessions->{$active_session}->[3]--;
-    }
-    delete $selects->{$handle}->[1]->{$active_session};
+  unless (exists $self->{'selects'}->{$handle}) {
+    $self->{'selects'}->{$handle} = [ [], [], [] ];
   }
 
-  if ($state_exception) {
-    if (exists $selects->{$handle}->[2]->{$active_session}) {
-      carp "redefining session($active_session), exception state";
-    }
-    else {
-      $sessions->{$active_session}->[3]++;
-    }
-    $selects->{$handle}->[2]->{$active_session} = $state_exception;
-  }
-  else {
-    if (exists $selects->{$handle}->[2]->{$active_session}) {
-      $sessions->{$active_session}->[3]--;
-    }
-    delete $selects->{$handle}->[2]->{$active_session};
-  }
+  $self->_internal_select($active_session, $handle, $state_r, 'sel_r', 0);
+  $self->_internal_select($active_session, $handle, $state_w, 'sel_w', 1);
+  $self->_internal_select($active_session, $handle, $state_e, 'sel_e', 2);
+
+#  unless ($state_r || $state_w || $state_e) {
+#    delete $self->{'selects'}->{$handle};
+#  }
 }
 
 #------------------------------------------------------------------------------
@@ -304,7 +346,33 @@ sub select {
 
 sub _invoke_state {
   my ($self, $kernel, $source_session, $state, $etc) = @_;
-  # print "kernel caught state($state)\n";
+                                        # propagate signals
+  if ($state eq '_signal') {
+    my $signal_name = $etc->[0];
+
+    # actually, with terminal signals like INT, the signal should be dispatched
+    # around to everyone who cares, and then the kernel should receive a _stop,
+    # which forcibly stops the main loop.  until then, we should die on SIGINT
+    # so that the author can debug without rebooting a lot. -><-
+
+    die if ($signal_name eq 'INT');
+
+    foreach my $session (@{$self->{'signals'}->{$signal_name}}) {
+      $self->_dispatch_state($session->[0], $self, $session->[1], []);
+    }
+  }
+}
+
+#------------------------------------------------------------------------------
+
+sub signals {
+  my ($self, $signal) = @_;
+  my $active_session = $self->{'running'};
+
+  # -><- add or remove the signal handler
+  # -><- return value signifies success (whether can trap signal or not)
+  # -><- also consider whether run() can terminate if only selects left
+  croak "signals not fully implemented";
 }
 
 #------------------------------------------------------------------------------
