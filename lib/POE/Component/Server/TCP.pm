@@ -9,6 +9,7 @@ $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(carp croak);
 use Socket qw(INADDR_ANY inet_ntoa);
+use POSIX qw(ECONNABORTED);
 
 # Explicit use to import the parameter constants.
 use POE::Session;
@@ -162,8 +163,12 @@ sub new {
                 $client_input->(@_);
               },
               tcp_server_got_error => sub {
-                $client_error->(@_);
-                $_[KERNEL]->yield("shutdown") if $_[HEAP]->{shutdown_on_error};
+                unless ($_[ARG0] eq 'accept' and $_[ARG1] == ECONNABORTED) {
+                  $client_error->(@_);
+                  if ($_[HEAP]->{shutdown_on_error}) {
+                    $_[KERNEL]->yield("shutdown");
+                  }
+                }
               },
               tcp_server_got_flush => sub {
                 my $heap = $_[HEAP];
