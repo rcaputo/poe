@@ -5,11 +5,6 @@ use ExtUtils::MakeMaker;
 
 # Add a new target.
 
-sub MY::test {
-  package MY;
-  "\ntest ::\n\t\$(FULLPERL) ./mylib/deptest.perl\n" . shift->SUPER::test(@_);
-}
-
 sub MY::postamble {
     return <<EOF;
 reportupload: poe_report.xml

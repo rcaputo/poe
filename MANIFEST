@@ -6,7 +6,6 @@ MANIFEST
 MANIFEST.SKIP
 META.yml
 Makefile.PL
-NEEDS
 README
 TODO
 lib/POE.pm
@@ -78,7 +77,6 @@ mylib/TestSetup.pm
 mylib/coverage.perl
 mylib/cpan-test.perl
 mylib/cvs-log.perl
-mylib/deptest.perl
 mylib/events_per_second.pl
 mylib/gen-tests.perl
 mylib/reportupload.pl
