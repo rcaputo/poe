@@ -7,7 +7,7 @@
 
 # Contributed by Artur Bergman <artur@vogon-solutions.com>
 # Rewritten to use POE to exercise Filter::Reference::put()
-# Revised for POE 0.06 by Rocco Caputo <troc@netrus.net>
+# Revised for POE 0.06 by Rocco Caputo <rcaputo@cpan.org>
 
 use strict;
 use lib '..';

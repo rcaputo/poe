@@ -7,7 +7,7 @@
 # the command line.  For example: ./httpd.perl 8000
 
 # Contributed by Artur Bergman <artur@vogon-solutions.com>
-# Revised for POE 0.06 by Rocco Caputo <troc@netrus.net>
+# Revised for POE 0.06 by Rocco Caputo <rcaputo@cpan.org>
 
 use strict;
 use lib '..';

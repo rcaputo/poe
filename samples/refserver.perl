@@ -7,7 +7,7 @@
 # as well as a few other things.
 
 # Contributed by Artur Bergman <artur@vogon-solutions.com>
-# Revised for 0.06 by Rocco Caputo <troc@netrus.net>
+# Revised for 0.06 by Rocco Caputo <rcaputo@cpan.org>
 
 use strict;
 use lib '..';
