@@ -4,6 +4,7 @@ MANIFEST
 Makefile.PL
 POE.pm
 README
+HISTORY
 POE/Driver.pm
 POE/Driver/SysRW.pm
 POE/Filter.pm
@@ -13,9 +14,11 @@ POE/Session.pm
 POE/Wheel.pm
 POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
+POE/Wheel/FollowTail.pm
 t/test.t
 tests/forkbomb.perl
 tests/selects.perl
 tests/sessions.perl
 tests/signals.perl
 tests/wheels.perl
+tests/followtail.perl
