@@ -207,42 +207,8 @@ Proposed change schedule:
 
 4. Do the other thing which isn't designed yet.
 
---------------------------------
-Make Things Inheritance-Friendly
---------------------------------
-
-There was a time in POE's development where just using @ISA would make
-method calls three times slower.  Whatever perl was doing got fixed,
-and now it's safe to use inheritance again.
-
-    b01_solo: 13 wallclock secs ( ... ) @ 924187.73/s (n=10000000)
-  b02_parent: 12 wallclock secs ( ... ) @ 901408.45/s (n=10000000)
-   b03_child: 12 wallclock secs ( ... ) @ 919540.23/s (n=10000000)
-
-Session should be made inheritable, if it's not already.  The base
-Wheel, Filter, and Driver classes maybe.  Component could provide some
-useful common things; perhaps Philip Gwyn can add interoperability
-stuff there and make components do the right things.
-
-Kernel?  Should it be inheritable?
-
-----------------------------------------------------
-The POE Community Wants a Bigger Hand in Development
-----------------------------------------------------
-
-The YAPC 2001 POE BOF agreed that its members want a bigger part in
-the project's development.  This is great!  It should reduce my
-workload and generally expand POE knowledge across a larger group of
-people.  If I get hit by a passing blimp, life goes on without me.
-
-For such a group to remain organized, however, I feel the need to
-codify the goals and heuristics that guide my own development.
-Certainly these would just be guidelines.  Evolution happens, and they
-may change over time as the project continues to grow up, but it's a
-good idea to know going into it what's expected to come out of it.
-
-So, what am I trying to do here?  What are the decision priorities
-when making trade-offs?  Where do I want to go today?
+Bleah!  I think the crux of *this* matter is related to the filter
+changing flaw in the next section.
 
 ----------------------------------------
 Filter Changing Flawed As Designed (!!!)
@@ -308,6 +274,95 @@ support that if it's available.  If not-- for example, in legacy or
 third-party filters which haven't been updated-- it can fall back to
 the less reliable behavior.  Furthermore, set_filter() and its
 variants can carp if used with unreliable filters.
+
+2001-07-16:
+
+Once this is fixed, ReadWrite can use get_one() to fetch one event at
+a time.  The resume_input() method can, among other things, continue
+the get_one() loop if data is already buffered but more isn't ready to
+be read.
+
+I'm beginning to wonder if ReadWrite might be a lost cause at this
+point.  It seems like a lot of working around to do.  Could it be
+redesigned as Stream?
+
+--------------------------------
+Make Things Inheritance-Friendly
+--------------------------------
+
+There was a time in POE's development where just using @ISA would make
+method calls three times slower.  Whatever perl was doing got fixed,
+and now it's safe to use inheritance again.
+
+    b01_solo: 13 wallclock secs ( ... ) @ 924187.73/s (n=10000000)
+  b02_parent: 12 wallclock secs ( ... ) @ 901408.45/s (n=10000000)
+   b03_child: 12 wallclock secs ( ... ) @ 919540.23/s (n=10000000)
+
+Session should be made inheritable, if it's not already.  The base
+Wheel, Filter, and Driver classes maybe.  Component could provide some
+useful common things; perhaps Philip Gwyn can add interoperability
+stuff there and make components do the right things.
+
+Kernel?  Should it be inheritable?
+
+---------------------------
+Simplify Session Definition
+---------------------------
+
+Add new base classes: POE::Session::Inline, POE::Session::Object, and
+POE::Session::Package.  Each somehow scours their subclasses'
+namespaces for methods or functions that begin with "poe_".  The base
+classes provide a poe_spawn() method that uses the "poe_" symbols to
+build and instantiate inline, object, and package sessions
+automatically.
+
+This would vastly simplify session definitions, for many simple cases.
+
+package ThingySession;
+
+@ThingySession::ISA = qw( POE::Session::Object );
+
+sub poe__start { # two underscores
+  ...
+}
+
+sub poe__stop { # two underscores
+  ...
+}
+
+sub poe_event {
+  ...
+}
+
+sub private_method {
+}
+
+1;
+__END__
+
+Programs would call ThingySession->spawn() to create a new object
+session with the "poe_" methods as event handlers.
+
+I think Artur Bergman mentioned this to me once, but I was too busy to
+think about it.  It's a rocking idea, though.
+
+----------------------------------------------------
+The POE Community Wants a Bigger Hand in Development
+----------------------------------------------------
+
+The YAPC 2001 POE BOF agreed that its members want a bigger part in
+the project's development.  This is great!  It should reduce my
+workload and generally expand POE knowledge across a larger group of
+people.  If I get hit by a passing blimp, life goes on without me.
+
+For such a group to remain organized, however, I feel the need to
+codify the goals and heuristics that guide my own development.
+Certainly these would just be guidelines.  Evolution happens, and they
+may change over time as the project continues to grow up, but it's a
+good idea to know going into it what's expected to come out of it.
+
+So, what am I trying to do here?  What are the decision priorities
+when making trade-offs?  Where do I want to go today?
 
 ---------------------------------------
 Give Exported Constants Some Prefix(es)
