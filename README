@@ -86,11 +86,23 @@ POE's test results are large and constantly changing.  They have been
 moved to the web site for easier maintenance.  POE is tested severely
 before even the limited-distribution development releases.
 
+  http://eekeek.org/poe-tests/
   http://poe.perl.org/?POE%27s_test_results
   http://testers.cpan.org/search?request=dist&dist=POE
 
-Please report test failures.  POE's ongoing improvement relies on
-feedback from its users.
+If you experience test failures, please report them. POE's ongoing
+improvement relies on feedback from its users. The easiest
+way to do that is included in the POE distribution itself. The 
+Makefile includes two targets: 'testreport' and 'reportupload'.
+Running 'make testreport' will run the test suite and generate
+an XML file summarizing the test results named 'poe_report.xml'.
+If you have an active non-proxied internet connection, running
+'make reportupload' will transmit your test results to the
+POE test server. If you do not have a non-proxied internet 
+connection, go to http://eekeek.org/poe-tests/ and upload the
+poe_report.xml file using the form on that page.
+
+Uploaded test results can be viewed at http://eekeek.org/poe-tests/.  
 
 -------------
 Test Coverage
