@@ -45,10 +45,10 @@ use POE::API::ResLoader \&_data_ses_initialize;
 ### End-run leak checking.
 
 sub _data_ses_finalize {
-  # Don't bother if run() was never called. -><- Is this needed?
-  # return unless $kr_run_warning & KR_RUN_CALLED;
+  my $finalized_ok = 1;
 
   while (my ($ses, $ses_rec) = each(%kr_sessions)) {
+    $finalized_ok = 0;
     warn( "!!! Leaked session: $ses\n",
           "!!!\trefcnt = $ses_rec->[SS_REFCOUNT]\n",
           "!!!\tparent = $ses_rec->[SS_PARENT]\n",
@@ -56,6 +56,8 @@ sub _data_ses_finalize {
           "!!!\tprocs  = ", join("; ", keys(%{$ses_rec->[SS_PROCESSES]})),"\n",
         );
   }
+
+  return $finalized_ok;
 }
 
 ### Enter a new session into the back-end stuff.
@@ -92,9 +94,13 @@ sub _data_ses_allocate {
   }
 }
 
-### Release a session's resources, and remove it.  This doesn't do
-### garbage collection for the session itself because that should
-### already have happened.
+# Release a session's resources, and remove it.  This doesn't do
+# garbage collection for the session itself because that should
+# already have happened.
+#
+# -><- This is yet another place where resources will need to register
+# a function.  Every resource's _data_???_clear_session is called
+# here.
 
 sub _data_ses_free {
   my ($self, $session) = @_;
