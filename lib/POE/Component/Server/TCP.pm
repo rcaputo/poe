@@ -138,6 +138,8 @@ sub new {
             tcp_server_got_error => sub {
               my ($heap, $operation, $errnum) = @_[HEAP, ARG0, ARG1];
 
+              $heap->{shutdown} = 1;
+
               # Read error 0 is disconnect.
               if ($operation eq 'read' and $errnum == 0) {
                 $client_disconnected->(@_);
@@ -145,6 +147,7 @@ sub new {
               else {
                 $client_error->(@_);
               }
+
               delete $heap->{client};
             },
             tcp_server_got_flush => sub {
