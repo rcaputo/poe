@@ -4,7 +4,7 @@ POE-TODO - To-Do List for POE
 
 * DESCRIPTION
 
-Random requests and ideas.
+Random requests, suggestions and ideas.
 
 People who want to implement something for POE should check the latest
 version of this list (to see if anyone has claimed it already), and
@@ -32,12 +32,15 @@ topic, and this would make a nice paper topic.
 *** Call With Current Continuation (callcc)
 
 Likewise, it was once lamented that Perl has no callcc (call with
-current continuation) function.  POE can simulate callcc.
+current continuation) function.  POE can simulate callcc, which in
+turn can simulate coroutines, threads, and all sorts of things.
 
 ** Other Documentation
 
 Crimson suggested that I write a book about POE, using the PCB Q&A
-format.
+format.  Maybe when POE's design settles down?
+
+Golly, I *hope*, POE's design settles down.
 
 * SUPPORT OTHER SYSTEMS
 
@@ -48,13 +51,13 @@ be POSIX enough.
 
 I contacted someone about this on Pudge's recommendation, but they
 never returned my e-mail.  As far as I can tell, MacOS support is
-stillborn.  If anyone would like to pick this up, let me know.
+stillborn.  If anyone would like to pick this up, let me know.  It's
+all POSIX-y inside, so how hard could it be?
 
 ** Win32 support
 
 Sean Puckett started work on a Win32 port then switched to Linux.  Now
-he's missing in action.  If anyone would like to pick this up, let me
-know.
+he's gone missing.  If anyone would like to pick this up, let me know.
 
 * PROGRAMS USING POE
 
@@ -69,7 +72,7 @@ Philip Gwyn would like to see a POE::Simple::(Client|Server|Proxy)
 that combines a lot of default behavior into an extremely-high-level
 module for writing quick network programs.
 
-He says, "Contrast LWP::Simple with the other modules."
+He says, "Contrast LWP::Simple with the other modules."  Fair enough.
 
 * DEVELOPMENT METHODOLOGY CHANGES
 
@@ -78,7 +81,8 @@ He says, "Contrast LWP::Simple with the other modules."
 Development is now running out of a local CVS repository.  It's on my
 dialed-up machine, so the address changes all the time.
 
-The next step is to open the CVS server for anonymous updates.
+The next step is to open the CVS server for anonymous updates,
+possibly moving it somewhere that doesn't move around all the time.
 
 After anonymous updates are working for a while, it should be okay to
 start giving authorship rights to some of the more dedicated POE
@@ -382,6 +386,12 @@ A function to list active sessions.  A function to acquire details
 about a session.  A function to acquire the kernel's and OS's load
 averages, uptime, etc.
 
+** Port Face from Serv to POE
+
+Face is a text widgets library using Curses.  It's heirarchical, and
+it uses a funky slow tied-hash message passing thing.  It would be
+enormously cool to revise this and make it work with POE.
+
 * RESEARCH AND DEVELOPMENT
 
 ** Object System Architecture
@@ -408,8 +418,8 @@ topics in the book.  Namely "OSA":
 For the life of me, I can't remember who was pushing CORBA.  I did
 bookmark some links they gave me:
 
-What CORBA is: http://www.omg.org/corba/whatiscorba.html
-Open CORBA: http://diamant-atm.vsb.cs.uni-frankfurt.de/~mico/
+  What CORBA is: <http://www.omg.org/corba/whatiscorba.html>
+  Open CORBA: <http://diamant-atm.vsb.cs.uni-frankfurt.de/~mico/>
 
 The one-line descriptions for the CORBA services look like a lot of
 fun.  I haven't made time to look at them in detail, though.  I'd like
@@ -486,7 +496,9 @@ recognized as one of its Tokens.
 Randal Schwartz doesn't like the Wheels abstraction.  His needs don't
 mesh with it, and he has neither the time nor inclination to write his
 own abstraction.  He did take the time to look at it and suggest
-things, though:
+things, though.
+
+I like this idea more and more as I think about it.
 
   He needs something that has callbacks when the listen socket is
   bound.  The bind callback should let him know what port was actually
@@ -530,6 +542,16 @@ The mind boggles.  Here are some useful filter ideas:
 
   POE::Filter::SSL
   POE::Filter::SSH
+
+For example:
+
+  Create a raw socket.
+  Push "tcp socket" on it.
+  Push "SSH stream protocol" on it.
+  Push "line oriented protocol" on it.
+  Push "imap client protocol" on it.
+
+And go to town!
 
 *** Axels
 
@@ -605,8 +627,8 @@ for the public yet.
 ** Exception handling
 
 Artur suggests wrapping event handler invocations in block evals.
-This would let them throw exceptions with C®die¯, or perhaps an
-imported throw function which dies internally.
+This would let them throw exceptions with die, or perhaps an imported
+throw function which dies internally.
 
 The caught exception would be translated into an exception event, and
 posted or called back to the session.  Or maybe translated into a
@@ -633,81 +655,81 @@ Function name conventions used in the following code snippets:
 
 *** Kernel Changes
 
-sub _enqueue_event {
-  my ($self, $session_id, $source_id, $state, $priority, $time, $etc) = @_;
-}
-
-#------------------------------------------------------------------------------
-# Dispatch an event to the next session in the round-robin queue.
-# This also has the side-effect of testing sessions for activity; they
-# can be checked for resource starvation only when they've run out of
-# events.  This should eliminate a lot of checks.
-
-sub _dispatch_next_event {
-  my ($self) = @_;
-
-  my $next_session = shift @{$self->[KR_SQUEUE]};
-  if ($next_session->_dispatch_event()) {
-    push @{$self->[KR_SQUEUE]}, $next_session;
+  sub _enqueue_event {
+    my ($self, $session_id, $source_id, $state, $priority, $time, $etc) = @_;
   }
-}
 
-# Theory of operation:
-#
-# Kernel keeps a master queue.  This holds active sessions in a
-# time-based "priority" queue.
-#
-# The queue's "key" is the time that a session will next need
-# attention.  This is the time of the next event in the session's
-# queue.
-#
-# The queue's "value" is a reference to the session (or perhaps
-# session ID) that points to the session for dispatching.
-#
-# So:
+  #----------------------------------------------------------------------------
+  # Dispatch an event to the next session in the round-robin queue.
+  # This also has the side-effect of testing sessions for activity; they
+  # can be checked for resource starvation only when they've run out of
+  # events.  This should eliminate a lot of checks.
 
-my $kernel = bless {}, 'POE::Kernel';
-$kernel->[KR_MASTER_QUEUE] =
-  [ [ $time, $session ],
-    [ $time, $session ],
-    ...
-  ];
+  sub _dispatch_next_event {
+    my ($self) = @_;
 
-# Sorted in $time order.
-#
-# Inser
+    my $next_session = shift @{$self->[KR_SQUEUE]};
+    if ($next_session->_dispatch_event()) {
+      push @{$self->[KR_SQUEUE]}, $next_session;
+    }
+  }
+
+  # Theory of operation:
+  #
+  # Kernel keeps a master queue.  This holds active sessions in a
+  # time-based "priority" queue.
+  #
+  # The queue's "key" is the time that a session will next need
+  # attention.  This is the time of the next event in the session's
+  # queue.
+  #
+  # The queue's "value" is a reference to the session (or perhaps
+  # session ID) that points to the session for dispatching.
+  #
+  # So:
+
+  my $kernel = bless {}, 'POE::Kernel';
+  $kernel->[KR_MASTER_QUEUE] =
+    [ [ $time, $session ],
+      [ $time, $session ],
+      ...
+    ];
+
+  # Sorted in $time order.
+  #
+  # Inser
 
 *** Session Changes
 
-#------------------------------------------------------------------------------
-# Enqueue an event.
+  #----------------------------------------------------------------------------
+  # Enqueue an event.
 
-sub _enqueue_event {
-  my ($self, $sender, $state, $priority, $time, $etc) = @_;
+  sub _enqueue_event {
+    my ($self, $sender, $state, $priority, $time, $etc) = @_;
 
-  # Place the event is the session's queue.
+    # Place the event is the session's queue.
 
-  #
-  # If "concurrent" POE:
-  #   Start or unblock the session's dispatch thread.
-  # End
-  #
-  # Return the number of events in the session's queues.
+    #
+    # If "concurrent" POE:
+    #   Start or unblock the session's dispatch thread.
+    # End
+    #
+    # Return the number of events in the session's queues.
 
-}
+  }
 
-sub _dispatch_event {
-  my ($self) = @_;
+  sub _dispatch_event {
+    my ($self) = @_;
 
-  # If "concurrent" POE:
-  #   Return 1 if there are no events but the session has resources
-  #   to keep it active, or return 0 if there are no events and the
-  #   session is "stalled".
-  # Otherwise, "regular" POE:
-  #   Dispatch an event, and return the number of events left in the
-  #   queue.
-  # End
-}
+    # If "concurrent" POE:
+    #   Return 1 if there are no events but the session has resources
+    #   to keep it active, or return 0 if there are no events and the
+    #   session is "stalled".
+    # Otherwise, "regular" POE:
+    #   Dispatch an event, and return the number of events left in the
+    #   queue.
+    # End
+  }
 
 ** Unique IDs
 
@@ -722,29 +744,19 @@ I'm of two minds with regards to Session IDs.
 Sessions are just threads for the Object Layer.  When talking between
 POE systems, the unit of code is an Object.  For example, you wouldn't
 talk to a specific remote thread in a program.  Instead, you'd talk to
-a particular Object, and threads are created and destroyed as
-necessary.
+a particular object (or program), and threads are created and
+destroyed as necessary.
 
 *** Unique Session IDs in the POE Core
 
 On the other hand, it's useful to know what's running in your Kernel,
 so session IDs are good for ps-like things.  Also, a lot of people use
 sessions as code objects.  This is my fault, because I blurred the
-distinction early on.  Shame on me.
+distinction early on.
 
-
-
-Session IDs would be a serial number, starting at 1 and increasing
-"forever".  Would it restart at 1 each time the process is started, or
-would it maintain the last SID in a file?  It could also include
-(somehow) the unix epoch time that the server was started.
-
-Kernel IDs would be the process' network address and server port.
-
-Actually, the Object Layer should obviate the need for session and
-kernel IDs.  The original plan was for sessions to be the threading
-model for object execution, and OBJECT IDs would identify which code
-gets what events.
+A POE::Component would be good.  Register a session with the
+Component, and let the Component deal with publishing, retracting and
+event emitting/catching.
 
 * WILD IDEAS
 
@@ -846,51 +858,34 @@ B::Deparse returns "normalized" Perl based on the bytecodes in perl's
 compiled parse trees.  It may be easier to convert normalized Perl
 into states than to try and parse everyone's different coding styles.
 
-*******************************************************************************
-*******************************************************************************
-*******************************************************************************
-*******************************************************************************
-*******************************************************************************
+Here's the original Perl code, run through `perl -MO=Deparse,-p`:
 
-Stuff after this hasn't been organized yet.
+  (my($count) = 1000000000);
+  while (($count--)) {
+      print('Hello, world!  Enter some text: ');
+      (my($line) = <STDIN>);
+      (($line =~ /^quit$/i) and last);
+  }
+  print("Goodbye, world!\n");
 
-*******************************************************************************
-*******************************************************************************
-*******************************************************************************
-*******************************************************************************
-*******************************************************************************
+More research is needed here.  Must test more code constructs; maybe
+run a large program through B::Deparse and see how it treats things.
 
+** Load Balancing Among Distributed POE Kernels
 
-**Module Ideas Being Considered
+Some ueber-kernel directory service would keep track of everything,
+maybe, and, uh, make sure stuff works.  :)
 
-***Filter::HTTPD needs to send responses directly... POE::Module::*?
+** Input Parsing (Factoid Style)
 
-And a CGI-like interface.  A POE::Filter subclass for form-based I/O
-(and split the current POE::Filter classes into stream and block
-categories while we're at it).
-
-
-***Load-balancing among distributed POE kernels.
-
-Taken care of by kernel hooks?
-
-***Rewrite Serv's curses widgets for POE.
-
-This would be SO cool... need... more... time!
-
-***POE::Extension?  POE::DeepMagic?  An API for kernel extensions.
-
-See the Kernel Hooks, above.  Artur is working on this.
-
-
-**Input Parsing (factoid style)
+*** The Problem
 
 Input parsing is hard.  I have some prototype code for Infocom-style
 command parsing, but it doesn't scale well when you consider that that
 existing infobots (see <http://www.cs.cmu.edu/~infobot>) already
-manage 100,000 or more factiods.
+manage around 150,000 factiods.
 
-So consider the need to look up responses in a 90,000 factoid
+So consider the need to look up responses in a 150,000 factoid
 database.  This isn't so far-fetched; there's an IRC 'bot that does
 this now with a tied hash (I think; haven't looked).  Its limitation,
 however is that it can't perform "fuzzy" matches on user input.
@@ -914,7 +909,7 @@ Begin and end anchors are implied, and I leave out some bits.
 Pretty rough.  How to make that pattern a factoid key, so that someone
 asking the original question triggers the response.
 
-***Factoid Storage
+*** Factoid Storage
 
 First we treat the factoid key as a series of words instead of a
 string of letters.  This removes the whitespace dependency:
@@ -950,7 +945,8 @@ Fourth, the factoid is stored under list of words and sorted options
             'assist|help', '|me'
           } = 'No! Go away!';
 
-***Information Retrieval
+*** Information Retrieval
+
 Retrieving factoids is a little harder.  Let's review the target
 input, preprocessed as a list of words (punctuation handily
 discarded):
@@ -990,3 +986,7 @@ a 'bot that you don't have to reset all the time is (IMO) the fabled
 Object Layer.
 
 So, this to-do is on hold 'til I can build an IRC 'bot.
+
+* IN CLOSING
+
+I welcome all ideas, suggestions and research pointers.

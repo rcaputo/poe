@@ -105,13 +105,13 @@ sub flush_text {
 
     $plain_buffer =~ s/\s+$//s;
 
-    if ($flush_state eq ST_BQUOTE) {
-      print $plain_buffer, "\n";
-    }
-    else {
+    if (($output_type eq 'html') || ($flush_state ne ST_BQUOTE)) {
       print &filter_text($plain_buffer), "\n";
     }
-    
+    else {
+      print $plain_buffer, "\n";
+    }
+
     $plain_buffer = '';
   }
 }
