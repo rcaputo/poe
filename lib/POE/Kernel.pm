@@ -279,7 +279,7 @@ BEGIN {
 # Accessors: Tagged extra reference counts accessors.
 ###############################################################################
 
-{ # In its own scope for debugging.  This makes the data members private.
+{ # This section becomes POE::Resource::Extref
 
 ### The count of all extra references used in the system.
 
@@ -405,7 +405,7 @@ sub _data_extref_count_ses {
 # Accessors: Session IDs.
 ###############################################################################
 
-{ # In its own scope for debugging.  This makes the data members private.
+{ # This section becomes POE::Resource::Sid
 
 ### Map session IDs to sessions.  Map sessions to session IDs.
 ### Maintain a sequence number for determining the next session ID.
@@ -474,7 +474,7 @@ sub _data_sid_resolve {
 # Accessors: Signals.
 ###############################################################################
 
-{ # In its own scope for debugging.  This makes the data members private.
+{ # This section becomes POE::Resource::Signal
 
 ### Map watched signal names to the sessions that are watching them
 ### and the events that must be delivered when they occur.
@@ -691,7 +691,7 @@ sub _data_sig_touched_session {
 # Accessors: Aliases.
 ###############################################################################
 
-{ # In its own scope for debugging.  This makes the data members private.
+{ # This section becomes POE::Resource::Alias
 
 ### The table of session aliases, and the sessions they refer to.
 
@@ -793,7 +793,7 @@ sub _data_alias_loggable {
 # Accessors: File descriptor tables.
 ###############################################################################
 
-{ # In its own scope for debugging.  This makes the data members private.
+{ # This section becomes POE::Resource::Handle
 
 ### Fileno structure.  This tracks the sessions that are watchin a
 ### file, by its file number.  It used to track by file handle, but
@@ -1380,7 +1380,7 @@ sub _data_handle_clear_session {
 # Accessors: Events.
 ###############################################################################
 
-{ # In its own scope for debugging.  This makes the data members private.
+{ # This section becomes POE::Resource::Event
 
 my %event_count;
 #  ( $session => $count,
@@ -1593,7 +1593,7 @@ sub _data_ev_dispatch_due {
 # Accessors: Sessions.
 ###############################################################################
 
-{ # In its own scope for debugging.  This makes the data members private.
+{ # This section becomes POE::Resource::Session
 
 ### Session structure.
 
