@@ -200,10 +200,10 @@ sub LARGE_QUEUE_SIZE () { 512 }
 sub define_trace {
   no strict 'refs';
   foreach my $name (@_) {
-    unless (defined *{"TRACE_$name"}{CODE}) {
-      my $trace_value = $ENV{"POE_TRACE_$name"} || &TRACE_DEFAULT;
-      eval "sub TRACE_$name () { $trace_value }";
-    }
+    next if defined *{"TRACE_$name"}{CODE};
+    my $trace_value = &TRACE_DEFAULT;
+    eval "sub TRACE_$name () { $trace_value }";
+    die if $@;
   }
 }
 
@@ -211,10 +211,10 @@ sub define_trace {
 sub define_assert {
   no strict 'refs';
   foreach my $name (@_) {
-    unless (defined *{"ASSERT_$name"}{CODE}) {
-      my $assert_value = $ENV{"POE_ASSERT_$name"} || &ASSERT_DEFAULT;
-      eval "sub ASSERT_$name () { $assert_value }";
-    }
+    next if defined *{"ASSERT_$name"}{CODE};
+    my $assert_value = &ASSERT_DEFAULT;
+    eval "sub ASSERT_$name () { $assert_value }";
+    die if $@;
   }
 }
 
@@ -225,37 +225,49 @@ sub define_assert {
 
 BEGIN {
 
+  # Assimilate POE_TRACE_* and POE_ASSERT_* environment variables.
+  # Environment variables override everything else.
+  while (my ($var, $val) = each %ENV) {
+    next unless $var =~ /^POE_((?:TRACE|ASSERT)_[A-Z_]+)$/;
+    my $const = $1;
+
+    # Copy so we don't hurt our environment.  Make sure strings are
+    # wrapped in quotes.
+    my $value = $val;
+    $value =~ tr['"][]d;
+    $value = qq("$value") if $value =~ /\D/;
+
+    no warnings;
+    eval "sub $const () { $value }";
+    die if $@;
+  }
+
   # TRACE_FILENAME is special.
-  my $trace_filename = $ENV{POE_TRACE_FILENAME};
-  no strict 'refs';
-  if (defined *{"TRACE_FILENAME"}{CODE}) {
-    $trace_filename = TRACE_FILENAME();
-  }
-  if (defined $trace_filename) {
-    open TRACE_FILE, ">$trace_filename"
-      or die "can't open trace file `$trace_filename': $!";
-    CORE::select((CORE::select(TRACE_FILE), $| = 1)[0]);
-  }
-  else {
-    *TRACE_FILE = *STDERR;
+  {
+    no strict 'refs';
+    my $trace_filename = TRACE_FILENAME() if defined &TRACE_FILENAME;
+    if (defined $trace_filename) {
+      open TRACE_FILE, ">$trace_filename"
+        or die "can't open trace file `$trace_filename': $!";
+      CORE::select((CORE::select(TRACE_FILE), $| = 1)[0]);
+    }
+    else {
+      *TRACE_FILE = *STDERR;
+    }
   }
 
   # TRACE_DEFAULT changes the default value for other TRACE_*
   # constants.  Since define_trace() uses TRACE_DEFAULT internally, it
   # can't be used to define TRACE_DEFAULT itself.
 
-  my $trace_default = 0;
-  $trace_default++ if defined $ENV{POE_TRACE_DEFAULT};
-  defined &TRACE_DEFAULT or eval "sub TRACE_DEFAULT () { $trace_default }";
+  defined &TRACE_DEFAULT or eval "sub TRACE_DEFAULT () { 0 }";
 
   define_trace qw(EVENTS FILES PROFILE REFCNT RETVALS SESSIONS SIGNALS);
 
   # See the notes for TRACE_DEFAULT, except read ASSERT and assert
   # where you see TRACE and trace.
 
-  my $assert_default = 0;
-  $assert_default++ if defined $ENV{POE_ASSERT_DEFAULT};
-  defined &ASSERT_DEFAULT or eval "sub ASSERT_DEFAULT () { $assert_default }";
+  defined &ASSERT_DEFAULT or eval "sub ASSERT_DEFAULT () { 0 }";
 
   define_assert qw(DATA EVENTS FILES RETVALS USAGE);
 };

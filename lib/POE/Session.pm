@@ -39,9 +39,8 @@ sub EN_SIGNAL       () { '_signal' }
 sub define_assert {
   no strict 'refs';
   foreach my $name (@_) {
-    unless (defined *{"ASSERT_$name"}{CODE}) {
-      eval "sub ASSERT_$name () { ASSERT_DEFAULT }";
-    }
+    next if defined *{"ASSERT_$name"}{CODE};
+    eval "sub ASSERT_$name () { ASSERT_DEFAULT }";
   }
 }
 
@@ -49,16 +48,9 @@ sub define_assert {
 sub define_trace {
   no strict 'refs';
   foreach my $name (@_) {
-    unless (defined *{"TRACE_$name"}{CODE}) {
-      eval "sub TRACE_$name () { TRACE_DEFAULT }";
-    }
+    next if defined *{"TRACE_$name"}{CODE};
+    eval "sub TRACE_$name () { TRACE_DEFAULT }";
   }
-}
-
-# Define some debugging flags for subsystems, unless someone already
-# has defined them.
-BEGIN {
-  defined &DEB_DESTROY or eval 'sub DEB_DESTROY () { 0 }';
 }
 
 BEGIN {
@@ -528,10 +520,10 @@ sub DESTROY {
   my $self = shift;
 
   # Session's data structures are destroyed through Perl's usual
-  # garbage collection.  DEB_DESTROY here just shows what's in the
+  # garbage collection.  TRACE_DESTROY here just shows what's in the
   # session before the destruction finishes.
 
-  DEB_DESTROY and do {
+  TRACE_DESTROY and do {
     print "----- Session $self Leak Check -----\n";
     print "-- Namespace (HEAP):\n";
     foreach (sort keys (%{$self->[SE_NAMESPACE]})) {
