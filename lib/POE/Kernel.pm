@@ -655,6 +655,10 @@ sub _data_sig_free_terminated_sessions {
       $self->_data_ses_collect_garbage($touched_session);
     }
   }
+
+  # Erase @kr_signaled_sessions, or they will leak until the next
+  # signal.
+  undef @kr_signaled_sessions;
 }
 
 ### A signal has touched a session.  Record this fact for later
