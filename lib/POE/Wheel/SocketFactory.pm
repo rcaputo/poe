@@ -757,8 +757,8 @@ sub new {
 
       # Resolve the bind address.
       my @info = Socket6::getaddrinfo(
-        $bind_address, $bind_port, &Socket6::AF_INET6
-        #$self->[MY_SOCKET_DOMAIN],
+        $bind_address, $bind_port,
+        $self->[MY_SOCKET_DOMAIN], $self->[MY_SOCKET_TYPE],
       );
 
 # Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
@@ -766,7 +766,7 @@ sub new {
 #      $bind_address =
 #        Socket6::gethostbyname2($bind_address, $self->[MY_SOCKET_DOMAIN]);
 
-      unless (@info) { # defined $bind_address) {
+      if (@info < 5) {  # unless defined $bind_address
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $event_failure,
                             "getaddrinfo", $!+0, $!, $self->[MY_UNIQUE_ID]
@@ -848,7 +848,7 @@ sub new {
     if ($abstract_domain eq DOM_INET or
         $abstract_domain eq DOM_INET6
        ) {
-                                        # connecting if RemoteAddress
+      # connecting if RemoteAddress
       croak 'RemotePort required' unless (defined $params{RemotePort});
       carp 'ListenQueue ignored' if (defined $params{ListenQueue});
 
@@ -870,16 +870,18 @@ sub new {
       }
       elsif ($abstract_domain eq DOM_INET6) {
         my @info = Socket6::getaddrinfo(
-          $params{RemoteAddress}, $remote_port, &Socket6::AF_INET6
-          #$self->[MY_SOCKET_DOMAIN],
+          $params{RemoteAddress}, $remote_port,
+          $self->[MY_SOCKET_DOMAIN], $self->[MY_SOCKET_TYPE],
         );
 
-        if (@info) {
-          $connect_address = $info[3];
-        }
-        else {
+        if (@info < 5) {
           $connect_address = undef;
         }
+        else {
+          $connect_address = $info[3];
+        }
+
+        $error_tag = "getaddrinfo";
 
 # Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
 # TODO - Remove this if nothing needs it.
@@ -887,7 +889,7 @@ sub new {
 #          Socket6::gethostbyname2( $params{RemoteAddress},
 #                                   $self->[MY_SOCKET_DOMAIN]
 #                                 );
-        $error_tag = "gethostbyname2";
+#        $error_tag = "gethostbyname2";
       }
       else {
         die "unknown domain $abstract_domain";
