@@ -315,8 +315,22 @@ macro substrate_stop_main_loop {
 macro substrate_init_main_loop {
   $poe_main_window = Tk::MainWindow->new();
   die "could not create a main Tk window" unless defined $poe_main_window;
+  $poe_kernel->signal_ui_destroy( $poe_main_window );
+}
 
-  $poe_main_window->OnDestroy( \&_signal_ui_destroy );
+sub signal_ui_destroy {
+  my ($self, $window) = @_;
+  $window->OnDestroy
+    ( sub {
+        if (keys %{$self->[KR_SESSIONS]}) {
+          $self->_dispatch_state
+            ( $self, $self,
+              EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
+              time(), __FILE__, __LINE__, undef
+            );
+        }
+      }
+    );
 }
 
 1;
