@@ -78,6 +78,26 @@ sub new {
     $client_disconnected = sub {} unless defined $client_disconnected;
     $client_flushed      = sub {} unless defined $client_flushed;
 
+    # Extra states.
+
+    my $inline_states = delete $param{InlineStates};
+    $inline_states = {} unless defined $inline_states;
+
+    my $package_states = delete $param{PackageStates};
+    $package_states = [] unless defined $package_states;
+
+    my $object_states = delete $param{ObjectStates};
+    $object_states = [] unless defined $object_states;
+
+    croak "InlineStates must be a hash reference"
+      unless ref($inline_states) eq 'HASH';
+
+    croak "PackageStates must be a list or array reference"
+      unless ref($package_states) eq 'ARRAY';
+
+    croak "ObjectsStates must be a list or array reference"
+      unless ref($object_states) eq 'ARRAY';
+
     # Revise the acceptor callback so it spawns a session.
 
     $accept_callback = sub {
@@ -95,25 +115,24 @@ sub new {
                 ( Handle       => $socket,
                   Driver       => POE::Driver::SysRW->new(),
                   Filter       => $client_filter,
-                  InputEvent   => 'got_input',
-                  ErrorEvent   => 'got_error',
-                  FlushedEvent => 'got_flush',
+                  InputEvent   => 'tcp_server_got_input',
+                  ErrorEvent   => 'tcp_server_got_error',
+                  FlushedEvent => 'tcp_server_got_flush',
                 );
 
-              $kernel->call( $session, 'got_connect' );
+              $client_connected->(@_);
             },
 
             # To quiet ASSERT_STATES.
             _child  => sub { },
             _signal => sub { 0 },
 
-            got_connect => $client_connected,
-            got_input => sub {
+            tcp_server_got_input => sub {
               my $heap = $_[HEAP];
               return if $heap->{shutdown};
               $client_input->(@_);
             },
-            got_error => sub {
+            tcp_server_got_error => sub {
               my ($heap, $operation, $errnum) = @_[HEAP, ARG0, ARG1];
 
               # Read error 0 is disconnect.
@@ -125,7 +144,7 @@ sub new {
               }
               delete $heap->{client};
             },
-            got_flush => sub {
+            tcp_server_got_flush => sub {
               my $heap = $_[HEAP];
               $client_flushed->(@_);
               delete $heap->{client} if $heap->{shutdown};
@@ -135,11 +154,18 @@ sub new {
             },
             _stop => $client_disconnected,
 
-            got_flushed => sub {
+            tcp_server_got_flushed => sub {
               my ($kernel, $heap) = @_[KERNEL, HEAP];
               delete $heap->{client} if $heap->{shutdown};
             },
+
+            # User supplied states.
+            %$inline_states
           },
+
+          # More user supplied states.
+          package_states => $package_states,
+          object_states  => $object_states,
         );
     };
   };
@@ -165,16 +191,16 @@ sub new {
             ( BindPort     => $port,
               BindAddress  => $address,
               Reuse        => 'yes',
-              SuccessState => 'got_connection',
-              FailureState => 'got_error',
+              SuccessState => 'tcp_server_got_connection',
+              FailureState => 'tcp_server_got_error',
             );
         },
 
         # Catch an error.
-        got_error      => $error_callback,
+        tcp_server_got_error => $error_callback,
 
         # We accepted a connection.  Do something with it.
-        got_connection => $accept_callback,
+        tcp_server_got_connection => $accept_callback,
 
         # Shut down.
         shutdown => sub {
@@ -251,6 +277,11 @@ POE::Component::Server::TCP - a simplified TCP server
       ClientError        => \&handle_client_error,      # Optional.
       ClientFlushed      => \&handle_client_flush,      # Optional.
       ClientFilter       => POE::Filter::Xyz->new(),    # Optional.
+
+      # Optionally define other states for the client session.
+      InlineStates  => { ... },
+      PackageStates => [ ... ],
+      ObjectStates  => [ ... ],
     );
 
   # Call signatures for handlers.
@@ -396,6 +427,23 @@ socket errors.  The coderef is used as POE::Wheel::SocketFactory's
 FailureEvent, so it accepts the same parameters.  If it is omitted, a
 default error handler will be provided.  The default handler will log
 the error to STDERR and shut down the server.
+
+=item InlineStates
+
+InlineStates holds a hashref of inline coderefs to handle events.  The
+hashref is keyed on event name.  For more information, see
+POE::Session's create() method.
+
+=item ObjectStates
+
+ObjectStates holds a list reference of objects and the events they
+handle.  For more information, see POE::Session's create() method.
+
+=item PackageStates
+
+PackageStates holds a list reference of Perl package names and the
+events they handle.  For more information, see POE::Session's create()
+method.
 
 =item Port
 

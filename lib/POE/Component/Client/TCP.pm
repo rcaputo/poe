@@ -54,6 +54,26 @@ sub new {
   my $flush_callback      = delete $param{ServerFlushed};
   my $filter              = delete $param{Filter};
 
+  # Extra states.
+
+  my $inline_states = delete $param{InlineStates};
+  $inline_states = {} unless defined $inline_states;
+
+  my $package_states = delete $param{PackageStates};
+  $package_states = [] unless defined $package_states;
+
+  my $object_states = delete $param{ObjectStates};
+  $object_states = [] unless defined $object_states;
+
+  croak "InlineStates must be a hash reference"
+    unless ref($inline_states) eq 'HASH';
+
+  croak "PackageStates must be a list or array reference"
+    unless ref($package_states) eq 'ARRAY';
+
+  croak "ObjectsStates must be a list or array reference"
+    unless ref($object_states) eq 'ARRAY';
+
   # Errors.
 
   croak "$mi requires a ServerInput parameter" unless defined $input_callback;
@@ -149,7 +169,14 @@ sub new {
         shutdown => sub {
           $_[HEAP]->{shutdown} = 1;
         },
+
+        # User supplied states.
+        %$inline_states,
       },
+
+      # User supplied states.
+      package_states => $package_states,
+      object_states  => $object_states,
     );
 }
 
@@ -190,7 +217,11 @@ POE::Component::Client::TCP - a simplified TCP client
       ServerError   => \&handle_server_error,
       ServerFlushed => \&handle_server_flush,
 
-      Filter        => POE::Filter::Something->new()
+      Filter        => POE::Filter::Something->new(),
+
+      InlineStates  => { ... },
+      PackageStates => [ ... ],
+      ObjectStates  => [ ... ],
     );
 
   # Sample callbacks.
@@ -305,6 +336,23 @@ requested.
 Filter contains a POE::Filter object reference.  It is optional, and
 the component will default to POE::Filter::Line->new() if a Filter is
 omitted.
+
+=item InlineStates
+
+InlineStates holds a hashref of inline coderefs to handle events.  The
+hashref is keyed on event name.  For more information, see
+POE::Session's create() method.
+
+=item ObjectStates
+
+ObjectStates holds a list reference of objects and the events they
+handle.  For more information, see POE::Session's create() method.
+
+=item PackageStates
+
+PackageStates holds a list reference of Perl package names and the
+events they handle.  For more information, see POE::Session's create()
+method.
 
 =item RemoteAddress
 
