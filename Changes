@@ -8,7 +8,7 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0803 ----.--.--
+0.0803 1999.12.28
 -----------------
 
 Incorporated Kevin Lenzo's patch for Wheel::ReadWrite's support of
