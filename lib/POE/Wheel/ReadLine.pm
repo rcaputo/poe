@@ -183,8 +183,9 @@ BEGIN {
   my $ospeed = $termios->getospeed() || B38400;
 
   # Get the current terminal's capabilities.
-  $termcap = Term::Cap->Tgetent( { TERM => undef, OSPEED => $ospeed } );
-  die "could not determine terminal capabilities: $!" unless defined $termcap;
+  my $term = $ENV{TERM} || 'vt100';
+  $termcap = Term::Cap->Tgetent( { TERM => $term, OSPEED => $ospeed } );
+  die "could not find termcap entry for ``$term'': $!" unless defined $termcap;
 
   # Require certain capabilites.
   $termcap->Trequire( qw( LE RI cl ku kd kl kr ) );
