@@ -86,8 +86,7 @@ sub get {
   # Parse the request line.
 
   if ($buf !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
-    $self->send_error(400);  # BAD_REQUEST
-    return [];
+    return [ $self->build_error(400) ];  # BAD_REQUEST
   }
   my $proto = $3 || "HTTP/0.9";
 
@@ -162,7 +161,7 @@ sub put {
   foreach (@$responses) {
     my @result;
     my $code           = $_->code;
-    my $status_message = HTTP::Status::status_message($code) || "Unknown code";
+    my $status_message = status_message($code) || "Unknown Error";
     my $message        = $_->message || "";
     my $status_line    = "$code";
     my $proto          = $_->protocol;
@@ -188,14 +187,11 @@ sub get_pending {
 }
 
 #------------------------------------------------------------------------------
-#function specific to HTTPD;
+# function specific to HTTPD;
 #------------------------------------------------------------------------------
 
-sub send_basic_header {
-  my $self = shift;
-  $self->send_status_line(@_);
-  $self->put("Date: ", time2str(time));
-}
+# Internal function to parse an HTTP status line and return the HTTP
+# protocol version.
 
 sub _http_version {
   local($_) = shift;
@@ -203,27 +199,45 @@ sub _http_version {
   $1 * 1000 + $2;
 }
 
-sub send_status_line {
-  my($self, $status, $message, $proto) = @_;
-  $status  ||= RC_OK;
-  $message ||= status_message($status) || "";
-  $proto   ||= "HTTP/1.1";
-  $self->put("$proto $status $message");
+# Build a basic response, given a status, a content type, and some
+# content.
+
+sub build_basic_response {
+  my ($self, $content, $content_type, $status) = @_;
+
+  $content_type ||= 'text/html';
+  $status       ||= RC_OK;
+
+  my $response = HTTP::Response->new($status);
+
+  $response->push_header( 'Content-Type', $content_type );
+  $response->push_header( 'Content-Length', length($content) );
+  $response->content($content);
+
+  return $response;
 }
 
+sub build_error {
+  my($self, $status, $details) = @_;
 
-sub send_error {
-  my($self, $status, $error) = @_;
-  $status ||= RC_BAD_REQUEST;
-  my $mess = status_message($status);
-  $error  ||= "";
-  $mess = "<title>$status $mess</title><h1>$status $mess</h1>$error";
-  $self->send_basic_header($status);
-  $self->put("Content-Type: text/html");
-  $self->put("Content-Length: " . length($mess));
-  $self->put("");
-  $self->put("$mess");
-  $status;
+  $status  ||= RC_BAD_REQUEST;
+  my $message  = status_message($status) || "Unknown Error";
+
+  return
+    $self->build_basic_response
+      ( ( "<html>" .
+          "<head>" .
+          "<title>Error $status: $message</title>" .
+          "</head>" .
+          "<body>" .
+          "<h1>Error $status: $message</h1>" .
+          "<p>$details</p>" .
+          "</body>" .
+          "</html>"
+        ),
+        "text/html",
+        $status
+      );
 }
 
 
@@ -247,8 +261,29 @@ POE::Filter::HTTPD - convert stream to HTTP::Request; HTTP::Response to stream
 =head1 DESCRIPTION
 
 The HTTPD filter parses the first HTTP 1.0 request from an incoming
-stream into an HTTP::Request object.  To send a response, give its
-put() method a HTTP::Response object.
+stream into an HTTP::Request object (if the request is good) or an
+HTTP::Response object (if the request was malformed).  To send a
+response, give its put() method a HTTP::Response object.
+
+Here is a sample input handler:
+
+  sub got_request {
+    my ($heap, $request) = @_[HEAP, ARG0];
+
+    # The Filter::HTTPD generated a response instead of a request.
+    # There must have been some kind of error.
+    if (ref($request) eq 'HTTP::Response') {
+      $heap->{wheel}->put($request);
+      return;
+    }
+
+    # Process the request here.
+    my $response = HTTP::Response->new(200);
+    $response->push_header( 'Content-Type', 'text/html' );
+    $response->content( $request->as_string() );
+
+    $heap->{wheel}->put($response);
+  }
 
 Please see the documentation for HTTP::Request and HTTP::Response.
 
