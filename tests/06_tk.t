@@ -82,8 +82,8 @@ sub io_start {
         );
 
     # Toggle writability on the pipe for testing.
-    $kernel->select_read_pause( $a_read );
-    $kernel->select_read_resume( $a_read );
+    $kernel->select_pause_write( $a_read );
+    $kernel->select_resume_write( $a_read );
 
     # And a timer loop to test alarms.
     $kernel->delay( ev_pipe_write => 1 );
