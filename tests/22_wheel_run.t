@@ -123,17 +123,20 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
 
 ### Test Wheel::Run with filehandles.  Uses "!" as a newline to avoid
 ### having to deal with whatever the system uses.  Use double quotes
-### if we're running on Windows.
+### if we're running on Windows.  Wraps the input in an outer loop
+### because Win32's non-blocking flag bleeds across "forks".
 
 my $tty_flush_count = 0;
 
 my $program =
   ( $Config{perlpath} . ' -we \'' .
     '$/ = q(!); select STDERR; $| = 1; select STDOUT; $| = 1; ' .
-    'while (<STDIN>) { ' .
-    '  last if /^bye/; ' .
-    '  print(STDOUT qq(out: $_)) if s/^out //; ' .
-    '  print(STDERR qq(err: $_)) if s/^err //; ' .
+    'OUTER: while (1) { ' .
+    '  while (<STDIN>) { ' .
+    '    last OUTER if /^bye/; ' .
+    '    print(STDOUT qq(out: $_)) if s/^out //; ' .
+    '    print(STDERR qq(err: $_)) if s/^err //; ' .
+    '  } ' .
     '} ' .
     'exit 0;\''
   );
@@ -200,18 +203,19 @@ $program =~ tr[\'][\"] if $^O eq "MSWin32";
 
 ### Test Wheel::Run with a coderef instead of a subprogram.  Uses "!"
 ### as a newline to avoid having to deal with whatever the system
-### uses.
+### uses.  Wraps the input in an outer loop because Win32's
+### non-blocking flag bleeds across "forks".
 
 my $coderef_flush_count = 0;
 
 { my $program = sub {
     local $/ = q(!);
-    select STDERR; $| = 1;
-    select STDOUT; $| = 1;
-    while (<STDIN>) {
-      last if /^bye/;
-      print(STDOUT qq(out: $_)) if s/^out //;
-      print(STDERR qq(err: $_)) if s/^err //;
+    OUTER: while (1) {
+      while (<STDIN>) {
+        last OUTER if /^bye/;
+        print(STDOUT qq(out: $_)) if s/^out //;
+        print(STDERR qq(err: $_)) if s/^err //;
+      }
     }
     exit 0;
   };
