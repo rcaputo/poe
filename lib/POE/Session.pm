@@ -8,35 +8,33 @@ use POSIX qw(ENOSYS);
 
 use POE::Preprocessor;
 
-enum SE_NAMESPACE SE_OPTIONS SE_STATES
+sub SE_NAMESPACE    () { 0 }
+sub SE_OPTIONS      () { 1 }
+sub SE_STATES       () { 2 }
 
-# I had made these constant subs, but you can't use constant subs as
-# hash keys, so they're POE::Preprocessor constants.  Blargh!
+sub CREATE_ARGS     () { 'args' }
+sub CREATE_OPTIONS  () { 'options' }
+sub CREATE_INLINES  () { 'inline_states' }
+sub CREATE_PACKAGES () { 'package_states' }
+sub CREATE_OBJECTS  () { 'object_states' }
+sub CREATE_HEAP     () { 'heap' }
 
-const CREATE_ARGS     'args'
-const CREATE_OPTIONS  'options'
-const CREATE_INLINES  'inline_states'
-const CREATE_PACKAGES 'package_states'
-const CREATE_OBJECTS  'object_states'
-const CREATE_HEAP     'heap'
+sub OPT_TRACE       () { 'trace' }
+sub OPT_DEBUG       () { 'debug' }
+sub OPT_DEFAULT     () { 'default' }
 
-const OPT_TRACE   'trace'
-const OPT_DEBUG   'debug'
-const OPT_DEFAULT 'default'
-
-const EN_START   '_start'
-const EN_DEFAULT '_default'
-
-# Define some debugging flags for subsystems, unless someone already
-# has defined them.
-BEGIN {
-  defined &DEB_DESTROY or eval 'sub DEB_DESTROY () { 0 }';
-}
+sub EN_START        () { '_start' }
+sub EN_DEFAULT      () { '_default' }
 
 #------------------------------------------------------------------------------
+# Macros.
 
 macro define_assert (<const>) {
   defined &ASSERT_<const> or eval 'sub ASSERT_<const> () { ASSERT_DEFAULT }';
+}
+
+macro define_trace (<const>) {
+  defined &TRACE_<const> or eval 'sub TRACE_<const> () { TRACE_DEFAULT }';
 }
 
 macro make_session {
@@ -46,7 +44,7 @@ macro make_session {
             { }, # SE_STATES
           ], $type;
   if (ASSERT_STATES) {
-    $self->[SE_OPTIONS]->{OPT_DEFAULT} = 1;
+    $self->[SE_OPTIONS]->{+OPT_DEFAULT} = 1;
   }
 }
 
@@ -57,7 +55,7 @@ macro validate_kernel {
 
 macro validate_state {
   carp "redefining state($name) for session(", {% fetch_id $self %}, ")"
-    if ( $self->[SE_OPTIONS]->{OPT_DEBUG} &&
+    if ( $self->[SE_OPTIONS]->{+OPT_DEBUG} &&
          (exists $self->[SE_STATES]->{$name})
        );
 }
@@ -71,7 +69,7 @@ macro verify_start_state {
   # do we know what to do?  Don't even bother registering the session
   # if the start state doesn't exist.
 
-  if (exists $self->[SE_STATES]->{EN_START}) {
+  if (exists $self->[SE_STATES]->{+EN_START}) {
     $POE::Kernel::poe_kernel->session_alloc($self, @args);
   }
   else {
@@ -88,6 +86,13 @@ macro verify_start_state {
 # and the pre-defined value will take precedence over the defaults
 # here.
 
+# Define some debugging flags for subsystems, unless someone already
+# has defined them.
+BEGIN {
+  defined &DEB_DESTROY or eval 'sub DEB_DESTROY () { 0 }';
+}
+
+
 BEGIN {
 
   # ASSERT_DEFAULT changes the default value for other ASSERT_*
@@ -103,7 +108,21 @@ BEGIN {
     }
   };
 
-  {% define_assert STATES %}
+  # TRACE_DEFAULT changes the default value for other TRACE_*
+  # constants.  It inherits POE::Kernel's TRACE_DEFAULT value, if
+  # it's present.
+
+  unless (defined &TRACE_DEFAULT) {
+    if (defined &POE::Kernel::TRACE_DEFAULT) {
+      eval( "sub TRACE_DEFAULT () { " . &POE::Kernel::TRACE_DEFAULT . " }" );
+    }
+    else {
+      eval 'sub TRACE_DEFAULT () { 0 }';
+    }
+  };
+
+  {% define_assert STATES  %}
+  {% define_trace  DESTROY %}
 }
 
 #------------------------------------------------------------------------------
@@ -337,26 +356,26 @@ sub create {
   # we're given.  If the arguments are a list reference, map its items
   # to ARG0..ARGn; otherwise make whatever the heck it is be ARG0.
 
-  if (exists $params{CREATE_ARGS}) {
-    if (ref($params{CREATE_ARGS}) eq 'ARRAY') {
-      push @args, @{$params{CREATE_ARGS}};
+  if (exists $params{+CREATE_ARGS}) {
+    if (ref($params{+CREATE_ARGS}) eq 'ARRAY') {
+      push @args, @{$params{+CREATE_ARGS}};
     }
     else {
-      push @args, $params{CREATE_ARGS};
+      push @args, $params{+CREATE_ARGS};
     }
-    delete $params{CREATE_ARGS};
+    delete $params{+CREATE_ARGS};
   }
 
   # Process session options here.  Several options may be set.
 
-  if (exists $params{CREATE_OPTIONS}) {
-    if (ref($params{CREATE_OPTIONS}) eq 'HASH') {
-      $self->[SE_OPTIONS] = $params{CREATE_OPTIONS};
+  if (exists $params{+CREATE_OPTIONS}) {
+    if (ref($params{+CREATE_OPTIONS}) eq 'HASH') {
+      $self->[SE_OPTIONS] = $params{+CREATE_OPTIONS};
     }
     else {
       croak "options for $type constructor is expected to be a HASH reference";
     }
-    delete $params{CREATE_OPTIONS};
+    delete $params{+CREATE_OPTIONS};
   }
 
   # Get down to the business of defining states.
@@ -514,7 +533,7 @@ sub _invoke_state {
 
   # Trace the state invocation if tracing is enabled.
 
-  if ($self->[SE_OPTIONS]->{OPT_TRACE}) {
+  if ($self->[SE_OPTIONS]->{+OPT_TRACE}) {
     warn {% fetch_id $self %}, " -> $state (from $file at $line)\n";
   }
 
@@ -527,9 +546,9 @@ sub _invoke_state {
     # Drop the state transition event on the floor, and optionally
     # make some noise about it.
 
-    unless (exists $self->[SE_STATES]->{EN_DEFAULT}) {
+    unless (exists $self->[SE_STATES]->{+EN_DEFAULT}) {
       $! = ENOSYS;
-      if ($self->[SE_OPTIONS]->{OPT_DEFAULT}) {
+      if ($self->[SE_OPTIONS]->{+OPT_DEFAULT}) {
         warn( "a '$state' state was sent from $file at $line to session ",
               {% fetch_id $self %}, ", but session ", {% fetch_id $self %},
               " has neither that state nor a _default state to handle it\n"
@@ -541,7 +560,7 @@ sub _invoke_state {
     # If we get this far, then there's a _default state to redirect
     # the transition to.  Trace the redirection.
 
-    if ($self->[SE_OPTIONS]->{OPT_TRACE}) {
+    if ($self->[SE_OPTIONS]->{+OPT_TRACE}) {
       warn {% fetch_id $self %}, " -> $state redirected to _default\n";
     }
 
@@ -617,7 +636,7 @@ sub register_state {
 
     else {
       if ( (ref($handler) eq 'CODE') and
-           $self->[SE_OPTIONS]->{OPT_TRACE}
+           $self->[SE_OPTIONS]->{+OPT_TRACE}
          ) {
         carp( {% fetch_id $self %},
               " : state($name) is not a proper ref - not registered"
@@ -1718,6 +1737,7 @@ false.  See the option() function earlier in this document for details
 about the "default" option.
 
 =back
+
 
 =head1 SEE ALSO
 

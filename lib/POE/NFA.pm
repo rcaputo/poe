@@ -13,38 +13,33 @@ use POE::Preprocessor;
 
 sub EXPERIMENTAL_SYNCHRONOUS_STUFF () { 0 }
 
-# I had made these constant subs, but you can't use constant subs as
-# hash keys, so they're POE::Preprocessor constants.  Blargh!  This is
-# kinda dumb; you *can* make them hash keys, as long as you prefix
-# them with a plus so they're not quite barewords.  D'oh.  Maybe
-# change these back, or something.
+sub SPAWN_INLINES       () { 'inline_states' }
+sub SPAWN_OPTIONS       () { 'options' }
 
-const SPAWN_INLINES  'inline_states'
-const SPAWN_OPTIONS  'options'
+sub OPT_TRACE           () { 'trace' }
+sub OPT_DEBUG           () { 'debug' }
+sub OPT_DEFAULT         () { 'default' }
 
-const OPT_TRACE   'trace'
-const OPT_DEBUG   'debug'
-const OPT_DEFAULT 'default'
+sub EN_DEFAULT          () { '_default' }
+sub EN_START            () { '_start' }
+sub EN_STOP             () { '_stop' }
 
-const EN_DEFAULT '_default'
-const EN_START   '_start'
-const EN_STOP    '_stop'
+sub NFA_EN_GOTO_STATE   () { 'poe_nfa_goto_state' }
+sub NFA_EN_POP_STATE    () { 'poe_nfa_pop_state' }
+sub NFA_EN_PUSH_STATE   () { 'poe_nfa_push_state' }
+sub NFA_EN_STOP         () { 'poe_nfa_stop' }
 
-const NFA_EN_GOTO_STATE 'poe_nfa_goto_state'
-const NFA_EN_POP_STATE  'poe_nfa_pop_state'
-const NFA_EN_PUSH_STATE 'poe_nfa_push_state'
-const NFA_EN_STOP       'poe_nfa_stop'
+sub SELF_RUNSTATE       () { 0 }
+sub SELF_OPTIONS        () { 1 }
+sub SELF_STATES         () { 2 }
+sub SELF_CURRENT        () { 3 }
+sub SELF_STATE_STACK    () { 4 }
+sub SELF_INTERNALS      () { 5 }
+sub SELF_CURRENT_NAME   () { 6 }
+sub SELF_IS_IN_INTERNAL () { 7 }
 
-enum   SELF_RUNSTATE SELF_OPTIONS SELF_STATES SELF_CURRENT SELF_STATE_STACK
-enum + SELF_INTERNALS SELF_CURRENT_NAME SELF_IS_IN_INTERNAL
-
-enum   STACK_STATE STACK_EVENT
-
-# Define some debugging flags for subsystems, unless someone already
-# has defined them.
-BEGIN {
-  defined &DEB_DESTROY or eval 'sub DEB_DESTROY () { 0 }';
-}
+sub STACK_STATE         () { 0 }
+sub STACK_EVENT         () { 1 }
 
 #------------------------------------------------------------------------------
 
@@ -52,7 +47,44 @@ macro fetch_id (<whence>) {
   $POE::Kernel::poe_kernel->ID_session_to_id(<whence>)
 }
 
+macro define_trace (<const>) {
+  defined &TRACE_<const> or eval 'sub TRACE_<const> () { TRACE_DEFAULT }';
+}
+
 # MACROS END <-- search tag for editing
+
+#------------------------------------------------------------------------------
+
+BEGIN {
+
+  # ASSERT_DEFAULT changes the default value for other ASSERT_*
+  # constants.  It inherits POE::Kernel's ASSERT_DEFAULT value, if
+  # it's present.
+
+  unless (defined &ASSERT_DEFAULT) {
+    if (defined &POE::Kernel::ASSERT_DEFAULT) {
+      eval( "sub ASSERT_DEFAULT () { " . &POE::Kernel::ASSERT_DEFAULT . " }" );
+    }
+    else {
+      eval 'sub ASSERT_DEFAULT () { 0 }';
+    }
+  };
+
+  # TRACE_DEFAULT changes the default value for other TRACE_*
+  # constants.  It inherits POE::Kernel's TRACE_DEFAULT value, if
+  # it's present.
+
+  unless (defined &TRACE_DEFAULT) {
+    if (defined &POE::Kernel::TRACE_DEFAULT) {
+      eval( "sub TRACE_DEFAULT () { " . &POE::Kernel::TRACE_DEFAULT . " }" );
+    }
+    else {
+      eval 'sub TRACE_DEFAULT () { 0 }';
+    }
+  };
+
+  {% define_trace  DESTROY %}
+}
 
 #------------------------------------------------------------------------------
 # Export constants into calling packages.  This is evil; perhaps
@@ -117,13 +149,13 @@ sub spawn {
     unless defined $POE::Kernel::poe_kernel;
 
   # Options are optional.
-  my $options = delete $params{SPAWN_OPTIONS};
+  my $options = delete $params{+SPAWN_OPTIONS};
   $options = { } unless defined $options;
 
   # States are required.
   croak "$type constructor requires a SPAWN_INLINES parameter"
-    unless exists $params{SPAWN_INLINES};
-  my $states = delete $params{SPAWN_INLINES};
+    unless exists $params{+SPAWN_INLINES};
+  my $states = delete $params{+SPAWN_INLINES};
 
   # These are unknown.
   croak( "$type constructor does not recognize these parameter names: ",
@@ -155,11 +187,11 @@ sub spawn {
 sub DESTROY {
   my $self = shift;
 
-  # NFA's data structures are destroyed through Perl's usual
-  # garbage collection.  DEB_DESTROY here just shows what's in the
-  # session before the destruction finishes.
+  # NFA's data structures are destroyed through Perl's usual garbage
+  # collection.  TRACE_DESTROY here just shows what's in the session
+  # before the destruction finishes.
 
-  DEB_DESTROY and do {
+  TRACE_DESTROY and do {
     print "----- NFA $self Leak Check -----\n";
     print "-- Namespace (HEAP):\n";
     foreach (sort keys (%{$self->[SELF_RUNSTATE]})) {
@@ -185,7 +217,7 @@ sub _invoke_state {
   # desynchronizes wheel callbacks to us.
   unless (EXPERIMENTAL_SYNCHRONOUS_STUFF) {
     if ($self->[SELF_IS_IN_INTERNAL]) {
-      if ($self->[SELF_OPTIONS]->{OPT_TRACE}) {
+      if ($self->[SELF_OPTIONS]->{+OPT_TRACE}) {
         warn {% fetch_id $self %}, " -> $event (reposting to desynchronize)\n";
       }
 
@@ -196,7 +228,7 @@ sub _invoke_state {
 
   # Trace the state invocation if tracing is enabled.
 
-  if ($self->[SELF_OPTIONS]->{OPT_TRACE}) {
+  if ($self->[SELF_OPTIONS]->{+OPT_TRACE}) {
     warn {% fetch_id $self %}, " -> $event\n";
   }
 
@@ -295,17 +327,17 @@ sub _invoke_state {
 
   # If it wasn't found in either of those, then check for _default in
   # the current state.
-  elsif (exists $self->[SELF_CURRENT]->{EN_DEFAULT}) {
+  elsif (exists $self->[SELF_CURRENT]->{+EN_DEFAULT}) {
     # If we get this far, then there's a _default event to redirect
     # the event to.  Trace the redirection.
-    if ($self->[SELF_OPTIONS]->{OPT_TRACE}) {
+    if ($self->[SELF_OPTIONS]->{+OPT_TRACE}) {
       warn( {% fetch_id $self %},
             " -> $event redirected to EN_DEFAULT in state ",
             "'$self->[SELF_CURRENT_NAME]'\n"
           );
     }
 
-    $handler = $self->[SELF_CURRENT]->{EN_DEFAULT};
+    $handler = $self->[SELF_CURRENT]->{+EN_DEFAULT};
 
     # Fix up ARG0.. for _default.
     $args  = [ $event, $args ];
@@ -367,7 +399,7 @@ sub _invoke_state {
 
 macro validate_state {
   carp "redefining state($name) for session(", {% fetch_id $self %}, ")"
-    if ( $self->[SELF_OPTIONS]->{OPT_DEBUG} &&
+    if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
          (exists $self->[SELF_INTERNALS]->{$name})
        );
 }
@@ -401,7 +433,7 @@ sub register_state {
 
     else {
       if ( (ref($handler) eq 'CODE') and
-           $self->[SELF_OPTIONS]->{OPT_TRACE}
+           $self->[SELF_OPTIONS]->{+OPT_TRACE}
          ) {
         carp( {% fetch_id $self %},
               " : state($name) is not a proper ref - not registered"
