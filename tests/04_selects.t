@@ -233,7 +233,10 @@ POE::Session->create
   ( inline_states =>
     { _start => sub {
 
-        my ($r, $w) = POE::Pipe::OneWay->new("inet");
+        my $conduit;
+        $conduit = "inet" if $^O eq "MSWin32";
+
+        my ($r, $w) = POE::Pipe::OneWay->new($conduit);
 
         my $kernel = $_[KERNEL];
         $kernel->select_read($r, "input");
