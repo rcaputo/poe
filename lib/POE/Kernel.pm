@@ -309,17 +309,20 @@ BEGIN {
   # for mucking up the namespace or the kernel itself.
   my ($orig_warn_handler, $orig_die_handler);
 
-  # _trap_death replaces the current __WARN__ and __DIE__ handlers with our own.
-  # We keep the defaults around so we can put them back when we're done.
-  # Specifically this is necessary, it seems, for older perls that don't
-  # respect the C< local *STDERR = *TRACE_FILE >.
+  # _trap_death replaces the current __WARN__ and __DIE__ handlers
+  # with our own.  We keep the defaults around so we can put them back
+  # when we're done.  Specifically this is necessary, it seems, for
+  # older perls that don't respect the C<local *STDERR = *TRACE_FILE>.
+  #
+  # TODO - The __DIE__ handler generates a double message if
+  # TRACE_FILE is STDERR and the die isn't caught by eval.  That's
+  # messy and needs to go.
   sub _trap_death {
     $orig_warn_handler = $SIG{__WARN__};
     $orig_die_handler = $SIG{__DIE__};
 
     $SIG{__WARN__} = sub { print TRACE_FILE $_[0] };
     $SIG{__DIE__} = sub { print TRACE_FILE $_[0]; die $_[0]; };
-
   }
 
   # _release_death puts the original __WARN__ and __DIE__ handlers back in
@@ -337,11 +340,9 @@ sub _trap {
   local *STDERR = *TRACE_FILE;
 
   _trap_death();
-
   confess(
     "Please mail the following information to bug-POE\@rt.cpan.org:\n@_"
   );
-
   _release_death();
 }
 
@@ -352,7 +353,6 @@ sub _croak {
   _trap_death();
   croak @_;
   _release_death();
-
 }
 
 sub _confess {
@@ -1160,6 +1160,10 @@ sub _invoke_state {
       }
 
       # The only other negative value waitpid(2) should return is -1.
+      # This is highly unlikely, but it's necessary to catch
+      # portability problems.
+      #
+      # TODO - Find a way to test this.
 
       _trap "internal consistency error: waitpid returned $pid"
         if $pid != -1;
