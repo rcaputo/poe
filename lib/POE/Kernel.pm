@@ -11,9 +11,9 @@ package POE::Kernel;
 use strict;
 use POSIX qw(errno_h fcntl_h);
 use Carp;
-use Exporter;
 use vars qw($poe_kernel);
 
+use Exporter;
 @POE::Kernel::ISA = qw(Exporter);
 @POE::Kernel::EXPORT = qw($poe_kernel);
                                         # allow subsecond alarms, if available
@@ -749,6 +749,11 @@ sub _invoke_state {
 # SESSIONS
 #==============================================================================
 
+sub session_create {
+  my $self = shift;
+  new POE::Session(@_);
+}
+
 sub session_alloc {
   my ($self, $session, @args) = @_;
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
@@ -970,9 +975,9 @@ sub _internal_select {
                                         # do it the way everyone else does
       else {
         my $flags = fcntl($handle, F_GETFL, 0)
-          or croak "Can't get flags for the socket: $!\n";
+          or croak "fcntl fails with F_GETFL: $!\n";
         $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
-          or croak "Can't set flags for the socket: $!\n";
+          or croak "fcntl fails with F_SETFL: $!\n";
       }
 
 #      setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
@@ -1142,9 +1147,11 @@ sub alias_remove {
 sub alias_resolve {
   my ($self, $name) = @_;
                                         # resolve against current namespace
-  if ($name eq $self->[KR_ACTIVE_SESSION]->{'namespace'}) {
-    carp "Using HEAP instead of SESSION is depreciated";
-    return $self->[KR_ACTIVE_SESSION];
+  if ($self->[KR_ACTIVE_SESSION] ne $self) {
+    if ($name eq $self->[KR_ACTIVE_SESSION]->{'namespace'}) {
+      carp "Using HEAP instead of SESSION is depreciated";
+      return $self->[KR_ACTIVE_SESSION];
+    }
   }
                                         # resolve against itself
   if (ref($name) ne '') {
@@ -1153,6 +1160,10 @@ sub alias_resolve {
                                         # resolve against aliases
   if (exists $self->[KR_ALIASES]->{$name}) {
     return $self->[KR_ALIASES]->{$name};
+  }
+                                        # resolve against sessions
+  if (exists $self->[KR_SESSIONS]->{$name}) {
+    return $self->[KR_SESSIONS]->{$name}->[SS_SESSION];
   }
                                         # it doesn't resolve to anything?
   $! = ESRCH;
