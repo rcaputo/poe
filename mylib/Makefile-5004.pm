@@ -40,6 +40,7 @@ WriteMakefile
                     'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
                   ),
     },
+    test           => { TESTS => 't/*/*.t t/*.t' },
     PREREQ_PM      => { Carp               => 0,
                         Exporter           => 0,
                         IO                 => 0,

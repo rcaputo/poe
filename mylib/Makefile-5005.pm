@@ -148,6 +148,7 @@ WriteMakefile
                     'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
                   ),
     },
+    test           => { TESTS => 't/*/*.t t/*.t' },
 
     PMLIBDIRS      => [ 'POE' ],
     clean => {
