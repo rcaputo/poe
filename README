@@ -141,7 +141,7 @@ Tk      : (not installed)
 Event   : (not installed)
 
 All tests successful, 4 tests and 5 subtests skipped.
-Files=24, Tests=429, 162 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+Files=24, Tests=429, 159 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
 ** POE 0.1203 on FreeBSD
 
