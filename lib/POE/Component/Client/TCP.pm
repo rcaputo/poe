@@ -87,6 +87,7 @@ sub new {
 
   $address = '127.0.0.1' unless defined $address;
   $filter  = POE::Filter::Line->new() unless defined $filter;
+  $filter  = $filter->new() unless ref($filter);
 
   $conn_error_callback = \&_default_error unless defined $conn_error_callback;
   $error_callback      = \&_default_error unless defined $error_callback;
@@ -366,9 +367,10 @@ requested.
 
 =item Filter
 
-Filter contains a POE::Filter object reference.  It is optional, and
-the component will default to POE::Filter::Line->new() if a Filter is
-omitted.
+Filter may contain either a POE::Filter class name, such as
+C<"POE::Filter::Stream"> or a POE::Filter instance, such as C<new
+POE::Filter::Reference>.  It is optional, and the component will
+default to "POE::Filter::Line" if a Filter is omitted.
 
 =item InlineStates
 
