@@ -30,9 +30,9 @@ sub _data_extref_finalize {
   my $finalized_ok = 1;
   foreach my $session (keys %kr_extra_refs) {
     $finalized_ok = 0;
-    warn "!!! Leaked extref: $session\n";
+    _warn "!!! Leaked extref: $session\n";
     foreach my $tag (keys %{$kr_extra_refs{$session}}) {
-      warn "!!!\t`$tag' = $kr_extra_refs{$session}->{$tag}\n";
+      _warn "!!!\t`$tag' = $kr_extra_refs{$session}->{$tag}\n";
     }
   }
   return $finalized_ok;
@@ -52,9 +52,10 @@ sub _data_extref_inc {
   $self->_data_ses_refcount_inc($session) if $refcount == 1;
 
   if (TRACE_REFCNT) {
-    warn( "<rc> incremented extref ``$tag'' (now $refcount) for ",
-          $self->_data_alias_loggable($session)
-        );
+    _warn(
+      "<rc> incremented extref ``$tag'' (now $refcount) for ",
+      $self->_data_alias_loggable($session)
+    );
   }
 
   return $refcount;
@@ -72,18 +73,20 @@ sub _data_extref_dec {
 
   if (ASSERT_DATA) {
     unless (exists $kr_extra_refs{$session}->{$tag}) {
-      confess( "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
-               $self->_data_alias_loggable($session)
-             );
+      _confess(
+        "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
+        $self->_data_alias_loggable($session)
+      );
     }
   }
 
   my $refcount = --$kr_extra_refs{$session}->{$tag};
 
   if (TRACE_REFCNT) {
-    warn( "<rc> decremented extref ``$tag'' (now $refcount) for ",
-          $self->_data_alias_loggable($session)
-        );
+    _warn(
+      "<rc> decremented extref ``$tag'' (now $refcount) for ",
+      $self->_data_alias_loggable($session)
+    );
   }
 
   $self->_data_extref_remove($session, $tag) unless $refcount;
@@ -97,9 +100,10 @@ sub _data_extref_remove {
 
   if (ASSERT_DATA) {
     unless (exists $kr_extra_refs{$session}->{$tag}) {
-      confess( "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
-               $self->_data_alias_loggable($session)
-             );
+      _confess(
+        "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
+        $self->_data_alias_loggable($session)
+      );
     }
   }
 
@@ -121,9 +125,10 @@ sub _data_extref_clear_session {
 
   if (ASSERT_DATA) {
     if (exists $kr_extra_refs{$session}) {
-      confess( "<dt> extref clear did not remove session ",
-               $self->_data_alias_loggable($session)
-             );
+      _confess(
+        "<dt> extref clear did not remove session ",
+        $self->_data_alias_loggable($session)
+      );
     }
   }
 }

@@ -45,8 +45,9 @@ sub loop_finalize {
   foreach my $fd (0..$#fileno_watcher) {
     next unless defined $fileno_watcher[$fd];
     foreach my $mode (MODE_RD, MODE_WR, MODE_EX) {
-      warn "Mode $mode watcher for fileno $fd is defined during loop finalize"
-        if defined $fileno_watcher[$fd]->[$mode];
+      POE::Kernel::_warn(
+        "Mode $mode watcher for fileno $fd is defined during loop finalize"
+      ) if defined $fileno_watcher[$fd]->[$mode];
     }
   }
 }
@@ -119,7 +120,7 @@ sub loop_watch_filehandle {
   }
 
   if (TRACE_FILES) {
-    warn "<fh> watching $handle in mode $mode";
+    POE::Kernel::_warn "<fh> watching $handle in mode $mode";
   }
 
   # Register the new watcher.
@@ -147,7 +148,7 @@ sub loop_ignore_filehandle {
   my $fileno = fileno($handle);
 
   if (TRACE_FILES) {
-    warn "<fh> ignoring $handle in mode $mode";
+    POE::Kernel::_warn "<fh> ignoring $handle in mode $mode";
   }
 
   # Don't bother removing a select if none was registered.
@@ -162,7 +163,7 @@ sub loop_pause_filehandle {
   my $fileno = fileno($handle);
 
   if (TRACE_FILES) {
-    warn "<fh> pausing $handle in mode $mode";
+    POE::Kernel::_warn "<fh> pausing $handle in mode $mode";
   }
 
   Gtk::Gdk->input_remove($fileno_watcher[$fileno]->[$mode]);
@@ -177,7 +178,7 @@ sub loop_resume_filehandle {
   return 1 if defined $fileno_watcher[$fileno]->[$mode];
 
   if (TRACE_FILES) {
-    warn "<fh> resuming $handle in mode $mode";
+    POE::Kernel::_warn "<fh> resuming $handle in mode $mode";
   }
 
   $fileno_watcher[$fileno]->[$mode] =
@@ -226,7 +227,7 @@ sub _loop_select_read_callback {
   my ($handle, $fileno, $hash) = @_;
 
   if (TRACE_FILES) {
-    warn "<fh> got read callback for $handle";
+    POE::Kernel::_warn "<fh> got read callback for $handle";
   }
 
   $self->_data_handle_enqueue_ready(MODE_RD, $fileno);
@@ -241,7 +242,7 @@ sub _loop_select_write_callback {
   my ($handle, $fileno, $hash) = @_;
 
   if (TRACE_FILES) {
-    warn "<fh> got write callback for $handle";
+    POE::Kernel::_warn "<fh> got write callback for $handle";
   }
 
   $self->_data_handle_enqueue_ready(MODE_WR, $fileno);
@@ -256,7 +257,7 @@ sub _loop_select_expedite_callback {
   my ($handle, $fileno, $hash) = @_;
 
   if (TRACE_FILES) {
-    warn "<fh> got expedite callback for $handle";
+    POE::Kernel::_warn "<fh> got expedite callback for $handle";
   }
 
   $self->_data_handle_enqueue_ready(MODE_EX, $fileno);

@@ -10,7 +10,7 @@ use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-BEGIN { open STDERR, ">./test-output.err" or die $!; }
+sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 # Skip these tests if Event or fork() isn't here.
 BEGIN {

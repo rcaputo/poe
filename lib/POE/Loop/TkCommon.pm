@@ -160,7 +160,7 @@ sub Tk::Error {
     $grab->Unbusy if defined $grab;
   }
   chomp($error);
-  warn "Tk::Error: $error\n " . join("\n ",@_)."\n";
+  POE::Kernel::_warn "Tk::Error: $error\n " . join("\n ",@_)."\n";
 
   if ($poe_kernel->_data_ses_count()) {
     $poe_kernel->_dispatch_event

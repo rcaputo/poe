@@ -95,16 +95,17 @@ sub _data_handle_finalize {
     my ($rd, $wr, $ex, $tot) = @$fd_rec;
     $finalized_ok = 0;
 
-    warn "!!! Leaked fileno: $fd (total refcnt=$tot)\n";
+    _warn "!!! Leaked fileno: $fd (total refcnt=$tot)\n";
 
-    warn( "!!!\tRead:\n",
-          "!!!\t\trefcnt  = $rd->[FMO_REFCOUNT]\n",
-          "!!!\t\tev cnt  = $rd->[FMO_EV_COUNT]\n",
-        );
+    _warn(
+      "!!!\tRead:\n",
+      "!!!\t\trefcnt  = $rd->[FMO_REFCOUNT]\n",
+      "!!!\t\tev cnt  = $rd->[FMO_EV_COUNT]\n",
+    );
     while (my ($ses, $ses_rec) = each(%{$rd->[FMO_SESSIONS]})) {
-      warn "!!!\t\tsession = $ses\n";
+      _warn "!!!\t\tsession = $ses\n";
       while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
-        warn(
+        _warn(
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
           "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
           "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
@@ -112,14 +113,15 @@ sub _data_handle_finalize {
       }
     }
 
-    warn( "!!!\tWrite:\n",
-          "!!!\t\trefcnt  = $wr->[FMO_REFCOUNT]\n",
-          "!!!\t\tev cnt  = $wr->[FMO_EV_COUNT]\n",
-        );
+    _warn(
+      "!!!\tWrite:\n",
+      "!!!\t\trefcnt  = $wr->[FMO_REFCOUNT]\n",
+      "!!!\t\tev cnt  = $wr->[FMO_EV_COUNT]\n",
+    );
     while (my ($ses, $ses_rec) = each(%{$wr->[FMO_SESSIONS]})) {
-      warn "!!!\t\tsession = $ses\n";
+      _warn "!!!\t\tsession = $ses\n";
       while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
-        warn(
+        _warn(
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
           "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
           "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
@@ -127,14 +129,15 @@ sub _data_handle_finalize {
       }
     }
 
-    warn( "!!!\tException:\n",
-          "!!!\t\trefcnt  = $ex->[FMO_REFCOUNT]\n",
-          "!!!\t\tev cnt  = $ex->[FMO_EV_COUNT]\n",
-        );
+    _warn(
+      "!!!\tException:\n",
+      "!!!\t\trefcnt  = $ex->[FMO_REFCOUNT]\n",
+      "!!!\t\tev cnt  = $ex->[FMO_EV_COUNT]\n",
+    );
     while (my ($ses, $ses_rec) = each(%{$ex->[FMO_SESSIONS]})) {
-      warn "!!!\t\tsession = $ses\n";
+      _warn "!!!\t\tsession = $ses\n";
       while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
-        warn(
+        _warn(
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
           "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
           "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
@@ -145,13 +148,14 @@ sub _data_handle_finalize {
 
   while (my ($ses, $hnd_rec) = each(%kr_ses_to_handle)) {
     $finalized_ok = 0;
-    warn "!!! Leaked handle in $ses\n";
+    _warn "!!! Leaked handle in $ses\n";
     while (my ($hnd, $rc) = each(%$hnd_rec)) {
-      warn( "!!!\tHandle: $hnd (tot refcnt=$rc->[SH_REFCOUNT])\n",
-            "!!!\t\tRead      refcnt: $rc->[SH_MODECOUNT]->[MODE_RD]\n",
-            "!!!\t\tWrite     refcnt: $rc->[SH_MODECOUNT]->[MODE_WR]\n",
-            "!!!\t\tException refcnt: $rc->[SH_MODECOUNT]->[MODE_EX]\n",
-          );
+      _warn(
+        "!!!\tHandle: $hnd (tot refcnt=$rc->[SH_REFCOUNT])\n",
+        "!!!\t\tRead      refcnt: $rc->[SH_MODECOUNT]->[MODE_RD]\n",
+        "!!!\t\tWrite     refcnt: $rc->[SH_MODECOUNT]->[MODE_WR]\n",
+        "!!!\t\tException refcnt: $rc->[SH_MODECOUNT]->[MODE_EX]\n",
+      );
     }
   }
 
@@ -173,10 +177,11 @@ sub _data_handle_resume_requested_state {
   my $kr_fno_rec  = $kr_filenos{$fileno}->[$mode];
 
   if (TRACE_FILES) {
-    warn( "<fh> decrementing event count in mode ($mode) ",
-          "for fileno (", $fileno, ") from count (",
-          $kr_fno_rec->[FMO_EV_COUNT], ")"
-        );
+    _warn(
+      "<fh> decrementing event count in mode ($mode) ",
+      "for fileno (", $fileno, ") from count (",
+      $kr_fno_rec->[FMO_EV_COUNT], ")"
+    );
   }
 
   # If all events for the fileno/mode pair have been delivered, then
@@ -193,11 +198,11 @@ sub _data_handle_resume_requested_state {
       $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
     }
     else {
-      confess "internal consistency error";
+      _confess "internal consistency error";
     }
   }
   elsif ($kr_fno_rec->[FMO_EV_COUNT] < 0) {
-    confess "handle event count went below zero";
+    _confess "handle event count went below zero";
   }
 }
 
@@ -208,7 +213,7 @@ sub _data_handle_enqueue_ready {
   my ($self, $mode, @filenos) = @_;
 
   foreach my $fileno (@filenos) {
-    confess "internal inconsistency: undefined fileno" unless defined $fileno;
+    _confess "internal inconsistency: undefined fileno" unless defined $fileno;
     my $kr_fno_rec = $kr_filenos{$fileno}->[$mode];
 
     # Gather all the events to emit for this fileno/mode pair.
@@ -237,9 +242,10 @@ sub _data_handle_enqueue_ready {
       }
 
       if (TRACE_FILES) {
-        warn( "<fh> incremented event count in mode ($mode) ",
-              "for fileno ($fileno) to count ($kr_fno_rec->[FMO_EV_COUNT])"
-            );
+        _warn(
+          "<fh> incremented event count in mode ($mode) ",
+          "for fileno ($fileno) to count ($kr_fno_rec->[FMO_EV_COUNT])"
+        );
       }
     }
   }
@@ -290,7 +296,7 @@ sub _data_handle_add {
       ];
 
     if (TRACE_FILES) {
-      warn "<fh> adding fd (", $fd, ")";
+      _warn "<fh> adding fd (", $fd, ")";
     }
 
     # For DOSISH systems like OS/2.  Wrapped in eval{} in case it's a
@@ -316,9 +322,9 @@ sub _data_handle_add {
         # Make the handle stop blocking, the POSIX way.
         unless (RUNNING_IN_HELL) {
           my $flags = fcntl($handle, F_GETFL, 0)
-            or confess "fcntl($handle, F_GETFL, etc.) fails: $!\n";
+            or _confess "fcntl($handle, F_GETFL, etc.) fails: $!\n";
           until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
-            confess "fcntl($handle, FSETFL, etc) fails: $!"
+            _confess "fcntl($handle, FSETFL, etc) fails: $!"
               unless $! == EAGAIN or $! == EWOULDBLOCK;
           }
         }
@@ -331,7 +337,7 @@ sub _data_handle_add {
                  0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
                  $set_it
                )
-            or confess "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
+            or _confess "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
         }
       }
     }
@@ -353,9 +359,10 @@ sub _data_handle_add {
 
     if (exists $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle}) {
       if (TRACE_FILES) {
-        warn( "<fh> running fileno(" . $fd . ") mode($mode) " .
-              "count($kr_fno_rec->[FMO_EV_COUNT])"
-            );
+        _warn(
+          "<fh> running fileno(" . $fd . ") mode($mode) " .
+          "count($kr_fno_rec->[FMO_EV_COUNT])"
+        );
       }
       unless ($kr_fno_rec->[FMO_EV_COUNT]) {
         $self->loop_resume_filehandle($handle, $mode);
@@ -368,7 +375,7 @@ sub _data_handle_add {
     # done yet, but maybe later when drivers are added to the mix.
 
     else {
-      confess "can't watch the same handle in the same mode 2+ times yet";
+      _confess "can't watch the same handle in the same mode 2+ times yet";
     }
   }
 
@@ -465,18 +472,19 @@ sub _data_handle_remove {
         $self->_data_ev_refcount_dec( @$event[EV_SESSION, EV_SOURCE] );
 
         TRACE_EVENTS and
-          warn "<ev> removing select event $id ``$event->[EV_NAME]''";
+          _warn "<ev> removing select event $id ``$event->[EV_NAME]''";
 
         $kr_fno_rec->[FMO_EV_COUNT]--;
 
         if (TRACE_FILES) {
-          warn( "<fh> fileno $fd mode $mode event count went to ",
-                $kr_fno_rec->[FMO_EV_COUNT]
-              );
+          _warn(
+            "<fh> fileno $fd mode $mode event count went to ",
+            $kr_fno_rec->[FMO_EV_COUNT]
+          );
         }
 
         if (ASSERT_DATA) {
-          confess "<dt> fileno $fd mode $mode event count went below zero"
+          _confess "<dt> fileno $fd mode $mode event count went below zero"
             if $kr_fno_rec->[FMO_EV_COUNT] < 0;
         }
       }
@@ -486,7 +494,7 @@ sub _data_handle_remove {
       $kr_fno_rec->[FMO_REFCOUNT]--;
 
       if (ASSERT_DATA) {
-        confess "<dt> fileno mode refcount went below zero"
+        _confess "<dt> fileno mode refcount went below zero"
           if $kr_fno_rec->[FMO_REFCOUNT] < 0;
       }
 
@@ -512,13 +520,13 @@ sub _data_handle_remove {
       $kr_fileno->[FNO_TOT_REFCOUNT]--;
 
       if (ASSERT_DATA) {
-        confess "<dt> fileno refcount went below zero"
+        _confess "<dt> fileno refcount went below zero"
           if $kr_fileno->[FNO_TOT_REFCOUNT] < 0;
       }
 
       unless ($kr_fileno->[FNO_TOT_REFCOUNT]) {
         if (TRACE_FILES) {
-          warn "<fh> deleting fileno (", $fd, ")";
+          _warn "<fh> deleting fileno (", $fd, ")";
         }
         delete $kr_filenos{$fd};
       }
@@ -546,7 +554,7 @@ sub _data_handle_remove {
       $ss_handle->[SH_REFCOUNT]--;
 
       if (ASSERT_DATA) {
-        confess "<dt> refcount went below zero"
+        _confess "<dt> refcount went below zero"
           if $ss_handle->[SH_REFCOUNT] < 0;
       }
 
@@ -571,9 +579,10 @@ sub _data_handle_resume {
   my $kr_fno_rec = $kr_fileno->[$mode];
 
   if (TRACE_FILES) {
-    warn( "<fh> resume test: fileno(" . fileno($handle) . ") mode($mode) " .
-          "count($kr_fno_rec->[FMO_EV_COUNT])"
-        );
+    _warn(
+      "<fh> resume test: fileno(" . fileno($handle) . ") mode($mode) " .
+      "count($kr_fno_rec->[FMO_EV_COUNT])"
+    );
   }
 
   # Resume the handle if there are no events for it.
@@ -597,9 +606,10 @@ sub _data_handle_pause {
   my $kr_fno_rec = $kr_fileno->[$mode];
 
   if (TRACE_FILES) {
-    warn( "<fh> pause test: fileno(" . fileno($handle) . ") mode($mode) " .
-          "count($kr_fno_rec->[FMO_EV_COUNT])"
-        );
+    _warn(
+      "<fh> pause test: fileno(" . fileno($handle) . ") mode($mode) " .
+      "count($kr_fno_rec->[FMO_EV_COUNT])"
+    );
   }
 
   unless ($kr_fno_rec->[FMO_EV_COUNT]) {

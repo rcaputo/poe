@@ -17,7 +17,6 @@ $VERSION = (qw($Revision$ ))[1];
 package POE::Kernel;
 
 use strict;
-use Carp qw(confess);
 
 # Delcare which event loop bridge is being used, but first ensure that
 # no other bridge has been loaded.
@@ -85,7 +84,7 @@ sub loop_finalize {
   while (my ($mode_name, $mode_offset) = each(%kernel_modes)) {
     my $bits = unpack('b*', $loop_vectors[$mode_offset]);
     if (index($bits, '1') >= 0) {
-      warn "<rc> LOOP VECTOR LEAK: $mode_name = $bits\a\n";
+      POE::Kernel::_warn "<rc> LOOP VECTOR LEAK: $mode_name = $bits\a\n";
     }
   }
 }
@@ -174,11 +173,13 @@ sub loop_do_timeslice {
   }
 
   if (TRACE_EVENTS) {
-    warn( '<ev> Kernel::run() iterating.  ' .
-          sprintf("now(%.4f) timeout(%.4f) then(%.4f)\n",
-                  $now-$^T, $timeout, ($now-$^T)+$timeout
-                 )
-        );
+    POE::Kernel::_warn(
+      '<ev> Kernel::run() iterating.  ' .
+      sprintf(
+        "now(%.4f) timeout(%.4f) then(%.4f)\n",
+        $now-$^T, $timeout, ($now-$^T)+$timeout
+      )
+    );
   }
 
   # Determine which files are being watched.
@@ -188,12 +189,13 @@ sub loop_do_timeslice {
   }
 
   if (TRACE_FILES) {
-    warn( "<fh> ,----- SELECT BITS IN -----\n",
-          "<fh> | READ    : ", unpack('b*', $loop_vectors[MODE_RD]), "\n",
-          "<fh> | WRITE   : ", unpack('b*', $loop_vectors[MODE_WR]), "\n",
-          "<fh> | EXPEDITE: ", unpack('b*', $loop_vectors[MODE_EX]), "\n",
-          "<fh> `--------------------------\n"
-        );
+    POE::Kernel::_warn(
+      "<fh> ,----- SELECT BITS IN -----\n",
+      "<fh> | READ    : ", unpack('b*', $loop_vectors[MODE_RD]), "\n",
+      "<fh> | WRITE   : ", unpack('b*', $loop_vectors[MODE_WR]), "\n",
+      "<fh> | EXPEDITE: ", unpack('b*', $loop_vectors[MODE_EX]), "\n",
+      "<fh> `--------------------------\n"
+    );
   }
 
   # Avoid looking at filehandles if we don't need to.  -><- The added
@@ -214,7 +216,7 @@ sub loop_do_timeslice {
 
       if (ASSERT_FILES) {
         if ($hits < 0) {
-          confess "<fh> select error: $!"
+          POE::Kernel::_confess("<fh> select error: $!")
             unless ( ($! == EINPROGRESS) or
                      ($! == EWOULDBLOCK) or
                      ($! == EINTR)
@@ -224,17 +226,18 @@ sub loop_do_timeslice {
 
       if (TRACE_FILES) {
         if ($hits > 0) {
-          warn "<fh> select hits = $hits\n";
+          POE::Kernel::_warn "<fh> select hits = $hits\n";
         }
         elsif ($hits == 0) {
-          warn "<fh> select timed out...\n";
+          POE::Kernel::_warn "<fh> select timed out...\n";
         }
-        warn( "<fh> ,----- SELECT BITS OUT -----\n",
-              "<fh> | READ    : ", unpack('b*', $rout), "\n",
-              "<fh> | WRITE   : ", unpack('b*', $wout), "\n",
-              "<fh> | EXPEDITE: ", unpack('b*', $eout), "\n",
-              "<fh> `---------------------------\n"
-            );
+        POE::Kernel::_warn(
+          "<fh> ,----- SELECT BITS OUT -----\n",
+          "<fh> | READ    : ", unpack('b*', $rout), "\n",
+          "<fh> | WRITE   : ", unpack('b*', $wout), "\n",
+          "<fh> | EXPEDITE: ", unpack('b*', $eout), "\n",
+          "<fh> `---------------------------\n"
+        );
       }
 
       # If select has seen filehandle activity, then gather up the
@@ -255,28 +258,33 @@ sub loop_do_timeslice {
 
         if (TRACE_FILES) {
           if (@rd_selects) {
-            warn( "<fh> found pending rd selects: ",
-                  join( ', ', sort { $a <=> $b } @rd_selects ),
-                  "\n"
-                );
+            POE::Kernel::_warn(
+              "<fh> found pending rd selects: ",
+              join( ', ', sort { $a <=> $b } @rd_selects ),
+              "\n"
+            );
           }
           if (@wr_selects) {
-            warn( "<sl> found pending wr selects: ",
-                  join( ', ', sort { $a <=> $b } @wr_selects ),
-                  "\n"
-                );
+            POE::Kernel::_warn(
+              "<sl> found pending wr selects: ",
+              join( ', ', sort { $a <=> $b } @wr_selects ),
+              "\n"
+            );
           }
           if (@ex_selects) {
-            warn( "<sl> found pending ex selects: ",
-                  join( ', ', sort { $a <=> $b } @ex_selects ),
-                  "\n"
-                );
+            POE::Kernel::_warn(
+              "<sl> found pending ex selects: ",
+              join( ', ', sort { $a <=> $b } @ex_selects ),
+              "\n"
+            );
           }
         }
 
         if (ASSERT_FILES) {
           unless (@rd_selects or @wr_selects or @ex_selects) {
-            confess "<fh> found no selects, with $hits hits from select???\n";
+            POE::Kernel::_confess(
+              "<fh> found no selects, with $hits hits from select???\n"
+            );
           }
         }
 

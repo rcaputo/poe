@@ -10,7 +10,7 @@ use TestSetup qw(ok not_ok ok_if ok_unless results test_setup);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-BEGIN { open STDERR, ">./test-output.err" or die $!; }
+sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 test_setup(30);
 

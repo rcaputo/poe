@@ -7,7 +7,7 @@ use strict;
 use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];
 
-use Carp qw(carp croak confess);
+use Carp qw(carp croak);
 
 sub SPAWN_INLINES       () { 'inline_states' }
 sub SPAWN_OPTIONS       () { 'options' }
@@ -191,18 +191,20 @@ sub DESTROY {
   # before the destruction finishes.
 
   TRACE_DESTROY and do {
-    warn "----- NFA $self Leak Check -----\n";
-    warn "-- Namespace (HEAP):\n";
+    POE::Kernel::_warn(
+      "----- NFA $self Leak Check -----\n",
+      "-- Namespace (HEAP):\n"
+    );
     foreach (sort keys (%{$self->[SELF_RUNSTATE]})) {
-      warn "   $_ = ", $self->[SELF_RUNSTATE]->{$_}, "\n";
+      POE::Kernel::_warn("   $_ = ", $self->[SELF_RUNSTATE]->{$_}, "\n");
     }
-    warn "-- Options:\n";
+    POE::Kernel::_warn("-- Options:\n");
     foreach (sort keys (%{$self->[SELF_OPTIONS]})) {
-      warn "   $_ = ", $self->[SELF_OPTIONS]->{$_}, "\n";
+      POE::Kernel::_warn("   $_ = ", $self->[SELF_OPTIONS]->{$_}, "\n");
     }
-    warn "-- States:\n";
+    POE::Kernel::_warn("-- States:\n");
     foreach (sort keys (%{$self->[SELF_STATES]})) {
-      warn "   $_ = ", $self->[SELF_STATES]->{$_}, "\n";
+      POE::Kernel::_warn("   $_ = ", $self->[SELF_STATES]->{$_}, "\n");
     }
   };
 }
@@ -215,7 +217,9 @@ sub _invoke_state {
   # Trace the state invocation if tracing is enabled.
 
   if ($self->[SELF_OPTIONS]->{+OPT_TRACE}) {
-    warn $POE::Kernel::poe_kernel->ID_session_to_id($self), " -> $event\n";
+    POE::Kernel::_warn(
+      $POE::Kernel::poe_kernel->ID_session_to_id($self), " -> $event\n"
+    );
   }
 
   # Discard troublesome things.
@@ -233,21 +237,24 @@ sub _invoke_state {
     my ($new_state, $enter_event, @enter_args) = @$args;
 
     # Make sure the new state exists.
-    die( $POE::Kernel::poe_kernel->ID_session_to_id($self),
-         " tried to enter nonexistent state '$new_state'\n"
-       )
-      unless exists $self->[SELF_STATES]->{$new_state};
+    POE::Kernel::_die(
+      $POE::Kernel::poe_kernel->ID_session_to_id($self),
+      " tried to enter nonexistent state '$new_state'\n"
+    )
+    unless exists $self->[SELF_STATES]->{$new_state};
 
     # If an enter event was specified, make sure that exists too.
-    die( $POE::Kernel::poe_kernel->ID_session_to_id($self),
-         " tried to invoke nonexistent enter event '$enter_event' ",
-         "in state '$new_state'\n"
-       )
-      unless ( not defined $enter_event or
-               ( length $enter_event and
-                 exists $self->[SELF_STATES]->{$new_state}->{$enter_event}
-               )
-             );
+    POE::Kernel::_die(
+      $POE::Kernel::poe_kernel->ID_session_to_id($self),
+      " tried to invoke nonexistent enter event '$enter_event' ",
+      "in state '$new_state'\n"
+    )
+    unless (
+      not defined $enter_event or
+      ( length $enter_event and
+        exists $self->[SELF_STATES]->{$new_state}->{$enter_event}
+      )
+    );
 
     # Invoke the current state's leave event, if one exists.
     $self->_invoke_state( $self, 'leave', [], undef, undef )
@@ -281,10 +288,11 @@ sub _invoke_state {
   # Pop a state transition.
   if ($event eq NFA_EN_POP_STATE) {
 
-    die( $POE::Kernel::poe_kernel->ID_session_to_id($self),
-         " tried to pop a state from an empty stack\n"
-       )
-      unless @{ $self->[SELF_STATE_STACK] };
+    POE::Kernel::_die(
+      $POE::Kernel::poe_kernel->ID_session_to_id($self),
+      " tried to pop a state from an empty stack\n"
+    )
+    unless @{ $self->[SELF_STATE_STACK] };
 
     my ($previous_state, $previous_event) =
       @{ pop @{ $self->[SELF_STATE_STACK] } };
@@ -317,10 +325,11 @@ sub _invoke_state {
     # If we get this far, then there's a _default event to redirect
     # the event to.  Trace the redirection.
     if ($self->[SELF_OPTIONS]->{+OPT_TRACE}) {
-      warn( $POE::Kernel::poe_kernel->ID_session_to_id($self),
-            " -> $event redirected to EN_DEFAULT in state ",
-            "'$self->[SELF_CURRENT_NAME]'\n"
-          );
+      POE::Kernel::_warn(
+        $POE::Kernel::poe_kernel->ID_session_to_id($self),
+        " -> $event redirected to EN_DEFAULT in state ",
+        "'$self->[SELF_CURRENT_NAME]'\n"
+      );
     }
 
     $handler = $self->[SELF_CURRENT]->{+EN_DEFAULT};
@@ -334,12 +343,13 @@ sub _invoke_state {
   # external _default handler.  This is a grievous error, and now we
   # must die.
   elsif ($event ne EN_SIGNAL) {
-    die( "a '$event' event was sent from $file at $line to session ",
-         $POE::Kernel::poe_kernel->ID_session_to_id($self),
-         ", but session ", $POE::Kernel::poe_kernel->ID_session_to_id($self),
-         " has neither a handler for it nor one for _default ",
-         "in its current state, '$self->[SELF_CURRENT_NAME]'\n"
-       );
+    POE::Kernel::_die(
+      "a '$event' event was sent from $file at $line to session ",
+      $POE::Kernel::poe_kernel->ID_session_to_id($self),
+      ", but session ", $POE::Kernel::poe_kernel->ID_session_to_id($self),
+      " has neither a handler for it nor one for _default ",
+      "in its current state, '$self->[SELF_CURRENT_NAME]'\n"
+    );
   }
 
   # Inline event handlers are invoked this way.
@@ -418,12 +428,13 @@ sub register_state {
     # Coderef handlers are inline states.
 
     if (ref($handler) eq 'CODE') {
-      carp( "redefining handler for event($name) for session(",
-            $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
-          )
-        if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
-             (exists $self->[SELF_INTERNALS]->{$name})
-           );
+      POE::Kernel::_carp(
+        "redefining handler for event($name) for session(",
+        $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
+      )
+      if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
+           (exists $self->[SELF_INTERNALS]->{$name})
+      );
       $self->[SELF_INTERNALS]->{$name} = $handler;
     }
 
@@ -431,12 +442,14 @@ sub register_state {
     # the method belongs to the handler.
 
     elsif ($handler->can($method)) {
-      carp( "redefining handler for event($name) for session(",
-            $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
-          )
-        if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
-             (exists $self->[SELF_INTERNALS]->{$name})
-           );
+      POE::Kernel::_carp(
+        "redefining handler for event($name) for session(",
+        $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
+      )
+      if (
+        $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
+        (exists $self->[SELF_INTERNALS]->{$name})
+      );
       $self->[SELF_INTERNALS]->{$name} = [ $handler, $method ];
     }
 
@@ -444,12 +457,14 @@ sub register_state {
     # ref($handler) can't be 'CODE'.
 
     else {
-      if ( (ref($handler) eq 'CODE') and
-           $self->[SELF_OPTIONS]->{+OPT_TRACE}
-         ) {
-        carp( $self->fetch_id(),
-              " : handler for event($name) is not a proper ref - not registered"
-            )
+      if (
+        (ref($handler) eq 'CODE') and
+        $self->[SELF_OPTIONS]->{+OPT_TRACE}
+      ) {
+        POE::Kernel::_carp(
+          $self->fetch_id(),
+          " : handler for event($name) is not a proper ref - not registered"
+        )
       }
       else {
         unless ($handler->can($method)) {

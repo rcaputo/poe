@@ -39,11 +39,11 @@ use POE::API::ResLoader \&_data_sid_initialize;
 sub _data_sid_finalize {
   my $finalized_ok = 1;
   while (my ($sid, $ses) = each(%kr_session_ids)) {
-    warn "!!! Leaked session ID: $sid = $ses\n";
+    _warn "!!! Leaked session ID: $sid = $ses\n";
     $finalized_ok = 0;
   }
   while (my ($ses, $sid) = each(%kr_session_to_id)) {
-    warn "!!! Leak sid cross-reference: $ses = $sid\n";
+    _warn "!!! Leak sid cross-reference: $ses = $sid\n";
     $finalized_ok = 0;
   }
   return $finalized_ok;
@@ -70,7 +70,7 @@ sub _data_sid_set {
 sub _data_sid_clear {
   my ($self, $session) = @_;
   my $sid = delete $kr_session_to_id{$session};
-  confess "internal inconsistency" unless defined $sid;
+  _confess "internal inconsistency" unless defined $sid;
   delete $kr_session_ids{$sid};
 }
 

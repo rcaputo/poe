@@ -10,7 +10,7 @@ use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 0 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-BEGIN { open STDERR, ">./test-output.err" or die $!; }
+sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 BEGIN {
   test_setup(49);
@@ -84,7 +84,9 @@ use POE::Component::Server::TCP;
 use POE::Wheel::SocketFactory;
 
 # Test that errors occur when nonexistent modules are used.
+stderr_pause();
 eval 'use POE qw(NonExistent);';
+stderr_resume();
 print "not " unless defined $@ and length $@;
 print "ok 4\n";
 
@@ -248,7 +250,9 @@ print "ok 19\n";
 
 ### Main loop.
 
+stderr_pause();
 $POE::Kernel::poe_kernel->run();
+stderr_resume();
 
 ### Misuse of unusable modules.
 

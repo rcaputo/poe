@@ -49,12 +49,14 @@ sub _data_ses_finalize {
 
   while (my ($ses, $ses_rec) = each(%kr_sessions)) {
     $finalized_ok = 0;
-    warn( "!!! Leaked session: $ses\n",
-          "!!!\trefcnt = $ses_rec->[SS_REFCOUNT]\n",
-          "!!!\tparent = $ses_rec->[SS_PARENT]\n",
-          "!!!\tchilds = ", join("; ", keys(%{$ses_rec->[SS_CHILDREN]})), "\n",
-          "!!!\tprocs  = ", join("; ", keys(%{$ses_rec->[SS_PROCESSES]})),"\n",
-        );
+
+    _warn(
+      "!!! Leaked session: $ses\n",
+      "!!!\trefcnt = $ses_rec->[SS_REFCOUNT]\n",
+      "!!!\tparent = $ses_rec->[SS_PARENT]\n",
+      "!!!\tchilds = ", join("; ", keys(%{$ses_rec->[SS_CHILDREN]})), "\n",
+      "!!!\tprocs  = ", join("; ", keys(%{$ses_rec->[SS_PROCESSES]})),"\n",
+    );
   }
 
   return $finalized_ok;
@@ -79,14 +81,16 @@ sub _data_ses_allocate {
 
   # Manage parent/child relationship.
   if (defined $parent) {
-    confess "parent $parent does not exist"
-      unless exists $kr_sessions{$parent};
+    unless (exists $kr_sessions{$parent}) {
+      _confess "parent $parent does not exist";
+    }
 
     if (TRACE_SESSIONS) {
-      warn( "<ss> ",
-            $self->_data_alias_loggable($session), " has parent ",
-            $self->_data_alias_loggable($parent)
-          );
+      _warn(
+        "<ss> ",
+        $self->_data_alias_loggable($session), " has parent ",
+        $self->_data_alias_loggable($parent)
+      );
     }
 
     $kr_sessions{$parent}->[SS_CHILDREN]->{$session} = $session;
@@ -106,9 +110,10 @@ sub _data_ses_free {
   my ($self, $session) = @_;
 
   if (TRACE_SESSIONS) {
-    warn( "<ss> freeing ",
-          $self->_data_alias_loggable($session)
-        );
+    _warn(
+      "<ss> freeing ",
+      $self->_data_alias_loggable($session)
+    );
   }
 
   # Manage parent/child relationships.
@@ -116,27 +121,33 @@ sub _data_ses_free {
   my $parent = $kr_sessions{$session}->[SS_PARENT];
   my @children = $self->_data_ses_get_children($session);
   if (defined $parent) {
-    confess "session is its own parent" if $parent == $session;
-    confess
-      ( $self->_data_alias_loggable($session), " isn't a child of ",
+    if ($parent == $session) {
+      _confess "session is its own parent";
+    }
+    unless ($self->_data_ses_is_child($parent, $session)) {
+      _confess(
+        $self->_data_alias_loggable($session), " isn't a child of ",
         $self->_data_alias_loggable($parent), " (it's a child of ",
         $self->_data_alias_loggable($self->_data_ses_get_parent($session)),
         ")"
-      ) unless $self->_data_ses_is_child($parent, $session);
+      );
+    }
 
     # Remove the departing session from its parent.
 
-    confess "internal inconsistency ($parent)"
-      unless exists $kr_sessions{$parent};
-    confess "internal inconsistency ($parent/$session)"
+    unless (exists $kr_sessions{$parent}) {
+      _confess "internal inconsistency ($parent)";
+    }
+    _confess "internal inconsistency ($parent/$session)"
       unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
     undef $kr_sessions{$session}->[SS_PARENT];
 
     if (TRACE_SESSIONS) {
-      cluck( "<ss> removed ",
-             $self->_data_alias_loggable($session), " from ",
-             $self->_data_alias_loggable($parent)
-           );
+      _cluck(
+        "<ss> removed ",
+        $self->_data_alias_loggable($session), " from ",
+        $self->_data_alias_loggable($parent)
+      );
     }
 
     $self->_data_ses_refcount_dec($parent);
@@ -148,7 +159,7 @@ sub _data_ses_free {
     }
   }
   else {
-    confess "no parent to give children to" if @children;
+    _confess "no parent to give children to" if @children;
   }
 
   # Things which do not hold reference counts.
@@ -184,27 +195,29 @@ sub _data_ses_move_child {
   my ($self, $session, $new_parent) = @_;
 
   if (TRACE_SESSIONS) {
-    warn( "<ss> moving ",
-          $self->_data_alias_loggable($session), " to ",
-          $self->_data_alias_loggable($new_parent)
-        );
+    _warn(
+      "<ss> moving ",
+      $self->_data_alias_loggable($session), " to ",
+      $self->_data_alias_loggable($new_parent)
+    );
   }
 
-  confess "internal inconsistency" unless exists $kr_sessions{$session};
-  confess "internal inconsistency" unless exists $kr_sessions{$new_parent};
+  _confess "internal inconsistency" unless exists $kr_sessions{$session};
+  _confess "internal inconsistency" unless exists $kr_sessions{$new_parent};
 
   my $old_parent = $self->_data_ses_get_parent($session);
 
-  confess "internal inconsistency" unless exists $kr_sessions{$old_parent};
+  _confess "internal inconsistency" unless exists $kr_sessions{$old_parent};
 
   # Remove the session from its old parent.
   delete $kr_sessions{$old_parent}->[SS_CHILDREN]->{$session};
 
   if (TRACE_SESSIONS) {
-    warn( "<ss> removed ",
-          $self->_data_alias_loggable($session), " from ",
-          $self->_data_alias_loggable($old_parent)
-        );
+    _warn(
+      "<ss> removed ",
+      $self->_data_alias_loggable($session), " from ",
+      $self->_data_alias_loggable($old_parent)
+    );
   }
 
   $self->_data_ses_refcount_dec($old_parent);
@@ -213,20 +226,22 @@ sub _data_ses_move_child {
   $kr_sessions{$session}->[SS_PARENT] = $new_parent;
 
   if (TRACE_SESSIONS) {
-    warn( "<ss> changed parent of ",
-          $self->_data_alias_loggable($session), " to ",
-          $self->_data_alias_loggable($new_parent)
-        );
+    _warn(
+      "<ss> changed parent of ",
+      $self->_data_alias_loggable($session), " to ",
+      $self->_data_alias_loggable($new_parent)
+    );
   }
 
   # Add the current session to the new parent's children.
   $kr_sessions{$new_parent}->[SS_CHILDREN]->{$session} = $session;
 
   if (TRACE_SESSIONS) {
-    warn( "<ss> added ",
-          $self->_data_alias_loggable($session), " as child of ",
-          $self->_data_alias_loggable($new_parent)
-        );
+    _warn(
+      "<ss> added ",
+      $self->_data_alias_loggable($session), " as child of ",
+      $self->_data_alias_loggable($new_parent)
+    );
   }
 
   $self->_data_ses_refcount_inc($new_parent);
@@ -236,7 +251,7 @@ sub _data_ses_move_child {
 
 sub _data_ses_get_parent {
   my ($self, $session) = @_;
-  confess "internal inconsistency" unless exists $kr_sessions{$session};
+  _confess "internal inconsistency" unless exists $kr_sessions{$session};
   return $kr_sessions{$session}->[SS_PARENT];
 }
 
@@ -244,7 +259,7 @@ sub _data_ses_get_parent {
 
 sub _data_ses_get_children {
   my ($self, $session) = @_;
-  confess "internal inconsistency" unless exists $kr_sessions{$session};
+  _confess "internal inconsistency" unless exists $kr_sessions{$session};
   return values %{$kr_sessions{$session}->[SS_CHILDREN]};
 }
 
@@ -252,7 +267,7 @@ sub _data_ses_get_children {
 
 sub _data_ses_is_child {
   my ($self, $parent, $child) = @_;
-  confess "internal inconsistency" unless exists $kr_sessions{$parent};
+  _confess "internal inconsistency" unless exists $kr_sessions{$parent};
   return exists $kr_sessions{$parent}->[SS_CHILDREN]->{$child};
 }
 
@@ -291,21 +306,23 @@ sub _data_ses_refcount_dec {
   my ($self, $session) = @_;
 
   if (TRACE_REFCNT) {
-    warn( "<rc> decrementing refcount for ",
-          $self->_data_alias_loggable($session)
-        );
+    _warn(
+      "<rc> decrementing refcount for ",
+      $self->_data_alias_loggable($session)
+    );
   }
 
   # -><- Why do we return if the session does not exist, but then confess
   # that there is a problem if the session does not exist?  One of
   # these must go!
   return unless exists $kr_sessions{$session};
-  confess "internal inconsistency" unless exists $kr_sessions{$session};
+  _confess "internal inconsistency" unless exists $kr_sessions{$session};
 
   if (--$kr_sessions{$session}->[SS_REFCOUNT] < 0) {
-    confess( $self->_data_alias_loggable($session),
-             " reference count went below zero"
-           );
+    _confess(
+      $self->_data_alias_loggable($session),
+     " reference count went below zero"
+   );
   }
 }
 
@@ -315,12 +332,13 @@ sub _data_ses_refcount_inc {
   my ($self, $session) = @_;
 
   if (TRACE_REFCNT) {
-    warn( "<rc> incrementing refcount for ",
-          $self->_data_alias_loggable($session)
-        );
+    _warn(
+      "<rc> incrementing refcount for ",
+      $self->_data_alias_loggable($session)
+    );
   }
 
-  confess "incrementing refcount for nonexistent session"
+  _confess "incrementing refcount for nonexistent session"
     unless exists $kr_sessions{$session};
   $kr_sessions{$session}->[SS_REFCOUNT]++;
 }
@@ -339,20 +357,21 @@ sub _data_ses_collect_garbage {
   my ($self, $session) = @_;
 
   if (TRACE_REFCNT) {
-    warn( "<rc> testing for idle ",
-          $self->_data_alias_loggable($session)
-        );
+    _warn(
+      "<rc> testing for idle ",
+      $self->_data_alias_loggable($session)
+    );
   }
 
   # The next line is necessary for some strange reason.  This feels
   # like a kludge, but I'm currently not smart enough to figure out
   # what it's working around.
 
-  confess "internal inconsistency" unless exists $kr_sessions{$session};
+  _confess "internal inconsistency" unless exists $kr_sessions{$session};
 
   if (TRACE_REFCNT) {
     my $ss = $kr_sessions{$session};
-    warn(
+    _warn(
       "<rc> +----- GC test for ", $self->_data_alias_loggable($session),
       " ($session) -----\n",
       "<rc> | total refcnt  : ", $ss->[SS_REFCOUNT], "\n",
@@ -365,10 +384,11 @@ sub _data_ses_collect_garbage {
       "<rc> +---------------------------------------------------\n",
     );
     unless ($ss->[SS_REFCOUNT]) {
-      warn( "<rc> | ", $self->_data_alias_loggable($session),
-            " is garbage; stopping it...\n",
-            "<rc> +---------------------------------------------------\n",
-          );
+      _warn(
+        "<rc> | ", $self->_data_alias_loggable($session),
+        " is garbage; stopping it...\n",
+        "<rc> +---------------------------------------------------\n",
+      );
     }
   }
 
@@ -386,10 +406,11 @@ sub _data_ses_collect_garbage {
     # The calculated reference count really ought to match the one
     # POE's been keeping track of all along.
 
-    confess( "<dt> ", $self->_data_alias_loggable($session),
-             " has a reference count inconsistency",
-             " (calc=$calc_ref; actual=$ss->[SS_REFCOUNT])\n"
-           ) if $calc_ref != $ss->[SS_REFCOUNT];
+    _confess(
+      "<dt> ", $self->_data_alias_loggable($session),
+       " has a reference count inconsistency",
+       " (calc=$calc_ref; actual=$ss->[SS_REFCOUNT])\n"
+     ) if $calc_ref != $ss->[SS_REFCOUNT];
   }
 
   return if $kr_sessions{$session}->[SS_REFCOUNT];
@@ -412,10 +433,10 @@ sub _data_ses_stop {
   my ($self, $session) = @_;
 
   if (TRACE_SESSIONS) {
-    warn "<ss> stopping ", $self->_data_alias_loggable($session);
+    _warn("<ss> stopping ", $self->_data_alias_loggable($session));
   }
 
-  confess unless exists $kr_sessions{$session};
+  _confess unless exists $kr_sessions{$session};
 
   $self->_dispatch_event
     ( $session, $self->get_active_session(),

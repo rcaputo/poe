@@ -556,9 +556,10 @@ sub _invoke_state {
   # Trace the state invocation if tracing is enabled.
 
   if ($self->[SE_OPTIONS]->{+OPT_TRACE}) {
-    warn( $POE::Kernel::poe_kernel->ID_session_to_id($self),
-          " -> $state (from $file at $line)\n"
-        );
+    POE::Kernel::_warn(
+      $POE::Kernel::poe_kernel->ID_session_to_id($self),
+      " -> $state (from $file at $line)\n"
+    );
   }
 
   # The desired destination state doesn't exist in this session.
@@ -575,7 +576,7 @@ sub _invoke_state {
       if ($self->[SE_OPTIONS]->{+OPT_DEFAULT} and $state ne EN_SIGNAL) {
         my $loggable_self =
           $POE::Kernel::poe_kernel->_data_alias_loggable($self);
-        warn(
+        POE::Kernel::_warn(
           "a '$state' event was sent from $file at $line to $loggable_self ",
           "but $loggable_self has neither a handler for it ",
           "nor one for _default\n"
@@ -588,9 +589,10 @@ sub _invoke_state {
     # the transition to.  Trace the redirection.
 
     if ($self->[SE_OPTIONS]->{+OPT_TRACE}) {
-      warn( $POE::Kernel::poe_kernel->ID_session_to_id($self),
-            " -> $state redirected to _default\n"
-          );
+      POE::Kernel::_warn(
+        $POE::Kernel::poe_kernel->ID_session_to_id($self),
+        " -> $state redirected to _default\n"
+      );
     }
 
     # Transmogrify the original state transition into a corresponding

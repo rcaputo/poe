@@ -10,7 +10,7 @@ use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-BEGIN { open STDERR, ">./test-output.err" or die $!; }
+sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 BEGIN {
   test_setup(0, "$^O does not support signals.") if $^O eq "MSWin32";

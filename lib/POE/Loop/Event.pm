@@ -47,8 +47,9 @@ sub loop_finalize {
   foreach my $fd (0..$#fileno_watcher) {
     next unless defined $fileno_watcher[$fd];
     foreach my $mode (MODE_RD, MODE_WR, MODE_EX) {
-      warn "Mode $mode watcher for fileno $fd is defined during loop finalize"
-        if defined $fileno_watcher[$fd]->[$mode];
+      POE::Kernel::_warn(
+        "Mode $mode watcher for fileno $fd is defined during loop finalize"
+      ) if defined $fileno_watcher[$fd]->[$mode];
     }
   }
 }
@@ -58,7 +59,7 @@ sub loop_finalize {
 
 sub _loop_signal_handler_generic {
   if (TRACE_SIGNALS) {
-    warn "<sg> Enqueuing generic SIG$_[0] event";
+    POE::Kernel::_warn "<sg> Enqueuing generic SIG$_[0] event";
   }
 
   $poe_kernel->_data_ev_enqueue
@@ -69,7 +70,7 @@ sub _loop_signal_handler_generic {
 
 sub _loop_signal_handler_pipe {
   if (TRACE_SIGNALS) {
-    warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
+    POE::Kernel::_warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
   }
 
   $poe_kernel->_data_ev_enqueue
@@ -81,7 +82,7 @@ sub _loop_signal_handler_pipe {
 
 sub _loop_signal_handler_child {
   if (TRACE_SIGNALS) {
-    warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
+    POE::Kernel::_warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
   }
 
   $poe_kernel->_data_ev_enqueue

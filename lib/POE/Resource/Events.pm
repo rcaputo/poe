@@ -38,12 +38,12 @@ sub _data_ev_finalize {
   my $finalized_ok = 1;
   while (my ($ses, $cnt) = each(%event_count)) {
     $finalized_ok = 0;
-    warn "!!! Leaked event-to count: $ses = $cnt\n";
+    _warn("!!! Leaked event-to count: $ses = $cnt\n");
   }
 
   while (my ($ses, $cnt) = each(%post_count)) {
     $finalized_ok = 0;
-    warn "!!! Leaked event-from count: $ses = $cnt\n";
+    _warn("!!! Leaked event-from count: $ses = $cnt\n");
   }
   return $finalized_ok;
 }
@@ -57,8 +57,9 @@ sub _data_ev_enqueue {
      ) = @_;
 
   unless ($self->_data_ses_exists($session)) {
-    confess
-      "<ev> can't enqueue event ``$event'' for nonexistent session $session\n";
+    _confess(
+      "<ev> can't enqueue event ``$event'' for nonexistent session $session\n"
+    );
   }
 
   # This is awkward, but faster than using the fields individually.
@@ -68,11 +69,12 @@ sub _data_ev_enqueue {
   my $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
 
   if (TRACE_EVENTS) {
-    warn( "<ev> enqueued event $new_id ``$event'' from ",
-          $self->_data_alias_loggable($source_session), " to ",
-          $self->_data_alias_loggable($session),
-          " at $time"
-        );
+    _warn(
+      "<ev> enqueued event $new_id ``$event'' from ",
+      $self->_data_alias_loggable($source_session), " to ",
+      $self->_data_alias_loggable($session),
+      " at $time"
+    );
   }
 
   if ($kr_queue->get_item_count() == 1) {
@@ -179,8 +181,8 @@ sub _data_ev_clear_alarm_by_session {
 sub _data_ev_refcount_dec {
   my ($self, $source_session, $dest_session) = @_;
 
-  confess $dest_session unless exists $event_count{$dest_session};
-  confess $source_session unless exists $post_count{$source_session};
+  _confess $dest_session unless exists $event_count{$dest_session};
+  _confess $source_session unless exists $post_count{$source_session};
 
   $self->_data_ses_refcount_dec($dest_session);
   unless (--$event_count{$dest_session}) {
@@ -214,9 +216,10 @@ sub _data_ev_dispatch_due {
 
   if (TRACE_EVENTS) {
     foreach ($kr_queue->peek_items(sub { 1 })) {
-      warn( "<ev> time($_->[ITEM_PRIORITY]) id($_->[ITEM_ID]) ",
-            "event(@{$_->[ITEM_PAYLOAD]})\n"
-          );
+      _warn(
+        "<ev> time($_->[ITEM_PRIORITY]) id($_->[ITEM_ID]) ",
+        "event(@{$_->[ITEM_PAYLOAD]})\n"
+      );
     }
   }
 
@@ -226,7 +229,7 @@ sub _data_ev_dispatch_due {
     my ($time, $id, $event) = $kr_queue->dequeue_next();
 
     if (TRACE_EVENTS) {
-      warn "<ev> dispatching event $id ($event->[EV_NAME])";
+      _warn("<ev> dispatching event $id ($event->[EV_NAME])");
     }
 
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);

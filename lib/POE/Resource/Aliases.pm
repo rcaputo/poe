@@ -39,12 +39,12 @@ use POE::API::ResLoader \&_data_ses_initialize;
 sub _data_alias_finalize {
   my $finalized_ok = 1;
   while (my ($alias, $ses) = each(%kr_aliases)) {
-    warn "!!! Leaked alias: $alias = $ses\n";
+    _warn "!!! Leaked alias: $alias = $ses\n";
     $finalized_ok = 0;
   }
   while (my ($ses, $alias_rec) = each(%kr_ses_to_alias)) {
     my @aliases = keys(%$alias_rec);
-    warn "!!! Leaked alias cross-reference: $ses (@aliases)\n";
+    _warn "!!! Leaked alias cross-reference: $ses (@aliases)\n";
     $finalized_ok = 0;
   }
   return $finalized_ok;
@@ -122,7 +122,7 @@ sub _data_alias_count_ses {
 
 sub _data_alias_loggable {
   my ($self, $session) = @_;
-  confess "internal inconsistency" unless ref($session);
+  _confess "internal inconsistency" unless ref($session);
   "session " . $session->ID . " (" .
     ( (exists $kr_ses_to_alias{$session})
       ? join(", ", $self->_data_alias_list($session))

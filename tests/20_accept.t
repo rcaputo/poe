@@ -11,7 +11,7 @@ use TestSetup qw(ok not_ok ok_if results test_setup many_not_ok);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-BEGIN { open STDERR, ">./test-output.err" or die $!; }
+sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use POE qw(Wheel::ListenAccept Wheel::SocketFactory);
 

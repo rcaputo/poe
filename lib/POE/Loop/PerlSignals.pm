@@ -17,14 +17,13 @@ package POE::Kernel;
 
 use strict;
 use POE::Kernel;
-use Carp qw(confess);
 
 #------------------------------------------------------------------------------
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
   if (TRACE_SIGNALS) {
-    warn "<sg> Enqueuing generic SIG$_[0] event";
+    POE::Kernel::_warn "<sg> Enqueuing generic SIG$_[0] event";
   }
 
   $poe_kernel->_data_ev_enqueue
@@ -36,7 +35,7 @@ sub _loop_signal_handler_generic {
 
 sub _loop_signal_handler_pipe {
   if (TRACE_SIGNALS) {
-    warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
+    POE::Kernel::_warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
   }
 
   $poe_kernel->_data_ev_enqueue
@@ -50,7 +49,7 @@ sub _loop_signal_handler_pipe {
 # that polls for them.
 sub _loop_signal_handler_child {
   if (TRACE_SIGNALS) {
-    warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
+    POE::Kernel::_warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
   }
 
   $SIG{$_[0]} = 'DEFAULT';

@@ -93,11 +93,13 @@ sub loop_watch_filehandle {
   my $new = $current | $type;
 
   if (TRACE_FILES) {
-    warn( sprintf( "<fh> Watch $fileno: " .
-                   "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
-                   $current, $type, $new
-                 )
-        );
+    POE::Kernel::_warn(
+      sprintf(
+        "<fh> Watch $fileno: " .
+        "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
+        $current, $type, $new
+      )
+    );
   }
 
   $poll_fd_masks{$fileno} = $new;
@@ -112,11 +114,13 @@ sub loop_ignore_filehandle {
   my $new = $current & ~$type;
 
   if (TRACE_FILES) {
-    warn( sprintf( "<fh> Ignore $fileno: " .
-                   ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
-                   $current, $type, $new
-                 )
-        );
+    POE::Kernel::_warn(
+      sprintf(
+        "<fh> Ignore $fileno: " .
+        ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
+        $current, $type, $new
+      )
+    );
   }
 
   if ($new) {
@@ -136,11 +140,13 @@ sub loop_pause_filehandle {
   my $new = $current & ~$type;
 
   if (TRACE_FILES) {
-    warn( sprintf( "<fh> Pause $fileno: " .
-                   ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
-                   $current, $type, $new
-                 )
-        );
+    POE::Kernel::_warn(
+      sprintf(
+        "<fh> Pause $fileno: " .
+        ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
+        $current, $type, $new
+      )
+    );
   }
 
   if ($new) {
@@ -160,11 +166,13 @@ sub loop_resume_filehandle {
   my $new = $current | $type;
 
   if (TRACE_FILES) {
-    warn( sprintf( "<fh> Resume $fileno: " .
-                   "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
-                   $current, $type, $new
-                 )
-        );
+    POE::Kernel::_warn(
+      sprintf(
+        "<fh> Resume $fileno: " .
+        "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
+        $current, $type, $new
+      )
+    );
   }
 
   $poll_fd_masks{$fileno} = $new;
@@ -197,11 +205,13 @@ sub loop_do_timeslice {
   }
 
   if (TRACE_EVENTS) {
-    warn( '<ev> Kernel::run() iterating.  ' .
-          sprintf("now(%.4f) timeout(%.4f) then(%.4f)\n",
-                  $now-$^T, $timeout, ($now-$^T)+$timeout
-                 )
-        );
+    POE::Kernel::_warn(
+      '<ev> Kernel::run() iterating.  ' .
+      sprintf(
+        "now(%.4f) timeout(%.4f) then(%.4f)\n",
+        $now-$^T, $timeout, ($now-$^T)+$timeout
+       )
+    );
   }
 
   my @filenos = %poll_fd_masks;
@@ -222,7 +232,9 @@ sub loop_do_timeslice {
       push @modes, 'r' if $flags & (POLLIN | POLLHUP | POLLERR);
       push @modes, 'w' if $flags & (POLLOUT | POLLHUP | POLLERR);
       push @modes, 'x' if $flags & (POLLRDBAND | POLLHUP | POLLERR);
-      warn( "<fh> file descriptor $_ = modes(@modes) types(@types)\n" );
+      POE::Kernel::_warn(
+        "<fh> file descriptor $_ = modes(@modes) types(@types)\n"
+      );
     }
   }
 
@@ -240,7 +252,7 @@ sub loop_do_timeslice {
 
       if (ASSERT_FILES) {
         if ($hits < 0) {
-          confess "<fh> poll returned $hits (error): $!"
+          POE::Kernel::_confess("<fh> poll returned $hits (error): $!")
             unless ( ($! == EINPROGRESS) or
                      ($! == EWOULDBLOCK) or
                      ($! == EINTR)
@@ -250,10 +262,10 @@ sub loop_do_timeslice {
 
       if (TRACE_FILES) {
         if ($hits > 0) {
-          warn "<fh> poll hits = $hits\n";
+          POE::Kernel::_warn "<fh> poll hits = $hits\n";
         }
         elsif ($hits == 0) {
-          warn "<fh> poll timed out...\n";
+          POE::Kernel::_warn "<fh> poll timed out...\n";
         }
       }
 
@@ -274,7 +286,7 @@ sub loop_do_timeslice {
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
             if (TRACE_FILES) {
-              warn "<fh> enqueuing read for fileno $fd";
+              POE::Kernel::_warn "<fh> enqueuing read for fileno $fd";
             }
 
             $self->_data_handle_enqueue_ready(MODE_RD, $fd);
@@ -284,7 +296,7 @@ sub loop_do_timeslice {
                $got_mask & (POLLOUT | POLLHUP | POLLERR)
              ) {
             if (TRACE_FILES) {
-              warn "<fh> enqueuing write for fileno $fd";
+              POE::Kernel::_warn "<fh> enqueuing write for fileno $fd";
             }
 
             $self->_data_handle_enqueue_ready(MODE_WR, $fd);
@@ -294,7 +306,7 @@ sub loop_do_timeslice {
                $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
              ) {
             if (TRACE_FILES) {
-              warn "<fh> enqueuing expedite for fileno $fd";
+              POE::Kernel::_warn "<fh> enqueuing expedite for fileno $fd";
             }
 
             $self->_data_handle_enqueue_ready(MODE_EX, $fd);

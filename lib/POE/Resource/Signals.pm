@@ -119,17 +119,17 @@ sub _data_sig_finalize {
 
   while (my ($sig, $sig_rec) = each(%kr_signals)) {
     $finalized_ok = 0;
-    warn "!!! Leaked signal $sig\n";
+    _warn "!!! Leaked signal $sig\n";
     while (my ($ses, $event) = each(%{$kr_signals{$sig}})) {
-      warn "!!!\t$ses = $event\n";
+      _warn "!!!\t$ses = $event\n";
     }
   }
 
   while (my ($ses, $sig_rec) = each(%kr_sessions_to_signals)) {
     $finalized_ok = 0;
-    warn "!!! Leaked signal cross-reference: $ses\n";
+    _warn "!!! Leaked signal cross-reference: $ses\n";
     while (my ($sig, $event) = each(%{$kr_signals{$ses}})) {
-      warn "!!!\t$sig = $event\n";
+      _warn "!!!\t$sig = $event\n";
     }
   }
 
@@ -259,9 +259,10 @@ sub _data_sig_free_terminated_sessions {
     foreach my $dead_session (@kr_signaled_sessions) {
       next unless $self->_data_ses_exists($dead_session);
       if (TRACE_SIGNALS) {
-        warn( "<sg> stopping signaled session ",
-              $self->_data_alias_loggable($dead_session)
-            );
+        _warn(
+          "<sg> stopping signaled session ",
+          $self->_data_alias_loggable($dead_session)
+        );
       }
 
       $self->_data_ses_stop($dead_session);
@@ -294,7 +295,7 @@ sub _data_sig_touched_session {
 
   unless ($kr_signal_handled_explicitly) {
     if ($kr_signal_handled_implicitly) {
-      die(
+      _die(
         ",----- DEPRECATION ERROR -----\n",
         "| Session ", $self->_data_alias_loggable($session), ":\n",
         "| handled SIG$signal by returning a true value.\n",
