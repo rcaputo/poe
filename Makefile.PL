@@ -43,7 +43,7 @@ Would you like to skip the network tests?
 
 |;
 
-$prompt .= "(Any other text than Y or y will be taken as a no)";
+$prompt .= "(Any text other than Y or y will be taken as a no)";
 
 my $ret = "n";
 if (grep /^--default$/, @ARGV) {
