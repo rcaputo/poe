@@ -35,7 +35,7 @@ sub put {
 
 #------------------------------------------------------------------------------
 
-sub get_pending 
+sub get_pending
 {
     my($self)=@_;
     return unless $$self;

@@ -37,13 +37,30 @@ sub new {
     $out_handle = $params{OutputHandle};
   }
 
+  my ($in_filter, $out_filter);
+  if (exists $params{Filter}) {
+    carp "Ignoring InputFilter parameter (Filter parameter takes precedence)"
+      if (exists $params{InputFilter});
+    carp "Ignoring OUtputFilter parameter (Filter parameter takes precedence)"
+      if (exists $params{OutputFilter});
+    $in_filter = $out_filter = $params{Filter};
+  }
+  else {
+    croak "Filter or InputFilter required"
+      unless exists $params{InputFilter};
+    croak "Filter or OutputFilter required"
+      unless exists $params{OutputFilter};
+    $in_filter = $params{InputFilter};
+    $out_filter = $params{OutputFilter};
+  }
+
   croak "Driver required" unless (exists $params{Driver});
-  croak "Filter required" unless (exists $params{Filter});
 
   my $self = bless { input_handle  => $in_handle,
                      output_handle => $out_handle,
                      driver        => $params{Driver},
-                     filter        => $params{Filter},
+                     input_filter  => $in_filter,
+                     output_filter => $out_filter,
                      event_input   => $params{InputState},
                      event_error   => $params{ErrorState},
                      event_flushed => $params{FlushedState},
@@ -103,10 +120,10 @@ sub _define_read_state {
   # If any of these change, then the read state is invalidated and
   # needs to be redefined.
 
-  my $driver      = $self->{driver};
-  my $filter      = $self->{filter};
-  my $event_input = $self->{event_input};
-  my $event_error = $self->{event_error};
+  my $driver       = $self->{driver};
+  my $input_filter = $self->{input_filter};
+  my $event_input  = $self->{event_input};
+  my $event_error  = $self->{event_error};
 
   # Register the select-read handler.
 
@@ -119,7 +136,7 @@ sub _define_read_state {
                                         # subroutine starts here
           my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
           if (defined(my $raw_input = $driver->get($handle))) {
-            foreach my $cooked_input (@{$filter->get($raw_input)}) {
+            foreach my $cooked_input (@{$input_filter->get($raw_input)}) {
               $k->call($me, $event_input, $cooked_input);
             }
           }
@@ -195,29 +212,60 @@ sub DESTROY {
 
 sub put {
   my ($self, @chunks) = @_;
-  if ($self->{driver}->put($self->{filter}->put(\@chunks))) {
+  if ($self->{driver}->put($self->{output_filter}->put(\@chunks))) {
     $poe_kernel->select_write($self->{output_handle}, $self->{state_write});
   }
 }
 
 #------------------------------------------------------------------------------
-# Redefine filter.  -PG
+# Redefine filter. -PG / Now that there are two filters internally,
+# one input and one output, make this set both of them at the same
+# time. -RC
+
 sub set_filter
 {
-    my($self, $filter)=@_;
-    my $buf=$self->{filter}->get_pending();
-    $self->{filter}=$filter;
+    my($self, $new_filter)=@_;
+    my $buf=$self->{input_filter}->get_pending();
+    $self->{input_filter}=$self->{output_filter}=$new_filter;
 
+    # Updates a closure dealing with the input filter.
     $self->_define_read_state();
 
     if ( defined($buf) )
     {
-        foreach my $cooked_input (@{$filter->get($buf)})
+        foreach my $cooked_input (@{$new_filter->get($buf)})
         {
             $poe_kernel->yield($self->{event_input}, $cooked_input)
         }
     }
 }
+
+# Redefine input and/or output filters separately.
+
+sub set_input_filter {
+    my($self, $new_filter)=@_;
+    my $buf=$self->{input_filter}->get_pending();
+    $self->{input_filter}=$new_filter;
+
+    # Updates a closure dealing with the input filter.
+    $self->_define_read_state();
+
+    if ( defined($buf) )
+    {
+        foreach my $cooked_input (@{$new_filter->get($buf)})
+        {
+            $poe_kernel->yield($self->{event_input}, $cooked_input)
+        }
+    }
+}
+
+# No closures need to be redefined or anything.  All the previously
+# put stuff has been serialized already.
+sub set_output_filter {
+    my($self, $new_filter)=@_;
+    $self->{output_filter}=$new_filter;
+}
+
 
 ###############################################################################
 1;
@@ -242,7 +290,16 @@ POE::Wheel::ReadWrite - POE Read/Write Logic Abstraction
     OutputHandle => $writable_filehandle,         # Handle to write
 
     Driver       => new POE::Driver::Something(), # How to read/write it
-    Filter       => new POE::Filter::Something(), # How to parse it
+
+    # To read and write using the same line discipline, such as
+    # Filter::Line, use the Filter parameter:
+    Filter       => new POE::Filter::Something(), # How to parse in and out
+
+    # To read and write using different line disciplines, such as
+    # stream out and line in:
+    InputFilter  => new POE::Filter::Something(),     # Read data one way
+    OUtputFilter => new POE::Filter::SomethingElse(), # Write data another
+
     InputState   => $input_state_name,  # Input received state
     FlushedState => $flush_state_name,  # Output flushed state
     ErrorState   => $error_state_name,  # Error occurred state
@@ -250,7 +307,13 @@ POE::Wheel::ReadWrite - POE Read/Write Logic Abstraction
 
   $wheel->put( $something );
   $wheel->event( ... );
+
+  # To set both the input and output filters at once:
   $wheel->set_filter( new POE::Filter::Something );
+
+  # To set an input filter or an output filter:
+  $wheel->set_input_filter( new POE::Filter::Something );
+  $wheel->set_output_filter( new POE::Filter::Something );
 
 =head1 DESCRIPTION
 
@@ -283,9 +346,9 @@ Please see POE::Wheel.
 POE::Wheel::ReadWrite::set_filter( $poe_filter )
 
 The set_filter method changes the filter that the ReadWrite wheel uses
-to translate between streams and logical chunks of data.  It uses
-filters' get_pending() method to preserve any buffered data between
-the previous and new filters.
+to translate between streams and logical chunks of data.  It sets both
+the read and write filters.  It uses filters' get_pending() method to
+preserve any unprocessed input between the previous and new filters.
 
 Please be aware that this method has complex and perhaps non-obvious
 side effects.  The description of POE::Filter::get_pending() discusses
@@ -294,6 +357,20 @@ them further.
 POE::Filter::HTTPD does not support the get_pending() method.
 Switching from an HTTPD filter to another one will display a reminder
 that it sn't supported.
+
+=item *
+
+POE::Wheel::ReadWrite::set_input_filter( $poe_filter )
+
+This performs a similar function to the &set_filter method, but it
+only changes the input filter.
+
+=item *
+
+POE::Wheel::ReadWrite::set_output_filter( $poe_filter )
+
+This performs a similar function to the &set_filter method, but it
+only changes the output filter.
 
 =back
 

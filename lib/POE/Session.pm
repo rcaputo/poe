@@ -135,7 +135,7 @@ sub new {
     $POE::Kernel::poe_kernel->session_alloc($self, @args);
   }
   else {
-    carp "discarding session $self - no '_start' state";
+    carp "discarding session ", $self->ID, " - no '_start' state";
   }
 
   $self;
@@ -255,7 +255,7 @@ sub create {
     $POE::Kernel::poe_kernel->session_alloc($self, @args);
   }
   else {
-    carp "discarding session $self - no '_start' state";
+    carp "discarding session ", $self->ID, " - no '_start' state";
   }
 
   $self;
@@ -274,7 +274,7 @@ sub _invoke_state {
   my ($self, $source_session, $state, $etc) = @_;
 
   if (exists($self->[SE_OPTIONS]->{'trace'})) {
-    warn "$self -> $state\n";
+    warn $self->ID, " -> $state\n";
   }
 
   if (exists $self->[SE_STATES]->{$state}) {
@@ -314,7 +314,7 @@ sub _invoke_state {
   else {
     $! = ENOSYS;
     if (exists $self->[SE_OPTIONS]->{'default'}) {
-      warn "\t$self -> $state does not exist (and no _default)\n";
+      warn "\t", $self->ID, " -> $state does not exist (and no _default)\n";
       confess;
     }
     return undef;
@@ -332,7 +332,7 @@ sub register_state {
   if ($handler) {
     # Inline coderef.
     if (ref($handler) eq 'CODE') {
-      carp "redefining state($state) for session($self)"
+      carp "redefining state($state) for session(", $self->ID, ")"
         if ( (exists $self->[SE_OPTIONS]->{'debug'}) &&
              (exists $self->[SE_STATES]->{$state})
            );
@@ -340,7 +340,7 @@ sub register_state {
     }
     # Object or package method.
     elsif ($handler->can($method)) {
-      carp "redefining state($state) for session($self)"
+      carp "redefining state($state) for session(", $self->ID, ")"
         if ( (exists $self->[SE_OPTIONS]->{'debug'}) &&
              (exists $self->[SE_STATES]->{$state})
            );
@@ -351,7 +351,7 @@ sub register_state {
       if (ref($handler) eq 'CODE' &&
           exists($self->[SE_OPTIONS]->{'trace'})
       ) {
-        carp "$self : state($state) is not a proper ref - not registered"
+        carp $self->id, " : state($state) is not a proper ref - not registered"
       }
       else {
         croak "object $handler does not have a '$state' method"
