@@ -15,6 +15,9 @@ BEGIN {
     if ( length($@) or
          not exists($INC{"Socket6.pm"})
        );
+  my $addr = Socket6::gethostbyname2("::1", &Socket6::AF_INET6);
+  test_setup(0, "IPv6 tests require a configured localhost address ('::1')")
+    unless defined $addr;
 }
 
 # Turn on all asserts.
