@@ -40,6 +40,9 @@ my $kr_signal_handled_implicitly;   # Whether it was handled implicitly.
 my $kr_signal_handled_explicitly;   # Whether it was handled explicitly.
 my $kr_signal_type;                 # The type of signal being dispatched.
 
+sub initialize { $poe_kernel->[KR_SIGNALS] = \%kr_signals }
+use POE::API::ResLoader \&initialize;
+
 # A list of special signal types.  Signals that aren't listed here are
 # benign (they do not kill sessions at all).  "Terminal" signals are
 # the ones that UNIX defaults to killing processes with.  Thus STOP is
