@@ -639,7 +639,6 @@ sub new {
         undef,               # KR_SIZE
         \$kr_run_warning,    # KR_RUN 
         \$kr_active_event,   # KR_ACTIVE_EVENT
-
       ], $type;
 
     POE::Resources->initialize();
@@ -666,6 +665,7 @@ sub new {
     $self->_initialize_kernel_session();
     $self->_data_stat_initialize() if TRACE_STATISTICS;
     $self->_data_sig_initialize();
+    $self->_data_magic_initialize();
 
     # These other subsystems don't have strange interactions.
     $self->_data_handle_initialize($kr_queue);
@@ -986,6 +986,7 @@ sub finalize_kernel {
   $self->_data_ev_finalize();
   $self->_data_ses_finalize();
   $self->_data_stat_finalize() if TRACE_PROFILE or TRACE_STATISTICS;
+  $self->_data_magic_finalize();
 }
 
 sub run_one_timeslice {

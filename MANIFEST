@@ -11,6 +11,7 @@ README
 TODO
 lib/POE.pm
 lib/POE/API/ResLoader.pm
+lib/POE/API/Ctl.pm
 lib/POE/Component.pm
 lib/POE/Component/Client/TCP.pm
 lib/POE/Component/Server/TCP.pm
@@ -46,6 +47,7 @@ lib/POE/Queue.pm
 lib/POE/Queue/Array.pm
 lib/POE/Resource.pm
 lib/POE/Resource/Aliases.pm
+lib/POE/Resource/Controls.pm
 lib/POE/Resource/Events.pm
 lib/POE/Resource/Extrefs.pm
 lib/POE/Resource/FileHandles.pm
@@ -131,8 +133,10 @@ t/27_poll.t
 t/28_windows.t
 t/29_sockfact6.t
 t/30_filter_httpd.t
+t/api/ctl.t
 t/regress/neyuki-detach.t
 t/res/aliases.t
+t/res/controls.t
 t/res/events.t
 t/res/extrefs.t
 t/res/filehandles.t
