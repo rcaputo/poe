@@ -7,6 +7,13 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.06_08 1999.05.13
+------------------
+
+Begin changing POE's directory structure.  The tests/ directory is now
+samples/.
+
+
 0.06_07 1999.05.12
 ------------------
 
