@@ -95,8 +95,8 @@ sub DESTROY {
 #------------------------------------------------------------------------------
 
 sub put {
-  my $self = shift;
-  if ($self->{'driver'}->put($self->{'filter'}->put(@_))) {
+  my ($self, @chunks) = @_;
+  if ($self->{'driver'}->put($self->{'filter'}->put(\@chunks))) {
     $poe_kernel->select_write($self->{'handle'}, $self->{'state write'});
   }
 }
