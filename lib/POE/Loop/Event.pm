@@ -15,16 +15,6 @@ package POE::Kernel;
 
 use strict;
 
-# Declare which event loop bridge is being used, but first ensure that
-# no other bridge has been loaded.
-
-BEGIN {
-  die( "POE can't use Event and " . &POE_LOOP . "\n" )
-    if defined &POE_LOOP;
-};
-
-sub POE_LOOP () { LOOP_EVENT }
-
 my $_watcher_timer;
 my @fileno_watcher;
 my %signal_watcher;
@@ -35,12 +25,11 @@ my %signal_watcher;
 sub loop_initialize {
   my $self = shift;
 
-  $_watcher_timer =
-    Event->timer
-      ( cb     => \&_loop_event_callback,
-        after  => 0,
-        parked => 1,
-      );
+  $_watcher_timer = Event->timer(
+    cb     => \&_loop_event_callback,
+    after  => 0,
+    parked => 1,
+  );
 }
 
 sub loop_finalize {
@@ -62,10 +51,10 @@ sub _loop_signal_handler_generic {
     POE::Kernel::_warn "<sg> Enqueuing generic SIG$_[0] event";
   }
 
-  $poe_kernel->_data_ev_enqueue
-    ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
-      __FILE__, __LINE__, time(),
-    );
+  $poe_kernel->_data_ev_enqueue(
+    $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
+    __FILE__, __LINE__, time(),
+  );
 }
 
 sub _loop_signal_handler_pipe {
@@ -73,11 +62,11 @@ sub _loop_signal_handler_pipe {
     POE::Kernel::_warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
   }
 
-  $poe_kernel->_data_ev_enqueue
-    ( $poe_kernel->get_active_session(), $poe_kernel,
-      EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
-      __FILE__, __LINE__, time(),
-    );
+  $poe_kernel->_data_ev_enqueue(
+    $poe_kernel->get_active_session(), $poe_kernel,
+    EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
+    __FILE__, __LINE__, time(),
+  );
 }
 
 sub _loop_signal_handler_child {
@@ -85,10 +74,10 @@ sub _loop_signal_handler_child {
     POE::Kernel::_warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
   }
 
-  $poe_kernel->_data_ev_enqueue
-    ( $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
-      __FILE__, __LINE__, time(),
-    );
+  $poe_kernel->_data_ev_enqueue(
+    $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+    __FILE__, __LINE__, time(),
+  );
 }
 
 #------------------------------------------------------------------------------
@@ -103,20 +92,20 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $self->_data_ev_enqueue
-      ( $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-        __FILE__, __LINE__, time() + 1,
-      ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
+    $self->_data_ev_enqueue(
+      $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+      __FILE__, __LINE__, time() + 1,
+    ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
     return;
   }
 
   # Broken pipe.
   if ($signal eq 'PIPE') {
-    $signal_watcher{$signal} =
-      Event->signal( signal => $signal,
-                     cb     => \&_loop_signal_handler_pipe
-                   );
+    $signal_watcher{$signal} = Event->signal(
+      signal => $signal,
+      cb     => \&_loop_signal_handler_pipe
+    );
     return;
   }
 
@@ -124,10 +113,10 @@ sub loop_watch_signal {
   return if $signal eq 'KILL' or $signal eq 'STOP';
 
   # Everything else.
-  $signal_watcher{$signal} =
-    Event->signal( signal => $signal,
-                   cb     => \&_loop_signal_handler_generic
-                 );
+  $signal_watcher{$signal} = Event->signal(
+    signal => $signal,
+    cb     => \&_loop_signal_handler_generic
+  );
 }
 
 sub loop_ignore_signal {
@@ -174,18 +163,19 @@ sub loop_watch_filehandle {
     undef $fileno_watcher[$fileno]->[$mode];
   }
 
-  $fileno_watcher[$fileno]->[$mode] =
-    Event->io
-      ( fd => $fileno,
-        poll => ( ( $mode == MODE_RD )
-                  ? 'r'
-                  : ( ( $mode == MODE_WR )
-                      ? 'w'
-                      : 'e'
-                    )
-                ),
-        cb => \&_loop_select_callback,
-      );
+  $fileno_watcher[$fileno]->[$mode] = Event->io(
+    fd => $fileno,
+    poll => (
+      ( $mode == MODE_RD )
+      ? 'r'
+      : (
+        ( $mode == MODE_WR )
+        ? 'w'
+        : 'e'
+      )
+    ),
+    cb => \&_loop_select_callback,
+  );
 }
 
 sub loop_ignore_filehandle {
@@ -248,16 +238,19 @@ sub _loop_select_callback {
   my $event = shift;
   my $watcher = $event->w;
   my $fileno = $watcher->fd;
-  my $mode = ( ( $event->got eq 'r' )
-               ? MODE_RD
-               : ( ( $event->got eq 'w' )
-                   ? MODE_WR
-                   : ( ( $event->got eq 'e' )
-                       ? MODE_EX
-                       : return
-                     )
-                 )
-             );
+  my $mode = (
+    ( $event->got eq 'r' )
+    ? MODE_RD
+    : (
+      ( $event->got eq 'w' )
+      ? MODE_WR
+      : (
+        ( $event->got eq 'e' )
+        ? MODE_EX
+        : return
+      )
+    )
+  );
 
   $self->_data_handle_enqueue_ready($mode, $fileno);
   $self->_test_if_kernel_is_idle();

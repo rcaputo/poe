@@ -326,52 +326,43 @@ sub _die {
 #------------------------------------------------------------------------------
 # Adapt POE::Kernel's personality to whichever event loop is present.
 
-sub LOOP_EVENT  () { 'Event.pm' }
-sub LOOP_GTK    () { 'Gtk.pm'   }  # Gtk and Gnome support
-sub LOOP_GTK2   () { 'Gtk2.pm'  }
-sub LOOP_POLL   () { 'Poll.pm'  }
-sub LOOP_SELECT () { 'select()' }
-sub LOOP_TK     () { 'Tk.pm'    }
-
 BEGIN {
-  if (exists $INC{'Gtk2.pm'}) {
-    require POE::Loop::Gtk2;
-    POE::Loop::Gtk2->import();
-  }
-  elsif (exists $INC{'Gtk.pm'}) {
-    require POE::Loop::Gtk;
-    POE::Loop::Gtk->import();
+  my $used_first;
+
+  my $base_path = __FILE__;
+  substr($base_path, -9) = "Loop";
+
+  foreach my $file (keys %INC) {
+    my $pared_file = $file;
+    $pared_file =~ s/^IO\///;
+    next unless -e "$base_path/$pared_file";
+
+    my $module = $pared_file;
+    substr($module, -3) = "";
+
+    if (defined $used_first) {
+      die(
+        "*\n",
+        "* POE can't use multiple event loops at once.\n",
+        "* You used $used_first and $module.\n",
+        "*\n",
+      );
+    }
+
+    # Modules can die with "not really dying" if they've loaded
+    # something else.
+    eval "require POE::Loop::$module;";
+    die if $@ and $@ !~ /not really dying/;
+    eval "POE::Loop::$module->import();";
+    die if $@;
+
+    $used_first = $module;
   }
 
-  if (exists $INC{'Tk.pm'}) {
-    if ($^O eq 'MSWin32') {
-      require POE::Loop::TkActiveState;
-      POE::Loop::TkActiveState->import();
-    }
-    else {
-      require POE::Loop::Tk;
-      POE::Loop::Tk->import();
-    }
-  }
-
-  if (exists $INC{'Event.pm'}) {
-    require POE::Loop::Event;
-    POE::Loop::Event->import();
-  }
-
-  if (exists $INC{'IO/Poll.pm'}) {
-    if ($^O eq 'MSWin32') {
-      _warn "IO::Poll has issues on $^O.  Using select() instead for now.\n";
-    }
-    else {
-      require POE::Loop::Poll;
-      POE::Loop::Poll->import();
-    }
-  }
-
-  unless (defined &POE_LOOP) {
+  unless (defined $used_first) {
     require POE::Loop::Select;
     POE::Loop::Select->import();
+    $used_first = "POE::Loop::Select";
   }
 }
 

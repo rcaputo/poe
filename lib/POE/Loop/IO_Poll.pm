@@ -18,19 +18,20 @@ package POE::Kernel;
 
 use strict;
 
-use Errno qw(EINPROGRESS EWOULDBLOCK EINTR);
+# Be sure we're using a contemporary version of IO::Poll.
+use IO::Poll 0.05;
 
-# Delcare which event loop bridge is being used, but first ensure that
-# no other bridge has been loaded.
-
+# Hand off to POE::Loop::Select if we're running under ActivePerl.
 BEGIN {
-  die "POE can't use IO::Poll and " . &POE_LOOP . "\n"
-    if defined &POE_LOOP;
-  die "IO::Poll is version $IO::Poll::VERSION (POE needs 0.05 or newer)\n"
-    if $IO::Poll::VERSION < 0.05;
-};
+  if ($^O eq "MSWin32") {
+    warn "IO::Poll is defective on $^O.  Falling back to IO::Select.\n";
+    require POE::Loop::Select;
+    POE::Loop::Select->import();
+    die "not really dying";
+  }
+}
 
-sub POE_LOOP () { LOOP_POLL }
+use Errno qw(EINPROGRESS EWOULDBLOCK EINTR);
 
 use IO::Poll qw( POLLRDNORM POLLWRNORM POLLRDBAND
                  POLLIN POLLOUT POLLERR POLLHUP

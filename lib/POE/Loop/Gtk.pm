@@ -18,17 +18,6 @@ package POE::Kernel;
 
 use strict;
 
-# Delcare which event loop bridge is being used, but first ensure that
-# no other bridge has been loaded.
-
-BEGIN {
-  die( "POE can't use Gtk and " . &POE_LOOP . "\n" )
-    if defined &POE_LOOP;
-};
-
-# Declare the loop we're using.
-sub POE_LOOP () { LOOP_GTK }
-
 my $_watcher_timer;
 my @fileno_watcher;
 my $gtk_init_check;
@@ -41,14 +30,13 @@ sub loop_initialize {
 
   # Must Gnome->init() yourselves, as it takes parameters.
   unless (exists $INC{'Gnome.pm'}) {
-    
     # Gtk can only be initialized once. 
     # So if we've initalized it already, skip the whole deal.
     unless($gtk_init_check) {
       $gtk_init_check++;
-    
+
       my $res = Gtk->init_check();
-      
+
       # Now check whether the init was ok.
       # undefined == icky; TRUE (whatever that means in gtk land) means Ok.
       if (defined $res) {
@@ -83,19 +71,18 @@ sub loop_attach_uidestroy {
   # Don't bother posting the signal if there are no sessions left.  I
   # think this is a bit of a kludge: the situation where a window
   # lasts longer than POE::Kernel should never occur.
-  $window->signal_connect
-    ( delete_event =>
-      sub {
-        if ($self->_data_ses_count()) {
-          $self->_dispatch_event
-            ( $self, $self,
-              EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-              __FILE__, __LINE__, time(), -__LINE__
-            );
-        }
-        return 0;
+  $window->signal_connect(
+    delete_event => sub {
+      if ($self->_data_ses_count()) {
+        $self->_dispatch_event
+          ( $self, $self,
+            EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
+            __FILE__, __LINE__, time(), -__LINE__
+          );
       }
-    );
+      return 0;
+    }
+  );
 }
 
 #------------------------------------------------------------------------------

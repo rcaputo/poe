@@ -12,17 +12,14 @@ use POE::Loop::TkCommon;
 use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
-BEGIN {
-  die "POE's Tk support requires version Tk 800.021 or higher.\n"
-    unless defined($Tk::VERSION) and $Tk::VERSION >= 800.021;
-  die "POE's Tk support requires Perl 5.005_03 or later.\n"
-    if $] < 5.00503;
-};
+use Tk 800.021;
+use 5.00503;
 
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
 
 use strict;
+use Errno qw(EINPROGRESS EWOULDBLOCK EINTR);
 
 # select() vectors.  They're stored in an array so that the MODE_*
 # offsets can refer to them.  This saves some code at the expense of

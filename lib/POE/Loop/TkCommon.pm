@@ -12,27 +12,13 @@ use POE::Loop::PerlSignals;
 use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
-BEGIN {
-  die "POE's Tk support requires version Tk 800.021 or higher.\n"
-    unless defined($Tk::VERSION) and $Tk::VERSION >= 800.021;
-  die "POE's Tk support requires Perl 5.005_03 or later.\n"
-    if $] < 5.00503;
-};
+use Tk 800.021;
+use 5.00503;
 
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
 
 use strict;
-
-# Delcare which event loop bridge is being used, but first ensure that
-# no other bridge has been loaded.
-
-BEGIN {
-  die( "POE can't use Tk and " . &POE_LOOP_NAME . "\n" )
-    if defined &POE_LOOP;
-};
-
-sub POE_LOOP () { LOOP_TK }
 
 my $_watcher_timer;
 

@@ -19,16 +19,6 @@ package POE::Kernel;
 use strict;
 use Errno qw(EINPROGRESS EWOULDBLOCK EINTR);
 
-# Delcare which event loop bridge is being used, but first ensure that
-# no other bridge has been loaded.
-
-BEGIN {
-  die( "POE can't use its own loop and " . &POE_LOOP . "\n" )
-    if defined &POE_LOOP;
-};
-
-sub POE_LOOP () { LOOP_SELECT }
-
 # Linux has a bug on "polled" select() calls.  If select() is called
 # with a zero-second timeout, and a signal manages to interrupt it
 # anyway (it's happened), the select() function is restarted and will
