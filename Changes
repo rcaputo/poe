@@ -7,6 +7,50 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.05_57 1999.02.02
+------------------
+
+!!! Renamed POE::Session::debug() as POE::Session::option(), per
+feedback from testers.  This changes the original "_debug" semantics
+into something like environment variables for sessions.
+
+The ReadWrite wheel's InputState is optional.  This allows for
+write-only wheels, which are good for writing logs.  The
+followtail.perl test has been updated to use such a wheel for its log
+writer sessions.
+
+The FollowTail wheel now has an optional PollInterval parameter, which
+tells how long to wait (in seconds) between checking the file for new
+data.
+
+
+0.05_56 1999.02.02
+------------------
+
+Crimson found the real cause of Perl's coredumps, which allowed the
+0.05_54 change to be rolled back.
+
+
+0.05_55 1999.02.01
+------------------
+
+(!!!) SIGWINCH is unsupported until Perl and/or POE implements safe
+signals.  This signal was causing Perl to crash on xterm resizes.
+
+(!!!) Sessions' "_debug" variables have been removed.  Instead,
+POE::Session now has a debug() method.  This removes the _debug heap
+pollution, and allows for several per-session debug flags.
+
+
+0.05_54 1999.01.30
+------------------
+
+Backed out the change in 0.05_04 where wheels call their event
+handlers directly.  This causes some sort of stupid closure or
+destructor trick (we're still not sure which) that makes perl SEGV on
+some systems.
+
+
 0.05_52 1999.01.27
 ------------------
 
