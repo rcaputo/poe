@@ -25,6 +25,7 @@ POE/Kernel.pm
 POE/Loop.pm
 POE/Loop/Event.pm
 POE/Loop/Gtk.pm
+POE/Loop/PerlSignals.pm
 POE/Loop/Poll.pm
 POE/Loop/Select.pm
 POE/Loop/Tk.pm
