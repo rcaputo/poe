@@ -11,18 +11,19 @@ much more information.
 What POE Is
 -----------
 
-POE is a mature framework for creating networking or multitasking
+POE is a mature framework for creating networking and multitasking
 programs in Perl.  It has been in active, open development since
 August 1998.  It has been used in mission-critical systems such as
 internetworked financial markets, file systems, commerce and
 application servers.  It has been used in projects ranging from a few
-lines to nearly 20,000.
+lines of code to nearly 20,000.
 
-POE is compatible with perl 5.005_03 through 5.6.1 and beyond.
+POE is compatible with perl 5.005_03 and up.
 
-POE includes functions for creating and using components.  Components
-are modular, reusable pieces of programs.  Several components have
-been published on the CPAN, and more are listed on POE's web site.
+POE includes an evolving component framework.  Components are
+high-level, modular, reusable pieces of programs.  Several components
+have been published on the CPAN, and more are listed on POE's web
+site.
 
 POE includes components and libraries for making quick work of network
 clients, servers, and peers.  A simple stand-alone web application
@@ -49,10 +50,6 @@ tips, and anonymous CVS instructions.
 POE may be installed through the CPAN shell in the usual CPAN shell
 manner.
 
-  perl -MCPAN -e 'install POE'
-
-It involves a little more work if you have an older CPAN shell:
-
   perl -MCPAN -e shell
   cpan> install POE
 
@@ -76,21 +73,20 @@ sense that they are on the web.
     -- CPAN testers' reports.
 
 POE's ongoing improvement relies on your feedback.  The easiest way to
-do that is included in the POE distribution itself.  The Makefile
-includes two targets: 'testreport' and 'reportupload'.
+do that is included in the POE distribution itself.
+
+To generate "poe_report.xml" with a summary of POE's test results:
 
   make testreport
-  make reportupload
 
-Running 'make testreport' will run the test suite and generate an XML
-file summarizing the test results named 'poe_report.xml'.  If you have
-an active non-proxied internet connection, running 'make reportupload'
-will transmit your test results to the POE test server.
+To upload that summary so we can tell if there are problems:
+
+  make reportupload
 
 If 'make reportupload' fails, you can upload poe_report.xml from the
 form at http://eekeek.org/poe-tests/ .
 
-Uploaded test results can be viewed at http://eekeek.org/poe-tests/.
+Uploaded test results can be viewed at http://eekeek.org/poe-tests/ .
 
 -------------
 Test Coverage
