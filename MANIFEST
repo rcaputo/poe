@@ -21,6 +21,7 @@ POE/Wheel/ReadWrite.pm
 POE/Wheel/SocketFactory.pm
 README
 t/test.t
+tests/create.perl
 tests/fakelogin.perl
 tests/followtail.perl
 tests/forkbomb.perl
