@@ -626,7 +626,7 @@ sub new {
   # have used versions prior to 0.06.  It also provides a convenient
   # single entry point into the entirety of POE's state: point a
   # Dumper module at it, and you'll see a hideous tree of knowledge.
-  # Be careful, though.  It's apples bite back.
+  # Be careful, though.  Its apples bite back.
   unless (defined $poe_kernel) {
 
     my $self = $poe_kernel = bless
