@@ -160,12 +160,13 @@ $program =~ tr[\'][\"] if $^O eq "MSWin32";
 
           # Run a child process.
           $heap->{wheel} = POE::Wheel::Run->new
-            ( Program     => $program,
-              Filter      => POE::Filter::Line->new( Literal => "!" ),
-              StdoutEvent => 'stdout_nonexistent',
-              StderrEvent => 'stderr_nonexistent',
-              ErrorEvent  => 'error_nonexistent',
-              StdinEvent  => 'stdin_nonexistent',
+            ( Program      => $program,
+              StdioFilter  => POE::Filter::Line->new( Literal => "!" ),
+              StderrFilter => POE::Filter::Line->new( Literal => "!" ),
+              StdoutEvent  => 'stdout_nonexistent',
+              StderrEvent  => 'stderr_nonexistent',
+              ErrorEvent   => 'error_nonexistent',
+              StdinEvent   => 'stdin_nonexistent',
             );
 
           # Test event changing.
@@ -234,12 +235,13 @@ my $coderef_flush_count = 0;
 
           # Run a child process.
           $heap->{wheel} = POE::Wheel::Run->new
-            ( Program     => $program,
-              Filter      => POE::Filter::Line->new( Literal => "!" ),
-              StdoutEvent => 'stdout_nonexistent',
-              StderrEvent => 'stderr_nonexistent',
-              ErrorEvent  => 'error_nonexistent',
-              StdinEvent  => 'stdin_nonexistent',
+            ( Program      => $program,
+              StdioFilter  => POE::Filter::Line->new( Literal => "!" ),
+              StderrFilter => POE::Filter::Line->new( Literal => "!" ),
+              StdoutEvent  => 'stdout_nonexistent',
+              StderrEvent  => 'stderr_nonexistent',
+              ErrorEvent   => 'error_nonexistent',
+              StdinEvent   => 'stdin_nonexistent',
             );
 
           # Test event changing.
@@ -295,12 +297,12 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
 
           # Run a child process.
           $heap->{wheel} = POE::Wheel::Run->new
-            ( Program     => $program,
-              Filter      => POE::Filter::Line->new( Literal => "!" ),
-              StdoutEvent => 'stdout_nonexistent',
-              ErrorEvent  => 'error_nonexistent',
-              StdinEvent  => 'stdin_nonexistent',
-              Conduit     => 'pty',
+            ( Program      => $program,
+              StdioFilter  => POE::Filter::Line->new( Literal => "!" ),
+              StdoutEvent  => 'stdout_nonexistent',
+              ErrorEvent   => 'error_nonexistent',
+              StdinEvent   => 'stdin_nonexistent',
+              Conduit      => 'pty',
             );
 
           # Test event changing.

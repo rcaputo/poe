@@ -120,36 +120,35 @@ sub new {
             defined($stderr_event)
           );
 
-  my $all_filter    = delete $params{Filter};
-  $all_filter = POE::Filter::Line->new(Literal => "\n")
-    unless defined $all_filter;
+  my $stdio_filter = delete $params{StdioFilter};
+  $stdio_filter = POE::Filter::Line->new(Literal => "\n")
+    unless defined $stdio_filter;
 
   my $stdin_filter  = delete $params{StdinFilter};
   my $stdout_filter = delete $params{StdoutFilter};
   my $stderr_filter = delete $params{StderrFilter};
 
-  $stdin_filter  = $all_filter unless defined $stdin_filter;
-  $stdout_filter = $all_filter unless defined $stdout_filter;
+  $stdin_filter  = $stdio_filter unless defined $stdin_filter;
+  $stdout_filter = $stdio_filter unless defined $stdout_filter;
 
-  if (defined $stderr_filter) {
-    if ($conduit eq 'pty') {
-      carp "ignoring StderrFilter with pty conduit";
-      undef $stderr_filter;
-    }
+  if ($conduit eq 'pty' and defined $stderr_filter) {
+    carp "ignoring StderrFilter with pty conduit";
+    undef $stderr_filter;
   }
   else {
-    $stderr_filter = $all_filter unless $conduit eq 'pty';
+    $stderr_filter = POE::Filter::Line->new(Literal => "\n")
+      unless defined $stderr_filter;
   }
 
-  croak "$type needs either Filter or StdinFilter"
+  croak "$type needs either StdioFilter or StdinFilter when using StdinEvent"
     if defined($stdin_event) and not defined($stdin_filter);
-  croak "$type needs either Filter or StdoutFilter"
+  croak "$type needs either StdioFilter or StdoutFilter when using StdoutEvent"
     if defined($stdout_event) and not defined($stdout_filter);
-  croak "$type needs either Filter or StderrFilter"
+  croak "$type needs a StderrFilter when using StderrEvent"
     if defined($stderr_event) and not defined($stderr_filter);
 
   my $error_event = delete $params{ErrorEvent};
-  my $close_event  = delete $params{CloseEvent};
+  my $close_event = delete $params{CloseEvent};
 
   # Make sure the user didn't pass in parameters we're not aware of.
   if (scalar keys %params) {
