@@ -20,21 +20,38 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $poe_kernel);
 
-  croak "Handle required" unless (exists $params{'Handle'});
-  croak "Driver required" unless (exists $params{'Driver'});
-  croak "Filter required" unless (exists $params{'Filter'});
+  my ($in_handle, $out_handle);
+  if (exists $params{Handle}) {
+    carp "Ignoring InputHandle parameter (Handle parameter takes precedence)"
+      if (exists $params{InputHandle});
+    carp "Ignoring OutputHandle parameter (Handle parameter takes precedence)"
+      if (exists $params{OutputHandle});
+    $in_handle = $out_handle = $params{Handle};
+  }
+  else {
+    croak "Handle or InputHandle required"
+      unless (exists $params{InputHandle});
+    croak "Handle or OutputHandle required"
+      unless (exists $params{OutputHandle});
+    $in_handle = $params{InputHandle};
+    $out_handle = $params{OutputHandle};
+  }
 
-  my $self = bless { 'handle'        => $params{'Handle'},
-                     'driver'        => $params{'Driver'},
-                     'filter'        => $params{'Filter'},
-                     'event input'   => $params{'InputState'},
-                     'event error'   => $params{'ErrorState'},
-                     'event flushed' => $params{'FlushedState'},
+  croak "Driver required" unless (exists $params{Driver});
+  croak "Filter required" unless (exists $params{Filter});
+
+  my $self = bless { input_handle  => $in_handle,
+                     output_handle => $out_handle,
+                     driver        => $params{Driver},
+                     filter        => $params{Filter},
+                     event_input   => $params{InputState},
+                     event_error   => $params{ErrorState},
+                     event_flushed => $params{FlushedState},
                    }, $type;
                                         # register private event handlers
-  if (defined $self->{'event input'}) {
+  if (defined $self->{event_input}) {
     $poe_kernel->state
-      ( $self->{'state read'} = $self . ' -> select read',
+      ( $self->{state_read} = $self . ' -> select read',
         sub {
                                         # prevents SEGV
           0 && CRIMSON_SCOPE_HACK('<');
@@ -42,26 +59,26 @@ sub new {
           my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
           if (defined(my $raw_input = $self->{driver}->get($handle))) {
             foreach my $cooked_input (@{$self->{filter}->get($raw_input)}) {
-              $k->call($me, $self->{'event input'}, $cooked_input)
+              $k->call($me, $self->{event_input}, $cooked_input)
             }
           }
           else {
-            $self->{'event error'} &&
-              $k->call($me, $self->{'event error'}, 'read', ($!+0), $!);
+            $self->{event_error} &&
+              $k->call($me, $self->{event_error}, 'read', ($!+0), $!);
             $k->select_read($handle);
           }
         }
       );
                                         # register the state's select
-    $poe_kernel->select_read($self->{handle}, $self->{'state read'});
+    $poe_kernel->select_read($self->{input_handle}, $self->{state_read});
   }
                                         # undefine the select, just in case
   else {
-    $poe_kernel->select_read($self->{handle})
+    $poe_kernel->select_read($self->{input_handle})
   }
                                         # register the select-write handler
   $poe_kernel->state
-    ( $self->{'state write'} = $self . ' -> select write',
+    ( $self->{state_write} = $self . ' -> select write',
       sub {                             # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
@@ -69,15 +86,15 @@ sub new {
 
         my $writes_pending = $self->{driver}->flush($handle);
         if ($!) {
-          $self->{'event error'} &&
-            $k->call($me, $self->{'event error'}, 'write', ($!+0), $!);
+          $self->{event_error} &&
+            $k->call($me, $self->{event_error}, 'write', ($!+0), $!);
           $k->select_write($handle);
         }
         elsif (defined $writes_pending) {
           unless ($writes_pending) {
             $k->select_write($handle);
-            (defined $self->{'event flushed'}) &&
-              $k->call($me, $self->{'event flushed'});
+            (defined $self->{event_flushed}) &&
+              $k->call($me, $self->{event_flushed});
           }
         }
       }
@@ -97,13 +114,13 @@ sub event {
     my ($name, $event) = splice(@_, 0, 2);
 
     if ($name eq 'InputState') {
-      $self->{'event input'} = $event;
+      $self->{event_input} = $event;
     }
     elsif ($name eq 'ErrorState') {
-      $self->{'event error'} = $event;
+      $self->{event_error} = $event;
     }
     elsif ($name eq 'FlushedState') {
-      $self->{'event flushed'} = $event;
+      $self->{event_flushed} = $event;
     }
     else {
       carp "ignoring unknown ReadWrite parameter '$name'";
@@ -116,16 +133,18 @@ sub event {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $poe_kernel->select($self->{'handle'});
+  $poe_kernel->select($self->{input_handle});
 
-  if ($self->{'state read'}) {
-    $poe_kernel->state($self->{'state read'});
-    delete $self->{'state read'};
+  if ($self->{state_read}) {
+    $poe_kernel->state($self->{state_read});
+    delete $self->{state_read};
   }
 
-  if ($self->{'state write'}) {
-    $poe_kernel->state($self->{'state write'});
-    delete $self->{'state write'};
+  $poe_kernel->select($self->{output_handle});
+
+  if ($self->{state_write}) {
+    $poe_kernel->state($self->{state_write});
+    delete $self->{state_write};
   }
 }
 
@@ -133,8 +152,8 @@ sub DESTROY {
 
 sub put {
   my ($self, @chunks) = @_;
-  if ($self->{'driver'}->put($self->{'filter'}->put(\@chunks))) {
-    $poe_kernel->select_write($self->{'handle'}, $self->{'state write'});
+  if ($self->{driver}->put($self->{filter}->put(\@chunks))) {
+    $poe_kernel->select_write($self->{output_handle}, $self->{state_write});
   }
 }
 
@@ -149,7 +168,7 @@ sub set_filter
     {
         foreach my $cooked_input (@{$filter->get($buf)})
         {
-            $poe_kernel->yield($self->{'event input'}, $cooked_input)
+            $poe_kernel->yield($self->{event_input}, $cooked_input)
         }
     }
 }
@@ -166,7 +185,16 @@ POE::Wheel::ReadWrite - POE Read/Write Logic Abstraction
 =head1 SYNOPSIS
 
   $wheel = new POE::Wheel::ReadWrite(
+
+    # To read and write from the same handle, such as a socket, use
+    # the Handle parameter:
     Handle       => $file_or_socket_handle,       # Handle to read/write
+
+    # To read and write from different handles, such as a dual pipe to
+    # a child process, or a console, use InputHandle and OutputHandle:
+    InputHandle  => $readable_filehandle,         # Handle to read
+    OutputHandle => $writable_filehandle,         # Handle to write
+
     Driver       => new POE::Driver::Something(), # How to read/write it
     Filter       => new POE::Filter::Something(), # How to parse it
     InputState   => $input_state_name,  # Input received state
