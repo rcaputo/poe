@@ -3683,7 +3683,7 @@ sub refcount_decrement {
   }
 
   my $refcount = $self->_data_extref_dec($session, $tag);
-  $self->_data_ses_collect_garbage($session);
+#  $self->_data_ses_collect_garbage($session);
 
   # trace it here
   return $refcount;
