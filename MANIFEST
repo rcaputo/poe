@@ -6,6 +6,7 @@ POE.pm
 POE/Attribute/Array.pm
 POE/Attribute/Hash.pm
 POE/Attribute/Scalar.pm
+POE/Component.pm
 POE/Component/Server/TCP.pm
 POE/Curator.pm
 POE/Driver.pm

@@ -8,6 +8,17 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
+0.10 2000.03.23 (!!!)
+---------------------
+
+Added POE::Component to the MANIFEST.  Whoops!
+
+Everything from 0.0901 through 0.0910 is included in this public
+CPAN release.  People using 0.09 should read through to see
+what has changed, paying extra attention to the bits marked
+incompatible.
+
+
 0.0910 2000.03.09 (!!!)
 -----------------------
 
