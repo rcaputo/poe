@@ -4,15 +4,15 @@
 =pod //////////////////////////////////////////////////////////////////////////
 
 Okay... how to write a program using POE.  First we need a program to
-write.  How about a simple chat server?  Ok?  Ok!
+write.  How about a simple chat server?  Ok!
 
 First perform some preliminary setup.  Turn on strict, and import the
 things we need.  That will be Socket, for the socket constants and
-address manipulation; and the POE classes we need.  All the POE
-classes get POE:: prepended to them when used along with POE.pm
-itself.  So, the classes we use here:
+address manipulation; and some POE classes.  All the POE classes get
+POE:: prepended to them when used along with POE.pm itself.  So, the
+classes we use here:
 
-POE::Wheel::SocketFactory, to create the listening server socket.
+POE::Wheel::SocketFactory, to create the sockets.
 
 POE::Wheel::ReadWrite, to send and receive on the client sockets.
 
@@ -30,52 +30,55 @@ use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);
 
 =pod //////////////////////////////////////////////////////////////////////////
 
-Now we need to create the listening server wait for connections.
+Now we need to create the listening server and wait for connections.
 First we define the subroutines that will handle the events, and then
 we create the POE::Session that maps events to subroutines.
 
 But first a quick note about event handler parameters.  Every event
-handler gets its parameters in some strange order.  They all get
-parameters in the same order, but the order changes from time to time
-(usually between versions).  So Rocco and Artur benchmarked a bunch of
-different ways to pass parameters where the order makes no difference.
-The least slowest way to do this-- which still is slower than plain
-list assignment-- was to use an array slice.
+handler gets its parameters in some strange order.  Actually, they all
+get parameters in the same order, but the order changes from time to
+time (usually between versions).  So Rocco and Artur benchmarked a
+bunch of different ways to pass parameters where the order makes no
+difference.  The least slowest way to do this-- which still is slower
+than plain list assignment-- was to use an array slice.
 
-So we came up with some constants to fix parameter indices into @_,
-and exported them.  Now you can say my ($heap, $kernel, $parameter) =
-@_[HEAP, KERNEL, ARG0], and it will continue to work even if new
-parameters are added.  And if parameters are removed, well, it will
-break at compile time instead of bumming you out with runtime
-strangeness.
+So we came up with some constants for parameter indices into @_, and
+exported them from POE::Session (which is automatically included when
+you use POE).  Now you can say C<my ($heap, $kernel, $parameter) =
+@_[HEAP, KERNEL, ARG0]>, and it will continue to work even if new
+parameters are added.  And if parameters are ever removed, well, it
+will break at compile time instead of causing sneaky runtime problems.
 
 So anyway, some of the important parameter offsets and what they do:
 
-  KERNEL is a reference to the POE kernel (event loop and services).
+  KERNEL is a reference to the POE kernel (event loop and services
+  object).
 
   SESSION is a reference to the current session.
 
-  HEAP is an anonymous hashref that a session can use to hold
-  its own global variables.
+  HEAP is an anonymous hashref that a session can use to hold its own
+  "global" variables.
 
   FROM is the session that sent the event.
 
-  ARG0 .. ARG9 are the first ten event parameters.
+  ARG0..ARG9 are the first ten event parameters.  If you need more
+  than that, you can either use ARG9+1.. or consider passing
+  parameters as an arrayref.  Array references would be faster anyway.
 
-Now about the SocketFactory.  Factory objects create new objects, so a
-SocketFactory is a factory that creates... sockets.  See?  Anyway, the
-socket factory creates sockets, but it does not return them.  Instead,
-it waits until the sockets are ready, and then it sends a "this socket
-is ready" message, including the ready socket.  And because this is
-non-blocking (event during connect), the program can keep working on
-other things while it waits for the socket
+Now about the SocketFactory.  A SocketFactory is a factory that
+creates... sockets.  See?  Anyway, the socket factory creates sockets,
+but it does not return them.  Instead, it waits until the sockets are
+ready, and then it sends a "this socket is ready" sort of success
+event.  The socket itself is sent as a parameter (ARG0) of the success
+event.  And because this is non-blocking (event during connect), the
+program can keep working on other things while it waits.
 
 There is more magic.  For listening sockets, it sends the "this socket
-is ready" message whenever a connection is successfully accepted.  And
-the socket that accompanies the message is the accepted one, not the
+is ready" event whenever a connection is successfully accepted.  And
+the socket that accompanies the event is the accepted one, not the
 listening one.  This makes writing servers real easy, because all the
 work between "create this server socket" and "here's your client
-socket" is taken care of by the SocketFactory.
+connection" is taken care of inside the SocketFactory object.
 
 So here is the server stuff:
 
@@ -93,7 +96,8 @@ sub server_start {
   # Create a listening INET/tcp socket.  Store a reference to the
   # SocketFactory wheel in the session's heap.  When the session
   # stops, and the heap is destroyed, the SocketFactory reference
-  # count will drop to zero, and Perl will destroy it for us.
+  # count drops to zero, and Perl destroys it for us.  Then it does a
+  # little "close the socket" dance inside, and everything is tidy.
 
   $heap->{listener} = new POE::Wheel::SocketFactory
     ( SocketDomain   => AF_INET,         # create it in the AF_INET domain
@@ -162,13 +166,16 @@ sub server_accept {
 
                     # To pass arguments to a session's _start handler,
                     # include them in an array reference.  For
-                    # example, the following causes $accepted_handle,
-                    # $peer_addr and $peer_port to arrive at the chat
-                    # session's _start event handler as ARG0, ARG1 and
-                    # ARG2, respectively.
+                    # example, the following array reference causes
+                    # $accepted_handle, $peer_addr and $peer_port to
+                    # arrive at the chat session's _start event
+                    # handler as ARG0, ARG1 and ARG2, respectively.
 
                     [ $accepted_socket, $peer_address, $peer_port ]
                   );
+
+  # That's all there is to it.  Take the handle, and start a session
+  # to cope with it.  Easy stuff.
 }
 
 # server_error is the server session's "error" handler.  If something
@@ -196,7 +203,7 @@ sub server_error {
 
 This section of the program is the actual chat management.  For the
 sake of the tutorial, it is just a hash to keep track of connections
-and a subroutine to multiplex messages to everyone.
+and a subroutine to distribute messages to everyone.
 
 =cut \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -232,8 +239,9 @@ sub say {
     # It uses call() here instead of post() because of the way
     # departing users are handled.  With post, you get situations
     # where the event is delivered after the user's wheel is gone,
-    # leading to runtime errors.  I wimped out and used call() instead
-    # of coding the session right.
+    # leading to runtime errors when the session tries to send the
+    # message.  I wimped out and used call() instead of coding the
+    # session right; it's okay for just this sample code.
 
     $kernel->call($session->[0], "hear", "<$who> $what");
   }
@@ -241,17 +249,17 @@ sub say {
 
 =pod //////////////////////////////////////////////////////////////////////////
 
-And we just wrote a server socket listener/accepter.  Now we need to
-handle the accepted sockets.
+Now we need to handle the accepted client connections.
 
 A quick recap of where the accepted socket currently is.  It was
 accepted by the SocketFactory, and passed to server_accept with the
 "we got a connection" event.  Then server_accept handed it off to a
-new POE::Session along with its _start event.  The _start event (and
-the handle, and the peer address and port) will then be delivered to
-chat_start as ARG0, ARG1 and ARG2.
+new POE::Session as a parameter to its _start event.  The _start event
+(and the handle, and the peer address and port) will then be delivered
+to chat_start as ARG0, ARG1 and ARG2.
 
-And here we are at chat_start...
+So anyway, read input from the client connection, process it somehow,
+and generate responses.  Here we are at chat_start...
 
 =cut \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -268,7 +276,7 @@ sub chat_start {
   # flushed conditions.
 
   $heap->{readwrite} = new POE::Wheel::ReadWrite
-    ( Handle       => $accepted_socket,       # read/write this handle
+    ( Handle       => $accepted_socket,       # read/write on this handle
       Driver       => new POE::Driver::SysRW, # using sysread and syswrite
       Filter       => new POE::Filter::Line,  # filtering I/O as lines
       InputState   => 'line_input',     # generate line_input on input
@@ -281,6 +289,10 @@ sub chat_start {
 
   $connected_sessions{$session} = [ $session, "$peer_addr:$peer_port" ];
   &say($_[KERNEL], $session, '[has joined chat]');
+
+  # Oh, and log the client session's start.
+
+  print "CLIENT: $peer_addr:$peer_port connected\n";
 }
 
 # And this is the chat session's "destructor", called by POE when the
@@ -290,16 +302,23 @@ sub chat_stop {
   my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
 
   # If this session still is connected (that is, it wasn't
-  # disconnected in an _error handler or something), then tell
+  # disconnected in an error event handler or something), then tell
   # everyone the person has left.
 
   if (exists $connected_sessions{$session}) {
+
+    # Log the disconnection.
+
+    print "CLIENT: $connected_sessions{$session}->[1] disconnected.\n";
+
+    # And say goodbye to everyone else.
+      
     &say($kernel, $session, '[has left chat]');
     delete $connected_sessions{$session};
   }
 
   # And, of course, close the socket.  This isn't really necessary
-  # here, but it may be elsewhere.
+  # here, but it's nice to see.
 
   delete $heap->{readwrite};
 }
@@ -312,16 +331,15 @@ sub chat_input {
 
   # Preprocess the input, backspacing over backspaced/deleted
   # characters.  It's just a nice thing to do for people using
-  # character-mode telnet.  It deletes non-backspace-or-delete
-  # characters that occur before backspace-or-delete characters.  Then
-  # it removes any remaining backspace-or-delete characters.
+  # character-mode telnet.
 
   1 while ($input =~ s/[^\x08\x7F][\x08\x7F]//g);
   $input =~ tr[\x08\x7F][]d;
 
-  # Parse the client's input for commands, and handle them.
+  # Parse the client's input for commands, and handle them.  For this
+  # little demo/tutorial, we only bother with one command.
 
-  # /nick command.  This changes the user's nickname.
+  # The /nick command.  This changes the user's nickname.
 
   if ($input =~ m!^/nick\s+(.*?)\s*$!i) {
     my $nick = $1;
@@ -353,6 +371,12 @@ sub chat_error {
     $errstr = 'disconnected';
   }
 
+  # Log the error...
+
+  print( "CLIENT: ", $connected_sessions{$session}->[1],
+         " got $operation error $errnum: $errstr\n"
+       );
+
   # Log the user out of the chat server with an error message.
 
   &say($kernel, $session, "[$operation error $errnum: $errstr]");
@@ -372,24 +396,24 @@ sub chat_error {
 
 sub chat_flush {
   # Actually, I don't really care at this point.  I'm tired of writing
-  # comments already, and whatever this does will have to be added by
-  # someone else.
+  # comments already, and whatever this is going to do will have to be
+  # defined later.
 
   # It's wasteful to leave this here.  Removing the FlushedState
   # parameter from the ReadWrite wheel will prevent this event handler
   # from being called.  But I'm leaving it this way as an example.
 }
 
-# And finally, this is the "hear" event handler.  It's called whenever
-# someone in the chat server says something.  ARG0 is a
-# fully-formatted message, suitable for dumping to a socket.
+# And finally, this is the "hear" event handler.  It's called by the
+# &say function whenever someone in the chat server says something.
+# ARG0 is a fully-formatted message, suitable for dumping to a socket.
 
 sub chat_heard {
   my ($heap, $what_was_heard) = @_[HEAP, ARG0];
 
   # Put the message in the ReadWrite wheel's output queue.  All the
   # line-formatting and buffered I/O stuff happens inside the wheel,
-  # because its constructors told it what to do.
+  # because its constructor told it to do that (Filter::Line).
 
   $heap->{readwrite}->put($what_was_heard);
 
