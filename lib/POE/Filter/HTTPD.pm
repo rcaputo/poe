@@ -18,7 +18,7 @@ use Carp qw(croak);
 use HTTP::Status;
 use HTTP::Request;
 use HTTP::Date qw(time2str);
-use URI::URL qw(url);
+use URI;
 
 my $HTTP_1_0 = _http_version("HTTP/1.0");
 my $HTTP_1_1 = _http_version("HTTP/1.1");
@@ -119,7 +119,7 @@ sub get {
 
   # Use the request line to create a request object.
 
-  my $r = HTTP::Request->new($1, url($2));
+  my $r = HTTP::Request->new($1, URI->new($2));
   $r->protocol($proto);
   $self->{'httpd_client_proto'} = $proto = _http_version($proto);
 
