@@ -36,11 +36,11 @@ sub SS_CHILDREN   () { 3 }
 sub SS_PROCESSES  () { 4 }
 sub SS_ID         () { 5 }
 
-sub _data_ses_initialize {
+sub _data_ses_preload {
    $POE::Kernel::poe_kernel->[KR_SESSIONS] = \%kr_sessions;
 }
 
-use POE::API::ResLoader \&_data_ses_initialize;
+use POE::API::ResLoader \&_data_ses_preload;
 
 ### End-run leak checking.
 
