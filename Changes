@@ -2,6 +2,15 @@ $Id$
 
 Revision history for Perl extension POE.
 
+*** 0.04 1998.11.24
+
+- Added $object->can($state) check when registering object methods as
+states/event handlers.
+
+- Added Session aliases (symbolic references).  See tests/names.perl
+for an example.
+
+
 *** 0.031 1998.11.24
 
 - Added tests/objsessions.perl to the manifest.  D'oh!
