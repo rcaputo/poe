@@ -36,10 +36,11 @@ sub POE_LOOP () { LOOP_SELECT }
 # on linux. basically, the smallest timeout possible on linux is 20ms. 
 # With no timeout, the select loop is not limited to this incredibly large
 # default timeout.
-#BEGIN {
+BEGIN {
 #  my $timeout = ($^O eq 'linux') ? 0.001 : 0;
-#  eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
-#};
+  my $timeout = 0;
+  eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
+};
 
 # select() vectors.  They're stored in an array so that the MODE_*
 # offsets can refer to them.  This saves some code at the expense of
