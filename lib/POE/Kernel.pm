@@ -8,8 +8,7 @@ use POSIX qw(EINPROGRESS EINTR);
 use IO::Select;
 use Carp;
                                         # allow subsecond alarms, if available
-# eval { require Time::HiRes; import Time::HiRes qw(time sleep); };
-use Time::HiRes qw(time sleep);
+eval { require Time::HiRes; import Time::HiRes qw(time sleep); };
 
 #------------------------------------------------------------------------------
 # states  : [ [ $session, $source_session, $state, $time, \@etc ], ... ]
@@ -90,9 +89,15 @@ sub _check_session_resources {
   my ($self, $session) = @_;
 
   if ($session ne $self) {
-    unless ($self->{'sessions'}->{$session}->[2] ||
-            $self->{'sessions'}->{$session}->[3] ||
-            @{$self->{'sessions'}->{$session}->[1]}
+
+#     warn "***** $session  states(" . $self->{'sessions'}->{$session}->[2] .
+#       ")  selects(" . $self->{'sessions'}->{$session}->[3] .
+#       ")  children(" . scalar(@{$self->{'sessions'}->{$session}->[1]}) .
+#       ")\n";
+
+    unless ($self->{'sessions'}->{$session}->[2] || # queued states
+            $self->{'sessions'}->{$session}->[3] || # pending selects
+            @{$self->{'sessions'}->{$session}->[1]} # children
     ) {
       $self->session_free($session);
     }
@@ -146,9 +151,11 @@ sub _dispatch_state {
   my $handled = $session->_invoke_state($self, $source_session,
                                         $local_state, $etc
                                        );
+                                        # stringify to remove possible blessing
+  defined($handled) ? ($handled = "$handled") : ($handled = '');
   $self->{'active session'} = $hold_active_session;
 
-#print "\x1b[1;32m$state returns($handled)\x1b[0m\n";
+# print "\x1b[1;32m$session $state returns($handled)\x1b[0m\n";
 
                                         # if _stop, fix up tables
   if ($state eq '_stop') {
@@ -284,7 +291,7 @@ sub run {
     }
   }
                                         # buh-bye!
-  print "POE stopped.\n";
+#  print "POE stopped.\n";
                                         # oh, by the way...
   if (my $leaked = @{$self->{'states'}}) {
     print "*** $self - leaking states ($leaked)\n";
