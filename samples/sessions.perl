@@ -44,14 +44,31 @@ new POE::Session
                   'increment' => sub
                   {
                     my ($k, $me, $from, $session_name, $counter) = @_;
+                                        # post the message first, so it's there
                     $counter++;
-                    print "Session $session_name, iteration $counter.\n";
                     if ($counter < 5) {
                       $k->post($me, 'increment', $session_name, $counter);
                     }
-                    else {
-                      # no more states; nothing left to do.  session stops.
-                    }
+                    my $ret = $k->call($me, 'display one',
+                                       $session_name, $counter
+                                      );
+                    print "(display one returns: $ret)\n";
+                    $ret = $k->call($me, 'display two',
+                                    $session_name, $counter
+                                   );
+                    print "(display two returns: $ret)\n";
+                  },
+                  'display one' => sub 
+                  {
+                    my ($k, $me, $from, $session_name, $counter) = @_;
+                    print "Session $session_name, iteration $counter (one).\n";
+                    return $counter * 2;
+                  },
+                  'display two' => sub 
+                  {
+                    my ($k, $me, $from, $session_name, $counter) = @_;
+                    print "Session $session_name, iteration $counter (two).\n";
+                    return $counter * 3;
                   },
                 );
             }
