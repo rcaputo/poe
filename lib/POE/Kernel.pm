@@ -647,7 +647,8 @@ sub _dispatch_event {
       # Step 1: Propagate the signal to sessions that are watching it.
 
       if ($self->_data_sig_explicitly_watched($signal)) {
-        while (my ($session, $event) = $self->_data_sig_watchers($signal)) {
+        my %signal_watchers = $self->_data_sig_watchers($signal);
+        while (my ($session, $event) = each %signal_watchers) {
           my $session_ref = $self->_data_ses_resolve($session);
 
           if (TRACE_SIGNALS) {
@@ -699,9 +700,10 @@ sub _dispatch_event {
 
       # If this session already received a signal in step 1, then
       # ignore dispatching it again in this step.
-      return if ( ($type & ET_SIGNAL_COMPATIBLE) and
-                  $self->_data_sig_watched_by_session($signal, $session)
-                );
+      return if (
+        ($type & ET_SIGNAL_COMPATIBLE) and
+        $self->_data_sig_is_watched_by_session($signal, $session)
+      );
     }
   }
 
