@@ -49,7 +49,7 @@ lib/Makefile-5005.pm
 lib/MyOtherFreezer.pm
 lib/Test/Harness.pm
 lib/Test/Harness/Assert.pm
-lib/Test/Harness/Iterator.pl
+lib/Test/Harness/Iterator.pm
 lib/Test/Harness/Straps.pm
 lib/TestSetup.pm
 lib/coverage.perl
