@@ -32,7 +32,7 @@ lib/POE/Loop.pm
 lib/POE/Loop/Event.pm
 lib/POE/Loop/Gtk.pm
 lib/POE/Loop/PerlSignals.pm
-lib/POE/Loop/Poll.pm
+lib/POE/Loop/IO-Poll.pm
 lib/POE/Loop/Select.pm
 lib/POE/Loop/Tk.pm
 lib/POE/Loop/TkActiveState.pm

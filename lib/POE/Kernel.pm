@@ -421,14 +421,7 @@ BEGIN {
   }
 
   foreach my $file (keys %INC) {
-    # Remove IO/ so we can load POE::Loop::Poll instead of
-    # POE::Loop::IO/Poll.
-    # TODO - Have the CVS people at SourceForge move
-    # lib/POE/Loop/Poll.pm to lib/POE/Loop/IO-Poll.pm and remove this
-    # silly step.
-
     my @split_dirs = File::Spec->splitdir($file);
-    shift @split_dirs if $split_dirs[0] eq "IO";
 
     # Create a module name by replacing the path separators with
     # dashes and removing ".pm"
