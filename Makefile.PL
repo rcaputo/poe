@@ -61,15 +61,17 @@ if($ret =~ /^Y$/i) {
     open(TOUCH,"+>$marker") and close TOUCH;
 }
 
-eval "use 5.005_03";
+eval "use 5.005_04";
 if ($@) {
   warn(
     "\n",
     "===============================================================\n",
     "\n",
-    "Perl 5.005_03 or later is preferred, and versions before it are\n",
-    "deprecated.  Try installing POE with a newer version of Perl to\n",
-    "see what you're missing. :)\n",
+    "Please upgrade Perl to avoid lapses in support.  Perl 5.005_04\n",
+    "or newer is preferred.  Support for older versions will be\n",
+    "phased out in the future.\n",
+    "\n",
+    "Thank you.\n",
     "\n",
     "===============================================================\n",
     "\n",
