@@ -142,7 +142,10 @@ sub make_socket {
                        undef,
                        5
                      );
-    die "select: $!" unless $hits;
+    unless ($hits) {
+      next if ($! and ($! == EINPROGRESS) or ($! == EWOULDBLOCK));
+      die "select: $!" unless $hits;
+    }
 
     # Accept happened.
     if (vec($out_read, fileno($acceptor), 1)) {
