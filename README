@@ -1,145 +1,101 @@
 $Id$
 
-ABOUT POE:
+APOLOGIES
+=========
 
-Poe currently contains two layers.  It will contain at least four
-before the 1.00 release.  Each successively higher layer relies on the
-presence of the ones below it.  Lower levels do not require higher
-ones.
+Version 0.06 breaks backward compatibility in several small but
+fundamental ways.  As a result, programs written in earlier versions
+will not work correctly.
 
-Layer 0 (done):
+These changes were not made lightly.  They are the product much
+discussion, testing and benchmarking.  I regret needing to make them,
+but I believe they have improved version 0.06 and helped shape POE's
+future for the better.
 
-POE's lowest layer consists of two classes for cooperative,
-event-driven multitasking.
+Please accept my deepest apologies for breaking your code.
 
-POE::Kernel is the event dispatcher, with logic for select(2), delayed
-events (alarms), and signal handling.
 
-POE::Session is the unit of execution and ownership, like a process in
-real operating systems.  POE::Session instances are composed of event
-handlers named after the events they accept from POE::Kernel.
+ABOUT POE
+=========
 
-  For some applications, it may be easier to consider POE::Session
-  to be a generic state machines.  Events handlers map to states,
-  and events signal state transitions.  Considering it this way,
-  it's possible to have multiple threads of execution (outstanding
-  state transition events) within a single POE::Session.
+POE is an acronym for Perl Object Environment.
 
-Layer 1a (done but needs more subclasses):
+POE is a programming framework for event-driven state machines.
 
-This layer consists of classes that contain "integrated circuit" state
-machines.  These state machine subroutines do common, reusable things.
-Their public interfaces are designed so they can interlock to perform
-larger tasks.  This layer is composed of three basic types:
+POE is a component architecture.
 
-  Drivers.  These classes move data into and out of filehandles.
-  Typically one end of a Driver is connected to a filehandle, and the
-  other end is attached to a filter.
+POE is a cooperative multithreading model, written only in Perl.
 
-    For example, Driver::SysRW driver performs sysread() and
-    syswrite() operations.
+POE is a high-level, functional interface to select, alarm and IPC.
 
-  Filters.  These classes translate raw streams into cooked units of
-  data, and uncook data back into streams.  They are most commonly
-  placed between a Driver and a POE::Session.
+POE does many things.  The sample programs in the tests directory only
+begin to scratch the surface.
 
-    For example, Filter::Line translates between raw streams and
-    newline-delimited lines.
+Despite all this, POE is actually pretty simple.  It starts with a
+basic premise and builds upon it.  Most of the things POE are, are
+just different ways of looking at it.
 
-    Filter::Reference translates between raw streams and object
-    references, allowing programs to share objects.
 
-  Wheels.  These classes contain select(2) event handlers.  They can
-  use Drivers to handle file activity and Filters to frame data.
+COMPATIBILITY
+=============
 
-    For example, Wheel::ListenAccept is a generic TCP server.
-    Wheel::ReadWrite can be used on either end of a TCP socket.
+POE has been tested in-house with Perl 5.004_04, 5.005_53 and 5.005_54
+on recent versions of Linux, FreeBSD, and OS/2.  For more detailed
+compatibility information, please see
+<http://www.connect.net/gbarr/cpan-test/by-dist/POE.html>.
 
-Subclasses generally are interchangable.  Wherever a Driver is needed,
-just about any Driver should do.  Wherever a Filter is needed, related
-filters should also work.
+POE's core requires POSIX.  Shipping frozen data requires Storable or
+FreezeThaw.  Running as a non-blocking HTTP daemon requires
+HTTP::Request and HTTP::Response.  The pre-forked server test requires
+fork.
 
-Layer 1b and beyond (forthcoming):
+POE will take advantage of Time::HiRes, if it's available, to provide
+subsecond resolution for events.
 
-The probability that a "b" layer will be implemented as it's outlined
-here decreases in proportion to its number.  Consider this vaporware
-until proven innocent.
+Windows' select() supports sockets but not regular files, so POE is
+really handy for client/server work, but it fails for non-blocking
+filesystems programming.  And fork() doesn't work.
 
-  Layer 1b will be classes that provide persistent, MUD-like objects,
-  with MUD-like security, inheritance and referential integrity.
-  These objects' methods map neatly onto POE::Session event handlers.
-  Most of the basic object features (store, fetch, execute) will be
-  coded into object #0, the basic Object, so that they can be altered
-  (with care) during runtime.
+POE is suspected to work on MacOS.  If someone could confirm or deny
+this, it would be greatly appreciated.
 
-  Layer 2b will be a framework of layer 1b objects that duplicate
-  drivers, filters and wheels from layer 1a.
 
-  Layer 3b will be a MUD server written in Layer 1b and 2b objects.
-  It will provide commands to modify layer 1b objects.  This will
-  allow further development to occur within the "MUD" interface.
+AVAILABILITY
+============
 
-  Layer 4b will be interactive programs ('bots) written in layer
-  1b-3b objects.
+The latest version of POE is in /authors/id/R/RC/RCAPUTO/ on your
+favorite CPAN mirror.  If you don't have a favorite CPAN mirror,
+<http://www.cpan.org/authors/id/R/RC/RCAPUTO/> will do.
 
-Things become even fuzzier after this.
 
-  A Curses-based windowing interface, written in 1b and 2b objects.
-  An earlier version of this already exists as part of Serv+Face.
-  The morbidly curious can find Serv and Face at
-  <http://www.netrus.net/users/troc/download/serv.19960826.tar.gz>.
+CREDITS
+=======
 
-  POE::Session::Safe.  This may be a POE::Session that runs in its own
-  Safe compartment.  It would include a runtime library to replace
-  "unsafe" things with safe counterparts.
+Thanks to Artur Bergman <artur@vogon-solutions.com> (sky) for many
+useful suggestions and contributions.  He has had a hand in the design
+and/or implementation of most of POE's improvements.
 
-  A high-level object scripting language.  It should be translated
-  into native "Safe" Perl, and evaluated into bytecode on the fly.
+Thanks to Dave Paris <dparis@fordprefect.w3works.com> (a-mused) for
+benchmark results, testing, feedback and suggestions.  Version 0.06
+runs much better under high loads thanks to his efforts.
 
-  POE::Session::Threaded.  This would be a POE::Session that uses
-  real threads.
 
-COMPATIBILITY:
+GETTING STARTED
+===============
 
- POE has been tested with Perl 5.004_04 on recent versions of Linux,
- FreeBSD, and OS/2.  For more detailed compatibility information,
- please see <http://www.connect.net/gbarr/cpan-test/by-dist/POE.html>.
+Read the Changes file.  Many things have broken since version 0.05.
 
- POE is rumored to work on Windows and suspected to work on MacOS.  If
- someone could confirm or deny this, I would appreciate it.
+To build and test this distribution, type:
 
- POE requires: a recent IO bundle; POSIX.pm
+  perl Makefile.PL
+  make test
 
- If available, it will take advantage of: Time::HiRes
+Actually, 'make test' doesn't do anything important.  The real tests
+exist within the tests directory, and just happen to be examples of
+how to use different parts of POE.
 
- It does not require threads or other 5.004_50+ features.
+Once everything looks, good, it can be installed by typing:
 
- When using the Reference filter, POE requires Storable.pm or
- FreezeThaw.pm
+  make install
 
-AVAILABILITY:
-
- The latest version of POE is in /authors/id/R/RC/RCAPUTO/ on your
- favorite CPAN mirror.
-
-CREDITS:
-
- Thanks to Artur Bergman <artur@vogon-solutions.com> (sky) for much
- useful feedback, suggestions and contributions.  Most of the changes
- up to version 0.05 are a result of his tireless work.
-
-GETTING STARTED:
-
- To build and test this distribution, type:
-
-   perl Makefile.PL
-   make test
-
- Actually, 'make test' doesn't do anything important.  The real tests
- exist within the F<tests> directory, and just happen to be examples of
- how to use different parts of POE.  Once everything looks  good, it
- can be installed by typing:
-
-   make install
-
--- Rocco Caputo / troc@netrus.net
+-- Rocco Caputo / troc@netrus.net / Thank you for reading.
