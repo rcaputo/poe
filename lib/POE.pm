@@ -274,7 +274,7 @@ package functions as states instead of inline code references.
 
 =item *
 
-pong.perl
+piong.perl
 
 This is a quick and dirty multiple-host icmp ping program.  It
 requires two common vt100 escape codes ("\e[2J" to clear the screen

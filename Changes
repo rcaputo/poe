@@ -10,7 +10,7 @@ Versions with "_xx" subversions are internal test releases.
 0.0703 1999.08.13
 -----------------
 
-Added pong.perl, a multi-host ICMP ping program, to the samples
+Added poing.perl, a multi-host ICMP ping program, to the samples
 directory.  My ISP was down, so I hacked this together, "borrowing" a
 lot of code from Net::Ping.  As such, it's neither friendly to
 configure nor commented.
