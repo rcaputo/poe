@@ -75,7 +75,7 @@ sub get {
     return [ $self->build_error
              ( RC_BAD_REQUEST,
                "Did not want any more data.  Got this:" .
-               "<p>" . join("<br>", @dump) . "</p>"
+               "<p><tt>" . join("<br>", @dump) . "</tt></p>"
              )
            ];
   }
