@@ -29,9 +29,27 @@ Version numbers have four fields: X.YYZZAA
 0.1201 2000.??.??
 -----------------
 
-Move POE::Kernel's data structures out of $self and into lexicals.
-Keep references to the structures in $self so Data::Dumper can dump
+Moved POE::Kernel's data structures out of $self and into lexicals.
+Kept references to the structures in $self so Data::Dumper can dump
 the whole shebang at once.
+
+Mike Fletcher found a bug in the TRACE_SELECT code that kept it from
+showing the input bits for read select.  D'oh.
+
+Fixed Wheel::SocketFactory to prevent it from clobbering another
+wheel's selects upon destruction.  This fixes the longstanding "wheel
+swap" bug listed in the FAQ (on the web site).  Replaced its blessed
+hashref with a blessed listref, so it should be a wee bit faster too.
+
+Fixed t/10_wheels_tcp.t to stop working around the longstanding "wheel
+swap" bug.  This exercises the previous SocketFactory fix.
+
+Dave Paris found a recurring bug in t/04_selects.t.  It was opening
+40-some filehandles at once, which consistently runs out of available
+handles in some situations.  I cut the number of handles approximately
+in half, so it should work better everywhere.  This has the
+unfortunate side-effect of cutting 10 tests from the suite.  We're
+still not sure how the environment is using extra handles, though.
 
 
 0.12 2000.11.19

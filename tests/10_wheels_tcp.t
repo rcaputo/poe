@@ -42,7 +42,8 @@ sub sss_new {
 sub sss_start {
   my ($heap, $socket, $peer_addr, $peer_port) = @_[HEAP, ARG0..ARG2];
 
-  delete $heap->{wheel};
+  # Swap the SocketFactory for the ReadWrite.  This exercises a subtle
+  # bug in SocketFactory which should now be fixed.
   $heap->{wheel} = POE::Wheel::ReadWrite->new
     ( Handle       => $socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 10 ),

@@ -1019,6 +1019,11 @@ was his idea.  Versions 0.06 and later should scale to higher loads
 because of his work.  His intangible contributions include lots of
 testing and feedback, some of which is visible in the Changes file.
 
+And I do mean *lots* of testing.  I go and announce a new development
+version, and he's, like, "All tests passed!" just a few minutes later.
+If that wasn't enough, he investigates any bugs that turn up, and
+often fixes them.  The man's scarily good.
+
 =item *
 
 Dieter Pearcey is <dieter@bullfrog.perlhacker.org>.  He goes by

@@ -13,6 +13,19 @@ use POE qw(Wheel);
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 sub DEBUG () { 0 }
 
+sub MY_SOCKET_HANDLE   () {  0 }
+sub MY_UNIQUE_ID       () {  1 }
+sub MY_STATE_SUCCESS   () {  2 }
+sub MY_STATE_FAILURE   () {  3 }
+sub MY_SOCKET_DOMAIN   () {  4 }
+sub MY_STATE_ACCEPT    () {  5 }
+sub MY_STATE_CONNECT   () {  6 }
+sub MY_MINE_SUCCESS    () {  7 }
+sub MY_MINE_FAILURE    () {  8 }
+sub MY_SOCKET_PROTOCOL () {  9 }
+sub MY_SOCKET_TYPE     () { 10 }
+sub MY_SOCKET_SELECTED () { 11 }
+
 # Provide a dummy EINPROGRESS for systems that don't have one.  Give
 # it a documented value.
 BEGIN {
@@ -80,14 +93,14 @@ sub condition_unix_address {
 sub _define_accept_state {
   my $self = shift;
 
-  my $domain = $map_family_to_domain{ $self->{socket_domain} };
+  my $domain = $map_family_to_domain{ $self->[MY_SOCKET_DOMAIN] };
   $domain = '(undef)' unless defined $domain;
-  my $success_state = \$self->{state_success};
-  my $failure_state = \$self->{state_failure};
-  my $unique_id     =  $self->{unique_id};
+  my $success_state = \$self->[MY_STATE_SUCCESS];
+  my $failure_state = \$self->[MY_STATE_FAILURE];
+  my $unique_id     =  $self->[MY_UNIQUE_ID];
 
   $poe_kernel->state
-    ( $self->{state_accept} = $self . ' select accept',
+    ( $self->[MY_STATE_ACCEPT] = $self . ' select accept',
       sub {
         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
@@ -123,7 +136,10 @@ sub _define_accept_state {
       }
     );
 
-  $poe_kernel->select_read($self->{socket_handle}, $self->{state_accept});
+  $self->[MY_SOCKET_SELECTED] = 'yes';
+  $poe_kernel->select_read( $self->[MY_SOCKET_HANDLE],
+                            $self->[MY_STATE_ACCEPT]
+                          );
 }
 
 #------------------------------------------------------------------------------
@@ -133,20 +149,22 @@ sub _define_accept_state {
 sub _define_connect_state {
   my $self = shift;
 
-  my $domain = $map_family_to_domain{ $self->{socket_domain} };
+  my $domain = $map_family_to_domain{ $self->[MY_SOCKET_DOMAIN] };
   $domain = '(undef)' unless defined $domain;
-  my $success_state = \$self->{state_success};
-  my $failure_state = \$self->{state_failure};
-  my $unique_id     =  $self->{unique_id};
+  my $success_state   = \$self->[MY_STATE_SUCCESS];
+  my $failure_state   = \$self->[MY_STATE_FAILURE];
+  my $unique_id       =  $self->[MY_UNIQUE_ID];
+  my $socket_selected = \$self->[MY_SOCKET_SELECTED];
 
   $poe_kernel->state
-    ( $self->{state_connect} = $self . ' -> select connect',
+    ( $self->[MY_STATE_CONNECT] = $self . ' -> select connect',
       sub {
         # This prevents SEGV in older versions of Perl.
         0 && CRIMSON_SCOPE_HACK('<');
 
         # Grab some values and stop watching the socket.
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+        undef $$socket_selected;
         $k->select($handle);
 
         # Throw a failure if the connection failed.
@@ -206,7 +224,10 @@ sub _define_connect_state {
       }
     );
 
-  $poe_kernel->select_write( $self->{socket_handle}, $self->{state_connect} );
+  $self->[MY_SOCKET_SELECTED] = 'yes';
+  $poe_kernel->select_write( $self->[MY_SOCKET_HANDLE],
+                             $self->[MY_STATE_CONNECT]
+                           );
 }
 
 #------------------------------------------------------------------------------
@@ -222,17 +243,17 @@ sub event {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
           $poe_kernel->state
-            ( $self->{state_success} = $self . ' success',
+            ( $self->[MY_STATE_SUCCESS] = $self . ' success',
               $event
             );
-          $self->{mine_success} = 'yes';
+          $self->[MY_MINE_SUCCESS] = 'yes';
         }
         else {
           if (ref($event) ne '') {
             carp "Strange reference used as SuccessState event";
           }
-          $self->{state_success} = $event;
-          delete $self->{mine_success};
+          $self->[MY_STATE_SUCCESS] = $event;
+          delete $self->[MY_MINE_SUCCESS];
         }
       }
       else {
@@ -243,17 +264,17 @@ sub event {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
           $poe_kernel->state
-            ( $self->{state_failure} = $self . ' failure',
+            ( $self->[MY_STATE_FAILURE] = $self . ' failure',
               $event
             );
-          $self->{mine_failure} = 'yes';
+          $self->[MY_MINE_FAILURE] = 'yes';
         }
         else {
           if (ref($event) ne '') {
             carp "Strange reference used as FailureState event (ignored)"
           }
-          $self->{state_failure} = $event;
-          delete $self->{mine_failure};
+          $self->[MY_STATE_FAILURE] = $event;
+          delete $self->[MY_MINE_FAILURE];
         }
       }
       else {
@@ -265,11 +286,16 @@ sub event {
     }
   }
 
-  if (exists $self->{state_accept}) {
-    $poe_kernel->select_read($self->{socket_handle}, $self->{state_accept});
+  $self->[MY_SOCKET_SELECTED] = 'yes';
+  if (defined $self->[MY_STATE_ACCEPT]) {
+    $poe_kernel->select_read($self->[MY_SOCKET_HANDLE],
+                             $self->[MY_STATE_ACCEPT]
+                            );
   }
-  elsif (exists $self->{state_connect}) {
-    $poe_kernel->select_write($self->{socket_handle}, $self->{state_connect});
+  elsif (defined $self->[MY_STATE_CONNECT]) {
+    $poe_kernel->select_write( $self->[MY_SOCKET_HANDLE],
+                               $self->[MY_STATE_CONNECT]
+                             );
   }
   else {
     die "POE developer error - no state defined";
@@ -280,12 +306,12 @@ sub event {
 
 sub getsockname {
   my $self = shift;
-  return undef unless defined $self->{socket_handle};
-  return getsockname($self->{socket_handle});
+  return undef unless defined $self->[MY_SOCKET_HANDLE];
+  return getsockname($self->[MY_SOCKET_HANDLE]);
 }
 
 sub ID {
-  return $_[0]->{unique_id};
+  return $_[0]->[MY_UNIQUE_ID];
 }
 
 #------------------------------------------------------------------------------
@@ -307,24 +333,35 @@ sub new {
 
   # Create the SocketServer.  Cache a copy of the socket handle.
   my $socket_handle = gensym();
-  my $self = bless { socket_handle => $socket_handle,
-                     state_success => $params{SuccessState},
-                     state_failure => $params{FailureState},
-                     unique_id     => &POE::Wheel::allocate_wheel_id(),
-                   }, $type;
+  my $self = bless
+    ( [ $socket_handle,                   # MY_SOCKET_HANDLE
+        &POE::Wheel::allocate_wheel_id(), # MY_UNIQUE_ID
+        $params{SuccessState},            # MY_STATE_SUCCESS
+        $params{FailureState},            # MY_STATE_FAILURE
+        undef,                            # MY_SOCKET_DOMAIN
+        undef,                            # MY_STATE_ACCEPT
+        undef,                            # MY_STATE_CONNECT
+        undef,                            # MY_MINE_SUCCESS
+        undef,                            # MY_MINE_FAILURE
+        undef,                            # MY_SOCKET_PROTOCOL
+        undef,                            # MY_SOCKET_TYPE
+        undef,                            # MY_SOCKET_SELECTED
+      ],
+      $type
+    );
 
   # Default to Internet sockets.
-  $self->{socket_domain} = ( (defined $params{SocketDomain})
+  $self->[MY_SOCKET_DOMAIN] = ( (defined $params{SocketDomain})
                              ? $params{SocketDomain}
                              : AF_INET
                            );
 
   # Abstract the socket domain into something we don't have to keep
   # testing duplicates of.
-  my $abstract_domain = $map_family_to_domain{$self->{socket_domain}};
+  my $abstract_domain = $map_family_to_domain{$self->[MY_SOCKET_DOMAIN]};
   unless (defined $abstract_domain) {
     $poe_kernel->yield( $state_failure,
-                        'domain', 0, '', $self->{unique_id}
+                        'domain', 0, '', $self->[MY_UNIQUE_ID]
                       );
     return $self;
   }
@@ -342,7 +379,7 @@ sub new {
   if ($abstract_domain eq DOM_UNIX) {
     carp 'SocketProtocol ignored for Unix socket'
       if defined $params{SocketProtocol};
-    $self->{socket_protocol} = PF_UNSPEC;
+    $self->[MY_SOCKET_PROTOCOL] = PF_UNSPEC;
     $protocol_name = 'none';
   }
 
@@ -355,7 +392,7 @@ sub new {
     if ($socket_protocol !~ /^\d+$/) {
       unless ($socket_protocol = getprotobyname($socket_protocol)) {
         $poe_kernel->yield( $state_failure,
-                            'getprotobyname', $!+0, $!, $self->{unique_id}
+                            'getprotobyname', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -367,7 +404,7 @@ sub new {
     $protocol_name = lc(getprotobynumber($socket_protocol));
     unless ($protocol_name) {
       $poe_kernel->yield( $state_failure,
-                          'getprotobynumber', $!+0, $!, $self->{unique_id}
+                          'getprotobynumber', $!+0, $!, $self->[MY_UNIQUE_ID]
                         );
       return $self;
     }
@@ -376,7 +413,7 @@ sub new {
       croak "SocketFactory does not support Internet $protocol_name sockets";
     }
 
-    $self->{socket_protocol} = $socket_protocol;
+    $self->[MY_SOCKET_PROTOCOL] = $socket_protocol;
   }
   else {
     die "Mail this error to the author of POE: Internal consistency error";
@@ -384,23 +421,23 @@ sub new {
 
   # If no SocketType, default it to something appropriate.
   if (defined $params{SocketType}) {
-    $self->{socket_type} = $params{SocketType};
+    $self->[MY_SOCKET_TYPE] = $params{SocketType};
   }
   else {
     unless (defined $default_socket_type{$abstract_domain}->{$protocol_name}) {
       croak "SocketFactory does not support $abstract_domain $protocol_name";
     }
-    $self->{socket_type} =
+    $self->[MY_SOCKET_TYPE] =
       $default_socket_type{$abstract_domain}->{$protocol_name};
   }
 
   # Create the socket.
-  unless (socket( $socket_handle, $self->{socket_domain},
-                  $self->{socket_type}, $self->{socket_protocol}
+  unless (socket( $socket_handle, $self->[MY_SOCKET_DOMAIN],
+                  $self->[MY_SOCKET_TYPE], $self->[MY_SOCKET_PROTOCOL]
                 )
   ) {
     $poe_kernel->yield( $state_failure,
-                        'socket', $!+0, $!, $self->{unique_id}
+                        'socket', $!+0, $!, $self->[MY_UNIQUE_ID]
                       );
     return $self;
   }
@@ -429,7 +466,7 @@ sub new {
          )
       or do {
         $poe_kernel->yield( $state_failure,
-                            'ioctl', $!+0, $!, $self->{unique_id}
+                            'ioctl', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       };
@@ -440,14 +477,14 @@ sub new {
     my $flags = fcntl($socket_handle, F_GETFL, 0)
       or do {
         $poe_kernel->yield( $state_failure,
-                            'fcntl', $!+0, $!, $self->{unique_id}
+                            'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       };
     $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
       or do {
         $poe_kernel->yield( $state_failure,
-                            'fcntl', $!+0, $!, $self->{unique_id}
+                            'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       };
@@ -465,7 +502,7 @@ sub new {
     setsockopt($socket_handle, SOL_SOCKET, SO_REUSEADDR, 1)
       or do {
         $poe_kernel->yield( $state_failure,
-                            'setsockopt', $!+0, $!, $self->{unique_id}
+                            'setsockopt', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       };
@@ -497,7 +534,7 @@ sub new {
       unless (defined $bind_address) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $state_failure,
-                            'inet_aton', $!+0, $!, $self->{unique_id}
+                            'inet_aton', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -510,7 +547,7 @@ sub new {
         unless (defined $bind_port) {
           $! = EADDRNOTAVAIL;
           $poe_kernel->yield( $state_failure,
-                              'getservbyname', $!+0, $!, $self->{unique_id}
+                              'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
                             );
           return $self;
         }
@@ -519,7 +556,7 @@ sub new {
       $bind_address = pack_sockaddr_in($bind_port, $bind_address);
       unless (defined $bind_address) {
         $poe_kernel->yield( $state_failure,
-                            'pack_sockaddr_in', $!+0, $!, $self->{unique_id}
+                            'pack_sockaddr_in', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -536,7 +573,7 @@ sub new {
       if (defined $params{RemotePort}) {
         $! = EADDRINUSE;
         $poe_kernel->yield( $state_failure,
-                            'bind', $!+0, $!, $self->{unique_id}
+                            'bind', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -545,7 +582,7 @@ sub new {
       $bind_address = pack_sockaddr_un($bind_address);
       unless ($bind_address) {
         $poe_kernel->yield( $state_failure,
-                            'pack_sockaddr_un', $!+0, $!, $self->{unique_id}
+                            'pack_sockaddr_un', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -562,7 +599,7 @@ sub new {
   if (defined $bind_address) {
     unless (bind($socket_handle, $bind_address)) {
       $poe_kernel->yield( $state_failure,
-                          'bind', $!+0, $!, $self->{unique_id}
+                          'bind', $!+0, $!, $self->[MY_UNIQUE_ID]
                         );
       return $self;
     }
@@ -591,7 +628,7 @@ sub new {
         unless ($remote_port = getservbyname($remote_port, $protocol_name)) {
           $! = EADDRNOTAVAIL;
           $poe_kernel->yield( $state_failure,
-                              'getservbyname', $!+0, $!, $self->{unique_id}
+                              'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
                             );
           return $self;
         }
@@ -601,7 +638,7 @@ sub new {
       unless (defined $connect_address) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $state_failure,
-                            'inet_aton', $!+0, $!, $self->{unique_id}
+                            'inet_aton', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -610,7 +647,7 @@ sub new {
       unless ($connect_address) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $state_failure,
-                            'pack_sockaddr_in', $!+0, $!, $self->{unique_id}
+                            'pack_sockaddr_in', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -625,7 +662,7 @@ sub new {
       $connect_address = pack_sockaddr_un($connect_address);
       unless (defined $connect_address) {
         $poe_kernel->yield( $state_failure,
-                            'pack_sockaddr_un', $!+0, $!, $self->{unique_id}
+                            'pack_sockaddr_un', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -654,7 +691,7 @@ sub new {
 
       if ($! and ($! != EINPROGRESS) and ($! != EWOULDBLOCK)) {
         $poe_kernel->yield( $state_failure,
-                            'connect', $!+0, $!, $self->{unique_id}
+                            'connect', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -662,7 +699,7 @@ sub new {
 
     DEBUG && warn "connect";
 
-    $self->{socket_handle} = $socket_handle;
+    $self->[MY_SOCKET_HANDLE] = $socket_handle;
     $self->_define_connect_state();
     $self->event( SuccessState => $params{SuccessState},
                   FailureState => $params{FailureState},
@@ -687,14 +724,14 @@ sub new {
       ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
       unless (listen($socket_handle, $listen_queue)) {
         $poe_kernel->yield( $state_failure,
-                            'listen', $!+0, $!, $self->{unique_id}
+                            'listen', $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
 
       DEBUG && warn "listen";
 
-      $self->{socket_handle} = $socket_handle;
+      $self->[MY_SOCKET_HANDLE] = $socket_handle;
       $self->_define_accept_state();
       $self->event( SuccessState => $params{SuccessState},
                     FailureState => $params{FailureState},
@@ -708,7 +745,7 @@ sub new {
         # Do nothing.  Duh.  Fire off a success event immediately, and
         # return.
         $poe_kernel->yield( $state_success,
-                            $socket_handle, undef, undef, $self->{unique_id}
+                            $socket_handle, undef, undef, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -729,31 +766,32 @@ sub new {
 sub DESTROY {
   my $self = shift;
 
-  if (exists $self->{socket_handle}) {
-    $poe_kernel->select($self->{socket_handle});
+  if (defined $self->[MY_SOCKET_SELECTED]) {
+    undef $self->[MY_SOCKET_SELECTED];
+    $poe_kernel->select($self->[MY_SOCKET_HANDLE]);
   }
 
-  if (exists $self->{state_accept}) {
-    $poe_kernel->state($self->{state_accept});
-    delete $self->{state_accept};
+  if (defined $self->[MY_STATE_ACCEPT]) {
+    $poe_kernel->state($self->[MY_STATE_ACCEPT]);
+    undef $self->[MY_STATE_ACCEPT];
   }
 
-  if (exists $self->{state_connect}) {
-    $poe_kernel->state($self->{state_connect});
-    delete $self->{state_connect};
+  if (defined $self->[MY_STATE_CONNECT]) {
+    $poe_kernel->state($self->[MY_STATE_CONNECT]);
+    undef $self->[MY_STATE_CONNECT];
   }
 
-  if (exists $self->{mine_success}) {
-    $poe_kernel->state($self->{state_success});
-    delete $self->{state_success};
+  if (defined $self->[MY_MINE_SUCCESS]) {
+    $poe_kernel->state($self->[MY_STATE_SUCCESS]);
+    undef $self->[MY_STATE_SUCCESS];
   }
 
-  if (exists $self->{mine_failure}) {
-    $poe_kernel->state($self->{state_failure});
-    delete $self->{state_failure};
+  if (defined $self->[MY_MINE_FAILURE]) {
+    $poe_kernel->state($self->[MY_STATE_FAILURE]);
+    undef $self->[MY_STATE_FAILURE];
   }
 
-  &POE::Wheel::free_wheel_id($self->{unique_id});
+  &POE::Wheel::free_wheel_id($self->[MY_UNIQUE_ID]);
 }
 
 ###############################################################################

@@ -251,7 +251,12 @@ macro test_for_idle_poe_kernel {
           "| States : ", scalar(@kr_states), "\n",
           "| Alarms : ", scalar(@kr_alarms), "\n",
           "| Files  : ", scalar(keys(%kr_handles)), "\n",
-          "|   `--> : ", join(', ', keys(%kr_handles)), "\n",
+          "|   `--> : ", join( ', ',
+                               sort { $a <=> $b }
+                               map { fileno($_->[HND_HANDLE]) }
+                               values(%kr_handles)
+                             ),
+          "\n",
           "| Extra  : ", $self->[KR_EXTRA_REFS], "\n",
           "`---------------------------\n",
           " ..."
@@ -1332,7 +1337,7 @@ sub run {
       if (TRACE_SELECT) { # include
 
         warn ",----- SELECT BITS IN -----\n";
-        warn "| READ    : ", unpack('b*', $kr_vectors[VEC_WR]), "\n";
+        warn "| READ    : ", unpack('b*', $kr_vectors[VEC_RD]), "\n";
         warn "| WRITE   : ", unpack('b*', $kr_vectors[VEC_WR]), "\n";
         warn "| EXPEDITE: ", unpack('b*', $kr_vectors[VEC_EX]), "\n";
         warn "`--------------------------\n";
@@ -1416,7 +1421,14 @@ sub run {
           if (TRACE_SELECT) { # include
 
             if (@selects) {
-              warn "found pending selects: @selects\n";
+              warn( "found pending selects: ",
+                    join( ', ',
+                          sort { $a <=> $b }
+                          map { fileno($_->[HND_HANDLE]) }
+                          @selects
+                        ),
+                    "\n"
+                  );
             }
 
           } # include
@@ -1478,14 +1490,14 @@ sub run {
       while (@kr_states) {
 
         if (TRACE_QUEUE) { # include
-
-          my $event = $kr_states[0];
-          warn( sprintf('now(%.2f) ', $now - $^T) .
-                sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
-                "seq($event->[ST_SEQ])  " .
-                "name($event->[ST_NAME])\n"
-              );
-
+          { # scope to limit this use of my $event
+            my $event = $kr_states[0];
+            warn( sprintf('now(%.2f) ', $now - $^T) .
+                  sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
+                  "seq($event->[ST_SEQ])  " .
+                  "name($event->[ST_NAME])\n"
+                );
+          }
         } # include
 
         # Pull an event off the queue, and dispatch it.
@@ -2459,14 +2471,19 @@ sub _internal_select {
   my ($self, $session, $handle, $state, $select_index) = @_;
   my $fileno = fileno($handle);
 
-  # Register a select state.
+  # If a state is specify register it.  This may be a new handle, or
+  # it may be replacing an existing select with a new destination.
+
   if ($state) {
+
+    # The handle is unknown.  Register it anew.
+
     unless (exists $kr_handles{$handle}) {
       $kr_handles{$handle} =
-        [ $handle,                      # HND_HANDLE
-          0,                            # HND_REFCOUNT
-          [ 0, 0, 0 ],                  # HND_VECCOUNT (VEC_RD, VEC_WR, VEC_EX)
-          [ { }, { }, { } ],            # HND_SESSIONS (VEC_RD, VEC_WR, VEC_EX)
+        [ $handle,             # HND_HANDLE
+          0,                   # HND_REFCOUNT
+          [ 0, 0, 0 ],         # HND_VECCOUNT (VEC_RD, VEC_WR, VEC_EX)
+          [ { }, { }, { } ],   # HND_SESSIONS (VEC_RD, VEC_WR, VEC_EX)
         ];
 
       # For DOSISH systems like OS/2
@@ -2494,6 +2511,8 @@ sub _internal_select {
       # This depends heavily on socket.ph, or somesuch.  It's
       # extremely unportable.  I can't begin to figure out a way to
       # make this work everywhere, so I'm not even going to try.
+      # Besides, it should be some sort of option.  Feel free to set
+      # it before calling a select_* function.
       #
       # setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
       #   or die "Couldn't disable Nagle's algorithm: $!\a\n";
@@ -2502,7 +2521,7 @@ sub _internal_select {
       select((select($handle), $| = 1)[0]);
     }
 
-    # KR_HANDLES
+    # Cache the handle.  Save a repeated hash lookup.
     my $kr_handle = $kr_handles{$handle};
 
     # If this session hasn't already been watching the filehandle,

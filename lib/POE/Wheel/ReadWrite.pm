@@ -328,7 +328,9 @@ sub event {
 
 sub DESTROY {
   my $self = shift;
-                                        # remove tentacles from our owner
+
+  # Turn off the select.  This is a problem if a wheel is being
+  # swapped, since it will turn off selects for the other wheel.
   $poe_kernel->select($self->[HANDLE_INPUT]);
 
   if ($self->[STATE_READ]) {
