@@ -250,6 +250,17 @@ sub EN_PARENT () { '_parent'          }
 sub EN_CHILD  () { '_child'           }
 sub EN_SCPOLL () { '_sigchld_poll'    }
 
+# A hash of reserved names for warnings.
+my %poes_own_events =
+  ( EN_START  , 1,
+    EN_STOP   , 1,
+    EN_SIGNAL , 1,
+    EN_GC     , 1,
+    EN_PARENT , 1,
+    EN_CHILD  , 1,
+    EN_SCPOLL , 1,
+  );
+
 # These are ways a child may come or go.
 sub CHILD_GAIN   () { 'gain'   }
 sub CHILD_LOSE   () { 'lose'   }
@@ -630,16 +641,19 @@ my %_terminal_signals =
 # Public interface for adding or removing signal handlers.
 
 sub sig {
-  my ($self, $signal, $state) = @_;
+  my ($self, $signal, $event_name) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined signal in sig()" unless defined $signal;
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved assigning it to a signal"
+        ) if exists $poes_own_events{$event_name};
   };
 
-  if (defined $state) {
+  if (defined $event_name) {
     my $session = $kr_active_session;
-    $kr_sessions{$session}->[SS_SIGNALS]->{$signal} = $state;
-    $kr_signals{$signal}->{$session} = $state;
+    $kr_sessions{$session}->[SS_SIGNALS]->{$signal} = $event_name;
+    $kr_signals{$signal}->{$session} = $event_name;
   }
   else {
     {% sig_remove $kr_active_session, $signal %}
@@ -1746,6 +1760,9 @@ sub post {
   ASSERT_USAGE and do {
     croak "destination is undefined in post()" unless defined $destination;
     croak "event is undefined in post()" unless defined $event_name;
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by posting it"
+        ) if exists $poes_own_events{$event_name};
   };
 
   # Attempt to resolve the destination session reference against
@@ -1773,6 +1790,9 @@ sub yield {
 
   ASSERT_USAGE and do {
     croak "event name is undefined in yield()" unless defined $event_name;
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by yielding it"
+        ) if exists $poes_own_events{$event_name};
   };
 
   $self->_enqueue_event
@@ -1788,11 +1808,14 @@ sub yield {
 # Call an event handler directly.
 
 sub call {
-  my ($self, $destination, $event, @etc) = @_;
+  my ($self, $destination, $event_name, @etc) = @_;
 
   ASSERT_USAGE and do {
     croak "destination is undefined in call()" unless defined $destination;
-    croak "event is undefined in call()" unless defined $event;
+    croak "event is undefined in call()" unless defined $event_name;
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by calling it"
+        ) if exists $poes_own_events{$event_name};
   };
 
   # Attempt to resolve the destination session reference against
@@ -1814,7 +1837,7 @@ sub call {
   my $return_value =
     $self->_dispatch_event
       ( $session, $kr_active_session,
-        $event, ET_CALL, \@etc,
+        $event_name, ET_CALL, \@etc,
         time(), (caller)[1,2], undef
       );
   $! = 0;
@@ -1860,13 +1883,16 @@ sub queue_peek_alarms {
 #==============================================================================
 
 sub alarm {
-  my ($self, $event, $time, @etc) = @_;
+  my ($self, $event_name, $time, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "event name is undefined in alarm()" unless defined $event;
+    croak "event name is undefined in alarm()" unless defined $event_name;
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by setting an alarm for it"
+        ) if exists $poes_own_events{$event_name};
   };
 
-  unless (defined $event) {
+  unless (defined $event_name) {
     TRACE_RETURNS and carp "invalid parameter to alarm() call";
     ASSERT_RETURNS and croak "invalid parameter to alarm() call";
     return EINVAL;
@@ -1876,7 +1902,7 @@ sub alarm {
   while ($index--) {
     if ( ($kr_events[$index]->[ST_TYPE] & ET_ALARM) &&
          ($kr_events[$index]->[ST_SESSION] == $kr_active_session) &&
-         ($kr_events[$index]->[ST_NAME] eq $event)
+         ($kr_events[$index]->[ST_NAME] eq $event_name)
     ) {
       {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
       {% ses_refcount_dec2 $kr_active_session, SS_POST_COUNT %}
@@ -1890,7 +1916,7 @@ sub alarm {
   if (defined $time) {
     $self->_enqueue_event
       ( $kr_active_session, $kr_active_session,
-        $event, ET_ALARM, [ @etc ],
+        $event_name, ET_ALARM, [ @etc ],
         $time, (caller)[1,2]
       );
   }
@@ -1906,14 +1932,17 @@ sub alarm {
 
 # Add an alarm without clobbering previous alarms of the same name.
 sub alarm_add {
-  my ($self, $event, $time, @etc) = @_;
+  my ($self, $event_name, $time, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "undefined event name in alarm_add()" unless defined $event;
+    croak "undefined event name in alarm_add()" unless defined $event_name;
     croak "undefined time in alarm_add()" unless defined $time;
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by adding an alarm for it"
+        ) if exists $poes_own_events{$event_name};
   };
 
-  unless (defined $event and defined $time) {
+  unless (defined $event_name and defined $time) {
     TRACE_RETURNS and carp "invalid parameter to alarm_add() call";
     ASSERT_RETURNS and croak "invalid parameter to alarm_add() call";
     return EINVAL;
@@ -1921,7 +1950,7 @@ sub alarm_add {
 
   $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
-      $event, ET_ALARM, [ @etc ],
+      $event_name, ET_ALARM, [ @etc ],
       $time, (caller)[1,2]
     );
 
@@ -1930,23 +1959,26 @@ sub alarm_add {
 
 # Add a delay, which is just an alarm relative to the current time.
 sub delay {
-  my ($self, $event, $delay, @etc) = @_;
+  my ($self, $event_name, $delay, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "undefined event name in delay()" unless defined $event;
+    croak "undefined event name in delay()" unless defined $event_name;
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by setting a delay for it"
+        ) if exists $poes_own_events{$event_name};
   };
 
-  unless (defined $event) {
+  unless (defined $event_name) {
     TRACE_RETURNS and carp "invalid parameter to delay() call";
     ASSERT_RETURNS and croak "invalid parameter to delay() call";
     return EINVAL;
   }
 
   if (defined $delay) {
-    $self->alarm($event, time() + $delay, @etc);
+    $self->alarm($event_name, time() + $delay, @etc);
   }
   else {
-    $self->alarm($event);
+    $self->alarm($event_name);
   }
 
   return 0;
@@ -1954,20 +1986,23 @@ sub delay {
 
 # Add a delay without clobbering previous delays of the same name.
 sub delay_add {
-  my ($self, $event, $delay, @etc) = @_;
+  my ($self, $event_name, $delay, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "undefined event name in delay_add()" unless defined $event;
+    croak "undefined event name in delay_add()" unless defined $event_name;
     croak "undefined time in delay_add()" unless defined $delay;
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by adding a delay for it"
+        ) if exists $poes_own_events{$event_name};
   };
 
-  unless (defined $event and defined $delay) {
+  unless (defined $event_name and defined $delay) {
     TRACE_RETURNS and carp "invalid parameter to delay_add() call";
     ASSERT_RETURNS and croak "invalid parameter to delay_add() call";
     return EINVAL;
   }
 
-  $self->alarm_add($event, time() + $delay, @etc);
+  $self->alarm_add($event_name, time() + $delay, @etc);
 
   return 0;
 }
@@ -1980,9 +2015,9 @@ sub delay_add {
 # alarm ID (that's the more part).
 
 sub alarm_set {
-  my ($self, $event, $time, @etc) = @_;
+  my ($self, $event_name, $time, @etc) = @_;
 
-  unless (defined $event) {
+  unless (defined $event_name) {
     ASSERT_USAGE and croak "undefined event name in alarm_set()";
     TRACE_RETURNS and carp "undefined event name in alarm_set()";
     ASSERT_RETURNS and carp "undefined event name in alarm_set()";
@@ -1998,9 +2033,15 @@ sub alarm_set {
     return;
   }
 
+  if (ASSERT_USAGE) {
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by setting an alarm for it"
+        ) if exists $poes_own_events{$event_name};
+  }
+
   return $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
-      $event, ET_ALARM, [ @etc ],
+      $event_name, ET_ALARM, [ @etc ],
       $time, (caller)[1,2]
     );
 }
@@ -2283,14 +2324,20 @@ sub alarm_adjust {
 # Time::HiRes'.
 
 sub delay_set {
-  my ($self, $event, $seconds, @etc) = @_;
+  my ($self, $event_name, $seconds, @etc) = @_;
 
-  unless (defined $event) {
+  unless (defined $event_name) {
     ASSERT_USAGE and croak "undefined event name in delay_set()";
     TRACE_RETURNS and carp "undefined event name in delay_set()";
     ASSERT_RETURNS and carp "undefined event name in delay_set()";
     $! = EINVAL;
     return;
+  }
+
+  if (ASSERT_USAGE) {
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by setting a delay for it"
+        ) if exists $poes_own_events{$event_name};
   }
 
   unless (defined $seconds) {
@@ -2303,7 +2350,7 @@ sub delay_set {
 
   return $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
-      $event, ET_ALARM, [ @etc ],
+      $event_name, ET_ALARM, [ @etc ],
       time() + $seconds, (caller)[1,2]
     );
 }
@@ -2347,12 +2394,12 @@ sub alarm_remove_all {
 #==============================================================================
 
 sub _internal_select {
-  my ($self, $session, $handle, $event, $select_index) = @_;
+  my ($self, $session, $handle, $event_name, $select_index) = @_;
   my $fileno = fileno($handle);
 
   # If an event is included, then we're defining a filehandle watcher.
 
-  if ($event) {
+  if ($event_name) {
 
     # However, the fileno is not known.  This is a new file.  Create
     # the data structure for it, and prepare the handle for use.
@@ -2452,9 +2499,9 @@ sub _internal_select {
 
     else {
       $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle} =
-        [ $handle,   # HSS_HANDLE
-          $session,  # HSS_SESSION
-          $event,    # HSS_STATE
+        [ $handle,      # HSS_HANDLE
+          $session,     # HSS_SESSION
+          $event_name,  # HSS_STATE
         ];
 
       # Fix reference counts.
@@ -2609,10 +2656,16 @@ sub _internal_select {
 sub select {
   my ($self, $handle, $event_r, $event_w, $event_e) = @_;
 
-  ASSERT_USAGE and do {
+  if (ASSERT_USAGE) {
     croak "undefined filehandle in select()" unless defined $handle;
     croak "invalid filehandle in select()" unless defined fileno($handle);
-  };
+    foreach ($event_r, $event_w, $event_e) {
+      next unless defined $_;
+      carp( "The '$_' event is one of POE's own.  Its " .
+            "effect cannot be achieved by setting a file watcher to it"
+          ) if exists($poes_own_events{$event_r});
+    }
+  }
 
   $self->_internal_select($kr_active_session, $handle, $event_r, VEC_RD);
   $self->_internal_select($kr_active_session, $handle, $event_w, VEC_WR);
@@ -2622,42 +2675,51 @@ sub select {
 
 # Only manipulate the read select.
 sub select_read {
-  my ($self, $handle, $event) = @_;
+  my ($self, $handle, $event_name) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined filehandle in select_read()" unless defined $handle;
     croak "invalid filehandle in select_read()" unless defined fileno($handle);
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by setting a file watcher to it"
+        ) if exists $poes_own_events{$event_name};
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event, VEC_RD);
+  $self->_internal_select($kr_active_session, $handle, $event_name, VEC_RD);
   return 0;
 }
 
 # Only manipulate the write select.
 sub select_write {
-  my ($self, $handle, $event) = @_;
+  my ($self, $handle, $event_name) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined filehandle in select_write()" unless defined $handle;
     croak "invalid filehandle in select_write()"
       unless defined fileno($handle);
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by setting a file watcher to it"
+        ) if exists $poes_own_events{$event_name};
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event, VEC_WR);
+  $self->_internal_select($kr_active_session, $handle, $event_name, VEC_WR);
   return 0;
 }
 
 # Only manipulate the expedite select.
 sub select_expedite {
-  my ($self, $handle, $event) = @_;
+  my ($self, $handle, $event_name) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined filehandle in select_expedite()" unless defined $handle;
     croak "invalid filehandle in select_expedite()"
       unless defined fileno($handle);
+    carp( "The '$event_name' event is one of POE's own.  Its " .
+          "effect cannot be achieved by setting a file watcher to it"
+        ) if exists $poes_own_events{$event_name};
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event, VEC_EX);
+  $self->_internal_select($kr_active_session, $handle, $event_name, VEC_EX);
   return 0;
 }
 
