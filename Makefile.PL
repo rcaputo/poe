@@ -16,15 +16,9 @@ WriteMakefile
                     },
     PREREQ_PM    => { Carp           => 0,
                       Exporter       => 0,
-                      HTTP::Request  => 0,
-                      HTTP::Response => 0,
-                      HTTP::Status   => 0,
                       IO             => 0,
                       POSIX          => 0,
                       Socket         => 0,
-                      Storable       => 0,
-                      Time::HiRes    => 0,
-                      URI::URL       => 0,
                     },
   );
 

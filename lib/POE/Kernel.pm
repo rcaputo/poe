@@ -862,7 +862,7 @@ sub _enqueue_state {
     my $kr_states = $self->[KR_STATES];
     if (@$kr_states) {
                                         # small queue; linear search
-      if (@$kr_states < 32) {
+      if (@$kr_states < 8) {
         my $index = @$kr_states;
         while ($index--) {
           if ($time >= $kr_states->[$index]->[ST_TIME]) {

@@ -25,6 +25,13 @@ Mentioned the "POE2" project in the README file.
 Added an undocumented command line switch to samples/poing.perl that
 specifies the maximum number of hours to run.
 
+Changed the small/large queue limit for POE::Kernel::_enqueue_state
+from 32 to 8.
+
+Removed the hard requirement for optional modules: Storable;
+Time::HiRes; HTTP::Request; HTTP::Response; HTTP::Status; URI::URL.
+These aren't mandatory for basic POE things.
+
 
 0.0704 1999.11.14
 -----------------
