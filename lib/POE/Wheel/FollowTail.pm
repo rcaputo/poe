@@ -141,7 +141,7 @@ sub new {
   # where a record begins.  Otherwise we just seek back and discard
   # everything to EOF so we can frame the input record.
 
-  if (-f $handle or -l $handle) {
+  if (-f $handle) {
     my $end = sysseek($handle, 0, SEEK_END);
     if (defined($end) and ($end < $seek_back)) {
       sysseek($handle, 0, SEEK_SET);
