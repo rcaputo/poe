@@ -313,6 +313,7 @@ BEGIN {
 macro sig_remove (<session>,<signal>) {
   delete $kr_sessions{<session>}->[SS_SIGNALS]->{<signal>};
   delete $kr_signals{<signal>}->{<session>};
+  delete $kr_signals{<signal>} unless keys %{$kr_signals{<signal>}};
 }
 
 macro sid (<session>) {
@@ -484,8 +485,8 @@ macro test_for_idle_poe_kernel {
          );
   } # include
 
-  unless ( @kr_states or
-           @kr_alarms or
+  unless ( @kr_states        or
+           @kr_alarms        or
            keys(%kr_handles) or
            $kr_extra_refs
          ) {
@@ -520,6 +521,7 @@ macro dispatch_due_alarms {
   my $now = time();
   while ( @kr_alarms and ($kr_alarms[0]->[ST_TIME] <= $now) ) {
     my $event = shift @kr_alarms;
+    delete $kr_alarm_ids{$event->[ST_SEQ]};
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
     $poe_kernel->_dispatch_state(@$event);
   }
@@ -713,8 +715,6 @@ sub new {
       # Pass a signal to the substrate module, which may or may not
       # watch it depending on its own criteria.
       {% substrate_watch_signal %}
-
-      $kr_signals{$signal} = { };
     }
 
     # The kernel is a session, sort of.
@@ -881,9 +881,13 @@ sub _dispatch_state {
           );
       }
 
-      # Translate the '_signal' state to its handler's name.
+      # Translate the '_signal' state to its handler's name.  This is
+      # a two-tier exists to prevent the second one from autovivifying
+      # elements in %kr_signals.
 
-      if (exists $kr_signals{$signal}->{$session}) {
+      if ( exists $kr_signals{$signal} and
+           exists $kr_signals{$signal}->{$session}
+         ) {
         $local_state = $kr_signals{$signal}->{$session};
       }
     }
@@ -1022,7 +1026,8 @@ sub _dispatch_state {
     while ($index-- && $kr_sessions{$session}->[SS_ALCOUNT]) {
       if ($kr_alarms[$index]->[ST_SESSION] == $session) {
         {% ses_refcount_dec2 $session, SS_ALCOUNT %}
-        splice(@kr_alarms, $index, 1);
+        my $removed_alarm = splice(@kr_alarms, $index, 1);
+        delete $kr_alarm_ids{$removed_alarm->[ST_SEQ]};
       }
     }
 
@@ -1157,20 +1162,18 @@ sub run {
   # Let's make sure POE isn't leaking things.
 
   if (ASSERT_GARBAGE) {
-
-    {% kernel_leak_vec VEC_RD %}
-    {% kernel_leak_vec VEC_WR %}
-    {% kernel_leak_vec VEC_EX %}
-
-    {% kernel_leak_hash %kr_processes   %}
-    {% kernel_leak_hash %kr_session_ids %}
-    {% kernel_leak_hash %kr_handles     %}
-    {% kernel_leak_hash %kr_sessions    %}
-    {% kernel_leak_hash %kr_aliases     %}
-
-    {% kernel_leak_array @kr_alarms %}
-    {% kernel_leak_array @kr_states %}
-
+    {% kernel_leak_hash  %kr_sessions    %}
+    {% kernel_leak_vec   VEC_RD          %}
+    {% kernel_leak_vec   VEC_WR          %}
+    {% kernel_leak_vec   VEC_EX          %}
+    {% kernel_leak_hash  %kr_handles     %}
+    {% kernel_leak_array @kr_states      %}
+    {% kernel_leak_hash  %kr_signals     %}
+    {% kernel_leak_hash  %kr_aliases     %}
+    {% kernel_leak_hash  %kr_processes   %}
+    {% kernel_leak_array @kr_alarms      %}
+    {% kernel_leak_hash  %kr_session_ids %}
+    {% kernel_leak_hash  %kr_alarm_ids   %}
   }
 
   if (TRACE_PROFILE) {
@@ -1811,11 +1814,6 @@ sub alarm {
     return EINVAL;
   }
 
-  # Remove all previous instances of the alarm.
-
-  # -><- This could be made into a binary seek if { session/event =>
-  # time } is kept somewhere.
-
   my $index = @kr_alarms;
   while ($index--) {
     if ( ($kr_alarms[$index]->[ST_TYPE] & ET_ALARM) &&
@@ -1823,11 +1821,13 @@ sub alarm {
          ($kr_alarms[$index]->[ST_NAME] eq $state)
     ) {
       {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
-      splice(@kr_alarms, $index, 1);
+      my $removed_alarm = splice(@kr_alarms, $index, 1);
+      delete $kr_alarm_ids{$removed_alarm->[ST_SEQ]};
     }
   }
 
-  # Add the new alarm if it includes a time.
+  # Add the new alarm if it includes a time.  Calling _enqueue_alarm
+  # directly is faster than calling alarm_set to enqueue it.
   if (defined $time) {
     $self->_enqueue_alarm
       ( $kr_active_session, $kr_active_session,
@@ -1947,15 +1947,9 @@ sub alarm_set {
 }
 
 # This is an alarm helper: it finds an alarm in the queue.  Special
-# cases don't count here because we assume the alarm exists.  If it
-# doesn't, we're in big trouble, because this is only called after
-# we've determined that it should.
-
-# -><- When adjusting alarms, it would be useful to carry over the
-# previous search's high/low bounds into the new search for an insert
-# position.  Why?  Because we know whether the new alarm time goes
-# before or after the old one, so we can avoid searching the queue on
-# the other side of the recently removed alarm.
+# cases don't count here because we assume the alarm exists.  It dies
+# outright if there's a problem because its parameters have been
+# verified good before it's called.  Failure is not an option here.
 
 # THIS IS A STATIC FUNCTION!
 
@@ -2037,7 +2031,7 @@ sub alarm_remove {
     return;
   }
 
-  my $alarm_time = delete $kr_alarm_ids{$alarm_id};
+  my $alarm_time = $kr_alarm_ids{$alarm_id};
   unless (defined $alarm_time) {
     TRACE_RETURNS and carp "unknown alarm id in alarm_remove()";
     ASSERT_RETURNS and croak "unknown alarm id in alarm_remove()";
@@ -2058,6 +2052,7 @@ sub alarm_remove {
 
   {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
   my $old_alarm = splice( @kr_alarms, $alarm_index, 1 );
+  delete $kr_alarm_ids{$old_alarm->[ST_SEQ]};
 
   # In a list context, return the alarm that was removed.  In a scalar
   # context, return a reference to the alarm that was removed.  In a
@@ -2273,9 +2268,10 @@ sub alarm_remove_all {
   while ($index-- && $kr_sessions{$kr_active_session}->[SS_ALCOUNT]) {
     if ($kr_alarms[$index]->[ST_SESSION] == $kr_active_session) {
       {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
-      my $removed = splice(@kr_alarms, $index, 1);
+      my $removed_alarm = splice(@kr_alarms, $index, 1);
+      delete $kr_alarm_ids{$removed_alarm->[ST_SEQ]};
       push( @removed,
-            ( @$removed[ST_NAME, ST_TIME], @{$removed->[ST_ARGS]} )
+            ( @$removed_alarm[ST_NAME, ST_TIME], @{$removed_alarm->[ST_ARGS]} )
           );
     }
   }
