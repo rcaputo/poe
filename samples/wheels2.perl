@@ -13,6 +13,13 @@ use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Stream);
 my $rot13_port = 32000;
 
 #==============================================================================
+# A client socket session that pipes between a connected socket and
+# the console.  It has two phases of operation: Connect phase, and
+# Interact phase.
+
+#------------------------------------------------------------------------------
+# Start the session by trying to connect to a server.  Create a
+# SocketFactory, then sit back until something occurs.
 
 sub session_start {
   my ($kernel, $heap, $connected_socket) = @_[KERNEL, HEAP, ARG0];
@@ -26,6 +33,12 @@ sub session_start {
       FailureState => 'connect_failure',
     );
 }
+
+#------------------------------------------------------------------------------
+# The connection succeeded.  Discard the spent SocketFactory, and
+# start two ReadWrite wheels to pipe data back and forth.  NOTE: This
+# doesn't do terminal characteristic games, so I/O may be choppy or
+# otherwise icky.
 
 sub session_connect_success {
   my ($heap, $kernel, $connected_socket) = @_[HEAP, KERNEL, ARG0];
@@ -52,6 +65,10 @@ sub session_connect_success {
   $heap->{console_wheel}->put("Begun terminal session.");
 }
 
+#------------------------------------------------------------------------------
+# The connection failed.  Close down everything so that POE will reap
+# the session and exit.
+
 sub session_connect_failure {
   my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
   if ($errnum) {
@@ -62,6 +79,10 @@ sub session_connect_failure {
   delete $heap->{socket_wheel};
 }
 
+#------------------------------------------------------------------------------
+# The session has stopped.  Delete the wheels once again, just for
+# redundancy's sake.
+
 sub session_stop {
   my $heap = $_[HEAP];
   delete $heap->{connector};
@@ -69,9 +90,16 @@ sub session_stop {
   delete $heap->{socket_wheel};
 }
 
+#------------------------------------------------------------------------------
+# Console input has arrived.  Send it to the socket.
+
 sub session_console_input {
   $_[HEAP]->{socket_wheel}->put($_[ARG0]);
 }
+
+#------------------------------------------------------------------------------
+# There has been an error on one of the console filehandles.  Close
+# down everything so that POE will reap the session and exit.
 
 sub session_console_error {
   my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
@@ -82,9 +110,16 @@ sub session_console_error {
   delete $heap->{socket_wheel};
 }
 
+#------------------------------------------------------------------------------
+# Socket input has arrived.  Send it to the console.
+
 sub session_socket_input {
   $_[HEAP]->{console_wheel}->put($_[ARG0]);
 }
+
+#------------------------------------------------------------------------------
+# A socket error has occurred.  Close down everything so that POE will
+# reap the session and exit.
 
 sub session_socket_error {
   my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
@@ -96,6 +131,8 @@ sub session_socket_error {
 }
 
 #==============================================================================
+# Start the Session, which will fire off the _start event and begin
+# the connection.
 
 new POE::Session
   ( _start => \&session_start,
@@ -104,11 +141,11 @@ new POE::Session
     connect_success => \&session_connect_success,
     connect_failure => \&session_connect_failure,
 
-    console_input => \&session_console_input,
-    console_error => \&session_console_error,
+    console_input   => \&session_console_input,
+    console_error   => \&session_console_error,
 
-    socket_input => \&session_socket_input,
-    socket_error => \&session_socket_error,
+    socket_input    => \&session_socket_input,
+    socket_error    => \&session_socket_error,
   );
 
 $poe_kernel->run();

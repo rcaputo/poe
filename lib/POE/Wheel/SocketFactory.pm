@@ -141,7 +141,27 @@ sub _define_connect_state {
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         $k->select($handle);
-        $k->call($me, $self->{'event success'}, $handle);
+
+        my $peer = getpeername($handle);
+        my ($peer_addr, $peer_port);
+
+        if ( ($self->{'socket domain'} == AF_UNIX) ||
+             ($self->{'socket domain'} == PF_UNIX)
+        ) {
+          $peer_addr = unpack_sockaddr_un($peer);
+          $peer_port = undef;
+        }
+        elsif ( ($self->{'socket domain'} == AF_INET) ||
+                ($self->{'socket domain'} == PF_INET)
+        ) {
+          ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
+        }
+        else {
+          die "sanity failure: socket domain == $self->{'socket domain'}";
+        }
+        $k->call( $me, $self->{'event success'},
+                  $handle, $peer_addr, $peer_port
+                );
       }
     );
 
@@ -510,6 +530,16 @@ sub DESTROY {
     $poe_kernel->state($self->{'state noconnect'});
     delete $self->{'state noconnect'};
   }
+
+  if (exists $self->{state_success}) {
+    $poe_kernel->state($self->{state_success});
+    delete $self->{state_success};
+  }
+
+  if (exists $self->{state_failure}) {
+    $poe_kernel->state($self->{state_failure});
+    delete $self->{state_failure};
+  }
 }
 
 ###############################################################################
@@ -717,22 +747,21 @@ Please see POE::Wheel.
 SuccessState
 
 The SuccessState parameter defines a state name or coderef to call
-upon -><-
+upon a successful connect or accept.  The operation it succeeds on
+depends on the type of socket created.
 
-The SuccessState event contains the name of the state, or a coderef,
-that will be called when the SocketFactory has successfully accepted
-or connected a socket.  The operation it succeeds on depends on the
-type of socket being created.
+For connecting sockets, the success state/coderef is called when the
+socket has connected.  For listening sockets, the success
+state/coderef is called for each successfully accepted client
+connection.
 
-For connecting sockets, the success state is called when the socket
-has connected.  For listening sockets, the success state is called for
-each successfully accepted client connection.
+ARG0 contains the connected or accepted socket.
 
-ARG0 always contains the connected or accepted socket.
+For INET sockets, ARG1 and ARG2 hold the socket's remote address and
+port, respectively.
 
-If the socket in ARG0 was created by an accept() call on a listening
-Internet domain socket, then ARG1 and ARG2 will contain the accepted
-socket's remote address and port, as returned by unpack_sockaddr_in().
+For Unix client sockets, ARG1 contains the server address and ARG2 is
+undefined.
 
 According to _Perl Cookbook_, the remote address for accepted Unix
 domain sockets is undefined.  So ARG0 and ARG1 are, too.
@@ -741,9 +770,9 @@ domain sockets is undefined.  So ARG0 and ARG1 are, too.
 
 FailureState
 
-The FailureState event contains the name of the state that will be
-called when a socket error occurs.  The SocketFactory wheel knows what
-to do with EAGAIN, so it's not considered a true error.
+The FailureState parameter defines a state name or coderef to call
+when a socket error occurs.  The SocketFactory knows what to do with
+EAGAIN, so that's not considered an error.
 
 The ARG0 parameter contains the name of the function that failed.
 ARG1 and ARG2 contain the numeric and string versions of $! at the

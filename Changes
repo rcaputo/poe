@@ -14,6 +14,15 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 Incorporated Kevin Lenzo's patch for Wheel::ReadWrite's support of
 separate input and output filehandles.
 
+SocketFactory's SuccessState and FailureState parameters can take
+coderefs instead of state names, for quick one-off states and closure
+tricks.  If this works and is generally useful, I'll add the feature
+to other wheels.
+
+Updated SocketFactory to return the remote address and port for
+connecting sockets as well as accepted ones.  Updated the
+socketfactory.perl sample program to display them.
+
 
 0.0802 1999.12.25
 -----------------

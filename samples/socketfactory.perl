@@ -165,14 +165,14 @@ use POE::Session;
 # Create a Perl object, and give it to POE to manage as a session.
 
 sub new {
-  my ($type, $socket) = @_;
+  my ($type, $socket, $addr, $port) = @_;
   my $self = bless { }, $type;
 
   print "$self is being created.\n";
                                         # wrap this object in a POE session
   new POE::Session( $self, [ '_start', '_stop', 'got_response', 'got_error' ],
                                         # ARG0
-                    [ $socket ]
+                    [ $socket, $addr, $port ]
                   );
   undef;
 }
@@ -200,7 +200,7 @@ sub _start {
     );
                                         # set up a query queue
   $heap->{'commands'} =
-    [ 'rot13 This is a test.', 
+    [ 'rot13 This is a test.',
       'rot13 Guvf vf n grfg.',
       'time',
       'quit'
@@ -429,11 +429,12 @@ sub _stop {
 # session to send requests and receive responses.
 
 sub got_connection {
-  my ($object, $kernel, $socket) = @_[OBJECT, KERNEL, ARG0];
+  my ($object, $kernel, $socket, $addr, $port) =
+    @_[OBJECT, KERNEL, ARG0, ARG1, ARG2];
 
-  print "$object has successfully connected to a server.\n";
+  print "$object has successfully connected to a server at $addr\n";
                                         # spawn the client session
-  new StreamClientSession($socket);
+  new StreamClientSession($socket, $addr, $port);
 
   # Having a child session causes this session to linger.  To prevent
   # this session from lingering beyond its useful lifetime, it sends
@@ -607,11 +608,16 @@ sub _stop {
 # session to send requests and receive responses.
 
 sub got_connection {
-  my ($object, $kernel, $socket) = @_[OBJECT, KERNEL, ARG0];
+  my ($object, $kernel, $socket, $addr, $port) =
+    @_[OBJECT, KERNEL, ARG0, ARG1, ARG2];
 
-  print "$object has successfully connected to a server.\n";
+  print( "$object has successfully connected to a server",
+         ((defined $addr) ? (' at ' . inet_ntoa($addr)) : ''),
+         ((defined $port) ? ":$port" : ''),
+         "\n"
+       );
                                         # spawn the client session
-  new StreamClientSession($socket);
+  new StreamClientSession($socket, $addr, $port);
 
   # Having a child session causes this session to linger.  To prevent
   # this session from lingering beyond its useful lifetime, it sends
