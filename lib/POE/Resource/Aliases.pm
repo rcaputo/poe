@@ -40,7 +40,17 @@ sub _data_alias_finalize {
   }
 }
 
-### Add an alias to a session.
+# Add an alias to a session.
+#
+# -><- This has a potential problem: setting the same alias twice on a
+# session will increase the session's reference count twice.  Removing
+# the alias will only decrement it once.  That potentially causes
+# reference counts that never go away.  The public interface for this
+# function, alias_set(), does not allow this to occur.  We should add
+# a test to make sure it never does.
+#
+# -><- It is possible to add aliases to sessions that do not exist.
+# The public alias_set() function prevents this from happening.
 
 sub _data_alias_add {
   my ($self, $session, $alias) = @_;
@@ -49,7 +59,10 @@ sub _data_alias_add {
   $kr_ses_to_alias{$session}->{$alias} = 1;
 }
 
-### Remove an alias from a session.
+# Remove an alias from a session.
+#
+# -><- Happily allows the removal of aliases from sessions that don't
+# exist.  This will cause problems with reference counting.
 
 sub _data_alias_remove {
   my ($self, $session, $alias) = @_;
@@ -102,7 +115,7 @@ sub _data_alias_loggable {
   confess "internal inconsistency" unless ref($session);
   "session " . $session->ID . " (" .
     ( (exists $kr_ses_to_alias{$session})
-      ? join(", ", keys(%{$kr_ses_to_alias{$session}}))
+      ? join(", ", $self->_data_alias_list($session))
       : $session
     ) . ")"
 }

@@ -35,10 +35,12 @@ sub _data_extref_finalize {
   }
 }
 
-### Increment a session's tagged reference count.  If this is the
-### first time the tag is used in the session, then increment the
-### session's reference count as well.  Returns the tag's new
-### reference count.
+# Increment a session's tagged reference count.  If this is the first
+# time the tag is used in the session, then increment the session's
+# reference count as well.  Returns the tag's new reference count.
+#
+# -><- Allows incrementing reference counts on sessions that don't
+# exist, but the public interface catches that.
 
 sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
@@ -54,9 +56,12 @@ sub _data_extref_inc {
   return $refcount;
 }
 
-### Decrement a session's tagged reference count, removing it outright
-### if the count reaches zero.  Return the new reference count or
-### undef if the tag doesn't exist.
+# Decrement a session's tagged reference count, removing it outright
+# if the count reaches zero.  Return the new reference count or undef
+# if the tag doesn't exist.
+#
+# -><- Allows negative reference counts, and the resulting hilarity.
+# Hopefully the public interface won't allow it.
 
 sub _data_extref_dec {
   my ($self, $session, $tag) = @_;
@@ -119,13 +124,14 @@ sub _data_extref_clear_session {
   }
 }
 
-### Fetch the number of extra references held in the entire system.
+# Fetch the number of sessions with extra references held in the
+# entire system.
 
 sub _data_extref_count {
   return scalar keys %kr_extra_refs;
 }
 
-### Fetch the number of extra references held by a session.
+# Fetch whether a session has extra references.
 
 sub _data_extref_count_ses {
   my ($self, $session) = @_;
