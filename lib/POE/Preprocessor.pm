@@ -352,10 +352,10 @@ POE::Preprocessor - A Macro Preprocessor
 POE::Preprocessor is a Perl source filter that implements a simple
 macro substitution language.
 
-The preprocessor defines a "macro" command:
+The preprocessor defines a "macro" compile-time directive:
 
-  macro macro_name (parameter list) {
-    macro code
+  macro macro_name (parameter_0, parameter_1) {
+    macro code ... parameter_0 ... parameter_1 ...
   }
 
 The parameter list is optional for macros that don't accept
@@ -364,7 +364,7 @@ parameters.
 Macros are substituted into a program with a syntax borrowed from
 Iaijutsu and altered slightly to jive with Perl's native syntax.
 
-  {% macro_name parameter,list %}
+  {% macro_name parameter_0, parameter_1 %}
 
 Constants are defined this way:
 
@@ -381,7 +381,7 @@ Or some other number:
 Or continue where the previous one left off, which is necessary
 because an enumeration can't span lines:
 
-  enum +  THIRTEENTH FOURTEENTH FIFTEENTH ...
+  enum + THIRTEENTH FOURTEENTH FIFTEENTH ...
 
 =head1 BUGS
 
@@ -389,7 +389,9 @@ because an enumeration can't span lines:
 
 =item *
 
-Macro invocations may not span lines, but macro definitions may.
+Source filters are line-based, and so is the macro language.  The only
+constructs that may span lines are the brace-delimited macro
+definitions.  And those *must* span lines.
 
 =item *
 

@@ -89,6 +89,9 @@ macro remove_extra_reference (<session>,<tag>) {
   {% ses_refcount_dec <session> %}
 }
 
+# There is an string equality test in alias_resolve that should not be
+# made into a numeric equality test.  <name> is often a string.
+
 macro alias_resolve (<name>) {
   # Resolve against sessions.
   ( (exists $self->[KR_SESSIONS]->{<name>})
@@ -100,7 +103,7 @@ macro alias_resolve (<name>) {
         : ( (exists $self->[KR_ALIASES]->{<name>})
             ? $self->[KR_ALIASES]->{<name>}
             # Resolve against self.
-            : ( (<name> == $self)
+            : ( (<name> eq $self)
                 ? $self
                 # Game over!
                 : undef
@@ -2802,8 +2805,8 @@ Sample usage:
 
   # Display information about garbage collection, and display some
   # profiling information at the end.
-  sub POE::Kernel::DEB_GC      () { 1 }
-  sub POE::Kernel::DEB_PROFILE () { 1 }
+  sub POE::Kernel::TRACE_GARBAGE   () { 1 }
+  sub POE::Kernel::ASSERT_REFCOUNT () { 1 }
   use POE;
   ...
 
@@ -2811,77 +2814,82 @@ Sample usage:
 
 =item *
 
-DEB_EVENTS
+TRACE_DEFAULT
 
-Enables a trace of events as they are enqueued and dispatched (or
-discarded).  Also shows states' return values.
-
-=item *
-
-DEB_GC
-
-Enables sanity checks in POE's internal structure cleanup, after each
-Session is stopped, and again at the end of the program's run.
-Displays the results of sessions' garbage-collection checks, perhaps
-showing why a session isn't stopping when it ought to.
+The value of TRACE_DEFAULT, which itself defaults to 0, is used as the
+default value for all the other TRACE_* constants.
 
 =item *
 
-DEB_INSERT
+TRACE_QUEUE
 
-Trace the steps POE::Kernel->_enqueue_state() takes to find the
-locations of new events in its queue.
-
-=item *
-
-DEB_MAIN
-
-The first debugging constant.  Prints "POE stopped." when
-POE::Kernel->run() stops.
+Enables a runtime trace of POE's main event loop.
 
 =item *
 
-DEB_PROFILE
+TRACE_PROFILE
 
-When enabled, POE::Kernel collects a histogram of state names that
-were dispatched, and displays a report of them when POE::Kernel->run()
-stops.
-
-=item *
-
-DEB_QUEUE
-
-When enabled, POE::Kernel displays information about events in the
-queue.
+Enables a runtime count of the events that have been dispatched and an
+end-run report of the collected statistics.
 
 =item *
 
-DEB_REFCOUNT
+TRACE_SELECT
 
-Enabling enables sanity checks and status displays on the number of
-references POE::Kernel holds on resources.  These references are used
-to determine when things like filehandles are no longer being used.
+Displays a runtime trace of select's arguments and return values.
 
 =item *
 
-DEB_RELATION
+TRACE_EVENTS
 
-Enabling this causes POE::Kernel to examine parent/child relationships
-for problems.
-
-=item *
-
-DEB_SELECT
-
-When enabled, DEB_SELECT causes POE::Kernel to display running
-statistics about its select vectors and time-out status.
+Displays a runtime trace of events as they're enqueued and dispatched.
 
 =item *
 
-DEB_STRICT
+TRACE_GARBAGE
 
-When enabled, POE::Kernel->post() and POE::Kernel->call() must be able
-to resolve an event's destination at post time.
+Displays a runtime trace of garbage checking and collecting.
+
+=item *
+
+ASSERT_DEFAULT
+
+The value of ASSERT_DEFAULT, which itself defaults to 0, is used as
+the default value for all the other ASSERT_* constants.  POE's t/*.t
+tests enable ASSERT_DEFAULT to turn on maximum error checking.
+
+=item *
+
+ASSERT_SELECT
+
+Causes POE to check for and die on fatal select() errors.
+
+=item *
+
+ASSERT_GARBAGE
+
+Enables a bunch of reference count checking during garbage collection.
+This verifies the state of POE's internal data structures.
+
+=item *
+
+ASSERT_RELATIONS
+
+Ensures that sessions' parent/child relationships are consistent.
+
+=item *
+
+ASSERT_SESSIONS
+
+Makes bad session references fatal.  This can be helpful in situations
+where sessions aren't running as expected.
+
+=item *
+
+ASSERT_REFCOUNT
+
+Dies if reference counts go negative.  This is another internal
+consistency check on POE's data structures.
 
 =back
 

@@ -13,10 +13,11 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
   cvs tag -Rc v0_10 .
 ]
 
-*** To Do:
-***   Overhaul Kernel and Session manpages' DESCRIPTIONs.
-***   Redocument the debugging constants (part of desc. overhaul).
-***   Verify POE::Preprocessor documentation.
+
+To Do
+-----
+
+Overhaul Kernel and Session manpages' DESCRIPTIONs.
 
 
 0.1001 2000.??.?? (!!!)
@@ -50,6 +51,8 @@ ASSERT_* and TRACE_*.  These let programs turn everything on with one
 or two statements.
 
 Set ASSERT_DEFAULT to true in t/*.t so the tests are more thorough.
+
+Documented the ASSERT_* and TRACE_* constants.
 
 Added t/03_aliases.t to test session aliases.
 
