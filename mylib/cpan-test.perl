@@ -11,13 +11,16 @@ use CPANPLUS::Backend;
 use Cwd;
 use Digest::MD5;
 
+### Local configuration.  Do everything out of the current directory,
+### which is usually (always?) the main POE development directory.
+
 my $cwd = cwd;
 sub DIR_MAIN     () { $cwd . "/comptest" }
 sub DIR_CPANPLUS () { DIR_MAIN . "/cpanplus" }
 sub DIR_TARBALLS () { DIR_MAIN . "/tarballs" }
 sub DIR_TESTING  () { DIR_CPANPLUS . "/build" }
 
-### Set up the directories.
+### Create directories as necessary.
 
 unless (-e DIR_MAIN) {
   mkdir DIR_MAIN, 0777 or die $!;
@@ -31,14 +34,15 @@ unless (-e DIR_TARBALLS) {
   mkdir DIR_TARBALLS, 0777 or die $!;
 }
 
-### Redirect CPANPLUS configuration into our private cache.
+### Grab CPANPLUS' configuration, and locally redirect its base
+### directory to our own location.
 
 my $cc = CPANPLUS::Configure->new();
 $cc->_set_build( base => DIR_CPANPLUS );
 
-### Gather a list of POE components that aren't part of POE.
+### Gather a list of POE components that aren't distributed with POE.
 
-print "Searching CPAN for POE modules...\n";
+print "Searching CPAN for POE distributions...\n";
 
 my $cp = CPANPLUS::Backend->new($cc);
 my $search = $cp->search( type => "module",
@@ -58,7 +62,8 @@ foreach my $mod (sort keys %$search) {
   $package{$package} = $obj;
 }
 
-### Fetch distributions.
+### Fetch distributions.  This caches them in DIR_TARBALLS, avoiding
+### redundant downloads.
 
 print "Fetching distributions...\n";
 
@@ -96,14 +101,12 @@ closedir TB;
 
 foreach my $mod (sort keys %ver) {
   next unless @{$ver{$mod}} > 1;
-  my @files = sort { -M } @{$ver{$mod}};
+  my @files = sort { (-M $a) <=> (-M $b) } @{$ver{$mod}};
   while (@files > 1) {
-    my $dead = shift @files;
+    my $dead = pop @files;
     print "Unlinking older $dead...\n";
     unlink $dead;
   }
-
-
 }
 
 ### Test them!
@@ -129,7 +132,7 @@ my %results;
 foreach my $tarball (@tarballs) {
 
   # Temporarily skip some modules that hang during testing.
-  if ($tarball =~ /(rrdtool|onjoin|player-mpg123)/i) {
+  if ($tarball =~ /(rrdtool|onjoin|player)/i) {
     warn "Skipping $tarball...\n";
     next;
   }
