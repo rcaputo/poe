@@ -154,6 +154,10 @@ sub new {
     $conduit = "pipe";
   }
 
+  my $winsize = delete $params{Winsize};
+  croak "Winsize needs to be an array ref"
+    if (defined($winsize) and ref($winsize) ne 'ARRAY');
+
   my $stdin_event  = delete $params{StdinEvent};
   my $stdout_event = delete $params{StdoutEvent};
   my $stderr_event = delete $params{StderrEvent};
@@ -310,6 +314,7 @@ sub new {
         if (-t STDIN) {
           my $window_size = '!' x 25;
           ioctl( STDIN, TIOCGWINSZ, $window_size ) or die $!;
+          $window_size = pack('SSSS', @$winsize) if ref($winsize);
           ioctl( $stdin_read, TIOCSWINSZ, $window_size ) or die $!;
         }
         else {
@@ -1112,6 +1117,16 @@ The reasons to define this parameter would be if you want to use
 system, or the default pipe type's performance is poor.
 
 Pty conduits require the IO::Pty module.
+
+=item Winsize
+
+C<Winsize> is only valid for C<Conduit = "pty"> and used to set the
+window size of the pty device.
+
+The window size is given as an array reference.  The first element is
+the number of lines, the second the number of columns. The third and
+the fourth arguments are optional and specify the X and Y dimensions
+in pixels.
 
 =item CloseOnCall
 
