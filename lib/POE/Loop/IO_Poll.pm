@@ -18,8 +18,10 @@ use strict;
 
 # Ensure that no other substrate module has been loaded.
 BEGIN {
-  die( "POE can't use IO::Poll and " . &POE_SUBSTRATE_NAME . "\n" )
+  die "POE can't use IO::Poll and " . &POE_SUBSTRATE_NAME . "\n"
     if defined &POE_SUBSTRATE;
+  die "IO::Poll is version $IO::Poll::VERSION (POE needs 0.05 or newer)\n"
+    if $IO::Poll::VERSION < 0.05;
 };
 
 # Declare the substrate we're using.

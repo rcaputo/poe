@@ -25,11 +25,11 @@ if ($@) {
 ExtUtils::AutoInstall->import
   ( -version => '0.32',
     -core => [
-        Carp     => '',
-        Exporter => '',
-        IO       => '',
-        POSIX    => '',
-        Socket   => '',
+        Carp                 => '',
+        Exporter             => '',
+        IO                   => '',
+        POSIX                => '',
+        Socket               => '',
         'Filter::Util::Call' => 1.04,
     ],
     "Recommended modules to increase timer/alarm/delay accuracy." => [
@@ -46,8 +46,8 @@ ExtUtils::AutoInstall->import
         'IO::Pty' => '1.02',
     ],
     "Optional modules for marshaling/serializing data." => [
-        -default   => 0,
-        'Storable' => '',
+        -default         => 0,
+        'Storable'       => '',
         'Compress::Zlib' => '',
     ],
     "Optional modules for web applications (client & server)." => [
@@ -58,20 +58,29 @@ ExtUtils::AutoInstall->import
         'HTTP::Response' => '',
         'URI'            => '',
     ],
+    "Optional modules for Curses text interfaces." => [
+        -default => 0,
+        'Curses' => '',
+    ],
+    "Optional modules for console (command line) interfaces." => [
+        -default        => 0,
+        'Term::ReadKey' => '',
+        'Term::Cap'     => '',
+    ],
     "Optional modules for Gtk+ graphical interfaces." => [
         -default => 0,
-        -tests => [ qw(t/21_gtk.t) ],
-        'Gtk'  => '',
+        -tests   => [ qw(t/21_gtk.t) ],
+        'Gtk'    => '',
     ],
     "Optional modules for Tk graphical interfaces." => [
         -default => 0,
-        -tests => [ qw(t/06_tk.t) ],
-        'Tk'   => '800.021',
+        -tests   => [ qw(t/06_tk.t) ],
+        'Tk'     => '800.021',
     ],
     "Optional modules for Event.pm support." => [
         -default => 0,
-        -tests  => [ qw(t/07_event.t t/12_signals_ev.t) ],
-        'Event' => '',
+        -tests   => [ qw(t/07_event.t t/12_signals_ev.t) ],
+        'Event'  => '',
     ],
 );
 
@@ -84,7 +93,7 @@ WriteMakefile
     ( ($^O eq 'MacOS')
       ? ()
       : ( AUTHOR   => 'Rocco Caputo <rcaputo@cpan.org>',
-          ABSTRACT => 'A networking/multitasking framework for Perl.',
+          ABSTRACT => 'A portable networking/multitasking framework for Perl.',
         )
     ),
 

@@ -9,8 +9,10 @@ use TestSetup;
 
 BEGIN {
   eval 'use IO::Poll';
-  &test_setup(0, "need IO::Poll to test POE's support for that module")
+  test_setup(0, "need IO::Poll to test POE's support for that module")
     if length($@) or not exists $INC{'IO/Poll.pm'};
+  test_setup(0, "need IO::Poll 0.05 (you have version $IO::Poll::VERSION)")
+    if $IO::Poll::VERSION < 0.05;
 }
 
 require 't/04_selects.t';
