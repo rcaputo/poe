@@ -222,12 +222,12 @@ sub server_accept {
     my $peer_host = $connection->peerhost();
     my $peer_port = $connection->peerport();
                                         # create a session to handle I/O
-    my $new = new POE::Session( _start   => \&session_start,
-                                _stop    => \&session_stop,
-                                _default => \&session_default,
-                                read     => \&session_read,
-                                write    => \&session_write,
-                                signal   => \&session_signal,
+    my $new = new POE::Session( _start     => \&session_start,
+                                _stop      => \&session_stop,
+                                _default   => \&session_default,
+                                'read'     => \&session_read,
+                                'write'    => \&session_write,
+                                signal     => \&session_signal,
                                         # ARG0, ARG1 and ARG2
                                 [ $connection, $peer_host, $peer_port ]
                               );
@@ -291,7 +291,7 @@ sub client_start {
 # Handle POE's standard _stop event.
 
 sub client_stop {
-  print "The chargen client has stopped.\n";
+  print "\nThe chargen client has stopped.\n";
 }
 
 #------------------------------------------------------------------------------
@@ -351,19 +351,19 @@ sub client_signal {
 #==============================================================================
 # Start a server and a client, and run indefinitely.
 
-new POE::Session( _start   => \&server_start,
-                  _stop    => \&server_stop,
-                  _default => \&server_default,
-                  _child   => \&server_child,
-                  accept   => \&server_accept,
-                  signal   => \&server_signal,
+new POE::Session( _start     => \&server_start,
+                  _stop      => \&server_stop,
+                  _default   => \&server_default,
+                  _child     => \&server_child,
+                  'accept'   => \&server_accept,
+                  signal     => \&server_signal,
                 );
 
-new POE::Session( _start   => \&client_start,
-                  _stop    => \&client_stop,
-                  _default => \&client_default,
-                  read     => \&client_read,
-                  signal   => \&client_signal,
+new POE::Session( _start     => \&client_start,
+                  _stop      => \&client_stop,
+                  _default   => \&client_default,
+                  'read'     => \&client_read,
+                  signal     => \&client_signal,
                 );
 
 $poe_kernel->run();
