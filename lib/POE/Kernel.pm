@@ -481,15 +481,15 @@ sub new {
     $kr_queue = POE::Queue::Array->new();
 
     my $self = $poe_kernel = bless
-      [ undef,               # KR_SESSIONS
-        undef,               # KR_FILENOS
-        undef,               # KR_SIGNALS
-        undef,               # KR_ALIASES
-        \$kr_active_session, # KR_ACTIVE_SESSION
-        \$kr_queue,          # KR_QUEUE
-        undef,               # KR_ID
-        undef,               # KR_SESSION_IDS
-        undef,               # KR_SID_SEQ
+      [ undef,               # KR_SESSIONS - loaded from POE::Resource::Sessions
+        undef,               # KR_FILENOS - loaded from POE::Resource::FileHandles
+        undef,               # KR_SIGNALS - loaded from POE::Resource::Signals
+        undef,               # KR_ALIASES - loaded from POE::Resource::Aliases
+        \$kr_active_session, # KR_ACTIVE_SESSION - should this be handled by POE::Resource::Sessions?
+        \$kr_queue,          # KR_QUEUE - should this be extracted into a Resource ?
+        undef,               # KR_ID 
+        undef,               # KR_SESSION_IDS - loaded from POE::Resource::Sessions
+        undef,               # KR_SID_SEQ - loaded from POE::Resource::SIDS
       ], $type;
 
     POE::Resources->initialize();
