@@ -9,8 +9,8 @@ $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Carp qw(carp croak);
 use POSIX qw(
-  sysconf _SC_OPEN_MAX ECHO ICANON IEXTEN ISIG BRKINT ICRNL INPCK
-  ISTRIP IXON CSIZE PARENB OPOST TCSANOW
+  sysconf setsid _SC_OPEN_MAX ECHO ICANON IEXTEN ISIG BRKINT ICRNL
+  INPCK ISTRIP IXON CSIZE PARENB OPOST TCSANOW
 );
 
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
