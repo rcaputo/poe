@@ -1,6 +1,7 @@
 # $Id$
 CHANGES
 MANIFEST
+MANIFEST.SKIP
 Makefile.PL
 NEEDS
 POE.pm
