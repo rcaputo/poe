@@ -71,7 +71,7 @@ sub sss_start {
 sub sss_block {
   my ($kernel, $heap, $block) = @_[KERNEL, HEAP, ARG0];
   $heap->{read_count}++;
-  $kernel->delay( ev_timeout => 2 );
+  $kernel->delay( ev_timeout => 5 );
 }
 
 sub sss_error {
