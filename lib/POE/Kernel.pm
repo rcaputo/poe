@@ -298,6 +298,7 @@ BEGIN {
 
   defined &ASSERT_DEFAULT or eval 'sub ASSERT_DEFAULT () { 0 }';
 
+  {% define_assert ALARMS    %}
   {% define_assert GARBAGE   %}
   {% define_assert REFCOUNT  %}
   {% define_assert RELATIONS %}
@@ -1601,15 +1602,11 @@ sub _enqueue_alarm {
     # tends to be towards the end of the queue.
     elsif (@kr_alarms < LARGE_QUEUE_SIZE) {
       my $index = @kr_alarms;
-      while ($index--) {
-        if ($time >= $kr_alarms[$index]->[ST_TIME]) {
-          splice @kr_alarms, $index+1, 0, $state_to_enqueue;
-          last;
-        }
-        elsif ($index == 0) {
-          unshift @kr_alarms, $state_to_enqueue;
-        }
-      }
+      $index--
+        while ( $index and
+                $time < $kr_alarms[$index-1]->[ST_TIME]
+              );
+      splice @kr_alarms, $index, 0, $state_to_enqueue;
     }
 
     # And finally, we have this large queue, and the program has
@@ -2142,29 +2139,21 @@ sub alarm_adjust {
   # most events will be posted for "now" or some future time, which
   # tends to be towards the end of the queue.
   elsif ($delta > 0 and (@kr_alarms - $alarm_index) < LARGE_QUEUE_SIZE) {
-    my $index = @kr_alarms;
-    while ($index-- > $alarm_index) {
-      if ($new_time >= $kr_alarms[$index]->[ST_TIME]) {
-        splice @kr_alarms, $index+1, 0, $old_alarm;
-        last;
-      }
-      elsif ($index == $alarm_index) {
-        unshift @kr_alarms, $old_alarm;
-      }
-    }
+    my $index = $alarm_index;
+    $index++
+      while ( $index < @kr_alarms and
+              $new_time >= $kr_alarms[$index]->[ST_TIME]
+            );
+    splice @kr_alarms, $index, 0, $old_alarm;
   }
 
   elsif ($delta < 0 and $alarm_index < LARGE_QUEUE_SIZE) {
     my $index = $alarm_index;
-    while ($index--) {
-      if ($new_time >= $kr_alarms[$index]->[ST_TIME]) {
-        splice @kr_alarms, $index+1, 0, $old_alarm;
-        last;
-      }
-      elsif ($index == 0) {
-        unshift @kr_alarms, $old_alarm;
-      }
-    }
+    $index--
+      while ( $index and
+              $new_time < $kr_alarms[$index-1]->[ST_TIME]
+            );
+    splice @kr_alarms, $index, 0, $old_alarm;
   }
 
   # And finally, we have this large queue, and the program has already
@@ -2178,7 +2167,7 @@ sub alarm_adjust {
       $lower = $alarm_index;
     }
     else {
-      $upper = $alarm_index - 1;
+      $upper = $alarm_index;
       $lower = 0;
     }
 
@@ -2210,8 +2199,8 @@ sub alarm_adjust {
       # higher keys until the midpoint points to an element with a
       # higher key.  Insert the new state before it.
       $midpoint++
-        while ( ($midpoint < @kr_alarms)
-                and ($new_time == $kr_alarms[$midpoint]->[ST_TIME])
+        while ( ($midpoint < @kr_alarms) and
+                ($new_time == $kr_alarms[$midpoint]->[ST_TIME])
               );
       splice @kr_alarms, $midpoint, 0, $old_alarm;
       last;
