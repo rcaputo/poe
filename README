@@ -81,36 +81,50 @@ Finally you can install it:
 
   make install
 
--------------------------
-Test Results and Coverage
--------------------------
+------------
+Test Results
+------------
 
-These are the `make test' results for POE 0.1111 on OS/2:
+Note on test results: Some of the tests, like Tk's and Gtk's, are
+interactive, if only to place a window.  Some of the tests have delays
+in them to make sure signals are caught.  These delays can cause the
+test times to vary widely, so times aren't included in the results.
 
-Hardware: Cyrix P166+; 64MB RAM.
-Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no Event; no Gtk.
+** POE 0.12 on OS/2
+
+Hardware: Cyrix P166+; 64MB RAM
+System  : OS/2 4.0, Fix 13
+Perl    : v5.6.0
+Gtk     : (not installed)
+Tk      : (not installed)
+Event   : (not installed)
 
   All tests successful, 4 tests skipped.
-  Files=22, Tests=384, [line shortened]
+  Files=22, Tests=398
 
-These are the `make test' results for POE 0.1111 or FreeBSD:
+** POE 0.12 on FreeBSD
 
-Hardware: AMD 486-40; 16MB RAM.
-Software: FreeBSD 4.0-STABLE; perl 5.6.0; Perl/Tk 800.021; Event 0.79;
-          Gtk/Perl 0.7000.
-
-  All tests successful.
-  Files=22, Tests=409, [line shortened]
-
-These are the `make test' results for POE 0.1109 on Dave Paris' Linux
-system:
-
-Hardware: Unknown.
-Software: Linux (unknown); perl 5.005_03; Perl/Tk (unknown); Event (unknown);
-          Gtk/Perl (unknown).
+Hardware: AMD 486-40; 16MB RAM
+System  : FreeBSD 4.0-STABLE
+Perl    : v5.6.0
+Gtk     : 0.7000
+Tk      : 800.021
+Event   : 0.79
 
   All tests successful.
-  Files=22, Tests=399, [line shortened]
+  Files=22, Tests=423
+
+** POE 0.12 on Linux
+
+Hardware: dual Celeron 500; 265MB RAM
+System  : Linux 2.2.15 SMP
+Perl    : v5.6.0
+Gtk     : (not installed)
+Tk      : (not installed)
+Event   : 0.79
+
+  All tests successful, 2 tests skipped.
+  Files=22, Tests=407
 
 These coverage results are for POE 0.1111 on the FreeBSD machine.
 This machine more thoroughly tests different POE options, so the
@@ -119,8 +133,11 @@ however, even at their best.
 
   Source File                         =   Ran / Total = Covered
   POE.pm                              =    23 /    24 =  95.83%
+  POE/Component.pm                    =     5 /     5 = 100.00%
   POE/Component/Server/TCP.pm         =    23 /    23 = 100.00%
+  POE/Driver.pm                       =     5 /     5 = 100.00%
   POE/Driver/SysRW.pm                 =    42 /    54 =  77.78%
+  POE/Filter.pm                       =     5 /     5 = 100.00%
   POE/Filter/Block.pm                 =    37 /    37 = 100.00%
   POE/Filter/HTTPD.pm                 =    11 /    88 =  12.50%
   POE/Filter/Line.pm                  =    77 /    82 =  93.90%
@@ -129,13 +146,13 @@ however, even at their best.
   POE/Kernel.pm                       =   623 /   839 =  74.26%
   POE/NFA.pm                          =     9 /   144 =   6.25%
   POE/Preprocessor.pm                 =   146 /   166 =  87.95%
-  POE/Session.pm                      =   102 /   181 =  56.35%
-  POE/Wheel.pm                        =     9 /    11 =  81.82%
+  POE/Session.pm                      =   126 /   181 =  69.61%
+  POE/Wheel.pm                        =    11 /    11 = 100.00%
   POE/Wheel/FollowTail.pm             =    66 /    87 =  75.86%
   POE/Wheel/ListenAccept.pm           =    33 /    47 =  70.21%
   POE/Wheel/ReadWrite.pm              =   111 /   184 =  60.33%
   POE/Wheel/SocketFactory.pm          =   179 /   216 =  82.87%
-  All Told                            =  1562 /  2260 =  69.12%
+  All Told                            =  1603 /  2275 =  70.46%
 
 Thanks for reading!
 
