@@ -1,5 +1,8 @@
 # $Id$
-# Documentation exists after __END__
+
+# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
+# This program is free software; you can redistribute it and/or modify
+# it under the same terms as Perl itself.
 
 package POE::Wheel::ListenAccept;
 
@@ -60,93 +63,3 @@ sub DESTROY {
 
 ###############################################################################
 1;
-__END__
-
-=head1 NAME
-
-POE::Wheel::ListenAccept - accept connections for a listening C<IO::Socket>
-
-=head1 SYNOPSIS
-
-  $wheel_rw = new POE::Wheel::ReadWrite
-    ( $kernel,
-      'Handle' => $handle,
-      'AcceptState' => $accept_state_name, # accepts accepted sockets
-      'ErrorState'  => $error_state_name,  # accepts error states
-    );
-
-=head1 DESCRIPTION
-
-C<POE::Wheel::ListenAccept> manages a listening C<IO::Socket> and accepts new
-connections.  Successfully connections are passed to 'AcceptState' for custom
-processing (for example, creating a new C<POE::Session> to interact with the
-socket).
-
-=head1 PUBLIC METHODS
-
-=over 4
-
-=item new POE::Wheel::ListenAccept
-
-Creates a ListenAccept wheel.  C<$kernel> is the kernel that owns the currently
-running session (the session that creates this wheel).
-
-Parameters specific to ListenAccept:
-
-=over 0
-
-=item 'Handle'
-
-This is the filehandle that currently is listening for connections.
-
-=item 'AcceptState'
-
-This names the event that will be sent to the current session whenever a
-connection is accepted.
-
-'InputState' handlers will receive these parameters: C<$kernel>, C<$namespace>,
-C<$origin_session>, C<$new_socket>.  The first three are standard; the last
-is a filehandle for the socket created by C<accept()>.
-
-=item 'ErrorState'
-
-This names the event that will receive notification of any errors that occur
-while trying to accept a connection.
-
-'ErrorState' handlers will these parameters: C<$kernel>, C<$namespace>,
-C<$origin_session>, C<$operation>, C<$errnum>, C<$errstr>.  The first three are
-standard; C<$operation> is either 'read' or 'write'; C<$errnum> is C<($!+0)>;
-C<$errstr> is C<$!>.
-
-=back
-
-=back
-
-=head1 PRIVATE METHODS
-
-Not for general use.
-
-=over 4
-
-=item DESTROY
-
-Removes C<POE::Wheel::ListenAccept> states from the parent C<POE::Session>.
-
-=back
-
-=head1 EXAMPLES
-
-Please see tests/wheels.perl for an example of C<POE::Wheel::ListenAccept>.
-Also see tests/selects.perl to see the non-wheel way to do things.
-
-=head1 BUGS
-
-None known.
-
-=head1 CONTACT AND COPYRIGHT
-
-Copyright 1998 Rocco Caputo E<lt>troc@netrus.netE<gt>.  All rights reserved.
-This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-=cut

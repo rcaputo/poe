@@ -1,5 +1,8 @@
 # $Id$
-# Documentation exists after __END__
+
+# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
+# This program is free software; you can redistribute it and/or modify
+# it under the same terms as Perl itself.
 
 package POE::Driver::SysRW;
 
@@ -76,41 +79,3 @@ sub flush {
 
 ###############################################################################
 1;
-__END__
-
-=head1 NAME
-
-POE::Driver::SysRW - boilerplate sysread and syswrite
-
-=head1 SYNOPSIS
-
-  $sysrw = new POE::Driver::SysRW();     # create the SysRW driver
-  \@input_chunks = $sysrw->get($handle); # sysread from $handle
-  $result = $sysrw->put($output_chunk);  # add chunk to output buffer
-  $result = $sysrw->flush($handle);      # syswrite from output buffer
-
-=head1 DESCRIPTION
-
-Basic non-blocking sysread and syswrite with error checking and buffering that
-is compatible with C<POE::Kernel>'s non-blocking C<select(2)> logic.  Ignores
-C<EAGAIN>.
-
-=head1 PUBLIC METHODS
-
-Please see C<POE::Driver> for explanations.
-
-=head1 EXAMPLES
-
-Please see tests/selects.perl for examples of C<POE::Driver::SysRW>.
-
-=head1 BUGS
-
-None known.
-
-=head1 CONTACT AND COPYRIGHT
-
-Copyright 1998 Rocco Caputo E<lt>troc@netrus.netE<gt>.  All rights reserved.
-This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
-
-=cut
