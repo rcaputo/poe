@@ -7,7 +7,7 @@ use strict;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.1702';
+$VERSION = '0.1703';
 
 sub import {
   my $self = shift;
@@ -103,8 +103,10 @@ POE - multitasking and networking framework for perl
 Please see the SEE ALSO section for conceptual summary of all POE's
 documentation.
 
-Please see the samples directory in POE's distribution for several
-well-commented sample and tutorial programs.
+POE's distribution comes with a directory full of examples, but they
+are gradually being phased out in favor of an online "cookbook".
+Please see the samples directory, and also look at
+http://poe.perl.org/?POE_Cookbook for more contemporary examples.
 
 Please see http://www.perl.com/pub/2001/01/poe.html for an excellent,
 and more importantly: gradual, introduction to POE.  If this manpage
