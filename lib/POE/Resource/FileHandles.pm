@@ -246,7 +246,7 @@ sub _data_handle_enqueue_ready {
         [ $select->[HSS_HANDLE],  # EA_SEL_HANDLE
           $mode,                  # EA_SEL_MODE
         ],
-        __FILE__, __LINE__, time(),
+        __FILE__, __LINE__, undef, time(),
       );
 
       # Count the enqueued event.  This increments FMO_EV_COUNT

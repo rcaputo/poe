@@ -61,7 +61,7 @@ sub _loop_signal_handler_generic {
 
   $poe_kernel->_data_ev_enqueue(
     $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
-    __FILE__, __LINE__, time(),
+    __FILE__, __LINE__, undef, time(),
   );
 }
 
@@ -73,7 +73,7 @@ sub _loop_signal_handler_pipe {
   $poe_kernel->_data_ev_enqueue(
     $poe_kernel->get_active_session(), $poe_kernel,
     EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
-    __FILE__, __LINE__, time(),
+    __FILE__, __LINE__, undef, time(),
   );
 }
 
@@ -84,7 +84,7 @@ sub _loop_signal_handler_child {
 
   $poe_kernel->_data_ev_enqueue(
     $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
-    __FILE__, __LINE__, time(),
+    __FILE__, __LINE__, undef, time(),
   );
 }
 
@@ -102,7 +102,7 @@ sub loop_watch_signal {
     $SIG{$signal} = 'DEFAULT';
     $self->_data_ev_enqueue(
       $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-      __FILE__, __LINE__, time() + 1,
+      __FILE__, __LINE__, undef, time() + 1,
     ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
     return;

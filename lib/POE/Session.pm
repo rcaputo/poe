@@ -127,16 +127,17 @@ sub SENDER  () {  5 }
 # NFA keeps its state in 6.  unused in session so that args match up.
 sub CALLER_FILE () { 7 }
 sub CALLER_LINE () { 8 }
-sub ARG0    () { 9 }
-sub ARG1    () { 10 }
-sub ARG2    () { 11 }
-sub ARG3    () { 12 }
-sub ARG4    () { 13 }
-sub ARG5    () { 14 }
-sub ARG6    () { 15 }
-sub ARG7    () { 16 }
-sub ARG8    () { 17 }
-sub ARG9    () { 18 }
+sub CALLER_STATE () { 9 }
+sub ARG0    () { 10 }
+sub ARG1    () { 11 }
+sub ARG2    () { 12 }
+sub ARG3    () { 13 }
+sub ARG4    () { 14 }
+sub ARG5    () { 15 }
+sub ARG6    () { 16 }
+sub ARG7    () { 17 }
+sub ARG8    () { 18 }
+sub ARG9    () { 19 }
 
 sub import {
   my $package = caller();
@@ -159,6 +160,7 @@ sub import {
   *{ $package . '::ARG9'    } = \&ARG9;
   *{ $package . '::CALLER_FILE' } = \&CALLER_FILE;
   *{ $package . '::CALLER_LINE' } = \&CALLER_LINE;
+  *{ $package . '::CALLER_STATE' } = \&CALLER_STATE;
 }
 
 sub try_alloc {
@@ -562,7 +564,7 @@ sub DESTROY {
 #------------------------------------------------------------------------------
 
 sub _invoke_state {
-  my ($self, $source_session, $state, $etc, $file, $line) = @_;
+  my ($self, $source_session, $state, $etc, $file, $line, $fromstate) = @_;
 
   # Trace the state invocation if tracing is enabled.
 
@@ -629,6 +631,7 @@ sub _invoke_state {
         undef,                          # unused #6
         $file,                          # caller file name
         $line,                          # caller file line
+		$fromstate,						# caller state
         @$etc                           # args
       );
   }
@@ -646,6 +649,7 @@ sub _invoke_state {
         undef,                          # unused #6
         $file,                          # caller file name
         $line,                          # caller file line
+		$fromstate,						# caller state
         @$etc                           # args
       );
 }
@@ -1594,9 +1598,12 @@ in cases where a single state handles several different events.
 
 =item CALLER_LINE
 
-    my ($caller_file, $caller_line) = @_[CALLER_FILE,CALLER_LINE];
+=item CALLER_STATE
 
-The file and line number from which this state was called.
+    my ($caller_file, $caller_line, $caller_state) =
+		@_[CALLER_FILE,CALLER_LINE,CALLER_STATE];
+
+The file, line number, and state from which this state was called.
 
 =back
 

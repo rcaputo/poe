@@ -52,7 +52,8 @@ sub _data_ev_finalize {
 
 sub _data_ev_enqueue {
   my (
-    $self, $session, $source_session, $event, $type, $etc, $file, $line, $time
+    $self, $session, $source_session, $event, $type, $etc, $file, $line,
+	$fromstate, $time
   ) = @_;
 
   if (ASSERT_DATA) {
@@ -64,7 +65,7 @@ sub _data_ev_enqueue {
   }
 
   # This is awkward, but faster than using the fields individually.
-  my $event_to_enqueue = [ @_[1..7] ];
+  my $event_to_enqueue = [ @_[1..8] ];
 
   my $old_head_priority = $kr_queue->get_next_priority();
   my $new_id = $kr_queue->enqueue($time, $event_to_enqueue);

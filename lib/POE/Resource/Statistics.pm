@@ -36,7 +36,7 @@ sub _data_stat_initialize {
     $self->_data_stat_reset;
     $self->_data_ev_enqueue(
       $self, $self, EN_STAT, ET_STAT, [ ],
-      __FILE__, __LINE__, time() + $_stat_interval
+      __FILE__, __LINE__, undef, time() + $_stat_interval
     );
 }
 
@@ -129,7 +129,7 @@ sub _data_stat_tick {
     $self->_data_stat_reset;
     $self->_data_ev_enqueue(
       $self, $self, EN_STAT, ET_STAT, [ ],
-      __FILE__, __LINE__, time() + $_stat_interval
+      __FILE__, __LINE__, undef, time() + $_stat_interval
     ) if $self->_data_ses_count() > 1;
 }
 
