@@ -515,32 +515,71 @@ sub _define_stdout_reader {
     my $stdout_event  = \$self->[EVENT_STDOUT];
     my $is_active     = \$self->[IS_ACTIVE];
 
-    $poe_kernel->state
-      ( $self->[STATE_STDOUT] = ref($self) . "($unique_id) -> select stdout",
-        sub {
-          # prevents SEGV
-          0 && CRIMSON_SCOPE_HACK('<');
+    if ( $stdout_filter->can("get_one") and
+         $stdout_filter->can("get_one_start")
+       ) {
+      $poe_kernel->state
+        ( $self->[STATE_STDOUT] = ref($self) . "($unique_id) -> select stdout",
+          sub {
+            # prevents SEGV
+            0 && CRIMSON_SCOPE_HACK('<');
 
-          # subroutine starts here
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          if (defined(my $raw_input = $driver->get($handle))) {
-            foreach my $cooked_input (@{$stdout_filter->get($raw_input)}) {
-              $k->call($me, $$stdout_event, $cooked_input, $unique_id);
+            # subroutine starts here
+            my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+            if (defined(my $raw_input = $driver->get($handle))) {
+              $stdout_filter->get_one_start($raw_input);
+              while (1) {
+                my $next_rec = $stdout_filter->get_one();
+                last unless @$next_rec;
+                foreach my $cooked_input (@$next_rec) {
+                  $k->call($me, $$stdout_event, $cooked_input, $unique_id);
+                }
+              }
+            }
+            else {
+              $$error_event and
+                $k->call( $me, $$error_event,
+                          'read', ($!+0), $!, $unique_id, 'STDOUT'
+                        );
+              unless (--$$is_active) {
+                $k->call( $me, $$close_event, $unique_id )
+                  if defined $$close_event;
+              }
+              $k->select_read($handle);
             }
           }
-          else {
-            $$error_event and
-              $k->call( $me, $$error_event,
-                        'read', ($!+0), $!, $unique_id, 'STDOUT'
-                      );
-            unless (--$$is_active) {
-              $k->call( $me, $$close_event, $unique_id )
-                if defined $$close_event;
+        );
+    }
+
+    # Otherwise we can't get one.
+    else {
+      $poe_kernel->state
+        ( $self->[STATE_STDOUT] = ref($self) . "($unique_id) -> select stdout",
+          sub {
+            # prevents SEGV
+            0 && CRIMSON_SCOPE_HACK('<');
+
+            # subroutine starts here
+            my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+            if (defined(my $raw_input = $driver->get($handle))) {
+              foreach my $cooked_input (@{$stdout_filter->get($raw_input)}) {
+                $k->call($me, $$stdout_event, $cooked_input, $unique_id);
+              }
             }
-            $k->select_read($handle);
+            else {
+              $$error_event and
+                $k->call( $me, $$error_event,
+                          'read', ($!+0), $!, $unique_id, 'STDOUT'
+                        );
+              unless (--$$is_active) {
+                $k->call( $me, $$close_event, $unique_id )
+                  if defined $$close_event;
+              }
+              $k->select_read($handle);
+            }
           }
-        }
-      );
+        );
+    }
 
     # register the state's select
     $poe_kernel->select_read($self->[HANDLE_STDOUT], $self->[STATE_STDOUT]);
@@ -572,32 +611,71 @@ sub _define_stderr_reader {
     my $stderr_event  = \$self->[EVENT_STDERR];
     my $is_active     = \$self->[IS_ACTIVE];
 
-    $poe_kernel->state
-      ( $self->[STATE_STDERR] = ref($self) . "($unique_id) -> select stderr",
-        sub {
-          # prevents SEGV
-          0 && CRIMSON_SCOPE_HACK('<');
+    if ( $stderr_filter->can("get_one") and
+         $stderr_filter->can("get_one_start")
+       ) {
+      $poe_kernel->state
+        ( $self->[STATE_STDERR] = ref($self) . "($unique_id) -> select stderr",
+          sub {
+            # prevents SEGV
+            0 && CRIMSON_SCOPE_HACK('<');
 
-          # subroutine starts here
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          if (defined(my $raw_input = $driver->get($handle))) {
-            foreach my $cooked_input (@{$stderr_filter->get($raw_input)}) {
-              $k->call($me, $$stderr_event, $cooked_input, $unique_id);
+            # subroutine starts here
+            my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+            if (defined(my $raw_input = $driver->get($handle))) {
+              $stderr_filter->get_one_start($raw_input);
+              while (1) {
+                my $next_rec = $stderr_filter->get_one();
+                last unless @$next_rec;
+                foreach my $cooked_input (@$next_rec) {
+                  $k->call($me, $$stderr_event, $cooked_input, $unique_id);
+                }
+              }
+            }
+            else {
+              $$error_event and
+                $k->call( $me, $$error_event,
+                          'read', ($!+0), $!, $unique_id, 'STDERR'
+                        );
+              unless (--$$is_active) {
+                $k->call( $me, $$close_event, $unique_id )
+                  if defined $$close_event;
+              }
+              $k->select_read($handle);
             }
           }
-          else {
-            $$error_event and
-              $k->call( $me, $$error_event,
-                        'read', ($!+0), $!, $unique_id, 'STDERR'
-                      );
-            unless (--$$is_active) {
-              $k->call( $me, $$close_event, $unique_id )
-                if defined $$close_event;
+        );
+    }
+
+    # Otherwise we can't get_one().
+    else {
+      $poe_kernel->state
+        ( $self->[STATE_STDERR] = ref($self) . "($unique_id) -> select stderr",
+          sub {
+            # prevents SEGV
+            0 && CRIMSON_SCOPE_HACK('<');
+
+            # subroutine starts here
+            my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+            if (defined(my $raw_input = $driver->get($handle))) {
+              foreach my $cooked_input (@{$stderr_filter->get($raw_input)}) {
+                $k->call($me, $$stderr_event, $cooked_input, $unique_id);
+              }
             }
-            $k->select_read($handle);
+            else {
+              $$error_event and
+                $k->call( $me, $$error_event,
+                          'read', ($!+0), $!, $unique_id, 'STDERR'
+                        );
+              unless (--$$is_active) {
+                $k->call( $me, $$close_event, $unique_id )
+                  if defined $$close_event;
+              }
+              $k->select_read($handle);
+            }
           }
-        }
-      );
+        );
+    }
 
     # register the state's select
     $poe_kernel->select_read($self->[HANDLE_STDERR], $self->[STATE_STDERR]);
@@ -708,23 +786,168 @@ sub put {
 }
 
 #------------------------------------------------------------------------------
+# Pause and resume various input events.
+
+sub pause_stdout {
+  my $self = shift;
+  if (defined $self->[HANDLE_STDOUT]) {
+    $poe_kernel->select_pause_read($self->[HANDLE_STDOUT]);
+  }
+}
+
+sub pause_stderr {
+  my $self = shift;
+  if (defined $self->[HANDLE_STDERR]) {
+    $poe_kernel->select_pause_read($self->[HANDLE_STDERR]);
+  }
+}
+
+sub resume_stdout {
+  my $self = shift;
+  if (defined $self->[HANDLE_STDOUT]) {
+    $poe_kernel->select_resume_read($self->[HANDLE_STDOUT]);
+  }
+}
+
+sub resume_stderr {
+  my $self = shift;
+  if (defined $self->[HANDLE_STDERR]) {
+    $poe_kernel->select_resume_read($self->[HANDLE_STDERR]);
+  }
+}
+
+#------------------------------------------------------------------------------
 # Redefine filters, one at a time or at once.  This is based on PG's
 # code in Wheel::ReadWrite.
 
-sub set_filter {
-  croak "set_filter not implemented";
+sub _transfer_stdout_buffer {
+  my ($self, $buf) = @_;
+
+  my $old_output_filter = $self->[FILTER_STDOUT];
+
+  # Assign old buffer contents to the new filter, and send out any
+  # pending packets.
+
+  # Use "get_one" if the new filter implements it.
+  if (defined $buf) {
+    if ( $old_output_filter->can("get_one") and
+         $old_output_filter->can("get_one_start")
+       ) {
+      $old_output_filter->get_one_start($buf);
+
+      # Don't bother to continue if the filter has switched out from
+      # under our feet again.  The new switcher will finish the job.
+
+      while ($self->[FILTER_STDOUT] == $old_output_filter) {
+        my $next_rec = $old_output_filter->get_one();
+        last unless @$next_rec;
+        foreach my $cooked_input (@$next_rec) {
+          $poe_kernel->call( $poe_kernel->get_active_session(),
+                             $self->[EVENT_STDOUT],
+                             $cooked_input, $self->[UNIQUE_ID]
+                           );
+        }
+      }
+    }
+
+    # Otherwise use the old get() behavior.
+    else {
+      foreach my $cooked_input (@{$self->[FILTER_STDOUT]->get($buf)}) {
+        $poe_kernel->call( $poe_kernel->get_active_session(),
+                           $self->[EVENT_STDOUT],
+                           $cooked_input, $self->[UNIQUE_ID]
+                         );
+      }
+    }
+  }
+}
+
+sub _transfer_stderr_buffer {
+  my ($self, $buf) = @_;
+
+  my $old_output_filter = $self->[FILTER_STDERR];
+
+  # Assign old buffer contents to the new filter, and send out any
+  # pending packets.
+
+  # Use "get_one" if the new filter implements it.
+  if (defined $buf) {
+    if ( $old_output_filter->can("get_one") and
+         $old_output_filter->can("get_one_start")
+       ) {
+      $old_output_filter->get_one_start($buf);
+
+      # Don't bother to continue if the filter has switched out from
+      # under our feet again.  The new switcher will finish the job.
+
+      while ($self->[FILTER_STDERR] == $old_output_filter) {
+        my $next_rec = $old_output_filter->get_one();
+        last unless @$next_rec;
+        foreach my $cooked_input (@$next_rec) {
+          $poe_kernel->call( $poe_kernel->get_active_session(),
+                             $self->[EVENT_STDERR],
+                             $cooked_input, $self->[UNIQUE_ID]
+                           );
+        }
+      }
+    }
+
+    # Otherwise use the old get() behavior.
+    else {
+      foreach my $cooked_input (@{$self->[FILTER_STDERR]->get($buf)}) {
+        $poe_kernel->call( $poe_kernel->get_active_session(),
+                           $self->[EVENT_STDERR],
+                           $cooked_input, $self->[UNIQUE_ID]
+                         );
+      }
+    }
+  }
+}
+
+sub set_stdio_filter {
+  my ($self, $new_filter) = @_;
+  $self->set_stdout_filter($new_filter);
+  $self->set_stdin_filter($new_filter);
 }
 
 sub set_stdin_filter {
-  croak "set_stdin_filter not implemented";
+  my ($self, $new_filter) = @_;
+  $self->[FILTER_STDIN] = $new_filter;
 }
 
 sub set_stdout_filter {
-  croak "set_stdout_filter not implemented";
+  my ($self, $new_filter) = @_;
+
+  my $buf = $self->[FILTER_STDOUT]->get_pending();
+  $self->[FILTER_STDOUT] = $new_filter;
+
+  $self->_define_stdout_reader();
+  $self->_transfer_stdout_buffer($buf);
 }
 
 sub set_stderr_filter {
-  croak "set_stderr_filter not implemented";
+  my ($self, $new_filter) = @_;
+
+  my $buf = $self->[FILTER_STDERR]->get_pending();
+  $self->[FILTER_STDERR] = $new_filter;
+
+  $self->_define_stderr_reader();
+  $self->_transfer_stderr_buffer($buf);
+}
+
+sub get_stdin_filter {
+  my $self = shift;
+  return $self->[FILTER_STDIN];
+}
+
+sub get_stdout_filter {
+  my $self = shift;
+  return $self->[FILTER_STDOUT];
+}
+
+sub get_stderr_filter {
+  my $self = shift;
+  return $self->[FILTER_STDERR];
 }
 
 #------------------------------------------------------------------------------
@@ -971,22 +1194,37 @@ put() queues a LIST of different inputs for the child process.  They
 will be flushed asynchronously once the current state returns.  Each
 item in the LIST is processed according to the C<StdinFilter>.
 
-=item set_filter FILTER_REFERENCE
+=item get_stdin_filter
 
-Set C<StdinFilter>, C<StdoutFilter>, and C<StderrFilter> all at once.
-Not yet implemented.
+=item get_stdout_filter
+
+=item get_stderr_filter
+
+Get C<StdinFilter>, C<StdoutFilter>, or C<StderrFilter> respectively.
+
+=item set_stdio_filter FILTER_REFERENCE
+
+Set C<StdinFilter> and C<StdoutFilter> at once.
 
 =item set_stdin_filter FILTER_REFERENCE
 
-Set C<StdinFilter> to something else.  Not yet implemented.
-
 =item set_stdout_filter FILTER_REFERENCE
-
-Set C<StdoutFilter> to something else.  Not yet implemented.
 
 =item set_stderr_filter FILTER_REFERENCE
 
-Set C<StderrFilter> to something else.  Not yet implemented.
+Set C<StdinFilter>, C<StdoutFilter>, or C<StderrFilter> respectively.
+
+=item pause_stdout
+
+=item pause_stderr
+
+=item resume_stdout
+
+=item resume_stderr
+
+Pause or resume C<StdoutEvent> or C<StderrEvent> events.  By using
+these methods a session can control the flow of Stdout and Stderr
+events coming in from this child process.
 
 =item ID
 
