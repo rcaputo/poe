@@ -2957,12 +2957,14 @@ symbolic names.  Once a session has a name, it may be referred to by
 that name wherever a kernel method expects a session reference or ID.
 
 Sessions with aliases are treated as daemons within the current
-program (servlets?).  They are kept alive even without other things to
-do on the assumption that some other session will need their services.
+program.  They are kept alive even without other things to do.  It's
+assumed that they will receive events from some other session.
 
-Daemonized sessions may spontaneously self-destruct if no other
-sessions are active.  This prevents "zombie" servlets from keeping a
-program running with nothing to do.
+Aliases are passive work.  A session with just an alias to keep it
+alive can't do anything if there isn't some other active session
+around to send it messages.  POE knows this, and it will gladly kill
+off aliased sessions if everything has become idle.  This prevents
+"zombie" sessions from keeping an otherwise dead program running.
 
 =over 2
 
