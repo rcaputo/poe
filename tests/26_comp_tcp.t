@@ -7,7 +7,7 @@ use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
 
-test_setup(16);
+test_setup(18);
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
@@ -112,8 +112,7 @@ POE::Component::Client::TCP->new
 
     ServerError => sub {
       my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
-      print "$operation error $errnum: $errstr\n";
-      delete $heap->{server};
+      ok(17) if $operation eq 'read' and $errnum == 0;
     },
 
     ServerFlushed => sub {
@@ -149,8 +148,7 @@ POE::Component::Client::TCP->new
 
     ServerError => sub {
       my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
-      print "$operation error $errnum: $errstr\n";
-      delete $heap->{server};
+      ok(18) if $operation eq 'read' and $errnum == 0;
     },
 
     ServerFlushed => sub {
