@@ -42,9 +42,10 @@ POE::Wheel - high-level protocol logic
 
 =head1 DESCRIPTION
 
-Wheels are bundles of states which perform common tasks.
-Wheel::FollowTail, for example, contains I/O states for watching a
-file as it grows and reading the new information when it appears.
+Wheels are bundles of event handlers (states) which perform common
+tasks.  Wheel::FollowTail, for example, contains I/O handlers for
+watching a file as it grows and reading the new information when it
+appears.
 
 Unlike Components, Wheels do not stand alone.  Each wheel must be
 created by a session, and each belongs to their parent session until
@@ -77,16 +78,16 @@ pairs of event TYPEs and the EVENT_NAMEs to emit when each type of
 event occurs.
 
 Event TYPEs differ for each wheel, and their manpages discuss them in
-greater detail.  STATE_NAMEs may be undef, in which case a wheel will
+greater detail.  EVENT_NAMEs may be undef, in which case a wheel will
 stop emitting an event for that TYPE.
 
 This example changes the events to emit on new input and when output
 is flushed.  It stops the wheel from emitting events when errors
 occur.
 
-  $wheel->event( InputState   => 'new_input_state',
-                 ErrorState   => undef,
-                 FlushedState => 'new_flushed_state',
+  $wheel->event( InputEvent   => 'new_input_event',
+                 ErrorEvent   => undef,
+                 FlushedEvenc => 'new_flushed_event',
                );
 
 =back
