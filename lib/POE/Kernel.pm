@@ -9,7 +9,7 @@
 package POE::Kernel;
 
 use strict;
-use POSIX qw(errno_h);
+use POSIX qw(errno_h fcntl_h);
 use Carp;
                                         # allow subsecond alarms, if available
 BEGIN {
@@ -73,6 +73,7 @@ sub DEB_GC       () { 0 }
 sub DEB_EVENTS   () { 0 }
 sub DEB_SELECT   () { 0 }
 sub DEB_REFCOUNT () { 0 }
+sub DEB_QUEUE    () { 0 }
                                         # handles & vectors structures
 sub VEC_RD      () { 0 }
 sub VEC_WR      () { 1 }
@@ -108,11 +109,12 @@ sub HSS_HANDLE  () { 0 }
 sub HSS_SESSION () { 1 }
 sub HSS_STATE   () { 2 }
                                         # states / events
-sub ST_SESSION () { 0 }
-sub ST_SOURCE  () { 1 }
-sub ST_NAME    () { 2 }
-sub ST_ARGS    () { 3 }
-sub ST_TIME    () { 4 }
+sub ST_SESSION  () { 0 }
+sub ST_SOURCE   () { 1 }
+sub ST_NAME     () { 2 }
+sub ST_ARGS     () { 3 }
+sub ST_TIME     () { 4 }
+sub ST_DEB_SEQ  () { 5 }
                                         # event names
 sub EN_START  () { '_start' }
 sub EN_STOP   () { '_stop' }
@@ -160,25 +162,43 @@ names: { $name => $session };
 
                                         # will stop sessions unless handled
 my %_terminal_signals = ( QUIT => 1, INT => 1, KILL => 1, TERM => 1, HUP => 1);
-                                        # static signal handler
-sub _signal_handler {
-  if (defined $_[0]) {
-                                        # SIGPIPE -> responsible session
-    if ($_[0] eq 'PIPE') {
-      $POE::Kernel::self->_enqueue_state
-        ( $POE::Kernel::self->[KR_ACTIVE_SESSION], $POE::Kernel::self,
-          EN_SIGNAL, time(), [ $_[0] ]
-        );
-    }
-                                        # others -> everybody
-    else {
+                                        # static signal handlers
+sub _signal_handler_generic {
+  if (defined(my $signal = $_[0])) {
+    $POE::Kernel::self->_enqueue_state
+      ( $POE::Kernel::self, $POE::Kernel::self,
+        EN_SIGNAL, time(), [ $signal ]
+      );
+    $SIG{$_[0]} = \&_signal_handler_generic;
+  }
+  else {
+    warn "POE::Kernel::_signal_handler detected an undefined signal";
+  }
+}
+
+sub _signal_handler_pipe {
+  if (defined(my $signal = $_[0])) {
+    $POE::Kernel::self->_enqueue_state
+      ( $POE::Kernel::self->[KR_ACTIVE_SESSION], $POE::Kernel::self,
+        EN_SIGNAL, time(), [ $signal ]
+      );
+    $SIG{$_[0]} = \&_signal_handler_pipe;
+  }
+  else {
+    warn "POE::Kernel::_signal_handler detected an undefined signal";
+  }
+}
+
+sub _signal_handler_child {
+  if (defined(my $signal = $_[0])) {
+    my $pid = wait();
+    if ($pid >= 0) {
       $POE::Kernel::self->_enqueue_state
         ( $POE::Kernel::self, $POE::Kernel::self,
-          EN_SIGNAL, time(), [ $_[0] ]
+          EN_SIGNAL, time(), [ 'CHLD', $pid, $? ]
         );
     }
-                                        # some systems need this?
-    $SIG{$_[0]} = \&_signal_handler;
+    $SIG{$_[0]} = \&_signal_handler_child;
   }
   else {
     warn "POE::Kernel::_signal_handler detected an undefined signal";
@@ -243,7 +263,15 @@ sub new {
                              |
                             )$/x
               );
-      $SIG{$signal} = \&_signal_handler;
+      if (($signal eq 'CHLD') || ($signal eq 'CLD')) {
+        $SIG{$signal} = \&_signal_handler_child;
+      }
+      elsif ($signal eq 'PIPE') {
+        $SIG{$signal} = \&_signal_handler_pipe;
+      }
+      else {
+        $SIG{$signal} = \&_signal_handler_generic;
+      }
       $self->[KR_SIGNALS]->{$signal} = { };
     }
                                         # the kernel is a session, sort of
@@ -487,12 +515,30 @@ sub run {
       $self->_enqueue_state($self, $self, EN_SIGNAL, time(), [ 'ZOMBIE' ]);
     }
                                         # select, if necessary
+    my $now = time();
     my $timeout = ( (@{$self->[KR_STATES]})
-                    ? ($self->[KR_STATES]->[0]->[ST_TIME] - time())
+                    ? ($self->[KR_STATES]->[0]->[ST_TIME] - $now)
                     : 3600
                   );
     $timeout = 0 if ($timeout < 0);
 
+    if (DEB_QUEUE) {
+      warn( '*** Kernel::run() iterating.  ' .
+            sprintf("now(%.2f) timeout(%.2f) then(%.2f)\n",
+                    $now-$^T, $timeout, ($now-$^T)+$timeout
+                   )
+          );
+      warn( '*** Queue times: ' .
+            join( ', ',
+                  map { sprintf('%d=%.2f',
+                                $_->[ST_DEB_SEQ], $_->[ST_TIME] - $now
+                               )
+                      } @{$self->[KR_STATES]}
+                ) .
+            "\n"
+          );
+    }
+    
     if (DEB_SELECT) {
       warn ",----- SELECT BITS IN -----\n";
       warn "| READ    : ", unpack('b*', $self->[KR_VECTORS]->[VEC_RD]), "\n";
@@ -551,34 +597,46 @@ sub run {
         }
       }
                                         # dispatch the selects
-      foreach (@selects) {
-        $self->_dispatch_state( $_->[HSS_SESSION], $_->[HSS_SESSION],
-                                $_->[HSS_STATE], [ $_->[HSS_HANDLE] ]
+      foreach my $select (@selects) {
+        $self->_dispatch_state( $select->[HSS_SESSION], $select->[HSS_SESSION],
+                                $select->[HSS_STATE], [ $select->[HSS_HANDLE] ]
                               );
-        $self->_collect_garbage($_->[HSS_SESSION]);
+        $self->_collect_garbage($select->[HSS_SESSION]);
       }
     }
                                         # dispatch queued events
-    if (@{$self->[KR_STATES]}) {
-      if ($self->[KR_STATES]->[0]->[ST_TIME] <= time()) {
-        my $event = shift @{$self->[KR_STATES]};
-        $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_EVCOUNT]--;
-        if (DEB_REFCOUNT) {
-          die if
-            ($self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_EVCOUNT] < 0);
-        }
-        $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT]--;
-        if (DEB_REFCOUNT) {
-          warn("--- dispatching event to $event->[ST_SESSION]: ",
-               $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT],
-               "\n"
-              );
-          die if
-            ($self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT] < 0);
-        }
-        $self->_dispatch_state(@$event);
-        $self->_collect_garbage($event->[ST_SESSION]);
+    $now = time();
+    while (@{$self->[KR_STATES]}) {
+
+      if (DEB_QUEUE) {
+        my $event = $self->[KR_STATES]->[0];
+        warn( sprintf('now(%.2f) ', $now - $^T) .
+              sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
+              "seq($event->[ST_DEB_SEQ])  " .
+              "name($event->[ST_NAME])\n"
+            )
       }
+
+      last unless ($self->[KR_STATES]->[0]->[ST_TIME] <= $now);
+
+      my $event = shift @{$self->[KR_STATES]};
+
+      $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_EVCOUNT]--;
+      if (DEB_REFCOUNT) {
+        die if
+          ($self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_EVCOUNT] < 0);
+      }
+      $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT]--;
+      if (DEB_REFCOUNT) {
+        warn("--- dispatching event to $event->[ST_SESSION]: ",
+             $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT],
+             "\n"
+            );
+        die if
+          ($self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT] < 0);
+      }
+      $self->_dispatch_state(@$event);
+      $self->_collect_garbage($event->[ST_SESSION]);
     }
   }
                                         # buh-bye!
@@ -701,10 +759,16 @@ sub _collect_garbage {
 # EVENTS
 #==============================================================================
 
+my $queue_seqnum = 0;
+
 sub _enqueue_state {
   my ($self, $session, $source_session, $state, $time, $etc) = @_;
 
   my $state_to_queue = [ $session, $source_session, $state, $etc, $time ];
+
+  if (DEB_QUEUE) {
+    $state_to_queue->[ST_DEB_SEQ]  = ++$queue_seqnum;
+  }
 
   if (DEB_EVENTS) {
     warn "}}} enqueuing $state for $session\n";
@@ -719,9 +783,8 @@ sub _enqueue_state {
           splice(@$kr_states, $index+1, 0, $state_to_queue);
           last;
         }
-        elsif (!$index) {
-          splice(@$kr_states, $index, 0, $state_to_queue);
-          last;
+        elsif ($index == 0) {
+          unshift @$kr_states, $state_to_queue;
         }
       }
     }
@@ -751,6 +814,17 @@ sub post {
   $destination = $self->alias_resolve($destination);
 
   $self->_enqueue_state($destination, $self->[KR_ACTIVE_SESSION],
+                        $state_name, time(), \@etc
+                       );
+}
+
+#------------------------------------------------------------------------------
+# Post a state to the queue for the current session.
+
+sub yield {
+  my ($self, $state_name, @etc) = @_;
+
+  $self->_enqueue_state($self->[KR_ACTIVE_SESSION], $self->[KR_ACTIVE_SESSION],
                         $state_name, time(), \@etc
                        );
 }
@@ -826,10 +900,19 @@ sub _internal_select {
   if ($state) {
     unless (exists $kr_handles->{$handle}) {
       $kr_handles->{$handle} = [ $handle, 0, [ 0, 0, 0 ], [ { }, { }, { } ] ];
+                                        # for DOSISH systems like OS/2
       binmode($handle);
-                                        # -><- remove IO::* dependency here
-      $handle->blocking(0);
-      $handle->autoflush();
+                                        # set the handle non-blocking
+      my $flags = fcntl($handle, F_GETFL, 0)
+        or croak "Can't get flags for the socket: $!\n";
+      $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
+        or croak "Can't set flags for the socket: $!\n";
+
+#      setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
+#        or die "Couldn't disable Nagle's algorithm: $!\n";
+
+                                        # turn off buffering
+      select((select($handle), $| = 1)[0]);
     }
                                         # KR_HANDLES
     my $kr_handle = $kr_handles->{$handle};
@@ -976,7 +1059,7 @@ sub alias_remove {
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
   unless (exists $self->[KR_ALIASES]->{$name}) {
-    $! = ENOENT;
+    $! = ESRCH;
     return 0;
   }
 
@@ -1019,7 +1102,11 @@ sub state {
        (ref($self->[KR_ACTIVE_SESSION]) ne 'POE::Kernel')
   ) {
     $self->[KR_ACTIVE_SESSION]->register_state($state_name, $state_code);
+    return 1;
   }
+                                        # no such session
+  $! = ESRCH;
+  return 0;
 }
 
 ###############################################################################
