@@ -1059,7 +1059,8 @@ wheel's unique ID.  The parameters between them differ according to
 the socket's domain and whether it's listening or connecting.
 
 For INET sockets, C<ARG1> and C<ARG2> hold the socket's remote address
-and port, respectively.
+and port, respectively.  The address is packed; use inet_ntoa() (See
+L<Socket>) if a human-readable version is necessary.
 
 For UNIX B<client> sockets, C<ARG1> holds the server address.  It may
 be undefined on systems that have trouble retrieving a UNIX socket's
