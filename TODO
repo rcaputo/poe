@@ -67,6 +67,14 @@ To do:
 * Change the documentation to list handle_signal() as the proper way
   to handle terminal signals.
 
+* Run a complete test/coverage suite to make sure the current signal
+  handling code is not broken in the process of adding the new code.
+
+* Add new tests for handle_signal() to make sure it works, and run a
+  complete test/coverage suit to verify that.
+
+* Port the samples to use handle_signal() instead of return values.
+
 * Release version ?.??, and announce the depreciation.
 
 * Wait at least 28 days (until ????.??.??) before continuing this
