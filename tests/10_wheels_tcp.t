@@ -6,10 +6,13 @@
 use strict;
 use lib qw(./lib ../lib .. .);
 use TestSetup;
+
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use Socket;
 
-# Turn on all asserts.
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Component::Server::TCP
             Wheel::ReadWrite
             Filter::Line
@@ -19,8 +22,8 @@ use POE qw( Component::Server::TCP
 my $tcp_server_port = 31909;
 
 # Congratulations! We made it this far!
-&test_setup(12);
-&ok(1);
+test_setup(12);
+ok(1);
 
 ###############################################################################
 # A generic server session.

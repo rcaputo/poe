@@ -6,17 +6,18 @@
 use strict;
 use lib qw(./lib ../lib .. .);
 use TestSetup;
+
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use Socket;
 
 BEGIN {
-  &test_setup(0, "$^O does not support UNIX sockets")
+  test_setup(0, "$^O does not support UNIX sockets")
     if $^O eq "MSWin32" or $^O eq "MacOS";
 };
 
-# Turn on all asserts.
-#sub POE::Kernel::TRACE_DEFAULT () { 1 }
-#sub POE::Kernel::TRACE_SELECT () { 1 }
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Wheel::SocketFactory
             Wheel::ReadWrite
             Filter::Line
@@ -26,7 +27,7 @@ use POE qw( Wheel::SocketFactory
 my $unix_server_socket = '/tmp/poe-usrv';
 
 # Congratulations! We made it this far!
-&test_setup(15);
+test_setup(15);
 &ok(1);
 
 ###############################################################################

@@ -6,6 +6,10 @@ use strict;
 use lib qw(./lib ../lib . ..);
 use TestSetup;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE;
 
 test_setup(55);
@@ -18,7 +22,7 @@ my $base_parent_refcount = $poe_kernel->_data_ses_refcount($poe_kernel);
 # Allocate a test session.  This isn't REALLY a session, but we're
 # treating it as such.
 
-my $child = [ ];
+my $child = bless [ ], "POE::Session";
 my $child_sid = $poe_kernel->_data_sid_allocate();
 
 $poe_kernel->_data_ses_allocate(
@@ -62,7 +66,7 @@ ok_if(
 my $base_child_refcount = $poe_kernel->_data_ses_refcount($child);
 
 # Add a grandchild (child of $session).
-my $grandchild = [ ];
+my $grandchild = bless [ ], "POE::Session";
 my $grandchild_sid = $poe_kernel->_data_sid_allocate();
 
 $poe_kernel->_data_ses_allocate(
@@ -127,7 +131,7 @@ ok_unless(26, $poe_kernel->_data_ses_exists("nonexistent"));
 my $base_grandchild_refcount = $poe_kernel->_data_ses_refcount($grandchild);
 
 # Add a great-grandchild (child of $session).
-my $great = [ ];
+my $great = bless [ ], "POE::Session";
 my $great_id = $poe_kernel->_data_sid_allocate();
 
 $poe_kernel->_data_ses_allocate(

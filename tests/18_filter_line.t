@@ -6,7 +6,10 @@
 use strict;
 use lib qw(./lib ../lib .. .);
 
-sub POE::Kernel::TRACE_DEFAULT () { 1 } # not needed though
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE::Filter::Line;
 
 my ($filter, $received, $sent, $base);

@@ -8,11 +8,13 @@ use lib qw(./lib ../lib .. .);
 use Socket;
 
 use TestSetup;
-&test_setup(9);
 
-# Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Session::ASSERT_STATES () { 0 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
+test_setup(9);
+
 use POE qw( Component::Server::TCP
             Wheel::FollowTail
             Wheel::ReadWrite

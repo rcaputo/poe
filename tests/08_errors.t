@@ -8,8 +8,12 @@ use strict;
 use lib qw(./lib ../lib .. .);
 use TestSetup;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 BEGIN {
-  &test_setup(49);
+  test_setup(49);
 };
 
 use POSIX qw(:errno_h);

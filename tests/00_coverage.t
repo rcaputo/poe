@@ -7,8 +7,14 @@
 
 use strict;
 use lib qw(./lib ../lib .. .);
+
 use TestSetup;
-&test_setup(20);
+
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
+test_setup(20);
 
 sub load_optional_module {
   my ($test_number, $module) = @_;
@@ -57,8 +63,6 @@ sub load_required_module {
 }
 
 # Required modules first.
-
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
 &load_required_module( 1, 'POE'); # includes POE::Kernel and POE::Session
 

@@ -6,9 +6,13 @@
 use strict;
 use lib qw(./lib ../lib .. .);
 use TestSetup;
-&test_setup(20);
 
-sub POE::Kernel::TRACE_DEFAULT () { 1 } # not needed though
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
+test_setup(20);
+
 use POE::Preprocessor;
 
 # Did we get this far?

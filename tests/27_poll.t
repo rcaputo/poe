@@ -7,7 +7,9 @@ use strict;
 use lib qw(./lib ../lib .. .);
 use TestSetup;
 
-#sub POE::Kernel::TRACE_SELECT () { 1 }
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
 
 BEGIN {
   eval 'use IO::Poll';

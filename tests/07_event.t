@@ -10,6 +10,10 @@ use Symbol;
 
 use TestSetup;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 # Skip if Event isn't here.
 BEGIN {
   eval 'use Event';
@@ -19,11 +23,8 @@ BEGIN {
        );
 };
 
-&test_setup(8);
+test_setup(8);
 
-# Turn on all asserts.
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Session::ASSERT_STATES () { 0 }
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::OneWay);
 
 # Congratulate ourselves for getting this far.

@@ -8,16 +8,17 @@ use strict;
 use lib qw(./lib ../lib .. .);
 use TestSetup;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 BEGIN {
   test_setup(0, "$^O does not support signals.") if $^O eq "MSWin32";
   test_setup(0, "$^O does not support fork.") if $^O eq "MacOS";
 };
 
-&test_setup(4);
+test_setup(4);
 
-# Turn on all asserts.
-#sub POE::Kernel::TRACE_SIGNALS  () { 1 }
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
 
 # This is the number of children to fork.  Increase this number if

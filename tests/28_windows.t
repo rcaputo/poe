@@ -15,8 +15,10 @@ BEGIN {
 
 test_setup(1);
 
-# Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE;
 
 # POE::Kernel in version 0.19 assumed that SIGCHLD on Windows would

@@ -4,14 +4,16 @@
 # Tests basic compilation and events.
 
 use strict;
+
 use lib qw(./lib ../lib .. .);
 use TestSetup;
-&test_setup(29);
 
-# Turn on all asserts.
-# sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Session::ASSERT_STATES () { 0 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
+test_setup(29);
+
 use POE;
 
 ### Test parameters and results.

@@ -8,6 +8,10 @@ use strict;
 use lib qw(./lib ../lib .. .);
 use TestSetup;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 # Skip these tests if Event or fork() isn't here.
 BEGIN {
   eval 'use Event';
@@ -18,8 +22,6 @@ BEGIN {
   test_setup(0, "$^O does not support fork.") if $^O eq "MacOS";
 };
 
-# Turn on all asserts.
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
 
 test_setup(3);

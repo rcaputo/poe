@@ -4,14 +4,17 @@
 # Tests basic session aliases.
 
 use strict;
+
 use lib qw(./lib ../lib .. .);
 use TestSetup;
-&test_setup(21);
+
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
+test_setup(21);
 
 use POSIX qw (:errno_h);
-
-# Turn on all asserts.
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
 use POE;
 

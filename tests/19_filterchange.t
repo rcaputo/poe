@@ -13,6 +13,9 @@ use MyOtherFreezer;
 sub DEBUG () { 0 }
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE qw( Wheel::ReadWrite Driver::SysRW
             Filter::Block Filter::Line Filter::Reference Filter::Stream
             Pipe::OneWay Pipe::TwoWay

@@ -11,11 +11,10 @@ use TestSetup;
 # Trace output local to this test program.
 sub DEBUG () { 0 }
 
-# Turn on all asserts.  This makes the tests slower, but it also
-# ensures that internal checks are performed within POE::Kernel.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Session::ASSERT_STATES () { 0 }
-#sub POE::Kernel::TRACE_SIGNALS () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE;
 
 # Moved "global" test accumulation variables out of the "main" session

@@ -4,15 +4,16 @@
 # Tests basic select operations.
 
 use strict;
+
 use lib qw(./lib ../lib .. .);
 use TestSetup;
 
-&test_setup(16);
-
-# Turn on all asserts.
-#sub POE::Kernel::TRACE_EVENTS () { 1 }
-#sub POE::Kernel::TRACE_SELECT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
+test_setup(16);
+
 use POE qw(Pipe::OneWay Pipe::TwoWay);
 
 ### Test parameters.

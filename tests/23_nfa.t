@@ -8,8 +8,10 @@ use lib qw(./lib ../lib .. .);
 use TestSetup;
 &test_setup(20);
 
-# Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE qw(NFA);
 
 ### Plain NFA.  This simulates a pushbutton that toggles a light.

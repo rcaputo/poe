@@ -20,8 +20,10 @@ BEGIN {
     unless defined $addr;
 }
 
-# Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE qw( Component::Client::TCP Component::Server::TCP );
 
 my $tcp_server_port = 31909;

@@ -21,9 +21,10 @@ test_setup(24);
 # Turn on extra debugging output within this test program.
 sub DEBUG () { 0 }
 
-# Turn on all asserts, and use POE and other modules.
-#sub POE::Kernel::TRACE_GARBAGE () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
 
 ### Test one-way pipe() pipe.

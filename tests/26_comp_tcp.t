@@ -9,8 +9,10 @@ use TestSetup;
 
 test_setup(18);
 
-# Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE qw( Component::Server::TCP Wheel::ReadWrite Component::Client::TCP );
 
 # Create a server.  This one uses Acceptor to create a session of the

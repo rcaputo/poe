@@ -37,9 +37,10 @@ warn( "\n",
       "***\n",
     );
 
-# Turn on all asserts.
-# sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::OneWay);
 
 # How many things to push through the pipe.

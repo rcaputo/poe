@@ -4,14 +4,16 @@
 # Tests alarms.
 
 use strict;
+
 use lib qw(./lib ../lib .. .);
 use TestSetup qw(ok not_ok ok_if ok_unless results test_setup);
 
-&test_setup(30);
-
-# Turn on all asserts.
-#sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
+test_setup(30);
+
 use POE;
 
 ### Test parameters.

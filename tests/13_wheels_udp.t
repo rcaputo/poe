@@ -6,16 +6,19 @@
 use strict;
 use lib qw(./lib ../lib .. .);
 use TestSetup;
+
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 use Socket;
 
-# Turn on all asserts.
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Wheel::SocketFactory );
 
 my $max_send_count = 10;
 
 # Congratulations! We made it this far!
-&test_setup(13);
+test_setup(13);
 
 ###############################################################################
 # Both a UDP server and a client in one session.  This is a contrived

@@ -11,6 +11,10 @@ use lib qw(./lib ../lib .. .);
 use Symbol;
 use TestSetup;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+BEGIN { open STDERR, ">./test-output.err" or die $!; }
+
 # Skip if Tk isn't here or if environmental requirements don't apply.
 BEGIN {
   eval 'use Tk';
@@ -42,7 +46,7 @@ BEGIN {
   &test_setup( 0, "Tk requires Perl 5.005_03 or newer." ) if $] < 5.005_03;
 };
 
-&test_setup(11);
+test_setup(11);
 
 warn( "\n",
       "***\n",
@@ -50,8 +54,6 @@ warn( "\n",
       "***\n",
     );
 
-# Turn on all asserts.
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::TwoWay);
 
 # How many things to push through the pipe.
