@@ -561,19 +561,34 @@ POE::MySession->new(
   },
   stop => sub {
     POE::Kernel->stop();
-    print 'not ' unless $sessions_destroyed == 3;
-    print "ok 31\n";
+
+    my $expected;
+    if ($] >= 5.004 and $] < 5.005) {
+      warn(
+        "# Note: Perl 5.004-ish appears to leak sessions.\n",
+        "#       Consider upgrading to Perl 5.005_04 or beyond.\n",
+      );
+      $expected = 0;
+    }
+    else {
+      $expected = 3;
+    }
+
+    print 'not ' unless $sessions_destroyed == $expected;
+    print "ok 31 # dest $sessions_destroyed sessions (expected $expected)\n";
 
     # 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
     # data inside the heap is surviving the session DESTROY. This
     # isnt possible in a sane and normal world. So if this is giving
     # you fits, please consider upgrading perl to at least 5.6.1.
-    if($] >= '5.006') {
-        print 'not ' unless $objects_destroyed == 3;
+    my $expected;
+    if($] >= 5.006 or ($] >= 5.004 and $] < 5.005)) {
+      $expected = 3;
     } else {
-        print 'not ' unless $objects_destroyed == 2;
+      $expected = 2;
     }
-    print "ok 32\n";
+    print 'not ' unless $objects_destroyed == $expected;
+    print "ok 32 # dest $objects_destroyed objects (expected $expected)\n";
   }
 );
 
@@ -584,20 +599,35 @@ print 'not ' unless $child_called == 0;
 print "ok 34\n";
 print 'not ' unless $parent_called == 0;
 print "ok 35\n";
-print 'not ' unless $sessions_destroyed == 4;
-print "ok 36\n";
+
+my $expected;
+if ($] >= 5.004 and $] < 5.005) {
+  warn(
+    "# Note: Perl 5.004-ish appears to leak sessions.\n",
+    "#       Consider upgrading to Perl 5.005_04 or beyond.\n",
+  );
+  $expected = 0;
+}
+else {
+  $expected = 4;
+}
+
+print 'not ' unless $sessions_destroyed == $expected;
+print "ok 36 # dest $sessions_destroyed sessions (expected $expected)\n";
 
 # 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
 # data inside the heap is surviving the session DESTROY. This
 # isnt possible in a sane and normal world. So if this is giving
 # you fits, please consider upgrading perl to at least 5.6.1.
+my $expected;
 if($] >= '5.006') {
-  print 'not ' unless $objects_destroyed == 4;
+  $expected = 4;
 } else {
-  print 'not ' unless $objects_destroyed == 3;
+  $expected = 4;
 }
 
-print "ok 37\n";
+print "not " unless $objects_destroyed == $expected;
+print "ok 37 # dest $objects_destroyed objects (expected $expected)\n";
 
 # This simple session just makes sure we can start another Session and
 # another Kernel.  If all goes well, it'll dispatch some events and
