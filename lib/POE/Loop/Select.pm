@@ -278,7 +278,7 @@ macro substrate_do_timeslice {
 
       # If select has seen filehandle activity, then gather up the
       # active filehandles and synchronously dispatch events to the
-      # appropriate states.
+      # appropriate handlers.
 
       if ($hits > 0) {
 
@@ -338,7 +338,7 @@ macro substrate_do_timeslice {
         # use them this way, though, not even the author.
 
         foreach my $select (@selects) {
-          $self->_dispatch_state
+          $self->_dispatch_event
             ( $select->[HSS_SESSION], $select->[HSS_SESSION],
               $select->[HSS_STATE], ET_SELECT,
               [ $select->[HSS_HANDLE] ],
@@ -381,7 +381,7 @@ macro substrate_do_timeslice {
     $event = shift @kr_events;
     delete $kr_event_ids{$event->[ST_SEQ]};
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
-    $self->_dispatch_state(@$event);
+    $self->_dispatch_event(@$event);
   }
 }
 

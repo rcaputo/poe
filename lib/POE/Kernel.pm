@@ -196,7 +196,7 @@ sub HSS_HANDLE  () { 0 }
 sub HSS_SESSION () { 1 }
 sub HSS_STATE   () { 2 }
 
-# State transition events.
+# Events.
 sub ST_SESSION () { 0 }
 sub ST_SOURCE  () { 1 }
 sub ST_NAME    () { 2 }
@@ -437,7 +437,7 @@ macro remove_alias (<session>,<alias>) {
   {% ses_refcount_dec <session> %}
 }
 
-macro state_to_enqueue {
+macro event_to_enqueue {
   [ @_[1..8], ++$queue_seqnum ]
 }
 
@@ -497,7 +497,7 @@ macro dispatch_due_events {
     my $event = shift @kr_events;
     delete $kr_event_ids{$event->[ST_SEQ]};
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
-    $poe_kernel->_dispatch_state(@$event);
+    $poe_kernel->_dispatch_event(@$event);
   }
 }
 
@@ -505,7 +505,7 @@ macro dispatch_ready_selects {
   my @selects = values %{ $kr_handles{$handle}->[HND_SESSIONS]->[$vector] };
 
   foreach my $select (@selects) {
-    $poe_kernel->_dispatch_state
+    $poe_kernel->_dispatch_event
       ( $select->[HSS_SESSION], $select->[HSS_SESSION],
         $select->[HSS_STATE], ET_SELECT, [ $select->[HSS_HANDLE] ],
         time(), __FILE__, __LINE__, undef
@@ -711,33 +711,32 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
-# Send a state to a session right now.  Used by _disp_select to
-# expedite select() states, and used by run() to deliver posted states
+# Send an event to a session right now.  Used by _disp_select to
+# expedite select() events, and used by run() to deliver posted events
 # from the queue.
 
-# This is for collecting state frequencies if TRACE_PROFILE is enabled.
+# This is for collecting event frequencies if TRACE_PROFILE is enabled.
 my %profile;
 
-# Dispatch a state transition event to its session.  A lot of work
-# goes on here.
+# Dispatch an event to its session.  A lot of work goes on here.
 
-sub _dispatch_state {
-  my ( $self, $session, $source_session, $state, $type, $etc, $time,
+sub _dispatch_event {
+  my ( $self, $session, $source_session, $event, $type, $etc, $time,
        $file, $line, $seq
      ) = @_;
 
-  # A copy of the state name, in case we have to change it.
-  my $local_state = $state;
+  # A copy of the event name, in case we have to change it.
+  my $local_event = $event;
 
   if (TRACE_PROFILE) { # include
-    $profile{$state}++;
+    $profile{$event}++;
   } # include
 
   # Pre-dispatch processing.
 
   unless ($type & (ET_USER | ET_CALL)) {
 
-    # The _start state is dispatched immediately as part of allocating
+    # The _start event is dispatched immediately as part of allocating
     # a session.  Set up the kernel's tables for this session.
 
     if ($type & ET_START) {
@@ -807,12 +806,12 @@ sub _dispatch_state {
       my $parent   = $kr_sessions{$session}->[SS_PARENT];
       my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
       foreach my $child (@children) {
-        $self->_dispatch_state
+        $self->_dispatch_event
           ( $parent, $self,
             EN_CHILD, ET_CHILD, [ CHILD_GAIN, $child ],
             time(), $file, $line, undef
           );
-        $self->_dispatch_state
+        $self->_dispatch_event
           ( $child, $self,
             EN_PARENT, ET_PARENT,
             [ $kr_sessions{$child}->[SS_PARENT], $parent, ],
@@ -823,7 +822,7 @@ sub _dispatch_state {
       # Tell the departing session's parent that the departing session
       # is departing.
       if (defined $parent) {
-        $self->_dispatch_state
+        $self->_dispatch_event
           ( $parent, $self,
             EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
             time(), $file, $line, undef
@@ -832,7 +831,7 @@ sub _dispatch_state {
     }
 
     # Preprocess signals.  This is where _signal is translated into
-    # its registered handler's state name, if there is one.
+    # its registered handler's event name, if there is one.
 
     elsif ($type & ET_SIGNAL) {
       my $signal = $etc->[0];
@@ -844,21 +843,21 @@ sub _dispatch_state {
 
       my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
       foreach (@children) {
-        $self->_dispatch_state
+        $self->_dispatch_event
           ( $_, $self,
-            $state, ET_SIGNAL, $etc,
+            $event, ET_SIGNAL, $etc,
             time(), $file, $line, undef
           );
       }
 
-      # Translate the '_signal' state to its handler's name.  This is
+      # Translate the '_signal' event to its handler's name.  This is
       # a two-tier exists to prevent the second one from autovivifying
       # elements in %kr_signals.
 
       if ( exists $kr_signals{$signal} and
            exists $kr_signals{$signal}->{$session}
          ) {
-        $local_state = $kr_signals{$signal}->{$session};
+        $local_event = $kr_signals{$signal}->{$session};
       }
     }
   }
@@ -869,29 +868,29 @@ sub _dispatch_state {
   unless (exists $kr_sessions{$session}) {
 
     if (TRACE_EVENTS) { # include
-      warn ">>> discarding $state to nonexistent ", {% ssid %}, "\n";
+      warn ">>> discarding $event to nonexistent ", {% ssid %}, "\n";
     } # include
 
     return;
   }
 
   if (TRACE_EVENTS) { # include
-    warn ">>> dispatching $state to $session ", {% ssid %}, "\n";
-    if ($state eq EN_SIGNAL) {
+    warn ">>> dispatching $event to $session ", {% ssid %}, "\n";
+    if ($event eq EN_SIGNAL) {
       warn ">>>     signal($etc->[0])\n";
     }
   } # include
 
-  # Prepare to call the appropriate state.  Push the current active
+  # Prepare to call the appropriate handler.  Push the current active
   # session on Perl's call stack.
   my $hold_active_session = $kr_active_session;
   $kr_active_session = $session;
 
   # Dispatch the event, at long last.
   my $return =
-    $session->_invoke_state($source_session, $local_state, $etc, $file, $line);
+    $session->_invoke_state($source_session, $local_event, $etc, $file, $line);
 
-  # Stringify the state's return value if it belongs in the POE
+  # Stringify the handler's return value if it belongs in the POE
   # namespace.  $return's scope exists beyond the post-dispatch
   # processing, which includes POE's garbage collection.  The scope
   # bleed was known to break determinism in surprising ways.
@@ -909,7 +908,7 @@ sub _dispatch_state {
   $kr_active_session = $hold_active_session;
 
   if (TRACE_EVENTS) { # include
-    warn "<<< ", {% ssid %}, " -> $state returns ($return)\n";
+    warn "<<< ", {% ssid %}, " -> $event returns ($return)\n";
   } # include
 
   # Post-dispatch processing.  This is a user event (but not a call),
@@ -924,7 +923,7 @@ sub _dispatch_state {
   # delayed until ET_GC.
 
   if ($type & ET_START) {
-    $self->_dispatch_state
+    $self->_dispatch_event
       ( $kr_sessions{$session}->[SS_PARENT], $self,
         EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
         time(), $file, $line, undef
@@ -1097,7 +1096,7 @@ sub _dispatch_state {
     {% collect_garbage $session %}
   }
 
-  # Return what the state did.  This is used for call().
+  # Return what the handler did.  This is used for call().
   $return;
 }
 
@@ -1133,7 +1132,7 @@ macro finalize_kernel {
   }
 
   if (TRACE_PROFILE) {
-    print STDERR ',----- State Profile ' , ('-' x 53), ",\n";
+    print STDERR ',----- Event Profile ' , ('-' x 53), ",\n";
     foreach (sort keys %profile) {
       printf STDERR "| %60.60s %10d |\n", $_, $profile{$_};
     }
@@ -1172,20 +1171,20 @@ sub DESTROY {
 }
 
 #------------------------------------------------------------------------------
-# _invoke_state is what _dispatch_state calls to dispatch a transition
+# _invoke_state is what _dispatch_event calls to dispatch a transition
 # event.  This is the kernel's _invoke_state so it can receive events.
 # These are mostly signals, which are propagated down in
-# _dispatch_state.
+# _dispatch_event.
 
 sub _invoke_state {
-  my ($self, $source_session, $state, $etc) = @_;
+  my ($self, $source_session, $event, $etc) = @_;
 
   # A SIGCHLD was caught.  This is an event loop to poll for children
   # without catching extra child signals.  This reduces the number of
   # CHLD signals caught, which increases the process' chance for
   # survival.
 
-  if ($state eq EN_SCPOLL) {
+  if ($event eq EN_SCPOLL) {
 
     # Non-blocking wait for a child process.  If one was reaped,
     # dispatch a SIGCHLD to the session who called fork.
@@ -1267,7 +1266,7 @@ sub _invoke_state {
   # _invoke_state is called last in the dispatch.  If the signal was
   # SIGIDLE, then post a SIGZOMBIE if the main queue is still idle.
 
-  elsif ($state eq EN_SIGNAL) {
+  elsif ($event eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
       unless (@kr_events > 1 || keys(%kr_handles)) {
         $self->_enqueue_event
@@ -1297,7 +1296,7 @@ sub session_alloc {
       if (exists $kr_sessions{$session});
   } # include
 
-  $self->_dispatch_state
+  $self->_dispatch_event
     ( $session, $kr_active_session,
       EN_START, ET_START, \@args,
       time(), __FILE__, __LINE__, undef
@@ -1320,7 +1319,7 @@ sub session_free {
       unless (exists $kr_sessions{$session});
   } # include
 
-  $self->_dispatch_state
+  $self->_dispatch_event
     ( $session, $kr_active_session,
       EN_STOP, ET_STOP, [],
       time(), __FILE__, __LINE__, undef
@@ -1344,7 +1343,7 @@ sub detach_myself {
   my $old_parent = $kr_sessions{$kr_active_session}->[SS_PARENT];
 
   # Tell the old parent session that the child is departing.
-  $self->_dispatch_state
+  $self->_dispatch_event
     ( $old_parent, $self,
       EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session ],
       time(), (caller)[1,2], undef
@@ -1355,7 +1354,7 @@ sub detach_myself {
   # where the code would go if it ever does in the future.)
 
   # Tell the current session that its parentage is changing.
-  $self->_dispatch_state
+  $self->_dispatch_event
     ( $kr_active_session, $self,
       EN_PARENT, ET_PARENT, [ $old_parent, $poe_kernel ],
       time(), (caller)[1,2], undef
@@ -1401,7 +1400,7 @@ sub detach_child {
     }
 
   # Tell the current session that the child is departing.
-  $self->_dispatch_state
+  $self->_dispatch_event
     ( $kr_active_session, $self,
       EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session ],
       time(), (caller)[1,2], undef
@@ -1412,7 +1411,7 @@ sub detach_child {
   # where the code would go if it ever does in the future.)
 
   # Tell the child session that its parentage is changing.
-  $self->_dispatch_state
+  $self->_dispatch_event
     ( $child_session, $self,
       EN_PARENT, ET_PARENT, [ $kr_active_session, $poe_kernel ],
       time(), (caller)[1,2], undef
@@ -1505,47 +1504,47 @@ sub get_active_session {
 my $queue_seqnum = 0;
 
 sub _enqueue_event {
-  my ( $self, $session, $source_session, $state, $type, $etc, $time,
+  my ( $self, $session, $source_session, $event, $type, $etc, $time,
        $file, $line
      ) = @_;
 
   if (TRACE_EVENTS) { # include
-    warn "}}} enqueuing event '$state' for ", {% ssid %}, " at $time\n";
+    warn "}}} enqueuing event '$event' for ", {% ssid %}, " at $time\n";
   } # include
 
   if (exists $kr_sessions{$session}) {
 
-    my $state_to_enqueue = {% state_to_enqueue %};
+    my $event_to_enqueue = {% event_to_enqueue %};
 
     # Special case: No events in the queue.  Put the new event in the
     # queue, and be done with it.
     unless (@kr_events) {
-      $kr_events[0] = $state_to_enqueue;
+      $kr_events[0] = $event_to_enqueue;
 
       # This event restarts the substrate's time watcher.
       {% substrate_resume_time_watcher %}
     }
 
-    # Special case: New state belongs at the end of the queue.  Push
+    # Special case: New event belongs at the end of the queue.  Push
     # it, and be done with it.
     elsif ($time >= $kr_events[-1]->[ST_TIME]) {
-      push @kr_events, $state_to_enqueue;
+      push @kr_events, $event_to_enqueue;
     }
 
-    # Special case: New state comes before earliest state.  Unshift
+    # Special case: New event comes before earliest event.  Unshift
     # it, and be done with it.
     elsif ($time < $kr_events[0]->[ST_TIME]) {
-      unshift @kr_events, $state_to_enqueue;
+      unshift @kr_events, $event_to_enqueue;
 
       # This event refreshes the substrate's watcher.
       {% substrate_reset_time_watcher %}
     }
 
-    # Special case: Two events in the queue.  The new state enters
+    # Special case: Two events in the queue.  The new event enters
     # between them, because it's not before the first one or after the
     # last one.
     elsif (@kr_events == 2) {
-      splice @kr_events, 1, 0, $state_to_enqueue;
+      splice @kr_events, 1, 0, $event_to_enqueue;
     }
 
     # Small queue.  Perform a reverse linear search on the assumption
@@ -1558,7 +1557,7 @@ sub _enqueue_event {
         while ( $index and
                 $time < $kr_events[$index-1]->[ST_TIME]
               );
-      splice @kr_events, $index, 0, $state_to_enqueue;
+      splice @kr_events, $index, 0, $event_to_enqueue;
     }
 
     # And finally, we have this large queue, and the program has
@@ -1574,7 +1573,7 @@ sub _enqueue_event {
         # Upper and lower bounds crossed.  No match; insert at the
         # lower bound point.
         if ($upper < $lower) {
-          splice @kr_events, $lower, 0, $state_to_enqueue;
+          splice @kr_events, $lower, 0, $event_to_enqueue;
           last;
         }
 
@@ -1594,12 +1593,12 @@ sub _enqueue_event {
 
         # The key matches the one at the midpoint.  Scan towards
         # higher keys until the midpoint points to an element with a
-        # higher key.  Insert the new state before it.
+        # higher key.  Insert the new event before it.
         $midpoint++
           while ( ($midpoint < @kr_events)
                   and ($time == $kr_events[$midpoint]->[ST_TIME])
                 );
-        splice @kr_events, $midpoint, 0, $state_to_enqueue;
+        splice @kr_events, $midpoint, 0, $event_to_enqueue;
         last;
       }
     }
@@ -1611,7 +1610,7 @@ sub _enqueue_event {
     # want to remove an event with a specific ID.  The ID->time lookup
     # is used so we can seek into the time-ordered event queue and
     # quickly find the event to fiddle with.
-    my $new_event_id = $state_to_enqueue->[ST_SEQ];
+    my $new_event_id = $event_to_enqueue->[ST_SEQ];
     $kr_event_ids{$new_event_id} = $time;
 
     # Return the new event ID.  Man, this rocks.  I forgot POE was
@@ -1621,18 +1620,18 @@ sub _enqueue_event {
 
   # This function already has returned if everything went well.
   warn ">>>>> ", join('; ', keys(%kr_sessions)), " <<<<<\n";
-  croak "can't enqueue event($state) for nonexistent session($session)\a\n";
+  croak "can't enqueue event($event) for nonexistent session($session)\a\n";
 }
 
 #------------------------------------------------------------------------------
-# Post a state to the queue.
+# Post an event to the queue.
 
 sub post {
-  my ($self, $destination, $state_name, @etc) = @_;
+  my ($self, $destination, $event_name, @etc) = @_;
 
   ASSERT_USAGE and do {
     croak "destination is undefined in post()" unless defined $destination;
-    croak "event is undefined in post()" unless defined $state_name;
+    croak "event is undefined in post()" unless defined $event_name;
   };
 
   # Attempt to resolve the destination session reference against
@@ -1641,30 +1640,30 @@ sub post {
   my $session = {% alias_resolve $destination %};
   {% test_resolve $destination, $session %}
 
-  # Enqueue the state for "now", which simulates FIFO in our
+  # Enqueue the event for "now", which simulates FIFO in our
   # time-ordered queue.
 
   $self->_enqueue_event
     ( $session, $kr_active_session,
-      $state_name, ET_USER, \@etc,
+      $event_name, ET_USER, \@etc,
       time(), (caller)[1,2]
     );
   return 1;
 }
 
 #------------------------------------------------------------------------------
-# Post a state to the queue for the current session.
+# Post an event to the queue for the current session.
 
 sub yield {
-  my ($self, $state_name, @etc) = @_;
+  my ($self, $event_name, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "event name is undefined in yield()" unless defined $state_name;
+    croak "event name is undefined in yield()" unless defined $event_name;
   };
 
   $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
-      $state_name, ET_USER, \@etc,
+      $event_name, ET_USER, \@etc,
       time(), (caller)[1,2]
     );
 
@@ -1672,14 +1671,14 @@ sub yield {
 }
 
 #------------------------------------------------------------------------------
-# Call a state directly.
+# Call an event handler directly.
 
 sub call {
-  my ($self, $destination, $state_name, @etc) = @_;
+  my ($self, $destination, $event, @etc) = @_;
 
   ASSERT_USAGE and do {
     croak "destination is undefined in call()" unless defined $destination;
-    croak "event name is undefined in call()" unless defined $state_name;
+    croak "event is undefined in call()" unless defined $event;
   };
 
   # Attempt to resolve the destination session reference against
@@ -1688,7 +1687,7 @@ sub call {
   my $session = {% alias_resolve $destination %};
   {% test_resolve $destination, $session %}
 
-  # Dispatch the state right now, bypassing the queue altogether.
+  # Dispatch the event right now, bypassing the queue altogether.
   # This tends to be a Bad Thing to Do, but it's useful for
   # synchronous events like selects'.
 
@@ -1700,9 +1699,9 @@ sub call {
   # programmers set some base rules and stick to them.
 
   my $return_value =
-    $self->_dispatch_state
+    $self->_dispatch_event
       ( $session, $kr_active_session,
-        $state_name, ET_CALL, \@etc,
+        $event, ET_CALL, \@etc,
         time(), (caller)[1,2], undef
       );
   $! = 0;
@@ -1715,13 +1714,14 @@ sub call {
 # Here's the old POD, in case you're interested.
 #
 # # Return the names of pending timed events.
-# @state_names = $kernel->queue_peek_alarms( );
+# @event_names = $kernel->queue_peek_alarms( );
 #
 # =item queue_peek_alarms
 #
-# queue_peek_alarms() returns a time-ordered list of state names from
-# the current session that have pending timed events.  If a state has
-# more than one pending timed event, it will be listed that many times.
+# queue_peek_alarms() returns a time-ordered list of event names from
+# the current session that have pending timed events.  If a event
+# handler has more than one pending timed event, it will be listed
+# that many times.
 #
 #   my @pending_timed_events = $kernel->queue_peek_alarms();
 
@@ -1747,13 +1747,13 @@ sub queue_peek_alarms {
 #==============================================================================
 
 sub alarm {
-  my ($self, $state, $time, @etc) = @_;
+  my ($self, $event, $time, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "event name is undefined in alarm()" unless defined $state;
+    croak "event name is undefined in alarm()" unless defined $event;
   };
 
-  unless (defined $state) {
+  unless (defined $event) {
     TRACE_RETURNS and carp "invalid parameter to alarm() call";
     ASSERT_RETURNS and croak "invalid parameter to alarm() call";
     return EINVAL;
@@ -1763,7 +1763,7 @@ sub alarm {
   while ($index--) {
     if ( ($kr_events[$index]->[ST_TYPE] & ET_ALARM) &&
          ($kr_events[$index]->[ST_SESSION] == $kr_active_session) &&
-         ($kr_events[$index]->[ST_NAME] eq $state)
+         ($kr_events[$index]->[ST_NAME] eq $event)
     ) {
       {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
       my $removed_alarm = splice(@kr_events, $index, 1);
@@ -1776,7 +1776,7 @@ sub alarm {
   if (defined $time) {
     $self->_enqueue_event
       ( $kr_active_session, $kr_active_session,
-        $state, ET_ALARM, [ @etc ],
+        $event, ET_ALARM, [ @etc ],
         $time, (caller)[1,2]
       );
   }
@@ -1792,14 +1792,14 @@ sub alarm {
 
 # Add an alarm without clobbering previous alarms of the same name.
 sub alarm_add {
-  my ($self, $state, $time, @etc) = @_;
+  my ($self, $event, $time, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "undefined event name in alarm_add()" unless defined $state;
+    croak "undefined event name in alarm_add()" unless defined $event;
     croak "undefined time in alarm_add()" unless defined $time;
   };
 
-  unless (defined $state and defined $time) {
+  unless (defined $event and defined $time) {
     TRACE_RETURNS and carp "invalid parameter to alarm_add() call";
     ASSERT_RETURNS and croak "invalid parameter to alarm_add() call";
     return EINVAL;
@@ -1807,7 +1807,7 @@ sub alarm_add {
 
   $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
-      $state, ET_ALARM, [ @etc ],
+      $event, ET_ALARM, [ @etc ],
       $time, (caller)[1,2]
     );
 
@@ -1816,23 +1816,23 @@ sub alarm_add {
 
 # Add a delay, which is just an alarm relative to the current time.
 sub delay {
-  my ($self, $state, $delay, @etc) = @_;
+  my ($self, $event, $delay, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "undefined event name in delay()" unless defined $state;
+    croak "undefined event name in delay()" unless defined $event;
   };
 
-  unless (defined $state) {
+  unless (defined $event) {
     TRACE_RETURNS and carp "invalid parameter to delay() call";
     ASSERT_RETURNS and croak "invalid parameter to delay() call";
     return EINVAL;
   }
 
   if (defined $delay) {
-    $self->alarm($state, time() + $delay, @etc);
+    $self->alarm($event, time() + $delay, @etc);
   }
   else {
-    $self->alarm($state);
+    $self->alarm($event);
   }
 
   return 0;
@@ -1840,20 +1840,20 @@ sub delay {
 
 # Add a delay without clobbering previous delays of the same name.
 sub delay_add {
-  my ($self, $state, $delay, @etc) = @_;
+  my ($self, $event, $delay, @etc) = @_;
 
   ASSERT_USAGE and do {
-    croak "undefined event name in delay_add()" unless defined $state;
+    croak "undefined event name in delay_add()" unless defined $event;
     croak "undefined time in delay_add()" unless defined $delay;
   };
 
-  unless (defined $state and defined $delay) {
+  unless (defined $event and defined $delay) {
     TRACE_RETURNS and carp "invalid parameter to delay_add() call";
     ASSERT_RETURNS and croak "invalid parameter to delay_add() call";
     return EINVAL;
   }
 
-  $self->alarm_add($state, time() + $delay, @etc);
+  $self->alarm_add($event, time() + $delay, @etc);
 
   return 0;
 }
@@ -1866,9 +1866,9 @@ sub delay_add {
 # alarm ID (that's the more part).
 
 sub alarm_set {
-  my ($self, $state, $time, @etc) = @_;
+  my ($self, $event, $time, @etc) = @_;
 
-  unless (defined $state) {
+  unless (defined $event) {
     ASSERT_USAGE and croak "undefined event name in alarm_set()";
     TRACE_RETURNS and carp "undefined event name in alarm_set()";
     ASSERT_RETURNS and carp "undefined event name in alarm_set()";
@@ -1886,7 +1886,7 @@ sub alarm_set {
 
   return $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
-      $state, ET_ALARM, [ @etc ],
+      $event, ET_ALARM, [ @etc ],
       $time, (caller)[1,2]
     );
 }
@@ -2065,19 +2065,19 @@ sub alarm_adjust {
     $kr_events[0] = $old_alarm;
   }
 
-  # Special case: New state belongs at the end of the queue.  Push
+  # Special case: New event belongs at the end of the queue.  Push
   # it, and be done with it.
   elsif ($new_time >= $kr_events[-1]->[ST_TIME]) {
     push @kr_events, $old_alarm;
   }
 
-  # Special case: New state comes before earliest state.  Unshift
+  # Special case: New event comes before earliest event.  Unshift
   # it, and be done with it.
   elsif ($new_time < $kr_events[0]->[ST_TIME]) {
     unshift @kr_events, $old_alarm;
   }
 
-  # Special case: Two events in the queue.  The new state enters
+  # Special case: Two events in the queue.  The new event enters
   # between them, because it's not before the first one or after the
   # last one.
   elsif (@kr_events == 2) {
@@ -2147,7 +2147,7 @@ sub alarm_adjust {
 
       # The key matches the one at the midpoint.  Scan towards
       # higher keys until the midpoint points to an element with a
-      # higher key.  Insert the new state before it.
+      # higher key.  Insert the new event before it.
       $midpoint++
         while ( ($midpoint < @kr_events) and
                 ($new_time == $kr_events[$midpoint]->[ST_TIME])
@@ -2165,9 +2165,9 @@ sub alarm_adjust {
 # Time::HiRes'.
 
 sub delay_set {
-  my ($self, $state, $seconds, @etc) = @_;
+  my ($self, $event, $seconds, @etc) = @_;
 
-  unless (defined $state) {
+  unless (defined $event) {
     ASSERT_USAGE and croak "undefined event name in delay_set()";
     TRACE_RETURNS and carp "undefined event name in delay_set()";
     ASSERT_RETURNS and carp "undefined event name in delay_set()";
@@ -2185,7 +2185,7 @@ sub delay_set {
 
   return $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
-      $state, ET_ALARM, [ @etc ],
+      $event, ET_ALARM, [ @etc ],
       time() + $seconds, (caller)[1,2]
     );
 }
@@ -2228,13 +2228,13 @@ sub alarm_remove_all {
 #==============================================================================
 
 sub _internal_select {
-  my ($self, $session, $handle, $state, $select_index) = @_;
+  my ($self, $session, $handle, $event, $select_index) = @_;
   my $fileno = fileno($handle);
 
-  # If a state is specify register it.  This may be a new handle, or
-  # it may be replacing an existing select with a new destination.
+  # If an event is specified register it.  This may be a new handle,
+  # or it may be replacing an existing select with a new destination.
 
-  if ($state) {
+  if ($event) {
 
     # The handle is unknown.  Register it anew.
 
@@ -2317,7 +2317,7 @@ sub _internal_select {
     # overwrites a previous value, if any, or adds a new one.
 
     $kr_handle->[HND_SESSIONS]->[$select_index]->{$session} =
-      [ $handle, $session, $state ];
+      [ $handle, $session, $event ];
 
     # SS_HANDLES
     my $kr_session = $kr_sessions{$session};
@@ -2427,35 +2427,35 @@ sub _internal_select {
 # "Macro" select that manipulates read, write and expedite selects
 # together.
 sub select {
-  my ($self, $handle, $state_r, $state_w, $state_e) = @_;
+  my ($self, $handle, $event_r, $event_w, $event_e) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined filehandle in select()" unless defined $handle;
     croak "invalid filehandle in select()" unless defined fileno($handle);
   };
 
-  $self->_internal_select($kr_active_session, $handle, $state_r, VEC_RD);
-  $self->_internal_select($kr_active_session, $handle, $state_w, VEC_WR);
-  $self->_internal_select($kr_active_session, $handle, $state_e, VEC_EX);
+  $self->_internal_select($kr_active_session, $handle, $event_r, VEC_RD);
+  $self->_internal_select($kr_active_session, $handle, $event_w, VEC_WR);
+  $self->_internal_select($kr_active_session, $handle, $event_e, VEC_EX);
   return 0;
 }
 
 # Only manipulate the read select.
 sub select_read {
-  my ($self, $handle, $state) = @_;
+  my ($self, $handle, $event) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined filehandle in select_read()" unless defined $handle;
     croak "invalid filehandle in select_read()" unless defined fileno($handle);
   };
 
-  $self->_internal_select($kr_active_session, $handle, $state, VEC_RD);
+  $self->_internal_select($kr_active_session, $handle, $event, VEC_RD);
   return 0;
 }
 
 # Only manipulate the write select.
 sub select_write {
-  my ($self, $handle, $state) = @_;
+  my ($self, $handle, $event) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined filehandle in select_write()" unless defined $handle;
@@ -2463,13 +2463,13 @@ sub select_write {
       unless defined fileno($handle);
   };
 
-  $self->_internal_select($kr_active_session, $handle, $state, VEC_WR);
+  $self->_internal_select($kr_active_session, $handle, $event, VEC_WR);
   return 0;
 }
 
 # Only manipulate the expedite select.
 sub select_expedite {
-  my ($self, $handle, $state) = @_;
+  my ($self, $handle, $event) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined filehandle in select_expedite()" unless defined $handle;
@@ -2477,7 +2477,7 @@ sub select_expedite {
       unless defined fileno($handle);
   };
 
-  $self->_internal_select($kr_active_session, $handle, $state, VEC_EX);
+  $self->_internal_select($kr_active_session, $handle, $event, VEC_EX);
   return 0;
 }
 
@@ -2816,19 +2816,19 @@ sub refcount_decrement {
 # HANDLERS
 #==============================================================================
 
-# Add or remove states from sessions.
+# Add or remove event handlers from sessions.
 sub state {
-  my ($self, $state_name, $state_code, $state_alias) = @_;
-  $state_alias = $state_name unless defined $state_alias;
+  my ($self, $event, $state_code, $state_alias) = @_;
+  $state_alias = $event unless defined $state_alias;
 
   ASSERT_USAGE and do {
-    croak "undefined event name in state()" unless defined $state_name;
+    croak "undefined event name in state()" unless defined $event;
   };
 
   if ( (ref($kr_active_session) ne '') &&
        (ref($kr_active_session) ne 'POE::Kernel')
   ) {
-    $kr_active_session->register_state($state_name, $state_code, $state_alias);
+    $kr_active_session->register_state($event, $state_code, $state_alias);
     return 0;
   }
 
@@ -2886,41 +2886,41 @@ Methods to manage the process' global Kernel instance:
 FIFO event methods:
 
   # Post an event to an arbitrary session.
-  $kernel->post( $session, $state_name, @state_args );
+  $kernel->post( $session, $event, @event_args );
 
   # Post an event back to the current session.
-  $kernel->yield( $state_name, @state_args );
+  $kernel->yield( $event, @event_args );
 
-  # Call a state synchronously, bypassing the event queue and
-  # returning the state's return value.
-  $state_return_value = $kernel->call( $session, $state_name, @state_args );
+  # Call an event handler synchronously.  Bypasses POE's event queue
+  # and returns the handler's return value.
+  $handler_result = $kernel->call( $session, $event, @event_args );
 
 Original alarm and delay methods:
 
   # Post an event which will be delivered at a given Unix epoch time.
   # This clears previous timed events with the same state name.
-  $kernel->alarm( $state_name, $epoch_time, @state_args );
+  $kernel->alarm( $event, $epoch_time, @event_args );
 
   # Post an additional alarm, leaving existing ones in the queue.
-  $kernel->alarm_add( $state_name, $epoch_time, @state_args );
+  $kernel->alarm_add( $event, $epoch_time, @event_args );
 
   # Post an event which will be delivered after a delay, specified in
   # seconds hence. This clears previous timed events with the same
-  # state name.
-  $kernel->delay( $state_name, $seconds, @state_args );
+  # name.
+  $kernel->delay( $event, $seconds, @event_args );
 
   # Post an additional delay, leaving existing ones in the queue.
-  $kernel->delay_add( $state_name, $seconds, @state_args );
+  $kernel->delay_add( $event, $seconds, @event_args );
 
 June 2001 alarm and delay methods:
 
   # Post an event which will be delivered at a given Unix epoch
   # time. This does not clear previous events with the same name.
-  $alarm_id = $kernel->alarm_set( $state_name, $epoch_time, @etc );
+  $alarm_id = $kernel->alarm_set( $event, $epoch_time, @etc );
 
   # Post an event which will be delivered a number of seconds hence.
   # This does not clear previous events with the same name.
-  $alarm_id = $kernel->delay_set( $state_name, $seconds_hence, @etc );
+  $alarm_id = $kernel->delay_set( $event, $seconds_hence, @etc );
 
   # Adjust an existing alarm by a number of seconds.
   $kernel->alarm_adjust( $alarm_id, $number_of_seconds );
@@ -2959,13 +2959,13 @@ Symbolic name, or session alias methods:
 Filehandle watcher methods:
 
   # Watch for read readiness on a filehandle.
-  $kernel->select_read( $file_handle, $state_name );
+  $kernel->select_read( $file_handle, $event );
 
   # Stop watching a filehandle for read-readiness.
   $kernel->select_read( $file_handle );
 
   # Watch for write readiness on a filehandle.
-  $kernel->select_write( $file_handle, $state_name );
+  $kernel->select_write( $file_handle, $event );
 
   # Stop watching a filehandle for write-readiness.
   $kernel->select_write( $file_handle );
@@ -2981,22 +2981,22 @@ Filehandle watcher methods:
   $kernel->select_resume_read( $file_handle );
 
   # Watch for out-of-bound (expedited) read readiness on a filehandle.
-  $kernel->select_expedite( $file_handle, $state_name );
+  $kernel->select_expedite( $file_handle, $event );
 
   # Stop watching a filehandle for out-of-bound data.
   $kernel->select_expedite( $file_handle );
 
   # Set and/or clear a combination of selects in one call.
   $kernel->select( $file_handle,
-                   $read_state_name,     # or undef to clear it
-                   $write_state_name,    # or undef to clear it
-                   $expedite_state_same, # or undef to clear it
+                   $read_event,     # or undef to clear it
+                   $write_event,    # or undef to clear it
+                   $expedite_event, # or undef to clear it
                  );
 
 Signal watcher and generator methods:
 
   # Generate an event when a particular signal arrives.
-  $kernel->sig( $signal_name, $state_name );
+  $kernel->sig( $signal_name, $event );
 
   # Stop watching for a signal.
   $kernel->sig( $signal_name );
@@ -3005,21 +3005,21 @@ Signal watcher and generator methods:
   # This only works within the same process.
   $kernel->signal( $session, $signal_name );
 
-State management methods:
+State (event handler) management methods:
 
-  # Remove an existing state from the current Session.
-  $kernel->state( $state_name );
+  # Remove an existing handler from the current Session.
+  $kernel->state( $event_name );
 
-  # Add a new inline state, or replace an existing one.
-  $kernel->state( $state_name, $code_reference );
+  # Add a new inline handler, or replace an existing one.
+  $kernel->state( $event_name, $code_reference );
 
-  # Add a new object or package state, or replace an existing one.
-  # The object method will be the same as the state name.
-  $kernel->state( $state_name, $object_ref_or_package_name );
+  # Add a new object or package handler, or replace an existing
+  # one. The object method will be the same as the eventname.
+  $kernel->state( $event_name, $object_ref_or_package_name );
 
-  # Add a new object or package state, or replace an existing one.
-  # The object method may be different from the state name.
-  $kernel->state( $state_name, $object_ref_or_package_name, $method_name );
+  # Add a new object or package handler, or replace an existing
+  # one. The object method may be different from the event name.
+  $kernel->state( $event_name, $object_ref_or_package_name, $method_name );
 
 External reference count methods:
 
@@ -3111,13 +3111,13 @@ stop as long as it has at least one FIFO event in the queue.
 
 =over 2
 
-=item post SESSION, STATE_NAME, PARAMETER_LIST
+=item post SESSION, EVENT_NAME, PARAMETER_LIST
 
-=item post SESSION, STATE_NAME
+=item post SESSION, EVENT_NAME
 
-post() enqueues an event to be dispatched to STATE_NAME in SESSION.
+post() enqueues an event to be dispatched to EVENT_NAME in SESSION.
 If a PARAMETER_LIST is included, its values will be passed as
-arguments to STATE_NAME's handler.
+arguments to EVENT_NAME's handler.
 
   $_[KERNEL]->post( $session, 'do_this' );
   $_[KERNEL]->post( $session, 'do_that', $with_this, $and_this );
@@ -3139,13 +3139,13 @@ SESSION did not exist at the time of the post() call.
 
 =back
 
-=item yield STATE_NAME, PARAMETER_LIST
+=item yield EVENT_NAME, PARAMETER_LIST
 
-=item yield STATE_NAME
+=item yield EVENT_NAME
 
-yield() enqueues an event to be dispatched to STATE_NAME in the same
+yield() enqueues an event to be dispatched to EVENT_NAME in the same
 session.  If a PARAMETER_LIST is included, its values will be passed
-as argumets to STATE_NAME's handler.
+as argumets to EVENT_NAME's handler.
 
 Events posted with yield() must propagate through POE's FIFO before
 they're dispatched.  This effectively yields timeslices to other
@@ -3160,22 +3160,22 @@ The yield() method does not return a meaningful value.
 
 =head2 Synchronous Events
 
-Sometimes it's necessary to invoke a state right away, for example to
-handle a time-critical external event that would be spoiled by the
-time an event propagated through POE's FIFO.  The kernel's call()
-method provides for time-critical events.
+Sometimes it's necessary to invoke an event handler right away, for
+example to handle a time-critical external event that would be spoiled
+by the time an event propagated through POE's FIFO.  The kernel's
+call() method provides for time-critical events.
 
 =over 2
 
-=item call SESSION, STATE_NAME, PARAMETER_LIST
+=item call SESSION, EVENT_NAME, PARAMETER_LIST
 
-=item call SESSION, STATE_NAME
+=item call SESSION, EVENT_NAME
 
-call() bypasses the FIFO to call STATE_NAME in a SESSION, optionally
+call() bypasses the FIFO to call EVENT_NAME in a SESSION, optionally
 with values from a PARAMETER_LIST.  The values will be passed as
-arguments to STATE_NAME at dispatch time.
+arguments to EVENT_NAME at dispatch time.
 
-call() returns whatever STATE_NAME's handler does.  The call() call's
+call() returns whatever EVENT_NAME's handler does.  The call() call's
 status is returned in $!, which is 0 for success or a nonzero reason
 for failure.
 
@@ -3184,7 +3184,7 @@ for failure.
 
 POE uses call() to dispatch some resource events without FIFO latency.
 Filehandle watchers, for example, would continue noticing a handle's
-readiness until the it was serviced by a state.  This could result in
+readiness until it was serviced by a handler.  This could result in
 several redundant readiness events being enqueued before the first one
 was dispatched.
 
@@ -3216,15 +3216,15 @@ built-in time() if Time::HiRes isn't available.
 
 =over 2
 
-=item alarm STATE_NAME, EPOCH_TIME, PARAMETER_LIST
+=item alarm EVENT_NAME, EPOCH_TIME, PARAMETER_LIST
 
-=item alarm STATE_NAME, EPOCH_TIME
+=item alarm EVENT_NAME, EPOCH_TIME
 
-=item alarm STATE_NAME
+=item alarm EVENT_NAME
 
 POE::Kernel's alarm() is a single-shot alarm.  It first clears all the
-timed events destined for STATE_NAME in the current session.  It then
-may set a new alarm for STATE_NAME if EPOCH_TIME is included,
+timed events destined for EVENT_NAME in the current session.  It then
+may set a new alarm for EVENT_NAME if EPOCH_TIME is included,
 optionally including values from a PARAMETER_LIST.
 
 It is possible to post an alarm with an EPOCH_TIME in the past; in
@@ -3248,14 +3248,14 @@ setting a new alarm:
 This method will clear all types of alarms without regard to how they
 were set.
 
-POE::Kernel's alarm() returns 0 on success or EINVAL if STATE_NAME is
+POE::Kernel's alarm() returns 0 on success or EINVAL if EVENT_NAME is
 not defined.
 
-=item alarm_add STATE_NAME, EPOCH_TIME, PARAMETER_LIST
+=item alarm_add EVENT_NAME, EPOCH_TIME, PARAMETER_LIST
 
-=item alarm_add STATE_NAME, EPOCH_TIME
+=item alarm_add EVENT_NAME, EPOCH_TIME
 
-alarm_add() sets an additional timed event for STATE_NAME in the
+alarm_add() sets an additional timed event for EVENT_NAME in the
 current session without clearing pending timed events.  The new alarm
 event will be dispatched no earlier than EPOCH_TIME.
 
@@ -3266,18 +3266,18 @@ To enqueue additional alarms for 'do_this':
 
 Additional alarms can be cleared with POE::Kernel's alarm() method.
 
-alarm_add() returns 0 on success or EINVAL if STATE_NAME or EPOCH_TIME
+alarm_add() returns 0 on success or EINVAL if EVENT_NAME or EPOCH_TIME
 is undefined.
 
-=item delay STATE_NAME, SECONDS, PARAMETER_LIST
+=item delay EVENT_NAME, SECONDS, PARAMETER_LIST
 
-=item delay STATE_NAME, SECONDS
+=item delay EVENT_NAME, SECONDS
 
-=item delay STATE_NAME
+=item delay EVENT_NAME
 
 delay() is a single-shot delayed event.  It first clears all the timed
-events destined for STATE_NAME in the current session.  If SECONDS is
-included, it will set a new delay for STATE_NAME to be dispatched
+events destined for EVENT_NAME in the current session.  If SECONDS is
+included, it will set a new delay for EVENT_NAME to be dispatched
 SECONDS seconds hence, optionally including values from a
 PARAMETER_LIST.
 
@@ -3305,13 +3305,13 @@ setting a new delay:
   $kernel->delay( 'do_the_other_thing' );
 
 C<delay()> returns 0 on success or a reason for its failure: EINVAL if
-STATE_NAME is undefined.
+EVENT_NAME is undefined.
 
-=item delay_add STATE_NAME, SECONDS, PARAMETER_LIST
+=item delay_add EVENT_NAME, SECONDS, PARAMETER_LIST
 
-=item delay_add STATE_NAME, SECONDS
+=item delay_add EVENT_NAME, SECONDS
 
-delay_add() sets an additional delay for STATE_NAME in the current
+delay_add() sets an additional delay for EVENT_NAME in the current
 session without clearing pending timed events.  The new delay will be
 dispatched no sooner than SECONDS seconds hence.
 
@@ -3323,7 +3323,7 @@ To enqueue additional delays for 'do_this':
 Additional alarms cas be cleared with POE::Kernel's delay() method.
 
 delay_add() returns 0 on success or a reason for failure: EINVAL if
-STATE_NAME or SECONDS is undefined.
+EVENT_NAME or SECONDS is undefined.
 
 =back
 
@@ -3351,9 +3351,9 @@ could also be ESRCH if the alarm doesn't exist (perhaps it already was
 dispatched).  $! may also contain EPERM if the alarm doesn't belong to
 the session trying to adjust it.
 
-=item alarm_set STATE_NAME, TIME, PARAMETER_LIST
+=item alarm_set EVENT_NAME, TIME, PARAMETER_LIST
 
-=item alarm_set STATE_NAME, TIME
+=item alarm_set EVENT_NAME, TIME
 
 Sets an alarm.  This differs from POE::Kernel's alarm() in that it
 lets programs set alarms without clearing them.  Furthermore, it
@@ -3376,7 +3376,7 @@ remove.
 
 Upon success, alarm_remove() returns something true based on its
 context.  In a list context, it returns three things: The removed
-alarm's state name, its scheduled time, and a reference to the list of
+alarm's event name, its scheduled time, and a reference to the list of
 parameters that were included with it.  This is all you need to
 re-schedule the alarm later.
 
@@ -3432,12 +3432,12 @@ Each removed alarm follows the same format as in alarm_remove().
     ...;
   }
 
-=item delay_set STATE_NAME, SECONDS, PARAMETER_LIST
+=item delay_set EVENT_NAME, SECONDS, PARAMETER_LIST
 
-=item delay_set STATE_NAME, SECONDS
+=item delay_set EVENT_NAME, SECONDS
 
 delay_set() is a handy way to set alarms for a number of seconds
-hence.  Its STATE_NAME and PARAMETER_LIST are the same as for
+hence.  Its EVENT_NAME and PARAMETER_LIST are the same as for
 alarm_set, and it returns the same things as alarm_set, both as a
 result of success and of failure.
 
@@ -3627,13 +3627,13 @@ least one filehandle.
 
 =over 2
 
-=item select_read FILE_HANDLE, STATE_NAME
+=item select_read FILE_HANDLE, EVENT_NAME
 
 =item select_read FILE_HANDLE
 
 select_read() starts or stops the kernel from watching to see if a
 filehandle can be read.  The Kernel will call the handler for
-STATE_NAME whenever the filehandle has data to be read.
+EVENT_NAME whenever the filehandle has data to be read.
 
   # Emit 'do_a_read' whenever $filehandle has data to be read.
   $kernel->select_read( $filehandle, 'do_a_read' );
@@ -3643,13 +3643,13 @@ STATE_NAME whenever the filehandle has data to be read.
 
 select_read() does not return a meaningful value.
 
-=item select_write FILE_HANDLE, STATE_NAME
+=item select_write FILE_HANDLE, EVENT_NAME
 
 =item select_write FILE_HANDLE
 
 select_write() starts or stops the kernel from watching to see if a
 filehandle can be written to.  The Kernel will call the handler for
-STATE_NAME whenever the filehandle has room for new data to be
+EVENT_NAME whenever the filehandle has room for new data to be
 written.
 
   # Emit 'flush_data' whenever $filehandle can be written.
@@ -3660,13 +3660,13 @@ written.
 
 select_write() does not return a meaningful value.
 
-=item select_expedite FILE_HANDLE, STATE_NAME
+=item select_expedite FILE_HANDLE, EVENT_NAME
 
 =item select_expedite FILE_HANDLE
 
 select_expedite() starts or stops the kernel from watching to see if a
 filehandle can be read out-of-band.  The Kernel will call the handler
-for STATE_NAME whenever the filehandle has out-of-band data to be
+for EVENT_NAME whenever the filehandle has out-of-band data to be
 read.
 
   # Emit 'do_an_oob_read' whenever $filehandle has data to be read.
@@ -3695,14 +3695,14 @@ Pause and resume a filehandle's writable events:
 
 These methods don't return meaningful values.
 
-=item select FILE_HANDLE, READ_STATE_NM, WRITE_STATE_NM, EXPEDITE_STATE_NM
+=item select FILE_HANDLE, READ_EVENT_NM, WRITE_EVENT_NM, EXPEDITE_EVENT_NM
 
 POE::Kernel's select() method alters a filehandle's read, write, and
 expedite selects at the same time.  It's one method call more
 expensive than doing the same thing manually, but it's more convenient
 to code.
 
-Defined state names set or change the events that will be emitted when
+Defined event names set or change the events that will be emitted when
 the filehandle becomes ready.  Undefined names clear those aspects of
 the watcher, stopping it from generating those types of events.
 
@@ -3838,11 +3838,11 @@ Finally, here are POE::Kernel's signal methods themselves.
 
 =over 2
 
-=item sig SIGNAL_NAME, STATE_NAME
+=item sig SIGNAL_NAME, EVENT_NAME
 
 =item sig SIGNAL_NAME
 
-sig() registers or unregisters a STATE_NAME event for a particular
+sig() registers or unregisters a EVENT_NAME event for a particular
 SIGNAL_NAME.  Signal names are the same as %SIG uses, with one
 exception: CLD is always delivered as CHLD, so handling CHLD will
 always do the right thing.
@@ -3924,22 +3924,22 @@ information about _parent and _child events.
 =head2 State Management Methods
 
 State management methods let sessions hot swap their event handlers.
-It would be rude to change another session's states, so these methods
-only affect the current session.
+It would be rude to change another session's handlers, so these
+methods only affect the current one.
 
 =over 2
 
-=item state STATE_NAME
+=item state EVENT_NAME
 
-=item state STATE_NAME, CODE_REFERENCE
+=item state EVENT_NAME, CODE_REFERENCE
 
-=item state STATE_NAME, OBJECT_REFERENCE
+=item state EVENT_NAME, OBJECT_REFERENCE
 
-=item state STATE_NAME, OBJECT_REFERENCE, OBJECT_METHOD_NAME
+=item state EVENT_NAME, OBJECT_REFERENCE, OBJECT_METHOD_NAME
 
-=item state STATE_NAME, PACKAGE_NAME
+=item state EVENT_NAME, PACKAGE_NAME
 
-=item state STATE_NAME, PACKAGE_NAME, PACKAGE_METHOD_NAME
+=item state EVENT_NAME, PACKAGE_NAME, PACKAGE_METHOD_NAME
 
 Depending on how it's used, state() can add, remove, or update an
 event handler in the current session.
@@ -3959,8 +3959,9 @@ originally were defined with inline anonymous subs.
   $kernel->state( 'do_this', \&this_does_it );
 
 The third and fourth forms register or replace a handler with an
-object method.  These handlers are called "object states".  The third
-form maps an event to a method with the same name.
+object method.  These handlers are called "object states" or object
+handlers.  The third form maps an event to a method with the same
+name.
 
   $kernel->state( 'do_this', $with_this_object );
 
@@ -3969,8 +3970,9 @@ The fourth form maps an event to a method with a different name.
   $kernel->state( 'do_this', $with_this_object, $calling_this_method );
 
 The fifth and sixth forms register or replace a handler with a package
-method.  These handlers are called "package states".  The fifth form
-maps an event to a function with the same name.
+method.  These handlers are called "package states" or package
+handlers.  The fifth form maps an event to a function with the same
+name.
 
   $kernel->state( 'do_this', $with_this_package );
 
@@ -4181,7 +4183,7 @@ traces are enabled.
 
 The music goes around and around, and it comes out here.  TRACE_EVENTS
 enables messages that tell what happens to FIFO and alarm events: when
-they're queued, dispatched, or discarded, and what their states
+they're queued, dispatched, or discarded, and what their handlers
 return.
 
 =item TRACE_GARBAGE
@@ -4192,8 +4194,8 @@ around.
 
 =item TRACE_PROFILE
 
-TRACE_PROFILE switches on state profiling.  This causes the Kernel to
-keep a count of every state it dispatches.  It displays a frequency
+TRACE_PROFILE switches on event profiling.  This causes the Kernel to
+keep a count of every event it dispatches.  It displays a frequency
 report when run() is about to return.
 
 =item TRACE_QUEUE
@@ -4235,16 +4237,17 @@ exports) for free.
 
 $poe_kernel contains a reference to the process' POE::Kernel instance.
 It's mainly useful for getting at the kernel from places other than
-states.
+event handlers.
 
 For example, programs can't call the Kernel's run() method without a
 reference, and they normally don't get references to the Kernel
-without being in a running state.  This gets them going:
+without being in a running event handler.  This gets them going:
 
   $poe_kernel->run();
 
-It's also handy from within libraries, but states themselves receive
-C<KERNEL> parameters and don't need to use $poe_kernel directly.
+It's also handy from within libraries, but event handlers themselves
+receive C<KERNEL> parameters and don't need to use $poe_kernel
+directly.
 
 =item $poe_main_window
 
@@ -4271,12 +4274,10 @@ the entire POE distribution.
 
 =head1 BUGS
 
-alarm() and delay() clear all the timed events for the current session
-and the named state.  It's not possible to clear some and leave
-others.
-
 There is no mechanism in place to prevent external reference count
 names from clashing.
+
+Probably lots more.
 
 =head1 AUTHORS & COPYRIGHTS
 

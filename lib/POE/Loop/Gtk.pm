@@ -298,7 +298,7 @@ sub signal_ui_destroy {
     ( delete_event =>
       sub {
         if (keys %{$self->[KR_SESSIONS]}) {
-          $self->_dispatch_state
+          $self->_dispatch_event
             ( $self, $self,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
               time(), __FILE__, __LINE__, undef
