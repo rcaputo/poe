@@ -8,8 +8,20 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0806 2000.01.23
------------------
+0.0806 2000.01.23 (!!!)
+-----------------------
+
+Added the ability to map package and object states to methods that are
+named differently.  This adds new syntax to POE::Session's new() and
+create() constructors, as well as POE::Kernel->state().  The new test
+in samples/objmaps.perl exercises the code.
+
+(!!!) The ability to map package and object states to methods has
+uncovered a problem with POE::Session->create's object_states and
+package_states parameters.  They previously took hashrefs, which
+stringified objects' references.  Now they accept array references
+instead.  [I don't care if they're really lists, ref() returns
+'ARRAY'.]
 
 There seems to be renewed interest in Win32 support.  The previous
 Win32 porting attempt was about a year ago, and it was never completed
@@ -42,11 +54,6 @@ And his ROWS and COLS environment variables really are LINES and
 COLUMNS.  I fixed samples/poing.perl to recognize the alternate
 environment variables and punt to 80 columns and/or 25 lines as a last
 resort.
-
-Added the ability to map package and object states to methods that are
-named differently.  This adds new syntax to POE::Session's new() and
-create() constructors, as well as POE::Kernel->state().  The new test
-in samples/objmaps.perl exercises the code.
 
 
 0.0805 2000.01.05
