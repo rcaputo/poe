@@ -1,15 +1,10 @@
 # $Id$
-# Documentation exists after __END__
 
 # Filter::HTTPD copyright 1998 Artur Bergman <artur@vogon.se>.
 
 # Thanks go to Gisle Aas for his excellent HTTP::Daemon.  Some of the
 # get code was copied out if, unfournatly HTTP::Daemon is not easily
 # subclassed for POE because of the blocking nature.
-
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
 
 package POE::Filter::HTTPD;
 use HTTP::Status;
@@ -189,43 +184,42 @@ EOT
 
 ###############################################################################
 1;
+
 __END__
 
 =head1 NAME
 
-POE::Filter::HTTPD - Supports the HTTP 1.0 Protocol
+POE::Filter::HTTPD - POE HTTP 1.0 (Server Side) Protocol Abstraction
 
 =head1 SYNOPSIS
 
   $httpd = new POE::Filter::HTTPD();
-
-  $http_response_as_string = $httpd->put($full_http_response_object);
-
-  $http_request_object = $line->get($http_request_string);
-
+  $arrayref_with_http_response_as_string =
+    $httpd->put($full_http_response_object);
+  $arrayref_with_http_request_object =
+    $line->get($arrayref_of_raw_data_chunks_from_driver);
 
 =head1 DESCRIPTION
 
-Breaks up a httpstream into a HTTP::Request object, accepts a HTTP::Response object that it sends back to the client.
+The HTTPD filter parses the first HTTP 1.0 request from an incoming
+stream into an HTTP::Request object.  It accepts a single HTTP
+response object, and returns a HTTP 1.0 stream for sending.
 
-=head1 PUBLIC METHODS
+=head1 PUBLIC FILTER METHODS
 
-Please see C<POE::Filter> for explanations.
+Please see POE::Filter.
 
-=head1 EXAMPLES
+=head1 SEE ALSO
 
-Please see tests/httptest.perl for examples of C<POE::Filter::HTTPD>.
+POE::Filter; POE::Filter::Line; POE::Filter::Reference;
+POE::Filter::Stream
 
 =head1 BUGS
 
-None known.
+Keepalive is not supported.
 
-=head1 CONTACT AND COPYRIGHT
+=head1 AUTHORS & COPYRIGHTS
 
-Copyright 1998 Rocco Caputo E<lt>troc@netrus.netE<gt>.  All rights reserved.
-This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+Please see the POE manpage.
 
 =cut
-
-

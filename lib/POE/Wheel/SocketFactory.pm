@@ -1,11 +1,5 @@
 # $Id$
 
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
-
-#------------------------------------------------------------------------------
-
 package POE::Wheel::SocketFactory;
 
 use strict;
@@ -478,3 +472,249 @@ sub DESTROY {
 
 ###############################################################################
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Wheel::SocketFactory - POE Socket Creation Logic Abstraction
+
+=head1 SYNOPSIS
+
+  use Socket; # For the constants
+
+  # Listening UNIX domain socket.
+  $wheel = new POE::Wheel::SocketFactory(
+    SocketDomain => AF_UNIX,               # Sets the socket() domain
+    BindAddress  => $unix_socket_address,  # Sets the bind() address
+    SuccessState => $success_state,        # State to call upon accept()
+    FailureState => $failure_state,        # State to call upon error
+    # Optional parameters (and default values):
+    SocketType   => SOCK_STREAM,           # Sets the socket() type
+  );
+
+  # Connecting UNIX domain socket.
+  $wheel = new POE::Wheel::SocketFactory(
+    SocketDomain  => AF_UNIX,              # Sets the socket() domain
+    BindAddress   => $unix_client_address, # Sets the bind() address
+    RemoteAddress => $unix_server_address, # Sets the connect() address
+    SuccessState  => $success_state,       # State to call upon connection
+    FailureState  => $failure_state,       # State to call upon error
+    # Optional parameters (and default values):
+    SocketType    => SOCK_STREAM,          # Sets the socket() type
+  );
+
+  # Listening INET domain socket.
+  $wheel = new POE::Wheel::SocketFactory(
+    BindAddress    => $inet_address,       # Sets the bind() address
+    BindPort       => $inet_port,          # Sets the bind() port
+    SuccessState   => $success_state,      # State to call upon accept()
+    FailureState   => $failure_state,      # State to call upon error
+    # Optional parameters (and default values):
+    SocketDomain   => AF_INET,             # Sets the socket() domain
+    SocketType     => SOCK_STREAM,         # Sets the socket() type
+    SocketProtocol => 'tcp',               # Sets the socket() protocol
+    ListenQueue    => SOMAXCONN,           # Sets the listen() queue length
+    Reuse          => 'no',                # Allows the port to be reused
+  );
+
+  # Connecting INET domain socket.
+  $wheel = new POE::Wheel::SocketFactory(
+    RemoteAddress  => $inet_address,       # Sets the connect() address
+    RemotePort     => $inet_port,          # Sets the connect() port
+    SuccessState   => $success_state,      # State to call upon connection
+    FailureState   => $failure_state,      # State to call upon error
+    # Optional parameters (and default values):
+    SocketDomain   => AF_INET,             # Sets the socket() domain
+    SocketType     => SOCK_STREAM,         # Sets the socket() type
+    SocketProtocol => 'tcp',               # Sets the socket() protocol
+    Reuse          => 'no',                # Allows the port to be reused
+  );
+
+  $wheel->event( ... );
+
+=head1 DESCRIPTION
+
+This wheel creates sockets, generating events when something happens
+to them.  Success events come with connected, ready to use sockets.
+Failure events are accompanied by error codes, similar to other
+wheels'.
+
+SocketFactory currently supports UNIX domain sockets, and TCP sockets
+within the INET domain.  Other protocols are forthcoming, eventually;
+let the author or mailing list know if they're needed sooner.
+
+=head1 PUBLIC METHODS
+
+=over 4
+
+=item *
+
+POE::Wheel::SocketFactory::new()
+
+The new() method does most of the work.  It has parameters for just
+about every aspect of socket creation: socket(), setsockopt(), bind(),
+listen(), connect() and accept().  Thankfully they all aren't used at
+the same time.
+
+The parameters:
+
+=over 2
+
+=item *
+
+SocketDomain
+
+SocketDomain is the DOMAIN parameter for the socket() call.  Currently
+supported values are AF_UNIX and AF_INET.  It defaults to AF_INET if
+omitted.
+
+=item *
+
+SocketType
+
+SocketType is the TYPE parameter for the socket() call.  Currently
+supported values are SOCK_STREAM and SOCK_DGRAM (although datagram
+sockets aren't tested at this time).  It defaults to SOCK_STREAM if
+omitted.
+
+=item *
+
+SocketProtocol
+
+SocketProtocol is the PROTOCOL parameter for the socket() call.
+Protocols may be specified by name or number (see /etc/protocols, or
+the equivalent file).  The only supported protocol at this time is
+'tcp'.  SocketProtocol is ignored for UNIX domain sockets.  It
+defaults to 'tcp' if omitted from an INET socket constructor.
+
+=item *
+
+BindAddress
+
+BindAddress is the local interface address that the socket will be
+bound to.  It is ignored for UNIX domain sockets and recommended for
+INET sockets.  It defaults to INADDR_ANY if it's not specified, which
+will try to bind the socket to every interface.  If any interface has
+a socket already bound to the BindPort, then bind() (and the
+SocketFactory) will fail.
+
+The bind address may be a string containing a dotted quad, a host
+name, or a packed Internet address (without the port).
+
+=item *
+
+BindPort
+
+BindPort is the port of the local interface(s) that the socket will
+try to bind to.  It is ignored for UNIX sockets and recommended for
+INET sockets.  It defaults to 0 if omitted.
+
+The bind port may be a number, or a name in the /etc/services (or
+equivalent) database.
+
+=item *
+
+ListenQueue
+
+ListenQueue specifies the length of the socket's listen() queue.  It
+defaults to SOMAXCONN if omitted.  SocketFactory will ensure that
+ListenQueue doesn't exceed SOMAXCONN.
+
+It should go without saying that ListenQueue is only appropriate for
+listening sockets.
+
+=item *
+
+RemoteAddress
+
+RemoteAddress is the remote address to which the socket should
+connect.  If present, the SocketFactory will create a connecting
+socket; otherwise, the SocketFactory will make a listening socket.
+
+The remote address may be a string containing a dotted quad, a host
+name, a packed Internet address, or a UNIX socket path.  It will be
+packed, with or without an accompanying RemotePort as necessary for
+the socket domain.
+
+=item *
+
+RemotePort
+
+RemotePort is the port to which the socket should connect.  It is
+required for connecting INET sockets and ignored in all other cases.
+
+The remote port may be a number, or a name in the /etc/services (or
+equivalent) database.
+
+=back
+
+=item *
+
+POE::Wheel::SocketFactory::event(...)
+
+Please see POE::Wheel.
+
+=back
+
+=head1 EVENTS AND PARAMETERS
+
+=over 4
+
+=item *
+
+SuccessState
+
+The SuccessState event contains the name of the state that will be
+caled when the SocketFactory has successfully accepted or connected a
+socket.  The operation it succeeds on depends on the type of socket
+being created.
+
+For connecting sockets, the success state is called when the socket
+has connected.  For listening sockets, the success state is called for
+each successfully accepted client connection.
+
+ARG0 always contains the connected or accepted socket.
+
+If the socket in ARG0 was created by an accept() call on a listening
+INET domain socket, then ARG1 and ARG2 will contain the accepted
+socket's remote address and port, as returned by unpack_sockaddr_in().
+
+Because the remote address is undefined for UNIX domain sockets, so
+are ARG0 and ARG1.
+
+=item *
+
+FailureState
+
+The FailureState event contains the name of the state that will be
+called when a socket error occurs.  The SocketFactory wheel knows what
+to do with EAGAIN, so it's not considered a true error.
+
+The ARG0 parameter contains the name of the function that failed.
+ARG1 and ARG2 contain the numeric and string versions of $! at the
+time of the error, respectively.
+
+A sample ErrorState state:
+
+  sub error_state {
+    my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
+    warn "$operation error $errnum: $errstr\n";
+  }
+
+=back
+
+=head1 SEE ALSO
+
+POE::Wheel; POE::Wheel::FollowTail; POE::Wheel::ListenAccept;
+POE::Wheel::ReadWrite; POE::Wheel::SocketFactory
+
+=head1 BUGS
+
+Oh, probably some.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Please see the POE manpage.
+
+=cut

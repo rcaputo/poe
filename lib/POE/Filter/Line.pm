@@ -52,3 +52,48 @@ sub get_pending
 
 ###############################################################################
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Filter::Line - POE Line Protocol Abstraction
+
+=head1 SYNOPSIS
+
+  $filter = new POE::Filter::Line();
+  $arrayref_of_lines = $filter->get($arrayref_of_raw_chunks_from_driver);
+  $arrayref_of_streamable_chunks_for_driver = $filter->put($arrayref_of_lines);
+  $arrayref_of_streamable_chunks_for_driver = $filter->put($single_line);
+
+=head1 DESCRIPTION
+
+The Line filter translates streams to and from newline-separated
+lines.  The lines it returns do not contain newlines.  Neither should
+the lines given to it.
+
+Incoming newlines are recognized with the regexp
+C</(\x0D\x0A?|\x0A\x0D?)/>.  Incomplete lines are buffered until a
+subsequent packet completes them.
+
+Outgoing lines have the network newline attached to them:
+C<"\x0D\x0A">.
+
+=head1 PUBLIC FILTER METHODS
+
+Please see POE::Filter.
+
+=head1 SEE ALSO
+
+POE::Filter; POE::Filter::HTTPD; POE::Filter::Reference;
+POE::Filter::Stream
+
+=head1 BUGS
+
+This filter's newlines are hardcoded.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Please see the POE manpage.
+
+=cut

@@ -1,9 +1,5 @@
 # $Id$
 
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
-
 package POE::Wheel::ListenAccept;
 
 use strict;
@@ -111,3 +107,109 @@ sub DESTROY {
 
 ###############################################################################
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Wheel::ListenAccept - POE ListenAccept Logic Abstraction
+
+=head1 SYNOPSIS
+
+  $wheel = new POE::Wheel::ListenAccept(
+    Handle      => $socket_handle,      # Listening socket
+    AcceptState => $accept_state_name,  # Success state
+    ErrorState  => $error_state_name,   # Failure state
+  );
+
+  $wheel->event( AcceptState => $new_state_name ); # Add/change state
+  $wheel->event( ErrorState  => undef );           # Remove state
+
+=head1 DESCRIPTION
+
+ListenAccept waits for activity on a listening socket and accepts
+remote connections as they arrive.  It generates events for successful
+and failed connections (EAGAIN is not considered to be a failure).
+
+This wheel neither needs nor includes a put() method.
+
+ListenAccept is a good way to listen on sockets from other sources,
+such as IO::Socket or plain socket() calls.
+
+=head1 PUBLIC METHODS
+
+=over 4
+
+POE::Wheel::ListenAccept::event( ... )
+
+The event() method changes the events that a ListenAccept wheel emits
+for different conditions.  It accepts a list of event types and
+values.  Defined state names change the previous values.  Undefined
+ones turn off the given condition's events.
+
+For example, this event() call changes a wheel's AcceptState event and
+turns off its ErrorState event.
+
+  $wheel->event( AcceptState => $new_accept_state_name,
+                 ErrorState  => undef
+               );
+
+=back
+
+=head1 EVENTS AND PARAMETERS
+
+=over 4
+
+=item *
+
+AcceptState
+
+The AcceptState event contains the name of the state that will be
+called when a new connection has been accepted.
+
+The ARG0 parameter contains the accepted connection's new socket
+handle.
+
+A sample AcceptState state:
+
+  sub accept_state {
+    my $accepted_handle = $_[ARG0];
+    # Optional security things with getpeername might go here.
+    &create_server_session($handle);
+  }
+
+=item *
+
+ErrorState
+
+The ErrorState event contains the name of the state that will be
+called when a socket error occurs.  The ListenAccept wheel knows what
+to do with EAGAIN, so it's not considered a true error.
+
+The ARG0 parameter contains the name of the function that failed.
+This usually is 'accept'.  ARG1 and ARG2 contain the numeric and
+string versions of $! at the time of the error, respectively.
+
+A sample ErrorState state:
+
+  sub error_state {
+    my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
+    warn "$operation error $errnum: $errstr\n";
+  }
+
+=back
+
+=head1 SEE ALSO
+
+POE::Wheel; POE::Wheel::FollowTail; POE::Wheel::ReadWrite;
+POE::Wheel::SocketFactory
+
+=head1 BUGS
+
+Oh, probably some.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Please see the POE manpage.
+
+=cut

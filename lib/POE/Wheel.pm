@@ -1,9 +1,5 @@
 # $Id$
 
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
-
 package POE::Wheel;
 
 use strict;
@@ -17,3 +13,98 @@ sub new {
 
 #------------------------------------------------------------------------------
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Wheel - POE Protocol Logic Abstraction
+
+=head1 SYNOPSIS
+
+  $wheel = new POE::Wheel::Something( ... )
+  $wheel->put($some_logical_data_chunks);
+
+=head1 DESCRIPTION
+
+Wheels provide standard, reusable protocol logic.  They use filters
+and drivers to do the actual work.  They are designed to manage the
+resources and objects they are given, so programs generally should not
+bother keeping separate references to them.
+
+Wheels mainly work with files.  They usually add and remove states to
+handle select events in the sessions that create them.  Creating a
+wheel on behalf of another session will not do what you expect.
+Likewise, calling another wheel's methods will do Strange Things,
+because a certain level of privacy was assumed while writing them.
+
+=head1 PUBLIC WHEEL METHODS
+
+=over 4
+
+=item *
+
+POE::Wheel::new( ... )
+
+The new() method creates and initializes a new wheel.  Part of a
+wheel's initialization involves adding states to its parent session
+(the one that is calling the new() method) and registering them with
+the kernel (usually through POE::Kernel::select() calls).
+Instantiating wheels on behalf of other sessions will not work as
+expected, if at all.
+
+Because wheels have wildly different purposes, they tend also to have
+wildly different constructors.
+
+=item *
+
+POE::Wheel::DESTROY()
+
+The DESTROY() method removes the wheel's states from its parent
+session and cleans up the wheel's other resources.  It's called
+implicitly when the parent session lets go of the wheel's reference.
+
+=item *
+
+POE::Wheel::put()
+
+Wheels hide their resources behind a high-level interface, so it's
+really hard to call their put() methods directly.  Instead, wheels
+provide public put() methods that combine POE::Filter::put() and
+POE::Driver::put() in predictable ways.
+
+=item *
+
+POE::Wheel::event(...)
+
+Wheels emit events for different things.  The event() method lets a
+session change the events its wheels emit at runtime.
+
+The event() method's parameters are pairs of event types (defined by
+wheels' /^.*State$/ constructor parameters) and events to emit.  If
+the event to emit is undef, then the wheel won't emit an event for the
+condition.
+
+For example:
+
+  $wheel->event( InputState   => 'new_input_state',
+                 ErrorState   => undef,
+                 FlushedState => 'new_flushed_state',
+               );
+
+=back
+
+=head1 SEE ALSO
+
+POE::Wheel; POE::Wheel::FollowTail; POE::Wheel::ListenAccept;
+POE::Wheel::ReadWrite; POE::Wheel::SocketFactory
+
+=head1 BUGS
+
+Oh, probably some.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Please see the POE manpage.
+
+=cut

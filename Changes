@@ -7,8 +7,8 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
-0.06_09 1999.06.??
-------------------
+0.06_09 1999.06.?? (!!!)
+------------------------
 
 Updated samples/*sessions.perl to test $kernel->state(...) and
 discovered that the documentation was wrong about this function.
@@ -19,6 +19,28 @@ package and object sessions.
 
 Made POE::Session an array reference, as part of the reorganization of
 POE's internals.
+
+Revised all the manpages.  Split the manpages into separate PODs, and
+put them at the end of each module.  Rewnote the POE.pm overview,
+added some ASCII art, and threw away the "Design Goals" and related
+hype.  Removed POE-TODO and POE-HINTS manpages.
+
+Updated the README to be more readable.  Moved the mailing list and
+web site information there.  Should either or both change, stale
+information won't rot in a thousand manpages around the world.
+
+Removed design notes from the ends of Kernel and Session, because docs
+go there now.  Moved them to POE-TODO, which is now not included.
+
+&POE::Session::create was broken-- I'm not sure how it worked to begin
+with.  Fixed.
+
+Revised the POE::Filter::HTTPD documentation to follow the rest of the
+manpages' format.
+
+(!!!) Minor interface change.  &POE::Session::option can now fetch
+session option values without changing or deleting them in the
+process.
 
 
 0.06_08 1999.05.30

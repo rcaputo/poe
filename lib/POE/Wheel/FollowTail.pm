@@ -1,9 +1,5 @@
 # $Id$
 
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
-
 package POE::Wheel::FollowTail;
 
 use strict;
@@ -114,7 +110,7 @@ sub _define_read_state {
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
         my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
-        
+
         while (defined(my $raw_input = $driver->get($hdl))) {
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
             $k->call($ses, $event_in, $cooked_input)
@@ -154,3 +150,87 @@ sub DESTROY {
 
 ###############################################################################
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Wheel - POE FollowTail Protocol Logic
+
+=head1 SYNOPSIS
+
+  $wheel = new POE::Wheel::FollowTail(
+    Handle       => $file_handle,                 # File to tail
+    Driver       => new POE::Driver::Something(), # How to read the file
+    Filter       => new POE::Filter::Something(), # How to parse the file
+    InputState   => $input_event_name,  # State to call upon input
+    ErrorState   => $error_event_name,  # State to call upon error
+    PollInterval => 1,                  # How often to check for file growth
+  );
+
+=head1 DESCRIPTION
+
+This wheel follows the end of an ever-growing file, perhaps a log
+file, and generates events whenever new data appears.  It is a
+read-only wheel, so it does not include a put() method.  It uses
+tell() and seek() functions, so it's only suitable for random-access
+files.
+
+=head1 PUBLIC METHODS
+
+=over 4
+
+=item *
+
+POE::Wheel::FollowTail::event(...)
+
+Please see POE::Wheel.
+
+=back
+
+=head1 EVENTS AND PARAMETERS
+
+=over 4
+
+=item *
+
+InputState
+
+The InputState event is identical to POE::Wheel::ReadWrite's
+InputState.
+
+=item *
+
+ErrorState
+
+The ErrorState event contains the name of the state that will be
+called when a file error occurs.  The FollowTail wheel knows what to
+do with EAGAIN, so it's not considered a true error.
+
+The ARG0 parameter contains the name of the function that failed.
+ARG1 and ARG2 contain the numeric and string versions of $! at the
+time of the error, respectively.
+
+A sample ErrorState state:
+
+  sub error_state {
+    my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
+    warn "$operation error $errnum: $errstr\n";
+  }
+
+=back
+
+=head1 SEE ALSO
+
+POE::Wheel; POE::Wheel::ListenAccept; POE::Wheel::ReadWrite;
+POE::Wheel::SocketFactory
+
+=head1 BUGS
+
+Oh, probably some.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Please see the POE manpage.
+
+=cut

@@ -83,3 +83,34 @@ sub flush {
 
 ###############################################################################
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Driver::SysRW - POE sysread/syswrite Abstraction
+
+=head1 SYNOPSIS
+
+  $driver = new POE::Driver::SysRW();
+  $arrayref_of_data_chunks = $driver->get($filehandle);
+  $queue_size = $driver->put($arrayref_of_data_chunks);
+  $queue_size = $driver->flush($filehandle);
+
+=head1 DESCRIPTION
+
+This driver provides an abstract interface to sysread and syswrite.
+
+=head1 SEE ALSO
+
+POE::Driver
+
+=head1 BUGS
+
+Oh, probably some.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Please see the POE manpage.
+
+=cut

@@ -2,10 +2,7 @@
 Changes
 MANIFEST
 Makefile.PL
-POE-HINTS.pod
-POE-TODO.pod
 POE.pm
-POE.pod
 POE/Curator.pm
 POE/Driver.pm
 POE/Driver/SysRW.pm

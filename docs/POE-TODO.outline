@@ -5,6 +5,9 @@ This is the author's wish-list and personal event queue.  It's
 included in the POE distribution so that others may read it and
 comment on it.
 
+Actually, it's starting to turn into a crufty old list of ideas and
+some junk.  So is the main POE manpage... time to revise!
+
 Rocco plans get around to everything (within reason), eventually, but
 the general convention is that whoever needs a feature first has dibs
 on implementing it.
@@ -27,10 +30,16 @@ How do you start?
 **High-Precedence Development Methodology Changes
 ***Rewrite the docs
 ***Move to CVS
+In progress.  I'm comfortable with CVS on a personal level.  The next
+step is to open it for anonymous updates.  After that, set up author
+accounts.
 ***Split PODs back up, and put them in their respective files
+This should go along with "rewrite the docs".
 ***Lots of stuff doesn't make sense right now.
+Like this heading.  What did I mean by that?
 **Short-Term Core Features & Fixes
 ***Announce 0.06
+Oops... time to announce 0.07 :/
 ***Fix functions to test for C®undef¯ B®or¯ C®@_==1¯
 ***If no B®ErrorState¯, wheels should C®warn¯ with C®$!¯
 ***Consolidate B®FailureState¯ and B®ErrorState¯.
@@ -47,11 +56,11 @@ Also, from <http://osm7.cs.byu.edu/~eric/allegro.html>:
 OSA has concepts to formalize just about everything one needs to model
 a real world situation.  Although OSA is an "integrated" modeling
 scheme, that is all the parts work together, it can conveniently be
-seen as consisting of three parts: ORM, OBM, and OIM. 
+seen as consisting of three parts: ORM, OBM, and OIM.
 
-ORM - Object-Relationship Model
-OBM - Object-Behavior Model
-OIM - Object-Interaction Model
+ORM = Object-Relationship Model
+OBM = Object-Behavior Model
+OIM = Object-Interaction Model
 ***POE::Simple
 Leolo suggests POE::Simple::(Server|Client|Proxy), which would be
 stratospheric-level interfaces to extremely common tasks.  "Contrast
@@ -65,27 +74,34 @@ see is that contributions are more than just modules:
 ***POE::App
 Stand-alone applications.  POE itself would never include stand-alone
 applications.
-***POE::Module
-Modules would be stand-alone "daemon" sessions that can be referred to
-by name.  I suppose, to keep modules from stoping on each-other, the
-internal session name should be the same as the package name.
+***POE::Component
+It looks like POE::Component is the standard namespace chunk for
+third-party "black box" components.  Sort of like Visual Age "parts",
+or Java "beans".
 
-Sean Puckett suggests that POE::Module plug-ins have a function that
-lets people/programs query what they can do, similar to CORBA or COM
-objects.  That will let programs grok what they're capable of and
+The first one is POE::Component::IRC, which I really really need to
+look at.
+
+Sean Puckett suggests that POE::Components plug-ins have a function
+that lets people/programs query what they can do, similar to CORBA or
+COM objects.  That will let programs grok what they're capable of and
 dynamically link themselves to the modules they contain.  Sounds neat;
 I hope it's doable.
 ***Other types of contributions
-Filters, Drivers and Wheels.  Where would they go?
+Filters, Drivers and Wheels.  Where would they go?  As long as there
+are corresponding test programs, I can absorb them into the core
+distribution.  Bigger ones may need to stay separate.  If the
+interface and behavior is defined well enough, I can maintain them
+myself.  With CVS, authors can support their own bits within the core
+distribution.
 
-Would they all be incorporated into POE's "core" distribution?  It may
-be time to back out a level and make "POE" a bundle.  Others can then
-contribute into the POE packages without their code being in "POE"
-itself.
+Come to think of it, with CVS, everything could be maintained in one
+big, happy bundle.  A monolithic distribution could turn people away,
+so maybe not...
 ***On the other hand
 Then again, does it really matter?  POE::App is just other peoples'
-programs, with a dependence on POE.  POE::Module still is useful as a
-place for people to contribute hot-pluggable things.
+programs, with a dependence on POE.  POE::Component still is useful as
+a place for people to contribute hot-pluggable things.
 **Core Ideas Being Considered
 ***A new paradigm for driver/filter/wheel
 Randal has a lot to say about SocketFactory:
@@ -127,7 +143,12 @@ Randal has a lot to say about SocketFactory:
 
 This seems to mesh with the concept of chained filters, but it
 addresses some things that haven't yet been considered.  I have been
-asked to consider "SysV pushed drivers" and Unix streams.
+asked to consider "SysV pushed drivers" and Unix streams, and
+eventually I will.
+
+Wheels may become depreciated if the streams idea works better.  At
+that point, I'll try to make Wheels an interface to Streams, and port
+everything over.
 ***Pre-defined state transition tables
 Crimson mentioned something in kermit called "WART".  My
 interpretation of this is a yy-like table of state transitions
@@ -190,6 +211,9 @@ Add a constructor parameter and a method for specifying newlines.
 Will need a way to submit regexps or multiple line separators, to
 support the default case of having lots of different newlines to deal
 with.
+
+Perhaps this would be better as a Filter::Record, with the option to
+accept fixed-width and terminated variable width records.
 ***%SIGNAL tied hash
 This will emulate %SIG, but in a POE way.  This will fabricate an
 event name, register the coderef as a handler for it, and set sig(HUP)
@@ -226,9 +250,8 @@ have its uses.
 
 While I can't justify remote signal() and state(), remote alarm() is
 harmless enough.  But who gets the $alarm_id?
-
 ***Automated Test Suite
-It's becoming unfun to run tests/*.perl before each release.
+It's becoming unfun to run samples/*.perl before each release.
 ***redo the Session::option(default)
 1 = "internal" events; 2 = "user" events; 3 = all events
 ***Non-blocking DNS
@@ -262,6 +285,10 @@ This will work like Filter::Stream, but individual C®put¯ calls will
 be kept separate.  The actual implementation is still unknown; it may
 stream data prepended by "chunk" lengths, or it may expect to work
 with datagram sockets.  There may be options for each.
+
+Or Filter::Record, which was discussed earlier in this document.
+Record could be either fixed-width (block) or variable-width
+(terminated).
 ***Add a Kernel function to list active sessions.
 Taken care of by kernel hooks/extensions?
 ***Add a Kernel function to acquire details about a session.
@@ -373,6 +400,10 @@ has a working prototype of a multi-protocol chat server.  IRC users
 can "/server nexi.com 1617", then "/join #main" (channels aren't in
 yet); telnet/mud users can connect to "nexi.com 1618".  Everyone
 shares the same chat stream, and 'web support will be on the way.
+
+Fimmtiu is the author of Net::IRC.  He has been working on
+POE::Component::IRC, and the new module has entered limited beta
+testing (as of 6/4/1999).
 **Module Ideas Being Considered
 ***Authentication API
 Artur suggests that an API be defined so that diverse servers within a
@@ -388,8 +419,12 @@ cleartext passwords.
 ****SMTP server
 ****NNTP client
 ****NNTP server 
+****Everything
+Implement the entire suite of Internet protocols.  This could take
+some time....
 ***Extensions
-Artur has made excellent progress with kernel extensions.
+Artur has made excellent progress with kernel extensions.  They aren't
+ready for public consumption, however.
 
 Extensions (perhaps POE::Extension, or just a special kind of
 POE::Module) are POE modules that register kernel hooks.  They are, in
@@ -474,7 +509,8 @@ remote kernel lookup, for instance?
 Artur has made excellent progress on system statistics, primarily as
 an extension.
 ***POE::Module::Cron
-Artur says he's working on it.
+Artur says he's working on it.  New alarm semantics may move most of
+the functionality into the Kernel.
 ***POE::Module::At
 Listed for completeness.
 **Wild Ideas
@@ -668,10 +704,6 @@ Anyway, here's the e-mail message:
 AutoPOE would implement Philip Gwyn's idea, to auto-split and
 translate Perl code into POE event handlers as part of an installation
 process, rather than at runtime.
-***POE::Perl
-POE::Perl would take a different approach.  It would try to manipulate
-Perl into cooperating with POE's event model.  So far, the idea
-includes:
 ***POE::Module::VNC
 VNC's home is <http://www.uk.research.att.com/vnc/>.
 
@@ -684,29 +716,47 @@ It sure would be interesting if POE could serve virtual desktops.
 Interesting and scary, like a huge, mutant, radioactive lizard staring
 in your car window, wondering if maybe it wants a crunchy snack with a
 soft, gooey center.  Or something.
+***POE::Perl
+POE::Perl would take a different approach.  It would try to manipulate
+Perl into cooperating with POE's event model.  So far, the idea
+includes:
 ****Overriding Perl's built-in functions
 CORE::GLOBAL::sleep, for example, would register an alarm handler, and
 set an alarm for it.
 ****Manipulating Perl's call stack
-CORE::GLOBAL::sleep would save the call stack going into the sleep()
-function, and simulate a return back to the kernel.  When the alarm
-handler is called, the stack is reconstituted, and CORE::GLOBAL::sleep
-returns back to the session.
+CORE::GLOBAL::sleep (again, for example) would save the call stack
+going into the sleep() function, and simulate a return back to the
+kernel.  When the alarm handler is called, the stack is reconstituted,
+and CORE::GLOBAL::sleep returns back to the session.
 
 That's the idea, anyway.  Perl may not like it.
 ***POP?  bholzman's persistent objects; crimson is working on it?
+This never materialized, and now the Object Layer is starting to take
+form.
 ***$kernel->stop() and $kernel->run() to pause and resume the kernel?
 Is this still necessary/useful?
 ***Filter::HTTPD needs to send responses directly... POE::Module::*?
-And a CGI-like interface.
+And a CGI-like interface.  A POE::Filter subclass for form-based I/O
+(and split the current POE::Filter classes into stream and block
+categories while we're at it).
 ***Use threads, if available, requested and stable.
-Taken care of by kernel hooks?
+Taken care of by kernel hooks?  No... I'm working on a new event model
+within Kernel and Session (see the comments after __END__ in each).
+This should make sessions and events flexible enough for the
+forseeable future.
+
+The changes should enable freezing and thawing sessions, concurrency
+using threads, and remote execution.
 ***Use fork, if available and requested.
 Taken care of by kernel hooks?
 ***Distributed event queue
 Enabled by kernel hooks/extensions?  Anyway, this probably will be
 implemented as a "poe_distributor" session that acts as an event
 gateway to other systems.
+
+Philip Gwyn is working on remote calls and events.  I've elected not
+to apply his patches for Kernel and Session IDs yet because the Kernel
+and Session guts are in flux.
 ***Load-balancing among distributed POE kernels.
 Taken care of by kernel hooks?
 ***Filter::HTTP (user agent).
@@ -714,6 +764,7 @@ This is the client side.  q[merlyn] thinks there's a non-blocking way
 to use LWP, possibly by suppling the select loop logic for it, which
 would work nicely.
 ***Rewrite Serv's curses widgets for POE.
+This would be SO cool... need... more... time!
 ***POE::Extension?  POE::DeepMagic?  An API for kernel extensions.
 See the Kernel Hooks, above.  Artur is working on this.
 ***Unique IDs
@@ -725,6 +776,11 @@ would it maintain the last SID in a file?  It could also include
 (somehow) the unix epoch time that the server was started.
 
 Kernel IDs would be the process' network address and server port.
+
+Actually, the Object Layer should obviate the need for session and
+kernel IDs.  The original plan was for sessions to be the threading
+model for object execution, and OBJECT IDs would identify which code
+gets what events.
 **Object Layer
 The object layer will consist of a few parts.  As it's shaping up, it
 should consist of the following classes.
@@ -742,7 +798,8 @@ repositories.
   my $repository = new POE::Repository::MySQL( $login, $pass, $db );
   # ... and so on
 
-The repository will not be a tied hash thing.
+The repository will not be a tied hash thing, because tied-hash things
+are relatively slow.
 ***Curator (object manager)
 The Curator abstraction manages objects in the database.  It will
 provide a Perl-like access method to objects in the repository, and it
@@ -955,10 +1012,99 @@ a 'bot that you don't have to reset all the time is (IMO) the fabled
 Object Layer.
 
 So, this to-do is on hold 'til I can build an IRC 'bot.
+*CODE
+
+**Kernel
+
+name is public
+_name is friend
+__name is private
+
+sub _enqueue_event {
+  my ($self, $session_id, $source_id, $state, $priority, $time, $etc) = @_;
+}
+
+#------------------------------------------------------------------------------
+# Dispatch an event to the next session in the round-robin queue.
+# This also has the side-effect of testing sessions for activity; they
+# can be checked for resource starvation only when they've run out of
+# events.  This should eliminate a lot of checks.
+
+sub _dispatch_next_event {
+  my ($self) = @_;
+
+  my $next_session = shift @{$self->[KR_SQUEUE]};
+  if ($next_session->_dispatch_event()) {
+    push @{$self->[KR_SQUEUE]}, $next_session;
+  }
+}
+
+
+# Theory of operation:
+#
+# Kernel keeps a master queue.  This holds active sessions in a
+# time-based "priority" queue.
+#
+# The queue's "key" is the time that a session will next need
+# attention.  This is the time of the next event in the session's
+# queue.
+#
+# The queue's "value" is a reference to the session (or perhaps
+# session ID) that points to the session for dispatching.
+#
+# So:
+
+my $kernel = bless {}, 'POE::Kernel';
+$kernel->[KR_MASTER_QUEUE] =
+  [ [ $time, $session ],
+    [ $time, $session ],
+    ...
+  ];
+
+# Sorted in $time order.
+#
+# Inser
+
+**Session
+#------------------------------------------------------------------------------
+# Enqueue an event.
+
+name is public
+_name is friend
+__name is private
+
+sub _enqueue_event {
+  my ($self, $sender, $state, $priority, $time, $etc) = @_;
+
+  # Place the event is the session's queue.
+
+  #
+  # If "concurrent" POE:
+  #   Start or unblock the session's dispatch thread.
+  # End
+  #
+  # Return the number of events in the session's queues.
+
+}
+
+sub _dispatch_event {
+  my ($self) = @_;
+
+  # If "concurrent" POE:
+  #   Return 1 if there are no events but the session has resources to keep it active.
+  #   Return 0 if there are no events and the session is "stalled".
+  # Otherwise, "regular" POE:
+  #   Dispatch an event, and return the number of events left in the queue.
+  # End
+}
+
+
 *AUTHOR
 POE is Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights
 reserved.  POE is free software; you may redistribute it and/or modify
 it under the same terms as Perl itself.
 
-Please see the main documentation for contributor information and
-other copyright notices.
+Individual bits of POE are copyright by their respective authors, but
+the licenses should all be the same.  If you're worried about that
+sort of thing, please see the main documentation for contributor
+information and other copyright notices.

@@ -4,6 +4,21 @@ POE-HINTS - POE Hints
 These are hints for using POE.  It's sort of like a faq, only without
 the questions.
 
+**Events and Things
+Events and event-like things can be confusing.  Here are some gotchas
+people have noted.
+
+***Event Names vs. Code References
+The difference between code references and event names may at first be
+confusing.  There have been reports of people trying to use them
+interchangeably, causing lots of mental pain when it doesn't work.
+
+Just about the only time a code reference is needed is when states are
+defined.  After that, states should almost always be referenced by
+event name.
+
+Uh, this doesn't sound very convincing.  I should probably go into it
+in a little more detail in the next revision.
 **Session Resources
 Session resources are things that the session and/or kernel manage
 with high-level functions.  These include alarms, selects and aliases.

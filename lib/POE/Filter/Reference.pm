@@ -115,3 +115,102 @@ sub get_pending
 
 ###############################################################################
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Filter::Reference - POE Freeze/Thaw Protocol Abstraction
+
+=head1 SYNOPSIS
+
+  $filter = new POE::Filter::Something();
+  $arrayref_of_perl_references =
+    $filter->get($arrayref_of_raw_chunks_from_driver);
+  $arrayref_of_serialized_perl_references =
+     $filter->put($arrayref_of_perl_references);
+
+=head1 DESCRIPTION
+
+The "put" half of this filter freezes referenced Perl structures into
+serialized versions for sending.  The "get" half of this filter thaws
+serialized Perl structures back into references.  This provides a
+handy way to ship data between processes and systems.
+
+Serializers should recognize that POE::Filter::Reference is used to
+ship data between systems with different byte orders.
+
+=head1 PUBLIC FILTER METHODS
+
+=over 4
+
+=item *
+
+POE::Filter::Reference::new( ... )
+
+The new() method creates and initializes the reference filter.  It
+accepts an optional parameter to specify a serializer.  The serializer
+may be a package or an object.
+
+A package serializer must have thaw() and either freeze() or nfreeze()
+functions.  The nfreeze() function is recommended, because using
+network byte order everywhere prevents problems when crossing endian
+borders.  These functions match Storable and FreezeThaw's call
+signatures.
+
+An object serializer must have thaw() and either freeze() or nfreeze()
+methods.  The thaw() method accepts $self and a scalar; it should
+return a reference to the reconstituted data.  The freeze() and
+nfreeze() methods receive $self and a reference; they should return a
+scalar with the reference's serialized representation.
+
+For example:
+
+  # Use the default filter (either Storable or FreezeThaw).
+  my $filter1 = new POE::Filter::Reference();
+
+  # Use Storable explicitly, specified by package name.
+  my $filter = new POE::Filter::Reference('Storable');
+
+  # Use an object.
+  my $filter = new POE::Filter::Reference($object);
+
+The new() method will try to require any packages it needs.
+
+The default behavior is to try Storable first, FreezeThaw second, and
+fail if neither is present.  This is rapidly becoming moot because of
+the PM_PREREQ entry in Makefile.PL, which makes CPAN and ``make'' carp
+about requirements even when they aren't required.
+
+=item *
+
+POE::Filter::Reference::get($frozen_data)
+
+The get() method thaws streamed, frozen data into references.
+References will be blessed, if necessary.  If the reference points to
+an object, be sure the receiving end has use'd it before calling its
+methods.
+
+=item *
+
+POE::Filter::Reference::put($reference)
+
+The put() method freezes references and returns their serialized,
+streamable representations.
+
+=back
+
+=head1 SEE ALSO
+
+POE::Filter; POE::Filter::HTTPD; POE::Filter::Line;
+POE::Filter::Stream
+
+=head1 BUGS
+
+Oh, probably some.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Please see the POE manpage.
+
+=cut
