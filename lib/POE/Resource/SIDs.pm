@@ -28,6 +28,9 @@ my %kr_session_to_id;
 
 my $kr_sid_seq = 1;
 
+sub initialize { $poe_kernel->[KR_SESSION_IDS] = \%kr_session_ids }
+use POE::API::ResLoader \&initialize;
+
 ### End-run leak checking.
 
 sub _data_sid_finalize {
