@@ -32,6 +32,7 @@ POE/Pipe.pm
 POE/Pipe/OneWay.pm
 POE/Pipe/TwoWay.pm
 POE/Preprocessor.pm
+POE/Queue.pm
 POE/Queue/Array.pm
 POE/Session.pm
 POE/Wheel.pm
