@@ -749,7 +749,7 @@ low-water marks.
 
 =item ID
 
-The ID method returns a FollowTail wheel's unique ID.  This ID will be
+The ID method returns a ReadWrite wheel's unique ID.  This ID will be
 included in every event the wheel generates, and it can be used to
 match events with the wheels which generated them.
 
