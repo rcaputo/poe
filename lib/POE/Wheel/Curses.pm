@@ -48,6 +48,9 @@ sub new {
   intrflush(0);
   nodelay(1);
 
+  my $old_mouse_events = 0;
+  mousemask(ALL_MOUSE_EVENTS, $old_mouse_events);
+
   noutrefresh();
   doupdate();
 
