@@ -4,6 +4,36 @@ use strict;
 use ExtUtils::MakeMaker;
 use Config;
 
+# Switch to default behavior if STDIN isn't a tty.
+unless (-t STDIN) {
+  warn(
+    "\n",
+    "====================================================================\n",
+    "\n",
+    "Assuming --default because standard input is not a terminal.\n",
+    "\n",
+    "====================================================================\n",
+    "\n",
+  );
+  push @ARGV, "--default";
+}
+
+unless (grep /^--default$/, @ARGV) {
+  warn(
+    "\n",
+    "====================================================================\n",
+    "\n",
+    "Prompts may be bypassed by running:\n",
+    "   $^X $0 --default\n",
+     "\n",
+    "Only necessary modules will be installed by default.\n",
+    "\n",
+    "====================================================================\n",
+    "\n",
+  );
+}
+
+
 my $prompt = qq|
 POE's test suite requires a functional network.
 However, we can skip those tests requiring network

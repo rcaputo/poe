@@ -4,55 +4,26 @@
 use strict;
 
 use lib qw(./mylib);
+
 use ExtUtils::MakeMaker;
 use File::Find;
 use File::Spec;
-
-# Switch to default behavior if STDIN isn't a tty.
-unless (-t STDIN) {
-  warn(
-    "\n",
-    "======================================================================\n",
-    "\n",
-    "Standard input is not a terminal/console.  Reverting to --default\n",
-    "behavior to avoid the prompts.\n",
-    "\n",
-    "======================================================================\n",
-    "\n",
-  );
-  push @ARGV, "--default";
-}
 
 eval "require ExtUtils::AutoInstall";
 if ($@) {
   warn(
     "\n",
-    "==================================================================\n",
+    "====================================================================\n",
     "\n",
     "POE's installer magic requires ExtUtils::AutoInstall.  POE comes\n",
     "with an older version, but it will not be installed.  You should\n",
     "install the most recent ExtUtils::AutoInstall at your convenience.\n",
     "\n",
-    "==================================================================\n",
+    "====================================================================\n",
     "\n",
   );
   eval "require './mylib/ExtUtils/AutoInstall.pm'";
   die if $@;
-}
-
-unless (grep /^--default$/, @ARGV) {
-  print(
-    "\n",
-    "=================================================================\n",
-    "\n",
-    "If the prompts are annoying, they can be bypassed by running\n",
-    "\t$^X $0 --default\n",
-     "\n",
-    "Only necessary modules are installed by default.\n",
-    "\n",
-    "=================================================================\n",
-    "\n",
-  );
 }
 
 ExtUtils::AutoInstall->import(
