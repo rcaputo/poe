@@ -15,6 +15,9 @@ sub MY::postamble {
 reportupload: poe_report.xml
 	lib/reportupload.pl
 
+uploadreport: poe_report.xml
+	lib/reportupload.pl
+
 testreport: poe_report.xml
 
 poe_report.xml:
@@ -33,8 +36,8 @@ WriteMakefile
     dist           =>
     { COMPRESS => 'gzip -9f',
       SUFFIX   => 'gz',
-      PREOP    => ( 'cvs2cl.pl -l "-d\'a year ago<\'" ' .
-                    '--utc --stdout > $(DISTNAME)-$(VERSION)/CHANGES'
+      PREOP    => ( 'cvs-log.perl | ' .
+                    'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
                   ),
     },
     PREREQ_PM      => { Carp               => 0,
