@@ -1,5 +1,7 @@
 # $Id$
 
+use strict;
+
 package POE::Component::Server::TCP;
 
 use Carp qw(carp croak);
@@ -9,6 +11,7 @@ $VERSION = 1.00;
 
 # Explicit use to import the parameter constants.
 use POE::Session;
+use POE::Wheel::SocketFactory;
 
 # Create the server.  This is just a handy way to encapsulate
 # POE::Session->create().  Because the states are so small, it uses
