@@ -54,13 +54,6 @@ BEGIN {
     require Time::HiRes;
     Time::HiRes->import(qw(time sleep));
   } if USE_TIME_HIRES();
-
-  # Provide dummy constants so things at least compile.
-
-  if (RUNNING_IN_HELL) {
-    eval '*F_GETFL = sub { 0 };';
-    eval '*F_SETFL = sub { 0 };';
-  }
 }
 
 #==============================================================================

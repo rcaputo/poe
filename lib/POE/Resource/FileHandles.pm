@@ -13,6 +13,18 @@ package POE::Kernel;
 
 use strict;
 
+### Some portability things.
+
+# Provide dummy constants so things at least compile.  These constants
+# aren't used if we're RUNNING_IN_HELL, but Perl needs to see them.
+
+BEGIN {
+  if (RUNNING_IN_HELL) {
+    eval '*F_GETFL = sub { 0 };';
+    eval '*F_SETFL = sub { 0 };';
+  }
+}
+
 ### A local reference to POE::Kernel's queue.
 
 my $kr_queue;
