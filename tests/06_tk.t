@@ -16,6 +16,12 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
 # Skip if Tk isn't here.
 BEGIN {
+  unless ( exists $ENV{'DISPLAY'} and
+           defined $ENV{'DISPLAY'} and
+           length $ENV{'DISPLAY'}
+         ) {
+    eval 'use TestSetup qw(0 no DISPLAY is set)';
+  }
   eval 'use Tk';
   unless (exists $INC{'Tk.pm'}) {
     eval 'use TestSetup qw(0 the Tk module is not installed)';
