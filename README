@@ -99,9 +99,11 @@ Things become even fuzzier after this.
 COMPATIBILITY:
 
  POE has been tested with Perl 5.004_04 on recent versions of Linux,
- FreeBSD, and OS/2.  It uses some packages that aren't included with
- Perl by default [must document better].  It does not require threads
- or other 5.004_50+ features.
+ FreeBSD, and OS/2.  It does not require threads or other 5.004_50+
+ features.
+
+ It does require: the IO bundle; POSIX.pm
+ If available, it will take advantage of: Time::HiRes
 
 AVAILABILITY:
 
