@@ -108,7 +108,7 @@ POE::Session - a state machine, driven by C<POE::Kernel>
       return 0;
     },
   );
-                  
+
 =head1 DESCRIPTION
 
 C<POE::Session> builds an initial state table and registers it as a full
