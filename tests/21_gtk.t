@@ -52,11 +52,11 @@ my @after_alarms;
 # Congratulate ourselves for getting this far.
 print "ok 1\n";
 
-# # Attempt to set the window position.  This was borrowed from one of
-# # Tk's own tests.  It glues the window into place so the program can
-# # continue.  This may be unfriendly, but it minimizes the amount of
-# # user interaction needed to perform this test.
-# eval { $poe_main_window->geometry('+10+10') };
+# -><- This test requires user interaction because I can't find a way
+# to make it position a window automatically.  Tk windows have a
+# geometry() method that lets me position them programmatically, but
+# Gtk doesn't.  If anyone knows how to do this, please let me know.
+# This has been a rabid stoat in my pants for far too long.
 
 # I/O session
 
@@ -182,7 +182,7 @@ sub io_pipe_read {
 sub io_idle_increment {
   $_[HEAP]->{idle_label}->set_text( ++$_[HEAP]->{idle_count} );
 
-  if ($_[HEAP]->{idle_count} < 100) {
+  if ($_[HEAP]->{idle_count} < 10) {
     $_[KERNEL]->yield( 'ev_idle_increment' );
   }
   else {
@@ -228,14 +228,18 @@ sub io_stop {
   }
 }
 
-# Collect postbacks and cache results.
+# Collect postbacks and cache results.  We only expect three, so try
+# to force the program closed when we get them.
 
 sub io_postback {
-  my ($session, $postback_given) = @_[SESSION, ARG0];
+  my ($kernel, $session, $postback_given) = @_[KERNEL, SESSION, ARG0];
   my $test_number = $postback_given->[0];
 
   if ($test_number =~ /^\d+$/) {
     $_[HEAP]->{postback_tests}->{$test_number} = "ok $test_number\n";
+    if (scalar(keys %{$heap->{postback_tests}}) == 3) {
+      $kernel->signal( $kernel, 'UIDESTROY' );
+    }
   }
 }
 
