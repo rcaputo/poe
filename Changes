@@ -7,6 +7,19 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.06_04 1999.03.17
+------------------
+
+Entering "crunch time" for the 0.07 release.  Expect a lot of quick,
+small-fix releases.
+
+Fixed documentation bug.  It said FROM instead of SENDER.
+
+POE::Session and POE::Wheel::* check for a POE::Kernel reference as
+the first parameter.  This will detect old code and croak with better
+error messages.
+
+
 0.06_03 1999.03.17
 ------------------
 
