@@ -242,6 +242,9 @@ sub event {
     if ($name eq 'SuccessState') {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
+          carp( "SuccessState coderefs are depreciated " .
+                "(and will go away after version 0.13)"
+              );
           $poe_kernel->state
             ( $self->[MY_STATE_SUCCESS] = $self . ' success',
               $event
@@ -257,12 +260,15 @@ sub event {
         }
       }
       else {
-        carp "SuccessState requires an event name or coderef.  ignoring undef";
+        carp "SuccessState requires an event name.  ignoring undef";
       }
     }
     elsif ($name eq 'FailureState') {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
+          carp( "FailureState coderefs are depreciated " .
+                "(and will go away after version 0.13)"
+              );
           $poe_kernel->state
             ( $self->[MY_STATE_FAILURE] = $self . ' failure',
               $event
@@ -278,7 +284,7 @@ sub event {
         }
       }
       else {
-        carp "FailureState requires an event name or coderef.  ignoring undef";
+        carp "FailureState requires an event name.  ignoring undef";
       }
     }
     else {
@@ -1018,6 +1024,8 @@ been established successfully.  The SuccessState event is fired when
 outbound sockets have connected or whenever listening sockets accept
 new connections.
 
+SuccessState must be the name of a state within the current session.
+
 In all cases, C<ARG0> holds the new socket handle.  C<ARG3> holds the
 wheel's unique ID.  The parameters between them differ according to
 the socket's domain and whether it's listening or connecting.
@@ -1053,6 +1061,8 @@ A sample SuccessState event handler:
 FailureState defines the event that will be emitted when a socket
 error occurs.  EAGAIN does not count as an error since the
 SocketFactory knows what to do with it.
+
+FailureState must be the name of a state within the current session.
 
 The FailureState event comes with the standard error event parameters.
 
