@@ -731,7 +731,7 @@ mapping events to handlers within each state.
       },
     );
 
-Each state may define the same states.  The proper handler will be
+Each state may define the same events.  The proper handler will be
 called depending on the machine's current state.  For example, if
 C<event_1> is dispatched while the previous machine is in C<state_2>,
 then C<&handler_3> is called to handle the event.  It happens because
