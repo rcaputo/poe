@@ -98,3 +98,4 @@ t/21_gtk.t
 t/22_wheel_run.t
 t/23_nfa.t
 t/24_filter_stack.t
+t/25_detach.t
