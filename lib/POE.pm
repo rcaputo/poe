@@ -256,6 +256,13 @@ ListenAccept performs ye olde non-blocking socket listen and accept.
 It's great for programs that can't use SocketFactory and instead must
 listen and accept connections from sockets created elsewhere.
 
+=item POE::Wheel::ReadLine
+
+The ReadLine wheel accepts console input as lines only.  It handles
+many of the common shell command editing keystrokes, making it pretty
+easy to input things.  It's event driven, unlike Term::ReadLine, and
+it cooperates nicely with the rest of POE.
+
 =item POE::Wheel::ReadWrite
 
 ReadWrite is the star of POE's default I/O layer.  It performs

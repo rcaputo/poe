@@ -86,9 +86,6 @@ Karsten Sperling found that POSIX::uname wasn't supported back on
 use Sys::Hostname, which uses POSIX::uname internally wherever
 possible, instead.
 
-Removed the object layer; files are being restructured as a separate
-component.  This is ahead of schedule.
-
 Replaced many enum/const statements with constant subs.  Fewer of
 these mean less regexps to run against the source code, so startup
 should be a little peppier.
@@ -100,6 +97,12 @@ Remove Exporter use from Kernel and Session, although other modules
 like Carp already use it, so it gets loaded no matter what.  I'm about
 tapped for startup-optimizing ideas that don't involve rewriting
 POE::Preprocessor.
+
+Removed the object layer; files are being restructured as a separate
+component.  This is ahead of schedule.
+
+Added POE::Wheel::ReadLine.  This is a Term::ReadLine subset that
+cooperates with POE.  Now how do I test it non-interactively?
 
 
 0.1205 2001.02.12

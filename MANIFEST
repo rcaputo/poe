@@ -27,6 +27,7 @@ POE/Session.pm
 POE/Wheel.pm
 POE/Wheel/FollowTail.pm
 POE/Wheel/ListenAccept.pm
+POE/Wheel/ReadLine.pm
 POE/Wheel/ReadWrite.pm
 POE/Wheel/Run.pm
 POE/Wheel/SocketFactory.pm
@@ -51,6 +52,7 @@ samples/packagesessions.perl
 samples/preforkedserver.perl
 samples/proxy.perl
 samples/queue.perl
+samples/readline.perl
 samples/ref-type.perl
 samples/refsender.perl
 samples/refserver.perl

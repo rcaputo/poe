@@ -129,7 +129,7 @@ Test Results
 All the tests have been made to run unattended, and testing has been
 automated across the systems.
 
-** POE 0.1205 on OS/2 (home-os2)
+** POE 0.1206 on OS/2 (home-os2)
 
 OS/2 doesn't grok system vs. user time, so the numbers are 0.
 
@@ -144,7 +144,7 @@ IO::Pty : 0.01
 All tests successful, 4 tests and 5 subtests skipped.
 Files=24, Tests=429, 159 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
-** POE 0.1205 on FreeBSD (home-bsd)
+** POE 0.1206 on FreeBSD (home-bsd)
 
 Hardware: AMD 486-40; 16MB RAM
 System  : FreeBSD 4.0-STABLE
@@ -155,9 +155,9 @@ Event   : 0.79
 IO::Pty : 0.01
 
 All tests successful.
-Files=24, Tests=455, 684 wallclock secs (425.65 cusr + 36.95 csys = 462.60 CPU)
+Files=24, Tests=455, 523 wallclock secs (317.21 cusr + 32.81 csys = 350.02 CPU)
 
-** POE 0.1205 on Linux (titanic)
+** POE 0.1206 on Linux (titanic)
 
 Hardware: dual Celeron 500; 265MB RAM
 System  : Linux 2.2.15 SMP
@@ -168,7 +168,7 @@ Event   : 0.79
 IO::Pty : 0.01
 
 All tests successful, 2 tests skipped.
-Files=24, Tests=438, 106 wallclock secs (22.53 cusr +  0.84 csys = 23.37 CPU)
+Files=24, Tests=438, 99 wallclock secs (16.34 cusr +  0.77 csys = 17.11 CPU)
 
 ** POE 0.1205 on Solaris/SunOS 5.7 (hfb)
 
