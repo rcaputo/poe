@@ -198,27 +198,32 @@ sub _define_states {
           if (defined $filename) {
             my @old_stat = @$last_stat;
             my @new_stat = stat($filename);
-            if ( $new_stat[0] != $old_stat[0] or # device number
-                 $new_stat[1] != $old_stat[1] or # inode
-                 $new_stat[3] != $old_stat[3] or # number of hard links
-                 $new_stat[6] != $old_stat[6]    # device identifier
-               ) {
-              if (defined $filename) {
-                close $handle;
-                if (open $handle, "<$filename") {
-                  $$event_reset and $k->call( $ses, $$event_reset, $unique_id);
-                }
-                else {
-                  $$event_error and
-                    $k->call( $ses, $$event_error, 'reopen',
-                              ($!+0), $!, $unique_id
-                            );
+            # warn "@new_stat\n";
+            if (@new_stat) {
+              if ( $new_stat[0] != $old_stat[0] or # device number
+                   $new_stat[1] != $old_stat[1] or # inode
+                   $new_stat[3] != $old_stat[3] or # number of hard links
+                   $new_stat[6] != $old_stat[6]    # device identifier
+                 ) {
+                if (defined $filename) {
+                  close $handle;
+                  if (open $handle, "<$filename") {
+                    $$event_reset and $k->call( $ses,
+                                                $$event_reset, $unique_id
+                                              );
+                  }
+                  else {
+                    $$event_error and
+                      $k->call( $ses, $$event_error, 'reopen',
+                                ($!+0), $!, $unique_id
+                              );
+                  }
                 }
               }
+              else {
+                sysseek($hdl, 0, SEEK_CUR);
+              }
               @$last_stat = @new_stat;
-            }
-            else {
-              sysseek($hdl, 0, SEEK_CUR);
             }
           }
           else {
