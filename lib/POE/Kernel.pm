@@ -11,12 +11,14 @@ use POSIX qw(errno_h fcntl_h sys_wait_h);
 use Carp qw(carp croak confess);
 use Sys::Hostname qw(hostname);
 
-# These could be made lexical, but I suspect that people expect them
-# not to be.
+use POE::Preprocessor;
+
+# People expect these to be lexical.
 
 use vars qw( $poe_kernel $poe_main_window );
 
 #------------------------------------------------------------------------------
+# A cheezy exporter to avoid using Exporter.
 
 sub import {
   my $package = caller();
@@ -24,8 +26,6 @@ sub import {
   *{ $package . '::poe_kernel'      } = \$poe_kernel;
   *{ $package . '::poe_main_window' } = \$poe_main_window;
 }
-
-use POE::Preprocessor;
 
 #------------------------------------------------------------------------------
 # Perform some optional setup.
@@ -35,21 +35,11 @@ sub RUNNING_IN_HELL () { $^O eq 'MSWin32' }
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
 
-  # Include Time::HiRes, which is pretty darned cool, if it's
-  # available.  Life goes on without it.
+  # POE runs better with Time::HiRes, but it also runs without it.
   eval {
     require Time::HiRes;
     import  Time::HiRes qw(time sleep);
   };
-
-  # Set a constant to indicate the presence of Time::HiRes.  This
-  # enables some runtime optimization.
-  if ($@) {
-    eval 'sub POE_USES_TIME_HIRES () { 0 }';
-  }
-  else {
-    eval 'sub POE_USES_TIME_HIRES () { 1 }';
-  }
 
   # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
   # defines EINPROGRESS as 10035.  We provide it here because some
@@ -68,7 +58,7 @@ BEGIN {
 
 # Translate event IDs to absolute event due time.  This is used by the
 # alarm functions to speed up finding alarms by ID.
-
+#
 # { $event_id => $event_due_time,
 #   ...,
 # }
@@ -76,7 +66,7 @@ my %kr_event_ids;
 
 # Translate session IDs to blessed session references.  Used for
 # session ID to reference lookups in macro alias_resolve.
-
+#
 # { $session_id => $session_reference,
 #   ...,
 # }
@@ -86,7 +76,7 @@ my %kr_session_ids;
 # VEC_WR, and VEC_EX offsets work.  This saves some code, but it makes
 # things a little slower.  TODO: Split the vectors into discrete
 # scalars, and use macros to manipulate them.
-
+#
 # [ $select_read_bit_vector,    (VEC_RD)
 #   $select_write_bit_vector,   (VEC_WR)
 #   $select_expedite_bit_vector (VEC_EX)
@@ -96,7 +86,7 @@ my @kr_vectors = ( '', '', '' );
 # Map a signal name to the sessions that are explicitly watching it.
 # For each explicit signal watcher, also note the event that the
 # signal will generate.
-
+#
 # { $signal_name =>
 #   { $session_reference => $event_name,
 #     ...,
@@ -105,7 +95,7 @@ my @kr_vectors = ( '', '', '' );
 my %kr_signals;
 
 # The table of session aliases, and the sessions they refer to.
-
+#
 # { $alias => $session_reference,
 #   ...,
 # }
@@ -122,9 +112,7 @@ my $kr_id_index = 1;
 # functions that act on the current session.
 my $kr_active_session;
 
-#------------------------------------------------------------------------------
 # Filehandle vector sub-fields.  These are used in a few places.
-
 sub VEC_RD () { 0 }
 sub VEC_WR () { 1 }
 sub VEC_EX () { 2 }
@@ -306,12 +294,14 @@ sub CHILD_CREATE () { 'create' }  # The session was created as a child of this.
 sub LARGE_QUEUE_SIZE () { 512 }
 
 #------------------------------------------------------------------------------
-# Debugging and configuration constants.  Uses two macros to assist.
+# Debugging and configuration constants.
 
+# Shorthand for defining a trace constant.
 macro define_trace (<const>) {
   defined &TRACE_<const> or eval 'sub TRACE_<const> () { TRACE_DEFAULT }';
 }
 
+# Shorthand for defining an assert constant.
 macro define_assert (<const>) {
   defined &ASSERT_<const> or eval 'sub ASSERT_<const> () { ASSERT_DEFAULT }';
 }
@@ -1161,7 +1151,7 @@ sub _dispatch_event {
 
     delete $kr_session_ids{$kr_sessions{$session}->[SS_ID]}
       if defined $kr_sessions{$session}->[SS_ID];
-    $session->[SS_ID] = undef;
+    $kr_sessions{$session}->[SS_ID] = undef;
 
     # And finally, check all the structures for leakage.  POE's pretty
     # complex internally, so this is a happy fun check.
