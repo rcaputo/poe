@@ -22,8 +22,16 @@ my %signal_watcher;
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
 
+sub _our_event_exception_handler {
+  my ($event, $message) = @_;
+  warn $message;
+  exit 1;
+}
+
 sub loop_initialize {
   my $self = shift;
+
+  $Event::DIED = \&_our_event_exception_handler;
 
   $_watcher_timer = Event->timer(
     cb     => \&_loop_event_callback,
