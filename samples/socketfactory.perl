@@ -192,11 +192,11 @@ sub _start {
   my ($object, $heap, $socket) = @_[OBJECT, HEAP, ARG0];
                                         # start the read/write wheel
   $heap->{'wheel'} = new POE::Wheel::ReadWrite
-    ( Handle => $socket,                # on this socket handle
-      Driver => new POE::Driver::SysRW, # using sysread and syswrite
-      Filter => new POE::Filter::Line,  # and parsing streams as lines
-      InputState => 'got_response',     # generate this event upon input
-      ErrorState => 'got_error'         # and this event in an error occurs
+    ( Handle     => $socket,                # on this socket handle
+      Driver     => new POE::Driver::SysRW, # using sysread and syswrite
+      Filter     => new POE::Filter::Line,  # and parsing streams as lines
+      InputState => 'got_response',         # generate this event upon input
+      ErrorState => 'got_error'             # and this event in an error occurs
     );
                                         # set up a query queue
   $heap->{'commands'} =
@@ -307,8 +307,15 @@ sub _start {
 # Accept POE's standard _stop event, and clean up the session.
 
 sub _stop {
-  my $object = $_[OBJECT];
+  my ($object, $heap) = @_[OBJECT, HEAP];
   print "$object received _stop.\n";
+                                        # close the socket
+  delete $heap->{wheel};
+                                        # unlink the socket
+  if (-e $unix_server) {
+    unlink($unix_server)
+      or warn "could not unlink $unix_server: $!";
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -389,14 +396,16 @@ sub _start {
   my ($object, $heap) = @_[OBJECT, HEAP];
 
   print "$object received _start.  Hi!\n";
+                                        # get a new socket
+  $heap->{socket} = &get_next_client_address();
                                         # start a socket factory
   $heap->{'wheel'} = new POE::Wheel::SocketFactory
-    ( SocketDomain => AF_UNIX,          # in the Unix address family
-      SocketType => SOCK_STREAM,        # create stream sockets
-      BindAddress => &get_next_client_address(), # bound to this Unix address
-      RemoteAddress => $unix_server,    # connected to that Unix address
-      SuccessState => 'got_connection', # sending this message when connected
-      FailureState => 'got_error'       # sending this message upon failure
+    ( SocketDomain  => AF_UNIX,          # in the Unix address family
+      SocketType    => SOCK_STREAM,      # create stream sockets
+      BindAddress   => $heap->{socket},  # bind to this address
+      RemoteAddress => $unix_server,     # connected to that Unix address
+      SuccessState  => 'got_connection', # sending this message when connected
+      FailureState  => 'got_error'       # sending this message upon failure
     );
 }
 
@@ -404,8 +413,18 @@ sub _start {
 # Accept POE's standard _stop event, and clean up the session.
 
 sub _stop {
-  my $object = $_[OBJECT];
+  my ($object, $heap) = @_[OBJECT, HEAP];
   print "$object received _stop.\n";
+                                        # stop the wheel (closes socket)
+  delete $heap->{wheel};
+                                        # unlink the unix socket
+  if (exists $heap->{socket}) {
+    if (-e $heap->{socket}) {
+      unlink($heap->{socket})
+        or warn "could not unlink $heap->{socket}: $!";
+    }
+    delete $heap->{socket};
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -574,14 +593,14 @@ sub _start {
   print "$object received _start.  Hi!\n";
                                         # start a socket factory
   $heap->{'wheel'} = new POE::Wheel::SocketFactory
-    ( SocketDomain => AF_INET,          # in the Internet address family
-      SocketType => SOCK_STREAM,        # create stream sockets
-      SocketProtocol => 'tcp',          # using the tcp protocol
-      RemoteAddress => '127.0.0.1',     # connected to 127.0.0.1, port 30000
-      RemotePort => 30000,
-      Reuse          => 'yes',          # reusing the address and port
-      SuccessState => 'got_connection', # sending this message when connected
-      FailureState => 'got_error',      # sending this message upon failure
+    ( SocketDomain    => AF_INET,          # in the Internet address family
+      SocketType      => SOCK_STREAM,      # create stream sockets
+      SocketProtocol  => 'tcp',            # using the tcp protocol
+      RemoteAddress   => '127.0.0.1',      # connected to 127.0.0.1, port 30000
+      RemotePort      => 30000,
+      Reuse           => 'yes',            # reusing the address and port
+      SuccessState    => 'got_connection', # send this message when connected
+      FailureState    => 'got_error',      # send this message upon failure
     );
 }
 
