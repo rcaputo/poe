@@ -80,27 +80,31 @@ sub new {
           $self->register_state($state, $handler);
           next;
         }
-        elsif (ref($handler) eq 'ARRAY') {
-          foreach my $method (@$handler) {
-            $self->register_state($method, $state);
-          }
-          next;
-        }
         else {
           croak "using something other than a CODEREF for $state handler";
         }
       }
                                         # object states
       if (ref($handler) eq '') {
-        $self->register_state($handler, $state);
+        $self->register_state($handler, $state, $handler);
         next;
       }
-      if (ref($handler) ne 'ARRAY') {
-        croak "strange reference ($handler) used as an object session method";
+
+      if (ref($handler) eq 'ARRAY') {
+        foreach my $method (@$handler) {
+          $self->register_state($method, $state, $method);
+        }
+        next;
       }
-      foreach my $method (@$handler) {
-        $self->register_state($method, $state);
+
+      if (ref($handler) eq 'HASH') {
+        while (my ($state_name, $method_name) = each %$handler) {
+          $self->register_state($state_name, $state, $method_name);
+        }
+        next;
       }
+
+      croak "strange reference ($handler) used as an object session method";
     }
     else {
       last;
@@ -164,34 +168,66 @@ sub create {
 
   my @params_keys = keys(%params);
   foreach (@params_keys) {
-    my $state_hash = $params{$_};
+    my $states = $params{$_};
 
-    croak "$_ does not refer to a hashref"
-      unless (ref($state_hash) eq 'HASH');
+     if ($_ eq 'inline_states') {
+      croak "$_ does not refer to a hash" unless (ref($states) eq 'HASH');
 
-    if ($_ eq 'inline_states') {
-      while (my ($state, $handler) = each(%$state_hash)) {
+      while (my ($state, $handler) = each(%$states)) {
         croak "inline state '$state' needs a CODE reference"
           unless (ref($handler) eq 'CODE');
         $self->register_state($state, $handler);
       }
     }
     elsif ($_ eq 'package_states') {
-      while (my ($state, $handler) = each(%$state_hash)) {
-        croak "states for package '$state' needs an ARRAY reference"
-          unless (ref($handler) eq 'ARRAY');
-        foreach my $method (@$handler) {
-          $self->register_state($method, $state);
+      croak "$_ does not refer to an array" unless (ref($states) eq 'ARRAY');
+      croak "the array for $_ has an odd number of elements" if (@$states & 1);
+
+      while (my ($package, $handlers) = splice(@$states, 0, 2)) {
+
+        # Array of handlers is passed through as method names.
+        if (ref($handlers) eq 'ARRAY') {
+          foreach my $method (@$handlers) {
+            $self->register_state($method, $package, $method);
+          }
+        }
+
+        # Hashes of handlers are passed through as key names.
+        elsif (ref($handlers) eq 'HASH') {
+          while (my ($state, $method) = each %$handlers) {
+            $self->register_state($method, $package, $state);
+          }
+        }
+
+        else {
+          croak "states for '$package' needs to be a hash or array ref";
         }
       }
     }
     elsif ($_ eq 'object_states') {
-      while (my ($state, $handler) = each(%$state_hash)) {
-        croak "states for object '$state' need an ARRAY reference"
-          unless (ref($handler) eq 'ARRAY');
-        foreach my $method (@$handler) {
-          $self->register_state($method, $state);
+      croak "$_ does not refer to an array" unless (ref($states) eq 'ARRAY');
+      croak "the array for $_ has an odd number of elements" if (@$states & 1);
+
+      while (my ($object, $handlers) = each(%$states)) {
+
+        # Array of handlers is passed through as method names.
+        if (ref($handlers) eq 'ARRAY') {
+          foreach my $method (@$handlers) {
+            $self->register_state($method, $object, $method);
+          }
         }
+
+        # Hashes of handlers are passed through as key names.
+        elsif (ref($handlers) eq 'HASH') {
+          while (my ($state, $method) = each %$handlers) {
+            $self->register_state($method, $object, $state);
+          }
+        }
+
+        else {
+          croak "states for '$object' needs to be a hash or array ref";
+        }
+
       }
     }
     else {
@@ -239,15 +275,16 @@ sub _invoke_state {
     }
                                         # package and object
     else {
+      my ($object, $method) = @{$self->[SE_STATES]->{$state}};
       return
-        $self->[SE_STATES]->{$state}->$state(                         # object
-                                            $self,                    # session
-                                            $POE::Kernel::poe_kernel, # kernel
-                                            $self->[SE_NAMESPACE],    # heap
-                                            $state,                   # state
-                                            $source_session,          # sender
-                                            @$etc                     # args
-                                           );
+        $object->$method(                          # object
+                         $self,                    # session
+                         $POE::Kernel::poe_kernel, # kernel
+                         $self->[SE_NAMESPACE],    # heap
+                         $state,                   # state
+                         $source_session,          # sender
+                         @$etc                     # args
+                        );
     }
   }
                                         # recursive, so it does the right thing
@@ -273,9 +310,11 @@ sub _invoke_state {
 #------------------------------------------------------------------------------
 
 sub register_state {
-  my ($self, $state, $handler) = @_;
+  my ($self, $state, $handler, $method) = @_;
+  $method = $state unless defined $method;
 
   if ($handler) {
+    # Inline coderef.
     if (ref($handler) eq 'CODE') {
       carp "redefining state($state) for session($self)"
         if ( (exists $self->[SE_OPTIONS]->{'debug'}) &&
@@ -283,13 +322,15 @@ sub register_state {
            );
       $self->[SE_STATES]->{$state} = $handler;
     }
-    elsif ($handler->can($state)) {
+    # Object or package method.
+    elsif ($handler->can($method)) {
       carp "redefining state($state) for session($self)"
         if ( (exists $self->[SE_OPTIONS]->{'debug'}) &&
              (exists $self->[SE_STATES]->{$state})
            );
-      $self->[SE_STATES]->{$state} = $handler;
+      $self->[SE_STATES]->{$state} = [ $handler, $method ];
     }
+    # Something's wrong.
     else {
       if (ref($handler) eq 'CODE' &&
           exists($self->[SE_OPTIONS]->{'trace'})
@@ -298,7 +339,7 @@ sub register_state {
       }
       else {
         croak "object $handler does not have a '$state' method"
-          unless ($handler->can($state));
+          unless ($handler->can($method));
       }
     }
   }
@@ -402,14 +443,18 @@ POE::Session - POE State Machine
                         state2 => \&handler2,
                         ...
                       },
-    object_states  => { $objref1 => \@methods2,
-                        $objref2 => \@methods2,
+    object_states  => [ $objref1 => \@methods1,
+                        $objref2 => { state_name_1 => 'method_name_1',
+                                      state_name_2 => 'method_name_2',
+                                    },
                         ...
-                      },
-    package_states => { $package1 => \@function_names_1,
-                        $package2 => \@function_names_2,
+                      ],
+    package_states => [ $package1 => \@function_names_1,
+                        $package2 => { state_name_1 => 'method_name_1',
+                                       state_name_2 => 'method_name_2',
+                                     },
                         ...
-                      },
+                      ],
     options => \%options,
   );
 
@@ -692,6 +737,18 @@ Another way to grab the arguments, no matter how many there are, is:
 
 =back
 
+=head1 CUSTOM EVENTS AND PARAMETERS
+
+Events that aren't prefixed with leading underscores may have been
+defined by the state machines themselves or by Wheel instances the
+machines are using.
+
+In almost all these cases, the event name should be mapped to a state
+in the POE::Session constructor.  Finding the event's source may be
+more difficult.  It could come from a Wheel in the same session, or
+one of the &kernel calls.  In the case of inter-session communication,
+it may even come from outside the session.
+
 =head1 PREDEFINED EVENTS AND PARAMETERS
 
 POE reserves some event names for internal and standard use.  All its
@@ -888,8 +945,7 @@ POE; POE::Kernel
 
 =head1 BUGS
 
-The documentation for POE::Session::creak() isn't as good as it could
-be.
+The documentation for POE::Session::create() is fairly nonexistent.
 
 =head1 AUTHORS & COPYRIGHTS
 

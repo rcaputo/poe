@@ -1,8 +1,11 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This program tests the new filter-changing capabilities of
 # Wheel::ReadWrite
+
+use strict;
+use lib '..';
 
 ##############################################################################
 # This is the caller.

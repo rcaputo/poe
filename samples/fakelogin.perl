@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This is a fake login prompt I wrote after noticing that someone's
@@ -7,6 +7,7 @@
 # a good exercise for wheel event renaming.
 
 use strict;
+use lib '..';
 use IO::Socket;
 
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);

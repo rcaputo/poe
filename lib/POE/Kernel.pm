@@ -1391,12 +1391,16 @@ sub fork {
 #==============================================================================
 
 sub state {
-  my ($self, $state_name, $state_code) = @_;
+  my ($self, $state_name, $state_code, $state_alias) = @_;
+  $state_alias = $state_name unless defined $state_alias;
+
   if ( (ref($self->[KR_ACTIVE_SESSION]) ne '') &&
                                         # -><- breaks subclasses... sky has fix
        (ref($self->[KR_ACTIVE_SESSION]) ne 'POE::Kernel')
   ) {
-    $self->[KR_ACTIVE_SESSION]->register_state($state_name, $state_code);
+    $self->[KR_ACTIVE_SESSION]->register_state( $state_name, $state_code,
+                                                $state_alias
+                                              );
     return 1;
   }
                                         # no such session
@@ -1467,6 +1471,10 @@ POE::Kernel - POE Event Queue and Resource Manager
   $kernel->state( $state_name, $code_reference );    # Inline state
   $kernel->state( $method_name, $object_reference ); # Object state
   $kernel->state( $function_name, $package_name );   # Package state
+  $kernel->state( $state_name,                       # Object or package
+                  $object_or_package_reference,      #  state, mapped to
+                  $object_or_package_method,         #  different method.
+                );
 
   # IDs:
   $kernel->ID();                       # Return the Kernel's unique ID.
@@ -1873,10 +1881,15 @@ states from sessions when they're created and destroyed.
 POE::Kernel::state( $state_name, $code_reference )
 POE::Kernel::state( $method_name, $object_reference )
 POE::Kernel::state( $function_name, $package_name )
+POE::Kernel::state( $state_name, $obj_or_package_ref, $method_name )
 
 The state() method has three different uses, each for adding, updating
 or removing a different kind of state.  It manipulates states in the
 current session.
+
+The three-parameter version of state() registers an object or package
+state to a method with a different name.  Normally the object or
+package method would need to be named after the state it catches.
 
 The state() method returns 1 on success.  On failure, it returns 0 and
 sets $! to one of:
@@ -1910,6 +1923,15 @@ Object states are manipulated with:
 If $object_reference is undef, then the $method_name state will be
 removed.  Any pending events destined for $method_name will be
 redirected to _default.
+
+They can also be maintained with:
+
+  $kernel->state($state_name, $object_reference, $object_method);
+
+For example, this maps a session's B®_start¯ state to the object's
+start_state method:
+
+  $kernel->state('_start', $object_reference, 'start_state');
 
 =item *
 

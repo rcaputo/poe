@@ -9,6 +9,7 @@
 # relationships, signal propagation and garbage collection.
 
 use strict;
+use lib '..';
 use POE;
 
 #==============================================================================

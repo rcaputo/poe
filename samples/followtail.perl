@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This program tests Wheel::FollowTail.  The FollowTail wheel provides
@@ -8,6 +8,7 @@
 # better comments for the basic stuff.
 
 use strict;
+use lib '..';
 use POE qw(Wheel::FollowTail Driver::SysRW Filter::Line Wheel::ReadWrite);
 use IO::File;
 

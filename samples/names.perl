@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # Aliases were originally called Names.
@@ -10,6 +10,7 @@
 # that can be called upon by other sessions.
 
 use strict;
+use lib '..';
 use POE;
 
 #==============================================================================

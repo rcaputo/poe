@@ -8,11 +8,13 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0806 2000.--.--
+0.0806 2000.01.23
 -----------------
 
-Removed Win32 support code.  It never was completed or tested, and
-there seems to be no interest in it from the Windows community.
+There seems to be renewed interest in Win32 support.  The previous
+Win32 porting attempt was about a year ago, and it was never completed
+or testing.  Since it's been so long, I've removed the code on the
+assumption that a fresh start is better.  Patches welcome!
 
 Added UDP support to SocketFactory.  This involved rewriting
 &SocketFactory::new to be partially data driven; now it should be
@@ -23,18 +25,28 @@ Added UDP testing to samples/socketfactory.perl.
 Addi found a bareword warning in samples/udp.perl; I renamed
 $heap->{socket} to $heap->{socket_handle} to avoid it.
 
-mstevens pointed out a similar bareword warning in samples/poing.perl;
-I renamed $heap->{socket} to $heap->{socket_handle} to avoid it there,
-too.  Added -T to the #! line in poing.perl since it wants to run as
-root.
+Michael Stevens (mstevens) found another $heap->{socket} bareword
+warning in samples/poing.perl.
 
-All the sample programs use -I.. on the #! line instead of use lib
-'..' in the code.  This is problematic on 5.004_04 systems (thanks
-again, mstevens), so I've fixed them to use lib '..' instead.
+mstevens also reminded me that samples/poing.perl is running as root;
+I added a -T switch to the #! line.  If poing.perl dies with a ``Too
+late for -"t" option'' message, then you'll have to either remove the
+-T from the #! line (not recommended) or run the script as:
+/usr/bin/perl -T poing.perl
 
-Fixed samples/poing.perl to be more permissive with the environment
-variables that define terminal height and width.  If they can't be
-found, the terminal is assumed to be 80 columns and/or 25 rows.
+And mstevens pointed out that using -I.. on the #! line is a problem
+in some Perl versions where POE otherwise runs fine.  I replaced the
+-I.. switch with "use lib '..';", and things should be a lot happier.
+
+And his ROWS and COLS environment variables really are LINES and
+COLUMNS.  I fixed samples/poing.perl to recognize the alternate
+environment variables and punt to 80 columns and/or 25 lines as a last
+resort.
+
+Added the ability to map package and object states to methods that are
+named differently.  This adds new syntax to POE::Session's new() and
+create() constructors, as well as POE::Kernel->state().  The new test
+in samples/objmaps.perl exercises the code.
 
 
 0.0805 2000.01.05

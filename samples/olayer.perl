@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This is a simple Object Layer functionality test.  It contains a
@@ -9,6 +9,7 @@
 # subject to change, with no backward compatibility guarantees.
 
 use strict;
+use lib '..';
 use POE qw(Runtime Repository::Array Curator);
 
 close STDERR;

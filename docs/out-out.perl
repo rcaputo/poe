@@ -124,7 +124,7 @@ sub TWEEN () { 'tween' }
 my %formats =
 ( 'html' =>
   { &CEASE => 
-    { &ST_BQUOTE     => sub { "</pre></font></p>\n" },
+    { &ST_BQUOTE     => sub { "</font></p>\n" },
       &ST_PLAIN      => sub { "</p>\n" },
       &ST_PARAGRAPH  => sub { "" },
       &ST_ENUMLIST   => sub { "</ol>\n" },
@@ -138,7 +138,7 @@ my %formats =
     &START =>
     { &ST_PARAGRAPH  => sub { "" },
       &ST_PLAIN      => sub { "<p>\n" },
-      &ST_BQUOTE     => sub { "<p><font size=-1><pre>\n" },
+      &ST_BQUOTE     => sub { "<p><pre>\n" },
       &ST_ENUMLIST   => sub { "<ol type=1>\n<li>" },
       &ST_BULLETLIST => sub { "<ul type=disc>\n<li>" },
       &ST_DOCUMENT   => sub { "<html>\n<head>\n<title>" . $_[0] .

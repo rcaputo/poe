@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This is a proof of concept for pre-forking POE servers.  It
@@ -7,6 +7,7 @@
 # reusable wheel.
 
 use strict;
+use lib '..';
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);
 
 ###############################################################################

@@ -2,8 +2,9 @@
 # $Id$
 
 # This is another simple functionality test.  It tests sessions that
-# are composed of objects (also called "object sessions").  It is
-# simpler than sessions.perl in many ways.
+# are composed of objects (also called "object sessions").  The
+# difference between this and objsessions.perl is that the object
+# method names do not match their state names.
 
 use strict;
 use lib '..';
@@ -44,7 +45,7 @@ sub DESTROY {
 # This method is an event handler.  It sets the session in motion
 # after POE sends the standard _start event.
 
-sub _start {
+sub poe_start {
   my ($object, $session, $heap, $kernel) = @_[OBJECT, SESSION, HEAP, KERNEL];
                                         # register a signal handler
   $kernel->sig('INT', 'sigint');
@@ -60,7 +61,7 @@ sub _start {
 # This method is an event handler, too.  It cleans up after receiving
 # POE's standard _stop event.
 
-sub _stop {
+sub poe_stop {
   my ($object, $kernel, $heap) = @_[OBJECT, KERNEL, HEAP];
 
   print "Session $object->{'name'} stopped after $heap->{'counter'} loops.\n";
@@ -70,7 +71,7 @@ sub _stop {
 # This method is an event handler.  It will be registered as a SIGINT
 # handler so that the session can acknowledge the signal.
 
-sub sigint {
+sub poe_sigint {
   my ($object, $from, $signal_name) = @_[OBJECT, SENDER, ARG0];
 
   print "$object->{'name'} caught SIG$signal_name from $from\n";
@@ -84,13 +85,13 @@ sub sigint {
 # there is nothing left to do; this event handler causes that
 # condition when it stops posting events.
 
-sub increment {
+sub poe_increment {
   my ($object, $kernel, $session, $heap) = @_[OBJECT, KERNEL, SESSION, HEAP];
 
   $heap->{'counter'}++;
 
   if ($heap->{counter} % 2) {
-    $kernel->state('runtime_state', $object);
+    $kernel->state('runtime_state', $object, 'poe_runtime_state');
   }
   else {
     $kernel->state('runtime_state');
@@ -111,7 +112,7 @@ sub increment {
 # This state is added on every even count.  It's removed on every odd
 # one.  Every count posts an event here.
 
-sub runtime_state {
+sub poe_runtime_state {
   my ($self, $iteration) = @_[OBJECT, ARG0];
   print( 'Session ', $self->{name},
          ' received a runtime_state event during iteration ',
@@ -126,7 +127,11 @@ package main;
 
 foreach my $name (qw(one two three four five six seven eight nine ten)) {
   new POE::Session( new Counter($name) =>
-                    [ qw(_start _stop increment sigint) ]
+                    { _start    => 'poe_start',
+                      _stop     => 'poe_stop',
+                      increment => 'poe_increment',
+                      sigint    => 'poe_sigint',
+                    },
                   );
 }
 

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This program tests POE::Filter::HTTPD by setting up a small server.
@@ -10,6 +10,7 @@
 # Revised for POE 0.06 by Rocco Caputo <troc@netrus.net>
 
 use strict;
+use lib '..';
 
 use POE qw(Wheel::ReadWrite Driver::SysRW Filter::HTTPD Wheel::SocketFactory);
 
