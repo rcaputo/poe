@@ -96,7 +96,6 @@ BEGIN {
   defined &DEB_DESTROY or eval 'sub DEB_DESTROY () { 0 }';
 }
 
-
 BEGIN {
 
   # ASSERT_DEFAULT changes the default value for other ASSERT_*
