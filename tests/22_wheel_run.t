@@ -8,7 +8,7 @@ use lib qw(./lib ../lib);
 use Socket;
 
 use TestSetup;
-&test_setup(21);
+&test_setup(24);
 
 # Turn on all asserts, and use POE and other modules.
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
@@ -181,6 +181,69 @@ my $program =
     );
 }
 
+### Test Wheel::Run with a coderef instead of a subprogram.  Uses "!"
+### as a newline to avoid having to deal with whatever the system
+### uses.
+
+my $coderef_flush_count = 0;
+
+{ my $program = sub {
+    local $/ = q(!);
+    select STDERR; $| = 1;
+    select STDOUT; $| = 1;
+    while (<STDIN>) {
+      last if /^bye/;
+      print(STDOUT qq(out: $_)) if s/^out //;
+      print(STDERR qq(err: $_)) if s/^err //;
+    }
+    exit 0;
+  };
+
+  POE::Session->create
+    ( inline_states =>
+      { _start => sub {
+          my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+          # Run a child process.
+          $heap->{wheel} = POE::Wheel::Run->new
+            ( Program     => $program,
+              Filter      => POE::Filter::Line->new( Literal => "!" ),
+              StdoutEvent => 'stdout',
+              StderrEvent => 'stderr',
+              ErrorEvent  => 'error',
+              StdinEvent  => 'stdin',
+            );
+
+          # Ask the child for something on stdout.
+          $heap->{wheel}->put( 'out test-out' );
+        },
+
+        # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
+        _signal => sub {
+          my $signame = $_[ARG0];
+          if ($signame eq 'CHLD') {
+            my ($heap, $child_pid) = @_[HEAP, ARG1];
+            delete $heap->{wheel} if $child_pid == $heap->{wheel}->PID();
+          }
+          return 0;
+        },
+
+        # Count every line that's flushed to the child.
+        stdin  => sub { $coderef_flush_count++; },
+
+        # Got a stdout response.  Ask for something on stderr.
+        stdout => sub { &ok_if(23, $_[ARG0] eq 'out: test-out');
+                        $_[HEAP]->{wheel}->put( 'err test-err' );
+                      },
+
+        # Got a sterr response.  Tell the child to exit.
+        stderr => sub { &ok_if(24, $_[ARG0] eq 'err: test-err');
+                        $_[HEAP]->{wheel}->put( 'bye' );
+                      },
+      },
+    );
+}
+
 ### Test Wheel::Run with ptys.  Uses "!" as a newline to avoid having
 ### to deal with whatever the system uses.
 
@@ -245,6 +308,7 @@ $poe_kernel->run();
 ### Post-run tests.
 &ok_if( 16, $tty_flush_count == 3 );
 &ok_if( 19, $pty_flush_count == 3 ) if POE::Wheel::Run::PTY_AVAILABLE;
+&ok_if( 22, $coderef_flush_count == 3 );
 
 &results();
 
