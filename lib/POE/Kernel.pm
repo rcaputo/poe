@@ -125,6 +125,11 @@ sub _dispatch_state {
       push(@{$self->{'sessions'}->{$source_session}->[1]}, $session);
     }
   }
+                                        # internal event for GC'in sessions
+  elsif ($state eq '_garbage_collect') {
+    $self->_collect_garbage($session);
+    return 0;
+  }
                                         # if stopping, tell other sessions
   elsif ($state eq '_stop') {
                                         # tell children they have new parents
@@ -373,7 +378,9 @@ sub session_alloc {
 #  $self->_enqueue_state($session, $active_session, '_start', time(), []);
 
   $self->_dispatch_state($session, $active_session, '_start', []);
-  $self->_collect_garbage($session);
+  $self->_enqueue_state($session, $active_session,
+                        '_garbage_collect', time(), []
+                       );
   $self->{'active session'} = $active_session;
 }
 
