@@ -1,18 +1,16 @@
 #!perl -w -I../lib
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This is a pre-release version.  Redistribution and modification are
-# prohibited.
+# $Id$
 
 use strict;
 
 use POE::Kernel;
 use POE::Session;
 use IO::Socket::INET;
-use POSIX;                              # for EAGAIN
+use POSIX qw(EAGAIN);
 
 my $kernel = new POE::Kernel();
 
-my $chargen_port = 30020;
+my $chargen_port = 30019;
 
 #------------------------------------------------------------------------------
 # Chargen server.
@@ -147,14 +145,14 @@ new POE::Session
      my ($k, $me, $from) = @_;
      print "Starting chargen client ...\n";
      $me->{'lines read'} = 0;
-     my $listener = new IO::Socket::INET('PeerHost' => 'localhost',
-                                         'PeerPort' => $chargen_port,
-                                         'Proto'    => 'tcp',
-                                         'Reuse'    => 'yes',
-                                        );
+     my $socket = new IO::Socket::INET('PeerHost' => 'localhost',
+                                       'PeerPort' => $chargen_port,
+                                       'Proto'    => 'tcp',
+                                       'Reuse'    => 'yes',
+                                      );
                                         # give the handle to the kernel
-     if ($listener) {
-       $k->select($listener, 'read', undef, 'except');
+     if ($socket) {
+       $k->select($socket, 'read', undef, 'except');
      }
      else {
        warn "chargen client not started - connect failed: $!";

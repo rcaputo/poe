@@ -1,7 +1,7 @@
 # $Id$
 # Documentation exists after __END__
 
-package Driver;
+package POE::Driver;
 
 my $VERSION = 1.0;
 
@@ -24,7 +24,10 @@ POE::Driver - perform IO on a filehandle
 
 =head1 SYNOPSIS
 
-  $driver = new POE::Driver::Derivative();
+  $driver = new POE::Driver::Derivative(); # create a derivative driver
+  \@input_chunks = $driver->get($handle);  # get data from $handle
+  $result = $driver->put($output_chunk);   # put data into an output buffer
+  $result = $driver->flush($handle);       # flush output buffer to $handle
 
 =head1 DESCRIPTION
 

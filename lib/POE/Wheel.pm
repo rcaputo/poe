@@ -1,7 +1,7 @@
 # $Id$
 # Documentation exists after __END__
 
-package Driver;
+package POE::Wheel;
 
 my $VERSION = 1.0;
 

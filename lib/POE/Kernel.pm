@@ -1,9 +1,9 @@
+# $Id$
+# Documentation exists after __END__
+
 package POE::Kernel;
 
-# POD documentation exists after __END__
-
 my $VERSION = 1.0;
-my $rcs = '$Id$';
 
 use strict;
 use POSIX qw(EINPROGRESS EINTR);
