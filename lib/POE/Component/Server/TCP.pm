@@ -74,12 +74,25 @@ sub new {
   my $client_filter       = delete $param{ClientFilter};
   my $client_flushed      = delete $param{ClientFlushed};
   my $args                = delete $param{Args};
+  my $session_type        = delete $param{SessionType};
+  my $session_params      = delete $param{SessionParams};
 
   # Defaults.
 
   $address = INADDR_ANY unless defined $address;
 
   $error_callback = \&_default_server_error unless defined $error_callback;
+
+  $session_type = 'POE::Session' unless defined $session_type;
+  if (defined($session_params) && ref($session_params)) {
+    if (ref($session_params) ne 'ARRAY') {
+      croak "SessionParams must be an array reference";
+    } else {
+      $session_params = [ ];
+    }    
+  } else {
+    $session_params = [ ];
+  }
 
   if (defined $client_input) {
     unless (defined $client_filter) {
@@ -130,8 +143,9 @@ sub new {
     unless (defined $accept_callback) {
       $accept_callback = sub {
         my ($socket, $remote_addr, $remote_port) = @_[ARG0, ARG1, ARG2];
-        POE::Session->create
-          ( inline_states =>
+        $session_type->create
+          ( @$session_params,
+            inline_states =>
             { _start => sub {
                 my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
 
@@ -157,11 +171,13 @@ sub new {
                     FlushedEvent => 'tcp_server_got_flush',
                   );
 
-                $client_connected->(@_);
+                $kernel->yield( tcp_server_client_connected => @_[ARG0 .. $#_] );
               },
 
               # To quiet ASSERT_STATES.
               _child  => sub { },
+
+              tcp_server_client_connected => $client_connected,
 
               tcp_server_got_input => sub {
                 return if $_[HEAP]->{shutdown};
@@ -217,25 +233,25 @@ sub new {
   # Create the session, at long last.  This is done inline so that
   # closures can customize it.
 
-  POE::Session->create
-    ( inline_states =>
+  $session_type->create
+    ( @$session_params,
+      inline_states =>
       { _start =>
-        sub {
-          if (defined $alias) {
-            $_[HEAP]->{alias} = $alias;
-            $_[KERNEL]->alias_set( $alias );
-          }
+          sub {
+            if (defined $alias) {
+              $_[HEAP]->{alias} = $alias;
+              $_[KERNEL]->alias_set( $alias );
+            }
 
-          $_[HEAP]->{listener} = POE::Wheel::SocketFactory->new
-            ( BindPort     => $port,
-              BindAddress  => $address,
-              SocketDomain => $domain,
-              Reuse        => 'yes',
-              SuccessEvent => 'tcp_server_got_connection',
-              FailureEvent => 'tcp_server_got_error',
-            );
-        },
-
+            $_[HEAP]->{listener} = POE::Wheel::SocketFactory->new
+              ( BindPort     => $port,
+                BindAddress  => $address,
+                SocketDomain => $domain,
+                Reuse        => 'yes',
+                SuccessEvent => 'tcp_server_got_connection',
+                FailureEvent => 'tcp_server_got_error',
+              );
+          },
         # Catch an error.
         tcp_server_got_error => $error_callback,
 
@@ -314,6 +330,9 @@ POE::Component::Server::TCP - a simplified TCP server
       Acceptor => \&accept_handler,   # Optional.
       Error    => \&error_handler,    # Optional.
       Args     => [ "arg0", "arg1" ], # Optional.
+
+      SessionType   => "POE::Session::Abc",           # Optional.
+      SessionParams => [ options => { debug => 1 } ], # Optional.
 
       ClientInput        => \&handle_client_input,      # Required.
       ClientConnected    => \&handle_client_connect,    # Optional.
@@ -430,6 +449,28 @@ Later on, the 'chargen' service can be shut down with:
 
   $kernel->post( chargen => 'shutdown' );
 
+=item SessionType
+
+SessionType specifies what type of sessions will be created within
+the TCP server.  It must be a scalar value.
+
+  SessionType => "POE::Session::MultiDispatch"
+
+SessionType is optional.  The component will supply a "POE::Session"
+type if none is specified.
+
+=item SessionParams
+
+Initialize parameters to be passed to the SessionType when it is created.
+This must be an array reference.
+
+  SessionParams => [ options => { debug => 1, trace => 1 } ],
+
+It is important to realize that some of the arguments to SessionHandler
+may get clobbered when defining them for your SessionHandler.  It is
+advised that you stick to defining arguments in the "options" hash such
+as trace and debug. See L<POE::Session> for an example list of options.
+
 =item ClientConnected
 
 ClientConnected is a coderef that will be called for each new client
@@ -467,7 +508,7 @@ bar:
   ClientFilter => [ "POE::Filter::Line", InputLiteral => "|" ],
 
 ClientFilter is optional.  The component will supply a
-"POE::Filter::Line" instance none is specified.
+"POE::Filter::Line" instance if none is specified.
 
 =item ClientInput
 
