@@ -18,17 +18,23 @@ use POE::Session;
 # selects:  { $handle  => [ [ [ $r_sess, $r_state], ... ],
 #                           [ [ $w_sess, $w_state], ... ],
 #                           [ [ $x_sess, $x_state], ... ],
+#                           $handle
 #                         ],
 #           }
 #
 # signals:  { $signal => [ [ $session, $state ], ... ] }
 #
-# sessions: { $session => [ $parent, \@children, $states, $selects ] }
+# sessions: { $session => [ $parent, \@children, $states, $selects, $session,
+#                           $running
+#                         ]
+#           }
 
 sub _signal_handler {
   if (defined $_[0]) {
     foreach my $kernel (@POE::Kernel::instances) {
-      $kernel->_enqueue_state($kernel, $kernel, '_signal', time(), [ $_[0] ]);
+      $kernel->_enqueue_state($kernel, $kernel, '_signal',
+                              time(), [ $_[0] ]
+                             );
     }
     $SIG{$_[0]} = \&_signal_handler;
   }
@@ -45,17 +51,19 @@ sub new {
                     'sessions' => { },
                     'selects'  => { },
                     'states'   => [ ],
+                    'signals'  => { },
                    }, $type;
                                         # these can't be up in the main bless?
   $self->{'sel_r'} = new IO::Select() || die $!;
   $self->{'sel_w'} = new IO::Select() || die $!;
   $self->{'sel_e'} = new IO::Select() || die $!;
 
-  my @signals = qw(ILL QUIT BREAK EMT ABRT BUS USR1 INT USR2 ALRM KILL HUP
-                   PIPE SEGV TRAP TERM FPE CHLD SYS);
-  foreach my $signal_name (@signals) {
-    $self->{'signals'}->{$signal_name} = [ ];
-    $SIG{$signal_name} = \&_signal_handler;
+  foreach my $signal (
+    qw(ILL QUIT BREAK EMT ABRT BUS USR1 INT USR2 ALRM KILL HUP PIPE SEGV
+       TRAP TERM FPE CHLD SYS)
+  ) {
+    $self->{'signals'}->{$signal} = [ ];
+    $SIG{$signal} = \&_signal_handler;
   }
 
   push(@POE::Kernel::instances, $self);
@@ -89,6 +97,13 @@ sub _check_session_resources {
 
 sub _dispatch_state {
   my ($self, $session, $source_session, $state, $etc) = @_;
+
+  if ($state eq '_start') {
+    $self->{'sessions'}->{$session} =
+      [ $source_session, [ ], 0, 0, $session, 0 ];
+    push(@{$self->{'sessions'}->{$source_session}->[1]}, $session);
+  }
+
   if (exists $self->{'sessions'}->{$session}) {
     if (($state eq '_stop') && ($session ne $self)) {
                                         # remove the session from its parent
@@ -110,37 +125,46 @@ sub _dispatch_state {
         $self->_dispatch_state($child_session, $old_parent, '_parent', []);
       }
     }
-
-    $self->{'active session'} = $session;
-    $session->_invoke_state($self, $source_session, $state, $etc);
-
-    if ($state eq '_stop') {
-                                        # free lingering signals
-      my @signals = $self->{'signals'};
-      foreach my $signal (@signals) {
-        $self->sig($signal);
-      }
-                                        # free lingering states (if leaking?)
-      my $index = scalar(@{$self->{'states'}});
-      while ($index--) {
-        if ($self->{'states'}->[$index]->[0] eq $session) {
-          splice(@{$self->{'states'}}, $index, 1);
-        }
-      }
-                                        # free lingering selects
-      my @handles = keys(%{$self->{'selects'}});
-      foreach my $handle (@handles) {
-        $self->select($handle);
-      }
-
-      if ($session eq $self) {
-        $self->{'running'} = 0;
-      }
-
-      delete $self->{'sessions'}->{$session};
+    elsif ($state eq '_start') {
+      $self->{'sessions'}->{$session}->[5] = 1;
     }
 
-    $self->{'active session'} = $self;
+    if ($self->{'sessions'}->{$session}->[5]) {
+      my $hold_active_session = $self->{'active session'};
+      $self->{'active session'} = $session;
+      $session->_invoke_state($self, $source_session, $state, $etc);
+      $self->{'active session'} = $hold_active_session;
+
+      if ($state eq '_stop') {
+        $self->{'sessions'}->{$session}->[5] = 0;
+                                        # free lingering signals
+        my @signals = $self->{'signals'};
+        foreach my $signal (@signals) {
+          $self->_internal_sig($session, $signal);
+        }
+                                        # free lingering states (if leaking?)
+        my $index = scalar(@{$self->{'states'}});
+        while ($index--) {
+          if ($self->{'states'}->[$index]->[0] eq $session) {
+            splice(@{$self->{'states'}}, $index, 1);
+          }
+        }
+                                        # free lingering selects
+        my @handles = keys(%{$self->{'selects'}});
+        foreach my $handle (@handles) {
+          $self->_kernel_select($session, $self->{'selects'}->{$handle}->[3]);
+        }
+
+        if ($session eq $self) {
+          $self->{'running'} = 0;
+        }
+
+        delete $self->{'sessions'}->{$session};
+      }
+    }
+    else {
+      warn "session($session) isn't running; can't accept state($state)\n";
+    }
 
     if (exists $self->{'sessions'}->{$session}) {
       $self->_check_session_resources($session);
@@ -204,7 +228,7 @@ sub run {
         scalar(@{$got[2]}) && $self->_dispatch_selects($got[2], 2);
       }
       else {
-        die "select: $!" if ($! && ($! != EINPROGRESS));
+        die "select: $!" if ($! && ($! != EINPROGRESS) && ($! != EINTR));
       }
     }
                                         # otherwise, sleep until next event
@@ -274,11 +298,15 @@ sub session_alloc {
 
   warn "session $session already exists"
     if (exists $self->{'sessions'}->{$session});
-  
-  $self->{'sessions'}->{$session} = [ $active_session, [ ], 0, 0, $session ];
-  push(@{$self->{'sessions'}->{$active_session}->[1]}, $session);
 
-  $self->_enqueue_state($session, $active_session, '_start', time(), []);
+#  $self->{'sessions'}->{$session} =
+#    [ $active_session, [ ], 0, 0, $session, 0 ];
+#  push(@{$self->{'sessions'}->{$active_session}->[1]}, $session);
+#
+#  $self->_enqueue_state($session, $active_session, '_start', time(), []);
+
+  $self->_dispatch_state($session, $active_session, '_start', []);
+  $self->{'active session'} = $active_session;
 }
 
 sub session_free {
@@ -287,9 +315,11 @@ sub session_free {
   warn "session $session doesn't exist"
     unless (exists $self->{'sessions'}->{$session});
 
-  $self->_enqueue_state($session, $self->{'active session'},
-                        '_stop', time(), []
-                       );
+  $self->_dispatch_state($session, $self->{'active session'}, '_stop', []);
+
+#  $self->_enqueue_state($session, $self->{'active session'},
+#                        '_stop', time(), []
+#                       );
 }
 
 #------------------------------------------------------------------------------
@@ -353,9 +383,8 @@ sub _internal_select {
 
 #------------------------------------------------------------------------------
 
-sub select {
-  my ($self, $handle, $state_r, $state_w, $state_e) = @_;
-  my $active_session = $self->{'active session'};
+sub _kernel_select {
+  my ($self, $session, $handle, $state_r, $state_w, $state_e) = @_;
                                         # condition the handle
   if ($state_r || $state_w || $state_e) {
     binmode($handle);
@@ -364,16 +393,28 @@ sub select {
   }
 
   unless (exists $self->{'selects'}->{$handle}) {
-    $self->{'selects'}->{$handle} = [ [], [], [] ];
+    $self->{'selects'}->{$handle} = [ [], [], [], $handle ];
   }
 
-  $self->_internal_select($active_session, $handle, $state_r, 'sel_r', 0);
-  $self->_internal_select($active_session, $handle, $state_w, 'sel_w', 1);
-  $self->_internal_select($active_session, $handle, $state_e, 'sel_e', 2);
+  $self->_internal_select($session, $handle, $state_r, 'sel_r', 0);
+  $self->_internal_select($session, $handle, $state_w, 'sel_w', 1);
+  $self->_internal_select($session, $handle, $state_e, 'sel_e', 2);
 
-  unless ($state_r || $state_w || $state_e) {
+  unless (@{$self->{'selects'}->{$handle}->[0]} ||
+          @{$self->{'selects'}->{$handle}->[1]} ||
+          @{$self->{'selects'}->{$handle}->[2]}
+  ) {
     delete $self->{'selects'}->{$handle};
   }
+}
+
+#------------------------------------------------------------------------------
+
+sub select {
+  my ($self, $handle, $state_r, $state_w, $state_e) = @_;
+  $self->_kernel_select($self->{'active session'}, $handle,
+                        $state_r, $state_w, $state_e
+                       );
 }
 
 #------------------------------------------------------------------------------
@@ -388,15 +429,22 @@ sub _invoke_state {
   if ($state eq '_signal') {
     my $signal_name = $etc->[0];
 
+    if ($signal_name eq 'ZOMBIE') {
+      print "Kernel caught SIGZOMBIE.\n";
+    }
     foreach my $session (@{$self->{'signals'}->{$signal_name}}) {
       $self->_dispatch_state($session->[0], $self, $session->[1],
                              [ $signal_name ]
                             );
+      $self->_enqueue_state($session->[0], $self, $session->[1],
+                            time(), [ $signal_name ]
+                           );
     }
 
     if (grep(/^$signal_name$/, @_terminal_signals)) {
       my @sessions = keys(%{$self->{'sessions'}});
       foreach my $session (@sessions) {
+        next if ($session eq $self);
         $self->session_free($self->{'sessions'}->{$session}->[4])
       }
       $self->session_free($self);
@@ -406,32 +454,38 @@ sub _invoke_state {
 
 #------------------------------------------------------------------------------
 
-sub sig {
-  my ($self, $signal, $state) = @_;
-  my $active_session = $self->{'active session'};
+sub _internal_sig {
+  my ($self, $session, $signal, $state) = @_;
 
   if ($signal) {
     my $written = 0;
     foreach my $signal (@{$self->{'signals'}->{$signal}}) {
-      if ($signal->[0] eq $active_session) {
+      if ($signal->[0] eq $session) {
         $written = 1;
         $signal->[1] = $state;
         last;
       }
     }
     unless ($written) {
-      push(@{$self->{'signals'}->{$signal}}, [ $active_session, $state ]);
+      push(@{$self->{'signals'}->{$signal}}, [ $session, $state ]);
     }
   }
   else {
     my $index = scalar(@{$self->{'signals'}->{$signal}});
     while ($index--) {
-      if ($self->{'signals'}->{$signal}->[$index]->[0] eq $active_session) {
+      if ($self->{'signals'}->{$signal}->[$index]->[0] eq $session) {
         splice(@{$self->{'signals'}->{$signal}}, $index, 1);
         last;
       }
     }
   }
+}
+
+#------------------------------------------------------------------------------
+
+sub sig {
+  my ($self, $signal, $state) = @_;
+  $self->_internal_sig($self->{'active session'}, $signal, $state);
 }
 
 #------------------------------------------------------------------------------
