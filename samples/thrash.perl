@@ -1,17 +1,19 @@
 #!perl -w -I..
 # $Id$
 
-# It is said that IO::* leaks memory.  This program creates a server
-# session and an infinitude of clients in order to exercise POE (and
-# IO) for potential long-term problems.
+# This program creates a server session and an infinitude of clients
+# in order to exercise POE for potential long-term problems.
 
-# This program is also something of a benchmark.  Every ten seconds
-# it displays the average connections per second.
+# This program is also something of a benchmark.  Every ten seconds it
+# displays the average number of connections per second.
 
 use strict;
 
-use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line);
-use IO::Socket::INET;
+use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line
+           Wheel::SocketFactory
+          );
+
+sub DEBUG () { 0 }
 
 my $server_port = 12345;
 
@@ -19,20 +21,26 @@ my $server_port = 12345;
 
 package Client;
 
+use strict;
+use Socket;
+sub DEBUG () { 0 }
+
 sub new {
   my ($type, $kernel, $serial) = @_;
   my $self = bless { 'serial' => $serial }, $type;
 
-  new POE::Session($kernel, $self, [ qw(_start _stop receive error signals) ]);
+  new POE::Session( $kernel,
+                    $self, [ qw(_start _stop receive error connected signals) ]
+                  );
 
-#  print "\t\t\tclient $self->{'serial'} created\n";
+  DEBUG && print "\t\t\tclient $self->{'serial'} created\n";
 
   undef;
 }
 
 sub DESTROY {
   my $self = shift;
-#  print "\t\t\tclient $self->{'serial'} destroyed\n";
+  DEBUG && print "\t\t\tclient $self->{'serial'} destroyed\n";
 }
 
 sub _start {
@@ -40,47 +48,53 @@ sub _start {
 
   $kernel->sig('INT', 'signals');
 
-  my $connector = new IO::Socket::INET
-    ( 'PeerAddr' => "127.0.0.1:$server_port",
-      'Reuse'    => 'yes',
-      'Proto'    => 'tcp',
+  $namespace->{'wheel'} = new POE::Wheel::SocketFactory
+    ( $kernel,
+      SocketDomain   => AF_INET,
+      SocketType     => SOCK_STREAM,
+      SocketProtocol => 'tcp',
+      RemoteAddress  => '127.0.0.1',
+      RemotePort     => $server_port,
+      SuccessState   => 'connected',
+      FailureState   => 'error',
     );
-
-  if ($connector) {
-    $namespace->{'wheel'} = new POE::Wheel::ReadWrite
-      ( $kernel,
-        'Handle' => $connector,
-        'Driver' => new POE::Driver::SysRW(),
-        'Filter' => new POE::Filter::Line(),
-        'InputState' => 'receive',
-        'ErrorState' => 'error',
-      );
-#    print "\t\t\tclient $self->{'serial'} started\n";
-  }
-  else {
-    warn "\t\t\tclient $self->{'serial'} could not connect: $!\n";
-  }
 }
 
 sub _stop {
   my ($self, $kernel, $namespace) = @_;
-#  print "\t\t\tclient $self->{'serial'} stopped\n";
+  DEBUG && print "\t\t\tclient $self->{'serial'} stopped\n";
+  delete $namespace->{'wheel'};
+}
+
+sub connected {
+  my ($self, $kernel, $namespace, $from, $socket) = @_;
+
+  DEBUG && print "\t\t\tclient $self->{'serial'} connected\n";
+
+  $namespace->{'wheel'} = new POE::Wheel::ReadWrite
+    ( $kernel,
+      'Handle' => $socket,
+      'Driver' => new POE::Driver::SysRW(),
+      'Filter' => new POE::Filter::Line(),
+      'InputState' => 'receive',
+      'ErrorState' => 'error',
+    );
 }
 
 sub receive {
   my ($self, $kernel, $namespace, $from, $line) = @_;
-#  print "\t\t\tclient $self->{'serial'} received $line\n";
+  DEBUG && print "\t\t\tclient $self->{'serial'} received $line\n";
 }
 
 sub error {
   my ($self, $k, $namespace, $from, $op, $errnum, $errstr) = @_;
-#  print "\t\t\tclient $self->{'serial'} $op error $errnum: $errstr\n";
+  DEBUG && print "\t\t\tclient $self->{'serial'} $op error $errnum: $errstr\n";
   delete $namespace->{'wheel'};
 }
 
 sub signals {
   my ($self, $kernel, $namespace, $from, $signal_name) = @_;
-#  print "\t\t\t***** $namespace caught SIG$signal_name\n";
+  DEBUG && print "\t\t\t***** $namespace caught SIG$signal_name\n";
   return (1) if ($signal_name eq 'INT');
 }
 
@@ -88,6 +102,9 @@ sub signals {
 # manage a pool of clients
 
 package ClientPool;
+
+use strict;
+sub DEBUG () { 0 }
 
 sub new {
   my ($type, $kernel) = @_;
@@ -97,14 +114,14 @@ sub new {
                                    ]
                   );
 
-#  print "\t\t$self created\n";
+  DEBUG && print "\t\t$self created\n";
 
   undef;
 }
 
 sub DESTROY {
   my $self = shift;
-#  print "\t\t$self destroyed\n";
+  DEBUG && print "\t\t$self destroyed\n";
 }
 
 sub _start {
@@ -121,13 +138,13 @@ sub _start {
 
   $kernel->post($namespace, 'initialize');
 
-#  print "\t\t$self started\n";
+  DEBUG && print "\t\t$self started\n";
 }
 
 sub _stop {
   my ($self, $kernel, $namespace) = @_;
   $kernel->signal('server', 'QUIT');
-#  print "\t\t$self stopped\n";
+  DEBUG && print "\t\t$self stopped\n";
 }
 
 # This kludge works around the fact that "new IO::Socket::INET" blocks
@@ -151,7 +168,7 @@ sub initialize {
 sub signals {
   my ($self, $kernel, $namespace, $from, $signal_name) = @_;
   $self->{'status'} = 'shutting down';
-#  print "\t\t***** $namespace caught SIG$signal_name\n";
+  DEBUG && print "\t\t***** $namespace caught SIG$signal_name\n";
   return ($signal_name ne 'INT');
 }
 
@@ -160,7 +177,7 @@ sub _child {
 
   $self->{'children'}--;
 
-#  print "\t\tSERVER POOL CHILDREN: $self->{'children'}\n";
+  DEBUG && print "\t\tSERVER POOL CHILDREN: $self->{'children'}\n";
 
   if ($self->{'status'} eq 'running') {
     $self->{'children'}++;
@@ -175,6 +192,7 @@ sub _child {
           $self->{'bench count'} / $elapsed, "\n";
     $self->{'bench count'} = 0;
     $self->{'bench start'} = time();
+    exit if (time() - $^T >= 60.0);
   }
 }
 
@@ -183,26 +201,31 @@ sub _child {
 
 package ServerSession;
 
-sub new {
-  my ($type, $kernel, $handle) = @_;
-  my $self = bless { 'handle' => $handle }, $type;
+use strict;
+use Socket;
+sub DEBUG () { 0 }
 
-  $self->{'peer host'} = $handle->peerhost();
-  $self->{'peer port'} = $handle->peerport();
+sub new {
+  my ($type, $kernel, $handle, $peer_host, $peer_port) = @_;
+
+  my $self = bless { 'handle' => $handle,
+                     'peer host' => $peer_host,
+                     'peer port' => $peer_port,
+                   }, $type;
 
   new POE::Session($kernel, $self, [ qw(_start _stop receive flushed error
                                         signals)
                                    ]
                   );
 
-#  print "\t$self created\n";
+  DEBUG && print "\t$self created\n";
 
   undef;
 }
 
 sub DESTROY {
   my $self = shift;
-#  print "\t$self destroyed\n";
+  DEBUG && print "\t$self destroyed\n";
 }
 
 sub _start {
@@ -215,43 +238,44 @@ sub _start {
       'Handle' => delete $self->{'handle'},
       'Driver' => new POE::Driver::SysRW(),
       'Filter' => new POE::Filter::Line(),
-      'InputState' => 'receive',
-      'ErrorState' => 'error',
+      'InputState'   => 'receive',
+      'ErrorState'   => 'error',
       'FlushedState' => 'flushed',
     );
 
   $namespace->{'wheel'}->put
-    ( "hi, $self->{'peer host'}:$self->{'peer port'}, at " . time()
+    ( "hi, " . inet_ntoa($self->{'peer host'}) .
+      ":$self->{'peer port'}, at " . time()
     );
 
-#  print "\t$namespace: started\n";
+  DEBUG && print "\t$namespace: started\n";
 }
 
 sub _stop {
   my ($self, $kernel, $namespace) = @_;
-#  print "\t$self stopped\n";
+  DEBUG && print "\t$self stopped\n";
 }
 
 sub receive {
   my ($self, $kernel, $namespace, $from, $line) = @_;
-#  print "\t$namespace: received $line\n";
+  DEBUG && print "\t$namespace: received $line\n";
 }
 
 sub error {
   my ($self, $k, $namespace, $from, $op, $errnum, $errstr) = @_;
-#  print "\t$namespace: $op error $errnum: $errstr\n";
+  DEBUG && print "\t$namespace: $op error $errnum: $errstr\n";
   delete $namespace->{'wheel'};
 }
 
 sub flushed {
   my ($self, $kernel, $namespace, $from) = @_;
-#  print "\t$namespace: flushed\n";
+  DEBUG && print "\t$namespace: flushed\n";
   delete $namespace->{'wheel'};
 }
 
 sub signals {
   my ($self, $kernel, $namespace, $from, $signal_name) = @_;
-#  print "\t***** $namespace caught SIG$signal_name\n";
+  DEBUG && print "\t***** $namespace caught SIG$signal_name\n";
   return ($signal_name eq 'INT');
 }
 
@@ -260,6 +284,10 @@ sub signals {
 
 package Server;
 
+use strict;
+use Socket;
+sub DEBUG () { 0 }
+
 sub new {
   my ($type, $kernel) = @_;
   my $self = bless { }, $type;
@@ -267,14 +295,14 @@ sub new {
   new POE::Session($kernel, $self, [ qw(_start accept accept_error signals) ]
                   );
 
-#  print "$self created\n";
+  DEBUG && print "$self created\n";
 
   undef;
 }
 
 sub DESTROY {
   my $self = shift;
-#  print "$self destroyed\n";
+  DEBUG && print "$self destroyed\n";
 }
 
 sub _start {
@@ -283,46 +311,38 @@ sub _start {
   $kernel->alias_set('server');
   $kernel->sig('INT', 'signals');
 
-  my $listener = new IO::Socket::INET
-    ( 'LocalPort' => $server_port,
-      'Listen'    => 5,
-      'Proto'     => 'tcp',
-      'Reuse'     => 'yes',
+  $namespace->{'wheel'} = new POE::Wheel::SocketFactory
+    ( $kernel,
+      Reuse          => 'yes',
+      SocketDomain   => AF_INET,
+      SocketType     => SOCK_STREAM,
+      SocketProtocol => 'tcp',
+      BindAddress    => '127.0.0.1',
+      BindPort       => $server_port,
+      ListenQueue    => 5,
+      SuccessState   => 'accept',
+      FailureState   => 'accept_error',
     );
-
-  if ($listener) {
-    $namespace->{'wheel'} = new POE::Wheel::ListenAccept
-      ( $kernel,
-        'Handle'      => $listener,
-        'AcceptState' => 'accept',
-        'ErrorState'  => 'accept_error',
-      );
-                                        # start client pool, only if server ok
-    new ClientPool($kernel);
-  }
-  else {
-    warn "could not start thrash server: $!\n";
-  }
 }
 
 sub _stop {
   my ($self, $kernel, $namespace) = @_;
-#  print "$self stopped\n";
+  DEBUG && print "$self stopped\n";
 }
 
 sub accept_error {
   my ($self, $kernel, $namespace, $from, $op, $errnum, $errstr) = @_;
-#  print "$op error $errnum: $errstr\n";
+  print "$op error $errnum: $errstr\n";
 }
 
 sub accept {
-  my ($self, $kernel, $namespace, $from, $accepted_handle) = @_;
-  new ServerSession($kernel, $accepted_handle);
+  my ($self, $kernel, $namespace, $from, $accepted_handle, $host, $port) = @_;
+  new ServerSession($kernel, $accepted_handle, $host, $port);
 }
 
 sub signals {
   my ($self, $kernel, $namespace, $from, $signal_name) = @_;
-#  print "***** $namespace caught SIG$signal_name\n";
+  DEBUG && print "***** $namespace caught SIG$signal_name\n";
   return ($signal_name eq 'INT');
 }
 
@@ -333,6 +353,7 @@ package main;
 my $kernel = new POE::Kernel();
 
 new Server($kernel);
+new ClientPool($kernel);
 
 $kernel->run();
 
