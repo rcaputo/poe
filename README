@@ -150,18 +150,18 @@ tests themselves.  For a more accurate determination of POE's speed,
 balance the CPU seconds against the test machine's hardware and
 operating system.
 
-** POE 0.1501 on FreeBSD (dngor)
+** POE 0.1502 on FreeBSD (dngor)
 
 Hardware: Athlon-1000; 512MB RAM
 System  : FreeBSD 4.3-STABLE
 Perl    : 5.6.1
 Gtk     : 0.7008
-Tk      : 800.022
+Tk      : 800.023
 Event   : 0.83
 IO::Pty : 0.01
 
 All tests successful.
-Files=26, Tests=559, 85 wallclock secs ( 7.80 cusr +  0.76 csys =  8.56 CPU)
+Files=26, Tests=578, 84 wallclock secs ( 7.73 cusr +  0.66 csys =  8.40 CPU)
 
 ** POE 0.1501 on Mac OS X (Jotham)
 
@@ -250,41 +250,43 @@ The "Ran" and "Total" numbers are breakpoints that perl's debugger can
 step through.  The "Covered" number is the percentage of breakpoints
 that were actually stepped through during testing.
 
-These results are for version 0.15.
+These results are for version 0.1502.
 
   Source File                         =   Ran / Total = Covered
   POE.pm                              =    23 /    24 =  95.83%
   POE/Component.pm                    =     5 /     5 = 100.00%
   POE/Component/Server/TCP.pm         =    32 /    32 = 100.00%
   POE/Driver.pm                       =     5 /     5 = 100.00%
-  POE/Driver/SysRW.pm                 =    45 /    54 =  83.33%
+  POE/Driver/SysRW.pm                 =    47 /    54 =  87.04%
   POE/Filter.pm                       =     5 /     5 = 100.00%
   POE/Filter/Block.pm                 =    51 /    51 = 100.00%
-  POE/Filter/Grep.pm                  =    23 /    31 =  74.19%
-  POE/Filter/HTTPD.pm                 =    18 /    90 =  20.00%
+  POE/Filter/Grep.pm                  =    24 /    31 =  77.42%
+  POE/Filter/HTTPD.pm                 =    18 /    88 =  20.45%
   POE/Filter/Line.pm                  =    86 /   114 =  75.44%
   POE/Filter/Map.pm                   =    22 /    29 =  75.86%
   POE/Filter/RecordBlock.pm           =    24 /    48 =  50.00%
   POE/Filter/Reference.pm             =    81 /    84 =  96.43%
   POE/Filter/Stackable.pm             =    31 /    40 =  77.50%
   POE/Filter/Stream.pm                =    21 /    21 = 100.00%
-  POE/Kernel.pm                       =   869 /  1120 =  77.59%
+  POE/Kernel.p.pm                     =     1 /     1 = 100.00%
+  POE/Kernel.pm                       =   869 /  1121 =  77.52%
   POE/Kernel/Event.pm                 =     1 /     9 =  11.11%
   POE/Kernel/Gtk.pm                   =     2 /    17 =  11.76%
   POE/Kernel/Select.pm                =     6 /    12 =  50.00%
   POE/Kernel/Tk.pm                    =     2 /    19 =  10.53%
   POE/NFA.pm                          =   114 /   203 =  56.16%
-  POE/Pipe/OneWay.pm                  =    21 /    39 =  53.85%
-  POE/Pipe/TwoWay.pm                  =    23 /    42 =  54.76%
+  POE/Pipe.pm                         =    44 /    60 =  73.33%
+  POE/Pipe/OneWay.pm                  =    18 /    37 =  48.65%
+  POE/Pipe/TwoWay.pm                  =    21 /    42 =  50.00%
   POE/Preprocessor.pm                 =   108 /   186 =  58.06%
-  POE/Session.pm                      =   177 /   227 =  77.97%
+  POE/Session.pm                      =   177 /   226 =  78.32%
   POE/Wheel.pm                        =    11 /    11 = 100.00%
   POE/Wheel/FollowTail.pm             =    90 /   108 =  83.33%
   POE/Wheel/ListenAccept.pm           =    51 /    65 =  78.46%
-  POE/Wheel/ReadWrite.pm              =   135 /   222 =  60.81%
-  POE/Wheel/Run.pm                    =   176 /   247 =  71.26%
-  POE/Wheel/SocketFactory.pm          =   205 /   249 =  82.33%
-  All Told                            =  2463 /  3409 =  72.25%
+  POE/Wheel/ReadWrite.pm              =   152 /   228 =  66.67%
+  POE/Wheel/Run.pm                    =   176 /   250 =  70.40%
+  POE/Wheel/SocketFactory.pm          =   206 /   249 =  82.73%
+  All Told                            =  2524 /  3475 =  72.63%
 
 Thanks for reading!
 
