@@ -221,7 +221,9 @@ BEGIN {
   defined &TRACE_DEFAULT or eval "sub TRACE_DEFAULT () { $trace_default }";
 
   define_trace
-    qw(EVENTS GARBAGE PROFILE QUEUE REFCOUNT RETURNS SELECT SIGNALS ADHOC);
+    qw( EVENTS GARBAGE PROFILE QUEUE REFCOUNT RETURNS SELECT SIGNALS ADHOC
+        RELATIONS
+      );
 
   # See the notes for TRACE_DEFAULT, except read ASSERT and assert
   # where you see TRACE and trace.
@@ -341,7 +343,6 @@ sub _data_extref_remove {
   $self->_data_ses_refcount_dec($session);
   unless (keys %{$kr_extra_refs{$session}}) {
     delete $kr_extra_refs{$session};
-    $self->_data_ses_collect_garbage($session);
   }
 }
 
@@ -418,7 +419,6 @@ sub _data_sid_allocate {
 
 sub _data_sid_set {
   my ($self, $sid, $session) = @_;
-  #cluck "+++++ $session = $sid";
   $kr_session_ids{$sid} = $session;
   $kr_session_to_id{$session} = $sid;
 }
@@ -428,7 +428,6 @@ sub _data_sid_set {
 sub _data_sid_clear {
   my ($self, $session) = @_;
   my $sid = delete $kr_session_to_id{$session};
-  #cluck "----- $session = $sid";
   confess "internal inconsistency" unless defined $sid;
   delete $kr_session_ids{$sid};
 }
@@ -1603,6 +1602,7 @@ sub _data_ses_allocate {
   if (defined $parent) {
     confess "parent $parent does not exist"
       unless exists $kr_sessions{$parent};
+    TRACE_RELATIONS and warn "<pc> session $session has parent $parent";
     $kr_sessions{$parent}->[SS_CHILDREN]->{$session} = $session;
     $self->_data_ses_refcount_inc($parent);
   }
@@ -1636,6 +1636,8 @@ sub _data_ses_free {
       unless exists $kr_sessions{$parent};
     confess "internal inconsistency ($parent/$session)"
       unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
+    undef $kr_sessions{$session}->[SS_PARENT];
+    TRACE_RELATIONS and cluck "<pc> removed $session from $parent";
     $self->_data_ses_refcount_dec($parent);
 
     # Move the departing session's children to its parent.
@@ -1691,13 +1693,17 @@ sub _data_ses_move_child {
 
   # Remove the session from its old parent.
   delete $kr_sessions{$old_parent}->[SS_CHILDREN]->{$session};
+  TRACE_RELATIONS and warn "<pc> removed $session from $old_parent";
   $self->_data_ses_refcount_dec($old_parent);
 
   # Change the session's parent.
   $kr_sessions{$session}->[SS_PARENT] = $new_parent;
+  TRACE_RELATIONS and warn "<pc> changed parent of $session to $new_parent";
 
   # Add the current session to the new parent's children.
   $kr_sessions{$new_parent}->[SS_CHILDREN]->{$session} = $session;
+  TRACE_RELATIONS and warn "<pc> added $session to $new_parent";
+
   $self->_data_ses_refcount_inc($new_parent);
 }
 
@@ -3459,6 +3465,8 @@ sub refcount_decrement {
   }
 
   my $refcount = $self->_data_extref_dec($session, $tag);
+  $self->_data_ses_collect_garbage($session);
+
   # trace it here
   return $refcount;
 }
