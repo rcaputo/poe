@@ -302,7 +302,8 @@ sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
   $self->_data_ses_refcount_inc($session);
   my $refcount = ++$kr_extra_refs{$session}->{$tag};
-  TRACE_ADHOC and warn "<er> incremented extref ``$tag'' (now $refcount) for $session";
+  TRACE_ADHOC and
+    warn "<er> incremented extref ``$tag'' (now $refcount) for $session";
   return $refcount;
 }
 
@@ -316,7 +317,8 @@ sub _data_extref_dec {
     unless exists $kr_extra_refs{$session}->{$tag};
   $self->_data_ses_refcount_dec($session);
   my $refcount = --$kr_extra_refs{$session}->{$tag};
-  TRACE_ADHOC and warn "<er> decremented extref ``$tag'' (now $refcount) for $session";
+  TRACE_ADHOC and
+    warn "<er> decremented extref ``$tag'' (now $refcount) for $session";
   $self->_data_extref_remove($session, $tag) unless $refcount;
   return $refcount;
 }
@@ -598,7 +600,8 @@ sub _data_sig_free_terminated_sessions {
      ) {
     foreach my $dead_session (@kr_signaled_sessions) {
       next unless $self->_data_ses_exists($dead_session);
-      TRACE_ADHOC and warn "<sg> stopping signaled session ", $dead_session->ID;
+      TRACE_ADHOC and
+        warn "<sg> stopping signaled session ", $dead_session->ID;
       $self->_data_ses_stop($dead_session);
     }
   }
@@ -1125,9 +1128,9 @@ sub _data_handle_remove {
 
       foreach ($kr_queue->remove_items($my_select)) {
         my ($priority, $time, $event) = @$_;
-        $self->_data_ses_count_event_dec( $event->[EV_SESSION],
-                                          $event->[EV_SOURCE]
-                                        );
+        $self->_data_ev_refcount_dec( $event->[EV_SESSION],
+                                      $event->[EV_SOURCE]
+                                    );
         $kr_fno_vec->[FVC_EV_COUNT]--;
 
         if (ASSERT_REFCOUNT) {
@@ -1561,77 +1564,10 @@ sub _data_ses_allocate {
 
   # Manage parent/child relationship.
   if (defined $parent) {
-    confess "parent $parent does not exist" unless exists $kr_sessions{$parent};
+    confess "parent $parent does not exist"
+      unless exists $kr_sessions{$parent};
     $kr_sessions{$parent}->[SS_CHILDREN]->{$session} = $session;
     $self->_data_ses_refcount_inc($parent);
-  }
-}
-
-### Remove an old session.  This clears things from the session that
-### don't affect its reference count.  Then it removes the session
-### from its parent, if there is one.
-
-sub _data_ses_free {
-  my ($self, $session) = @_;
-  confess "internal inconsistency" unless exists $kr_sessions{$session};
-
-  TRACE_ADHOC and warn "<fr> freeing session $session";
-
-  # Manage parent/child relationships.
-
-  my $parent = $kr_sessions{$session}->[SS_PARENT];
-  my @children = $self->_data_ses_get_children($session);
-  if (defined $parent) {
-    confess "session is its own parent" if $parent == $session;
-    confess
-      ( $self->_data_alias_loggable($session), " isn't a child of ",
-        $self->_data_alias_loggable($parent), " (it's a child of ",
-        $self->_data_alias_loggable($self->_data_ses_get_parent($session)),
-        ")"
-      ) unless $self->_data_ses_is_child($parent, $session);
-
-    # Remove the departing session from its parent.
-
-    confess "internal inconsistency ($parent)"
-      unless exists $kr_sessions{$parent};
-    confess "internal inconsistency ($parent/$session)"
-      unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
-    $self->_data_ses_refcount_dec($parent);
-
-    # Move the departing session's children to its parent.
-
-    foreach (@children) {
-      $self->_data_ses_move_child($_, $parent)
-    }
-  }
-  else {
-    confess "no parent to give children to" if @children;
-  }
-
-  # Things which do not hold reference counts.
-
-  $self->_data_sid_clear($session);            # Remove from SID tables.
-  $self->_data_sig_clear_session($session);    # Remove all leftover signals.
-
-  # Things which dohold reference counts.
-
-  $self->_data_alias_clear_session($session);  # Remove all leftover aliases.
-  $self->_data_extref_clear_session($session); # Remove all leftover extrefs.
-  $self->_data_handle_clear_session($session); # Remove all leftover handles.
-  $self->_data_ev_clear_session($session);     # Remove all leftover events.
-
-  # Remove the session itself.
-
-  delete $kr_sessions{$session};
-
-  # GC the parent, if there is one.
-  if (defined $parent) {
-    $self->_data_ses_collect_garbage($parent);
-  }
-
-  # Stop the main loop if everything is gone.
-  unless (keys %kr_sessions) {
-    $self->loop_halt();
   }
 }
 
@@ -2069,9 +2005,15 @@ sub _dispatch_event {
        $file, $line, $seq
      ) = @_;
 
-#  confess "undefined dest session" unless defined $session;
-#  confess "undefined source session" unless defined $source_session;
-  TRACE_ADHOC and warn "<ev> Dispatching event ``$event'' (@$etc) from $source_session to $session\n";
+  ASSERT_ADHOC and do {
+    confess "<ev> undefined dest session" unless defined $session;
+    confess "<ev> undefined source session" unless defined $source_session;
+  };
+
+  TRACE_ADHOC and
+    warn( "<ev> Dispatching event ``$event'' (@$etc) ",
+          "from $source_session to $session\n"
+        );
 
   my $local_event = $event;
 
@@ -2293,7 +2235,64 @@ sub _dispatch_event {
   # garbage collection necessary since the session's stopped.
 
   elsif ($type & ET_STOP) {
-    $self->_data_ses_free($session);
+    TRACE_ADHOC and warn "<fr> freeing session $session";
+
+    # Manage parent/child relationships.
+
+    my $parent = $kr_sessions{$session}->[SS_PARENT];
+    my @children = $self->_data_ses_get_children($session);
+    if (defined $parent) {
+      confess "session is its own parent" if $parent == $session;
+      confess
+        ( $self->_data_alias_loggable($session), " isn't a child of ",
+          $self->_data_alias_loggable($parent), " (it's a child of ",
+          $self->_data_alias_loggable($self->_data_ses_get_parent($session)),
+          ")"
+        ) unless $self->_data_ses_is_child($parent, $session);
+
+      # Remove the departing session from its parent.
+
+      confess "internal inconsistency ($parent)"
+        unless exists $kr_sessions{$parent};
+      confess "internal inconsistency ($parent/$session)"
+        unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
+      $self->_data_ses_refcount_dec($parent);
+
+      # Move the departing session's children to its parent.
+
+      foreach (@children) {
+        $self->_data_ses_move_child($_, $parent)
+      }
+    }
+    else {
+      confess "no parent to give children to" if @children;
+    }
+
+    # Things which do not hold reference counts.
+
+    $self->_data_sid_clear($session);            # Remove from SID tables.
+    $self->_data_sig_clear_session($session);    # Remove all leftover signals.
+
+    # Things which dohold reference counts.
+
+    $self->_data_alias_clear_session($session);  # Remove all leftover aliases.
+    $self->_data_extref_clear_session($session); # Remove all leftover extrefs.
+    $self->_data_handle_clear_session($session); # Remove all leftover handles.
+    $self->_data_ev_clear_session($session);     # Remove all leftover events.
+
+    # Remove the session itself.
+
+    delete $kr_sessions{$session};
+
+    # GC the parent, if there is one.
+    if (defined $parent) {
+      $self->_data_ses_collect_garbage($parent);
+    }
+
+    # Stop the main loop if everything is gone.
+    unless (keys %kr_sessions) {
+      $self->loop_halt();
+    }
   }
 
   # Step 3: Check for death by terminal signal.
@@ -3106,9 +3105,11 @@ sub select_read {
   my ($self, $handle, $event_name) = @_;
 
   ASSERT_USAGE and do {
-    confess "undefined filehandle in select_read()" unless defined $handle;
-    confess "invalid filehandle in select_read()" unless defined fileno($handle);
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+    confess "<sl> undefined filehandle in select_read()"
+      unless defined $handle;
+    confess "<sl> invalid filehandle in select_read()"
+      unless defined fileno($handle);
+    carp( "<sl> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a file watcher to it"
         ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
