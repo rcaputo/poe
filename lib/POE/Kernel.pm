@@ -285,7 +285,7 @@ sub ET_SELECT () { 0x0400 }
 
 # Queues with this many events (or more) are considered to be "large",
 # and different strategies are used to find elements within them.
-sub LARGE_QUEUE_SIZE () { 32 }
+sub LARGE_QUEUE_SIZE () { 512 }
 
 #------------------------------------------------------------------------------
 # Debugging and configuration constants.  Uses two macros to assist.
