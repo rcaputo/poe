@@ -91,6 +91,11 @@ sub receive {
   my ($heap, $request) = @_[HEAP, ARG0];
 
   DEBUG && print "Received a request from $heap->{host} : $heap->{port}\n";
+warn $request;
+  if (ref($request) eq 'HTTP::Response') {
+    $heap->{wheel}->put($request);
+    return;
+  }
 
 #  print "GOT ".$request->content()."\n";
                                         # create a response for the request
