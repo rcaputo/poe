@@ -170,10 +170,15 @@ sub condition_unix_address {
 sub _define_accept_state {
   my $self = shift;
 
+  # We do these stupid closure tricks to avoid putting $self in it
+  # directly.  If you include $self in one of the state() closures,
+  # the component will fail to shut down properly: there will be a
+  # circular definition in the closure holding $self alive.
+
   my $domain = $map_family_to_domain{ $self->[MY_SOCKET_DOMAIN] };
   $domain = '(undef)' unless defined $domain;
-  my $success_event = \$self->[MY_EVENT_SUCCESS];
-  my $failure_event = \$self->[MY_EVENT_FAILURE];
+  my $event_success = \$self->[MY_EVENT_SUCCESS];
+  my $event_failure = \$self->[MY_EVENT_FAILURE];
   my $unique_id     =  $self->[MY_UNIQUE_ID];
 
   $poe_kernel->state
@@ -203,14 +208,14 @@ sub _define_accept_state {
           else {
             die "sanity failure: socket domain == $domain";
           }
-          $k->call( $me, $$success_event,
+          $k->call( $me, $$event_success,
                     $new_socket, $peer_addr, $peer_port,
                     $unique_id
                   );
         }
         elsif ($! != EWOULDBLOCK) {
-          $$failure_event &&
-            $k->call( $me, $$failure_event,
+          $$event_failure &&
+            $k->call( $me, $$event_failure,
                       'accept', ($!+0), $!, $unique_id
                     );
         }
@@ -230,12 +235,23 @@ sub _define_accept_state {
 sub _define_connect_state {
   my $self = shift;
 
+  # We do these stupid closure tricks to avoid putting $self in it
+  # directly.  If you include $self in one of the state() closures,
+  # the component will fail to shut down properly: there will be a
+  # circular definition in the closure holding $self alive.
+
   my $domain = $map_family_to_domain{ $self->[MY_SOCKET_DOMAIN] };
   $domain = '(undef)' unless defined $domain;
-  my $success_event   = \$self->[MY_EVENT_SUCCESS];
-  my $failure_event   = \$self->[MY_EVENT_FAILURE];
+  my $event_success   = \$self->[MY_EVENT_SUCCESS];
+  my $event_failure   = \$self->[MY_EVENT_FAILURE];
   my $unique_id       =  $self->[MY_UNIQUE_ID];
   my $socket_selected = \$self->[MY_SOCKET_SELECTED];
+
+  my $socket_handle   = \$self->[MY_SOCKET_HANDLE];
+  my $state_accept    = \$self->[MY_STATE_ACCEPT];
+  my $state_connect   = \$self->[MY_STATE_CONNECT];
+  my $mine_success    = \$self->[MY_MINE_SUCCESS];
+  my $mine_failure    = \$self->[MY_MINE_FAILURE];
 
   $poe_kernel->state
     ( $self->[MY_STATE_CONNECT] = ( ref($self) .
@@ -247,13 +263,19 @@ sub _define_connect_state {
 
         # Grab some values and stop watching the socket.
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-        $self->_shutdown();
+
+	_shutdown(
+	  $socket_selected, $socket_handle,
+	  $state_accept, $state_connect,
+	  $mine_success, $event_success,
+	  $mine_failure, $event_failure,
+	);
 
         # Throw a failure if the connection failed.
         $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
         if ($!) {
-          (defined $$failure_event) and
-            $k->call( $me, $$failure_event,
+          (defined $$event_failure) and
+            $k->call( $me, $$event_failure,
                       'connect', ($!+0), $!, $unique_id
                     );
           return;
@@ -262,8 +284,8 @@ sub _define_connect_state {
         # Get the remote address, or throw an error if that fails.
         my $peer = getpeername($handle);
         if ($!) {
-          (defined $$failure_event) and
-            $k->call( $me, $$failure_event,
+          (defined $$event_failure) and
+            $k->call( $me, $$event_failure,
                       'getpeername', ($!+0), $!, $unique_id
                     );
           return;
@@ -312,7 +334,7 @@ sub _define_connect_state {
         }
 
         # Tell the session it went okay.  Also let go of the socket.
-        $k->call( $me, $$success_event,
+        $k->call( $me, $$event_success,
                   $handle, $peer_addr, $peer_port, $unique_id
                 );
       }
@@ -331,13 +353,19 @@ sub _define_connect_state {
 
           # Grab some values and stop watching the socket.
           my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          $self->_shutdown();
+
+	  _shutdown(
+	    $socket_selected, $socket_handle,
+	    $state_accept, $state_connect,
+	    $mine_success, $event_success,
+	    $mine_failure, $event_failure,
+	  );
 
           # Throw a failure if the connection failed.
           $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
           if ($!) {
-            (defined $$failure_event) and
-              $k->call( $me, $$failure_event,
+            (defined $$event_failure) and
+              $k->call( $me, $$event_failure,
                         'connect', ($!+0), $!, $unique_id
                       );
             return;
@@ -1016,39 +1044,57 @@ sub resume_accept {
 }
 
 #------------------------------------------------------------------------------
+# DESTROY and _shutdown pass things by reference because _shutdown is
+# called from the state() closures above.  As a result, we can't
+# mention $self explicitly, or the wheel won't shut itself down
+# properly.  Rather, it will form a circular reference on $self.
 
 sub DESTROY {
   my $self = shift;
-  $self->_shutdown();
+  _shutdown(
+    \$self->[MY_SOCKET_SELECTED],
+    \$self->[MY_SOCKET_HANDLE],
+    \$self->[MY_STATE_ACCEPT],
+    \$self->[MY_STATE_CONNECT],
+    \$self->[MY_MINE_SUCCESS],
+    \$self->[MY_EVENT_SUCCESS],
+    \$self->[MY_MINE_FAILURE],
+    \$self->[MY_EVENT_FAILURE],
+  );
   &POE::Wheel::free_wheel_id($self->[MY_UNIQUE_ID]);
 }
 
 sub _shutdown {
-  my $self = shift;
+  my (
+    $socket_selected, $socket_handle,
+    $state_accept, $state_connect,
+    $mine_success, $event_success,
+    $mine_failure, $event_failure,
+  ) = @_;
 
-  if (defined $self->[MY_SOCKET_SELECTED]) {
-    undef $self->[MY_SOCKET_SELECTED];
-    $poe_kernel->select($self->[MY_SOCKET_HANDLE]);
+  if (defined $$socket_selected) {
+    $poe_kernel->select($$socket_handle);
+    $$socket_selected = undef;
   }
 
-  if (defined $self->[MY_STATE_ACCEPT]) {
-    $poe_kernel->state($self->[MY_STATE_ACCEPT]);
-    undef $self->[MY_STATE_ACCEPT];
+  if (defined $$state_accept) {
+    $poe_kernel->state($$state_accept);
+    $$state_accept = undef;
   }
 
-  if (defined $self->[MY_STATE_CONNECT]) {
-    $poe_kernel->state($self->[MY_STATE_CONNECT]);
-    undef $self->[MY_STATE_CONNECT];
+  if (defined $$state_connect) {
+    $poe_kernel->state($$state_connect);
+    $$state_connect = undef;
   }
 
-  if (defined $self->[MY_MINE_SUCCESS]) {
-    $poe_kernel->state($self->[MY_EVENT_SUCCESS]);
-    undef $self->[MY_EVENT_SUCCESS];
+  if (defined $$mine_success) {
+    $poe_kernel->state($$event_success);
+    $$mine_success = $$event_success = undef;
   }
 
-  if (defined $self->[MY_MINE_FAILURE]) {
-    $poe_kernel->state($self->[MY_EVENT_FAILURE]);
-    undef $self->[MY_EVENT_FAILURE];
+  if (defined $$mine_failure) {
+    $poe_kernel->state($$event_failure);
+    $$mine_failure = $$event_failure = undef;
   }
 }
 
@@ -1069,7 +1115,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel = POE::Wheel::SocketFactory->new(
     SocketDomain => AF_UNIX,               # Sets the socket() domain
     BindAddress  => $unix_socket_address,  # Sets the bind() address
-    SuccessEvent => $success_event,        # Event to emit upon accept()
+    SuccessEvent => $event_success,        # Event to emit upon accept()
     FailureEvent => $event_failure,        # Event to emit upon error
     # Optional parameters (and default values):
     SocketType   => SOCK_STREAM,           # Sets the socket() type
@@ -1079,7 +1125,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel = POE::Wheel::SocketFactory->new(
     SocketDomain  => AF_UNIX,              # Sets the socket() domain
     RemoteAddress => $unix_server_address, # Sets the connect() address
-    SuccessEvent  => $success_event,       # Event to emit on connection
+    SuccessEvent  => $event_success,       # Event to emit on connection
     FailureEvent  => $event_failure,       # Event to emit on error
     # Optional parameters (and default values):
     SocketType    => SOCK_STREAM,          # Sets the socket() type
@@ -1091,7 +1137,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel = POE::Wheel::SocketFactory->new(
     BindAddress    => $inet_address,       # Sets the bind() address
     BindPort       => $inet_port,          # Sets the bind() port
-    SuccessEvent   => $success_event,      # Event to emit upon accept()
+    SuccessEvent   => $event_success,      # Event to emit upon accept()
     FailureEvent   => $event_failure,      # Event to emit upon error
     # Optional parameters (and default values):
     SocketDomain   => AF_INET,             # Sets the socket() domain
@@ -1105,7 +1151,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel = POE::Wheel::SocketFactory->new(
     RemoteAddress  => $inet_address,       # Sets the connect() address
     RemotePort     => $inet_port,          # Sets the connect() port
-    SuccessEvent   => $success_event,      # Event to emit on connection
+    SuccessEvent   => $event_success,      # Event to emit on connection
     FailureEvent   => $event_failure,      # Event to emit on error
     # Optional parameters (and default values):
     SocketDomain   => AF_INET,             # Sets the socket() domain
