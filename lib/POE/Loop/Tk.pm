@@ -283,7 +283,7 @@ sub loop_resume_filehandle_watcher {
 sub _loop_event_callback {
   my $poe_kernel = $poe_kernel;
 
-  dispatch_due_events();
+  _data_dispatch_due_events();
 
   # As was mentioned before, $widget->after() events can dominate a
   # program's event loop, starving it of other events, including Tk's
@@ -330,21 +330,21 @@ sub _loop_event_callback {
     # to 0.
 
     if ($poe_kernel->get_event_count() == 1) {
-      test_for_idle_poe_kernel();
+      _data_test_for_idle_poe_kernel();
     }
   }
 
   # Make sure the kernel can still run.
   else {
-    test_for_idle_poe_kernel();
+    _data_test_for_idle_poe_kernel();
   }
 }
 
 # Tk filehandle callback to dispatch selects.
 sub _loop_select_callback {
   my ($fileno, $vector) = @_;
-  enqueue_ready_selects($vector, $fileno);
-  test_for_idle_poe_kernel();
+  _data_enqueue_ready_selects($vector, $fileno);
+  _data_test_for_idle_poe_kernel();
 }
 
 #------------------------------------------------------------------------------

@@ -211,7 +211,7 @@ sub loop_resume_filehandle_watcher {
 
 sub loop_do_timeslice {
   # Check for a hung kernel.
-  test_for_idle_poe_kernel();
+  _data_test_for_idle_poe_kernel();
 
   # Set the select timeout based on current queue conditions.  If
   # there are FIFO events, then the timeout is zero to poll select and
@@ -338,9 +338,9 @@ sub loop_do_timeslice {
         # Enqueue the gathered selects, and flag them as temporarily
         # paused.  They'll resume after dispatch.
 
-        @rd_selects and enqueue_ready_selects(VEC_RD, @rd_selects);
-        @wr_selects and enqueue_ready_selects(VEC_WR, @wr_selects);
-        @ex_selects and enqueue_ready_selects(VEC_EX, @ex_selects);
+        @rd_selects and _data_enqueue_ready_selects(VEC_RD, @rd_selects);
+        @wr_selects and _data_enqueue_ready_selects(VEC_WR, @wr_selects);
+        @ex_selects and _data_enqueue_ready_selects(VEC_EX, @ex_selects);
       }
     }
 
@@ -358,7 +358,7 @@ sub loop_do_timeslice {
   }
 
   # Dispatch whatever events are due.
-  dispatch_due_events();
+  _data_dispatch_due_events();
 }
 
 sub loop_run {

@@ -196,7 +196,7 @@ sub loop_resume_filehandle_watcher {
 sub _loop_event_callback {
   my $self = $poe_kernel;
 
-  dispatch_due_events();
+  _data_dispatch_due_events();
 
   # Register the next timed callback if there are events left.
 
@@ -212,13 +212,13 @@ sub _loop_event_callback {
     # to 0.
 
     if ($poe_kernel->get_session_count() == 1) {
-      test_for_idle_poe_kernel();
+      _data_test_for_idle_poe_kernel();
     }
   }
 
   # Make sure the kernel can still run.
   else {
-    test_for_idle_poe_kernel();
+    _data_test_for_idle_poe_kernel();
   }
 }
 
@@ -240,8 +240,8 @@ sub _loop_select_callback {
                    )
                );
 
-  enqueue_ready_selects($vector, $fileno);
-  test_for_idle_poe_kernel();
+  _data_enqueue_ready_selects($vector, $fileno);
+  _data_test_for_idle_poe_kernel();
 }
 
 #------------------------------------------------------------------------------

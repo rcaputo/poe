@@ -237,7 +237,7 @@ sub loop_resume_filehandle_watcher {
 
 sub loop_do_timeslice {
   # Check for a hung kernel.
-  test_for_idle_poe_kernel();
+  _data_test_for_idle_poe_kernel();
 
   # Set the poll timeout based on current queue conditions.  If there
   # are FIFO events, then the poll timeout is zero and move on.
@@ -334,21 +334,21 @@ sub loop_do_timeslice {
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing read for fileno $fd\n";
-            enqueue_ready_selects(VEC_RD, $fd);
+            _data_enqueue_ready_selects(VEC_RD, $fd);
           }
 
           if ( $watch_mask & POLLOUT and
                $got_mask & (POLLOUT | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing write for fileno $fd\n";
-            enqueue_ready_selects(VEC_WR, $fd);
+            _data_enqueue_ready_selects(VEC_WR, $fd);
           }
 
           if ( $watch_mask & POLLRDBAND and
                $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing expedite for fileno $fd\n";
-            enqueue_ready_selects(VEC_EX, $fd);
+            _data_enqueue_ready_selects(VEC_EX, $fd);
           }
         }
       }
@@ -369,7 +369,7 @@ sub loop_do_timeslice {
   }
 
   # Dispatch whatever events are due.
-  dispatch_due_events();
+  _data_dispatch_due_events();
 }
 
 sub loop_run {

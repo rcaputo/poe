@@ -253,8 +253,8 @@ sub loop_resume_filehandle_watcher {
 sub _loop_event_callback {
   my $self = $poe_kernel;
 
-  dispatch_due_events();
-  test_for_idle_poe_kernel();
+  _data_dispatch_due_events();
+  _data_test_for_idle_poe_kernel();
 
   Gtk->timeout_remove($_watcher_timer);
   undef $_watcher_timer;
@@ -273,8 +273,8 @@ sub _loop_select_read_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  enqueue_ready_selects(VEC_RD, $fileno);
-  test_for_idle_poe_kernel();
+  _data_enqueue_ready_selects(VEC_RD, $fileno);
+  _data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
   return 0;
@@ -284,8 +284,8 @@ sub _loop_select_write_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  enqueue_ready_selects(VEC_WR, $fileno);
-  test_for_idle_poe_kernel();
+  _data_enqueue_ready_selects(VEC_WR, $fileno);
+  _data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
   return 0;
@@ -295,8 +295,8 @@ sub _loop_select_expedite_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  enqueue_ready_selects(VEC_EX, $fileno);
-  test_for_idle_poe_kernel();
+  _data_enqueue_ready_selects(VEC_EX, $fileno);
+  _data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
   return 0;
