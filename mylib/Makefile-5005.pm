@@ -38,6 +38,7 @@ ExtUtils::AutoInstall->import
     ],
     "Optional modules to speed up large-scale clients/servers." => [
         -default => 0,
+        -tests   => [ qw(t/27_poll.t) ],
         IO::Poll => 0.05,
     ],
     "Optional modules for controlling full-screen programs (e.g. vi)." => [
