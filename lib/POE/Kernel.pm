@@ -1443,9 +1443,8 @@ sub call {
   # deterministic programs, but the difficulty can be ameliorated if
   # programmers set some base rules and stick to them.
 
-  my $return_value;
   if (wantarray) {
-    $return_value = [
+    my @return_value = (
       ($session == $kr_active_session)
       ? $session->_invoke_state(
         $session, $event_name, \@etc, (caller)[1,2],
@@ -1456,10 +1455,14 @@ sub call {
         $event_name, ET_CALL, \@etc,
         (caller)[1,2], $kr_active_event, time(), -__LINE__
       )
-    ];
+    );
+
+    $! = 0;
+    return @return_value;
   }
-  else {
-    $return_value = (
+
+  if (defined wantarray) {
+    my $return_value = (
       $session == $kr_active_session
       ? $session->_invoke_state(
         $session, $event_name, \@etc, (caller)[1,2],
@@ -1471,11 +1474,27 @@ sub call {
         (caller)[1,2], $kr_active_event, time(), -__LINE__
       )
     );
+
+    $! = 0;
+    return $return_value;
+  }
+
+  if ($session == $kr_active_session) {
+    $session->_invoke_state(
+      $session, $event_name, \@etc, (caller)[1,2],
+      $kr_active_event
+    );
+  }
+  else {
+    $self->_dispatch_event(
+      $session, $kr_active_session,
+      $event_name, ET_CALL, \@etc,
+      (caller)[1,2], $kr_active_event, time(), -__LINE__
+    );
   }
 
   $! = 0;
-  return @$return_value if wantarray;
-  return $return_value;
+  return;
 }
 
 #------------------------------------------------------------------------------
