@@ -1661,6 +1661,147 @@ Unfortunately, POE's used in production on 5.004 and/or 5.005 systems.
 Adopting newer features will leave people behind.  How can POE move on
 without totally abandoning people?
 
+-----------------------------
+Subvert the Dominant Paradigm
+-----------------------------
+
+<coral> dngand: to simulate cscope, you'd have to use B->next and
+B::Generate to create a coderef in the current context that does
+everything the rest of the sub would have been doing, then pass said
+coderef around.
+
+<coral> the coderef would context correctly.
+
+<coral> it'd contain the rest of the routine to be executed.
+
+<coral> dng: you could use B to scan for the next 'op' that's
+recognized as a blocking op, and do so.
+
+<coral> if ($op->name eq 'sleep')
+
+<coral> you know, i really should just sitdown and do that.
+
+<coral> i've actually got some semblance of code in my brane.
+
+<dngand> mmm... mmmm... i was thinking about breaking up the main
+queue into a task list and actually scheduling stuff.  each session
+would get its own queue.
+
+<coral> right.
+
+<coral> imagine pushing ops (with correct scopes) into the queue
+
+<coral> it pulls an op off the top, runs it, passes the remainder back
+to the queue
+
+<coral> scope stays consistent throughout thanks to perl being cool
+with coderefs and current scope.
+
+<coral> that would RULE
+
+<coral> you can deconstruct a subroutine into an op tree, starting (i
+hope) from the current op.
+
+<coral> then stuffing the op tree into a coderef, which will be
+created in the current context (i hope)
+
+<coral> you've now got a coderef that's storing scope for you.
+
+<coral> AND knows where to continue from.
+
+<coral> issues:
+
+<coral> (a) how do you 'interrupt' execution?
+
+<coral> solution: before calling $a coderef directly, edit it such
+that it runs a single op, creates a code ref out of the remainder, and
+passes control back to the stack
+
+<coral> s/a single op/as many ops as you want, down to a single op
+
+<coral> if you could transcribe that and send me an email about it
+
+<coral> i *may* know enough B to get it done.
+
+<coral> it won't work under ithreads, because B::Genereate and
+ithreadGs (last i knew, 3 months approx.) are incompatible.
+
+<dngand> sky would be devastated.  but it also wouldn't be necessary
+under ithreads, so an adaptable design could switch between the two
+paradigms.
+
+<coral> B::Generate requires read-write op trees. it's on his list.
+
+<coral> however, this'd perfectly handle non-ithreads.
+
+<coral> do you want single-op granularity?
+
+<coral> right now, we have single session granularity.
+
+<coral> it's no harder or easier to give you a single op at a time,
+correct scoping provided, and a method to run said op
+
+<coral> or i can give you a bunch of ops
+
+<coral> heh.
+
+<coral> time slicing, like windows 3, embedded in poe.
+
+<coral> that rules.
+
+<dngand> i'd like basic block granularity
+
+<dngand> and it would be pre-emptive at that point.
+
+<dngand> (pre-empting the pcode interpreter, anyway)
+
+<coral> block granularity?
+
+<coral> call sub1 until a blocking op (open, sleep, etc)
+
+<dngand> well... call sub1, but stop when it reaches sleep()
+
+<coral> okay.
+
+<coral> give me a list of the ops you consider 'blocking'.
+
+<dngand> with custom opcodes, i could replace the sleep opcode with
+something that sets a timer and task switches.
+
+<dngand> "task switches" is the hard part.
+
+<coral> right.
+
+<coral> replace the sleep opcode with a delay call to a session
+
+<coral> parameter? the coderef continue the ops after the sleep.
+
+<dngand> just consider sleep() for now.  that's my canonical blocking
+op for testing and proof-of-concept.
+
+<coral> okay.
+
+<coral> we could replace sleep with a custom op code.
+
+<coral> you'd have to, uh, do something weird.
+
+<coral> i dunno.
+
+* coral hasn't been down that path yet.
+
+<dngand> apply simon's patch for custom opcodes. :)
+
+<coral> i need to know where you've seen custom opcodes. are they
+core? subject: of the message?
+
+<dngand> i think they've been applied to bleadperl.  it was posted to
+p5p and/or p6-something in the past fortnight.  maybe the past week.
+
+<dngand> http://www.xray.mpe.mpg.de/cgi-bin/w3glimpse2html/ \
+         perl5-porters/2001-08/msg01352.html?10#mfs
+
+<coral> we'll likely be using a custom peephole optimizer.
+
 ---------------------------------------
 Work Around Windows NT Socket Stupidity
 ---------------------------------------
@@ -1673,7 +1814,15 @@ People tell me I'm on crack when I mention that, though, despite the
 symptoms matching exactly.  Whatever.  Meanwhile, I can skip
 non-blocking connect() on those systems that don't support it anymore.
 
-C:\>perl -MPOSIX -e "print join ':', uname()"
+Actually, ActiveState knows about the problem:
+
+  http://bugs.activestate.com/cgi-bin/bugzilla/show_bug.cgi?id=14518
+  http://bugs.activestate.com/cgi-bin/bugzilla/show_bug.cgi?id=14560
+
+How to find the specific build of Windows, so the problem can be
+worked around where necessary:
+
+  C:\>perl -MPOSIX -e "print join ':', uname()"
 
 On 98:
 
