@@ -17,7 +17,7 @@ This will output a file called C<poe_report.xml>.
 =cut
 
 package My::Strap;
-use lib qw(../lib ../ ./lib);
+use lib qw(../lib ../ ./lib ./);
 use Test::Harness;
 use base qw(Test::Harness::Straps);
 use Sys::Hostname;
@@ -110,7 +110,6 @@ foreach my $file (@test_files) {
     ($leader, $ml) = Test::Harness::_mk_leader($file, $width);
     print $leader;
     my %result = $s->analyze_file($file);
-    delete $result{details};
     $file =~ s#^\.\./t/##;
     $test_results{$file} = \%result;
     $s->_display($result{passing} ? 'ok' : 'FAILED');
@@ -135,10 +134,17 @@ foreach my $test_file (sort keys %test_results) {
         $xml .= "\t\t<ok>$test_results{$test_file}{ok}</ok>\n";
         $xml .= "\t\t<skip>$test_results{$test_file}{skip}</skip>\n";
         $xml .= "\t\t<todo>$test_results{$test_file}{todo}</todo>\n";
+        $xml .= "\t\t<skipped>\n";
+        for (my $i = 0; $i < @{$test_results{$test_file}{details}}; $i++) {
+            if($test_results{$test_file}{details}[$i]{type} eq 'skip') {
+                $xml .= "\t\t\t<test num=\"". ($i+1) ."\" reason=\"$test_results{$test_file}{details}[$i]->{reason} />\n";
+            }
+        }
+        $xml .= "\t\t</skipped>\n";
         $xml .= "\t\t<failing>\n";
         for (my $i = 0; $i < @{$test_results{$test_file}{details}}; $i++) {
             if($test_results{$test_file}{details}[$i]->{ok} == 0) {
-                $xml .= "\t\t\t<test num=\"". ($i+1) ."\" reason=\"$test_results{$test_file}{details}[$i]->{reason}\">\n";
+                $xml .= "\t\t\t<test num=\"". ($i+1) ."\" reason=\"$test_results{$test_file}{details}[$i]->{reason}\" />\n";
             }
         }
         $xml .= "\t\t</failing>\n";
