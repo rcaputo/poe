@@ -2,12 +2,16 @@
 
 use strict;
 
-use Test::More qw(no_plan);
+use Test::More tests => 2;
 
 use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
+BEGIN {
+  diag("Consider upgrading Perl if a warning appears on the next line.");
+}
+
 SKIP: {
-  skip "this version of perl does not have C<use bytes>", 2
+  skip("this version of perl is too old for C<use bytes>", 2)
     unless &POE::Macro::UseBytes::HAS_BYTES;
 
   binmode STDOUT, ':utf8';
