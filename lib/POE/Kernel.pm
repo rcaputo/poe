@@ -62,7 +62,7 @@ $poe_kernel = undef;
 
 # states:
 # [ [ $session, $source_session, $state, $type, \@etc, $time,
-#     $poster_file, $poster_line, $debug_sequence
+#     $poster_file, $poster_line, $sequence_number
 #   ],
 #   ...
 # ]
@@ -70,7 +70,7 @@ my @kr_states;
 
 # alarms:
 # [ [ $session, $source_session, $state, $type, \@etc, $time,
-#     $poster_file, $poster_line, $debug_sequence
+#     $poster_file, $poster_line, $sequence_number
 #   ],
 #   ...
 # ]
