@@ -659,6 +659,17 @@ sub new {
         \$kr_extra_refs,     # KR_EXTRA_REFS
       ], $type;
 
+    # Kernel ID, based on Philip Gwyn's code.  I hope he still can
+    # recognize it.  KR_SESSION_IDS is a hash because it will almost
+    # always be sparse.  This goes before signals are registered
+    # because it sometimes spawns /bin/hostname or the equivalent,
+    # generating spurious CHLD signals before the Kernel is fully
+    # initialized.
+
+    $self->[KR_ID] =
+      ( hostname . '-' .  unpack 'H*', pack 'N*', time, $$ );
+    $kr_session_ids{$self->[KR_ID]} = $self;
+
     # Some personalities allow us to set up static watchers and
     # start/stop them as necessary.  This initializes those static
     # watchers.  This also starts main windows where applicable.
@@ -691,14 +702,6 @@ sub new {
 
       $kr_signals{$signal} = { };
     }
-
-    # Kernel ID, based on Philip Gwyn's code.  I hope he still can
-    # recognize it.  KR_SESSION_IDS is a hash because it will almost
-    # always be sparse.
-    $self->[KR_ID] = ( hostname . '-' .
-                       unpack 'H*', pack 'N*', time, $$
-                     );
-    $kr_session_ids{$self->[KR_ID]} = $self;
 
     # The kernel is a session, sort of.
     $kr_active_session = $self;
@@ -1420,7 +1423,13 @@ sub _enqueue_state {
     {% substrate_resume_idle_watcher %}
   }
   else {
-    warn ">>>>> ", join('; ', keys(%kr_sessions)), " <<<<<\n";
+    warn( ">>>>> sessions=", join('; ', keys(%kr_sessions)), "\n",
+          ">>>>> session=$session\n",
+          ">>>>> state=$state\n",
+          ">>>>> type=$type\n",
+          ">>>>> args=@$etc\n",
+          ">>>>> location=$file @ $line\n",
+        );
     croak "can't enqueue state($state) for nonexistent session($session)\a\n";
   }
 }

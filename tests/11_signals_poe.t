@@ -85,7 +85,7 @@ POE::Session->create
         # other tests' timeouts.
         my $elapsed = time() - $fork_start_time;
         $heap->{fork_time} = $elapsed * 2;
-        $heap->{fork_time} = 15 if $heap->{fork_time} < 15;
+        $heap->{fork_time} = 5 if $heap->{fork_time} < 5;
 
         warn( "\n",
               "***\n",

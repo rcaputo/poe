@@ -80,7 +80,7 @@ sub io_start {
 sub io_pipe_write {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
   $heap->{pipe_wheel}->put( scalar localtime );
-  $kernel->delay( ev_pipe_write => 1 ) if ++$heap->{write_count} < 10;
+  $kernel->delay( ev_pipe_write => 0.25 ) if ++$heap->{write_count} < 10;
 }
 
 sub io_pipe_read {

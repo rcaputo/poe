@@ -144,7 +144,7 @@ sub io_pipe_write {
   $heap->{a_pipe_wheel}->put( scalar localtime );
   $heap->{b_pipe_wheel}->put( scalar localtime );
   if (++${$heap->{write_count}} < $write_max) {
-    $kernel->delay( ev_pipe_write => 1 );
+    $kernel->delay( ev_pipe_write => 0.25 );
   }
   else {
     $after_alarms[6] =
