@@ -111,6 +111,7 @@ foreach my $file (@test_files) {
     print $leader;
     my %result = $s->analyze_file($file);
     $file =~ s#^\.\./t/##;
+    $file =~ s#^t/##;
     $test_results{$file} = \%result;
     $s->_display($result{passing} ? 'ok' : 'FAILED');
     print "\n";
