@@ -4,7 +4,7 @@
 # Exercises Wheel::FollowTail, Wheel::ReadWrite, and Filter::Block.
 
 use strict;
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 use Socket;
 
 use TestSetup;

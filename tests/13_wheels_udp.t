@@ -4,7 +4,7 @@
 # Exercises the wheels commonly used with UDP sockets.
 
 use strict;
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 use TestSetup;
 use Socket;
 

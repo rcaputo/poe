@@ -4,7 +4,7 @@
 # Tests alarms.
 
 use strict;
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 use TestSetup qw(ok not_ok ok_if ok_unless results test_setup);
 
 &test_setup(30);

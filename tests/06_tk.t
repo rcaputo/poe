@@ -6,7 +6,7 @@
 
 use strict;
 
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 
 use Symbol;
 use TestSetup;

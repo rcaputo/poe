@@ -4,7 +4,7 @@
 # Exercise Server::TCP and later, when it's available, Client::TCP.
 
 use strict;
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 use TestSetup;
 
 test_setup(18);

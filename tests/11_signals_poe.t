@@ -5,7 +5,7 @@
 # plain Perl signals, so mileage may vary.
 
 use strict;
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 use TestSetup;
 
 BEGIN {

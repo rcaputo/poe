@@ -5,7 +5,7 @@
 # Gwyn's filterchange.perl sample.
 
 use strict;
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 
 use TestSetup qw(ok not_ok results test_setup ok_if many_not_ok);
 use MyOtherFreezer;

@@ -4,7 +4,7 @@
 # Exercises Filter::Stack (and friends) without the rest of POE.
 
 use strict;
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 
 use POE::Filter::Stackable;
 use POE::Filter::Grep;

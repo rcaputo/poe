@@ -4,7 +4,7 @@
 # Exercises the ListenAccept wheel.
 
 use strict;
-use lib qw(./lib ../lib);
+use lib qw(./lib ../lib .. .);
 use IO::Socket;
 
 use TestSetup qw(ok not_ok ok_if results test_setup many_not_ok);
