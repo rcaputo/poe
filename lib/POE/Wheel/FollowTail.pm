@@ -330,7 +330,8 @@ sub _define_timer_states {
               if ( $new_stat[1] != $last_stat->[1] or # inode's number
                    $new_stat[0] != $last_stat->[0] or # inode's device
                    $new_stat[6] != $last_stat->[6] or # device type
-                   $new_stat[3] != $last_stat->[3]    # number of links
+                   $new_stat[3] != $last_stat->[3] or # number of links
+                   $new_stat[7] <  $last_stat->[7]    # file shrank
                  ) {
 
                 TRACE_STAT and do {
