@@ -135,6 +135,16 @@ wherever a sufficiently complete version of Perl does.
 Requirements
 ------------
 
+As of version 0.1001, POE requires Filter::Call::Util, from the Filter
+distribution.  It uses this module in POE::Preprocessor, which is a
+source filter that preprocesses macros, constants and enumerations.
+Filter 1.17 does not compile properly for threaded builds, so you will
+need 1.18 or later.  If you can only acquire version 1.17 of the
+source filters modules, then also apply the patch posted to
+perl5-porters in this message:
+
+  Message-Id: <E12YUJG-00042g-00@mserv1a.u-net.net>
+
 For portability, POE uses POSIX system calls and constants.  There
 should be no problem running it on systems that have sufficient POSIX
 support.

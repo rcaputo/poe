@@ -17,6 +17,7 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 ***   Redocument the debugging constants.
 ***   Check the macro preprocessor documentation.
 
+
 0.1001 2000.??.?? (!!!)
 -----------------------
 
@@ -27,12 +28,20 @@ subs apart.  Generally cleaned up the code.
 with.
 
 Added POE::Preprocessor, a macro preprocessor.  Macroized some
-redundant bits of POE::Kernel.
+redundant bits of POE::Kernel.  Inlined some smaller low-level
+functions.
 
 (!!!) Split the debugging constants between assertions which die
 noisily when POE detects internal inconsistencies; and traces that
 show ongoing activity.  The constans are renamed ASSERT_* and TRACE_*
 to reflect their function.
+
+Added ASSERT_DEFAULT and TRACE_DEFAULT to change the defaults for
+ASSERT_* and TRACE_*.  This lets you turn everything on with two
+statements.
+
+Set ASSERT_DEFAULT to true in t/*.t so that the tests are more
+thorough.
 
 
 0.10 2000.03.23 (!!!)

@@ -14,11 +14,12 @@ WriteMakefile
     dist         => { 'COMPRESS' => 'gzip -9',
                       'SUFFIX'   => 'gz',
                     },
-    PREREQ_PM    => { Carp           => 0,
-                      Exporter       => 0,
-                      IO             => 0,
-                      POSIX          => 0,
-                      Socket         => 0,
+    PREREQ_PM    => { Carp      => 0,
+                      Exporter  => 0,
+                      IO        => 0,
+                      POSIX     => 0,
+                      Socket    => 0,
+                      Filter    => 1.18,
                     },
   );
 

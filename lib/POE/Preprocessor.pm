@@ -110,6 +110,7 @@ sub import {
   { my $macro_name = '';
     my ($macro_line, %macros, %constants, $const_regexp, $enum_index);
     my ($file_name, $line_number) = (caller)[1,2];
+    my $const_regexp_dirty = 0;
 
     my $set_const = sub {
       my ($name, $value) = @_;
@@ -119,6 +120,7 @@ sub import {
       }
 
       $constants{$name} = $value;
+      $const_regexp_dirty++;
 
       DEBUG and
         warn( ",-----\n",
@@ -193,7 +195,6 @@ sub import {
             foreach (split /\s+/, $2) {
               &{$set_const}($_, $enum_index++);
             }
-            $const_regexp = &optimum_match(keys %constants);
             $_ = "\n";
             return $status;
           }
@@ -201,7 +202,6 @@ sub import {
           # Define a constant.
           if (/^const\s+([A-Z_][A-Z_0-9]+)\s+(.+?)\s*$/) {
             &{$set_const}($1, $2);
-            $const_regexp = &optimum_match(keys %constants);
             $_ = "\n";
             return $status;
           }
@@ -276,6 +276,14 @@ sub import {
                   );
               last;
             }
+          }
+
+          # Only rebuild the constant regexp if necessary.  This
+          # prevents redundant regexp rebuilds when defining several
+          # constants all together.
+          if ($const_regexp_dirty) {
+            $const_regexp = &optimum_match(keys %constants);
+            $const_regexp_dirty = 0;
           }
 
           # Perform constant substitutions.
