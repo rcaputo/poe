@@ -8,6 +8,8 @@ Revision history for Perl extension POE.
 say: new POE::Session($kernel, $object, \@methods).  See
 tests/objsession.perl for an example.
 
+- Removed an unnecessary function call in Kernel.pm.
+
 - Rearranged Changes so the most recent ones come first.
 
 
