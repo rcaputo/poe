@@ -1,7 +1,7 @@
 package POE::Wheel::ReadWrite;
 
 # POD documentation exists after __END__
-# '$Id$';
+# $Id$
 
 my $VERSION = 1.0;
 
