@@ -274,8 +274,10 @@ macro define_assert (<const>) {
 }
 
 # Debugging flags for subsystems.  They're done as double evals here
-# so that someone may define them before using POE, and the
-# pre-defined value will take precedence over the defaults here.
+# so that someone may define them before using POE::Kernel (or POE),
+# and the pre-defined value will take precedence over the defaults
+# here.
+
 BEGIN {
 
   # TRACE_DEFAULT changes the default value for other TRACE_*
@@ -4141,7 +4143,7 @@ events when called, letting just about any loop's native callbacks
 work with POE.  This includes widget callbacks and event watchers POE
 never dreamt of.
 
-=head2 Using POE's Debugging Features
+=head2 Kernel's Debugging Features
 
 POE::Kernel contains a number of debugging assertions and traces.
 
