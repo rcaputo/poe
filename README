@@ -176,6 +176,29 @@ IO::Pty : 0.01
 All tests successful, 2 tests skipped.
 Files=26, Tests=477, 75 wallclock secs (13.09 cusr +  1.28 csys = 14.37 CPU)
 
+** POE 0.15 on Windows 4.10.2222
+
+Hardware: (unknown)
+System  : Windows 98 2nd Edition
+Perl    : v5.6.1, MSWin32-x86-multi-thread, ActiveState build 628
+Gtk     : (not installed)
+Tk      : (not installed)
+Event   : (not installed)
+IO::Pty : (not installed)
+
+t\01_sessions.t           14  3584    29   29 100.00%  1-29
+t\04_selects.t             2   512    ??   ??       %  ??
+t\08_errors.t              2   512    26    7  26.92%  20-26
+t\14_wheels_ft.t         255 65280     9    9 100.00%  1-9
+t\19_filterchange.t        2   512    ??   ??       %  ??
+t\22_wheel_run.t           2   512    ??   ??       %  ??
+
+7 tests skipped.
+Failed 6/26 test scripts, 76.92% okay. 45/297 subtests failed, 84.85% okay.
+
+[NB: Several of these test failures have been addressed, if not
+fixed.]
+
 ** POE 0.1401 on Linux (titanic)
 
 Hardware: dual Celeron 500; 265MB RAM
