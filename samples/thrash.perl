@@ -94,6 +94,8 @@ sub client_connected {
       InputState => 'receive',                # generating this event on input
       ErrorState => 'error',                  # generating this event on error
     );
+
+  shutdown($socket, 1);
 }
 
 #------------------------------------------------------------------------------
