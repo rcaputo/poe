@@ -477,22 +477,52 @@ sub put {
 # one input and one output, make this set both of them at the same
 # time. -RC
 
+sub _transfer_input_buffer {
+  my ($self, $buf) = @_;
+
+  my $old_input_filter = $self->[FILTER_INPUT];
+
+  # If the new filter implements "get_one", use that.
+  if ( $old_input_filter->can('get_one') and
+       $old_input_filter->can('get_one_start')
+     ) {
+    if (defined $buf) {
+      $self->[FILTER_INPUT]->get_one_start($buf);
+      while ($self->[FILTER_INPUT] == $old_input_filter) {
+        my $next_rec = $self->[FILTER_INPUT]->get_one();
+        last unless @$next_rec;
+        foreach my $cooked_input (@$next_rec) {
+          $poe_kernel->call( $poe_kernel->get_active_session(),
+                             $self->[EVENT_INPUT],
+                             $cooked_input, $self->[UNIQUE_ID]
+                           );
+        }
+      }
+    }
+  }
+
+  # Otherwise use the old behavior.
+  else {
+    if (defined $buf) {
+      foreach my $cooked_input (@{$self->[FILTER_INPUT]->get($buf)}) {
+        $poe_kernel->call( $poe_kernel->get_active_session(),
+                           $self->[EVENT_INPUT],
+                           $cooked_input, $self->[UNIQUE_ID]
+                         );
+      }
+    }
+  }
+}
+
+# Set input and output filters.
+
 sub set_filter {
   my ($self, $new_filter) = @_;
   my $buf = $self->[FILTER_INPUT]->get_pending();
   $self->[FILTER_INPUT] = $self->[FILTER_OUTPUT] = $new_filter;
 
-  # Updates a closure dealing with the input filter.
   $self->_define_read_state();
-
-  # Push pending data from the old filter into the new one.
-  if (defined $buf) {
-    foreach my $cooked_input (@{$new_filter->get($buf)}) {
-      $poe_kernel->yield( $self->[EVENT_INPUT],
-                          $cooked_input, $self->[UNIQUE_ID]
-                        );
-    }
-  }
+  $self->_transfer_input_buffer($buf);
 }
 
 # Redefine input and/or output filters separately.
@@ -501,16 +531,8 @@ sub set_input_filter {
   my $buf = $self->[FILTER_INPUT]->get_pending();
   $self->[FILTER_INPUT] = $new_filter;
 
-  # Updates a closure dealing with the input filter.
   $self->_define_read_state();
-
-  if (defined $buf) {
-    foreach my $cooked_input (@{$new_filter->get($buf)}) {
-      $poe_kernel->yield( $self->[EVENT_INPUT],
-                          $cooked_input, $self->[UNIQUE_ID]
-                        );
-    }
-  }
+  $self->_transfer_input_buffer($buf);
 }
 
 # No closures need to be redefined or anything.  All the previously
