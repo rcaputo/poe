@@ -325,7 +325,9 @@ sub build_dependency_tree {
           ];
       }
       else {
-        die "$file_key was used ok, but it didn't appear in \%INC";
+        die( "$file_key was used ok, but it didn't appear "
+             . "(as $inc_key) in \%INC (" . join( ' --- ', keys(%INC) ) . ")"
+           );
       }
     }
     else {
