@@ -57,7 +57,7 @@ This change adds new features without breaking the way old ones work.
 
 To do:
 
-* Release 0.15 with new interface.
+* Release version 0.15, and announce the new interface.
 
 * Optimize new functions.  Currently there are chunks of common code
   which have been copied, pasted, and altered for their new
@@ -72,9 +72,9 @@ Notes:
 - decided against alarm_remove_by_event(); use alarm() instead
 - decided against alarm_remove_by time(); it's not very useful
 
-------------------------------
-Depreciate queue_peek_alarms()
-------------------------------
+----------------------------------
+Depreciate queue_peek_alarms (!!!)
+----------------------------------
 
 The new alarm functions let programs track their alarms by ID, so they
 no longer need to peek into POE's alarm queue.
@@ -368,6 +368,8 @@ to be developed/used over the course of like three years.  Make it a
 default so people can stop typing it.
 
 This should be an easy fix, but it involves tweaking several wheels.
+It might be a nice introduction to wheels for someone who wants to
+know more about them.
 
 ----------------------------------------
 Make Filter::Line the Default for Wheels
@@ -377,6 +379,8 @@ This is an inexpensive change, but it has dubious value.  Think about
 it some more first.
 
 This should be an easy fix, but it involves tweaking several wheels.
+It might be a nice introduction to wheels for someone who wants to
+know more about them.
 
 ----------------------------------------------------
 Split Dual-Mode Functions into xyz_set and xyz_clear
