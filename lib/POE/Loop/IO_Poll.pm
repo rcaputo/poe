@@ -38,6 +38,9 @@ sub MINIMUM_POLL_TIMEOUT () { 0 }
 
 my %poll_fd_masks;
 
+# Allow $^T to change without affecting our internals.
+my $start_time = $^T;
+
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
 
@@ -209,7 +212,7 @@ sub loop_do_timeslice {
       '<ev> Kernel::run() iterating.  ' .
       sprintf(
         "now(%.4f) timeout(%.4f) then(%.4f)\n",
-        $now-$^T, $timeout, ($now-$^T)+$timeout
+        $now-$start_time, $timeout, ($now-$start_time)+$timeout
        )
     );
   }
