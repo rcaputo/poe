@@ -11,7 +11,8 @@ Versions with "_xx" subversions are internal test releases.
 -----------------
 
 Made BindAddress optional for UNIX client sockets.  It's still
-required for server sockets.
+required for server sockets.  Updated the documentation for the
+change, fixed some typos, and included PF_INET and PF_UNIX.
 
 
 0.0701 1999.07.01

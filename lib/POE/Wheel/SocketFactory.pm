@@ -40,7 +40,7 @@ sub condition_handle {
 }
 
 #------------------------------------------------------------------------------
-# translate UNIX addresses to system-dependent representation, if necessary
+# translate Unix addresses to system-dependent representation, if necessary
 
 sub condition_unix_address {
   my ($address) = @_;
@@ -77,10 +77,14 @@ sub _define_accept_state {
 
         if ($peer) {
           my ($peer_addr, $peer_port);
-          if ($self->{'socket domain'} == AF_UNIX) {
+          if ( ($self->{'socket domain'} == AF_UNIX) ||
+               ($SELF->{'socket domain'} == PF_UNIX)
+          ) {
             $peer_addr = $peer_port = undef;
           }
-          elsif ($self->{'socket domain'} == AF_INET) {
+          elsif ( ($self->{'socket domain'} == AF_INET) ||
+                  ($self->{'socket domain'} == PF_INET)
+          ) {
             ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
           }
           else {
@@ -263,6 +267,10 @@ sub new {
         return undef;
       }
     }
+                                        # BindAddress is required for DGRAM
+    elsif ($params{'SocketType'} eq SOCK_DGRAM) {
+      croak 'BindAddress required for Unix datagram socket';
+    }
 
     carp 'RemotePort ignored' if (exists $params{'RemotePort'});
 
@@ -288,7 +296,7 @@ sub new {
       $self->_define_connect_state();
     }
     else {
-      croak "Must bind a UNIX server socket"
+      croak "Must bind a Unix server socket"
         unless (exists $params{'BindAddress'});
       my $listen_queue = $params{'ListenQueue'} || SOMAXCONN;
       ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
@@ -325,7 +333,7 @@ sub new {
     }
 
     if ($protocol_name !~ /^(tcp|udp)$/) {
-      croak "INET sockets only support tcp and udp, not $protocol_name";
+      croak "Internet sockets only support tcp and udp, not $protocol_name";
     }
 
     unless (
@@ -361,7 +369,7 @@ sub new {
     else {
       $bind_address = INADDR_ANY;
     }
-    
+
     if (exists $params{'BindPort'}) {
       $bind_port = $params{'BindPort'};
       if ($bind_port !~ /^\d+$/) {
@@ -446,7 +454,7 @@ sub new {
       die 'udp inet socket not implemented';
     }
     else {
-      croak "INET sockets only support tcp and udp, not $protocol_name";
+      croak "Internet sockets only support tcp and udp, not $protocol_name";
     }
   }
 
@@ -495,7 +503,7 @@ POE::Wheel::SocketFactory - POE Socket Creation Logic Abstraction
 
   use Socket; # For the constants
 
-  # Listening UNIX domain socket.
+  # Listening Unix domain socket.
   $wheel = new POE::Wheel::SocketFactory(
     SocketDomain => AF_UNIX,               # Sets the socket() domain
     BindAddress  => $unix_socket_address,  # Sets the bind() address
@@ -505,18 +513,19 @@ POE::Wheel::SocketFactory - POE Socket Creation Logic Abstraction
     SocketType   => SOCK_STREAM,           # Sets the socket() type
   );
 
-  # Connecting UNIX domain socket.
+  # Connecting Unix domain socket.
   $wheel = new POE::Wheel::SocketFactory(
     SocketDomain  => AF_UNIX,              # Sets the socket() domain
-    BindAddress   => $unix_client_address, # Sets the bind() address
     RemoteAddress => $unix_server_address, # Sets the connect() address
     SuccessState  => $success_state,       # State to call on connection
     FailureState  => $failure_state,       # State to call on error
     # Optional parameters (and default values):
     SocketType    => SOCK_STREAM,          # Sets the socket() type
+    # Optional parameters (that have no defaults):
+    BindAddress   => $unix_client_address, # Sets the bind() address
   );
 
-  # Listening INET domain socket.
+  # Listening Internet domain socket.
   $wheel = new POE::Wheel::SocketFactory(
     BindAddress    => $inet_address,       # Sets the bind() address
     BindPort       => $inet_port,          # Sets the bind() port
@@ -530,7 +539,7 @@ POE::Wheel::SocketFactory - POE Socket Creation Logic Abstraction
     Reuse          => 'no',                # Lets the port be reused
   );
 
-  # Connecting INET domain socket.
+  # Connecting Internet domain socket.
   $wheel = new POE::Wheel::SocketFactory(
     RemoteAddress  => $inet_address,       # Sets the connect() address
     RemotePort     => $inet_port,          # Sets the connect() port
@@ -552,9 +561,10 @@ to them.  Success events come with connected, ready to use sockets.
 Failure events are accompanied by error codes, similar to other
 wheels'.
 
-SocketFactory currently supports UNIX domain sockets, and TCP sockets
-within the INET domain.  Other protocols are forthcoming, eventually;
-let the author or mailing list know if they're needed sooner.
+SocketFactory currently supports Unix domain sockets, and TCP sockets
+within the Internet domain.  Other protocols are forthcoming,
+eventually; let the author or mailing list know if they're needed
+sooner.
 
 =head1 PUBLIC METHODS
 
@@ -578,8 +588,8 @@ The parameters:
 SocketDomain
 
 SocketDomain is the DOMAIN parameter for the socket() call.  Currently
-supported values are AF_UNIX and AF_INET.  It defaults to AF_INET if
-omitted.
+supported values are AF_UNIX, AF_INET, PF_UNIX and PF_INET.  It
+defaults to AF_INET if omitted.
 
 =item *
 
@@ -597,31 +607,36 @@ SocketProtocol
 SocketProtocol is the PROTOCOL parameter for the socket() call.
 Protocols may be specified by name or number (see /etc/protocols, or
 the equivalent file).  The only supported protocol at this time is
-'tcp'.  SocketProtocol is ignored for UNIX domain sockets.  It
-defaults to 'tcp' if omitted from an INET socket constructor.
+'tcp'.  SocketProtocol is ignored for Unix domain sockets.  It
+defaults to 'tcp' if omitted from an Internet socket constructor.
 
 =item *
 
 BindAddress
 
 BindAddress is the local interface address that the socket will be
-bound to.  It is ignored for UNIX domain sockets and recommended for
-INET sockets.  It defaults to INADDR_ANY if it's not specified, which
-will try to bind the socket to every interface.  If any interface has
-a socket already bound to the BindPort, then bind() (and the
-SocketFactory) will fail.
+bound to.
 
-The bind address may be a string containing a dotted quad, a host
-name, or a packed Internet address (without the port).
+For Internet domain sockets: The bind address may be a string
+containing a dotted quad, a host name, or a packed Internet address
+(without the port).  It defaults to INADDR_ANY if it's not specified,
+which will try to bind the socket to every interface.  If any
+interface has a socket already bound to the BindPort, then bind() (and
+the SocketFactory) will fail.
+
+For Unix domain sockets: The bind address is a path where the socket
+will be created.  It is required for server sockets and datagram
+client sockets.  If a file exists at the bind address, then bind()
+(and the SocketFactory) will fail.
 
 =item *
 
 BindPort
 
 BindPort is the port of the local interface(s) that the socket will
-try to bind to.  It is ignored for UNIX sockets and recommended for
-INET sockets.  It defaults to 0 if omitted, which will bind the socket
-to an unspecified available port.
+try to bind to.  It is ignored for Unix sockets and recommended for
+Internet sockets.  It defaults to 0 if omitted, which will bind the
+socket to an unspecified available port.
 
 The bind port may be a number, or a name in the /etc/services (or
 equivalent) database.
@@ -646,7 +661,7 @@ connect.  If present, the SocketFactory will create a connecting
 socket; otherwise, the SocketFactory will make a listening socket.
 
 The remote address may be a string containing a dotted quad, a host
-name, a packed Internet address, or a UNIX socket path.  It will be
+name, a packed Internet address, or a Unix socket path.  It will be
 packed, with or without an accompanying RemotePort as necessary for
 the socket domain.
 
@@ -655,7 +670,8 @@ the socket domain.
 RemotePort
 
 RemotePort is the port to which the socket should connect.  It is
-required for connecting INET sockets and ignored in all other cases.
+required for connecting Internet sockets and ignored in all other
+cases.
 
 The remote port may be a number, or a name in the /etc/services (or
 equivalent) database.
@@ -690,10 +706,10 @@ each successfully accepted client connection.
 ARG0 always contains the connected or accepted socket.
 
 If the socket in ARG0 was created by an accept() call on a listening
-INET domain socket, then ARG1 and ARG2 will contain the accepted
+Internet domain socket, then ARG1 and ARG2 will contain the accepted
 socket's remote address and port, as returned by unpack_sockaddr_in().
 
-According to _Perl Cookbook_, the remote address for accepted UNIX
+According to _Perl Cookbook_, the remote address for accepted Unix
 domain sockets is undefined.  So ARG0 and ARG1 are, too.
 
 =item *
