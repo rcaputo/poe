@@ -299,7 +299,7 @@ POE::Component::Client::TCP supplies common defaults for most
 callbacks and handlers.  The authors hope that clients can be created
 with as little work as possible.
 
-=head 1 Constructor Parameters
+=head1 Constructor Parameters
 
 =over 2
 
@@ -427,7 +427,7 @@ is true.
 
 =back
 
-=head 1 Public Events
+=head1 Public Events
 
 =over 2
 
