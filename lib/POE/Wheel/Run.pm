@@ -49,6 +49,15 @@ BEGIN {
     eval 'sub TIOCSWINSZ () { undef; }';
     eval 'sub TIOCGWINSZ () { undef; }';
   }
+
+  # Determine the most file descriptors we can use.
+  my $max_open_fds;
+  eval {
+    $max_open_fds = sysconf(_SC_OPEN_MAX);
+  };
+  $max_open_fds = 1024 unless $max_open_fds;
+  eval "sub MAX_OPEN_FDS () { $max_open_fds }";
+  die if $@;
 };
 
 # Offsets into $self.
@@ -59,25 +68,26 @@ sub PROGRAM       () {  3 }
 sub CHILD_PID     () {  4 }
 sub CONDUIT_TYPE  () {  5 }
 sub IS_ACTIVE     () {  6 }
+sub CLOSE_ON_CALL () {  7 }
 
-sub HANDLE_STDIN  () {  7 }
-sub FILTER_STDIN  () {  8 }
-sub DRIVER_STDIN  () {  9 }
-sub EVENT_STDIN   () { 10 }
-sub STATE_STDIN   () { 11 }
-sub OCTETS_STDIN  () { 12 }
+sub HANDLE_STDIN  () {  8 }
+sub FILTER_STDIN  () {  9 }
+sub DRIVER_STDIN  () { 10 }
+sub EVENT_STDIN   () { 11 }
+sub STATE_STDIN   () { 12 }
+sub OCTETS_STDIN  () { 13 }
 
-sub HANDLE_STDOUT () { 13 }
-sub FILTER_STDOUT () { 14 }
-sub DRIVER_STDOUT () { 15 }
-sub EVENT_STDOUT  () { 16 }
-sub STATE_STDOUT  () { 17 }
+sub HANDLE_STDOUT () { 14 }
+sub FILTER_STDOUT () { 15 }
+sub DRIVER_STDOUT () { 16 }
+sub EVENT_STDOUT  () { 17 }
+sub STATE_STDOUT  () { 18 }
 
-sub HANDLE_STDERR () { 18 }
-sub FILTER_STDERR () { 19 }
-sub DRIVER_STDERR () { 20 }
-sub EVENT_STDERR  () { 21 }
-sub STATE_STDERR  () { 22 }
+sub HANDLE_STDERR () { 19 }
+sub FILTER_STDERR () { 20 }
+sub DRIVER_STDERR () { 21 }
+sub EVENT_STDERR  () { 22 }
+sub STATE_STDERR  () { 23 }
 
 # Used to work around a bug in older perl versions.
 sub CRIMSON_SCOPE_HACK ($) { 0 }
@@ -99,6 +109,9 @@ sub new {
 
   my $priority_delta = delete $params{Priority};
   $priority_delta = 0 unless defined $priority_delta;
+
+  my $close_on_call = delete $params{CloseOnCall};
+  $close_on_call = 0 unless defined $close_on_call;
 
   my $user_id  = delete $params{User};
   my $group_id = delete $params{Group};
@@ -339,6 +352,12 @@ sub new {
       exec(@$program) or die "can't exec (@$program) in child pid $$: $!";
     }
     elsif (ref($program) eq 'CODE') {
+
+      # Close any close-on-exec file descriptors.
+      if ($close_on_call) {
+        POSIX::close($_) for $^F+1..MAX_OPEN_FDS;
+      }
+
       $program->();
 
       # In case flushing them wasn't good enough.
@@ -373,6 +392,7 @@ sub new {
       $pid,           # CHILD_PID
       $conduit,       # CONDUIT_TYPE
       $handle_count,  # IS_ACTIVE
+      $close_on_call, # CLOSE_ON_CALL
       # STDIN
       $stdin_write,   # HANDLE_STDIN
       $stdin_filter,  # FILTER_STDIN
@@ -804,6 +824,22 @@ C<Conduit> describes how Wheel::Run should talk with the child
 process.  It may either be 'pipe' (the default), or 'pty'.
 
 Pty conduits require the IO::Pty module.
+
+=item CloseOnCall
+
+C<CloseOnCall> emulates the close-on-exec feature for child processes
+which are not started by exec().  When it is set to 1, all open file
+handles whose descriptors are greater than $^F are closed in the child
+process.  This is only effective when POE::Wheel::Run is called with a
+code reference for its Program parameter.
+
+  CloseOnCall => 1,
+  Program => \&some_function,
+
+CloseOnCall defaults to 0 (off) to remain compatible with existing
+programs.
+
+For more details, please the discussion of $^F in L<perlvar>.
 
 =item StdioDriver
 
