@@ -226,7 +226,7 @@ sub _define_select_states {
               $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
             $k->select($handle);
           }
-          $handle->clearerr();
+          eval { $handle->clearerr() }; # could be a globref
         }
       }
     );
