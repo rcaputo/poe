@@ -9,13 +9,16 @@ package POE::Wheel::ListenAccept;
 use strict;
 use Carp;
 use POSIX qw(EAGAIN);
+use POE;
 
 #------------------------------------------------------------------------------
 
 sub new {
   my $type = shift;
-  my $kernel = shift;
   my %params = @_;
+
+  croak "$type requires a working Kernel"
+    unless (defined $poe_kernel);
 
   croak "Handle required" unless (exists $params{'Handle'});
   croak "AcceptState required" unless (exists $params{'AcceptState'});
@@ -24,26 +27,26 @@ sub new {
     @params{ qw(Handle AcceptState ErrorState) };
 
   my $self = bless { 'handle' => $handle,
-                     'kernel' => $kernel,
                    }, $type;
                                         # register the select-read handler
-  $kernel->state
+  $poe_kernel->state
     ( $self->{'state read'} = $self . ' -> select read',
       sub {
-        my ($k, $me, $from, $handle) = @_;
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         my $new_socket = $handle->accept();
 
         if ($new_socket) {
-          $k->post($me, $state_accept, $new_socket);
+          $k->call($me, $state_accept, $new_socket);
         }
         elsif ($! != EAGAIN) {
-          $state_error && $k->post($me, $state_error, 'accept', ($!+0), $!);
+          $state_error &&
+            $k->call($me, $state_error, 'accept', ($!+0), $!);
         }
       }
     );
 
-  $kernel->select($handle, $self->{'state read'});
+  $poe_kernel->select($handle, $self->{'state read'});
 
   $self;
 }
@@ -53,10 +56,10 @@ sub new {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $self->{'kernel'}->select($self->{'handle'});
+  $poe_kernel->select($self->{'handle'});
 
   if ($self->{'state read'}) {
-    $self->{'kernel'}->state($self->{'state read'});
+    $poe_kernel->state($self->{'state read'});
     delete $self->{'state read'};
   }
 }

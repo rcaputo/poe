@@ -1,71 +1,102 @@
 #!perl -w -I..
 # $Id$
 
+# This is a simple test of "package sessions".  These are similar to
+# object sessions, but they work with packages instead of objects.  It
+# is also a simpler test than sessions.perl.
+
 use strict;
+use POE;
 
-use POE; # Kernel and Session are always included
-
-#------------------------------------------------------------------------------
-# an object that counts for a while, then stops
+#==============================================================================
+# Counter is a package composed of event handler functions.  It is
+# never instantiated as an object here.
 
 package Counter;
+use strict;
+use POE;
+                                        # stupid scope trick, part 1 of 3
+$Counter::name = '';
 
-my $i = 1;
-
-sub new {
-  my ($type, $name) = @_;
-  bless { 'name' => $name }, $type;
-}
+#------------------------------------------------------------------------------
+# This is a normal subroutine, not an object method.  It sets up the
+# session's variables and sets the session in motion.
 
 sub _start {
-  my ($self, $k, $me) = @_;
-  $k->sig('INT', 'sigint');
-  $me->{'counter'} = 0;
-  $me->{'name'} = $i++;
-  print "Session $me->{'name'} started.\n";
-  $k->post($me, 'increment');
+  my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+                                        # register a signal handler
+  $kernel->sig('INT', 'sigint');
+                                        # initialize the counter
+  $heap->{'counter'} = 0;
+                                        # stupid scope trick, part 2 of 3
+  $heap->{'name'} = $Counter::name;
+                                        # hello, world!
+  print "Session $heap->{'name'} started.\n";
+                                        # start things moving
+  $kernel->post($session, 'increment');
 }
+
+#------------------------------------------------------------------------------
+# This is a normal subroutine, not an object method.  It cleans up
+# after receiving POE's standard _stop event.
 
 sub _stop {
-  my ($self, $k, $me, $from) = @_;
-  print "Session $me->{'name'} stopped after $me->{'counter'} loops.\n";
+  my $heap = $_[HEAP];
+
+  print "Session $heap->{'name'} stopped after $heap->{'counter'} loops.\n";
 }
 
+#------------------------------------------------------------------------------
+# This is a normal subroutine, and not an object method.  It will be
+# registered as a SIGINT handler so that the session can acknowledge
+# the signal.
+
 sub sigint {
-  my ($self, $k, $me, $from, $signal_name) = @_;
-  print "$me->{'name'} caught SIG$signal_name from $from\n";
+  my ($heap, $from, $signal_name) = @_[HEAP, SENDER, ARG0];
+
+  print "$heap->{'name'} caught SIG$signal_name from $from\n";
                                         # did not handle the signal
   return 0;
 }
 
+#------------------------------------------------------------------------------
+# This is a normal subroutine, and not an object method.  It does most
+# of the counting work.  It loops by posting events back to itself.
+# The session exits when there is nothing left to do; this event
+# handler causes that condition when it stops posting events.
+
 sub increment {
-  my ($class, $k, $me, $from, $session_name, $counter) = @_;
-  $me->{'counter'}++;
-  print "Session $me->{'name'}, iteration $me->{'counter'}.\n";
-  if ($me->{'counter'} < 5) {
-    $k->post($me, 'increment');
+  my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+
+  $heap->{'counter'}++;
+
+  print "Session $heap->{'name'}, iteration $heap->{'counter'}.\n";
+
+  if ($heap->{'counter'} < 5) {
+    $kernel->post($session, 'increment');
   }
   else {
-    # no more states; nothing left to do.  session stops.
+    # no more events.  since there is nothing left to do, the session exits.
   }
 }
 
-#------------------------------------------------------------------------------
+#==============================================================================
+# Create ten Counter sessions, all sharing the subs in package
+# Counter.  In a way, POE's sessions provide a simple form of object
+# instantiation.
 
 package main;
 
-my $kernel = new POE::Kernel();
-
-foreach my $session_name (
-  qw(one two three four five six seven eight nine ten)
-) {
-  new POE::Session( $kernel,
-                    'Counter',
+foreach my $name (qw(one two three four five six seven eight nine ten)) {
+                                        # stupid scope trick, part 3 of 3
+  $Counter::name = $name;
+                                        # create the session
+  new POE::Session( 'Counter',
                     [ qw(_start _stop increment sigint) ]
                   );
 }
 
-$kernel->run();
+$poe_kernel->run();
 
 exit;
 

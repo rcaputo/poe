@@ -8,6 +8,39 @@ package POE::Session;
 
 use strict;
 use Carp;
+use Exporter;
+
+@POE::Session::ISA = qw(Exporter);
+@POE::Session::EXPORT = qw(OBJECT SESSION KERNEL HEAP SENDER
+                           ARG0 ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9
+                          );
+
+#------------------------------------------------------------------------------
+# Exported Constants
+
+sub OBJECT  () {  0 }
+sub SESSION () {  1 }
+sub KERNEL  () {  2 }
+sub HEAP    () {  3 }
+sub SENDER  () {  4 }
+sub ARG0    () {  5 }
+sub ARG1    () {  6 }
+sub ARG2    () {  7 }
+sub ARG3    () {  8 }
+sub ARG4    () {  9 }
+sub ARG5    () { 10 }
+sub ARG6    () { 11 }
+sub ARG7    () { 12 }
+sub ARG8    () { 13 }
+sub ARG9    () { 14 }
+
+#------------------------------------------------------------------------------
+# AUTOLOAD to translate regular calls into method invocations.
+
+sub AUTOLOAD {
+  use vars qw($AUTOLOAD);
+  die "not ready: $AUTOLOAD";
+}
 
 #------------------------------------------------------------------------------
 
@@ -18,44 +51,60 @@ sub post {
 #------------------------------------------------------------------------------
 
 sub new {
-  my ($type, $kernel, @states) = @_;
+  my ($type, @states) = @_;
 
-  my $self = bless { 'kernel'    => $kernel,
-                     'namespace' => { },
+  my @args;
+
+  croak "$type requires a working Kernel"
+    unless (defined $POE::Kernel::poe_kernel);
+
+  my $self = bless { 'namespace' => { },
                    }, $type;
 
-  while (@states >= 2) {
-    my ($state, $handler) = splice(@states, 0, 2);
-
-    if (ref($state) eq 'CODE') {
-      croak "using a CODE reference as an event handler name is not allowed";
-    }
-                                        # regular states
-    if (ref($state) eq '') {
-      if (ref($handler) eq 'CODE') {
-        $self->register_state($state, $handler);
-        next;
+  while (@states) {
+                                        # handle arguments
+    if (ref($states[0]) eq 'ARRAY') {
+      if (@args) {
+        croak "$type must only have one block of arguments";
       }
-      elsif (ref($handler) eq 'ARRAY') {
-        foreach my $method (@$handler) {
-          $self->register_state($method, $state);
-        }
-        next;
-      }
-      else {
-        croak "using something other than a CODEREF for $state handler";
-      }
-    }
-                                        # object states
-    if (ref($handler) eq '') {
-      $self->register_state($handler, $state);
+      push @args, @{$states[0]};
+      shift @states;
       next;
     }
-    if (ref($handler) ne 'ARRAY') {
-      croak "strange reference ($handler) used as an 'object' session method";
-    }
-    foreach my $method (@$handler) {
-      $self->register_state($method, $state);
+
+    if (@states >= 2) {
+      my ($state, $handler) = splice(@states, 0, 2);
+
+      if (ref($state) eq 'CODE') {
+        croak "using a CODE reference as an event handler name is not allowed";
+      }
+                                        # regular states
+      if (ref($state) eq '') {
+        if (ref($handler) eq 'CODE') {
+          $self->register_state($state, $handler);
+          next;
+        }
+        elsif (ref($handler) eq 'ARRAY') {
+          foreach my $method (@$handler) {
+            $self->register_state($method, $state);
+          }
+          next;
+        }
+        else {
+          croak "using something other than a CODEREF for $state handler";
+        }
+      }
+                                        # object states
+      if (ref($handler) eq '') {
+        $self->register_state($handler, $state);
+        next;
+      }
+      if (ref($handler) ne 'ARRAY') {
+        croak "strange reference ($handler) used as an object session method";
+      }
+      foreach my $method (@$handler) {
+        $self->register_state($method, $state);
+      }
     }
   }
 
@@ -64,7 +113,7 @@ sub new {
   }
 
   if (exists $self->{'states'}->{'_start'}) {
-    $kernel->session_alloc($self);
+    $POE::Kernel::poe_kernel->session_alloc($self, @args);
   }
   else {
     carp "discarding session $self - no '_start' state";
@@ -85,29 +134,38 @@ sub DESTROY {
 #------------------------------------------------------------------------------
 
 sub _invoke_state {
-  my ($self, $kernel, $source_session, $state, $etc) = @_;
+  my ($self, $source_session, $state, $etc) = @_;
 
   if ($self->{'namespace'}->{'_debug'}) {
     print "\e[1;36m$self -> $state\e[0m\n";
   }
 
   if (exists $self->{'states'}->{$state}) {
+                                        # inline
     if (ref($self->{'states'}->{$state}) eq 'CODE') {
-      return &{$self->{'states'}->{$state}}($kernel, $self->{'namespace'},
-                                            $source_session, @$etc
+      return &{$self->{'states'}->{$state}}(undef,                    # object
+                                            $self,                    # session
+                                            $POE::Kernel::poe_kernel, # kernel
+                                            $self->{'namespace'},     # heap
+                                            $source_session,          # from
+                                            @$etc                     # args
                                            );
     }
+                                        # package and object
     else {
-      return $self->{'states'}->{$state}->$state($kernel, $self->{'namespace'},
-                                                 $source_session, @$etc
-                                                );
+      return
+        $self->{'states'}->{$state}->$state(                          # object
+                                            $self,                    # session
+                                            $POE::Kernel::poe_kernel, # kernel
+                                            $self->{'namespace'},     # heap
+                                            $source_session,          # from
+                                            @$etc                     # args
+                                           );
     }
   }
                                         # recursive, so it does the right thing
   elsif (exists $self->{'states'}->{'_default'}) {
-    return $self->_invoke_state($kernel, $source_session, '_default',
-                                [ $state, $etc ]
-                               );
+    return $self->_invoke_state($source_session, '_default', [ $state, $etc ]);
   }
   return 0;
 }

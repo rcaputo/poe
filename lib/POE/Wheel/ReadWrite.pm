@@ -8,13 +8,16 @@ package POE::Wheel::ReadWrite;
 
 use strict;
 use Carp;
+use POE;
 
 #------------------------------------------------------------------------------
 
 sub new {
   my $type = shift;
-  my $kernel = shift;
   my %params = @_;
+
+  croak "$type requires a working Kernel"
+    unless (defined $poe_kernel);
 
   croak "Handle required" unless (exists $params{'Handle'});
   croak "Driver required" unless (exists $params{'Driver'});
@@ -25,49 +28,48 @@ sub new {
     @params{ qw(Handle Driver Filter InputState FlushedState ErrorState) };
 
   my $self = bless { 'handle' => $handle,
-                     'kernel' => $kernel,
                      'driver' => $driver,
                      'filter' => $filter,
                      'state error' => $state_error,
                      'state flushed' => $state_flushed,
                    }, $type;
                                         # register the select-read handler
-  $kernel->state
+  $poe_kernel->state
     ( $self->{'state read'} = $self . ' -> select read',
       sub {
-        my ($k, $me, $from, $handle) = @_;
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
         if (defined(my $raw_input = $driver->get($handle))) {
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            $k->post($me, $state_in, $cooked_input)
+            $k->call($me, $state_in, $cooked_input)
           }
         }
         else {
-          $state_error && $k->post($me, $state_error, 'read', ($!+0), $!);
+          $state_error && $k->call($me, $state_error, 'read', ($!+0), $!);
           $k->select_read($handle);
         }
       }
     );
                                         # register the select-write handler
-  $kernel->state
+  $poe_kernel->state
     ( $self->{'state write'} = $self . ' -> select write',
       sub {
-        my ($k, $me, $from, $handle) = @_;
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         my $writes_pending = $driver->flush($handle);
         if (defined $writes_pending) {
           unless ($writes_pending) {
             $k->select_write($handle);
-            (defined $state_flushed) && $k->post($me, $state_flushed);
+            (defined $state_flushed) && $k->call($me, $state_flushed);
           }
         }
         elsif ($!) {
-          $state_error && $k->post($me, $state_error, 'write', ($!+0), $!);
+          $state_error && $k->call($me, $state_error, 'write', ($!+0), $!);
           $k->select_write($handle);
         }
       }
     );
 
-  $kernel->select($handle, $self->{'state read'});
+  $poe_kernel->select($handle, $self->{'state read'});
 
   $self;
 }
@@ -77,15 +79,15 @@ sub new {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $self->{'kernel'}->select($self->{'handle'});
+  $poe_kernel->select($self->{'handle'});
 
   if ($self->{'state read'}) {
-    $self->{'kernel'}->state($self->{'state read'});
+    $poe_kernel->state($self->{'state read'});
     delete $self->{'state read'};
   }
 
   if ($self->{'state write'}) {
-    $self->{'kernel'}->state($self->{'state write'});
+    $poe_kernel->state($self->{'state write'});
     delete $self->{'state write'};
   }
 }
@@ -95,32 +97,7 @@ sub DESTROY {
 sub put {
   my $self = shift;
   if ($self->{'driver'}->put($self->{'filter'}->put(@_))) {
-
-    $self->{'kernel'}->select_write($self->{'handle'},
-                                    $self->{'state write'}
-                                   );
-
-#     my $writes_pending = $self->{'driver'}->flush($self->{'handle'});
-#     if (defined $writes_pending) {
-#       if ($writes_pending) {
-#         $self->{'kernel'}->select_write($self->{'handle'},
-#                                         $self->{'state write'}
-#                                        );
-#       }
-#       else {
-#         $self->{'kernel'}->select_write($self->{'handle'});
-#         (defined $self->{'state flushed'})
-#           && $self->{'kernel'}->yield($self->{'state flushed'});
-#       }
-#     }
-#     elsif ($!) {
-#       $self->{'state error'}
-#         && $self->{'kernel'}->yield($self->{'state error'},
-#                                     'write', ($!+0), $!
-#                                    );
-#       $self->{'kernel'}->select_write($self->{'handle'});
-#     }
-
+    $poe_kernel->select_write($self->{'handle'}, $self->{'state write'});
   }
 }
 

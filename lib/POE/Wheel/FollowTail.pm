@@ -9,13 +9,16 @@ package POE::Wheel::FollowTail;
 use strict;
 use Carp;
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END);
+use POE;
 
 #------------------------------------------------------------------------------
 
 sub new {
   my $type = shift;
-  my $kernel = shift;
   my %params = @_;
+
+  croak "$type requires a working Kernel"
+    unless (defined $poe_kernel);
 
   croak "Handle required" unless (exists $params{'Handle'});
   croak "Driver required" unless (exists $params{'Driver'});
@@ -26,7 +29,6 @@ sub new {
     @params{ qw(Handle Driver Filter InputState ErrorState) };
 
   my $self = bless { 'handle' => $handle,
-                     'kernel' => $kernel,
                      'driver' => $driver,
                      'filter' => $filter,
                    }, $type;
@@ -34,32 +36,33 @@ sub new {
   $self->{'state read'} = $self . ' -> select read';
   $self->{'state wake'} = $self . ' -> alarm';
                                         # check for file activity
-  $kernel->state
+  $poe_kernel->state
     ( $self->{'state read'},
       sub {
-        my ($k, $me, $from, $handle) = @_;
+        my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
         
-        while (defined(my $raw_input = $driver->get($handle))) {
+        while (defined(my $raw_input = $driver->get($hdl))) {
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            $k->post($me, $state_in, $cooked_input)
+            $k->call($ses, $state_in, $cooked_input)
           }
         }
 
-        $k->select_read($handle);
+        $k->select_read($hdl);
 
         if ($!) {
-          $state_error && $k->post($me, $state_error, 'read', ($!+0), $!);
+          defined($state_error)
+            && $k->call($ses, $state_error, 'read', ($!+0), $!);
         }
         else {
-          $k->alarm($self->{'state wake'}, time()+1);
+          $k->delay($self->{'state wake'}, 1);
         }
       }
     );
                                         # wake up and smell the filehandle
-  $kernel->state
+  $poe_kernel->state
     ( $self->{'state wake'},
       sub {
-        my ($k, $me) = @_;
+        my $k = $_[KERNEL];
         $k->select_read($handle, $self->{'state read'});
       }
     );
@@ -71,7 +74,7 @@ sub new {
     $filter->get($raw_input);
   }
                                         # nudge the wheel into action
-  $kernel->select($handle, $self->{'state read'});
+  $poe_kernel->select($handle, $self->{'state read'});
 
   $self;
 }
@@ -81,15 +84,15 @@ sub new {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $self->{'kernel'}->select($self->{'handle'});
+  $poe_kernel->select($self->{'handle'});
 
   if ($self->{'state read'}) {
-    $self->{'kernel'}->state($self->{'state read'});
+    $poe_kernel->state($self->{'state read'});
     delete $self->{'state read'};
   }
 
   if ($self->{'state wake'}) {
-    $self->{'kernel'}->state($self->{'state wake'});
+    $poe_kernel->state($self->{'state wake'});
     delete $self->{'state wake'};
   }
 }

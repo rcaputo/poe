@@ -1,167 +1,267 @@
 #!/usr/bin/perl -w -I..
 # $Id$
 
+# This is a proof of concept for proxies, or other programs that
+# employ both client and server sockets in the same sesion.  Previous
+# incarnations of POE did not easily support proxies.
+
 use strict;
-use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line);
-use vars qw($kernel);
-use IO::Socket::INET;
-
-$kernel = new POE::Kernel();
-                                        # serial number
+use Socket;
+use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Stream
+           Wheel::SocketFactory
+          );
+                                        # serial number for logging connections
 my $log_id = 0;
-                                        # server session
-foreach my $redirection
-  ( qw( 127.0.0.1:7000-127.0.0.1:7001   # test cascading proxies on 7000
-        127.0.0.1:7001-127.0.0.1:7002
-        127.0.0.1:7002-127.0.0.1:7003
-        127.0.0.1:7003-127.0.0.1:7004
-        127.0.0.1:7004-127.0.0.1:7005
-        127.0.0.1:7005-127.0.0.1:7006
-        127.0.0.1:7006-127.0.0.1:7007
-        127.0.0.1:7007-127.0.0.1:7008
-        127.0.0.1:7008-127.0.0.1:7009
-        127.0.0.1:7009-perl.com:daytime # test plain proxy on 7009
-        127.0.0.1:7010-127.0.0.1:7010   # infinite loop-- fun!
-        127.0.0.1:7777-127.0.0.1:12345  # test "connection refused"
-      )
-  )
-{
+
+# Redirections are in the form:
+#  listen_address:listen_port-connect_address:connect_port
+
+my @redirects =
+  qw( 127.0.0.1:7000-127.0.0.1:7001
+      127.0.0.1:7001-127.0.0.1:7002
+      127.0.0.1:7002-127.0.0.1:7003
+      127.0.0.1:7003-127.0.0.1:7004
+      127.0.0.1:7004-127.0.0.1:7005
+      127.0.0.1:7005-127.0.0.1:7006
+      127.0.0.1:7006-127.0.0.1:7007
+      127.0.0.1:7007-127.0.0.1:7008
+      127.0.0.1:7008-127.0.0.1:7009
+      127.0.0.1:7009-perl.org:daytime
+      127.0.0.1:7010-127.0.0.1:7010
+      127.0.0.1:7777-127.0.0.1:12345
+    );
+
+###############################################################################
+# This is a stream-based proxy session.  It passes data between two
+# sockets, and that's about all.
+
+#------------------------------------------------------------------------------
+# Create a proxy session to take over the connection.
+
+sub session_create {
+  my ($handle, $peer_host, $peer_port, $remote_addr, $remote_port) = @_;
+
+  new POE::Session( _start         => \&session_start,
+                    _stop          => \&session_stop,
+                    client_input   => \&session_client_input,
+                    client_error   => \&session_client_error,
+                    server_connect => \&session_server_connect,
+                    server_input   => \&session_server_input,
+                    server_error   => \&session_server_error,
+                                        # ARG0, ARG1, ARG2, ARG3, ARG4
+                    [ $handle, $peer_host, $peer_port,
+                      $remote_addr, $remote_port
+                    ]
+                  );
+}
+
+#------------------------------------------------------------------------------
+# Accept POE's standard _start event.  Try to establish the client
+# side of the proxy session.
+
+sub session_start {
+  my ($heap, $socket, $peer_host, $peer_port, $remote_addr, $remote_port) =
+    @_[HEAP, ARG0, ARG1, ARG2, ARG3, ARG4];
+
+  $heap->{log} = ++$log_id;
+
+  $peer_host = inet_ntoa($peer_host);
+  print "[$heap->{log}] Accepted connection from $peer_host:$peer_port\n";
+
+  $heap->{wheel_client} = new POE::Wheel::ReadWrite
+    ( Handle     => $socket,
+      Driver     => new POE::Driver::SysRW,
+      Filter     => new POE::Filter::Stream,
+      InputState => 'client_input',
+      ErrorState => 'client_error',
+    );
+  
+  $heap->{wheel_server} = new POE::Wheel::SocketFactory
+    ( SocketDomain   => AF_INET,
+      SocketType     => SOCK_STREAM,
+      SocketProtocol => 'tcp',
+      RemoteAddress  => $remote_addr,
+      RemotePort     => $remote_port,
+      SuccessState   => 'server_connect',
+      FailureState   => 'server_error',
+    );
+}
+
+#------------------------------------------------------------------------------
+# Stop the session, and remove all wheels.
+
+sub session_stop {
+  my $heap = $_[HEAP];
+
+  print "[$heap->{log}] Closing redirection session\n";
+
+  delete $heap->{wheel_client};
+  delete $heap->{wheel_server};
+}
+
+#------------------------------------------------------------------------------
+# Received input from the client.  Pass it to the server.
+
+sub session_client_input {
+  my ($heap, $input) = @_[HEAP, ARG0];
+  (exists $heap->{wheel_server}) && $heap->{wheel_server}->put($input);
+}
+
+#------------------------------------------------------------------------------
+# Received an error from the client.  Shut down the connection.
+
+sub session_client_error {
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
+
+  if ($errnum) {
+    print( "[$heap->{log}] Client connection encountered ",
+           "$operation error $errnum: $errstr\n"
+         );
+  }
+  else {
+    print "[$heap->{log}] Client closed connection.\n";
+  }
+                                        # stop the wheels
+  delete $heap->{wheel_client};
+  delete $heap->{wheel_server};
+}
+
+#------------------------------------------------------------------------------
+# The connection to the server has been successfully established.
+# Begin passing data through.
+
+sub session_server_connect {
+  my ($heap, $socket) = @_[HEAP, ARG0];
+
+  print "[$heap->{log}] Successfully connected to remote server.\n";
+  
+  $heap->{wheel_server} = new POE::Wheel::ReadWrite
+    ( Handle     => $socket,
+      Driver     => new POE::Driver::SysRW,
+      Filter     => new POE::Filter::Stream,
+      InputState => 'server_input',
+      ErrorState => 'server_error',
+    );
+}
+
+#------------------------------------------------------------------------------
+# Received input from the server.  Pass it to the client.
+
+sub session_server_input {
+  my ($heap, $input) = @_[HEAP, ARG0];
+  (exists $heap->{wheel_client}) && $heap->{wheel_client}->put($input);
+}
+
+#------------------------------------------------------------------------------
+# Received an error from the server.  Shut down the connection.
+
+sub session_server_error {
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
+
+  if ($errnum) {
+    print( "[$heap->{log}] Server connection encountered ",
+           "$operation error $errnum: $errstr\n"
+         );
+  }
+  else {
+    print "[$heap->{log}] Server closed connection.\n";
+  }
+                                        # stop the wheels
+  delete $heap->{wheel_client};
+  delete $heap->{wheel_server};
+}
+
+###############################################################################
+# This is a stream-based proxy server.  It listens on tcp ports, and
+# spawns connectors to hop down from the firewall.
+
+sub server_create {
+  my ($local_address, $local_port, $remote_address, $remote_port) = @_;
+
+  new POE::Session( _start         => \&server_start,
+                    _stop          => \&server_stop,
+                    accept_success => \&server_accept_success,
+                    accept_failure => \&server_accept_failure,
+                                        # ARG0, ARG1, ARG2, ARG3
+                    [ $local_address,  $local_port,
+                      $remote_address, $remote_port
+                    ]
+                  );
+}
+
+#------------------------------------------------------------------------------
+# Start the server.  This records where the server should connect and
+# creates the listening socket.
+
+sub server_start {
+  my ($heap, $local_addr, $local_port, $remote_addr, $remote_port) =
+    @_[HEAP, ARG0, ARG1, ARG2, ARG3];
+
+  print "+ Redirecting $local_addr:$local_port to $remote_addr:$remote_port\n";
+                                        # remember the redirect's details
+  $heap->{local_addr}  = $local_addr;
+  $heap->{local_port}  = $local_port;
+  $heap->{remote_addr} = $remote_addr;
+  $heap->{remote_port} = $remote_port;
+                                        # create a socket factory
+  $heap->{server_wheel} = new POE::Wheel::SocketFactory
+    ( SocketDomain   => AF_INET,          # in the INET domain/address family
+      SocketType     => SOCK_STREAM,      # create stream sockets
+      SocketProtocol => 'tcp',            # using the tcp protocol
+      BindAddress    => $local_addr,      # bind to this address
+      BindPort       => $local_port,      # and bind to this port
+      ListenQueue    => 5,                # listen, with a 5-connection queue
+      Reuse          => 'yes',            # reuse immediately
+      SuccessState   => 'accept_success', # generate this event on connection
+      FailureState   => 'accept_failure', # generate this event on error
+    );
+}
+
+#------------------------------------------------------------------------------
+# Accept POE's standard _stop event, and log that the redirection
+# server has stopped.
+
+sub server_stop {
+  my $heap = $_[HEAP];
+  delete $heap->{server_wheel};
+  print( "- Redirection from $heap->{local_addr}:$heap->{local_port} to ",
+         "$heap->{remote_addr}:$heap->{remote_port} has stopped.\n"
+       );
+}
+
+#------------------------------------------------------------------------------
+# Pass the accepted socket (with peer address information) to the
+# session creator, with information about where it should connect.
+
+sub server_accept_success {
+  my ($heap, $socket, $peer_addr, $peer_port) = @_[HEAP, ARG0, ARG1, ARG2];
+  &session_create( $socket, $peer_addr, $peer_port,
+                   $heap->{remote_addr}, $heap->{remote_port}
+                 );
+}
+
+#------------------------------------------------------------------------------
+# The server encountered an error.  Log it, but don't stop.
+
+sub server_accept_failure {
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
+
+  print( "! Redirection from $heap->{local_addr}:$heap->{local_port} to ",
+         "$heap->{remote_addr}:$heap->{remote_port} encountered $operation ",
+         "error $errnum: $errstr\n"
+       );
+}
+
+###############################################################################
+# Parse the redirects, and create a server session for each.
+
+foreach my $redirect (@redirects) {
   my ($local_address, $local_port, $remote_address, $remote_port) =
-    split(/[-:]+/, $redirection);
+    split(/[-:]+/, $redirect);
 
-  new POE::Session
-    ( $kernel,
-      _start => sub {
-        my ($k, $me, $from) = @_;
-
-        $me->{'local_address'}  = $local_address;
-        $me->{'local_port'}     = $local_port;
-        $me->{'remote_address'} = $remote_address;
-        $me->{'remote_port'}    = $remote_port;
-
-        print "? redirecting $local_address:$local_port ",
-              "to $remote_address:$remote_port\n";
-
-        my $listener = new IO::Socket::INET
-          ( 'LocalHost' => $local_address,
-            'LocalPort' => $local_port,
-            'Listen'    => 5,
-            'Proto'     => 'tcp',
-            'Reuse'     => 'yes',
-          );
-
-        if ($listener) {
-          $me->{'wheel'} = new POE::Wheel::ListenAccept
-            ( $kernel,
-              'Handle'      => $listener,
-              'AcceptState' => 'accept',
-              'ErrorState'  => 'accept error',
-            );
-          print "+ listening on $local_address:$local_port\n";
-        }
-        else {
-          warn "- could not listen on $local_address:$local_port: $!\n";
-        }
-      },
-      'accept error' => sub { 
-        my ($k, $me, $from, $operation, $errnum, $errstr) = @_;
-        print "! $me->{'local_address'}:$me->{'local_port'}: ",
-              "$operation error $errnum: $errstr\n";
-      },
-      'accept' => \&accept_and_start,
-    );
+  &server_create($local_address, $local_port, $remote_address, $remote_port);
 }
 
-$kernel->run();
-                                        # spawn a proxy session for connections
-sub accept_and_start {
-  my ($kernel, $me, $from,$accepted_handle) = @_;
-  my ($peer_host,$peer_port) = ( $accepted_handle->peerhost(),
-                                 $accepted_handle->peerport()
-			       );
+$poe_kernel->run();
 
-  print "< accepted connection from $peer_host:$peer_port\n";
-
-  my $remote_address = $me->{'remote_address'};
-  my $remote_port = $me->{'remote_port'};
-
-  new POE::Session
-    ( $kernel,
-      _start => sub {
-        my ($k,$me,$from) = @_;
-        $me->{'wheel_client'} = new POE::Wheel::ReadWrite
-          ( $k,
-            Handle => $accepted_handle,
-            Driver => new POE::Driver::SysRW(),
-            Filter => new POE::Filter::Line(),
-            InputState => 'client',
-            ErrorState => 'client_error',
-          );
-
-        $me->{'log'} = $log_id++;
-
-        print "[$me->{'log'}] ? linking $peer_host:$peer_port to ",
-              "$remote_address:$remote_port\n";
-
-        my $server = new IO::Socket::INET
-          ( 'PeerHost' => $remote_address,
-            'PeerPort' => $remote_port,
-            'Proto'    => 'tcp',
-            'Reuse'    => 'yes',
-          );
-
-        if ($server) {
-          $me->{'wheel_server'} = new POE::Wheel::ReadWrite
-            ( $k,
-              Handle => $server,
-              Driver => new POE::Driver::SysRW(),
-              Filter => new POE::Filter::Line(),
-              InputState => 'server',
-              ErrorState => 'server_error',
-            );
-          print "[$me->{'log'}] + proxy session $me started\n";
-        }
-        else {
-          print "[$me->{'log'}] - couldn't connect to ",
-                "$remote_address:$remote_port: $!\n";
-          delete $me->{'wheel_client'};
-        }
-      },
-      _stop => sub {
-        my ($k, $me) = @_;
-        print "[$me->{'log'}] - proxy session $me shut down\n";
-      },
-      'client' => sub {
-        my ($k,$me,$from,$line) = @_;
-       (exists $me->{wheel_server}) && $me->{wheel_server}->put($line);
-      },
-      'client_error' => sub {
-        my ($k,$me,$from,$operation,$errnum,$errstr) = @_;
-        if ($errnum) {
-          print "[$me->{'log'}] ! $operation error $errnum ($errstr)\n";
-        }
-        else {
-          print "[$me->{'log'}] * client closed connection\n";
-        }
-                                        # stop the wheels
-        delete $me->{'wheel_client'};
-        delete $me->{'wheel_server'};
-      },
-      'server' => sub {
-        my ($k,$me,$from,$line) = @_;
-        (exists $me->{wheel_client}) && $me->{wheel_client}->put($line);
-      },
-      'server_error' => sub {
-        my ($k,$me,$from,$operation,$errnum,$errstr) = @_;
-        if ($errnum) {
-          print "[$me->{'log'}] ! $operation error $errnum ($errstr)\n";
-        }
-        else {
-          print "[$me->{'log'}] * server closed connection\n";
-        }
-                                        # stop the wheels
-        delete $me->{'wheel_client'};
-        delete $me->{'wheel_server'};
-      },
-    );
-}
+exit;

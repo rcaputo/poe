@@ -1,75 +1,109 @@
 #!perl -w -I..
 # $Id$
 
-# Tests signals.  OS signals (such as SIGINT), soft signals to
-# sessions, and signals to kernels.
+# This program tests signals.  It tests OS signals (such as SIGINT),
+# soft signals to sessions, and soft signals to kernels.  Soft
+# signals, by the way, are ones generated with the Kernel::signal()
+# function.  They don't involve the underlying OS, and so can send
+# arbitrarily named signals.
 
 use strict;
-use POE; # and you get Kernel and Session
+use POE;
 
-select(STDOUT); $|=1;
-
-my $kernel = new POE::Kernel();
+#==============================================================================
+# This is a pathological example of an inline session.  It defines the
+# subs for each event handler within the POE::Session constructor's
+# parameters.  It's not bad for quick hacks.
+#
+# Anyway, this session registers handlers for SIGINT and two
+# fictitious signals (SIGFOO and SIGQUUX).  The session then starts an
+# alarm loop that signals FOO to itself once a second.
 
 new POE::Session
-  ( $kernel,
-    '_start' => sub
-    { my ($k, $me, $from) = @_;
-      $k->sig('INT', 'signal handler');
-      $k->sig('WHEE', 'signal handler');
-      $k->sig('QUUX', 'signal handler');
-      print "main signal watcher started... send SIGINT to stop.\n";
-      $me->{'done'} = '';
-      $k->delay('set an alarm', 1);
+                                        ### _start the session
+  ( '_start' => sub
+    { my $kernel = $_[KERNEL];
+                                        # register signal handlers
+      $kernel->sig('INT', 'signal handler');
+      $kernel->sig('FOO', 'signal handler');
+      $kernel->sig('QUUX', 'signal handler');
+                                        # hello, world!
+      print "First session started... send SIGINT to stop.\n";
+                                        # start the alarm loop
+      $kernel->delay('set an alarm', 1);
     },
+                                        ### _stop the session
     '_stop' => sub
-    { my ($k, $me, $from) = @_;
-      print "main signal watcher stopped.\n";
+    { print "First session stopped.\n";
     },
+                                        ### alarm handler
     'set an alarm' => sub
-    { my ($k, $me, $from) = @_;
-      print "main alarm rang... sending SIGWHEE to main...\n";
-      $k->signal($me, 'WHEE');
-      $k->delay('set an alarm', 1);
+    { my ($kernel, $session) = @_[KERNEL, SESSION];
+      print "First session's alarm rang.  Sending SIGFOO to itself...\n";
+                                        # send a signal to itself
+      $kernel->signal($session, 'FOO');
+                                        # reset the alarm for 1s from now
+      $kernel->delay('set an alarm', 1);
     },
+                                        ### signal handler
     'signal handler' => sub
-    { my ($k, $me, $from, $signal_name) = @_;
-      print "main caught SIG$signal_name\n";
+    { my ($kernel, $signal_name) = @_[KERNEL, ARG0];
+      print "First session caught SIG$signal_name\n";
+                                        # stop pending alarm on SIGINT
       if ($signal_name eq 'INT') {
-        print "main stopping signal watcher.\n";
-        $k->delay('set an alarm');
+        print "First session stopping...\n";
+        $kernel->delay('set an alarm');
       }
     },
   );
 
+#==============================================================================
+# This is another pathological inline session.  This one registers
+# handlers for SIGINT and two fictitious signals (SIGBAZ and SIGQUUX).
+# The session then starts an alarm loop that signals QUUX to the
+# kernel twice a second.  This propagates SIGQUUX to every session.
+
 new POE::Session
-  ( $kernel,
-    '_start' => sub
-    { my ($k, $me, $from) = @_;
-      $k->sig('INT', 'signal handler');
-      $k->sig('WHEE', 'signal handler');
-      $k->sig('QUUX', 'signal handler');
-      $k->delay('set an alarm', 0.5);
-      print "second signal watcher started\n";
+                                        ### _start the session
+  ( '_start' => sub
+    { my $kernel = $_[KERNEL];
+                                        # register signal handlers
+      $kernel->sig('INT', 'signal handler');
+      $kernel->sig('BAZ', 'signal handler');
+      $kernel->sig('QUUX', 'signal handler');
+                                        # hello, world!
+      print "Second session started... send SIGINT to stop.\n";
+                                        # start the alarm loop
+      $kernel->delay('set an alarm', 0.5);
     },
+                                        ### _stop the session
     '_stop' => sub 
-    { my ($k, $me, $from) = @_;
-      print "second stopped.\n";
+    { print "Second session stopped.\n";
     },
+                                        ### alarm handler
     'set an alarm' => sub
-    { my ($k, $me, $from) = @_;
-      print "second alarm rang... sending SIGQUUX to kernel...\n";
-      $k->signal($k, 'QUUX');
-      $k->delay('set an alarm', 0.5);
+    { my $kernel = $_[KERNEL];
+      print "Second session's alarm rang.  Sending SIGQUUX to kernel...\n";
+                                        # signal the kernel
+      $kernel->signal($kernel, 'QUUX');
+                                        # reset the alarm for 1/2s from now
+      $kernel->delay('set an alarm', 0.5);
     },
+                                        ### signal handler
     'signal handler' => sub
-    { my ($k, $me, $from, $signal_name) = @_;
-      print "second caught SIG$signal_name\n";
+    { my ($kernel, $signal_name) = @_[KERNEL, ARG0];
+      print "Second session caught SIG$signal_name\n";
+                                        # stop pending alarm on SIGINT
       if ($signal_name eq 'INT') {
-        print "second stopping...\n";
-        $k->delay('set an alarm');
+        print "Second session stopping...\n";
+        $kernel->delay('set an alarm');
       }
     },
  );
 
-$kernel->run();
+#==============================================================================
+# Tell the kernel to run the sessions.
+
+$poe_kernel->run();
+
+exit;

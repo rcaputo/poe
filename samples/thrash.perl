@@ -2,359 +2,448 @@
 # $Id$
 
 # This program creates a server session and an infinitude of clients
-# in order to exercise POE for potential long-term problems.
+# that connect to it, all in the same process.  It's mainly used to
+# test for memory leaks, but it's also something of a benchmark.
 
-# This program is also something of a benchmark.  Every ten seconds it
-# displays the average number of connections per second.
+# It is possible to split this program into two separate processes:
+#   Change $server_addr to something appropriate.
+#   Make a second copy of this program.
+#   In the "server" copy, comment out the call to &pool_create();
+#   In the "client" copy, comment out th ecall to &server_create();
 
 use strict;
+use Socket;
 
 use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line
            Wheel::SocketFactory
           );
-
+                                        # make 1 to enable output
 sub DEBUG () { 0 }
-
+                                        # address and port the server binds to
+my $server_addr = '127.0.0.1';
 my $server_port = 12345;
 
+###############################################################################
+# This is a single client session.  It uses two separater wheels: a
+# SocketFactory to establish a connection, and a ReadWrite to process
+# data once the connection is made
+
 #------------------------------------------------------------------------------
+# This is regular Perl sub that helps create new clients.  It's not an
+# event handler.
 
-package Client;
-
-use strict;
-use Socket;
-sub DEBUG () { 0 }
-
-sub new {
-  my ($type, $kernel, $serial) = @_;
-  my $self = bless { 'serial' => $serial }, $type;
-
-  new POE::Session( $kernel,
-                    $self, [ qw(_start _stop receive error connected signals) ]
+sub client_create {
+  my $serial_number = shift;
+                                        # create the session
+  new POE::Session( _start    => \&client_start,
+                    _stop     => \&client_stop,
+                    receive   => \&client_receive,
+                    error     => \&client_error,
+                    connected => \&client_connected,
+                    signals   => \&client_signals,
+                                        # ARG0
+                    [ $serial_number ]
                   );
-
-  DEBUG && print "\t\t\tclient $self->{'serial'} created\n";
-
-  undef;
-}
-
-sub DESTROY {
-  my $self = shift;
-  DEBUG && print "\t\t\tclient $self->{'serial'} destroyed\n";
-}
-
-sub _start {
-  my ($self, $kernel, $namespace) = @_;
-
-  $kernel->sig('INT', 'signals');
-
-  $namespace->{'wheel'} = new POE::Wheel::SocketFactory
-    ( $kernel,
-      SocketDomain   => AF_INET,
-      SocketType     => SOCK_STREAM,
-      SocketProtocol => 'tcp',
-      RemoteAddress  => '127.0.0.1',
-      RemotePort     => $server_port,
-      SuccessState   => 'connected',
-      FailureState   => 'error',
-    );
-}
-
-sub _stop {
-  my ($self, $kernel, $namespace) = @_;
-  DEBUG && print "\t\t\tclient $self->{'serial'} stopped\n";
-  delete $namespace->{'wheel'};
-}
-
-sub connected {
-  my ($self, $kernel, $namespace, $from, $socket) = @_;
-
-  DEBUG && print "\t\t\tclient $self->{'serial'} connected\n";
-
-  $namespace->{'wheel'} = new POE::Wheel::ReadWrite
-    ( $kernel,
-      'Handle' => $socket,
-      'Driver' => new POE::Driver::SysRW(),
-      'Filter' => new POE::Filter::Line(),
-      'InputState' => 'receive',
-      'ErrorState' => 'error',
-    );
-}
-
-sub receive {
-  my ($self, $kernel, $namespace, $from, $line) = @_;
-  DEBUG && print "\t\t\tclient $self->{'serial'} received $line\n";
-}
-
-sub error {
-  my ($self, $k, $namespace, $from, $op, $errnum, $errstr) = @_;
-  DEBUG && print "\t\t\tclient $self->{'serial'} $op error $errnum: $errstr\n";
-  delete $namespace->{'wheel'};
-}
-
-sub signals {
-  my ($self, $kernel, $namespace, $from, $signal_name) = @_;
-  DEBUG && print "\t\t\t***** $namespace caught SIG$signal_name\n";
-  return (1) if ($signal_name eq 'INT');
 }
 
 #------------------------------------------------------------------------------
-# manage a pool of clients
+# Accept POE's standard _start event, and create a non-blocking client
+# socket.
 
-package ClientPool;
+sub client_start {
+  my ($kernel, $heap, $serial) = @_[KERNEL, HEAP, ARG0];
 
-use strict;
-sub DEBUG () { 0 }
-
-sub new {
-  my ($type, $kernel) = @_;
-  my $self = bless { }, $type;
-
-  new POE::Session($kernel, $self, [ qw(_start _stop _child signals initialize)
-                                   ]
-                  );
-
-  DEBUG && print "\t\t$self created\n";
-
-  undef;
-}
-
-sub DESTROY {
-  my $self = shift;
-  DEBUG && print "\t\t$self destroyed\n";
-}
-
-sub _start {
-  my ($self, $kernel, $namespace) = @_;
-
-  $self->{'status'} = 'running';
+  DEBUG && print "Client $serial is starting.\n";
+                                        # remember this client's serial number
+  $heap->{'serial'} = $serial;
+                                        # watch for SIGINT
   $kernel->sig('INT', 'signals');
-
-  $self->{'children'} = 0;
-  $self->{'client serial'} = 0;
-
-  $self->{'bench start'} = time();
-  $self->{'bench count'} = 0;
-
-  $kernel->post($namespace, 'initialize');
-
-  DEBUG && print "\t\t$self started\n";
+                                        # create a socket factory
+  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+    ( SocketDomain   => AF_INET,        # in the INET domain/address family
+      SocketType     => SOCK_STREAM,    # create a stream socket
+      SocketProtocol => 'tcp',          # with the tcp protocol
+      RemoteAddress  => $server_addr,   # connecting to address $server_addr
+      RemotePort     => $server_port,   # connecting to port $server_port
+      SuccessState   => 'connected',    # generating this event when connected
+      FailureState   => 'error',        # generating this event upon an error
+    );
 }
 
-sub _stop {
-  my ($self, $kernel, $namespace) = @_;
+#------------------------------------------------------------------------------
+# Accept POE's standard _stop event.  This normally would clean up the
+# session, but this program doesn't keep anything in the heap that
+# needs to be cleaned up.
+
+sub client_stop {
+  my $heap = $_[HEAP];
+  DEBUG && print "Client $heap->{'serial'} has stopped.\n";
+}
+
+#------------------------------------------------------------------------------
+# This event handler/state is invoked when a connection has been
+# established successfully.  It replaces the SocketFactory wheel with
+# a ReadWrite wheel.  The new wheel generates different events.
+
+sub client_connected {
+  my ($heap, $socket) = @_[HEAP, ARG0];
+
+  DEBUG && print "Client $heap->{'serial'} is connected.\n";
+                                        # switch to read/write behavior
+  $heap->{'wheel'} = new POE::Wheel::ReadWrite
+    ( Handle     => $socket,                  # read and write on this socket
+      Driver     => new POE::Driver::SysRW(), # using sysread and syswrite
+      Filter     => new POE::Filter::Line(),  # and parsing I/O as lines
+      InputState => 'receive',                # generating this event on input
+      ErrorState => 'error',                  # generating this event on error
+    );
+}
+
+#------------------------------------------------------------------------------
+# This state is invoked by the ReadWrite wheel to process complete
+# chunks of input.
+
+sub client_receive {
+  my ($heap, $line) = @_[HEAP, ARG0];
+  DEBUG && print "Client $heap->{'serial'} received: $line\n";
+}
+
+#------------------------------------------------------------------------------
+# This state is invoked by both the SocketFactory and the ReadWrite
+# wheels when an error occurs.
+
+sub client_error {
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
+  if (DEBUG) {
+    if ($errnum) {
+      print( "Client $heap->{'serial'} encountered ",
+             "$operation error $errnum: $errstr\n"
+           );
+    }
+    else {
+      print "Client $heap->{'serial'} the server closed the connection.\n";
+    }
+  }
+                                        # removing the wheel stops the session
+  delete $heap->{'wheel'};
+}
+
+#------------------------------------------------------------------------------
+# Catch and log signals.  Never handle them.
+
+sub client_signals {
+  my ($heap, $signal_name) = @_[HEAP, ARG0];
+  DEBUG && print "Client $heap->{'serial'} caught SIG$signal_name\n";
+                                        # doesn't handle SIGINT, so it can stop
+  return 0;
+}
+
+###############################################################################
+# This is a client pool session.  It ensures that at least five
+# clients are interacting with the server at any given time.
+# Actually, there are brief periods where only four clients are
+# connected.
+
+#------------------------------------------------------------------------------
+# This is a regular Perl sub that helps create new client pools.  It's
+# not an event handler.
+
+sub pool_create {
+                                        # create the server
+  new POE::Session( _start  => \&pool_start,
+                    _stop   => \&pool_stop,
+                    signals => \&pool_signals,
+                    _child  => \&pool_child,
+                  );
+}
+
+#------------------------------------------------------------------------------
+# Accept POE's standard _start event.  Initialize benchmark
+# accumulators, and start the first five clients.
+
+sub pool_start {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+  DEBUG && print "Pool starting.\n";
+                                        # watch for SIGINT
+  $kernel->sig('INT', 'signals');
+                                        # keep track of children
+  $heap->{'children'} = 0;
+  $heap->{'client serial'} = 0;
+  $heap->{'state'} = 'running';
+                                        # benchmark accumulators
+  $heap->{'bench start'} = time();
+  $heap->{'bench count'} = 0;
+
+  # Start five clients.  NOTE: This would not work if clients used
+  # IO::Socket::INET to connect to the server, because
+  # IO::Socket::INET's connect blocks.  It would wait for the server
+  # to accept a connectino before continuing, which would never happen
+  # since this loop is holding up the event queue.  The program can
+  # only get away with this loop because SocketFactory connections do
+  # not block.
+
+  for (my $i = 0; $i < 5; $i++) {
+    &client_create(++$heap->{'client serial'});
+  }
+}
+
+#------------------------------------------------------------------------------
+# Accept POE's standard stop event.  Also stop the server.
+
+sub pool_stop {
+  my $kernel = $_[KERNEL];
+                                        # send SIGQUIT to the server
   $kernel->signal('server', 'QUIT');
-  DEBUG && print "\t\t$self stopped\n";
+  DEBUG && print "Pool has stopped.\n";
 }
 
-# This kludge works around the fact that "new IO::Socket::INET" blocks
-# by default.  If it was a plain loop, then the Kernel couldn't dispatch
-# select events to the server, and this would block (until the connection
-# sockets timed out).
-#
-# Fortunately, this sort of badness only is a problem when the server and
-# client share the same event queue.
+#------------------------------------------------------------------------------
+# Catch and log signals, but never handle them.
 
-sub initialize {
-  my ($self, $kernel, $namespace) = @_;
+sub pool_signals {
+  my ($heap, $signal_name) = @_[HEAP, ARG0];
+  DEBUG && print "Pool caught SIG$signal_name\n";
+                                        # doesn't handle SIGINT, so it can stop
+  return 0;
+}
 
-  if (($self->{'status'} eq 'running') && ($self->{'children'} < 25)) {
-    $self->{'children'}++;
-    new Client($kernel, ++$self->{'client serial'});
-    $kernel->post($namespace, 'initialize');
+#------------------------------------------------------------------------------
+# Keep track of child sessions, starting new ones to replace old ones
+# that are being lost.  If debugging, and a time limit has been
+# reached, stop creating new clients.
+
+my %english = ( create => 'created', lose => 'lost', gain => 'gained' );
+
+sub pool_child {
+  my ($heap, $direction, $child) = @_[HEAP, ARG0, ARG1];
+                                        # lost a client
+  if ($direction eq 'lose') {
+    $heap->{'children'}--;
+                                        # create a new one if still running
+    if ($heap->{'state'} eq 'running') {
+      &client_create(++$heap->{'client serial'});
+    }
   }
-}
-
-sub signals {
-  my ($self, $kernel, $namespace, $from, $signal_name) = @_;
-  $self->{'status'} = 'shutting down';
-  DEBUG && print "\t\t***** $namespace caught SIG$signal_name\n";
-  return ($signal_name ne 'INT');
-}
-
-sub _child {
-  my ($self, $kernel, $namespace) = @_;
-
-  $self->{'children'}--;
-
-  DEBUG && print "\t\tSERVER POOL CHILDREN: $self->{'children'}\n";
-
-  if ($self->{'status'} eq 'running') {
-    $self->{'children'}++;
-    new Client($kernel, ++$self->{'client serial'});
+                                        # gained a client; keep track of it
+  else {
+    $heap->{'children'}++;
+    $heap->{'bench count'}++;
   }
 
-  $self->{'bench count'}++;
-
-  my $elapsed = time() - $self->{'bench start'};
+  DEBUG && print( "Pool $english{$direction} a child session ",
+                  "(now has $heap->{'children'}).\n"
+                );
+                                        # track clients/second for benchmark
+  my $elapsed = time() - $heap->{'bench start'};
   if ($elapsed >= 10) {
-    print "bench: ", $self->{'bench count'}, ' / ', $elapsed, ' = ',
-          $self->{'bench count'} / $elapsed, "\n";
-    $self->{'bench count'} = 0;
-    $self->{'bench start'} = time();
-    exit if (time() - $^T >= 60.0);
+    print "bench: ", $heap->{'bench count'}, ' / ', $elapsed, ' = ',
+          $heap->{'bench count'} / $elapsed, "\n";
+    $heap->{'bench count'} = 0;
+    $heap->{'bench start'} = time();
+                                        # limit run to 60 seconds if debugging
+    if (DEBUG && (time() - $^T >= 60.0)) {
+      $heap->{'state'} = 'quitting';
+    }
   }
 }
 
+###############################################################################
+# This is a single server session.  It is spawned by the daytime
+# server to handle incoming connections.
+
 #------------------------------------------------------------------------------
-# handle a connection on the server side
+# This is a regular Perl sub that helps create new sessions.  It's not
+# an event handler.
 
-package ServerSession;
-
-use strict;
-use Socket;
-sub DEBUG () { 0 }
-
-sub new {
-  my ($type, $kernel, $handle, $peer_host, $peer_port) = @_;
-
-  my $self = bless { 'handle' => $handle,
-                     'peer host' => $peer_host,
-                     'peer port' => $peer_port,
-                   }, $type;
-
-  new POE::Session($kernel, $self, [ qw(_start _stop receive flushed error
-                                        signals)
-                                   ]
+sub session_create {
+  my ($handle, $peer_host, $peer_port) = @_;
+                                        # create the session
+  new POE::Session( _start  => \&session_start,
+                    _stop   => \&session_stop,
+                    receive => \&session_receive,
+                    flushed => \&session_flushed,
+                    error   => \&session_error,
+                    signals => \&session_signals,
+                                        # ARG0, ARG1, ARG2
+                    [ $handle, $peer_host, $peer_port ]
                   );
-
-  DEBUG && print "\t$self created\n";
-
-  undef;
 }
 
-sub DESTROY {
-  my $self = shift;
-  DEBUG && print "\t$self destroyed\n";
-}
+#------------------------------------------------------------------------------
+# Accept POE's standard _start event, and start transacting with the
+# client.
 
-sub _start {
-  my ($self, $kernel, $namespace) = @_;
-
+sub session_start {
+  my ($kernel, $heap, $handle, $peer_host, $peer_port) =
+    @_[KERNEL, HEAP, ARG0, ARG1, ARG2];
+                                        # make the address printable
+  $peer_host = inet_ntoa($peer_host);
+  DEBUG && print "Session with $peer_host $peer_port is starting.\n";
+                                        # watch for SIGINT
   $kernel->sig('INT', 'signals');
-
-  $namespace->{'wheel'} = new POE::Wheel::ReadWrite
-    ( $kernel,
-      'Handle' => delete $self->{'handle'},
-      'Driver' => new POE::Driver::SysRW(),
-      'Filter' => new POE::Filter::Line(),
-      'InputState'   => 'receive',
-      'ErrorState'   => 'error',
-      'FlushedState' => 'flushed',
+                                        # record the client info for later
+  $heap->{'host'} = $peer_host;
+  $heap->{'port'} = $peer_port;
+                                        # start reading and writing
+  $heap->{'wheel'} = new POE::Wheel::ReadWrite
+    ( Handle       => $handle,                # on the client's socket
+      Driver       => new POE::Driver::SysRW, # using sysread and syswrite
+      Filter       => new POE::Filter::Line,  # and parsing I/O as lines
+      InputState   => 'receive',              # generating this event on input
+      ErrorState   => 'error',                # generating this event on error
+      FlushedState => 'flushed',              # generating this event on flush
     );
-
-  $namespace->{'wheel'}->put
-    ( "hi, " . inet_ntoa($self->{'peer host'}) .
-      ":$self->{'peer port'}, at " . time()
-    );
-
-  DEBUG && print "\t$namespace: started\n";
-}
-
-sub _stop {
-  my ($self, $kernel, $namespace) = @_;
-  DEBUG && print "\t$self stopped\n";
-}
-
-sub receive {
-  my ($self, $kernel, $namespace, $from, $line) = @_;
-  DEBUG && print "\t$namespace: received $line\n";
-}
-
-sub error {
-  my ($self, $k, $namespace, $from, $op, $errnum, $errstr) = @_;
-  DEBUG && print "\t$namespace: $op error $errnum: $errstr\n";
-  delete $namespace->{'wheel'};
-}
-
-sub flushed {
-  my ($self, $kernel, $namespace, $from) = @_;
-  DEBUG && print "\t$namespace: flushed\n";
-  delete $namespace->{'wheel'};
-}
-
-sub signals {
-  my ($self, $kernel, $namespace, $from, $signal_name) = @_;
-  DEBUG && print "\t***** $namespace caught SIG$signal_name\n";
-  return ($signal_name eq 'INT');
+                                        # give the client the time of day
+  $heap->{'wheel'}->put
+    ( "Hi, $peer_host $peer_port!  The time is: " . gmtime() . " GMT" );
 }
 
 #------------------------------------------------------------------------------
-# a simple daytime server
+# Accept POE's standard _stop event.  This normally would clean up the
+# session, but this program doesn't keep anything in the heap that
+# needs to be cleaned up.
 
-package Server;
+sub session_stop {
+  my $heap = $_[HEAP];
+  DEBUG && print "Session with $heap->{'host'} $heap->{'port'} has stopped.\n";
+}
 
-use strict;
-use Socket;
-sub DEBUG () { 0 }
+#------------------------------------------------------------------------------
+# This state is invoked by the ReadWrite wheel whenever a complete
+# request has been received.
 
-sub new {
-  my ($type, $kernel) = @_;
-  my $self = bless { }, $type;
+sub session_receive {
+  my ($heap, $line) = @_[HEAP, ARG0];
+  DEBUG && print "Received from $heap->{'host'} $heap->{'port'}: $line\n";
+}
 
-  new POE::Session($kernel, $self, [ qw(_start accept accept_error signals) ]
+#------------------------------------------------------------------------------
+# This state is invoked when the ReadWrite wheel encounters an error.
+
+sub session_error {
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
+  DEBUG && print( "Session with $heap->{'host'} $heap->{'port'} ",
+                  "encountered $operation error $errnum: $errstr\n"
+                );
+  delete $heap->{'wheel'};
+}
+
+#------------------------------------------------------------------------------
+# This state is invoked when the ReadWrite wheel's output buffer
+# becomes empty.  For a daytime server session, a flushed buffer means
+# it's okay to close the connection.
+
+sub session_flushed {
+  my $heap = $_[HEAP];
+  DEBUG && print "Output to $heap->{'host'} $heap->{'port'} has flushed.\n";
+                                        # removing the wheel stops the session
+  delete $heap->{'wheel'};
+}
+
+#------------------------------------------------------------------------------
+# Catch and log signals, but never handle them.
+
+sub session_signals {
+  my ($heap, $signal_name) = @_[HEAP, ARG0];
+  DEBUG && print( "Session with $heap->{'host'} $heap->{'port'} ",
+                  "has received a SIG$signal_name\n"
+                );
+                                        # doesn't handle SIGINT, so it can stop
+  return 0;
+}
+
+###############################################################################
+# This is a generic daytime server.  Its only purpose is to listen on
+# a socket, accept connections, and spawn daytime sessions to handle
+# the connections.
+
+#------------------------------------------------------------------------------
+# This is a regular Perl sub that helps create new servers.  It's not
+# an event handler.
+
+sub server_create {
+                                        # create the server
+  new POE::Session( _start         => \&server_start,
+                    _stop          => \&server_stop,
+                    accept_success => \&server_accept,
+                    accept_error   => \&server_error,
+                    signals        => \&server_signals
                   );
-
-  DEBUG && print "$self created\n";
-
-  undef;
 }
 
-sub DESTROY {
-  my $self = shift;
-  DEBUG && print "$self destroyed\n";
-}
+#------------------------------------------------------------------------------
+# Accept POE's standard _start event.  Create a non-blocking server.
 
-sub _start {
-  my ($self, $kernel, $namespace) = @_;
+sub server_start {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
 
+  DEBUG && print "Daytime server is starting.\n";
+                                        # set an alias so pool_stop can signal
   $kernel->alias_set('server');
+                                        # watch for SIGINT and SIGQUIT
   $kernel->sig('INT', 'signals');
-
-  $namespace->{'wheel'} = new POE::Wheel::SocketFactory
-    ( $kernel,
-      Reuse          => 'yes',
-      SocketDomain   => AF_INET,
-      SocketType     => SOCK_STREAM,
-      SocketProtocol => 'tcp',
-      BindAddress    => '127.0.0.1',
-      BindPort       => $server_port,
-      ListenQueue    => 5,
-      SuccessState   => 'accept',
-      FailureState   => 'accept_error',
+  $kernel->sig('QUIT', 'signals');
+                                        # create a socket factory
+  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+    ( SocketDomain   => AF_INET,        # in the INET domain/address family
+      SocketType     => SOCK_STREAM,    # create stream sockets
+      SocketProtocol => 'tcp',          # with the tcp protocol
+      BindAddress    => $server_addr,   # bind the listener to this address
+      BindPort       => $server_port,   # bind the listener to this port
+      ListenQueue    => 5,              # listen, with a 5-connection queue
+      Reuse          => 'yes',          # and reuse the socket right away
+      SuccessState   => 'accept_success', # generate this event for connections
+      FailureState   => 'accept_error',   # generate this event for errors
     );
 }
 
-sub _stop {
-  my ($self, $kernel, $namespace) = @_;
-  DEBUG && print "$self stopped\n";
-}
+#------------------------------------------------------------------------------
+# Accept POE's standard _stop event.  This normally would clean up the
+# session, but this program doesn't keep anything in the heap that
+# needs to be cleaned up.
 
-sub accept_error {
-  my ($self, $kernel, $namespace, $from, $op, $errnum, $errstr) = @_;
-  print "$op error $errnum: $errstr\n";
-}
-
-sub accept {
-  my ($self, $kernel, $namespace, $from, $accepted_handle, $host, $port) = @_;
-  new ServerSession($kernel, $accepted_handle, $host, $port);
-}
-
-sub signals {
-  my ($self, $kernel, $namespace, $from, $signal_name) = @_;
-  DEBUG && print "***** $namespace caught SIG$signal_name\n";
-  return ($signal_name eq 'INT');
+sub server_stop {
+  my $heap = $_[HEAP];
+  DEBUG && print "Daytime server has stopped.\n";
 }
 
 #------------------------------------------------------------------------------
+# This state is invoked by the SocketFactory when an error occurs.
 
-package main;
+sub server_error {
+  my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
+  DEBUG
+    && print "Daytime server encountered $operation error $errnum: $errstr\n";
+}
 
-my $kernel = new POE::Kernel();
+#------------------------------------------------------------------------------
+# The SocketFactory invokes this state when a new client connection
+# has been accepted.  The parameters include the client socket,
+# address and port.
 
-new Server($kernel);
-new ClientPool($kernel);
+sub server_accept {
+  my ($handle, $host, $port) = @_[ARG0, ARG1, ARG2];
+                                        # spawn a server session
+  &session_create($handle, $host, $port);
+}
 
-$kernel->run();
+#------------------------------------------------------------------------------
+# Catch and log signals, but never handle them.
+
+sub server_signals {
+  my $signal_name = $_[ARG0];
+  DEBUG && print "Daytime server caught SIG$signal_name\n";
+                                        # doesn't handle SIGINT, so it can stop
+  return 0;
+}
+
+###############################################################################
+# Start the daytime server and a pool of clients to transact with it.
+
+&server_create();
+&pool_create();
+
+$poe_kernel->run();
 
 exit;

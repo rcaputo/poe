@@ -14,6 +14,7 @@ use Symbol;
 
 use POSIX qw(fcntl_h errno_h);
 use Socket;
+use POE;
 
 #------------------------------------------------------------------------------
 
@@ -54,16 +55,15 @@ sub condition_unix_address {
 sub register_listen_accept {
   my ($self, $listen_handle, $success_state, $failure_state) = @_;
 
-  $self->{'kernel'}->state
+  $poe_kernel->state
     ( $self->{'state read'} = $self . ' -> select read',
       sub {
-        my ($k, $me, $from, $handle) = @_;
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         my $new_socket = gensym();
-        my $peer = accept($new_socket, $handle)
-          or die "accept failed: $!";
+        my $peer = accept($new_socket, $handle);
 
-        if ($new_socket) {
+        if ($peer) {
           my ($peer_addr, $peer_port);
           if ($self->{'socket domain'} == AF_UNIX) {
             $peer_addr = $peer_port = undef;
@@ -74,16 +74,16 @@ sub register_listen_accept {
           else {
             die "sanity failure: socket domain == $self->{'socket domain'}";
           }
-          $k->post($me, $success_state, $new_socket, $peer_addr, $peer_port);
+          $k->call($me, $success_state, $new_socket, $peer_addr, $peer_port);
         }
         elsif ($! != EWOULDBLOCK) {
           $failure_state &&
-            $k->post($me, $failure_state, 'accept', ($!+0), $!);
+            $k->call($me, $failure_state, 'accept', ($!+0), $!);
         }
       }
     );
 
-  $self->{'kernel'}->select_read($listen_handle, $self->{'state read'});
+  $poe_kernel->select_read($listen_handle, $self->{'state read'});
 }
 
 #------------------------------------------------------------------------------
@@ -91,20 +91,20 @@ sub register_listen_accept {
 sub register_connect {
   my ($self, $connect_handle, $success_state, $failure_state) = @_;
 
-  $self->{'kernel'}->state
+  $poe_kernel->state
     ( $self->{'state write'} = $self . ' -> select write',
       sub {
-        my ($k, $me, $from, $handle) = @_;
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
         $k->select($handle);
-        $k->post($me, $success_state, $handle);
+        $k->call($me, $success_state, $handle);
       }
     );
-  $self->{'kernel'}->select_write($connect_handle, $self->{'state write'});
+  $poe_kernel->select_write($connect_handle, $self->{'state write'});
 
-#   $self->{'kernel'}->state
+#   $poe_kernel->state
 #     ( $self->{'state read'} = $self . ' -> select read',
 #       sub {
-#         my ($k, $me, $from, $handle) = @_;
+#         my ($k, $handle) = @_[KERNEL, ARG0];
 #         sysread($handle, my $buffer = '', 0, 0);
 #         if ($! && ($! != EINPROGRESS)) {
 #           $k->yield($failure_state, 'connect', $!+0, $!);
@@ -113,18 +113,19 @@ sub register_connect {
 #         }
 #       }
 #     );
-#   $self->{'kernel'}->select_read($connect_handle, $self->{'state read'});
+#   $poe_kernel->select_read($connect_handle, $self->{'state read'});
 }
 
 #------------------------------------------------------------------------------
 
 sub new {
   my $type = shift;
-  my $kernel = shift;
   my %params = @_;
 
-  my $self = bless { 'kernel' => $kernel,
-                   }, $type;
+  croak "$type requires a working Kernel"
+    unless (defined $poe_kernel);
+
+  my $self = bless { }, $type;
 
   my $socket_handle = gensym();
 
@@ -149,7 +150,7 @@ sub new {
     croak 'BindAddress exists'    if (-e $params{'BindAddress'});
 
     unless (socket($socket_handle, $socket_domain, $socket_type, PF_UNSPEC)) {
-      $kernel->yield($failure_state, 'socket', $!+0, $!);
+      $poe_kernel->yield($failure_state, 'socket', $!+0, $!);
       return undef;
     }
 
@@ -159,7 +160,7 @@ sub new {
                 )
                )
     ) {
-      $kernel->yield($failure_state, @$ret);
+      $poe_kernel->yield($failure_state, @$ret);
       close($socket_handle);
       return undef;
     }
@@ -167,7 +168,7 @@ sub new {
     my $bind_address = &condition_unix_address($params{'BindAddress'});
 
     unless (bind($socket_handle, sockaddr_un($bind_address))) {
-      $kernel->yield($failure_state, 'bind', $!+0, $!);
+      $poe_kernel->yield($failure_state, 'bind', $!+0, $!);
       close($socket_handle);
       return undef;
     }
@@ -180,7 +181,7 @@ sub new {
       carp 'RemotePort ignored' if (exists $params{'RemotePort'});
 
       unless (listen($socket_handle, $listen_queue)) {
-        $kernel->yield($failure_state, 'listen', $!+0, $!);
+        $poe_kernel->yield($failure_state, 'listen', $!+0, $!);
         close($socket_handle);
         return undef;
       }
@@ -199,7 +200,7 @@ sub new {
 
       unless (connect($socket_handle, sockaddr_un($remote_address))) {
         if ($! && ($! != EINPROGRESS)) {
-          $kernel->yield($failure_state, 'connect', $!+0, $!);
+          $poe_kernel->yield($failure_state, 'connect', $!+0, $!);
           close($socket_handle);
           return undef;
         }
@@ -215,14 +216,14 @@ sub new {
     my $socket_protocol = $params{'SocketProtocol'};
     if ($socket_protocol !~ /^\d+$/) {
       unless ($socket_protocol = getprotobyname($socket_protocol)) {
-        $kernel->yield($failure_state, 'getprotobyname', $!+0, $!);
+        $poe_kernel->yield($failure_state, 'getprotobyname', $!+0, $!);
         return undef;
       }
     }
 
     my $protocol_name = getprotobynumber($socket_protocol);
     unless ($protocol_name) {
-      $kernel->yield($failure_state, 'getprotobynumber', $!+0, $!);
+      $poe_kernel->yield($failure_state, 'getprotobynumber', $!+0, $!);
       return undef;
     }
 
@@ -233,7 +234,7 @@ sub new {
     unless (
       socket($socket_handle, $socket_domain, $socket_type, $socket_protocol)
     ) {
-      $kernel->yield($failure_state, 'socket', $!+0, $!);
+      $poe_kernel->yield($failure_state, 'socket', $!+0, $!);
       return undef;
     }
 
@@ -243,7 +244,7 @@ sub new {
                 )
                )
     ) {
-      $kernel->yield($failure_state, @$ret);
+      $poe_kernel->yield($failure_state, @$ret);
       close($socket_handle);
       return undef;
     }
@@ -276,13 +277,13 @@ sub new {
         }
 
         unless (bind($socket_handle, sockaddr_in($bind_port, $bind_address))) {
-          $kernel->yield($failure_state, 'bind', $!+0, $!);
+          $poe_kernel->yield($failure_state, 'bind', $!+0, $!);
           close($socket_handle);
           return undef;
         }
 
         unless (listen($socket_handle, $listen_queue)) {
-          $kernel->yield($failure_state, 'listen', $!+0, $!);
+          $poe_kernel->yield($failure_state, 'listen', $!+0, $!);
           close($socket_handle);
           return undef;
         }
@@ -302,7 +303,7 @@ sub new {
         my $remote_port = $params{'RemotePort'};
         if ($remote_port !~ /^\d+$/) {
           unless ($remote_port = getservbyname($remote_port, $protocol_name)) {
-            $kernel->yield($failure_state, 'getservbyname', $!+0, $!);
+            $poe_kernel->yield($failure_state, 'getservbyname', $!+0, $!);
             close($socket_handle);
             return undef;
           }
@@ -314,7 +315,7 @@ sub new {
           connect($socket_handle, sockaddr_in($remote_port, $remote_address))
         ) {
           if ($! && ($! != EINPROGRESS)) {
-            $kernel->yield($failure_state, 'connect', $!+0, $!);
+            $poe_kernel->yield($failure_state, 'connect', $!+0, $!);
             close($socket_handle);
             return undef;
           }
@@ -349,11 +350,11 @@ sub DESTROY {
   my $self = shift;
 
   if (exists $self->{'handle'}) {
-    $self->{'kernel'}->select($self->{'handle'});
+    $poe_kernel->select($self->{'handle'});
   }
 
   if (exists $self->{'state read'}) {
-    $self->{'kernel'}->state($self->{'state read'});
+    $poe_kernel->state($self->{'state read'});
     delete $self->{'state read'};
   }
 }
