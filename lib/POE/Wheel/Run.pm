@@ -1060,7 +1060,7 @@ POE::Wheel::Run - event driven fork/exec with added value
 
   # Kill the child.
   $wheel->kill();
-  $wheel->kill( -9 );
+  $wheel->kill(9);
 
 =head1 DESCRIPTION
 
