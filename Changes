@@ -71,7 +71,7 @@ If it all goes as planned, this will give people at least 1/4 year to
 update their programs.
 
 
-0.1206 2001.??.??
+0.1206 2001.03.23
 -----------------
 
 Enhance POE::Preprocessor to track macros and constants per package.
