@@ -872,8 +872,12 @@ does not, however, signal that the client process has stopped
 accepting input.
 
 C<ErrorEvent> contains the name of an event to emit if something
-fails.  It is optional.  If omitted, the wheel will not notify its
-session if any errors occur.
+fails.  It is optional and if omitted, the wheel will not notify its
+session if any errors occur.  The event receives 5 parameters as
+follows: ARG0 = the return value of syscall(), ARG1 = errno() - the
+numeric value of the error generated, ARG2 = error() - a descriptive
+for the given error, ARG3 = the wheel id, and ARG4 = the handle on
+which the error ocurred (stdout, stderr, etc.)
 
 Wheel::Run requires at least one of the following three events:
 
