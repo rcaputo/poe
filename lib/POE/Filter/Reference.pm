@@ -24,24 +24,29 @@ sub _default_freezer {
 }
 
 #------------------------------------------------------------------------------
-# Try to acquire Compress::Zlib.
+# Try to acquire Compress::Zlib at runtime.
 
-my $zlib_error = '';
-BEGIN {
-  eval 'use Compress::Zlib qw(compress uncompress);';
-  if ($@) {
-    $zlib_error = $@;
-    eval <<'    EOE';
-      sub compress { @_ }
-      sub uncompress { @_ }
-      sub CAN_COMPRESS () { 0 }
-    EOE
+my $zlib_status = undef;
+sub _include_zlib {
+  local $SIG{'__DIE__'} = 'DEFAULT';
+
+  unless (defined $zlib_status) {
+    eval { require 'Compress::Zlib';
+           import Compress::Zlib qw(compress uncompress);
+         };
+    if ($@) {
+      $zlib_status = $@;
+      eval <<'      EOE';
+        sub compress { @_ }
+        sub uncompress { @_ }
+      EOE
+    }
+    else {
+      $zlib_status = '';
+    }
   }
-  else {
-    eval <<'    EOE';
-      sub CAN_COMPRESS () { 1 }
-    EOE
-  }
+
+  $zlib_status;
 }
 
 #------------------------------------------------------------------------------
@@ -74,8 +79,13 @@ sub new {
 
                                         # Compression
   $compression ||= 0;
-  if ($compression and !CAN_COMPRESS) {
-    carp "Compress::Zlib load failed with error: $zlib_error";
+  if ($compression) {
+    my $zlib_status = &_include_zlib();
+    if ($zlib_status ne '') {
+      warn "Compress::Zlib load failed with error: $zlib_status\n";
+      carp "Filter::Reference compression option ignored";
+      $compression = 0;
+    }
   }
 
   my $self = bless { buffer    => '',
@@ -122,6 +132,7 @@ sub put {
   my @raw = map {
     my $frozen = $self->{freeze}->($_);
     $frozen = compress($frozen) if $self->{compress};
+    length($frozen) . "\0" . $frozen;
   } @$references;
   \@raw;
 }

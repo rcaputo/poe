@@ -176,6 +176,7 @@ sub received
         if($send)
         {
             print "Cause  [$$] send '$send'\n";
+print "Cause  [$$] (running $send )\n";
             $send=eval($send);
             die $@ if $@;
             # print "Cause  [$$] send '", quotemeta($send), "'\n";
@@ -427,3 +428,6 @@ if(not defined $pid)                    # wha?  we can't!
 print "$me [$$] POE->run\n";
 $poe_kernel->run();
 print "$me [$$] Exit\n";
+
+
+
