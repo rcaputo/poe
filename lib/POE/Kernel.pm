@@ -222,7 +222,7 @@ BEGIN {
   defined &ASSERT_DEFAULT or eval "sub ASSERT_DEFAULT () { $assert_default }";
 
   define_assert
-    qw(EVENTS GARBAGE REFCOUNT RELATIONS SELECT SESSIONS RETURNS USAGE);
+    qw(EVENTS GARBAGE REFCOUNT RELATIONS SELECT SESSIONS RETURNS USAGE ADHOC);
 };
 
 #------------------------------------------------------------------------------
@@ -1571,6 +1571,73 @@ sub _data_ses_allocate {
   }
 }
 
+### Release a session's resources, and remove it.  This doesn't do
+### garbage collection for the session itself because that should
+### already have happened.
+
+sub _data_ses_free {
+  my ($self, $session) = @_;
+
+  TRACE_ADHOC and warn "<fr> freeing session $session";
+
+  # Manage parent/child relationships.
+
+  my $parent = $kr_sessions{$session}->[SS_PARENT];
+  my @children = $self->_data_ses_get_children($session);
+  if (defined $parent) {
+    confess "session is its own parent" if $parent == $session;
+    confess
+      ( $self->_data_alias_loggable($session), " isn't a child of ",
+        $self->_data_alias_loggable($parent), " (it's a child of ",
+        $self->_data_alias_loggable($self->_data_ses_get_parent($session)),
+        ")"
+      ) unless $self->_data_ses_is_child($parent, $session);
+
+    # Remove the departing session from its parent.
+
+    confess "internal inconsistency ($parent)"
+      unless exists $kr_sessions{$parent};
+    confess "internal inconsistency ($parent/$session)"
+      unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
+    $self->_data_ses_refcount_dec($parent);
+
+    # Move the departing session's children to its parent.
+
+    foreach (@children) {
+      $self->_data_ses_move_child($_, $parent)
+    }
+  }
+  else {
+    confess "no parent to give children to" if @children;
+  }
+
+  # Things which do not hold reference counts.
+
+  $self->_data_sid_clear($session);            # Remove from SID tables.
+  $self->_data_sig_clear_session($session);    # Remove all leftover signals.
+
+  # Things which dohold reference counts.
+
+  $self->_data_alias_clear_session($session);  # Remove all leftover aliases.
+  $self->_data_extref_clear_session($session); # Remove all leftover extrefs.
+  $self->_data_handle_clear_session($session); # Remove all leftover handles.
+  $self->_data_ev_clear_session($session);     # Remove all leftover events.
+
+  # Remove the session itself.
+
+  delete $kr_sessions{$session};
+
+  # GC the parent, if there is one.
+  if (defined $parent) {
+    $self->_data_ses_collect_garbage($parent);
+  }
+
+  # Stop the main loop if everything is gone.
+  unless (keys %kr_sessions) {
+    $self->loop_halt();
+  }
+}
+
 ### Move a session to a new parent.
 
 sub _data_ses_move_child {
@@ -2235,64 +2302,7 @@ sub _dispatch_event {
   # garbage collection necessary since the session's stopped.
 
   elsif ($type & ET_STOP) {
-    TRACE_ADHOC and warn "<fr> freeing session $session";
-
-    # Manage parent/child relationships.
-
-    my $parent = $kr_sessions{$session}->[SS_PARENT];
-    my @children = $self->_data_ses_get_children($session);
-    if (defined $parent) {
-      confess "session is its own parent" if $parent == $session;
-      confess
-        ( $self->_data_alias_loggable($session), " isn't a child of ",
-          $self->_data_alias_loggable($parent), " (it's a child of ",
-          $self->_data_alias_loggable($self->_data_ses_get_parent($session)),
-          ")"
-        ) unless $self->_data_ses_is_child($parent, $session);
-
-      # Remove the departing session from its parent.
-
-      confess "internal inconsistency ($parent)"
-        unless exists $kr_sessions{$parent};
-      confess "internal inconsistency ($parent/$session)"
-        unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
-      $self->_data_ses_refcount_dec($parent);
-
-      # Move the departing session's children to its parent.
-
-      foreach (@children) {
-        $self->_data_ses_move_child($_, $parent)
-      }
-    }
-    else {
-      confess "no parent to give children to" if @children;
-    }
-
-    # Things which do not hold reference counts.
-
-    $self->_data_sid_clear($session);            # Remove from SID tables.
-    $self->_data_sig_clear_session($session);    # Remove all leftover signals.
-
-    # Things which dohold reference counts.
-
-    $self->_data_alias_clear_session($session);  # Remove all leftover aliases.
-    $self->_data_extref_clear_session($session); # Remove all leftover extrefs.
-    $self->_data_handle_clear_session($session); # Remove all leftover handles.
-    $self->_data_ev_clear_session($session);     # Remove all leftover events.
-
-    # Remove the session itself.
-
-    delete $kr_sessions{$session};
-
-    # GC the parent, if there is one.
-    if (defined $parent) {
-      $self->_data_ses_collect_garbage($parent);
-    }
-
-    # Stop the main loop if everything is gone.
-    unless (keys %kr_sessions) {
-      $self->loop_halt();
-    }
+    $self->_data_ses_free($session);
   }
 
   # Step 3: Check for death by terminal signal.
