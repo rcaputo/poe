@@ -1,43 +1,57 @@
 #!/usr/bin/perl -w
 # $Id$
 
-# Scan a distribution's source tree and test its dependencies.  Exit
-# with a failure code if the distribution can't build.
-
 use strict;
-use File::Find;
 use Config qw(%Config);
+use ExtUtils::Manifest qw(maniread);
+use File::Spec;
 use Text::Wrap;
 
-use File::Spec;
-use ExtUtils::Manifest qw(maniread);
+sub TRACE_GATHER  () { 0 }  # noisy; for testing
+sub TRACE_SECTION () { 1 }  # lets the installer know what's going on
 
-sub TRACE_GOOD     () { 0 }  # (noise) show good modules
-sub TRACE_VERBOSE  () { 0 }  # (noise) show extra geeky bits
-sub TRACE_SECTIONS () { 1 }  # (signal or noise) section headers
-sub TRACE_BAD      () { 1 }  # (signal) show bad modules
-sub SHOW_SUMMARY   () { 1 }  # (signal) show report at the end
-
-# Twice to avoid warnings.
 open STDERR_HOLD, '>&STDERR' or die "cannot save STDERR: $!";
 open STDERR_HOLD, '>&STDERR' or die "cannot save STDERR: $!";
+open STDOUT_HOLD, '>&STDOUT' or die "cannot save STDOUT: $!";
+open STDOUT_HOLD, '>&STDOUT' or die "cannot save STDOUT: $!";
 
 #------------------------------------------------------------------------------
-# Read dependency hints from NEEDS.  By default, and for backward
-# compatibility, every rule is core and every dependent is needed.
+# Tracing stuff.
 
-TRACE_SECTIONS and print STDERR "Gathering dependency hints from NEEDS.\n";
+sub trace_gather {
+  TRACE_GATHER and print STDERR join('', @_), "\n";
+}
 
-sub FT_CORE       () { 0x0001 } # this file is an internal/external core
-sub FT_EXTENSION  () { 0x0002 } # this file is an internal/external extension
-sub FT_DATA       () { 0x0004 } # this file is a test program
-sub FT_INTERNAL   () { 0x0018 } # this file belongs to this project
-sub FT_EXTERNAL   () { 0x0020 } # this file belongs to something else
-sub DT_WANTS      () { 0x0030 } # soft dependency
-sub DT_NEEDS      () { 0x0080 } # hard dependency
-sub FT_IMPAIRED   () { 0x0100 } # file impaired by missing DT_WANTS dependent
-sub FT_BROKEN     () { 0x0200 } # file broken by missing DT_NEEDS dependent
-sub FT_TROUBLED   () { 0x0400 } # file has miscellaneous trouble
+sub trace_section {
+  TRACE_GATHER and print STDERR join('', @_), "\n";
+}
+
+#------------------------------------------------------------------------------
+# Read dependency tagging rules from the NEEDS file.  Includes some
+# functions used to test files against rules.
+
+&trace_section( 'Reading dependency hints from NEEDS.' );
+
+sub FT_UNKNOWN    () { 0x0001 } # file type: unknown
+sub FT_CORE       () { 0x0002 } # file type: core
+sub FT_EXTENSION  () { 0x0004 } # file type: extension
+sub FT_DATA       () { 0x0008 } # file type: data
+sub FT_ANY        () { FT_UNKNOWN | FT_CORE | FT_EXTENSION | FT_DATA }
+
+sub FO_UNKNOWN    () { 0x0010 } # file type: unknown
+sub FO_INTERNAL   () { 0x0020 } # file type: internal (part of this dist.)
+sub FO_EXTERNAL   () { 0x0040 } # file type: external (part of something else)
+sub FO_ANY        () { FO_UNKNOWN | FO_INTERNAL | FO_EXTERNAL }
+
+sub FS_UNKNOWN    () { 0x0080 } # file status: unknown (prevents dep. loops)
+sub FS_OK         () { 0x0100 } # file status: ok
+sub FS_BAD        () { 0x0200 } # file status: bad
+sub FS_IMPAIRED   () { 0x0400 } # file status: impaired
+sub FS_ANY        () { FS_UNKNOWN | FS_OK | FS_BAD | FS_IMPAIRED }
+
+sub DT_WANTS      () { 0x0800 } # dependency type: soft
+sub DT_NEEDS      () { 0x1000 } # dependency type: hard
+sub DT_ANY        () { DT_WANTS | DT_NEEDS }
 
 sub RULE_USER_MASK () { 0 }
 sub RULE_TYPE      () { 1 }
@@ -48,7 +62,7 @@ my %module_type =
     extension => FT_EXTENSION,
     data      => FT_DATA
   );
-my %dependency_type = ( wants => DT_WANTS, needs     => DT_NEEDS     );
+my %dependency_type = ( wants => DT_WANTS, needs => DT_NEEDS );
 
 my @mod_rules =
   ( [ '.*',                     # RULE_USER_MASK
@@ -113,6 +127,14 @@ sub file_type {
   return $file_type;
 }
 
+# Make a name for a file type.
+sub file_type_name {
+  my $file_type = shift;
+  return 'core'      if $file_type & FT_CORE;
+  return 'extension' if $file_type & FT_EXTENSION;
+  return 'unknown';
+}
+
 # Determine a dependency type.
 sub dep_type {
   my ($user, $usee) = @_;
@@ -128,323 +150,371 @@ sub dep_type {
 }
 
 #------------------------------------------------------------------------------
-# Scan the MANIFEST for dependencies.
+# Gather MANIFEST files.
 
-sub FS_CORE_BROKEN () { 0 }
-sub FS_EXT_BROKEN  () { 1 }
-sub FS_IMPAIRED    () { 2 }
-sub FS_TROUBLED    () { 3 }
-my @file_status;
+my %dep_node;
+sub NODE_TYPE      () { 0 }
+sub NODE_CHILDREN  () { 1 }
+sub NODE_FILE_NAME () { 2 }
 
-my $test_package = 0;
-my $is_core_regexp = '^' . quotemeta($Config{installprivlib});
-my $is_site_regexp = '^' . quotemeta($Config{installsitelib});
-my $distribution_can_install = 1;
-my %file_status;
-
-TRACE_SECTIONS and
-  print STDERR "Scanning files from MANIFEST for obvious dependencies.\n";
+&trace_section( 'Gathering files from MANIFEST.' );
 
 my $manifest = maniread();
 die "can't read MANIFEST: $!\n" unless defined $manifest;
 
-foreach my $filename (sort keys %$manifest) {
+foreach my $manifest_filename (sort keys %$manifest) {
 
-  # Transform MANIFEST entries into module names, if they can be.
-  my $file_key = $filename;
+  # Transform obvious module names into filenames.
+  my $file_key = $manifest_filename;
   if ($file_key =~ s!\.pm$!!) {
     $file_key = join '::', File::Spec->splitdir( $file_key );
   }
 
+  # Determine what sort of file we have.  Don't bother with data.
   my $file_type = &file_type($file_key);
-  my $file_type_name = 'unknown';
-  if ($file_type & FT_CORE) {
-    $file_type_name = 'core';
-  }
-  elsif ($file_type & FT_EXTENSION) {
-    $file_type_name = 'extension';
-  }
-
-  # Skip data files.
   next if $file_type & FT_DATA;
 
-  my @file_messages = ( "$file_type_name $file_key" );
-  TRACE_VERBOSE and $file_messages[-1] .= " (was: $filename)";
+  # Just in case MANIFEST has duplicates.
+  next if exists $dep_node{$file_key};
 
-  open( FILE, "<$filename" ) or die "can't read $filename: $!\n";
+  # Build an internal node.
+  $dep_node{$file_key} =
+    [ FO_INTERNAL | $file_type,  # NODE_TYPE
+      { },                       # NODE_CHILDREN
+      $manifest_filename,        # NODE_FILE_NAME
+    ];
+}
 
-  my $file = '';
-  while (<FILE>) {
-    chomp;
-    s/(?<!\\)\s*\#.*$//; # May Turing have mercy upon me.
-    next if /^\s*$/;     # Skip blank lines.
-    last if /^__END__/;  # Skip DATA division.
+#------------------------------------------------------------------------------
+# Expand the MANIFEST nodes into trees.
 
-    $file .= " $_ ";
-  }
-  close FILE;
+&trace_section( 'Expanding dependency tree from MANIFEST files.' );
 
-  # Canonicalize whitespace.
-  $file =~ s/\s+/ /g;
+my $test_package = 0;
+my $is_core_regexp = '^' . quotemeta($Config{installprivlib});
 
-  # Hunt down dependents.
-  my %dependent;
-  while ($file =~ / (?<!\w\s)
-                    \b (use|require) \s+ (\S+)
-                    (?: \s* (?:qw\(|['"]) \s* (.+?) \s* [\)'"] )?
-                  /gx
-        )
-  {
-    my ($cmd, $dependent, $extra) = ($1, $2, $3);
+my @manifest_files = keys %dep_node;
+foreach my $manifest_file (@manifest_files) {
+  &build_dependency_tree($manifest_file);
+}
 
-    # Remove funny leading and trailing characters.
-    $dependent =~ s/\W+$//;
-    $dependent =~ s/^\W+//;
+sub build_dependency_tree {
+  my $file_key = shift;
 
-    # If it's a "use lib", then use it here to expand our search path.
-    if ($cmd eq 'use' and $dependent eq 'lib') {
-      if ($extra =~ /\s/) {
-        eval "use lib qw($extra)";
-      }
-      else {
-        eval "use lib '$extra'";
-      }
-      next;
-    }
+  # If the module isn't in %dep_node, then we'll have to try to find
+  # it and figure out whether it's internal or external.
+  unless (exists $dep_node{$file_key}) {
 
-    # Skip other all-lowercase modules.
-    next if $dependent !~ /[A-Z]/;
+    &trace_gather( "Testing module $file_key ..." );
 
-    # Skip modules with illegal characters.
-    next if $dependent =~ /[^A-Za-z\:\-\_]/;
+    # Pause output.
+    open(STDERR, '>' . File::Spec->devnull) or close STDERR;
+    open(STDOUT, '>' . File::Spec->devnull) or close STDOUT;
 
-    # Explode extra parameters if the reference is to POE itself.
-    my @modules = ($dependent);
-    push @modules, map { "POE::" . $_ } split /\s+/, $extra
-      if $dependent eq 'POE' and defined $extra;
-
-    foreach my $dependent (@modules) {
-      $dependent{$dependent} = 1;
-    }
-  }
-
-  # Test dependents of the current file.
-
-  my $file_problems = 0;
-  foreach my $dependent (sort keys %dependent) {
-
-    my $dep_type = &dep_type($file_key, $dependent);
-    my $dep_name = '????s';
-    if ($dep_type & DT_WANTS) {
-      $dep_name = 'wants';
-    }
-    elsif ($dep_type & DT_NEEDS) {
-      $dep_name = 'needs';
-    }
-
-    close STDERR;
-    eval 'package Test::' . $test_package++ . "; use $dependent";
-    open STDERR, '>&STDERR_HOLD' or print "cannot restore STDERR: $!";
-
+    eval 'package Test::Package_' . $test_package++ . "; use $file_key";
     my $is_ok = !(defined $@ and length $@);
 
-    my $inc_key = $dependent . '.pm';
-    $inc_key = File::Spec->catdir( split /\:\:/, $inc_key );
+    # Resume output.
+    open STDOUT, '>&STDOUT_HOLD'
+      or print STDOUT_HOLD "cannot restore STDOUT: $!";
+    open STDERR, '>&STDERR_HOLD'
+      or print STDERR_HOLD "cannot restore STDERR: $!";
 
-    # -><- set $is_ok=0 here to test a missing/broken dependency
-    # $is_ok = 0 if $dependent eq 'Filter::Util::Call';
-
-    # Classify the module.
     if ($is_ok) {
-      if (TRACE_GOOD) {
+      # Determine the filename from %INC, and try to figure out
+      # whether it's ours or something else's.
 
-        push @file_messages, "\t$dep_name $dependent";
+      my $inc_key = $file_key . '.pm';
+      $inc_key = File::Spec->catdir( split /\:\:/, $inc_key );
 
-        if (exists $INC{$inc_key}) {
-          my $inc_file = $INC{$inc_key};
+      if (exists $INC{$inc_key}) {
 
-          TRACE_VERBOSE and $file_messages[-1] .= " (aka: $inc_file)";
-          $file_messages[-1] .= " from ";
+        my $inc_file = $INC{$inc_key};
+        my $file_type;
 
-          if ($inc_file =~ $is_core_regexp) {
-            TRACE_VERBOSE and
-              $file_messages[-1] .= "perl's private library";
-          }
-          elsif ($inc_file =~ $is_site_regexp) {
-            TRACE_VERBOSE and
-              $file_messages[-1] .= "perl's site library";
-          }
-          elsif ($inc_file !~ m!^(?:[a-zA-Z]\:)/!) {
-            my $type = &file_type($dependent);
-            if ($type & FT_CORE) {
-              TRACE_VERBOSE and
-                $file_messages[-1] .= "this distribution's core library";
-            }
-            elsif ($type & FT_EXTENSION) {
-              TRACE_VERBOSE and
-                $file_messages[-1] .= "this distribution's extended library";
-            }
-            else {
-              TRACE_VERBOSE and
-                $file_messages[-1] .= "somewhere in this distribution";
-            }
+        if (File::Spec->file_name_is_absolute($inc_file)) {
+          $file_type = FO_EXTERNAL | FS_OK;
+          if ($inc_file =~ /^$is_core_regexp$/) {
+            $file_type |= FT_CORE;
           }
           else {
-            TRACE_VERBOSE and
-              $file_messages[-1] .= "who knows where?";
+            $file_type |= FT_EXTENSION;
           }
         }
         else {
-          TRACE_VERBOSE and
-            $file_messages[-1] .= " which loaded but isn't in \%INC";
+          $file_type = FO_INTERNAL | &file_type($file_key);
         }
+
+        $dep_node{$file_key} =
+          [ $file_type,  # NODE_TYPE
+            { },         # NODE_CHILDREN
+            $inc_file,   # NODE_FILE_NAME
+          ];
+      }
+      else {
+        die "$file_key was used ok, but it didn't appear in \%INC";
       }
     }
     else {
-      TRACE_BAD and
-        push( @file_messages,
-              "\t$dep_name $dependent which didn't load"
-            );
-      
-      if ($dep_type & DT_NEEDS) {
-        $file_problems |= FT_BROKEN;
-        if ($file_type & FT_CORE) {
-          $file_status[FS_CORE_BROKEN]->{$dependent} = 1;
+      $dep_node{$file_key} =
+        [ FT_UNKNOWN | FO_UNKNOWN | FS_BAD, # NODE_TYPE
+          { },                              # NODE_CHILDREN
+          undef,                            # NODE_FILE_NAME
+        ];
+      return FS_BAD;
+    }
+  }
+
+  my $file_name = $dep_node{$file_key}->[NODE_FILE_NAME];
+
+  # Don't bother with this node if it's already been done.
+  return $dep_node{$file_key}->[NODE_TYPE] & FS_ANY
+    if $dep_node{$file_key}->[NODE_TYPE] & FS_ANY;
+
+  # If the module is internal to this project, then we'll read it.
+  if ($dep_node{$file_key}->[NODE_TYPE] & FO_INTERNAL) {
+
+    &trace_gather( "Gathering dependencies for $file_key ($file_name)" );
+
+    # Flag the file status as bad if it can't be read.
+
+    unless (open(FILE, "<$file_name")) {
+      &trace_gather( "\tskipping unreadable MANIFEST file $file_name: $!" );
+      $dep_node{$file_key}->[NODE_TYPE] &= ~FS_UNKNOWN;
+      $dep_node{$file_key}->[NODE_TYPE] |= FS_BAD;
+      return FS_BAD;
+    }
+
+    # Read file into a single string.  Normalize whitespace, and, to
+    # the best of our ability, remove comments.
+
+    my $code = '';
+    while (<FILE>) {
+      chomp;
+      s/(?<!\\)\s*\#.*$//; # May Turing have mercy upon me.
+      next if /^\s*$/;     # Skip blank lines.
+      last if /^__END__/;  # Skip DATA division.
+
+      $code .= " $_ ";
+    }
+    close FILE;
+
+    $code =~ s/\s+/ /g;
+
+    # Break circular dependencies by flagging this file's status as
+    # "unknown" while it's being dealt with.
+    $dep_node{$file_key}->[NODE_TYPE] |= FS_UNKNOWN;
+
+    # Gather whatever dependents we can find in this file.  This is
+    # far from ideal code.
+
+    while ($code =~ / (?<!\w\s)
+                      \b (use|require) \s+ (\S+)
+                      (?: \s* (?:qw\(|['"]) \s* (.+?) \s* [\)'"] )?
+                    /gx
+          )
+    {
+      my ($cmd, $dependent, $extra) = ($1, $2, $3);
+
+      # Remove funny leading and trailing characters.
+      $dependent =~ s/\W+$//;
+      $dependent =~ s/^\W+//;
+
+      # If it's a "use lib", then use it here to expand our search path.
+      if ($cmd eq 'use' and $dependent eq 'lib') {
+        if ($extra =~ /\s/) {
+          eval "use lib qw($extra)";
         }
         else {
-          $file_status[FS_EXT_BROKEN]->{$dependent} = 1;
+          eval "use lib '$extra'";
+        }
+        next;
+      }
+
+      # Skip other all-lowercase modules.
+      next if $dependent !~ /[A-Z]/;
+
+      # Skip modules with illegal characters.
+      next if $dependent =~ /[^A-Za-z\:\-\_]/;
+
+      # Explode extra parameters if the reference is to POE itself.
+      my @modules = ($dependent);
+      push @modules, map { "POE::" . $_ } split /\s+/, $extra
+        if $dependent eq 'POE' and defined $extra;
+
+      foreach my $dependent (@modules) {
+
+        # Determine the dependent's status.
+        my $dependency_type =
+          ( &dep_type($file_key, $dependent) |
+            &build_dependency_tree($dependent)
+          );
+
+        # If the dependency status is unknown, it means we're pointing
+        # back to something which depends upon us.  Break the circle
+        # here by ignoring the dependent.  -><- Fix it later?
+        next if $dependency_type & FS_UNKNOWN;
+
+        $dep_node{$file_key}->[NODE_CHILDREN]->{$dependent} = $dependency_type;
+
+        # Dependent is ok; move along.
+        next if $dependency_type & FS_OK;
+
+        # This file is impaired if an optional dependent is bad.
+        if ($dependency_type & DT_WANTS) {
+          $dep_node{$file_key}->[NODE_TYPE] |= FS_IMPAIRED;
+          next;
+        }
+
+        # This file is bad if an optional dependent is bad.
+        if ($dependency_type & DT_NEEDS) {
+          $dep_node{$file_key}->[NODE_TYPE] |= FS_BAD;
+          next;
         }
       }
-      elsif ($dep_type & DT_WANTS) {
-        $file_problems |= FT_IMPAIRED;
-        $file_status[FS_IMPAIRED]->{$dependent} = 1;
-      }
-      else {
-        $file_problems |= FT_TROUBLED;
-        $file_status[FS_TROUBLED]->{$dependent} = 1;
-      }
-    }
-  }
-
-  if ($file_problems & (FT_BROKEN | FT_IMPAIRED | FT_TROUBLED)) {
-
-    if ($file_problems & FT_BROKEN) {
-      if ($file_type & FT_CORE) {
-        TRACE_BAD and
-          push( @file_messages,
-                "\t... this distribution cannot be installed."
-              );
-      }
-      elsif ($file_type & FT_EXTENSION) {
-        TRACE_BAD and
-          push( @file_messages,
-                "\t... this extension will not work."
-              );
-      }
-      else {
-        TRACE_BAD and
-          push( @file_messages,
-                "\t... this distribution may encounter problems."
-              );
-      }
-    }
-    elsif ($file_problems & FT_IMPAIRED) {
-      TRACE_BAD and
-        push( @file_messages,
-              "\t... this module may not work as well as it could."
-            );
-    }
-    elsif ($file_problems & FT_TROUBLED) {
-      if ($file_type & FT_CORE) {
-        TRACE_BAD and
-          push( @file_messages,
-                "\t... this distribution may encounter problems."
-              );
-      }
-      elsif ($file_type & FT_EXTENSION) {
-        TRACE_BAD and
-          push( @file_messages,
-                "\t... this extension may encounter problems."
-              );
-      }
-      else {
-        TRACE_BAD and
-          push( @file_messages,
-                "\t... this distribution may encounter problems."
-              );
-      }
     }
 
-    TRACE_BAD and print STDERR join( "\n", @file_messages ), "\n";
+    # Turn off the FS_UNKNOWN flag.
+    $dep_node{$file_key}->[NODE_TYPE] &= ~FS_UNKNOWN;
+
+    # The module is good if no FS_* bit has been set by now.
+    $dep_node{$file_key}->[NODE_TYPE] |= FS_OK
+      unless $dep_node{$file_key}->[NODE_TYPE] & FS_ANY;
   }
   else {
-    TRACE_GOOD and print STDERR join( "\n", @file_messages ), "\n";
+    &trace_gather( "WTF? $file_key" );
+  }
+
+  # Return just the FS portion of this node's status.
+  return $dep_node{$file_key}->[NODE_TYPE] & FS_ANY;
+}
+
+#------------------------------------------------------------------------------
+# Summary.
+
+sub node_flags {
+  my $type = shift;
+  my @words;
+
+  push @words, 'file=unknown'   if $type & FT_UNKNOWN;
+  push @words, 'file=core'      if $type & FT_CORE;
+  push @words, 'file=extension' if $type & FT_EXTENSION;
+  push @words, 'file=data'      if $type & FT_DATA;
+
+  push @words, 'owner=unknown'  if $type & FO_UNKNOWN;
+  push @words, 'owner=dist'     if $type & FO_INTERNAL;
+  push @words, 'owner=other'    if $type & FO_EXTERNAL;
+
+  push @words, 'stat=unknown'   if $type & FS_UNKNOWN;
+  push @words, 'stat=ok'        if $type & FS_OK;
+  push @words, 'stat=bad'       if $type & FS_BAD;
+  push @words, 'stat=impaired'  if $type & FS_IMPAIRED;
+
+  push @words, 'dep=wants'      if $type & DT_WANTS;
+  push @words, 'dep=needs'      if $type & DT_NEEDS;
+
+  join( ' ', map { "($_)" } @words );
+}
+
+sub PARENT_KEY      () { 0 }
+sub PARENT_CHILDREN () { 1 }
+
+sub gather_leaves {
+  my ($parent_must_be, $dep_must_be) = @_;
+  my @parents;
+
+  foreach my $parent_key (sort keys %dep_node) {
+    my $parent = $dep_node{$parent_key};
+
+    # Skip the node if it's not part of the distribution or if it's
+    # ok.  We only need to know about distribution modules which have
+    # bad dependencies.
+    next unless $parent->[NODE_TYPE] & FO_INTERNAL;
+    next unless $parent->[NODE_TYPE] & $parent_must_be;
+    next if     $parent->[NODE_TYPE] & FS_OK;
+    
+    # Skip this node if all its bad dependents are internal.
+    my @found_children;
+
+    foreach my $child_key (sort keys %{$parent->[NODE_CHILDREN]}) {
+      my $child_status = $dep_node{$child_key}->[NODE_TYPE];
+      next if     $child_status & FO_INTERNAL;
+      next unless $child_status & FS_BAD;
+      next unless $parent->[NODE_CHILDREN]->{$child_key} & $dep_must_be;
+      push( @found_children, $child_key );
+    }
+
+    push( @parents,
+          [ $parent_key,      # PARENT_KEY
+            \@found_children, # PARENT_CHILDREN
+          ]
+        )
+      if @found_children;
+  }
+
+  return @parents;
+}
+
+sub show_leaves {
+  my $verb = shift;
+  foreach (@_) {
+    my $children = join('; ', @{$_->[PARENT_CHILDREN]});
+    $children =~ s/^(.*)\;/$1; and/;
+    print( STDERR
+           "\n",
+           wrap( '***     ', '***     ', "$_->[PARENT_KEY] $verb $children")
+         );
   }
 }
 
-# A final summary.
-
-$Text::Wrap::columns = 80;
-my @core_broken = sort keys %{$file_status[FS_CORE_BROKEN]};
-
-my @ext_broken = grep( { !exists($file_status[FS_CORE_BROKEN]->{$_})
-                       } sort keys %{$file_status[FS_EXT_BROKEN]}
-                     );
-
-my @impaired = grep( { !( exists($file_status[FS_CORE_BROKEN]->{$_}) or
-                          exists($file_status[FS_EXT_BROKEN]->{$_})
-                        )
-                     } sort keys %{$file_status[FS_IMPAIRED]}
-                   );
-
-my @troubled = grep( { !( exists($file_status[FS_CORE_BROKEN]->{$_}) or
-                          exists($file_status[FS_EXT_BROKEN]->{$_}) or
-                          exists($file_status[FS_IMPAIRED]->{$_})
-                        )
-                     } sort keys %{$file_status[FS_TROUBLED]}
-                   );
-
-if (SHOW_SUMMARY) {
-  my @messages;
-  if (@core_broken) {
-    push( @messages,
-          "This distribution cannot be installed because it requires one or " .
-          "more modules which are not present: " . join('; ', @core_broken)
-        );
-  }
-
-  if (@ext_broken) {
-    push( @messages,
-          "Optional parts of this distribution will be installed but may " .
-          "not work correctly (or at all) because one or more modules " .
-          "which they require are not installed: " . join('; ', @ext_broken)
-        );
-  }
-
-  if (@impaired) {
-    push( @messages,
-          "One or more recommended modules are not present.  This " .
-          "distribution will work around the missing modules at the " .
-          "expense of features or performance: " . join('; ', @impaired)
-        );
-  }
-
-  if (@troubled) {
-    push( @messages,
-          "This distribution uses one or more modules which are " .
-          "classified neither as requirements nor as recommendations.  " .
-          "Something may go wrong after installation, but this program " .
-          "can't determine what that might be.  If problems occur, try " .
-          "installing these modules: " . join('; ', @troubled)
-        );
-  }
-
-  foreach my $message (@messages) {
-    print STDERR "\n***\n";
-    print STDERR wrap( '*** ', '*** ', $message );
-  }
-  print STDERR "\n***\n\n" if @messages;
+my @critical_errors = &gather_leaves( FT_CORE, DT_NEEDS );
+if (@critical_errors) {
+  print( STDERR 
+         "\n***\n",
+         wrap
+         ( '*** ', '*** ',
+           "At least one important module in this distribution needs " .
+           "another module which is not installed.  The distribution " .
+           "should not be installed until all these dependencies are " .
+           "resolved:"
+         ),
+       );
+  &show_leaves('needs', @critical_errors);
 }
 
-exit 1 if @core_broken;
+my @recoverable_errors = &gather_leaves( FT_EXTENSION, DT_NEEDS );
+if (@recoverable_errors) {
+  print( STDERR 
+         "\n***\n",
+         wrap
+         ( '*** ', '*** ',
+           "One or more optional modules in this distribution needs at " .
+           "least one other module which is not installed.  The " .
+           "distribution will be installed, but the following parts " .
+           "probably will not work until their dependencies are resolved:"
+         ),
+       );
+  &show_leaves('wants', @recoverable_errors);
+}
+
+my @warnings = &gather_leaves( FS_IMPAIRED, DT_ANY );
+if (@warnings) {
+  print( STDERR 
+         "\n***\n",
+         wrap
+         ( '*** ', '*** ',
+           "One or more modules in this distribution are recommended to " .
+           "be used with additional modules which are not installed.  The " .
+           "distribution will be installed, but be aware that parts of it " .
+           "may not function as well as they could if these dependencies " .
+           "are installed:"
+         ),
+       );
+  &show_leaves('works better with', @warnings);
+}
+
+print STDERR "\n***\n"
+  if @critical_errors or @recoverable_errors or @warnings;
+
+exit 1 if @critical_errors;
 exit 0;
