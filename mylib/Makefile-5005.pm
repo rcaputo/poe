@@ -80,9 +80,11 @@ WriteMakefile
     ),
 
     VERSION_FROM   => 'POE.pm',
-    dist           => { 'COMPRESS' => 'gzip -9f',
-                        'SUFFIX'   => 'gz',
-                      },
+    dist           =>
+    { COMPRESS => 'gzip -9f',
+      SUFFIX   => 'gz',
+    # PREOP    => qq(cvs2cl.pl -l "-d'a year ago<'" --utc --file CHANGES.TEST),
+    },
 
     PMLIBDIRS      => [ 'POE' ],
   );
