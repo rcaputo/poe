@@ -32,6 +32,9 @@ sub load_optional_module {
   elsif ($reason =~ /^[^\/]*does not[^\/]*?support[^\/]*/) {
     $reason =~ s/\s*\/.+$//g;
   }
+  elsif ($reason =~ /Unable to get Terminal Size/i) {
+    $reason =~ s/\. at.*//;
+  }
 
   print( "ok $test_number",
          ( (length $reason) ? " # skipped: $reason" : '' ),
