@@ -8,8 +8,6 @@ use strict;
 
 use lib qw(./mylib ../mylib ../lib ./lib);
 
-use Data::Dumper;
-
 BEGIN {
     if (-f 'run_network_tests') {
         eval " use HTTP::Request; use HTTP::Request::Common; ";
