@@ -14,6 +14,10 @@ $Revision$
 
 This will output a file called C<poe_report.xml>.
 
+=head1 AUTHOR
+
+This program was written by Matt Cashner.
+
 =cut
 
 package My::Strap;
