@@ -112,6 +112,7 @@ sub new {
           my $heap = $_[HEAP];
 
           $heap->{shutdown} = 0;
+          $heap->{connected} = 0;
 
           $heap->{server} = POE::Wheel::SocketFactory->new
             ( RemoteAddress => $address,
@@ -134,16 +135,21 @@ sub new {
               FlushedEvent => 'got_server_flush',
             );
 
+          $heap->{connected} = 1;
           $conn_callback->(@_);
         },
 
         got_connect_error => sub {
-          delete $_[HEAP]->{server};
+          my $heap = $_[HEAP];
+          $heap->{connected} = 0;
           $conn_error_callback->(@_);
+          delete $heap->{server};
         },
 
         got_server_error => sub {
           my ($heap, $operation, $errnum) = @_[HEAP, ARG0, ARG1];
+
+          $heap->{connected} = 0;
 
           # Read error 0 is disconnect.
           if ($operation eq 'read' and $errnum == 0) {
@@ -152,6 +158,7 @@ sub new {
           else {
             $error_callback->(@_);
           }
+
           delete $heap->{server};
         },
 
@@ -168,12 +175,17 @@ sub new {
         },
 
         shutdown => sub {
-          $_[HEAP]->{shutdown} = 1;
-          my $heap = shift;
+          my $heap = $_[HEAP];
           $heap->{shutdown} = 1;
-          if (defined $heap->{server}) {
-            delete $heap->{server}
-              unless $heap->{server}->get_driver_out_octets();
+
+          if ($heap->{connected}) {
+            if (defined $heap->{server}) {
+              delete $heap->{server}
+                unless $heap->{server}->get_driver_out_octets();
+            }
+          }
+          else {
+            delete $heap->{server};
           }
         },
 
@@ -270,6 +282,7 @@ POE::Component::Client::TCP - a simplified TCP client
 
   $heap->{server}   = ReadWrite wheel representing the server
   $heap->{shutdown} = shutdown flag (check to see if shutting down)
+  $heap->{connected} = connected flag (check to see if session is connected)
 
   # Accepted public events.
 
