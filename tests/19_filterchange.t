@@ -8,6 +8,7 @@ use strict;
 use lib qw(./lib ../lib);
 
 use TestSetup qw(ok not_ok results test_setup ok_if many_not_ok);
+use MyOtherFreezer;
 use TestPipe;
 
 sub DEBUG () { 0 }
@@ -183,7 +184,10 @@ sub slave_input {
     }
     elsif ($1 eq REFERENCE) {
       $heap->{wheel}->put( &wrap_payload( $mode, $response ) );
-      $heap->{wheel}->set_filter( POE::Filter::Reference->new() );
+      $heap->{wheel}->set_filter( POE::Filter::Reference->new
+                                  ( 'MyOtherFreezer'
+                                  )
+                                );
       $heap->{current_mode} = $1;
     }
     elsif ($1 eq BLOCK) {
@@ -290,7 +294,10 @@ sub master_input {
       $heap->{current_mode} = $1;
     }
     elsif ($1 eq REFERENCE) {
-      $heap->{wheel}->set_filter( POE::Filter::Reference->new() );
+      $heap->{wheel}->set_filter( POE::Filter::Reference->new
+                                  ( 'MyOtherFreezer'
+                                  )
+                                );
       $heap->{current_mode} = $1;
     }
     elsif ($1 eq BLOCK) {

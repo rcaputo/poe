@@ -18,7 +18,7 @@ sub freeze {
   elsif (ref($thing) eq 'Package') {
     return reverse(join "\0", ref($thing), @$thing);
   }
-  die;
+  die "can't freeze things of type ", ref($thing);
 }
 
 sub thaw {
@@ -33,7 +33,7 @@ sub thaw {
   elsif ($type eq 'Package') {
     return bless \@stuff, $type;
   }
-  die;
+  die "can't thaw things of type $type";
 }
 
 1;

@@ -55,6 +55,16 @@ Version numbers have four fields: X.YYZZAA
 |
 `-----------------
 
+0.1105 2000.??.??
+-----------------
+
+Added a note about using the same versions of the same modules when
+passing messages across different machines.  Differences in modules or
+versions can introduce some pretty subtle and nasty problems.
+
+t/19_filterchange.t wouldn't work without Storable.  Made it use
+lib/MyOtherFreezer instead, so at least filter changing can be tested.
+
 
 0.1104 2000.08.12
 -----------------

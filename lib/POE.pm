@@ -808,6 +808,15 @@ Storable tends to be the fastest, and it's checked first.
 Filter::Reference can also use Compress::Zlib upon request, but it's
 not required.
 
+B<If you intend to pass reference across machines, such as with Philip
+Gwyn's POE::Component::IKC, then be sure that both ends of the
+connection use the same version of the same libraries.  Subtle
+differences in libraries, or even between different versions of the
+same library, can cause mysterious errors when data is reconstituted
+on the receiving end.  When all else fails, upgrade to the latest
+version; this has been known to fix problems between Filter::Reference
+and Storable, for example.>
+
 Filter::HTTPD requires a small world of modules, including
 HTTP::Status; HTTP::Request; HTTP::Date and URI::URL.  The httpd.perl
 sample program uses Filter::HTTPD, which uses all that other stuff.
