@@ -76,6 +76,12 @@ my @kr_states;
 # ]
 my @kr_alarms;
 
+# more alarms. this is for id->time lookup in the Jun 2001 functions:
+# { $alarm_id =>
+#   $alarm_time
+# }
+my %kr_alarm_ids;
+
 # processes: { $pid => $parent_session, ... }
 my %kr_processes;
 
@@ -184,7 +190,8 @@ sub KR_ID_INDEX       () { 11 }
 sub KR_WATCHER_TIMER  () { 12 }
 sub KR_WATCHER_IDLE   () { 13 }
 sub KR_EXTRA_REFS     () { 14 }
-sub KR_SIZE           () { 15 }
+sub KR_ALARM_IDS      () { 15 }
+sub KR_SIZE           () { 16 }
 
 # Handle structure.
 sub HND_HANDLE   () { 0 }
@@ -248,6 +255,12 @@ sub ET_SELECT () { 0x0400 }
 # increasing the time between select and alarm checks.  It's only
 # meaningful when Time::HiRes is available.
 sub FIFO_DISPATCH_TIME () { 0.01 }
+
+# Queues with this many events (or more) are considered to be "large",
+# and different strategies are used to find elements within them.
+# This is mainly for the alarm queue, which is ordered by time and
+# often accessed at random.
+sub LARGE_QUEUE_SIZE () { 32 }
 
 #------------------------------------------------------------------------------
 # Debugging and configuration constants.  Uses two macros to assist.
@@ -449,7 +462,7 @@ macro test_resolve (<name>,<resolved>) {
     $! = ESRCH;
     TRACE_RETURNS  and carp  "session not resolved: $!";
     ASSERT_RETURNS and croak "session not resolved: $!";
-    return undef;
+    return;
   }
 }
 
@@ -632,7 +645,10 @@ sub new {
 
   # Prevent multiple instances, no matter how many times it's called.
   # This is a backward-compatibility enhancement for programs that
-  # have used versions prior to 0.06.
+  # have used versions prior to 0.06.  It also provides a convenient
+  # single entry point into the entirety of POE's state: point a
+  # Dumper module at it, and you'll see a hideous tree of knowledge.
+  # Be careful, though.  It's apples bite back.
   unless (defined $poe_kernel) {
 
     my $self = $poe_kernel = bless
@@ -651,6 +667,7 @@ sub new {
         undef,               # KR_WATCHER_TIMER
         undef,               # KR_WATCHER_IDLE
         \$kr_extra_refs,     # KR_EXTRA_REFS
+        \%kr_alarm_ids,      # KR_ALARM_IDS
       ], $type;
 
     # Kernel ID, based on Philip Gwyn's code.  I hope he still can
@@ -1067,7 +1084,7 @@ sub _dispatch_state {
       {% ses_leak_hash SS_SIGNALS  %}
       {% ses_leak_hash SS_ALIASES  %}
 
-      die "\a" if ($errors);
+      die "\a\n" if ($errors);
 
     } # include
 
@@ -1342,7 +1359,7 @@ sub detach_myself {
   # Can't detach from the kernel.
   if ($kr_sessions{$kr_active_session}->[SS_PARENT] == $poe_kernel) {
     $! = EPERM;
-    return undef;
+    return;
   }
 
   my $old_parent = $kr_sessions{$kr_active_session}->[SS_PARENT];
@@ -1393,7 +1410,7 @@ sub detach_child {
   # Can't detach if it belongs to the kernel.
   if ($kr_active_session == $poe_kernel) {
     $! = EPERM;
-    return undef;
+    return;
   }
 
   # Can't detach if it's not a child of the current session.
@@ -1401,7 +1418,7 @@ sub detach_child {
     (exists $kr_sessions{$kr_active_session}->[SS_CHILDREN]->{$child_session})
     {
       $! = EPERM;
-      return undef;
+      return;
     }
 
   # Tell the current session that the child is departing.
@@ -1543,49 +1560,51 @@ sub _enqueue_alarm {
      ) = @_;
 
   if (TRACE_EVENTS) { # include
-    warn "}}} enqueuing alarm '$state' for ", {% ssid %}, "\n";
+    warn "}}} enqueuing alarm '$state' for ", {% ssid %}, " at $time\n";
   } # include
 
   if (exists $kr_sessions{$session}) {
 
+    my $state_to_enqueue = {% state_to_enqueue %};
+
     # Special case: No alarms in the queue.  Put the new alarm in the
     # queue, and be done with it.
     unless (@kr_alarms) {
-      $kr_alarms[0] = {% state_to_enqueue %};
+      $kr_alarms[0] = $state_to_enqueue;
     }
 
     # Special case: New state belongs at the end of the queue.  Push
     # it, and be done with it.
     elsif ($time >= $kr_alarms[-1]->[ST_TIME]) {
-      push @kr_alarms, {% state_to_enqueue %};
+      push @kr_alarms, $state_to_enqueue;
     }
 
     # Special case: New state comes before earliest state.  Unshift
     # it, and be done with it.
     elsif ($time < $kr_alarms[0]->[ST_TIME]) {
-      unshift @kr_alarms, {% state_to_enqueue %};
+      unshift @kr_alarms, $state_to_enqueue;
     }
 
     # Special case: Two alarms in the queue.  The new state enters
     # between them, because it's not before the first one or after the
     # last one.
     elsif (@kr_alarms == 2) {
-      splice @kr_alarms, 1, 0, {% state_to_enqueue %};
+      splice @kr_alarms, 1, 0, $state_to_enqueue;
     }
 
     # Small queue.  Perform a reverse linear search on the assumption
     # that (a) a linear search is fast enough on small queues; and (b)
     # most events will be posted for "now" or some future time, which
     # tends to be towards the end of the queue.
-    elsif (@kr_alarms < 32) {
+    elsif (@kr_alarms < LARGE_QUEUE_SIZE) {
       my $index = @kr_alarms;
       while ($index--) {
         if ($time >= $kr_alarms[$index]->[ST_TIME]) {
-          splice @kr_alarms, $index+1, 0, {% state_to_enqueue %};
+          splice @kr_alarms, $index+1, 0, $state_to_enqueue;
           last;
         }
         elsif ($index == 0) {
-          unshift @kr_alarms, {% state_to_enqueue %};
+          unshift @kr_alarms, $state_to_enqueue;
         }
       }
     }
@@ -1603,7 +1622,7 @@ sub _enqueue_alarm {
         # Upper and lower bounds crossed.  No match; insert at the
         # lower bound point.
         if ($upper < $lower) {
-          splice @kr_alarms, $lower, 0, {% state_to_enqueue %};
+          splice @kr_alarms, $lower, 0, $state_to_enqueue;
           last;
         }
 
@@ -1628,7 +1647,7 @@ sub _enqueue_alarm {
           while ( ($midpoint < @kr_alarms)
                   and ($time == $kr_alarms[$midpoint]->[ST_TIME])
                 );
-        splice @kr_alarms, $midpoint, 0, {% state_to_enqueue %};
+        splice @kr_alarms, $midpoint, 0, $state_to_enqueue;
         last;
       }
     }
@@ -1639,11 +1658,22 @@ sub _enqueue_alarm {
 
     # Manage reference counts.
     {% ses_refcount_inc2 $session, SS_ALCOUNT %}
+
+    # Track the new alarm's ID and time.  This is used later if we
+    # want to remove an alarm with a specific ID.  The ID->time lookup
+    # is used so we can seek into the time-ordered alarm queue and
+    # quickly find the alarm to fiddle with.
+    my $new_alarm_id = $state_to_enqueue->[ST_SEQ];
+    $kr_alarm_ids{$new_alarm_id} = $time;
+
+    # Return the new alarm ID.  Man, this rocks.  I forgot POE was
+    # maintaining event sequence numbers.
+    return $new_alarm_id;
   }
-  else {
-    warn ">>>>> ", join('; ', keys(%kr_sessions)), " <<<<<\n";
-    croak "can't enqueue alarm($state) for nonexistent session($session)\a\n";
-  }
+
+  # This function already has returned if everything went well.
+  warn ">>>>> ", join('; ', keys(%kr_sessions)), " <<<<<\n";
+  croak "can't enqueue alarm($state) for nonexistent session($session)\a\n";
 }
 
 #------------------------------------------------------------------------------
@@ -1732,7 +1762,20 @@ sub call {
 }
 
 #------------------------------------------------------------------------------
-# Peek at pending alarms.  Returns a list of pending alarms.
+# Peek at pending alarms.  Returns a list of pending alarms.  This
+# function is depreciated; its lack of documentation is by design.
+# Here's the old POD, in case you're interested.
+#
+# # Return the names of pending timed events.
+# @state_names = $kernel->queue_peek_alarms( );
+#
+# =item queue_peek_alarms
+#
+# queue_peek_alarms() returns a time-ordered list of state names from
+# the current session that have pending timed events.  If a state has
+# more than one pending timed event, it will be listed that many times.
+#
+#   my @pending_timed_events = $kernel->queue_peek_alarms();
 
 sub queue_peek_alarms {
   my ($self) = @_;
@@ -1769,6 +1812,10 @@ sub alarm {
   }
 
   # Remove all previous instances of the alarm.
+
+  # -><- This could be made into a binary seek if { session/event =>
+  # time } is kept somewhere.
+
   my $index = @kr_alarms;
   while ($index--) {
     if ( ($kr_alarms[$index]->[ST_TYPE] & ET_ALARM) &&
@@ -1864,6 +1911,378 @@ sub delay_add {
   $self->alarm_add($state, time() + $delay, @etc);
 
   return 0;
+}
+
+#------------------------------------------------------------------------------
+# New style alarms.
+
+# Set an alarm.  This does more *and* less than plain alarm().  It
+# only sets alarms (that's the less part), but it also returns an
+# alarm ID (that's the more part).
+
+sub alarm_set {
+  my ($self, $state, $time, @etc) = @_;
+
+  unless (defined $state) {
+    ASSERT_USAGE and croak "undefined event name in alarm_set()";
+    TRACE_RETURNS and carp "undefined event name in alarm_set()";
+    ASSERT_RETURNS and carp "undefined event name in alarm_set()";
+    $! = EINVAL;
+    return;
+  }
+
+  unless (defined $time) {
+    ASSERT_USAGE and croak "undefined time in alarm_set()";
+    TRACE_RETURNS and carp "undefined time in alarm_set()";
+    ASSERT_RETURNS and carp "undefined time in alarm_set()";
+    $! = EINVAL;
+    return;
+  }
+
+  return $self->_enqueue_alarm
+    ( $kr_active_session, $kr_active_session,
+      $state, ET_ALARM, [ @etc ],
+      $time, (caller)[1,2]
+    );
+}
+
+# This is an alarm helper: it finds an alarm in the queue.  Special
+# cases don't count here because we assume the alarm exists.  If it
+# doesn't, we're in big trouble, because this is only called after
+# we've determined that it should.
+
+# -><- When adjusting alarms, it would be useful to carry over the
+# previous search's high/low bounds into the new search for an insert
+# position.  Why?  Because we know whether the new alarm time goes
+# before or after the old one, so we can avoid searching the queue on
+# the other side of the recently removed alarm.
+
+# THIS IS A STATIC FUNCTION!
+
+sub _alarm_find {
+  my ($time, $id) = @_;
+
+  # Small queue.  Find the alarm with a linear seek on the assumption
+  # that the overhead of a binary seek would be more than a linear
+  # search at this point.  The actual break-even point is unknown, and
+  # it probably varies from system to system.
+  if (@kr_alarms < LARGE_QUEUE_SIZE) {
+    my $index = @kr_alarms;
+    while ($index--) {
+      return $index if $id == $kr_alarms[$index]->[ST_SEQ];
+    }
+    die "internal inconsistency: alarm should have been found";
+  }
+
+  # Use a binary seek to find alarms in a large queue.
+
+  else {
+    my $upper = @kr_alarms - 1;
+    my $lower = 0;
+    while ('true') {
+      my $midpoint = ($upper + $lower) >> 1;
+
+      # The streams have crossed.  That's bad.
+      die "internal inconsistency: alarm should have been found"
+        if $upper < $lower;
+
+      # The key at the midpoint is too high.  The element just below
+      # the midpoint becomes the new upper bound.
+      if ($time < $kr_alarms[$midpoint]->[ST_TIME]) {
+        $upper = $midpoint - 1;
+        next;
+      }
+
+      # The key at the midpoint is too low.  The element just above
+      # the midpoint becomes the new lower bound.
+      if ($time > $kr_alarms[$midpoint]->[ST_TIME]) {
+        $lower = $midpoint + 1;
+        next;
+      }
+
+      # The key (time) matches the one at the midpoint.  This may be
+      # in the middle of a pocket of alarms with the same time, so
+      # we'll have to search back and forth for one with the ID we're
+      # looking for.  Unfortunately.
+      my $linear_point = $midpoint;
+      while ( $linear_point and
+              $time == $kr_alarms[$linear_point]->[ST_TIME]
+            ) {
+        return $linear_point if $kr_alarms[$linear_point]->[ST_SEQ] == $id;
+        $linear_point--;
+      }
+      $linear_point = $midpoint;
+      while ( (++$linear_point < @kr_alarms) and
+              ($time == $kr_alarms[$linear_point]->[ST_TIME])
+            ) {
+        return $linear_point if $kr_alarms[$linear_point]->[ST_SEQ] == $id;
+      }
+
+      # If we get this far, then the alarm hasn't been found.
+      die "internal inconsistency: alarm should have been found";
+    }
+  }
+
+  die "this message should never be reached";
+}
+
+# Remove an alarm by its ID.
+
+sub alarm_remove {
+  my ($self, $alarm_id) = @_;
+
+  unless (defined $alarm_id) {
+    ASSERT_USAGE and croak "undefined alarm id in alarm_remove()";
+    $! = EINVAL;
+    return;
+  }
+
+  my $alarm_time = delete $kr_alarm_ids{$alarm_id};
+  unless (defined $alarm_time) {
+    TRACE_RETURNS and carp "unknown alarm id in alarm_remove()";
+    ASSERT_RETURNS and croak "unknown alarm id in alarm_remove()";
+    $! = ESRCH;
+    return;
+  }
+
+  # Find the alarm by time.
+  my $alarm_index = _alarm_find( $alarm_time, $alarm_id );
+
+  # Ensure that the alarm belongs to this session, eh?
+  if ($kr_alarms[$alarm_index]->[ST_SESSION] != $kr_active_session) {
+    TRACE RETURNS and carp "alarm $alarm_id is not for the session";
+    ASSERT_RETURNS and croak "alarm $alarm_id is not for the session";
+    $! = EPERM;
+    return;
+  }
+
+  {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
+  my $old_alarm = splice( @kr_alarms, $alarm_index, 1 );
+
+  # In a list context, return the alarm that was removed.  In a scalar
+  # context, return a reference to the alarm that was removed.  In a
+  # void context, return nothing.  Either way this returns a defined
+  # value when someone needs something useful from it.
+
+  return unless defined wantarray;
+  return ( @$old_alarm[ST_NAME, ST_TIME], @{$old_alarm->[ST_ARGS]} )
+    if wantarray;
+  return [ @$old_alarm[ST_NAME, ST_TIME], @{$old_alarm->[ST_ARGS]} ];
+}
+
+# Move an alarm to a new time.  This virtually removes the alarm and
+# re-adds it somewhere else.
+
+sub alarm_adjust {
+  my ($self, $alarm_id, $delta) = @_;
+
+  unless (defined $alarm_id) {
+    ASSERT_USAGE and croak "undefined alarm id in alarm_adjust()";
+    $! = EINVAL;
+    return;
+  }
+
+  unless (defined $delta) {
+    ASSERT_USAGE and croak "undefined alarm delta in alarm_adjust()";
+    $! = EINVAL;
+    return;
+  }
+
+  my $alarm_time = $kr_alarm_ids{$alarm_id};
+  unless (defined $alarm_time) {
+    TRACE_RETURNS and carp "unknown alarm id in alarm_adjust()";
+    ASSERT_RETURNS and croak "unknown alarm id in alarm_adjust()";
+    $! = ESRCH;
+    return;
+  }
+
+  # Find the alarm by time.
+  my $alarm_index = _alarm_find( $alarm_time, $alarm_id );
+
+  # Ensure that the alarm belongs to this session, eh?
+  if ($kr_alarms[$alarm_index]->[ST_SESSION] != $kr_active_session) {
+    TRACE RETURNS and carp "alarm $alarm_id is not for the session";
+    ASSERT_RETURNS and croak "alarm $alarm_id is not for the session";
+    $! = EPERM;
+    return;
+  }
+
+  # Nothing to do if the delta is zero.
+  return $kr_alarms[$alarm_index]->[ST_TIME] unless $delta;
+
+  # Remove the old alarm and adjust its time.
+  my $old_alarm = splice( @kr_alarms, $alarm_index, 1 );
+  my $new_time = $old_alarm->[ST_TIME] += $delta;
+  $kr_alarm_ids{$alarm_id} = $new_time;
+
+  # Now insert it back.
+
+  # Special case: No alarms in the queue.  Put the new alarm in the
+  # queue, and be done with it.
+  unless (@kr_alarms) {
+    $kr_alarms[0] = $old_alarm;
+  }
+
+  # Special case: New state belongs at the end of the queue.  Push
+  # it, and be done with it.
+  elsif ($new_time >= $kr_alarms[-1]->[ST_TIME]) {
+    push @kr_alarms, $old_alarm;
+  }
+
+  # Special case: New state comes before earliest state.  Unshift
+  # it, and be done with it.
+  elsif ($new_time < $kr_alarms[0]->[ST_TIME]) {
+    unshift @kr_alarms, $old_alarm;
+  }
+
+  # Special case: Two alarms in the queue.  The new state enters
+  # between them, because it's not before the first one or after the
+  # last one.
+  elsif (@kr_alarms == 2) {
+    splice @kr_alarms, 1, 0, $old_alarm;
+  }
+
+  # Small queue.  Perform a reverse linear search on the assumption
+  # that (a) a linear search is fast enough on small queues; and (b)
+  # most events will be posted for "now" or some future time, which
+  # tends to be towards the end of the queue.
+  elsif ($delta > 0 and (@kr_alarms - $alarm_index) < LARGE_QUEUE_SIZE) {
+    my $index = @kr_alarms;
+    while ($index-- > $alarm_index) {
+      if ($new_time >= $kr_alarms[$index]->[ST_TIME]) {
+        splice @kr_alarms, $index+1, 0, $old_alarm;
+        last;
+      }
+      elsif ($index == $alarm_index) {
+        unshift @kr_alarms, $old_alarm;
+      }
+    }
+  }
+
+  elsif ($delta < 0 and $alarm_index < LARGE_QUEUE_SIZE) {
+    my $index = $alarm_index;
+    while ($index--) {
+      if ($new_time >= $kr_alarms[$index]->[ST_TIME]) {
+        splice @kr_alarms, $index+1, 0, $old_alarm;
+        last;
+      }
+      elsif ($index == 0) {
+        unshift @kr_alarms, $old_alarm;
+      }
+    }
+  }
+
+  # And finally, we have this large queue, and the program has already
+  # wasted enough time.  -><- It would be neat for POE to determine
+  # the break-even point between "large" and "small" alarm queues at
+  # start-up and tune itself accordingly.
+  else {
+    my ($upper, $lower);
+    if ($delta > 0) {
+      $upper = @kr_alarms - 1;
+      $lower = $alarm_index;
+    }
+    else {
+      $upper = $alarm_index - 1;
+      $lower = 0;
+    }
+
+    while ('true') {
+      my $midpoint = ($upper + $lower) >> 1;
+
+      # Upper and lower bounds crossed.  No match; insert at the
+      # lower bound point.
+      if ($upper < $lower) {
+        splice @kr_alarms, $lower, 0, $old_alarm;
+        last;
+      }
+
+      # The key at the midpoint is too high.  The element just below
+      # the midpoint becomes the new upper bound.
+      if ($new_time < $kr_alarms[$midpoint]->[ST_TIME]) {
+        $upper = $midpoint - 1;
+        next;
+      }
+
+      # The key at the midpoint is too low.  The element just above
+      # the midpoint becomes the new lower bound.
+      if ($new_time > $kr_alarms[$midpoint]->[ST_TIME]) {
+        $lower = $midpoint + 1;
+        next;
+      }
+
+      # The key matches the one at the midpoint.  Scan towards
+      # higher keys until the midpoint points to an element with a
+      # higher key.  Insert the new state before it.
+      $midpoint++
+        while ( ($midpoint < @kr_alarms)
+                and ($new_time == $kr_alarms[$midpoint]->[ST_TIME])
+              );
+      splice @kr_alarms, $midpoint, 0, $old_alarm;
+      last;
+    }
+  }
+
+  return $new_time;
+}
+
+# A convenient macro for setting alarms relative to now.  It also uses
+# whichever time() POE::Kernel can find, which may be Time::HiRes'.
+
+sub delay_set {
+  my ($self, $state, $seconds, @etc) = @_;
+
+  unless (defined $state) {
+    ASSERT_USAGE and croak "undefined event name in delay_set()";
+    TRACE_RETURNS and carp "undefined event name in delay_set()";
+    ASSERT_RETURNS and carp "undefined event name in delay_set()";
+    $! = EINVAL;
+    return;
+  }
+
+  unless (defined $seconds) {
+    ASSERT_USAGE and croak "undefined seconds in delay_set()";
+    TRACE_RETURNS and carp "undefined seconds in delay_set()";
+    ASSERT_RETURNS and carp "undefined seconds in delay_set()";
+    $! = EINVAL;
+    return;
+  }
+
+  return $self->_enqueue_alarm
+    ( $kr_active_session, $kr_active_session,
+      $state, ET_ALARM, [ @etc ],
+      time() + $seconds, (caller)[1,2]
+    );
+}
+
+# Remove all alarms for the current session.
+
+sub alarm_remove_all {
+  my $self = shift;
+  my @removed;
+
+  # This should never happen, actually.
+  croak "unknown session in alarm_remove_all call"
+    unless exists $kr_sessions{$kr_active_session};
+
+  # Free every alarm owned by the session.  This code is ripped off
+  # from the _stop code to flush everything.  Perhaps it can be made a
+  # macro.
+
+  my $index = @kr_alarms;
+  while ($index-- && $kr_sessions{$kr_active_session}->[SS_ALCOUNT]) {
+    if ($kr_alarms[$index]->[ST_SESSION] == $kr_active_session) {
+      {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
+      my $removed = splice(@kr_alarms, $index, 1);
+      push( @removed,
+            ( @$removed[ST_NAME, ST_TIME], @{$removed->[ST_ARGS]} )
+          );
+    }
+  }
+
+  return unless defined wantarray;
+  return @removed if wantarray;
+  return \@removed;
 }
 
 #==============================================================================
@@ -2291,7 +2710,7 @@ sub ID_id_to_session {
   TRACE_RETURNS and carp "ID does not exist";
   ASSERT_RETURNS and croak "ID does not exist";
   $! = ESRCH;
-  return undef;
+  return;
 }
 
 # Resolve a session reference to its corresponding ID.
@@ -2310,7 +2729,7 @@ sub ID_session_to_id {
   TRACE_RETURNS and carp "session does not exist";
   ASSERT_RETURNS and croak "session does not exist";
   $! = ESRCH;
-  return undef;
+  return;
 }
 
 #==============================================================================
@@ -2368,7 +2787,7 @@ sub refcount_increment {
   ASSERT_RETURNS and croak "session does not exist";
 
   $! = ESRCH;
-  undef;
+  return;
 }
 
 sub refcount_decrement {
@@ -2424,7 +2843,7 @@ sub refcount_decrement {
   ASSERT_RETURNS and croak "session does not exist";
 
   $! = ESRCH;
-  undef;
+  return;
 }
 
 #==============================================================================
@@ -2510,10 +2929,10 @@ FIFO event methods:
   # returning the state's return value.
   $state_return_value = $kernel->call( $session, $state_name, @state_args );
 
-Alarm and delay methods:
+Original alarm and delay methods:
 
   # Post an event which will be delivered at a given Unix epoch time.
-  # time.  This clears previous timed events with the same state name.
+  # This clears previous timed events with the same state name.
   $kernel->alarm( $state_name, $epoch_time, @state_args );
 
   # Post an additional alarm, leaving existing ones in the queue.
@@ -2527,8 +2946,25 @@ Alarm and delay methods:
   # Post an additional delay, leaving existing ones in the queue.
   $kernel->delay_add( $state_name, $seconds, @state_args );
 
-  # Return the names of pending timed events.
-  @state_names = $kernel->queue_peek_alarms( );
+June 2001 alarm and delay methods:
+
+  # Post an event which will be delivered at a given Unix epoch
+  # time. This does not clear previous events with the same name.
+  $alarm_id = $kernel->alarm_set( $state_name, $epoch_time, @etc );
+
+  # Post an event which will be delivered a number of seconds hence.
+  # This does not clear previous events with the same name.
+  $alarm_id = $kernel->delay_set( $state_name, $seconds_hence, @etc );
+
+  # Adjust an existing alarm by a number of seconds.
+  $kernel->alarm_adjust( $alarm_id, $number_of_seconds );
+
+  # Remove a specific alarm, regardless whether it shares a name with
+  # others.
+  $kernel->alarm_remove( $alarm_id );
+
+  # Remove all alarms for the current session.
+  #kernel->alarm_remove_all( );
 
 Symbolic name, or session alias methods:
 
@@ -2792,7 +3228,7 @@ SESSION did not exist at the time call() was called.
 
 =back
 
-=head2 Delayed Events
+=head2 Delayed Events (Original Interface)
 
 POE also manages timed events.  These are events that should be
 dispatched after at a certain time or after some time has elapsed.  A
@@ -2839,18 +3275,11 @@ setting a new alarm:
 
   $kernel->alarm( 'do_the_other_thing' );
 
-This method will clear both alarms and delays.
+This method will clear all types of alarms without regard to how they
+were set.
 
-POE::Kernel's alarm() returns 0 on success or a reason for its
-failure:
-
-=over 2
-
-=item EINVAL
-
-STATE_NAME is undefined.
-
-=back
+POE::Kernel's alarm() returns 0 on success or EINVAL if STATE_NAME is
+not defined.
 
 =item alarm_add STATE_NAME, EPOCH_TIME, PARAMETER_LIST
 
@@ -2867,15 +3296,8 @@ To enqueue additional alarms for 'do_this':
 
 Additional alarms can be cleared with POE::Kernel's alarm() method.
 
-alarm_add() returns 0 on success or a reason for failure:
-
-=over 2
-
-=item EINVAL
-
-Either STATE_NAME or EPOCH_TIME is undefined.
-
-=back
+alarm_add() returns 0 on success or EINVAL if STATE_NAME or EPOCH_TIME
+is undefined.
 
 =item delay STATE_NAME, SECONDS, PARAMETER_LIST
 
@@ -2912,15 +3334,8 @@ setting a new delay:
 
   $kernel->delay( 'do_the_other_thing' );
 
-C<delay()> returns 0 on success or a reason for its failure:
-
-=over 2
-
-=item EINVAL
-
+C<delay()> returns 0 on success or a reason for its failure: EINVAL if
 STATE_NAME is undefined.
-
-=back
 
 =item delay_add STATE_NAME, SECONDS, PARAMETER_LIST
 
@@ -2937,23 +3352,129 @@ To enqueue additional delays for 'do_this':
 
 Additional alarms cas be cleared with POE::Kernel's delay() method.
 
-delay_add() returns 0 on success or a reason for failure:
-
-=over 2
-
-=item EINVAL
-
-Either STATE_NAME or SECONDS is undefined.
+delay_add() returns 0 on success or a reason for failure: EINVAL if
+STATE_NAME or SECONDS is undefined.
 
 =back
 
-=item queue_peek_alarms
+=head2 Delayed Events (June 2001 Interface)
 
-queue_peek_alarms() returns a time-ordered list of state names from
-the current session that have pending timed events.  If a state has
-more than one pending timed event, it will be listed that many times.
+These functions were finally added in June of 2001.  They manage
+alarms and delays by unique IDs, allowing existing alarms to be moved
+around, added, and removed with greater accuracy than the original
+interface.
 
-  my @pending_timed_events = $kernel->queue_peek_alarms();
+=over 2
+
+=item alarm_adjust ALARM_ID, DELTA
+
+alarm_adjust adjusts an existing alarm by a number of seconds, the
+DELTA, which may be positive or negative.  On success, it returns the
+new absolute alarm time.
+
+  # Move the alarm 10 seconds back in time.
+  $new_time = $kernel->alarm_adjust( $alarm_id, -10 );
+
+On failure, it returns false and sets $! to a reason for the failure.
+That may be EINVAL if the alarm ID or the delta are bad values.  It
+could also be ESRCH if the alarm doesn't exist (perhaps it already was
+dispatched).  $! may also contain EPERM if the alarm doesn't belong to
+the session trying to adjust it.
+
+=item alarm_set STATE_NAME, TIME, PARAMETER_LIST
+
+=item alarm_set STATE_NAME, TIME
+
+Sets an alarm.  This differs from POE::Kernel's alarm() in that it
+lets programs set alarms without clearing them.  Furthermore, it
+returns an alarm ID which can be used in other new-style alarm
+functions.
+
+  $alarm_id = $kernel->alarm_set( party => 1000000000 )
+  $kernel->alarm_remove( $alarm_id );
+
+alarm_set sets $! and returns false if it fails.  $! will be EINVAL if
+one of the function's parameters is bogus.
+
+See: alarm_remove,
+
+=item alarm_remove ALARM_ID
+
+Removes an alarm, but first you must know its ID.  The ID comes from a
+previous alarm_set() call, or you could hunt at random for alarms to
+remove.
+
+Upon success, alarm_remove() returns something true based on its
+context.  In a list context, it returns three things: The removed
+alarm's state name, its scheduled time, and a reference to the list of
+parameters that were included with it.  This is all you need to
+re-schedule the alarm later.
+
+  my @old_alarm_list = $kernel->alarm_remove( $alarm_id );
+  if (@old_alarm_list) {
+    print "Old alarm event name: $old_alarm_list[0]\n";
+    print "Old alarm time      : $old_alarm_list[1]\n";
+    print "Old alarm parameters: @{$old_alarm_list[2]}\n";
+  }
+  else {
+    print "Could not remove alarm $alarm_id: $!\n";
+  }
+
+In a scalar context, it returns a reference to a list of the three
+things above.
+
+  my $old_alarm_scalar = $kernel->alarm_remove( $alarm_id );
+  if ($old_alarm_scalar) {
+    print "Old alarm event name: $old_alarm_scalar->[0]\n";
+    print "Old alarm time      : $old_alarm_scalar->[1]\n";
+    print "Old alarm parameters: @{$old_alarm_scalar->[2]}\n";
+  }
+  else {
+    print "Could not remove alarm $alarm_id: $!\n";
+  }
+
+Upon failure, it returns false and sets $! to the reason it failed.
+$! may be EINVAL if the alarm ID is undefined, or it could be ESRCH if
+no alarm was found by that ID.  It may also be EPERM if some other
+session owns that alarm.
+
+=item alarm_remove_all
+
+alarm_remove_all() removes all alarms for the current session.  It
+obviates the need for queue_peek_alarms(), which has been depreciated.
+
+This function takes no arguments.  In scalar context, it returns a
+reference to a list of alarms that were removed.  In list context, it
+returns the list of removed alarms themselves.
+
+Each removed alarm follows the same format as in alarm_remove().
+
+  my @removed_alarms = $kernel->alarm_remove_all( );
+  foreach my $alarm (@removed_alarms) {
+    print "-----\n";
+    print "Removed alarm event name: $alarm->[0]\n";
+    print "Removed alarm time      : $alarm->[1]\n";
+    print "Removed alarm parameters: @{$alarm->[2]}\n";
+  }
+
+  my $removed_alarms = $kernel->alarm_remove_all( );
+  foreach my $alarm (@$removed_alarms) {
+    ...;
+  }
+
+=item delay_set STATE_NAME, SECONDS, PARAMETER_LIST
+
+=item delay_set STATE_NAME, SECONDS
+
+delay_set() is a handy way to set alarms for a number of seconds
+hence.  Its STATE_NAME and PARAMETER_LIST are the same as for
+alarm_set, and it returns the same things as alarm_set, both as a
+result of success and of failure.
+
+It's only difference is that SECONDS is added to the current time to
+get the time the delay will be dispatched.  It uses whichever time()
+POE::Kernel does, which may be Time::HiRes' high-resolution timer, if
+that's available.
 
 =back
 
