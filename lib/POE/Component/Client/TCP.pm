@@ -223,9 +223,9 @@ sub _default_error {
 }
 
 sub _default_io_error {
-  warn( 'Client ', $_[SESSION]->ID,
-        " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
-      );
+  my ($syscall, $errno, $error) = @_[ARG0..ARG2];
+  $error = "Normal disconnection" unless $errno;
+  warn('Client ', $_[SESSION]->ID, " got $syscall error $errno ($error)\n");
   $_[KERNEL]->yield("shutdown");
 }
 

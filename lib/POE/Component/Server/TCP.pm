@@ -169,17 +169,22 @@ sub new {
               tcp_server_got_flush => sub {
                 my $heap = $_[HEAP];
                 $client_flushed->(@_);
-                delete $heap->{client} if $heap->{shutdown};
+                if ($heap->{shutdown}) {
+                  $client_disconnected->(@_);
+                  delete $heap->{client};
+                }
               },
               shutdown => sub {
                 my $heap = $_[HEAP];
                 $heap->{shutdown} = 1;
                 if (defined $heap->{client}) {
-                  delete $heap->{client}
-                    unless $heap->{client}->get_driver_out_octets();
+                  unless ($heap->{client}->get_driver_out_octets()) {
+                    $client_disconnected->(@_);
+                    delete $heap->{client};
+                  }
                 }
               },
-              _stop => $client_disconnected,
+              _stop => sub {},
 
               # User supplied states.
               %$inline_states
@@ -260,8 +265,10 @@ sub _default_server_error {
 # server.
 
 sub _default_client_error {
-  warn( 'Client ', $_[SESSION]->ID,
-        " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
+  my ($syscall, $errno, $error) = @_[ARG0..ARG2];
+  $error = "Normal disconnection" unless $errno;
+  warn( 'Client session ', $_[SESSION]->ID,
+        " got $syscall error $errno ($error)\n"
       );
 }
 
