@@ -139,7 +139,7 @@ POE::Session->create
 
 # Spawn a second machine to test for alias removal.
 
-print "ok 15\n";
+print "ok 16\n";
 
 my $sigidle_test = 1;
 my $sigzombie_test = 1;
