@@ -12,7 +12,6 @@ $VERSION = (qw($Revision$ ))[1];
 
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
-use POE::Preprocessor;
 
 use strict;
 
@@ -35,6 +34,20 @@ BEGIN {
   my $timeout = ($^O eq 'linux') ? 0.001 : 0;
   eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
 };
+
+my ($kr_sessions, $kr_events, $kr_event_ids, $kr_vectors, $kr_filenos);
+
+#------------------------------------------------------------------------------
+# Substrate construction and destruction.
+
+sub _substrate_initialize {
+  my $kernel = shift;
+  $kr_sessions  = $kernel->_get_kr_sessions_ref();
+  $kr_events    = $kernel->_get_kr_events_ref();
+  $kr_event_ids = $kernel->_get_kr_event_ids_ref();
+  $kr_vectors   = $kernel->_get_kr_vectors_ref();
+  $kr_filenos   = $kernel->_get_kr_filenos_ref();
+}
 
 #------------------------------------------------------------------------------
 # Signal handlers.
@@ -76,7 +89,9 @@ sub _substrate_signal_handler_child {
 #------------------------------------------------------------------------------
 # Signal handler maintenance macros.
 
-macro substrate_watch_signal {
+sub substrate_watch_signal {
+  my $signal = shift;
+
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
 
@@ -90,33 +105,33 @@ macro substrate_watch_signal {
         time() + 1, __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
-    next;
+    return;
   }
 
   # Broken pipe.
   if ($signal eq 'PIPE') {
     $SIG{$signal} = \&_substrate_signal_handler_pipe;
-    next;
+    return;
   }
 
   # Artur Bergman (sky) noticed that xterm resizing can generate a LOT
   # of WINCH signals.  That rapidly crashes perl, which, with the help
   # of most libc's, can't handle signals well at all.  We ignore
   # WINCH, therefore.
-  next if $signal eq 'WINCH';
+  return if $signal eq 'WINCH';
 
   # Everything else.
   $SIG{$signal} = \&_substrate_signal_handler_generic;
 }
 
-macro substrate_resume_watching_child_signals {
+sub substrate_resume_watching_child_signals {
   $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
   $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SCPOLL, ET_SCPOLL, [ ],
       time() + 1, __FILE__, __LINE__
-    ) if keys(%kr_sessions) > 1;
+    ) if keys(%$kr_sessions) > 1;
 }
 
 #------------------------------------------------------------------------------
@@ -124,79 +139,88 @@ macro substrate_resume_watching_child_signals {
 
 ### Time.
 
-macro substrate_resume_time_watcher {
-  # does nothing
+sub substrate_resume_time_watcher {
+  # does nothing ($_[0] == next time)
 }
 
-macro substrate_reset_time_watcher {
-  # does nothing
+sub substrate_reset_time_watcher {
+  # does nothing ($_[0] == next time)
 }
 
-macro substrate_pause_time_watcher {
-  # does nothing
+sub substrate_pause_time_watcher {
+  # does nothing ($_[0] == next time)
 }
 
 ### Filehandles.
 
-macro substrate_watch_filehandle (<fileno>,<vector>) {
+sub substrate_watch_filehandle {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
   if (TRACE_SELECT) {
-    warn( "??? watching fileno (", <fileno>, ") vector (", <vector>,
-          ") count($kr_fno_vec->[FVC_EV_COUNT])"
+    warn( "??? watching fileno ($fileno) vector ($vector) ",
+          "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
-  vec($kr_vectors[<vector>], <fileno>, 1) = 1;
+  vec($kr_vectors->[$vector], $fileno, 1) = 1;
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-macro substrate_ignore_filehandle (<fileno>,<vector>) {
+sub substrate_ignore_filehandle {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
   if (TRACE_SELECT) {
-    warn( "??? ignoring fileno (", <fileno>, ") vector (", <vector>,
-          ") count($kr_fno_vec->[FVC_EV_COUNT])"
+    warn( "??? ignoring fileno ($fileno) vector ($vector) ",
+          "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
-  vec($kr_vectors[<vector>], <fileno>, 1) = 0;
+  vec($kr_vectors->[$vector], $fileno, 1) = 0;
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
+sub substrate_pause_filehandle_watcher {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
   if (TRACE_SELECT) {
-    warn( "??? pausing fileno (", <fileno>, ") vector (", <vector>,
-          ") count($kr_fno_vec->[FVC_EV_COUNT])"
+    warn( "??? pausing fileno ($fileno) vector ($vector) ",
+          "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
-  vec($kr_vectors[<vector>], <fileno>, 1) = 0;
+  vec($kr_vectors->[$vector], $fileno, 1) = 0;
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
+sub substrate_resume_filehandle_watcher {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
   if (TRACE_SELECT) {
-    warn( "??? resuming fileno (", <fileno>, ") vector (", <vector>,
-          ") count($kr_fno_vec->[FVC_EV_COUNT])"
+    warn( "??? resuming fileno ($fileno) vector ($vector) ",
+          "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
-  vec($kr_vectors[<vector>], <fileno>, 1) = 1;
+  vec($kr_vectors->[$vector], $fileno, 1) = 1;
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
-}
-
-macro substrate_define_callbacks {
-  # does nothing
 }
 
 #------------------------------------------------------------------------------
 # Main loop management.
 
-macro substrate_init_main_loop {
+sub substrate_init_main_loop {
   # Initialize the vectors as vectors.
-  vec($kr_vectors[VEC_RD], 0, 1) = 0;
-  vec($kr_vectors[VEC_WR], 0, 1) = 0;
-  vec($kr_vectors[VEC_EX], 0, 1) = 0;
+  @$kr_vectors = ( '', '', '' );
+  vec($kr_vectors->[VEC_RD], 0, 1) = 0;
+  vec($kr_vectors->[VEC_WR], 0, 1) = 0;
+  vec($kr_vectors->[VEC_EX], 0, 1) = 0;
 }
 
-macro substrate_do_timeslice {
+sub substrate_do_timeslice {
   # Check for a hung kernel.
-  {% test_for_idle_poe_kernel %}
+  test_for_idle_poe_kernel();
 
   # Set the select timeout based on current queue conditions.  If
   # there are FIFO events, then the timeout is zero to poll select and
@@ -207,8 +231,8 @@ macro substrate_do_timeslice {
   my $now = time();
   my $timeout;
 
-  if (@kr_events) {
-    $timeout = $kr_events[0]->[ST_TIME] - $now;
+  if (@$kr_events) {
+    $timeout = $kr_events->[0]->[ST_TIME] - $now;
     $timeout = MINIMUM_SELECT_TIMEOUT if $timeout < MINIMUM_SELECT_TIMEOUT;
   }
   else {
@@ -226,16 +250,16 @@ macro substrate_do_timeslice {
                 map { sprintf('%d=%.4f',
                               $_->[ST_SEQ], $_->[ST_TIME] - $now
                              )
-                    } @kr_events
+                    } @$kr_events
               ) .
           "\n"
         );
   }
 
   # Ensure that the event queue remains in time order.
-  if (ASSERT_EVENTS and @kr_events) {
-    my $previous_time = $kr_events[0]->[ST_TIME];
-    foreach (@kr_events) {
+  if (ASSERT_EVENTS and @$kr_events) {
+    my $previous_time = $kr_events->[0]->[ST_TIME];
+    foreach (@$kr_events) {
       die "event $_->[ST_SEQ] is out of order"
         if $_->[ST_TIME] < $previous_time;
       $previous_time = $_->[ST_TIME];
@@ -247,19 +271,19 @@ macro substrate_do_timeslice {
   # vectors?
 
   my @filenos = ();
-  foreach (keys %kr_filenos) {
+  foreach (keys %$kr_filenos) {
     push(@filenos, $_)
-      if ( vec($kr_vectors[VEC_RD], $_, 1) or
-           vec($kr_vectors[VEC_WR], $_, 1) or
-           vec($kr_vectors[VEC_EX], $_, 1)
+      if ( vec($kr_vectors->[VEC_RD], $_, 1) or
+           vec($kr_vectors->[VEC_WR], $_, 1) or
+           vec($kr_vectors->[VEC_EX], $_, 1)
          );
   }
 
   if (TRACE_SELECT) {
     warn ",----- SELECT BITS IN -----\n";
-    warn "| READ    : ", unpack('b*', $kr_vectors[VEC_RD]), "\n";
-    warn "| WRITE   : ", unpack('b*', $kr_vectors[VEC_WR]), "\n";
-    warn "| EXPEDITE: ", unpack('b*', $kr_vectors[VEC_EX]), "\n";
+    warn "| READ    : ", unpack('b*', $kr_vectors->[VEC_RD]), "\n";
+    warn "| WRITE   : ", unpack('b*', $kr_vectors->[VEC_WR]), "\n";
+    warn "| EXPEDITE: ", unpack('b*', $kr_vectors->[VEC_EX]), "\n";
     warn "`--------------------------\n";
   }
 
@@ -273,9 +297,9 @@ macro substrate_do_timeslice {
 
     if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
-      my $hits = select( my $rout = $kr_vectors[VEC_RD],
-                         my $wout = $kr_vectors[VEC_WR],
-                         my $eout = $kr_vectors[VEC_EX],
+      my $hits = select( my $rout = $kr_vectors->[VEC_RD],
+                         my $wout = $kr_vectors->[VEC_WR],
+                         my $eout = $kr_vectors->[VEC_EX],
                          $timeout,
                        );
 
@@ -350,15 +374,15 @@ macro substrate_do_timeslice {
         # paused.  They'll resume after dispatch.
 
         foreach my $fileno (@rd_selects) {
-          {% enqueue_ready_selects $fileno, VEC_RD %}
+          enqueue_ready_selects($fileno, VEC_RD);
         }
 
         foreach my $fileno (@wr_selects) {
-          {% enqueue_ready_selects $fileno, VEC_WR %}
+          enqueue_ready_selects($fileno, VEC_WR);
         }
 
         foreach my $fileno (@ex_selects) {
-          {% enqueue_ready_selects $fileno, VEC_EX %}
+          enqueue_ready_selects($fileno, VEC_EX);
         }
       }
     }
@@ -380,11 +404,11 @@ macro substrate_do_timeslice {
   # Dispatch whatever events are due.
 
   $now = time();
-  while ( @kr_events and ($kr_events[0]->[ST_TIME] <= $now) ) {
+  while ( @$kr_events and ($kr_events->[0]->[ST_TIME] <= $now) ) {
     my $event;
 
     if (TRACE_QUEUE) {
-      $event = $kr_events[0];
+      $event = $kr_events->[0];
       warn( sprintf('now(%.4f) ', $now - $^T) .
             sprintf('sched_time(%.4f)  ', $event->[ST_TIME] - $^T) .
             "seq($event->[ST_SEQ])  " .
@@ -393,22 +417,22 @@ macro substrate_do_timeslice {
     }
 
     # Pull an event off the queue, and dispatch it.
-    $event = shift @kr_events;
-    delete $kr_event_ids{$event->[ST_SEQ]};
-    {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
-    {% ses_refcount_dec2 $event->[ST_SOURCE], SS_POST_COUNT %}
-    $self->_dispatch_event(@$event);
+    $event = shift @$kr_events;
+    delete $kr_event_ids->{$event->[ST_SEQ]};
+    ses_refcount_dec2($event->[ST_SESSION], SS_EVCOUNT);
+    ses_refcount_dec2($event->[ST_SOURCE], SS_POST_COUNT);
+    $poe_kernel->_dispatch_event(@$event);
   }
 }
 
-macro substrate_main_loop {
+sub substrate_main_loop {
   # Run for as long as there are sessions to service.
-  while (keys %kr_sessions) {
-    {% substrate_do_timeslice %}
+  while (keys %$kr_sessions) {
+    substrate_do_timeslice();
   }
 }
 
-macro substrate_stop_main_loop {
+sub substrate_stop_main_loop {
   # does nothing
 }
 

@@ -12,7 +12,6 @@ $VERSION = (qw($Revision$ ))[1];
 
 # Everything plugs into POE::Kernel;
 package POE::Kernel;
-use POE::Preprocessor;
 
 use strict;
 
@@ -33,6 +32,18 @@ use IO::Poll qw( POLLRDNORM POLLWRNORM POLLRDBAND
                );
 
 sub MINIMUM_POLL_TIMEOUT () { 0 }
+
+my ($kr_sessions, $kr_events, $kr_event_ids);
+
+#------------------------------------------------------------------------------
+# Substrate construction and destruction.
+
+sub _substrate_initialize {
+  my $kernel = shift;
+  $kr_sessions  = $kernel->_get_kr_sessions_ref();
+  $kr_events    = $kernel->_get_kr_events_ref();
+  $kr_event_ids = $kernel->_get_kr_event_ids_ref();
+}
 
 #------------------------------------------------------------------------------
 # Signal handlers.
@@ -72,9 +83,11 @@ sub _substrate_signal_handler_child {
 }
 
 #------------------------------------------------------------------------------
-# Signal handler maintenance macros.
+# Signal handler maintenance functions.
 
-macro substrate_watch_signal {
+sub substrate_watch_signal {
+  my $signal = shift;
+
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
 
@@ -88,33 +101,33 @@ macro substrate_watch_signal {
         time() + 1, __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
-    next;
+    return;
   }
 
   # Broken pipe.
   if ($signal eq 'PIPE') {
     $SIG{$signal} = \&_substrate_signal_handler_pipe;
-    next;
+    return;
   }
 
   # Artur Bergman (sky) noticed that xterm resizing can generate a LOT
   # of WINCH signals.  That rapidly crashes perl, which, with the help
   # of most libc's, can't handle signals well at all.  We ignore
   # WINCH, therefore.
-  next if $signal eq 'WINCH';
+  return if $signal eq 'WINCH';
 
   # Everything else.
   $SIG{$signal} = \&_substrate_signal_handler_generic;
 }
 
-macro substrate_resume_watching_child_signals {
+sub substrate_resume_watching_child_signals {
   $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
   $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SCPOLL, ET_SCPOLL, [ ],
       time() + 1, __FILE__, __LINE__
-    ) if keys(%kr_sessions) > 1;
+    ) if keys(%$kr_sessions) > 1;
 }
 
 #------------------------------------------------------------------------------
@@ -122,16 +135,16 @@ macro substrate_resume_watching_child_signals {
 
 ### Time.
 
-macro substrate_resume_time_watcher {
-  # does nothing
+sub substrate_resume_time_watcher {
+  # does nothing ($_[0] == next time)
 }
 
-macro substrate_reset_time_watcher {
-  # does nothing
+sub substrate_reset_time_watcher {
+  # does nothing ($_[0] == next time)
 }
 
-macro substrate_pause_time_watcher {
-  # does nothing
+sub substrate_pause_time_watcher {
+  # does nothing ($_[0] == next time)
 }
 
 sub vec_to_poll {
@@ -143,100 +156,108 @@ sub vec_to_poll {
 
 ### Filehandles.
 
-macro substrate_watch_filehandle (<fileno>,<vector>) {
-  my $type = vec_to_poll(<vector>);
-  my $current = $POE::Kernel::Poll::poll_fd_masks{<fileno>} || 0;
+sub substrate_watch_filehandle {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
+  my $type = vec_to_poll($vector);
+  my $current = $POE::Kernel::Poll::poll_fd_masks{$fileno} || 0;
   my $new = $current | $type;
 
   TRACE_SELECT and
-    warn( sprintf( "Watch " . <fileno> .
-                   ": Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
+    warn( sprintf( "Watch $fileno: " .
+                   "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
 
-  $POE::Kernel::Poll::poll_fd_masks{<fileno>} = $new;
+  $POE::Kernel::Poll::poll_fd_masks{$fileno} = $new;
 
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-macro substrate_ignore_filehandle (<fileno>,<vector>) {
-  my $type = vec_to_poll(<vector>);
-  my $current = $POE::Kernel::Poll::poll_fd_masks{<fileno>} || 0;
+sub substrate_ignore_filehandle {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
+  my $type = vec_to_poll($vector);
+  my $current = $POE::Kernel::Poll::poll_fd_masks{$fileno} || 0;
   my $new = $current & ~$type;
 
   TRACE_SELECT and
-    warn( sprintf( "Ignore ". <fileno> .
+    warn( sprintf( "Ignore $fileno: " .
                    ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
 
   if ($new) {
-    $POE::Kernel::Poll::poll_fd_masks{<fileno>} = $new;
+    $POE::Kernel::Poll::poll_fd_masks{$fileno} = $new;
   }
   else {
-    delete $POE::Kernel::Poll::poll_fd_masks{<fileno>};
+    delete $POE::Kernel::Poll::poll_fd_masks{$fileno};
   }
 
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
-  my $type = vec_to_poll(<vector>);
-  my $current = $POE::Kernel::Poll::poll_fd_masks{<fileno>} || 0;
+sub substrate_pause_filehandle_watcher {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
+  my $type = vec_to_poll($vector);
+  my $current = $POE::Kernel::Poll::poll_fd_masks{$fileno} || 0;
   my $new = $current & ~$type;
 
   TRACE_SELECT and
-    warn( sprintf( "Pause " . <fileno> .
+    warn( sprintf( "Pause $fileno: " .
                    ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
 
   if ($new) {
-    $POE::Kernel::Poll::poll_fd_masks{<fileno>} = $new;
+    $POE::Kernel::Poll::poll_fd_masks{$fileno} = $new;
   }
   else {
-    delete $POE::Kernel::Poll::poll_fd_masks{<fileno>};
+    delete $POE::Kernel::Poll::poll_fd_masks{$fileno};
   }
 
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
-  my $type = vec_to_poll(<vector>);
-  my $current = $POE::Kernel::Poll::poll_fd_masks{<fileno>} || 0;
+sub substrate_resume_filehandle_watcher {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
+  my $type = vec_to_poll($vector);
+  my $current = $POE::Kernel::Poll::poll_fd_masks{$fileno} || 0;
   my $new = $current | $type;
 
   TRACE_SELECT and
-    warn( sprintf( "Resume " . <fileno> .
-                   ": Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
+    warn( sprintf( "Resume $fileno: " .
+                   "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
 
-  $POE::Kernel::Poll::poll_fd_masks{<fileno>} = $new;
+  $POE::Kernel::Poll::poll_fd_masks{$fileno} = $new;
 
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
-}
-
-macro substrate_define_callbacks {
-  # does nothing
 }
 
 #------------------------------------------------------------------------------
 # Main loop management.
 
-macro substrate_init_main_loop {
+sub substrate_init_main_loop {
   %POE::Kernel::Poll::poll_fd_masks = ();
 }
 
-macro substrate_do_timeslice {
+sub substrate_do_timeslice {
   # Check for a hung kernel.
-  {% test_for_idle_poe_kernel %}
+  test_for_idle_poe_kernel();
 
   # Set the poll timeout based on current queue conditions.  If there
   # are FIFO events, then the poll timeout is zero and move on.
@@ -247,8 +268,8 @@ macro substrate_do_timeslice {
   my $now = time();
   my $timeout;
 
-  if (@kr_events) {
-    $timeout = $kr_events[0]->[ST_TIME] - $now;
+  if (@$kr_events) {
+    $timeout = $kr_events->[0]->[ST_TIME] - $now;
     $timeout = MINIMUM_POLL_TIMEOUT if $timeout < MINIMUM_POLL_TIMEOUT;
   }
   else {
@@ -266,16 +287,16 @@ macro substrate_do_timeslice {
                 map { sprintf('%d=%.4f',
                               $_->[ST_SEQ], $_->[ST_TIME] - $now
                              )
-                    } @kr_events
+                    } @$kr_events
               ) .
           "\n"
         );
   }
 
   # Ensure that the event queue remains in time order.
-  if (ASSERT_EVENTS and @kr_events) {
-    my $previous_time = $kr_events[0]->[ST_TIME];
-    foreach (@kr_events) {
+  if (ASSERT_EVENTS and @$kr_events) {
+    my $previous_time = $kr_events->[0]->[ST_TIME];
+    foreach (@$kr_events) {
       die "event $_->[ST_SEQ] is out of order"
         if $_->[ST_TIME] < $previous_time;
       $previous_time = $_->[ST_TIME];
@@ -352,21 +373,21 @@ macro substrate_do_timeslice {
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing read for fileno $fd\n";
-            {% enqueue_ready_selects $fd, VEC_RD %}
+            enqueue_ready_selects($fd, VEC_RD);
           }
 
           if ( $watch_mask & POLLOUT and
                $got_mask & (POLLOUT | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing write for fileno $fd\n";
-            {% enqueue_ready_selects $fd, VEC_WR %}
+            enqueue_ready_selects($fd, VEC_WR);
           }
 
           if ( $watch_mask & POLLRDBAND and
                $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing expedite for fileno $fd\n";
-            {% enqueue_ready_selects $fd, VEC_EX %}
+            enqueue_ready_selects($fd, VEC_EX);
           }
         }
       }
@@ -389,11 +410,11 @@ macro substrate_do_timeslice {
   # Dispatch whatever events are due.
 
   $now = time();
-  while ( @kr_events and ($kr_events[0]->[ST_TIME] <= $now) ) {
+  while ( @$kr_events and ($kr_events->[0]->[ST_TIME] <= $now) ) {
     my $event;
 
     if (TRACE_QUEUE) {
-      $event = $kr_events[0];
+      $event = $kr_events->[0];
       warn( sprintf('now(%.4f) ', $now - $^T) .
             sprintf('sched_time(%.4f)  ', $event->[ST_TIME] - $^T) .
             "seq($event->[ST_SEQ])  " .
@@ -402,22 +423,22 @@ macro substrate_do_timeslice {
     }
 
     # Pull an event off the queue, and dispatch it.
-    $event = shift @kr_events;
-    delete $kr_event_ids{$event->[ST_SEQ]};
-    {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
-    {% ses_refcount_dec2 $event->[ST_SOURCE], SS_POST_COUNT %}
-    $self->_dispatch_event(@$event);
+    $event = shift @$kr_events;
+    delete $kr_event_ids->{$event->[ST_SEQ]};
+    ses_refcount_dec2($event->[ST_SESSION], SS_EVCOUNT);
+    ses_refcount_dec2($event->[ST_SOURCE], SS_POST_COUNT);
+    $poe_kernel->_dispatch_event(@$event);
   }
 }
 
-macro substrate_main_loop {
+sub substrate_main_loop {
   # Run for as long as there are sessions to service.
-  while (keys %kr_sessions) {
-    {% substrate_do_timeslice %}
+  while (keys %$kr_sessions) {
+    substrate_do_timeslice();
   }
 }
 
-macro substrate_stop_main_loop {
+sub substrate_stop_main_loop {
   # does nothing
 }
 

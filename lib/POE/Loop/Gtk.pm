@@ -12,12 +12,8 @@ $VERSION = (qw($Revision$ ))[1];
 
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
-use POE::Preprocessor;
 
 use strict;
-
-use vars qw($VERSION);
-$VERSION = (qw($Revision$ ))[1];
 
 # Ensure that no other substrate module has been loaded.
 BEGIN {
@@ -28,6 +24,17 @@ BEGIN {
 # Declare the substrate we're using.
 sub POE_SUBSTRATE      () { SUBSTRATE_GTK      }
 sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_GTK }
+
+my ($kr_sessions, $kr_events);
+
+#------------------------------------------------------------------------------
+# Substrate construction and destruction.
+
+sub _substrate_initialize {
+  my $kernel = shift;
+  $kr_sessions = $kernel->_get_kr_sessions_ref();
+  $kr_events   = $kernel->_get_kr_events_ref();
+}
 
 #------------------------------------------------------------------------------
 # Signal handlers.
@@ -68,9 +75,11 @@ sub _substrate_signal_handler_child {
 }
 
 #------------------------------------------------------------------------------
-# Signal handler maintenance macros.
+# Signal handler maintenance functions.
 
-macro substrate_watch_signal {
+sub substrate_watch_signal {
+  my $signal = shift;
+
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
 
@@ -87,26 +96,26 @@ macro substrate_watch_signal {
         time() + 1, __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
-    next;
+    return;
   }
 
   # Broken pipe.
   if ($signal eq 'PIPE') {
     $SIG{$signal} = \&_substrate_signal_handler_pipe;
-    next;
+    return;
   }
 
   # Artur Bergman (sky) noticed that xterm resizing can generate a LOT
   # of WINCH signals.  That rapidly crashes perl, which, with the help
   # of most libc's, can't handle signals well at all.  We ignore
   # WINCH, therefore.
-  next if $signal eq 'WINCH';
+  return if $signal eq 'WINCH';
 
   # Everything else.
   $SIG{$signal} = \&_substrate_signal_handler_generic;
 }
 
-macro substrate_resume_watching_child_signals () {
+sub substrate_resume_watching_child_signals {
   # For SIGCHLD triggered polling loop.
   # $SIG{CHLD} = \&_substrate_signal_handler_child if exists $SIG{CHLD};
   # $SIG{CLD}  = \&_substrate_signal_handler_child if exists $SIG{CLD};
@@ -119,7 +128,7 @@ macro substrate_resume_watching_child_signals () {
       EN_SCPOLL, ET_SCPOLL,
       [ ],
       time() + 1, __FILE__, __LINE__
-    ) if keys(%kr_sessions) > 1;
+    ) if keys(%$kr_sessions) > 1;
 }
 
 #------------------------------------------------------------------------------
@@ -127,32 +136,36 @@ macro substrate_resume_watching_child_signals () {
 
 ### Time.
 
-macro substrate_resume_time_watcher {
-  my $next_time = ($poe_kernel->[KR_EVENTS]->[0]->[ST_TIME] - time()) * 1000;
+sub substrate_resume_time_watcher {
+  my $next_time = (shift() - time) * 1000;
   $next_time = 0 if $next_time < 0;
   $poe_kernel->[KR_WATCHER_TIMER] =
     Gtk->timeout_add( $next_time, \&_substrate_event_callback );
 }
 
-macro substrate_reset_time_watcher {
+sub substrate_reset_time_watcher {
+  my $next_time = shift;
   # Should always be defined, right?
-  Gtk->timeout_remove( $self->[KR_WATCHER_TIMER] );
-  $self->[KR_WATCHER_TIMER] = undef;
-  {% substrate_resume_time_watcher %}
+  Gtk->timeout_remove( $poe_kernel->[KR_WATCHER_TIMER] );
+  $poe_kernel->[KR_WATCHER_TIMER] = undef;
+  substrate_resume_time_watcher($next_time);
 }
 
 sub _substrate_resume_timer {
   Gtk->idle_remove($poe_kernel->[KR_WATCHER_TIMER]);
-  {% substrate_resume_time_watcher %}
+  substrate_resume_time_watcher($poe_kernel->[KR_EVENTS]->[0]->[ST_TIME]);
 }
 
-macro substrate_pause_time_watcher {
+sub substrate_pause_time_watcher {
   # does nothing
 }
 
 ### Filehandles.
 
-macro substrate_watch_filehandle (<fileno>,<vector>) {
+sub substrate_watch_filehandle {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
   # Overwriting a pre-existing watcher?
   if (defined $kr_fno_vec->[FVC_WATCHER]) {
     Gtk::Gdk->input_remove( $kr_fno_vec->[FVC_WATCHER] );
@@ -161,12 +174,12 @@ macro substrate_watch_filehandle (<fileno>,<vector>) {
 
   # Register the new watcher.
   $kr_fno_vec->[FVC_WATCHER] =
-    Gtk::Gdk->input_add( <fileno>,
-                         ( (<vector> == VEC_RD)
+    Gtk::Gdk->input_add( $fileno,
+                         ( ($vector == VEC_RD)
                            ? ( 'read',
                                \&_substrate_select_read_callback
                              )
-                           : ( (<vector> == VEC_WR)
+                           : ( ($vector == VEC_WR)
                                ? ( 'write',
                                    \&_substrate_select_write_callback
                                  )
@@ -175,14 +188,16 @@ macro substrate_watch_filehandle (<fileno>,<vector>) {
                                  )
                              )
                          ),
-                         <fileno>
+                         $fileno
                        );
 
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-macro substrate_ignore_filehandle (<fileno>,<vector>) {
+sub substrate_ignore_filehandle {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+
   # Don't bother removing a select if none was registered.
   if (defined $kr_fno_vec->[FVC_WATCHER]) {
     Gtk::Gdk->input_remove( $kr_fno_vec->[FVC_WATCHER] );
@@ -192,23 +207,27 @@ macro substrate_ignore_filehandle (<fileno>,<vector>) {
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
+sub substrate_pause_filehandle_watcher {
+  my ($kr_fno_vec, $handle, $vector) = @_;
   Gtk::Gdk->input_remove( $kr_fno_vec->[FVC_WATCHER] );
   $kr_fno_vec->[FVC_WATCHER] = undef;
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
+sub substrate_resume_filehandle_watcher {
+  my ($kr_fno_vec, $handle, $vector) = @_;
+  my $fileno = fileno($handle);
+
   # Quietly ignore requests to resume unpaused handles.
   return 1 if defined $kr_fno_vec->[FVC_WATCHER];
 
   $kr_fno_vec->[FVC_WATCHER] =
-    Gtk::Gdk->input_add( <fileno>,
-                         ( (<vector> == VEC_RD)
+    Gtk::Gdk->input_add( $fileno,
+                         ( ($vector == VEC_RD)
                            ? ( 'read',
                                \&_substrate_select_read_callback
                              )
-                           : ( (<vector> == VEC_WR)
+                           : ( ($vector == VEC_WR)
                                ? ( 'write',
                                    \&_substrate_select_write_callback
                                  )
@@ -217,86 +236,83 @@ macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
                                  )
                              )
                          ),
-                         <fileno>
+                         $fileno
                        );
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 ### Callbacks.
 
-macro substrate_define_callbacks {
+# Event callback to dispatch pending events.
+sub _substrate_event_callback {
+  my $self = $poe_kernel;
 
-  # Event callback to dispatch pending events.
-  sub _substrate_event_callback {
-    my $self = $poe_kernel;
+  dispatch_due_events();
+  test_for_idle_poe_kernel();
 
-    {% dispatch_due_events %}
-    {% test_for_idle_poe_kernel %}
+  Gtk->timeout_remove( $self->[KR_WATCHER_TIMER] );
+  $self->[KR_WATCHER_TIMER] = undef;
 
-    Gtk->timeout_remove( $self->[KR_WATCHER_TIMER] );
-    $self->[KR_WATCHER_TIMER] = undef;
-
-    # Register the next timeout if there are events left.
-    if (@kr_events) {
-      $self->[KR_WATCHER_TIMER] = Gtk->idle_add(\&_substrate_resume_timer);
-    }
-
-    # Return false to stop.
-    return 0;
+  # Register the next timeout if there are events left.
+  if (@$kr_events) {
+    $self->[KR_WATCHER_TIMER] = Gtk->idle_add(\&_substrate_resume_timer);
   }
 
-  # Filehandle callback to dispatch selects.
-  sub _substrate_select_read_callback {
-    my $self = $poe_kernel;
-    my ($handle, $fileno, $hash) = @_;
+  # Return false to stop.
+  return 0;
+}
 
-    {% enqueue_ready_selects $fileno, VEC_RD %}
-    {% test_for_idle_poe_kernel %}
+# Filehandle callback to dispatch selects.
+sub _substrate_select_read_callback {
+  my $self = $poe_kernel;
+  my ($handle, $fileno, $hash) = @_;
 
-    # Return false to stop... probably not with this one.
-    return 0;
-  }
+  enqueue_ready_selects($fileno, VEC_RD);
+  test_for_idle_poe_kernel();
 
-  sub _substrate_select_write_callback {
-    my $self = $poe_kernel;
-    my ($handle, $fileno, $hash) = @_;
+  # Return false to stop... probably not with this one.
+  return 0;
+}
 
-    {% enqueue_ready_selects $fileno, VEC_WR %}
-    {% test_for_idle_poe_kernel %}
+sub _substrate_select_write_callback {
+  my $self = $poe_kernel;
+  my ($handle, $fileno, $hash) = @_;
 
-    # Return false to stop... probably not with this one.
-    return 0;
-  }
+  enqueue_ready_selects($fileno, VEC_WR);
+  test_for_idle_poe_kernel();
 
-  sub _substrate_select_expedite_callback {
-    my $self = $poe_kernel;
-    my ($handle, $fileno, $hash) = @_;
+  # Return false to stop... probably not with this one.
+  return 0;
+}
 
-    {% enqueue_ready_selects $fileno, VEC_EX %}
-    {% test_for_idle_poe_kernel %}
+sub _substrate_select_expedite_callback {
+  my $self = $poe_kernel;
+  my ($handle, $fileno, $hash) = @_;
 
-    # Return false to stop... probably not with this one.
-    return 0;
-  }
+  enqueue_ready_selects($fileno, VEC_EX);
+  test_for_idle_poe_kernel();
+
+  # Return false to stop... probably not with this one.
+  return 0;
 }
 
 #------------------------------------------------------------------------------
 # The event loop itself.
 
 # ???
-macro substrate_do_timeslice {
+sub substrate_do_timeslice {
   die "doing timeslices currently not supported in the Gtk substrate";
 }
 
-macro substrate_main_loop {
+sub substrate_main_loop {
   Gtk->main;
 }
 
-macro substrate_stop_main_loop {
+sub substrate_stop_main_loop {
   Gtk->main_quit();
 }
 
-macro substrate_init_main_loop {
+sub substrate_init_main_loop {
   Gtk->init;
 }
 

@@ -85,7 +85,8 @@ for (my $ord = 0; $ord < 256; $ord++) {
 }
 
 # Wipe the current input line.  Implemented as a macro to avoid
-# circular closure problems with $self.
+# circular closure problems with $self.  We can dump the macro if we
+# figure this one out.
 
 macro wipe_input_line {
   # Clear the current prompt and input, and home the cursor.

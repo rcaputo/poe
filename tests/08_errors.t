@@ -82,7 +82,8 @@ BEGIN {
 
   # Clean up after destructive tests.
   sub test_cleanup {
-    POE::Preprocessor->clear_package( 'POE::Kernel' );
+    # Not used in POE::Kernel now.
+    # POE::Preprocessor->clear_package( 'POE::Kernel' );
 
 #    foreach my $symbol (@symbols_to_clean_up) {
 #      delete $POE::Kernel::{$symbol};

@@ -1,7 +1,6 @@
 # $Id$
 
 package POE::NFA;
-use POE::Preprocessor;
 
 use strict;
 
@@ -40,15 +39,15 @@ sub STACK_EVENT         () { 1 }
 
 #------------------------------------------------------------------------------
 
-macro fetch_id (<whence>) {
-  $POE::Kernel::poe_kernel->ID_session_to_id(<whence>)
+# Shorthand for defining a trace constant.
+sub define_trace {
+  no strict 'refs';
+  foreach my $name (@_) {
+    unless (defined *{"TRACE_$name"}{CODE}) {
+      eval "sub TRACE_$name () { TRACE_DEFAULT }";
+    }
+  }
 }
-
-macro define_trace (<const>) {
-  defined &TRACE_<const> or eval 'sub TRACE_<const> () { TRACE_DEFAULT }';
-}
-
-# MACROS END <-- search tag for editing
 
 #------------------------------------------------------------------------------
 
@@ -80,7 +79,7 @@ BEGIN {
     }
   };
 
-  {% define_trace  DESTROY %}
+  define_trace("DESTROY");
 }
 
 #------------------------------------------------------------------------------
@@ -215,7 +214,7 @@ sub _invoke_state {
   # Trace the state invocation if tracing is enabled.
 
   if ($self->[SELF_OPTIONS]->{+OPT_TRACE}) {
-    warn {% fetch_id $self %}, " -> $event\n";
+    warn $POE::Kernel::poe_kernel->ID_session_to_id($self), " -> $event\n";
   }
 
   # Discard troublesome things.
@@ -233,13 +232,13 @@ sub _invoke_state {
     my ($new_state, $enter_event, @enter_args) = @$args;
 
     # Make sure the new state exists.
-    die( {% fetch_id $self %},
+    die( $POE::Kernel::poe_kernel->ID_session_to_id($self),
          " tried to enter nonexistent state '$new_state'\n"
        )
       unless exists $self->[SELF_STATES]->{$new_state};
 
     # If an enter event was specified, make sure that exists too.
-    die( {% fetch_id $self %},
+    die( $POE::Kernel::poe_kernel->ID_session_to_id($self),
          " tried to invoke nonexistent enter event '$enter_event' ",
          "in state '$new_state'\n"
        )
@@ -281,7 +280,7 @@ sub _invoke_state {
   # Pop a state transition.
   if ($event eq NFA_EN_POP_STATE) {
 
-    die( {% fetch_id $self %},
+    die( $POE::Kernel::poe_kernel->ID_session_to_id($self),
          " tried to pop a state from an empty stack\n"
        )
       unless @{ $self->[SELF_STATE_STACK] };
@@ -317,7 +316,7 @@ sub _invoke_state {
     # If we get this far, then there's a _default event to redirect
     # the event to.  Trace the redirection.
     if ($self->[SELF_OPTIONS]->{+OPT_TRACE}) {
-      warn( {% fetch_id $self %},
+      warn( $POE::Kernel::poe_kernel->ID_session_to_id($self),
             " -> $event redirected to EN_DEFAULT in state ",
             "'$self->[SELF_CURRENT_NAME]'\n"
           );
@@ -335,7 +334,8 @@ sub _invoke_state {
   # must die.
   else {
     die( "a '$event' event was sent from $file at $line to session ",
-         {% fetch_id $self %}, ", but session ", {% fetch_id $self %},
+         $POE::Kernel::poe_kernel->ID_session_to_id($self),
+         ", but session ", $POE::Kernel::poe_kernel->ID_session_to_id($self),
          " has neither that event nor a _default event to handle it ",
          "in its current state, '$self->[SELF_CURRENT_NAME]'\n"
        );
@@ -387,13 +387,6 @@ sub _invoke_state {
 # limited to a single state.  I think they'll go in a hidden internal
 # state, or something.
 
-macro validate_state {
-  carp "redefining state($name) for session(", {% fetch_id $self %}, ")"
-    if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
-         (exists $self->[SELF_INTERNALS]->{$name})
-       );
-}
-
 sub register_state {
   my ($self, $name, $handler, $method) = @_;
   $method = $name unless defined $method;
@@ -406,7 +399,12 @@ sub register_state {
     # Coderef handlers are inline states.
 
     if (ref($handler) eq 'CODE') {
-      {% validate_state %}
+      carp( "redefining state($name) for session(",
+            $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
+          )
+        if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
+             (exists $self->[SELF_INTERNALS]->{$name})
+           );
       $self->[SELF_INTERNALS]->{$name} = $handler;
     }
 
@@ -414,7 +412,12 @@ sub register_state {
     # the method belongs to the handler.
 
     elsif ($handler->can($method)) {
-      {% validate_state %}
+      carp( "redefining state($name) for session(",
+            $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
+          )
+        if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
+             (exists $self->[SELF_INTERNALS]->{$name})
+           );
       $self->[SELF_INTERNALS]->{$name} = [ $handler, $method ];
     }
 
@@ -425,7 +428,7 @@ sub register_state {
       if ( (ref($handler) eq 'CODE') and
            $self->[SELF_OPTIONS]->{+OPT_TRACE}
          ) {
-        carp( {% fetch_id $self %},
+        carp( $self->fetch_id(),
               " : state($name) is not a proper ref - not registered"
             )
       }
@@ -454,7 +457,7 @@ sub register_state {
 # the session ID really lies.  This is a good inheritance candidate.
 
 sub ID {
-  {% fetch_id shift %}
+  $POE::Kernel::poe_kernel->ID_session_to_id(shift);
 }
 
 #------------------------------------------------------------------------------
@@ -568,7 +571,7 @@ sub POE::NFA::Postback::DESTROY {
 
 sub postback {
   my ($self, $event, @etc) = @_;
-  my $id = {% fetch_id $self %};
+  my $id = $POE::Kernel::poe_kernel->ID_session_to_id(shift);
 
   my $postback = bless
     sub {

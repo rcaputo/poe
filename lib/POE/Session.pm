@@ -1,7 +1,6 @@
 # $Id$
 
 package POE::Session;
-use POE::Preprocessor;
 
 use strict;
 
@@ -30,64 +29,30 @@ sub EN_START        () { '_start' }
 sub EN_DEFAULT      () { '_default' }
 
 #------------------------------------------------------------------------------
-# Macros.
-
-macro define_assert (<const>) {
-  defined &ASSERT_<const> or eval 'sub ASSERT_<const> () { ASSERT_DEFAULT }';
-}
-
-macro define_trace (<const>) {
-  defined &TRACE_<const> or eval 'sub TRACE_<const> () { TRACE_DEFAULT }';
-}
-
-macro make_session {
-  my $self =
-    bless [ { }, # SE_NAMESPACE
-            { }, # SE_OPTIONS
-            { }, # SE_STATES
-          ], $type;
-  if (ASSERT_STATES) {
-    $self->[SE_OPTIONS]->{+OPT_DEFAULT} = 1;
-  }
-}
-
-macro validate_kernel {
-  croak "$type requires a working Kernel"
-    unless defined $POE::Kernel::poe_kernel;
-}
-
-macro validate_state {
-  carp "redefining state($name) for session(", {% fetch_id $self %}, ")"
-    if ( $self->[SE_OPTIONS]->{+OPT_DEBUG} &&
-         (exists $self->[SE_STATES]->{$name})
-       );
-}
-
-macro fetch_id (<whence>) {
-  $POE::Kernel::poe_kernel->ID_session_to_id(<whence>)
-}
-
-macro verify_start_state {
-  # Verfiy that the session has a special start state, otherwise how
-  # do we know what to do?  Don't even bother registering the session
-  # if the start state doesn't exist.
-
-  if (exists $self->[SE_STATES]->{+EN_START}) {
-    $POE::Kernel::poe_kernel->session_alloc($self, @args);
-  }
-  else {
-    carp "discarding session ", {% fetch_id $self %}, " - no '_start' state";
-    $self = undef;
-  }
-}
-
-# MACROS END <-- search tag for editing
-
-#------------------------------------------------------------------------------
 # Debugging flags for subsystems.  They're done as double evals here
 # so that someone may define them before using POE::Session (or POE),
 # and the pre-defined value will take precedence over the defaults
 # here.
+
+# Shorthand for defining an assert constant.
+sub define_assert {
+  no strict 'refs';
+  foreach my $name (@_) {
+    unless (defined *{"ASSERT_$name"}{CODE}) {
+      eval "sub ASSERT_$name () { ASSERT_DEFAULT }";
+    }
+  }
+}
+
+# Shorthand for defining a trace constant.
+sub define_trace {
+  no strict 'refs';
+  foreach my $name (@_) {
+    unless (defined *{"TRACE_$name"}{CODE}) {
+      eval "sub TRACE_$name () { TRACE_DEFAULT }";
+    }
+  }
+}
 
 # Define some debugging flags for subsystems, unless someone already
 # has defined them.
@@ -123,8 +88,8 @@ BEGIN {
     }
   };
 
-  {% define_assert STATES  %}
-  {% define_trace  DESTROY %}
+  define_assert("STATES");
+  define_trace("DESTROY");
 }
 
 #------------------------------------------------------------------------------
@@ -188,8 +153,17 @@ sub new {
   croak "sessions no longer require a kernel reference as the first parameter"
     if ((@states > 1) && (ref($states[0]) eq 'POE::Kernel'));
 
-  {% validate_kernel %}
-  {% make_session %}
+  croak "$type requires a working Kernel"
+    unless defined $POE::Kernel::poe_kernel;
+
+  my $self =
+    bless [ { }, # SE_NAMESPACE
+            { }, # SE_OPTIONS
+            { }, # SE_STATES
+          ], $type;
+  if (ASSERT_STATES) {
+    $self->[SE_OPTIONS]->{+OPT_DEFAULT} = 1;
+  }
 
   # Scan all arguments.  It mainly expects them to be in pairs, except
   # for some, uh, exceptions.
@@ -333,7 +307,20 @@ sub new {
     croak "odd number of parameters in POE::Session->new call";
   }
 
-  {% verify_start_state %}
+  # Verfiy that the session has a special start state, otherwise how
+  # do we know what to do?  Don't even bother registering the session
+  # if the start state doesn't exist.
+
+  if (exists $self->[SE_STATES]->{+EN_START}) {
+    $POE::Kernel::poe_kernel->session_alloc($self, @args);
+  }
+  else {
+    carp( "discarding session ",
+          $POE::Kernel::poe_kernel->ID_session_to_id($self),
+          " - no '_start' state"
+        );
+    $self = undef;
+  }
 
   $self;
 }
@@ -355,8 +342,17 @@ sub create {
   }
   my %params = @params;
 
-  {% validate_kernel %}
-  {% make_session %}
+  croak "$type requires a working Kernel"
+    unless defined $POE::Kernel::poe_kernel;
+
+  my $self =
+    bless [ { }, # SE_NAMESPACE
+            { }, # SE_OPTIONS
+            { }, # SE_STATES
+          ], $type;
+  if (ASSERT_STATES) {
+    $self->[SE_OPTIONS]->{+OPT_DEFAULT} = 1;
+  }
 
   # Process _start arguments.  We try to do the right things with what
   # we're given.  If the arguments are a list reference, map its items
@@ -503,7 +499,20 @@ sub create {
     }
   }
 
-  {% verify_start_state %}
+  # Verfiy that the session has a special start state, otherwise how
+  # do we know what to do?  Don't even bother registering the session
+  # if the start state doesn't exist.
+
+  if (exists $self->[SE_STATES]->{+EN_START}) {
+    $POE::Kernel::poe_kernel->session_alloc($self, @args);
+  }
+  else {
+    carp( "discarding session ",
+          $POE::Kernel::poe_kernel->ID_session_to_id($self),
+          " - no '_start' state"
+        );
+    $self = undef;
+  }
 
   $self;
 }
@@ -542,7 +551,9 @@ sub _invoke_state {
   # Trace the state invocation if tracing is enabled.
 
   if ($self->[SE_OPTIONS]->{+OPT_TRACE}) {
-    warn {% fetch_id $self %}, " -> $state (from $file at $line)\n";
+    warn( $POE::Kernel::poe_kernel->ID_session_to_id($self),
+          " -> $state (from $file at $line)\n"
+        );
   }
 
   # The desired destination state doesn't exist in this session.
@@ -558,7 +569,9 @@ sub _invoke_state {
       $! = ENOSYS;
       if ($self->[SE_OPTIONS]->{+OPT_DEFAULT}) {
         warn( "a '$state' state was sent from $file at $line to session ",
-              {% fetch_id $self %}, ", but session ", {% fetch_id $self %},
+              $POE::Kernel::poe_kernel->ID_session_to_id($self),
+              ", but session ",
+              $POE::Kernel::poe_kernel->ID_session_to_id($self),
               " has neither that state nor a _default state to handle it\n"
             );
       }
@@ -569,7 +582,9 @@ sub _invoke_state {
     # the transition to.  Trace the redirection.
 
     if ($self->[SE_OPTIONS]->{+OPT_TRACE}) {
-      warn {% fetch_id $self %}, " -> $state redirected to _default\n";
+      warn( $POE::Kernel::poe_kernel->ID_session_to_id($self),
+            " -> $state redirected to _default\n"
+          );
     }
 
     # Transmogrify the original state transition into a corresponding
@@ -631,7 +646,12 @@ sub register_state {
     # Coderef handlers are inline states.
 
     if (ref($handler) eq 'CODE') {
-      {% validate_state %}
+      carp( "redefining state($name) for session(",
+            $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
+          )
+        if ( $self->[SE_OPTIONS]->{+OPT_DEBUG} &&
+             (exists $self->[SE_STATES]->{$name})
+           );
       $self->[SE_STATES]->{$name} = $handler;
     }
 
@@ -639,7 +659,12 @@ sub register_state {
     # the method belongs to the handler.
 
     elsif ($handler->can($method)) {
-      {% validate_state %}
+      carp( "redefining state($name) for session(",
+            $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
+          )
+        if ( $self->[SE_OPTIONS]->{+OPT_DEBUG} &&
+             (exists $self->[SE_STATES]->{$name})
+           );
       $self->[SE_STATES]->{$name} = [ $handler, $method ];
     }
 
@@ -650,7 +675,7 @@ sub register_state {
       if ( (ref($handler) eq 'CODE') and
            $self->[SE_OPTIONS]->{+OPT_TRACE}
          ) {
-        carp( {% fetch_id $self %},
+        carp( $POE::Kernel::poe_kernel->ID_session_to_id($self),
               " : state($name) is not a proper ref - not registered"
             )
       }
@@ -679,7 +704,7 @@ sub register_state {
 # the session ID really lies.
 
 sub ID {
-  {% fetch_id shift %}
+  $POE::Kernel::poe_kernel->ID_session_to_id(shift);
 }
 
 #------------------------------------------------------------------------------
@@ -788,7 +813,7 @@ BEGIN {
 
 sub postback {
   my ($self, $event, @etc) = @_;
-  my $id = {% fetch_id $self %};
+  my $id = $POE::Kernel::poe_kernel->ID_session_to_id($self);
 
   my $postback = bless
     sub {
