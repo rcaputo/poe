@@ -660,8 +660,13 @@ BEGIN {
   }
 
   if (exists $INC{'IO/Poll.pm'}) {
-    require POE::Kernel::Poll;
-    POE::Kernel::Poll->import();
+    if ($^O eq 'MSWin32') {
+      warn "IO::Poll has issues on $^O.  Using select() instead for now.\n";
+    }
+    else {
+      require POE::Kernel::Poll;
+      POE::Kernel::Poll->import();
+    }
   }
 
   unless (defined &POE_SUBSTRATE) {
@@ -1460,9 +1465,7 @@ sub _invoke_state {
       # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
       # event and loop around again.
 
-      if ( (RUNNING_IN_HELL and $pid < -1) or
-           (!RUNNING_IN_HELL and $pid > 0)
-         ) {
+      if ((RUNNING_IN_HELL and $pid < -1) or ($pid > 0)) {
         if (RUNNING_IN_HELL or WIFEXITED($?) or WIFSIGNALED($?)) {
 
           TRACE_SIGNALS and
