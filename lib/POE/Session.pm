@@ -37,16 +37,16 @@ sub ARG9    () { 14 }
 #------------------------------------------------------------------------------
 # AUTOLOAD to translate regular calls into method invocations.
 
-sub AUTOLOAD {
-  use vars qw($AUTOLOAD);
-  die "not ready: $AUTOLOAD";
-}
+# sub AUTOLOAD {
+#   use vars qw($AUTOLOAD);
+#   die "not ready: $AUTOLOAD";
+# }
 
 #------------------------------------------------------------------------------
 
-sub post {
-  print "*** post(", join(', ', @_), ")\n";
-}
+# sub post {
+#   warn "*** post(", join(', ', @_), ")\n";
+# }
 
 #------------------------------------------------------------------------------
 
@@ -58,7 +58,8 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $POE::Kernel::poe_kernel);
 
-  my $self = bless { 'namespace' => { },
+  my $self = bless { 'namespace'   => { },
+                     'debug_flags' => { },
                    }, $type;
 
   while (@states) {
@@ -136,8 +137,8 @@ sub DESTROY {
 sub _invoke_state {
   my ($self, $source_session, $state, $etc) = @_;
 
-  if ($self->{'namespace'}->{'_debug'}) {
-    print "\e[1;36m$self -> $state\e[0m\n";
+  if (exists($self->{'debug_flags'}->{'trace'})) {
+    warn "$self -> $state\n";
   }
 
   if (exists $self->{'states'}->{$state}) {
@@ -167,6 +168,11 @@ sub _invoke_state {
   elsif (exists $self->{'states'}->{'_default'}) {
     return $self->_invoke_state($source_session, '_default', [ $state, $etc ]);
   }
+                                        # whoops!  no _default?
+  elsif (exists $self->{'debug_flags'}->{'default'}) {
+    warn "\t$self -> $state does not exist (and no _default)\n";
+  }
+
   return 0;
 }
 
@@ -187,7 +193,9 @@ sub register_state {
       $self->{'states'}->{$state} = $handler;
     }
     else {
-      if (ref($handler) eq 'CODE' && $self->{'namespace'}->{'_debug'}) {
+      if (ref($handler) eq 'CODE' &&
+          exists($self->{'debug_flags'}->{'trace'})
+      ) {
         carp "$self : state($state) is not a proper ref - not registered"
       }
       else {
@@ -198,6 +206,27 @@ sub register_state {
   }
   else {
     delete $self->{'states'}->{$state};
+  }
+}
+
+#------------------------------------------------------------------------------
+
+sub option {
+  my $self = shift;
+  push(@_, 0) if (@_ % 1);
+  my %parameters = @_;
+
+  while (my ($flag, $value) = each(%parameters)) {
+                                        # booleanize some handy aliases
+    ($value = 1) if ($value =~ /^(on|yes)$/i);
+    ($value = 0) if ($value =~ /^(no|off)$/i);
+                                        # set or clear the debug flag
+    if ($value) {
+      $self->{'debug_flags'}->{lc($flag)} = $value;
+    }
+    else {
+      delete $self->{'debug_flags'}->{lc($flag)};
+    }
   }
 }
 
