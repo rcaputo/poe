@@ -87,9 +87,9 @@ sub DEB_QUEUE    () { 0 }
 sub DEB_STRICT   () { 0 }
 sub DEB_INSERT   () { 0 }
                                         # handles & vectors structures
-sub VEC_RD      () { 0 }
-sub VEC_WR      () { 1 }
-sub VEC_EX      () { 2 }
+sub VEC_RD       () { 0 }
+sub VEC_WR       () { 1 }
+sub VEC_EX       () { 2 }
                                         # sessions structure
 sub SS_SESSION   () { 0 }
 sub SS_REFCOUNT  () { 1 }
@@ -144,7 +144,7 @@ sub EN_SCPOLL () { '_sigchld_poll'    }
 #           ...
 #         ];
 #
-# processes: { $pid => $parent_session }
+# processes: { $pid => $parent_session, ... }
 #
 # handles: { $handle => [ $handle, $refcount, [$ref_r, $ref_w, $ref_x ],
 #                         [ { $session => [ $handle, $session, $state ], .. },
@@ -753,17 +753,12 @@ sub _invoke_state {
   if ($state eq EN_SCPOLL) {
 
     while (my $child_pid = waitpid(-1, WNOHANG)) {
-      if (exists $self->[KR_PROCESSES]->{$child_pid}) {
-
-        my $parent_session = delete $self->[KR_PROCESSES]->{$child_pid};
-
+      if (my $parent_session = delete $self->[KR_PROCESSES]->{$child_pid}) {
         $parent_session = $self
           unless exists $self->[KR_SESSIONS]->{$parent_session};
-
-        $poe_kernel->_enqueue_state
-          ( $parent_session, $poe_kernel, EN_SIGNAL,
-            time(), [ 'CHLD', $child_pid, $? ]
-          );
+        $self->_enqueue_state( $parent_session, $self,
+                               EN_SIGNAL, time(), [ 'CHLD', $child_pid, $? ]
+                             );
       }
       else {
         last;
@@ -773,7 +768,6 @@ sub _invoke_state {
     if (keys %{$self->[KR_PROCESSES]}) {
       $self->_enqueue_state($self, $self, EN_SCPOLL, time() + 1);
     }
-
   }
 
   elsif ($state eq EN_SIGNAL) {
@@ -972,6 +966,7 @@ sub _enqueue_state {
   }
   else {
     warn ">>>>> ", join('; ', keys(%{$self->[KR_SESSIONS]})), " <<<<<\n";
+    warn "($$ = $etc->[0])";
     croak "can't enqueue state($state) for nonexistent session($session)\a\n";
   }
 }
@@ -1283,6 +1278,8 @@ sub alias_resolve {
       return $self->[KR_ACTIVE_SESSION];
     }
   }
+                                        # resolve against the kernel
+  return $self if ($name eq $self);
                                         # it doesn't resolve to anything?
   $! = ESRCH;
   return undef;
@@ -1328,7 +1325,7 @@ sub fork {
 
     # Build a list of unique sessions with children.
     my %sessions;
-    foreach (keys %{$self->[KR_PROCESSES]}) {
+    foreach (values %{$self->[KR_PROCESSES]}) {
       $sessions{$_}++;
     }
 
