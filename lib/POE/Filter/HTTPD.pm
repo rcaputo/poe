@@ -31,7 +31,7 @@ my $HTTP_1_1 = _http_version("HTTP/1.1");
 
 sub new {
   my $type = shift;
-  my $self = { type => 0,
+  my $self = { type   => 0,
 	       buffer => '',
                finish => 0,
 	     };
@@ -50,7 +50,7 @@ sub get {
   # arrived.  Subsequent get() calls on the same request should not
   # happen.  -><- Maybe this should return [] instead of dying?
 
-  if($self->{'finish'}) {
+  if($self->{finish}) {
 
     # This works around a request length vs. actual content length
     # error.  Looks like some browsers (mozilla!) sometimes add on an
@@ -68,14 +68,14 @@ sub get {
       $hexdump =~ s/(..)/$1 /g;
 
       $line =~ tr[ -~][.]c;
-      push @dump, sprintf( "%04x %s- %s\n", $offset, $hexdump, $line );
+      push @dump, sprintf( "%04x %-47.47s - %s\n", $offset, $hexdump, $line );
       $offset += 16;
     }
 
     return [ $self->build_error
              ( RC_BAD_REQUEST,
                "Did not want any more data.  Got this:" .
-               "<p><tt>" . join("<br>", @dump) . "</tt></p>"
+               "<p><pre>" . join("", @dump) . "</pre></p>"
              )
            ];
   }
@@ -90,8 +90,8 @@ sub get {
 
   if($self->{header}) {
     my $buf = $self->{buffer};
-    my $r = $self->{header};
-    my $cl = $r->content_length() || "0 (implicit)";
+    my $r   = $self->{header};
+    my $cl  = $r->content_length() || "0 (implicit)";
     if (length($buf) >= $cl) {
       $r->content($buf);
       $self->{finish}++;
@@ -279,7 +279,6 @@ sub build_error {
         $status
       );
 }
-
 
 ###############################################################################
 1;
