@@ -1022,6 +1022,11 @@ This makes it easier for maintainers to understand the constructor
 call, and it lets the constructor unambiguously recognize and validate
 parameters.
 
+C<create()> returns a reference to the newly created session but B<it
+is recommended not to save this>.  POE::Kernel manages sessions and
+will ensure timely destruction of them as long as extra references to
+them aren't hanging around.
+
 =over 2
 
 =item args => LISTREF
@@ -1163,6 +1168,11 @@ C<handler_twelve()> method.
 C<new()> is Session's older constructor.  Its design was clever at the
 time, but it didn't expand well.  It's still useful for quick one-line
 hacks, but consider using C<create()> for more complex sessions.
+
+C<new()> returns a reference to the newly created session but B<it is
+recommended not to save this>.  POE::Kernel manages sessions and will
+ensure timely destruction of them as long as extra references to them
+aren't hanging around.
 
 Inline states, object states, package states, and _start arguments are
 all inferred by their contexts.  This context sensitivity makes it
