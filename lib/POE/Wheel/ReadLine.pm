@@ -11,6 +11,7 @@ use Carp;
 use Symbol qw(gensym);
 use POE qw(Wheel);
 use POE::Preprocessor;
+use POSIX qw(B38400);
 
 # Things we'll need to interact with the terminal.
 use Term::Cap;
@@ -179,7 +180,7 @@ BEGIN {
   # Get the terminal speed for Term::Cap.
   my $termios = POSIX::Termios->new();
   $termios->getattr();
-  my $ospeed = $termios->getospeed();
+  my $ospeed = $termios->getospeed() || B38400;
 
   # Get the current terminal's capabilities.
   $termcap = Term::Cap->Tgetent( { TERM => undef, OSPEED => $ospeed } );
