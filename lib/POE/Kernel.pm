@@ -1394,7 +1394,7 @@ sub post {
   # Enqueue the state for "now", which simulates FIFO in our
   # time-ordered queue.
 
-  $self->_enqueue_state( $destination, $self->[KR_ACTIVE_SESSION],
+  $self->_enqueue_state( $session, $self->[KR_ACTIVE_SESSION],
                          $state_name, ET_USER,
                          \@etc,
                          time(), (caller)[1,2]
@@ -1439,7 +1439,7 @@ sub call {
   # and stick to them.
 
   $! = 0;
-  return $self->_dispatch_state( $destination, $self->[KR_ACTIVE_SESSION],
+  return $self->_dispatch_state( $session, $self->[KR_ACTIVE_SESSION],
                                  $state_name, ET_USER,
                                  \@etc,
                                  time(), (caller)[1,2], undef
@@ -1801,9 +1801,9 @@ sub alias_remove {
 
 sub alias_resolve {
   my ($self, $name) = @_;
-  my $resolution = {% alias_resolve $name %};
-  $! = ESRCH unless defined $resolution;
-  $resolution;
+  my $session = {% alias_resolve $name %};
+  $! = ESRCH unless defined $session;
+  $session;
 }
 
 #==============================================================================

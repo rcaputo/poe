@@ -21,27 +21,28 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 0.1001 2000.??.?? (!!!)
 -----------------------
 
-POE::Kernel overhaul.  Commented more things, broke some monolithic
-subs apart.  Generally cleaned up the code.
+POE::Kernel overhaul.  Commented more things so the audience can
+follow along.  Broke some monolithic subs apart.  Cleaned up the code
+where it could be cleaned up.
 
 (!!!) Removed POE::Kernel::session_create, which was silly to begin
 with.
 
-Added POE::Preprocessor, a macro preprocessor.  Macroized some
-redundant bits of POE::Kernel.  Inlined some smaller low-level
-functions.
+Added POE::Preprocessor, a source filter for macro preprocessing, true
+constants, and enumerated constants.  Macroized some redundant bits of
+POE::Kernel in the hope that less code equates to easier maintenance.
+Inlined some smaller common subroutines, trading away startup speed
+for runtime performance.
 
 (!!!) Split the debugging constants between assertions which die
-noisily when POE detects internal inconsistencies; and traces that
-show ongoing activity.  The constans are renamed ASSERT_* and TRACE_*
-to reflect their function.
+noisily and traces that show ongoing activity.  The constans are
+renamed ASSERT_* and TRACE_* to reflect their function.
 
 Added ASSERT_DEFAULT and TRACE_DEFAULT to change the defaults for
-ASSERT_* and TRACE_*.  This lets you turn everything on with two
-statements.
+ASSERT_* and TRACE_*.  These let programs turn everything on with one
+or two statements.
 
-Set ASSERT_DEFAULT to true in t/*.t so that the tests are more
-thorough.
+Set ASSERT_DEFAULT to true in t/*.t so the tests are more thorough.
 
 Removed poing.perl, which has evolved into a separate program in its
 own right.  It's now available from the author's page at
