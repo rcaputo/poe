@@ -1,0 +1,177 @@
+$Id$
+
+Things to do to POE, many of which will break existing programs.
+Please use POE's mailing list (see the main POE manpage) to comment on
+proposed changes.
+
+=========================================
+Depreciations & Changes In Progress (!!!)
+=========================================
+
+These changes have begun, or will shortly.  Their remaining steps are
+still open to discussion, but the changes will go through in one form
+or another.
+
+--------------------
+XyzState to XyzEvent
+--------------------
+
+In the wheels, rename XyzState to XyzEvent everywhere.  Wheels don't
+define states, they emit events.  Callivg Wheels' parameters XyzState
+has been inconsistent and confusing.  It's bitten a lot of people.
+Call them what they are instead.
+
+To do:
+
+* Release version 0.15, and announce the depreciation.
+
+* Wait at least 28 days (until ????.??.??) before continuing this
+  change schedule.  This gives people time to adapt their production
+  code to the new parameters before warnings start.
+
+* Add depreciation warnings when XyzState is used.  This will prompt
+  late developers to adapt their code.
+
+* Release version ?.??, and announce the next phase of XyzState
+  depreciation.
+
+* Wait at least 28 days (until ????.??.??) before continuing this
+  change schedule.  This gives people time to adapt their production
+  code to avoid the depreciation warnings and subsequent breakage.
+
+* Remove XyzState warnings and support altogether.
+
+* Release version ?.??, and announce that the XyzState to XyzEvent
+  depreciation has been completed.
+
+------------------------------------
+Signal Handler Return Values Must Go
+------------------------------------
+
+Signal handlers' return values are significant, determining whether
+the handler has handled a signal, which in turn determines whether the
+session will survive a terminal signal dispatch.  This is the only
+time where a state/event handler's return value is significant within
+POE itself, and it's incongruous with the rest of the library.  It's
+also really easy to accidentally handle (or not) a signal by mistake:
+simply implicitly return some random value.
+
+To do:
+
+* Add a POE::Kernel method: handle_signal().
+
+  This will indicate that the currently dispatched signal has been
+  handled for the session.  Should it also affect all sessions?  For
+  example, if one session handles SIGINT, would they all remain alive?
+
+* Change the documentation to list handle_signal() as the proper way
+  to handle terminal signals.
+
+* Release version ?.??, and announce the depreciation.
+
+* Wait at least 28 days (until ????.??.??) before continuing this
+  change schedule.  This gives people time to adapt their production
+  code to the new signal handling method before the warnings start.
+
+* Add depreciation warnings whenever a terminal signal is handled by
+  its return value instead of the new handle_signal() method.
+
+* Release version ?.??, and announce the next phase of the signal
+  handler depreciation.
+
+* Wait at least 28 days (until ????.??.??) before continuing this
+  change schedule.  This gives people time to adapt their production
+  code to avoid the depreciation warnings and subsequent breakage.
+
+* Remove the code to recognize implicit signal handling due to
+  handlers' return values, making the handle_signal() method the only
+  way to do this.
+
+* Release version ?.??, and announce that signal handlers' return
+  values have been completely depreciated.
+
+==================================================
+Depreciations & Changes Currently Being Considered
+==================================================
+
+These changes are under consideration.  They have not begun, and they
+may not ever be made.  These are proto-plans being considered and made
+ready for deployment.
+
+-----------------
+ARG0..ARG9 May Go
+-----------------
+
+HEAP, KERNEL, SESSION, and the other event handler parameter constants
+were introduced to eliminate a dependence on their positions in @_.
+However, the ARG0..ARG9 parameters aren't descriptive and still
+contain position dependence.  This robs event parameters of many of
+the benefits of using symbolic constants in the first place.
+
+This is the current plan to depreciate them:
+
+* Introduce new constants for the different built-in events.  Leave
+  ARG0..ARG9 for user parameters.
+
+* Document the new constants instead of ARG0..ARG9.
+
+* Document that parameters may move around in the future, so their
+  positions in ARG0..ARG9 will not be guaranteed.
+
+* Release version ?.??.
+
+* Wait at least 28 days (until ????.??.??) before continuing this
+  depreciation schedule, to give people time to react to the initial
+  round of changes.
+
+* Generate warnings when ARG0..ARG9 are used for built-in events.
+  This will require some logic within those subs, removing their
+  constant nature and slowing things down in general.
+
+* Release version ?.??, and announce that the ARG0..ARG9 built-in
+  parameter depreciation is proceding apace.
+
+* Wait at least 29 days (until ????.??.??) before continuing this
+  depreciation schedule, to give people time to react to the warnings
+  and adapt their code to the new symbolic constants.
+
+* Remove the warnings from ARG0..ARG9, making them constants again and
+  speeding things up once more.
+
+* Release version ?.??, and announce that the ARG0..ARG9 built-in
+  parameter depreciation has completed.
+
+----------------------------
+Spin Off Useful Technologies
+----------------------------
+
+POE only really needs a few modules.  The rest are options which may
+not always be needed, or they're stand-alone modules that someone else
+may find useful.  For example, POE::Filter::*; POE::Preprocessor; and
+POE::Pipe::* are useful by themselves.  Wheels are pretty useful, but
+they're not always necessary.  It may be both useful and convenient to
+split POE into smaller distributions and present one or more Bundles
+to selectively load just the parts that are needed.
+
+This is the current plan to spin off useful modules from POE:
+
+* Develop a real plan for this.  Most of this is tentative.
+
+* Organize subsets of POE into useful bundles, and document them.
+  Make Bundle::POE the default.
+
+* Split out wheels?
+
+* Split out the Preprocessor?  Should it remain a POE::* module?
+
+* Split out filters?  They're useful by themselves; should they remain
+  POE::* modules?
+
+* The samples are huge and obscure.  Split them into a separate
+  distribution which doesn't install itself.
+
+* Most of the documentation is theory and usage, and it doesn't really
+  fit in manpages for modules themselves.  Split it into separate POD
+  files, and maybe split them into Bundle::POE::Docs.
+
+<EOT>

@@ -1,5 +1,5 @@
 # $Id$
-Changes
+CHANGES
 MANIFEST
 Makefile.PL
 NEEDS
@@ -37,6 +37,7 @@ POE/Wheel/ReadWrite.pm
 POE/Wheel/Run.pm
 POE/Wheel/SocketFactory.pm
 README
+TODO
 lib/Devel/Null.pm
 lib/Devel/Trace.pm
 lib/MyOtherFreezer.pm
