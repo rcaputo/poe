@@ -16,7 +16,7 @@ sub MY::test {
 WriteMakefile
   ( NAME           => 'POE',
     AUTHOR         => 'Rocco Caputo <troc+poe@netrus.net>',
-    ABSTRACT       => 'Event driven state machines and I/O abstractions.',
+    ABSTRACT       => 'Event driven threads and I/O abstractions.',
     VERSION_FROM   => 'POE.pm',
     dist           => { 'COMPRESS' => 'gzip -9f',
                         'SUFFIX'   => 'gz',
@@ -28,7 +28,6 @@ WriteMakefile
                         Socket             => 0,
                         Filter::Util::Call => 1.04,
                       },
-    PERL_MALLOC_OK => 'true',
   );
 
 exit 0;

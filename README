@@ -134,7 +134,7 @@ Event   : (not installed)
 All tests successful, 4 tests skipped.
 Files=22, Tests=388, 130 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
-** POE 0.1201 on FreeBSD
+** POE 0.1202 on FreeBSD
 
 Hardware: AMD 486-40; 16MB RAM
 System  : FreeBSD 4.0-STABLE
@@ -144,9 +144,9 @@ Tk      : 800.021
 Event   : 0.79
 
 All tests successful.
-Files=22, Tests=413
+Files=22, Tests=413, [ some tests paused ]
 
-** POE 0.1201 on Linux
+** POE 0.1202 on Linux
 
 Hardware: dual Celeron 500; 265MB RAM
 System  : Linux 2.2.15 SMP
@@ -156,12 +156,34 @@ Tk      : (not installed)
 Event   : 0.79
 
 All tests successful, 2 tests skipped.
-Files=22, Tests=397
+Files=22, Tests=397, 103 wallclock secs (18.80 cusr +  0.77 csys = 19.57 CPU)
 
-These coverage results are for POE 0.1111 on the FreeBSD machine.
-This machine more thoroughly tests different POE options, so the
-coverage results are more meaningful.  The results are misleading,
-however, even at their best.
+** POE 0.1202 on Solaris/SunOS
+
+(If anyone knows how I can determine 
+
+Hardware: SPARCstation-20; unknown speed; 320MB RAM
+System  : SunOS 5.7
+Perl    : 5.005_03
+Gtk     : (not installed)
+Tk      : (not installed)
+Event   : (not installed)
+
+All tests successful, 4 tests skipped.
+Files=22,  Tests=388, 112 wallclock secs (52.44 cusr +  4.66 csys = 57.10 CPU)
+
+-------------
+Test Coverage
+-------------
+
+The test coverage numbers are statistically meaningless.  Still, 100%
+coverage is a fun goal.  Increasing the coverage percents gives the
+author some small sense of accomplishment, and it assures users that
+something's being done to assure POE's quality.
+
+These results are for POE 0.1202 on the FreeBSD test machine.  This
+machine is the slowest of the bunch, but it also has the most support
+libraries installed.  The percent deltas are since version 0.1110.
 
   Source File                         =   Ran / Total = Covered
   POE.pm                              =    23 /    24 =  95.83%
@@ -175,17 +197,17 @@ however, even at their best.
   POE/Filter/Line.pm                  =    77 /    82 =  93.90%
   POE/Filter/Reference.pm             =    60 /    66 =  90.91%
   POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-  POE/Kernel.pm                       =   623 /   839 =  74.26%
+  POE/Kernel.pm                       =   613 /   815 =  75.21% (+0.95%)
   POE/NFA.pm                          =     9 /   144 =   6.25%
-  POE/Preprocessor.pm                 =   146 /   166 =  87.95%
+  POE/Preprocessor.pm                 =   147 /   167 =  88.02% (+0.07%)
   POE/Session.pm                      =   126 /   181 =  69.61%
   POE/Wheel.pm                        =    11 /    11 = 100.00%
-  POE/Wheel/FollowTail.pm             =    66 /    87 =  75.86%
-  POE/Wheel/ListenAccept.pm           =    33 /    47 =  70.21%
+  POE/Wheel/FollowTail.pm             =    75 /    96 =  78.12% (+2.26%)
+  POE/Wheel/ListenAccept.pm           =    39 /    53 =  73.58% (+3.37%)
   POE/Wheel/ReadWrite.pm              =   111 /   184 =  60.33%
-  POE/Wheel/SocketFactory.pm          =   179 /   216 =  82.87%
-  All Told                            =  1603 /  2275 =  70.46%
+  POE/Wheel/SocketFactory.pm          =   197 /   234 =  84.19% (+1.32%)
+  All Told                            =  1627 /  2285 =  71.20% (+0.74%)
 
 Thanks for reading!
 
--- Rocco Caputo / troc@netrus.net
+-- Rocco Caputo / troc@netrus.net / poe.perl.org / poe.sourceforge.net
