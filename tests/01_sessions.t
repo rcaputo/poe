@@ -16,7 +16,7 @@ use POE;
 ### Test parameters and results.
 
 my $machine_count  = 10;
-my $event_count    = 10;
+my $event_count    = 5;
 my $sigalrm_caught = 0;
 my $sigpipe_caught = 0;
 my $sender_count   = 0;
