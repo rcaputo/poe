@@ -159,6 +159,10 @@ sub _data_sig_remove {
 
 ### Clear all the signals from a session.
 
+# XXX - It's ok to clear signals from a session that doesn't exist.
+# Usually it means that the signals are being cleared, but it might
+# mean that the session really doesn't exist.  Should we care?
+
 sub _data_sig_clear_session {
   my ($self, $session) = @_;
   return unless exists $kr_sessions_to_signals{$session}; # avoid autoviv
