@@ -16,7 +16,7 @@ use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);
 package PreforkedSession;
 
 use strict;
-use POE;
+use POE::Session;
 
 sub DEBUG { 1 }
 
@@ -114,7 +114,7 @@ package PreforkedServer;
 use strict;
 use Socket;
 use POSIX qw(ECHILD EAGAIN);
-use POE;
+use POE::Session;
 
 sub DEBUG { 1 }
 

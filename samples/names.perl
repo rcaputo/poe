@@ -20,7 +20,7 @@ use POE;
 package LockDaemon;
 
 use strict;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # Create the LockDaemon.  This illustrates non-POE objects that
@@ -157,7 +157,7 @@ sub unlock {
 package LockClient;
 
 use strict;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # Create the LockClient.  This also illustrates non-POE objects that

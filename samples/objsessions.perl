@@ -14,7 +14,7 @@ use POE;
 
 package Counter;
 use strict;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # This is a normal Perl object method.  It creates a new Counter

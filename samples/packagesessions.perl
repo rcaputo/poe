@@ -14,7 +14,7 @@ use POE;
 
 package Counter;
 use strict;
-use POE;
+use POE::Session;
                                         # stupid scope trick, part 1 of 3
 $Counter::name = '';
 

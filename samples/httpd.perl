@@ -22,7 +22,7 @@ package ServerSession;
 
 use strict;
 use HTTP::Response;
-use POE;
+use POE::Session;
 
 sub DEBUG { 1 }
 
@@ -152,7 +152,7 @@ package Server;
 
 use strict;
 use Socket;
-use POE;
+use POE::Session;
 
 sub DEBUG { 1 }
 
