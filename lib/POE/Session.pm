@@ -410,7 +410,9 @@ sub create {
       croak "the array for $param_name has an odd number of elements"
         if (@$param_value & 1);
 
-      while (my ($package, $handlers) = splice(@$param_value, 0, 2)) {
+      # Copy the parameters so they aren't destroyed.
+      my @param_value = @$param_value;
+      while (my ($package, $handlers) = splice(@param_value, 0, 2)) {
 
         # -><- What do we do if the package name has some sort of
         # blessing?  Do we use the blessed thingy's package, or do we
@@ -454,8 +456,10 @@ sub create {
       croak "the array for $param_name has an odd number of elements"
         if (@$param_value & 1);
 
-      while (@$param_value) {
-        my ($object, $handlers) = splice @$param_value => 0, 2;
+      # Copy the parameters so they aren't destroyed.
+      my @param_value = @$param_value;
+      while (@param_value) {
+        my ($object, $handlers) = splice(@param_value, 0, 2);
 
         # Verify that the object is an object.  This may catch simple
         # mistakes; or it may be overkill since it already checks that
