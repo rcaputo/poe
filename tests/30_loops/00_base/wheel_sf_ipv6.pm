@@ -10,16 +10,28 @@ use TestSetup;
 use Socket;
 
 BEGIN {
+  my $error;
+
   eval 'use Socket6';
-  test_setup(0, "Socket6 is needed for IPv6 tests")
-    if ( length($@) or
-         not exists($INC{"Socket6.pm"})
-       );
-  my $addr = Socket6::inet_pton(&Socket6::AF_INET6, "::1");
-  test_setup(0, "IPv6 tests require a configured localhost address ('::1')")
-    unless defined $addr;
-  test_setup(0, "Network access (and permission) required to run this test")
-    unless -f 'run_network_tests';
+  if ( length($@) or not exists($INC{"Socket6.pm"}) ) {
+    $error = "Socket6 is needed for IPv6 tests";
+  }
+  else {
+    my $addr = Socket6::inet_pton(&Socket6::AF_INET6, "::1");
+    unless (defined $addr) {
+      $error = "IPv6 tests require a configured localhost address ('::1')";
+    }
+    else {
+      unless (-f 'run_network_tests') {
+        $error = "Network access (and permission) required to run this test";
+      }
+    }
+  }
+
+  if ($error) {
+    print "1..0 # Skip $error\n";
+    CORE::exit();
+  }
 }
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

@@ -13,12 +13,23 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use Socket;
 
+# We can't test_setup(0, "reason") because that calls exit().  And Tk
+# will croak if you call BEGIN { exit() }.  And that croak will cause
+# this test to FAIL instead of skip.
 BEGIN {
-  test_setup(0, "$^O does not support UNIX sockets")
-    if $^O eq "MSWin32" or $^O eq "MacOS";
-  test_setup(0, "Network access (and permission) required to run this test")
-    unless -f 'run_network_tests';
-};
+  my $error;
+  unless (-f 'run_network_tests') {
+    $error = "Network access (and permission) required to run this test";
+  }
+  elsif ($^O eq "MSWin32" or $^O eq "MacOS") {
+    $error = "$^O does not support UNIX sockets";
+  }
+
+  if ($error) {
+    print "1..0 # Skip $error\n";
+    CORE::exit();
+  }
+}
 
 use POE qw(
   Wheel::SocketFactory

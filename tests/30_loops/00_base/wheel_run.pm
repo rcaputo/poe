@@ -10,10 +10,22 @@ use Socket;
 use TestSetup;
 
 # Skip these tests if fork() is unavailable.
+# We can't test_setup(0, "reason") because that calls exit().  And Tk
+# will croak if you call BEGIN { exit() }.  And that croak will cause
+# this test to FAIL instead of skip.
 BEGIN {
-  test_setup(0, "$^O does not support fork.") if $^O eq 'MacOS';
-  test_setup(0, "$^O does not support fork/exec properly.")
-    if $^O eq 'MSWin32';
+  my $error;
+  if ($^O eq "MacOS") {
+    $error = "$^O does not support fork";
+  }
+  elsif ($^O eq "MSWin32") {
+    $error = "$^O does not support fork/exec properly";
+  }
+
+  if ($error) {
+    print "1..0 # Skip $error\n";
+    CORE::exit();
+  }
 }
 
 test_setup(24);

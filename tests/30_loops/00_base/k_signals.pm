@@ -14,8 +14,23 @@ sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 BEGIN {
-  plan skip_all => "$^O does not support signals." if $^O eq "MSWin32";
-  plan skip_all => "$^O does not support fork."    if $^O eq "MacOS";
+  # We can't "plan skip_all" because that calls exit().  And Tk will
+  # croak if you call BEGIN { exit() }.  And that croak will cause
+  # this test to FAIL instead of skip.
+
+  my $error;
+  if ($^O eq "MSWin32") {
+    $error = "$^O does not support signals";
+  }
+  elsif ($^O eq "MacOS") {
+    $error = "$^O does not support fork";
+  }
+
+  if ($error) {
+    print "1..0 # Skip $error\n";
+    CORE::exit();
+  }
+
   plan tests => 8;
 }
 

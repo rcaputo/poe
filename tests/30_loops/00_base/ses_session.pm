@@ -9,9 +9,9 @@ use lib qw(./mylib ../mylib ../lib ./lib);
 use TestSetup;
 
 BEGIN {
-    sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-    sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-    sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+  sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+  sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+  sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 }
 
 test_setup(43);
