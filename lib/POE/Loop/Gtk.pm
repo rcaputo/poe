@@ -37,8 +37,9 @@ my @fileno_watcher;
 
 sub loop_initialize {
   my $self = shift;
-
-  Gtk->init;
+  unless (exists $INC{'Gnome.pm'}) {
+    Gtk->init();
+  }
 }
 
 sub loop_finalize {
