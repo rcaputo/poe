@@ -8,7 +8,16 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0806 2000.01.23 (!!!)
+0.0807 2000.01.24
+-----------------
+
+Fix the release date for 0.0806 in the Changes file.
+
+&Session::ID was removed for testing and never put back.  Put... the
+function... BACK!
+
+
+0.0806 2000.01.24 (!!!)
 -----------------------
 
 Added the ability to compress referenced data passing through
