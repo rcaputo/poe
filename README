@@ -150,7 +150,7 @@ tests themselves.  For a more accurate determination of POE's speed,
 balance the CPU seconds against the test machine's hardware and
 operating system.
 
-** POE 0.16 on FreeBSD (dngor)
+** POE 0.17 on FreeBSD (dngor)
 
 Hardware: Athlon-1000; 512MB RAM
 System  : FreeBSD 4.3-STABLE
@@ -162,6 +162,19 @@ IO::Pty : 0.01
 
 All tests successful.
 Files=26, Tests=578, 84 wallclock secs ( 7.73 cusr +  0.66 csys =  8.40 CPU)
+
+** POE 0.17 on Linux (titanic)
+
+Hardware: dual Celeron 500; 512MB RAM
+System  : Linux 2.4.9 SMP
+Perl    : v5.6.0
+Gtk     : (not installed)
+Tk      : (not installed)
+Event   : 0.79
+IO::Pty : 0.01
+
+All tests successful, 2 tests skipped.
+Files=26, Tests=561, 80 wallclock secs (19.01 cusr +  1.30 csys = 20.31 CPU)
 
 ** POE 0.16 on Solaris 8 (dynweb)
 
@@ -175,19 +188,6 @@ IO::Pty : 0.01
 
 All tests successful, 2 tests skipped.
 Files=26, Tests=561, 79 wallclock secs (17.53 cusr +  1.51 csys = 19.04 CPU)
-
-** POE 0.16 on Linux (titanic)
-
-Hardware: dual Celeron 500; 512MB RAM
-System  : Linux 2.4.9 SMP
-Perl    : v5.6.0
-Gtk     : (not installed)
-Tk      : (not installed)
-Event   : 0.79
-IO::Pty : 0.01
-
-All tests successful, 2 tests skipped.
-Files=26, Tests=561, 89 wallclock secs (18.96 cusr +  1.21 csys = 20.17 CPU)
 
 ** POE 0.1501 on Mac OS X (Jotham)
 
