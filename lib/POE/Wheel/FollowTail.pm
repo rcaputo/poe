@@ -418,8 +418,10 @@ sub event {
 
 sub DESTROY {
   my $self = shift;
-                                        # remove tentacles from our owner
+
+  # Remove our tentacles from our owner.
   $poe_kernel->select($self->[SELF_HANDLE]);
+  $poe_kernel->delay($self->[SELF_STATE_READ]);
 
   if ($self->[SELF_STATE_READ]) {
     $poe_kernel->state($self->[SELF_STATE_READ]);
