@@ -191,18 +191,18 @@ sub DESTROY {
   # before the destruction finishes.
 
   TRACE_DESTROY and do {
-    print "----- NFA $self Leak Check -----\n";
-    print "-- Namespace (HEAP):\n";
+    warn "----- NFA $self Leak Check -----\n";
+    warn "-- Namespace (HEAP):\n";
     foreach (sort keys (%{$self->[SELF_RUNSTATE]})) {
-      print "   $_ = ", $self->[SELF_RUNSTATE]->{$_}, "\n";
+      warn "   $_ = ", $self->[SELF_RUNSTATE]->{$_}, "\n";
     }
-    print "-- Options:\n";
+    warn "-- Options:\n";
     foreach (sort keys (%{$self->[SELF_OPTIONS]})) {
-      print "   $_ = ", $self->[SELF_OPTIONS]->{$_}, "\n";
+      warn "   $_ = ", $self->[SELF_OPTIONS]->{$_}, "\n";
     }
-    print "-- States:\n";
+    warn "-- States:\n";
     foreach (sort keys (%{$self->[SELF_STATES]})) {
-      print "   $_ = ", $self->[SELF_STATES]->{$_}, "\n";
+      warn "   $_ = ", $self->[SELF_STATES]->{$_}, "\n";
     }
   };
 }
