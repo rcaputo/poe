@@ -140,7 +140,7 @@ sub new {
       return($a_read, $a_write, $b_read, $b_write);
     }
 
-    # Sockets failed.  Don't dry them again.
+    # Sockets failed.  Don't try them again.
     else {
       DEBUG and warn "make_socket failed: $@";
       $can_run_socket = 0;

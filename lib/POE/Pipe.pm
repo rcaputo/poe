@@ -116,7 +116,7 @@ sub make_socket {
 
   socket( $connector, PF_INET, SOCK_STREAM, $tcp ) or die "socket: $!";
 
-  _stop_blocking($connector);
+  _stop_blocking($connector) unless $^O eq 'MSWin32';
 
   unless (connect( $connector, $server_addr )) {
     die "connect: $!" if $! and ($! != EINPROGRESS) and ($! != EWOULDBLOCK);
