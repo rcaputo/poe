@@ -26,39 +26,40 @@ sub new {
 
   # Try the pipe if no preferred conduit type is specified, or if the
   # specified conduit type is 'pipe'.
-  if ( (not defined $conduit_type) or
-       ($conduit_type eq 'pipe')
+  if ( (not RUNNING_IN_HELL) and
+       ( (not defined $conduit_type) or
+         ($conduit_type eq 'pipe')
+       ) and
+       ( not defined $can_run_socket )
      ) {
 
-    # Try using pipe, but don't bother on systems that don't support
-    # nonblocking pipes.  Even if they support pipes themselves.
-    unless (RUNNING_IN_HELL) {
+    eval {
+      pipe($a_read, $b_write) or die "pipe failed: $!";
+    };
 
-      # Try pipe.
-      eval {
-        pipe($a_read, $b_write) or die "pipe failed: $!";
+    # Pipe succeeded.
+    unless (length $@) {
+      DEBUG and do {
+        warn "using a pipe\n";
+        warn "ar($a_read) bw($b_write)\n";
       };
 
-      # Pipe succeeded.
-      unless (length $@) {
-        DEBUG and do {
-          warn "using a pipe\n";
-          warn "ar($a_read) bw($b_write)\n";
-        };
-
-        # Turn off buffering.  POE::Kernel does this for us, but
-        # someone might want to use the pipe class elsewhere.
-        select((select($b_write), $| = 1)[0]);
-        return($a_read, $b_write);
-      }
+      # Turn off buffering.  POE::Kernel does this for us, but
+      # someone might want to use the pipe class elsewhere.
+      select((select($b_write), $| = 1)[0]);
+      return($a_read, $b_write);
     }
   }
 
   # Try UNIX-domain socketpair if no preferred conduit type is
   # specified, or if the specified conduit type is 'socketpair'.
-  if ( (not defined $conduit_type) or
-       ($conduit_type eq 'socketpair')
+  if ( (not RUNNING_IN_HELL) and
+       ( (not defined $conduit_type) or
+         ($conduit_type eq 'socketpair')
+       ) and
+       ( not defined $can_run_socket )
      ) {
+
     eval {
       socketpair($a_read, $b_write, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
         or die "socketpair failed: $!";
@@ -83,8 +84,11 @@ sub new {
 
   # Try a pair of plain INET sockets if no preffered conduit type is
   # specified, or if the specified conduit type is 'inet'.
-  if ( (not defined $conduit_type) or
-       ($conduit_type eq 'inet')
+  if ( ( RUNNING_IN_HELL or
+         (not defined $conduit_type) or
+         ($conduit_type eq 'inet')
+       ) and
+       ( $can_run_socket or (not defined $can_run_socket) )
      ) {
 
     # Don't bother if we already know it won't work.
