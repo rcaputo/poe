@@ -26,6 +26,8 @@ BEGIN {
 }
 
 #------------------------------------------------------------------------------
+# Redirect STDERR to STDOUT, and kill all the buffering.  Used
+# internally for testing; it should be commented out.
 
 # BEGIN {
 #   open(STDERR, '>&STDOUT') or die $!;
@@ -33,11 +35,14 @@ BEGIN {
 #   select(STDOUT); $| = 1;
 # }
 
+#------------------------------------------------------------------------------
+# Redefine __WARN__ and __DIE__ to be in different colors, so they
+# stand out.  Do a caller() stack trace when something dies.  Used
+# internally for testing; it should be commented out.
+
 # BEGIN {
 #   package DB;
 #   if ($^O eq 'os2') {
-#     close STDERR; open(STDERR, '>&STDOUT');
-#     select(STDERR); $| = 1; select(STDOUT); $| = 1;
 #     $SIG{'__WARN__'} =
 #       sub { my $msg = join(' ', @_);
 #             $msg =~ s/[\x0d\x0a]+//g;
@@ -273,7 +278,21 @@ sub new {
                              |
                             )$/x
               );
-      if (($signal eq 'CHLD') || ($signal eq 'CLD')) {
+
+      # Artur has been experiencing problems where POE programs crash
+      # after resizing xterm windows.  It was discovered that the
+      # xterm resizing was sending several WINCH signals, which
+      # eventually causes Perl to become unstable.  Ignoring SIGWINCH
+      # seems to prevent the problem, but it's only a temporary
+      # solution.  At some point, POE will include a set of Curses
+      # widgets, and SIGWINCH will be needed...
+
+      if ($signal eq 'WINCH') {
+        $SIG{$signal} = 'IGNORE';
+        next;
+      }
+                                        # register signal handlers by type
+      if ($signal =~ /^CH?LD$/) {
         $SIG{$signal} = \&_signal_handler_child;
       }
       elsif ($signal eq 'PIPE') {
@@ -942,9 +961,10 @@ sub _internal_select {
       binmode($handle);
                                         # set the handle non-blocking
                                         # do it the Win32 way
-      if ($^O eq '"MSWin32') {
+      if ($^O eq 'MSWin32') {
         my $set_it = "1";
-        ioctl($handle, 126, $set_it)
+                                        # 126 is FIONBIO
+        ioctl($handle, 126 | (ord('f')<<8) | (4<<16) | 0x80000000, $set_it)
           or croak "Can't set the handle non-blocking: $!\n";
       }
                                         # do it the way everyone else does

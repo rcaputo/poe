@@ -63,10 +63,10 @@ sub session_start {
   my ($heap, $socket, $peer_host, $peer_port, $remote_addr, $remote_port) =
     @_[HEAP, ARG0, ARG1, ARG2, ARG3, ARG4];
 
-  $heap->{log} = ++$log_id;
+  $heap->{'log'} = ++$log_id;
 
   $peer_host = inet_ntoa($peer_host);
-  print "[$heap->{log}] Accepted connection from $peer_host:$peer_port\n";
+  print "[$heap->{'log'}] Accepted connection from $peer_host:$peer_port\n";
 
   $heap->{wheel_client} = new POE::Wheel::ReadWrite
     ( Handle     => $socket,
@@ -93,7 +93,7 @@ sub session_start {
 sub session_stop {
   my $heap = $_[HEAP];
 
-  print "[$heap->{log}] Closing redirection session\n";
+  print "[$heap->{'log'}] Closing redirection session\n";
 
   delete $heap->{wheel_client};
   delete $heap->{wheel_server};
@@ -114,12 +114,12 @@ sub session_client_error {
   my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
 
   if ($errnum) {
-    print( "[$heap->{log}] Client connection encountered ",
+    print( "[$heap->{'log'}] Client connection encountered ",
            "$operation error $errnum: $errstr\n"
          );
   }
   else {
-    print "[$heap->{log}] Client closed connection.\n";
+    print "[$heap->{'log'}] Client closed connection.\n";
   }
                                         # stop the wheels
   delete $heap->{wheel_client};
@@ -133,7 +133,7 @@ sub session_client_error {
 sub session_server_connect {
   my ($heap, $socket) = @_[HEAP, ARG0];
 
-  print "[$heap->{log}] Successfully connected to remote server.\n";
+  print "[$heap->{'log'}] Successfully connected to remote server.\n";
   
   $heap->{wheel_server} = new POE::Wheel::ReadWrite
     ( Handle     => $socket,
@@ -159,12 +159,12 @@ sub session_server_error {
   my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
 
   if ($errnum) {
-    print( "[$heap->{log}] Server connection encountered ",
+    print( "[$heap->{'log'}] Server connection encountered ",
            "$operation error $errnum: $errstr\n"
          );
   }
   else {
-    print "[$heap->{log}] Server closed connection.\n";
+    print "[$heap->{'log'}] Server closed connection.\n";
   }
                                         # stop the wheels
   delete $heap->{wheel_client};
