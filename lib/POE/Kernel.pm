@@ -709,36 +709,30 @@ sub new {
     # Create our master queue.
     $kr_queue = POE::Queue::Array->new();
 
-    my $self = $poe_kernel = bless
-      [ undef,               # KR_SESSIONS - loaded from POE::Resource::Sessions
-        undef,               # KR_FILENOS - loaded from POE::Resource::FileHandles
-        undef,               # KR_SIGNALS - loaded from POE::Resource::Signals
-        undef,               # KR_ALIASES - loaded from POE::Resource::Aliases
-        \$kr_active_session, # KR_ACTIVE_SESSION - should this be handled by POE::Resource::Sessions?
-        $kr_queue,           # KR_QUEUE - should this be extracted into a Resource ?
-        undef,               # KR_ID
-        undef,               # KR_SESSION_IDS - loaded from POE::Resource::SIDS
-        undef,               # KR_SID_SEQ - loaded from POE::Resource::SIDS - is a scalar ref
-        undef,               # KR_EXTRA_REFS
-        undef,               # KR_SIZE
-        \$kr_run_warning,    # KR_RUN
-        \$kr_active_event,   # KR_ACTIVE_EVENT
-      ], $type;
+    # TODO - Should KR_ACTIVE_SESSIONS and KR_ACTIVE_EVENT be handled
+    # by POE::Resource::Sessions?
+    # TODO - Should the subsystems be split off into separate real
+    # objects, such as KR_QUEUE is?
+
+    my $self = $poe_kernel = bless [
+      undef,               # KR_SESSIONS - from POE::Resource::Sessions
+      undef,               # KR_FILENOS - from POE::Resource::FileHandles
+      undef,               # KR_SIGNALS - from POE::Resource::Signals
+      undef,               # KR_ALIASES - from POE::Resource::Aliases
+      \$kr_active_session, # KR_ACTIVE_SESSION
+      $kr_queue,           # KR_QUEUE - reference to an object
+      undef,               # KR_ID
+      undef,               # KR_SESSION_IDS - from POE::Resource::SIDS
+      undef,               # KR_SID_SEQ - scalar ref from POE::Resource::SIDS
+      undef,               # KR_EXTRA_REFS
+      undef,               # KR_SIZE
+      \$kr_run_warning,    # KR_RUN
+      \$kr_active_event,   # KR_ACTIVE_EVENT
+    ], $type;
 
     POE::Resources->initialize();
 
-    # Kernel ID, based on Philip Gwyn's code.  I hope he still can
-    # recognize it.  KR_SESSION_IDS is a hash because it will almost
-    # always be sparse.  This goes before signals are registered
-    # because it sometimes spawns /bin/hostname or the equivalent,
-    # generating spurious CHLD signals before the Kernel is fully
-    # initialized.
-
-    my $hostname = eval { (POSIX::uname)[1] };
-    $hostname = hostname() unless defined $hostname;
-
-    $self->[KR_ID] = $hostname . '-' .  unpack('H*', pack('N*', time, $$));
-    $self->_data_sid_set($self->[KR_ID], $self);
+    $self->_data_sid_set($self->ID(), $self);
 
     # Initialize subsystems.  The order is important.
 
@@ -1026,7 +1020,7 @@ sub _initialize_kernel_session {
   $self->loop_initialize();
 
   $kr_active_session = $self;
-  $self->_data_ses_allocate($self, $self->[KR_ID], undef);
+  $self->_data_ses_allocate($self, $self->ID(), undef);
 }
 
 # Do post-run cleanup.
@@ -1089,6 +1083,7 @@ sub run {
 # except the kernel's.  Even the current session is cleaned up, which
 # may introduce inconsistencies in the current session... as
 # _dispatch_event() attempts to clean up for a defunct session.
+
 sub stop {
   # So stop() can be called as a class method.
   my $self = $poe_kernel;
@@ -1109,7 +1104,11 @@ sub stop {
   # So new sessions will not be child of the current defunct session.
   $kr_active_session = $self;
 
-  undef;
+  # Undefined the kernel ID so it will be recalculated on the next
+  # ID() call.
+  $self->[KR_ID] = undef;
+
+  return;
 }
 
 #------------------------------------------------------------------------------
@@ -2146,9 +2145,20 @@ sub alias_list {
 # identical kernel IDs.  The chances of a collision are vanishingly
 # small.
 
+# The Kernel and Session IDs are based on Philip Gwyn's code.  I hope
+# he still can recognize it.
+
 sub ID {
   my $self = shift;
-  $self->[KR_ID];
+
+  # Recalculate the kernel ID if necessary.  stop() undefines it.
+  unless (defined $self->[KR_ID]) {
+    my $hostname = eval { (POSIX::uname)[1] };
+    $hostname = hostname() unless defined $hostname;
+    $self->[KR_ID] = $hostname . '-' .  unpack('H*', pack('N*', time(), $$));
+  }
+
+  return $self->[KR_ID];
 }
 
 # Resolve an ID to a session reference.  This function is virtually
