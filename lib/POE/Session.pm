@@ -746,7 +746,7 @@ POE::Session - an event driven abstract state machine
     $object_two  => { state_nine => 'method_nine', ... },
     $package_two => { state_ten  => 'method_ten', ... },
 
-    # Parameters for the session's initial state.
+    # Parameters for the session's _start state.
     \@start_args,
   );
 
@@ -771,7 +771,7 @@ POE::Session - an event driven abstract state machine
       $package_two => { state_ten => 'method_ten' },
     ],
 
-    # Parameters for the session's initial state.
+    # Parameters for the session's _start state.
     args => [ argument_zero, argument_one, ... ],
 
     # Initial options.  See the option() method.
