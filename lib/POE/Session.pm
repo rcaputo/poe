@@ -828,16 +828,16 @@ sub get_heap {
 # perform the necessary cleanup when they go away.  Thanks to njt for
 # steering me right on this one.
 
-my %postback_parent_id;
+my %anonevent_parent_id;
 
 # I assume that when the postback owner loses all reference to it,
 # they are done posting things back to us.  That's when the postback's
 # DESTROY is triggered, and referential integrity is maintained.
 
-sub POE::Session::Postback::DESTROY {
+sub POE::Session::AnonEvent::DESTROY {
   my $self = shift;
-  my $parent_id = delete $postback_parent_id{$self};
-  $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'postback' );
+  my $parent_id = delete $anonevent_parent_id{$self};
+  $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'anon_event' );
 }
 
 # Tune postbacks depending on variations in toolkit behavior.
@@ -865,10 +865,10 @@ sub postback {
   my $postback = bless sub {
     $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
     return 0;
-  }, 'POE::Session::Postback';
+  }, 'POE::Session::AnonEvent';
 
-  $postback_parent_id{$postback} = $id;
-  $POE::Kernel::poe_kernel->refcount_increment( $id, 'postback' );
+  $anonevent_parent_id{$postback} = $id;
+  $POE::Kernel::poe_kernel->refcount_increment( $id, 'anon_event' );
 
   # Tk blesses its callbacks, so we must present one that isn't
   # blessed.  Otherwise Tk's blessing would divert our DESTROY call to
@@ -880,18 +880,25 @@ sub postback {
 
 # Create a synchronous callback closure.  The return value will be
 # passed to whatever is handed the callback.
-#
-# TODO - Should callbacks hold reference counts like postbacks do?
 
 sub callback {
   my ($self, $event, @etc) = @_;
   my $id = $POE::Kernel::poe_kernel->ID_session_to_id($self);
 
-  my $callback = sub {
-    return $POE::Kernel::poe_kernel->call( $id, $event, [ @etc ], [ @_ ] );
-  };
+  my $callback = bless sub {
+    $POE::Kernel::poe_kernel->call( $id, $event, [ @etc ], [ @_ ] );
+    return 0;
+  }, 'POE::Session::AnonEvent';
 
-  $callback;
+  $anonevent_parent_id{$callback} = $id;
+  $POE::Kernel::poe_kernel->refcount_increment( $id, 'anon_event' );
+
+  # Tk blesses its callbacks, so we must present one that isn't
+  # blessed.  Otherwise Tk's blessing would divert our DESTROY call to
+  # its own, and that's not right.
+
+  return sub { $callback->(@_) } if USING_TK;
+  return $callback;
 }
 
 ###############################################################################
