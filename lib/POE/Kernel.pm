@@ -3545,6 +3545,12 @@ TRACE_DEFAULT is used as the default value for all the other trace
 constants.  Setting it true is a quick and reliable way to ensure all
 traces are enabled.
 
+=item TRACE_DESTROY
+
+Enable TRACE_DESTROY to receive a dump of the contents of Session
+heaps when they finally DESTROY.  It is indispensible for finding
+memory leaks, which often hide in Session heaps.
+
 =item TRACE_EVENTS
 
 The music goes around and around, and it comes out here.  TRACE_EVENTS

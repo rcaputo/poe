@@ -549,18 +549,18 @@ sub DESTROY {
 
   TRACE_DESTROY and do {
     require Data::Dumper;
-    print(
+    POE::Kernel::_warn(
       "----- Session $self Leak Check -----\n",
       "-- Namespace (HEAP):\n",
       Data::Dumper::Dumper($self->[SE_NAMESPACE]),
       "-- Options:\n",
     );
     foreach (sort keys (%{$self->[SE_OPTIONS]})) {
-      print "   $_ = ", $self->[SE_OPTIONS]->{$_}, "\n";
+      POE::Kernel::_warn("   $_ = ", $self->[SE_OPTIONS]->{$_}, "\n");
     }
-    print "-- States:\n";
+    POE::Kernel::_warn("-- States:\n");
     foreach (sort keys (%{$self->[SE_STATES]})) {
-      print "   $_ = ", $self->[SE_STATES]->{$_}, "\n";
+      POE::Kernel::_warn("   $_ = ", $self->[SE_STATES]->{$_}, "\n");
     }
   };
 }
