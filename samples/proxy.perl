@@ -52,6 +52,7 @@ sub session_create {
                      server_connect => \&session_server_connect,
                      server_input   => \&session_server_input,
                      server_error   => \&session_server_error,
+                     kill_wheels    => \&session_kill_wheels,
 
                      # ARG0, ARG1, ARG2, ARG3, ARG4
                      [ $handle, $peer_host, $peer_port,
@@ -206,7 +207,15 @@ sub session_server_error {
   else {
     print "[$heap->{'log'}] Server closed connection.\n";
   }
-                                        # stop the wheels
+
+  $_[KERNEL]->yield("kill_wheels");
+}
+
+#------------------------------------------------------------------------------
+# Shut down the proxy session by destroying its wheels.
+
+sub session_kill_wheels {
+  my $heap = $_[HEAP];
   delete $heap->{wheel_client};
   delete $heap->{wheel_server};
 }
