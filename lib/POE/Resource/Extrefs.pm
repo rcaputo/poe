@@ -27,12 +27,15 @@ my %kr_extra_refs;
 ### End-run leak checking.
 
 sub _data_extref_finalize {
+  my $finalized_ok = 1;
   foreach my $session (keys %kr_extra_refs) {
+    $finalized_ok = 0;
     warn "!!! Leaked extref: $session\n";
     foreach my $tag (keys %{$kr_extra_refs{$session}}) {
       warn "!!!\t`$tag' = $kr_extra_refs{$session}->{$tag}\n";
     }
   }
+  return $finalized_ok;
 }
 
 # Increment a session's tagged reference count.  If this is the first

@@ -8,7 +8,7 @@ use TestSetup;
 
 use POE;
 
-test_setup(13);
+test_setup(14);
 
 # Increment an extra reference count, and verify its value.
 
@@ -71,7 +71,7 @@ $poe_kernel->_data_extref_dec($poe_kernel, "tag-1");
 $poe_kernel->_data_extref_dec($poe_kernel, "tag-2");
 
 # Ensure the subsystem shuts down ok.
-$poe_kernel->_data_extref_finalize();
+ok_if(14, $poe_kernel->_data_extref_finalize());
 
 results();
 exit 0;

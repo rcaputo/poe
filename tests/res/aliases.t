@@ -8,7 +8,7 @@ use TestSetup;
 
 use POE;
 
-test_setup(14);
+test_setup(13);
 
 # Set an alias and verify that it can be retrieved.  Also verify the
 # loggable version of it.
@@ -80,14 +80,9 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
   ok_unless(12, defined $poe_kernel->_data_alias_resolve("nothing"));
 }
 
-# At this point, everything should be clean.
-{ ok_if(13, $poe_kernel->_data_alias_count() == 0);
-  ok_if(14, $poe_kernel->_data_alias_xref_count() == 0);
-}
-
-# This is unnecessary; we've empirically tested whether the subsystem
-# has shut down cleanly.  Do it anyway to instrument some code.
-$poe_kernel->_data_alias_finalize();
+# Finalize the subsystem.  Returns true if everything shut down
+# cleanly, or false if it didn't.
+ok_if(13, $poe_kernel->_data_alias_finalize());
 
 results();
 exit 0;

@@ -28,16 +28,21 @@ my %kr_ses_to_alias;
 #    ...,
 #  );
 
-### End-run leak checking.
+### End-run leak checking.  Returns true if finazilation was ok, or
+### false if it failed.
 
 sub _data_alias_finalize {
+  my $finalized_ok = 1;
   while (my ($alias, $ses) = each(%kr_aliases)) {
     warn "!!! Leaked alias: $alias = $ses\n";
+    $finalized_ok = 0;
   }
   while (my ($ses, $alias_rec) = each(%kr_ses_to_alias)) {
     my @aliases = keys(%$alias_rec);
     warn "!!! Leaked alias cross-reference: $ses (@aliases)\n";
+    $finalized_ok = 0;
   }
+  return $finalized_ok;
 }
 
 # Add an alias to a session.
@@ -106,19 +111,6 @@ sub _data_alias_count_ses {
   my ($self, $session) = @_;
   return 0 unless exists $kr_ses_to_alias{$session};
   return scalar keys %{$kr_ses_to_alias{$session}};
-}
-
-### Return a count of all the aliases we have.  -><- Used for testing.
-
-sub _data_alias_count {
-  return scalar keys %kr_aliases;
-}
-
-### Return a count of the sessions we're tracking.  -><- Used for
-### testing.
-
-sub _data_alias_xref_count {
-  return scalar keys %kr_ses_to_alias;
 }
 
 ### Return a session's ID in a form suitable for logging.

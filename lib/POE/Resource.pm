@@ -64,6 +64,10 @@ where ??? is an abbreviation for the type of resource it belongs to:
 
 Finalizer methods end in "_finalize".
 
+Finalizers return true if a resource shut down cleanly, or false if
+there were inconsistencies or leaks during end-of-run checking.  The
+t/res/*.t tests rely on these return values.
+
 We may be able to take advantage of this later by skimming
 POE::Kernel's namespace for initializers and finalizers automatically.
 
