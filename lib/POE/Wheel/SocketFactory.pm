@@ -976,6 +976,27 @@ sub new {
   die "Mail this error to the author of POE: Internal consistency error";
 }
 
+# Pause and resume accept.
+sub pause_accept {
+  my $self = shift;
+  if ( defined $self->[MY_SOCKET_HANDLE] and
+       defined $self->[MY_STATE_ACCEPT] and
+       defined $self->[MY_SOCKET_SELECTED]
+     ) {
+    $poe_kernel->select_pause_read($self->[MY_SOCKET_HANDLE]);
+  }
+}
+
+sub resume_accept {
+  my $self = shift;
+  if ( defined $self->[MY_SOCKET_HANDLE] and
+       defined $self->[MY_STATE_ACCEPT] and
+       defined $self->[MY_SOCKET_SELECTED]
+     ) {
+    $poe_kernel->select_resume_read($self->[MY_SOCKET_HANDLE]);
+  }
+}
+
 #------------------------------------------------------------------------------
 
 sub DESTROY {
@@ -1074,6 +1095,9 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel->event( ... );
 
   $wheel->ID();
+
+  $wheel->pause_accept();
+  $wheel->resume_accept();
 
 =head1 DESCRIPTION
 
@@ -1220,9 +1244,26 @@ INADDR_ANY or BindPort => 0.
 
 =item ID
 
-The ID method returns a FollowTail wheel's unique ID.  This ID will be
-included in every event the wheel generates, and it can be used to
+The ID method returns a SocketFactory wheel's unique ID.  This ID will
+be included in every event the wheel generates, and it can be used to
 match events with the wheels which generated them.
+
+=item pause_accept
+
+=item resume_accept
+
+Listening SocketFactory instances will accept connections for as long
+as they exist.  This may not be desirable in pre-forking servers where
+the main process must not handle connections.
+
+pause_accept() temporarily stops a SocketFactory from accepting new
+connections.  It continues to listen, however.  resume_accept() ends a
+temporary pause, allowing a SocketFactory to accept new connections.
+
+In a pre-forking server, the main process would pause_accept()
+immediately after the SocketFactory was created.  As forked child
+processes start, they call resume_accept() to begin accepting
+connections.
 
 =back
 
