@@ -69,7 +69,7 @@ If it all goes as planned, this will give people at least 1/4 year to
 update their programs.
 
 
-0.1204 2001.01.10
+0.1204 2001.??.??
 -----------------
 
 Fletch pointed out that SunOS has a psrinfo command to describe a
@@ -105,6 +105,12 @@ feedback.  Thanks again to Rob Bloodgood.
 Rob Bloodgood sent in a patch for POE::Component::Server::TCP to let
 it bind to specific interface addresses.  The default behavior is the
 same as before: bind to INADDR_ANY.
+
+Paolo Molaro steered me towards the answer to a question that's been
+bugging me for ages: How do I prevent the Gtk-Perl test from waiting
+for the user to position its window?  The tests now run unattended, at
+least with the window manager I use (mileage, I'm told, varies here),
+for the first time in quite a long while.
 
 
 0.1203 2000.12.29

@@ -52,12 +52,6 @@ my @after_alarms;
 # Congratulate ourselves for getting this far.
 print "ok 1\n";
 
-# -><- This test requires user interaction because I can't find a way
-# to make it position a window automatically.  Tk windows have a
-# geometry() method that lets me position them programmatically, but
-# Gtk doesn't.  If anyone knows how to do this, please let me know.
-# This has been a rabid stoat in my pants for far too long.
-
 # I/O session
 
 sub io_start {
@@ -150,6 +144,14 @@ sub io_start {
     6 => "not ok 6\n",
     7 => "not ok 7\n",
   };
+
+  # Force the window's position.  Some window managers, including the
+  # author's, will use this to circumvent a user needing to set the
+  # position.  It's highly *not* recommended, bad coding practice, but
+  # this is a test, and I strongly feel that tests should run
+  # unattended whenever possible.
+  $poe_main_window->realize();
+  $poe_main_window->window->set_geometry_hints( 10, 10, 'pos' );
 
   $poe_main_window->show();
 }
