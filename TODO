@@ -348,6 +348,22 @@ do next with a signal.  Here are some ideas for signal flags.
     Flag the signal as terminal without any hope of handling it.
     SIGZOMBIE is like that.
 
+2001-08-08 - Ideas continue to gel.
+
+I'll probably go ahead with the three-phase dispatch but leave the
+return value alone.  This shouldn't break much code, since signal
+dispatch and propagation already tends to be broken.  Most people who
+deal with it seriously work around a whole host of problems.
+
+The signal handler semantics will probably remain the same for now.
+That's a big area of interface breakage, and it will cause problems
+for people.
+
+No... they both should change together.  If they don't, people will
+use more signal handlers once the dispatch is fixed.  There will be
+that much more breakage later when the public handler interface
+changes.
+
 ----------------------------------
 SIGTSTP Does the Wrong Thing (???)
 ----------------------------------
@@ -432,6 +448,193 @@ something like this:
 4. The process stops in kill() and doesn't resume until kill()
    returns.  When kill() returns, dispatch CONT to everyone to let
    them know they've awakened.
+
+------------------
+Wheels Must Evolve
+------------------
+
+First, I'd like to say that wheels won't die entirely, but they may
+become stubs (thunks?) into some other kind of I/O abstraction.
+Certainly it would be more efficient to use the new abstraction
+directly, but at least old code won't die.
+
+POE::IO::Stream is the abstraction's planned name.  Suggestions are
+welcome, and I'll document them here.
+
+IMPLEMENTATION NOTES:
+
+POE::IO::Stream might be just POE::Stream.  It might also be
+POE::Component::Stream, because it will be implemented as a component.
+That is, Sessions creating streams will not actually own their
+handles!  This is funky, I admit, but it solves a few problems:
+
+* Can't pass Wheel among sessions, because they set states in their
+  owners.  Since the states won't be set anymore, it's possible to
+  pass streams around.
+
+* Can't have multiple sessions watching for input on a single handle.
+  Since only POE::IO::Stream is really watching a given handle, that
+  rule isn't broken.  However, it can be written to multiplex data to
+  every session with interest in a stream.
+
+* Can't subclass sessions.  Since wheels rely on sessions to have
+  predictable argument offsets, every subclassed session's states
+  require the same number and order of arguments.  This already has
+  been a problem with Session vs. NFA.
+
+* In the rare (but it happens often enough) case where a Session quits
+  before it removes its wheels, Kernel emits nasty warnings about
+  removing states from a nonexistent session.  This won't happen
+  anymore.
+
+* POE::IO::Stream would need to monitor the comings and goings of
+  client sessions without them explicitly signalling it.  Here's a
+  case for monitors that Philip Gwyn and others have wanted for a
+  while now.  I can see the utility of such a thing.
+
+* Probably others.  I'll add them as I think of them.
+
+The guts of various wheels would be moved into POE::IO::Stream
+somewhere, and the wheels themselves would become a compatibility
+interface between sessions and the new I/O system.
+
+POE::IO::Stream will use Kernel's refcount_increment() and
+refcount_decrement() methods to pass the handle "keep-alive" to
+sessions waiting for data.
+
+PUBLIC INTERFACE NOTES:
+
+Stream constructor for file-like things:
+
+  $stream = POE::IO::Stream->open
+
+... must be called with one of these:
+
+    Handle     => FILEHANDLE
+    Descriptor => DESCRIPTOR
+    File       => FILENAME
+    Device     => DEVICE
+    Resource   => URI
+
+... may also be called with these:
+
+    Modes      => FILE_MODES
+    Flags      => FILE_FLAGS
+    Driver     => POE::Driver::Xyz->new()
+    Filter     => ONE_FILTER
+    Filter     => ARRAYREF_OF_FILTERS
+
+Stream constructor for socket listeners:
+
+  $stream = POE::IO::Stream->listen
+
+    FromAddress => BIND_ADDRESS
+    FromPort    => BIND_PORT
+    Domain      => SOCKET_DOMAIN
+    Type        => SOCKET_TYPE
+    Protocol    => SOCKET_PROTOCOL
+    Flags       => SOCKET_OPTIONS
+    QueueSize   => LISTEN_QUEUE
+
+... see the notes for Handle in the connect() constructor notes.
+
+    Handle      => SOCKET_HANDLE
+
+... see the notes on From and To for the connect() constructor.
+
+Stream constructor for socket connectors:
+
+  $stream = POE::IO::Stream->connect
+
+    FromAddress => BIND_ADDRESS
+    FromPort    => BIND_PORT
+    ToAddress   => CONNECT_ADDRESS
+    ToPort      => CONNECT_PORT
+    Domain      => SOCKET_DOMAIN
+    Type        => SOCKET_TYPE
+    Protocol    => SOCKET_PROTOCOL
+    Flags       => SOCKET_OPTIONS
+
+... to remain similar with the listen constructor, a Handle parameter
+can be added instead of Domain, Type, and Protocol.  Further,
+FromAddress and FromPort can be omitted (they're optional anyway).
+
+    Handle      => SOCKET_HANDLE
+
+... people have requested ways to bind to multiple addresses and
+ports.  Perhaps instead of FromAddress and FromPort, another parameter
+can be added:
+
+    From        => 'ADDRESS:PORT'
+    From        => PACKED_ADDRESS
+    From        => [ 'ADDRESS:PORT', 'ADDRESS:PORT', ... ]
+    From        => [ PACKED_ADDRESS, PACKED_ADDRESS, ... ]
+
+... likewise, ToAddress and ToPort could be specified:
+
+    To          => 'ADDRESS:PORT'
+    To          => PACKED_ADDRESS
+
+... would multicast be done as arrayrefs for To?
+
+Stream constructor for connectionless sockets:
+
+  $stream = POE::IO::Stream->peer
+
+    FromAddress => BIND_ADDRESS
+    FromPort    => BIND_PORT
+
+    (ToAddress? ToPort?)
+
+    Domain      => SOCKET_DOMAIN
+    Type        => SOCKET_TYPE
+    Protocol    => SOCKET_PROTOCOL
+    Flags       => SOCKET_OPTIONS
+
+... see the notes on From and To for the connect() constructor.
+
+... see the notes for Handle in the connect() constructor.
+
+Each variation of a stream might be its own class.  I'm not sure about
+that yet, since it fragments the design and makes finding bits of code
+harder than usual.  What is the benefit again?
+
+Events that can be emitted.  These are parameters for the event_xyz()
+and constructor methods:
+
+  OnSuccess
+  OnError
+  OnInput
+  OnInputDone
+  OnOutput
+  OnOutputDone
+  OnExpedite
+  OnExpediteDone
+  OnDonner
+  (not really)
+  OnInputError
+  OnOutputError
+  OnExpediteError
+  OnOutputFull
+  OnOutputEmpty
+  OnExpediteFull
+  OnExpediteEmpty
+
+These are common methods for most/all of the differently constructed
+streams:
+
+  filter_push
+  filter_pop
+  filter_swap
+
+  event_set
+  event_clear
+
+  close  RWX_FLAGS
+  pause  RWX_FLAGS
+  resume RWX_FLAGS
+
+... maybe more.
 
 -----------------------------------------
 Wheel::ReadWrite Needs Input Flow Control
@@ -935,6 +1138,31 @@ To do:
 * Determine whether his design can be implemented in a way that
   doesn't limit NFA to a strictly correct NFA design.  Asynchronous
   NFA events are useful and should also be supported.
+
+--------------
+POE::Semaphore
+--------------
+
+This is an extra feature.
+
+POE::Semaphore encapsulates a semaphore-like thing.  Instead of
+blocking and releasing when the semaphore reaches zero, though, it
+fires an event.
+
+Tied scalar.
+
+raise() and lower() methods.
+
+Constructor takes details of the event to fire.  Possibly acts as a
+postback or creates one internally.
+
+----------
+POE::Nexus
+----------
+
+Probably POE::Component::Nexus or something.  Subscribe/broadcast
+model thing that CanyonMan wants.  Could also implement the guts of
+chat reflecting.
 
 ------------------------------
 Delay Garbage Collection (???)
