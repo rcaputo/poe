@@ -1,8 +1,8 @@
 # $File: //member/autrijus/ExtUtils-AutoInstall/AutoInstall.pm $ 
-# $Revision$ $Change: 4934 $ $DateTime: 2003/03/25 16:52:18 $
+# $Revision$ $Change: 5867 $ $DateTime: 2003/05/15 18:26:55 $
 
 package ExtUtils::AutoInstall;
-$ExtUtils::AutoInstall::VERSION = '0.50';
+$ExtUtils::AutoInstall::VERSION = '0.52';
 
 use strict;
 
@@ -15,8 +15,8 @@ ExtUtils::AutoInstall - Automatic install of dependencies via CPAN
 
 =head1 VERSION
 
-This document describes version 0.50 of B<ExtUtils::AutoInstall>,
-released March 26, 2002.
+This document describes version 0.52 of B<ExtUtils::AutoInstall>,
+released May 16, 2003.
 
 =head1 SYNOPSIS
 
@@ -598,6 +598,8 @@ sub _install_cpan {
     my $installed = 0;
     my %args;
 
+    require CPAN; CPAN::Config->load;
+
     return unless _can_write(MM->catfile($CPAN::Config->{cpan_home}, 'sources'));
 
     # if we're root, set UNINST=1 to avoid trouble unless user asked for it.
@@ -614,8 +616,6 @@ sub _install_cpan {
 	    if $opt =~ /^force$/; # pseudo-option
 	$CPAN::Config->{$opt} = $arg;
     }
-
-    require CPAN; CPAN::Config->load;
 
     while (my ($pkg, $ver) = splice(@modules, 0, 2)) {
 	MY::preinstall($pkg, $ver) or next if defined &MY::preinstall;
@@ -821,7 +821,7 @@ sub _make_args {
     ) if $Config;
 
     $PostambleActions = (
-	$missing ? "\$(PERLRUN) $0 --config=$config --installdeps=$missing"
+	$missing ? "\$(PERL) $0 --config=$config --installdeps=$missing"
 		 : "\@\$(NOOP)"
     );
 
