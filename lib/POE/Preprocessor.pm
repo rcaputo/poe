@@ -23,13 +23,13 @@ sub COND_INDENT () { 2 }
 #sub DEBUG_INVOKE () { 1 }
 #sub DEBUG_DEFINE () { 1 }
 
-#sub WARN_DEFINE () { 1 }
+#sub WARN_DEFINE  () { 1 }
 
 BEGIN {
   defined &DEBUG        or eval 'sub DEBUG        () { 0 }'; # preprocessor
   defined &DEBUG_INVOKE or eval 'sub DEBUG_INVOKE () { 0 }'; # macro invocs
   defined &DEBUG_DEFINE or eval 'sub DEBUG_DEFINE () { 0 }'; # macro defines
-  defined &WARN_DEFINE  or eval 'sub WARN_DEFINE () { 0 }';  # macro/const redefinition warning
+  defined &WARN_DEFINE  or eval 'sub WARN_DEFINE  () { 0 }'; # macro/const redefinition warning
 };
 
 # text_trie_trie is virtually identical to code in Ilya Zakharevich's
@@ -143,9 +143,9 @@ sub import {
     my $const_regexp_dirty = 0;
     my $state = STATE_PLAIN;
 
-
+    # The following block processes inheritance requests for macros/constants and enums.  added by sungo 09/2001
     my @isas;
-        
+     
     if($args{isa}) {
         if(ref $args{isa} eq 'ARRAY') {
             foreach my $isa (@{$args{isa}}) {
@@ -175,7 +175,7 @@ sub import {
     my $set_const = sub {
       my ($name, $value) = @_;
 
-      if (exists $constants{$package_name}->{$name} && WARN_DEFINE) {
+      if (WARN_DEFINE && exists $constants{$package_name}->{$name}) {
         warn "const $name redefined at $file_name line $line_number\n"
           unless $constants{$package_name}->{$name} eq $value;
       }
@@ -372,7 +372,7 @@ sub import {
               $macro{$package_name}->[MAC_CODE] =~ s/^\s*//;
               $macro{$package_name}->[MAC_CODE] =~ s/\s*$//;
 
-              if (exists $macros{$package_name}->{$macro_name} && WARN_DEFINE) {
+              if (WARN_DEFINE && exists $macros{$package_name}->{$macro_name}) {
                 warn( "macro $macro_name redefined at ",
                       "$file_name line $line_number\n"
                     )
@@ -774,8 +774,9 @@ Text::Trie.
 
 =head1 AUTHOR & COPYRIGHT
 
-POE::Preprocessor is Copyright 2000 Rocco Caputo.  All rights
-reserved.  POE::Preprocessor is free software; you may redistribute it
-and/or modify it under the same terms as Perl itself.
+POE::Preprocessor is Copyright 2000 Rocco Caputo.  Some parts are 
+Copyright 2001 Matt Cashner. All rights reserved.  POE::Preprocessor 
+is free software; you may redistribute it and/or modify it under 
+the same terms as Perl itself.
 
 =cut
