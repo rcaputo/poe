@@ -22,6 +22,20 @@ if ($@) {
   die if $@;
 }
 
+unless (grep /^--default$/, @ARGV) {
+  print( "\n",
+         "=================================================================\n",
+         "\n",
+         "If the prompts are annoying, they can be bypassed by running\n",
+         "\t$^X $0 --default\n",
+         "\n",
+         "Only the necessary modules will be installed by default.\n",
+         "\n",
+         "=================================================================\n",
+         "\n",
+       );
+}
+
 ExtUtils::AutoInstall->import
   ( -version => '0.32',
     -core => [
