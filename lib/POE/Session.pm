@@ -161,6 +161,26 @@ sub import {
   *{ $package . '::CALLER_LINE' } = \&CALLER_LINE;
 }
 
+sub try_alloc {
+  my ($self, @args) = @_;
+  # Verify that the session has a special start state, otherwise how
+  # do we know what to do?  Don't even bother registering the session
+  # if the start state doesn't exist.
+
+  if (exists $self->[SE_STATES]->{+EN_START}) {
+    $POE::Kernel::poe_kernel->session_alloc($self, @args);
+  }
+  else {
+    carp( "discarding session ",
+          $POE::Kernel::poe_kernel->ID_session_to_id($self),
+          " - no '_start' state"
+        );
+    $self = undef;
+  }
+
+  $self;
+}
+
 #------------------------------------------------------------------------------
 # Classic style constructor.  This is unofficially deprecated in
 # favor of the create() constructor.  Its DWIM nature does things
@@ -328,22 +348,7 @@ sub new {
     croak "odd number of parameters in POE::Session->new call";
   }
 
-  # Verfiy that the session has a special start state, otherwise how
-  # do we know what to do?  Don't even bother registering the session
-  # if the start state doesn't exist.
-
-  if (exists $self->[SE_STATES]->{+EN_START}) {
-    $POE::Kernel::poe_kernel->session_alloc($self, @args);
-  }
-  else {
-    carp( "discarding session ",
-          $POE::Kernel::poe_kernel->ID_session_to_id($self),
-          " - no '_start' state"
-        );
-    $self = undef;
-  }
-
-  $self;
+  return $self->try_alloc (@args);
 }
 
 #------------------------------------------------------------------------------
@@ -524,22 +529,7 @@ sub create {
     }
   }
 
-  # Verfiy that the session has a special start state, otherwise how
-  # do we know what to do?  Don't even bother registering the session
-  # if the start state doesn't exist.
-
-  if (exists $self->[SE_STATES]->{+EN_START}) {
-    $POE::Kernel::poe_kernel->session_alloc($self, @args);
-  }
-  else {
-    carp( "discarding session ",
-          $POE::Kernel::poe_kernel->ID_session_to_id($self),
-          " - no '_start' event handler"
-        );
-    $self = undef;
-  }
-
-  $self;
+  return $self->try_alloc (@args);
 }
 
 #------------------------------------------------------------------------------
