@@ -8,6 +8,22 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
+0.0806 2000.--.--
+-----------------
+
+Removed Win32 support code.  It never was completed or tested, and
+there seems to be no interest in it from the Windows community.
+
+Added UDP support to SocketFactory.  This involved rewriting
+&SocketFactory::new to be partially data driven; now it should be
+easier to add new protocols and families.
+
+Added UDP testing to samples/socketfactory.perl.
+
+Addi found a bareword warning in samples/udp.perl; I renamed
+$heap->{socket} to $heap->{socket_handle} to avoid it.
+
+
 0.0805 2000.01.05
 -----------------
 

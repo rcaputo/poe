@@ -521,7 +521,6 @@ sub _start {
   print( "********** $object wheel is bound to: ",
          inet_ntoa($bind_addr), " : $bind_port\n"
        );
-
 }
 
 #------------------------------------------------------------------------------
@@ -657,22 +656,209 @@ sub got_error {
 
 package InetUdpServer;
 
+use strict;
+use Socket;
+use POE::Session;
+
 sub new {
-  warn "$_[0] is not implemented yet.\n";
+  my $type = shift;
+  my $self = bless { }, $type;
+
+  print "$self is being created.\n";
+                                        # wrap this object in a POE session
+  new POE::Session( $self,
+                    [ '_start', '_stop',
+                      'got_socket', 'got_message', 'got_error'
+                    ]
+                  );
+  undef;
+}
+
+sub _start {
+  my ($object, $heap) = @_[OBJECT, HEAP];
+
+  print "$object received _start.  Hi!\n";
+
+  $heap->{wheel} = new POE::Wheel::SocketFactory
+    ( BindAddress    => '127.0.0.1',
+      BindPort       => 30001,
+      SocketProtocol => 'udp',
+      Reuse          => 'yes',
+      SuccessState   => 'got_socket',
+      FailureState   => 'got_error',
+    );
+
+  if (defined $heap->{wheel}) {
+    my ($bind_port, $bind_addr) =
+      unpack_sockaddr_in($heap->{wheel}->getsockname());
+    print( "********** $object wheel is bound to: ",
+           inet_ntoa($bind_addr), " : $bind_port\n"
+         );
+  }
+}
+
+sub _stop {
+  my $object = $_[OBJECT];
+  print "$object received _stop.\n";
+}
+
+sub got_socket {
+  my ($object, $kernel, $heap, $socket) = @_[OBJECT, KERNEL, HEAP, ARG0];
+  print "$object received a socket.\n";
+
+  delete $heap->{wheel};
+  $heap->{socket_handle} = $socket;
+  $kernel->select_read( $socket, 'got_message' );
+}
+
+sub got_message {
+  my ($object, $socket) = @_[OBJECT, ARG0];
+
+  my $remote_socket = recv( $socket, my $message = '', 1024, 0 );
+  my ($remote_port, $remote_addr) = unpack_sockaddr_in($remote_socket);
+  my $human_addr = inet_ntoa($remote_addr);
+
+  print( "$object received a command from $human_addr : $remote_port\n",
+         "$object: command=($message)\n",
+       );
+                                        # rot-13 input
+  if ($message =~ /^\s*rot13\s+(.*?)\s*$/i) {
+    $message = $1;
+    $message =~ tr/a-zA-Z/n-za-mN-ZA-M/;
+  }
+                                        # display GMT daytime
+  elsif ($message =~ /^\s*time\s*$/i) {
+    $message = scalar gmtime;
+  }
+
+  else {
+    $message = 'Unknown command: ' . $message;
+  }
+
+  send( $socket, $message, 0, $remote_socket );
+}
+
+sub got_error {
+  my ($object, $heap, $operation, $errnum, $errstr) =
+    @_[OBJECT, HEAP, ARG0, ARG1, ARG2];
+
+  print "$object: $operation error $errnum: $errstr\n";
+  delete $heap->{wheel};
+  select_read( $heap->{socket_handle} );
 }
 
 sub DESTROY {
+  my $self = shift;
+  print "$self is destroyed.\n";
 }
 
 ###############################################################################
 
 package InetUdpClient;
 
+use strict;
+use Socket;
+use POE::Session;
+
 sub new {
-  warn "$_[0] is not implemented yet.\n";
+  my $type = shift;
+  my $self = bless { }, $type;
+
+  print "$self is being created.\n";
+
+  new POE::Session( $self,
+                    [ '_start', '_stop',
+                      'got_socket', 'got_message', 'got_error', 'send_message'
+                    ]
+                  );
+  undef;
+}
+
+sub _start {
+  my ($object, $heap) = @_[OBJECT, HEAP];
+
+  print "$object received _start.  Hi!\n";
+
+  $heap->{wheel} = new POE::Wheel::SocketFactory
+    ( RemoteAddress  => '127.0.0.1',
+      RemotePort     => 30001,
+      SocketProtocol => 'udp',
+      SuccessState   => 'got_socket',
+      FailureState   => 'got_error',
+    );
+}
+
+sub _stop {
+  my $object = $_[OBJECT];
+  print "$object received _stop.\n";
+}
+
+sub got_socket {
+  my ($object, $kernel, $heap, $socket) = @_[OBJECT, KERNEL, HEAP, ARG0];
+  print "$object received a socket.\n";
+
+  delete $heap->{wheel};
+  $heap->{socket_handle} = $socket;
+  $heap->{server_address} = pack_sockaddr_in(30001, inet_aton('127.0.0.1'));
+
+  $heap->{messages} =
+    [ 'rot13 This is a test.',
+      'rot13 Guvf vf n grfg.',
+      'time'
+    ];
+
+  $kernel->select_read($socket, 'got_message');
+  $kernel->yield('send_message');
+}
+
+sub got_message {
+  my ($object, $kernel, $heap, $socket) = @_[OBJECT, KERNEL, HEAP, ARG0];
+
+  my $remote_socket = recv( $heap->{socket_handle},
+                            my $message = '', 1024, 0
+                          );
+  if (defined $remote_socket) {
+    my ($remote_port, $remote_addr) = unpack_sockaddr_in($remote_socket);
+    my $human_addr = inet_ntoa($remote_addr);
+
+    print( "$object: received response from $human_addr : $remote_port\n",
+           "$object: response=($message)\n",
+        );
+  }
+
+  shift @{$heap->{messages}};
+  if (@{$heap->{messages}}) {
+    $kernel->yield('send_message');
+  }
+  else {
+    $kernel->select_read($heap->{socket_handle});
+    $kernel->delay('send_message');
+  }
+}
+
+sub send_message {
+  my ($object, $kernel, $heap) = @_[OBJECT, KERNEL, HEAP];
+
+  print "$object: sending message=($heap->{messages}->[0])\n";
+
+  $kernel->delay('send_message', 5);
+
+  send( $heap->{socket_handle}, $heap->{messages}->[0], 0 )
+    or $kernel->yield( 'got_error', 'send', $!+0, $! );
+}
+
+sub got_error {
+  my ($object, $heap, $operation, $errnum, $errstr) =
+    @_[OBJECT, HEAP, ARG0, ARG1, ARG2];
+
+  print "$object: $operation error $errnum: $errstr\n";
+  delete $heap->{wheel};
+  select_read( $heap->{socket_handle} );
 }
 
 sub DESTROY {
+  my $self = shift;
+  print "$self is destroyed.\n";
 }
 
 

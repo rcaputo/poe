@@ -26,12 +26,12 @@ sub udp_server_start {
   warn "server: starting\n";
 
   if (defined 
-      ($heap->{socket} = new IO::Socket::INET( Proto => 'udp',
-                                               LocalPort => UDP_PORT
-                                             )
+      ($heap->{socket_handle} = new IO::Socket::INET( Proto => 'udp',
+                                                      LocalPort => UDP_PORT
+                                                    )
       )
      ) {
-    $kernel->select_read($heap->{socket}, 'select_read');
+    $kernel->select_read($heap->{socket_handle}, 'select_read');
   }
   else {
     warn "server: error ", ($!+0), " creating socket: $!\n";
@@ -42,7 +42,7 @@ sub udp_server_start {
 
 sub udp_server_stop {
   warn "server: stopping\n";
-  delete $_[HEAP]->{socket};
+  delete $_[HEAP]->{socket_handle};
 }
 
 #------------------------------------------------------------------------------
@@ -52,7 +52,7 @@ sub udp_server_receive {
 
   warn "server: select read\n";
 
-  my $remote_socket = recv( $heap->{socket},
+  my $remote_socket = recv( $heap->{socket_handle},
                             my $message = '', DATAGRAM_MAXLEN, 0
                           );
   if (defined $remote_socket) {
@@ -64,11 +64,20 @@ sub udp_server_receive {
 
         );
 
-    send( $heap->{socket},
+    send( $heap->{socket_handle},
           'Test response at ' . time . " (ACK=$message)",
           0, $remote_socket
         );
   }
+}
+
+#------------------------------------------------------------------------------
+
+sub udp_server_error {
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
+
+  warn "server: $operation error $errnum: $errstr\n";
+  delete $heap->{socket_handle};
 }
 
 #==============================================================================
@@ -83,7 +92,7 @@ sub udp_client_start {
   my $socket = new IO::Socket::INET( Proto => 'udp' );
 
   if (defined $socket) {
-    $heap->{socket} = $socket;
+    $heap->{socket_handle} = $socket;
     $heap->{server} = pack_sockaddr_in($server_port, inet_aton($server_addr));
     $kernel->yield('send_datagram');
     $kernel->select_read($socket, 'select_read');
@@ -97,7 +106,7 @@ sub udp_client_start {
 
 sub udp_client_stop {
   warn "client: stopping\n";
-  delete $_[HEAP]->{socket};
+  delete $_[HEAP]->{socket_handle};
 }
 
 #------------------------------------------------------------------------------
@@ -106,7 +115,9 @@ sub udp_client_send {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
 
   warn "client: alarm ping; sending a message\n";
-  send( $heap->{socket}, 'Test message at ' . time, 0, $heap->{server} );
+  send( $heap->{socket_handle},
+        'Test message at ' . time, 0, $heap->{server}
+      );
   $kernel->delay( 'send_datagram', 1 );
 }
 
@@ -117,7 +128,7 @@ sub udp_client_receive {
 
   warn "client: select read\n";
 
-  my $remote_socket = recv( $heap->{socket},
+  my $remote_socket = recv( $heap->{socket_handle},
                             my $message = '', DATAGRAM_MAXLEN, 0
                           );
   if (defined $remote_socket) {
@@ -129,6 +140,15 @@ sub udp_client_receive {
 
         );
   }
+}
+
+#------------------------------------------------------------------------------
+
+sub udp_client_error {
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
+
+  warn "server: $operation error $errnum: $errstr\n";
+  delete $heap->{socket_handle};
 }
 
 #==============================================================================
