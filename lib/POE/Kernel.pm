@@ -379,17 +379,17 @@ sub _explain_return {
   my ($self, $message) = @_;
   local $Carp::CarpLevel = 2;
   ASSERT_RETVALS and confess "<rv> $message";
-  TRACE_RETVALS  and carp "<rv> $message";
+  TRACE_RETVALS  and carp    "<rv> $message";
 }
 
 ### Explain how the user made a mistake calling a function.
 
 sub _explain_usage {
-  my $message = shift;
+  my ($self, $message) = @_;
   local $Carp::CarpLevel = 2;
   ASSERT_USAGE   and confess "<us> $message";
   ASSERT_RETVALS and confess "<rv> $message";
-  TRACE_RETVALS  and carp  "<rv> $message";
+  TRACE_RETVALS  and carp    "<rv> $message";
 }
 
 #==============================================================================
