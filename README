@@ -61,37 +61,45 @@ Finally you can install it:
 Test Results and Coverage
 -------------------------
 
-These are the results for `make test` in POE 0.11, on an old 486
-running FreeBSD 4.0-STABLE with perl 5.6.0, Event 0.79, and Perl/Tk
-800.021:
+These are the `make test' results for POE 0.1103.  Hardware: Cyrix
+P166+; 64MB RAM.  Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no
+Event.
 
-All tests successful.
-Files=18, Tests=294, 721 wallclock secs (245.87 cusr + 21.68 csys = 267.55 CPU)
+  All tests successful, 3 tests skipped.
+  Files=20, Tests=361, 191 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
-POE's development after 0.1005 includes a big push to test everything.
-To further this effort, POE now includes some extra profiling code
-which isn't installed.  Anyway, here's a list of POE's modules and
-approximate coverage statistics for each.  These numbers are misleading
-at best, but they give a rough idea of what's been tested.
+These are the `make test' results for POE 0.1103.  Hardware: AMD
+486-40 (overclocked to 50); 16MB RAM.  Software: FreeBSD 4.0-STABLE;
+perl 5.6.0; Perl/Tk 800.021; Event 0.79.
 
-Source File                         =   Ran / Total = Covered
-POE.pm                              =    19 /    19 = 100.00%
-POE/Component/Server/TCP.pm         =    22 /    23 =  95.65%
-POE/Driver/SysRW.pm                 =    42 /    54 =  77.78%
-POE/Filter/Block.pm                 =    34 /    37 =  91.89%
-POE/Filter/HTTPD.pm                 =    11 /    85 =  12.94%
-POE/Filter/Line.pm                  =    15 /    20 =  75.00%
-POE/Filter/Reference.pm             =    58 /    66 =  87.88%
-POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-POE/Kernel.pm                       =   706 /   927 =  76.16%
-POE/Kernel.pmPOE/Kernel.pm          =     0 /     1 =   0.00%
-POE/Preprocessor.pm                 =   119 /   138 =  86.23%
-POE/Session.pm                      =    81 /   194 =  41.75%
-POE/Wheel/FollowTail.pm             =    54 /    69 =  78.26%
-POE/Wheel/ListenAccept.pm           =     5 /    43 =  11.63%
-POE/Wheel/ReadWrite.pm              =   100 /   183 =  54.64%
-POE/Wheel/SocketFactory.pm          =   195 /   278 =  70.14%
-All Told                            =  1472 /  2148 =  68.53%
+  All tests successful.
+  Files=20, Tests=377, 551 wallclock secs (267.15 cusr +23.68 csys =290.83 CPU)
+
+These coverage results are for POE 0.1103 on the FreeBSD machine.
+This machine more thoroughly tests different POE options, so the
+coverage results are more meaningful.  Even at their best, however,
+the results are highly misleading.  They are, in fact, slightly low
+because of errors introduced by the profiling code.  Please take these
+figures with a grain of salt.
+
+  Source File                         =   Ran / Total = Covered
+  POE.pm                              =    19 /    19 = 100.00%
+  POE/Component/Server/TCP.pm         =    22 /    23 =  95.65%
+  POE/Driver/SysRW.pm                 =    42 /    54 =  77.78%
+  POE/Filter/Block.pm                 =    37 /    37 = 100.00%
+  POE/Filter/HTTPD.pm                 =    11 /   100 =  11.00%
+  POE/Filter/Line.pm                  =    83 /    88 =  94.32%
+  POE/Filter/Reference.pm             =    60 /    66 =  90.91%
+  POE/Filter/Stream.pm                =    11 /    11 = 100.00%
+  POE/Kernel.pm                       =   700 /   937 =  74.71%
+  POE/Preprocessor.pm                 =   119 /   138 =  86.23%
+  POE/Session.pm                      =    85 /   194 =  43.81%
+  POE/Wheel/FollowTail.pm             =    68 /    86 =  79.07%
+  POE/Wheel/ListenAccept.pm           =     5 /    43 =  11.63%
+  POE/Wheel/ReadWrite.pm              =   106 /   185 =  57.30%
+  POE/Wheel/SocketFactory.pm          =   195 /   278 =  70.14%
+  All Told                            =  1563 /  2259 =  69.19%
+
 
 Good luck, and thank you for reading!
 

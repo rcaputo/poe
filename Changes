@@ -67,10 +67,13 @@ no lines are longer than 79 columns, just in case.
 Made Wheel::ReadWrite carp about unknown parameters.
 
 Added t/19_filterchange.t to test filter changing between every filter
-that supports the get_pending() method.
+that supports the get_pending() method.  This test does its damnedest
+to make some sort of pipe, trying socketpair and pipe calls before
+failing.  The code here could be a good basis for an open3 thing.
 
-Tweaked the timing on t/11_signals_poe.t and t/12_signals_ev.t to take
-less time.  Put messages in them anyway to tell people to be patient.
+Tweaked the timing on t/11_signals_poe.t and t/12_signals_ev.t.  These
+tests now take about a minute and a half each everywhere, but the
+results are more consistent across the spectrum of system speeds.
 
 Added a message to t/06_tk.t to let anyone paying attention to the
 test terminal know that a Tk window will pop up.
