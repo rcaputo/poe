@@ -14,9 +14,17 @@ system( $^X, "Makefile.PL", "--default" ) and exit($? >> 8);
 system( $^X, $cover, "-delete" ) and exit($? >> 8);
 
 {
-  local $ENV{PERL5OPT} = "-MDevel::Cover=-ignore,mylib";
+  local $ENV{PERL5OPT} = "-MDevel::Cover=+ignore,mylib,+ignore,t";
   local $ENV{HARNESS_PERL_SWITCHES} = $ENV{PERL5OPT};
-  system( $make, "test" ) and exit($? >> 8);
+
+  if (@ARGV) {
+    foreach my $test (@ARGV) {
+      system( $^X, $test ) and exit($? >> 8);
+    }
+  }
+  else {
+    system( $make, "test" ) and exit($? >> 8);
+  }
 }
 
 system( $^X, $cover ) and exit($? >> 8);
