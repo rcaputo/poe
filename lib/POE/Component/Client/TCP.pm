@@ -436,7 +436,7 @@ and it may be redistributed and/or modified under the same terms as
 Perl itself.
 
 POE::Component::Client::TCP is based on code, used with permission,
-from Ann Barcomb E<lt>ann@domaintje.comE<gt>.
+from Ann Barcomb E<lt>kudra@domaintje.comE<gt>.
 
 POE::Component::Client::TCP is based on code, used with permission,
 from Jos Boumans E<lt>kane@cpan.orgE<gt>.
