@@ -1,8 +1,9 @@
 #!perl -w -I..
 # $Id$
 
-# Part 2 of 2 for the Filter::Reference test.  This program
-# sends references to a running copy of refserver.perl.
+# Filter::Reference test, part 2 of 2.
+# This program freezes referenced data, and sends it to a waiting
+# copy of refserver.perl.
 
 # Contributed by Artur Bergman <artur@vogon-solutions.com>
 
