@@ -8,7 +8,16 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0908 2000.??.??
+0.0909 2000.03.10
+-----------------
+
+Removing closures in 0.0907 re-broke code that expect $wheel->event()
+to take immediate effect.  Changed the wheels to use references
+instead of direct event names, so that anonymous coderefs could have
+closures whose values can be changed from outside.
+
+
+0.0908 2000.03.09
 -----------------
 
 Added logging to samples/poing.perl.  Now it records up and down times
@@ -23,7 +32,7 @@ little bit.
 POE::Kernel::call was setting $! to 0 when it oughtn't.  $! now
 properly reflects the status of POE::Kernel::call.
 
-Removed the place-holder test that suggested people trie the samples
+Removed the place-holder test that suggested people try the samples
 directory.
 
 Added t/01_sessions.t to test sessions (new and inline create) and
@@ -31,9 +40,6 @@ basic events (post, yield and call);
 
 Added t/02_alarms.t to test delayed events (alarm, delay, alarm_add
 and delay_add).
-
-Tweaked the Win32 EINPROGRESS support to quietly turn itself off in
-the case that ActiveState adds this constant to POSIX.pm.
 
 Added POE::Kernel::(alarm|delay)_add to post additional alarms to a
 particular state.  Unlike POE::Kernel::(alarm|delay), these don't

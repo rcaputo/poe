@@ -76,8 +76,8 @@ sub _define_accept_state {
 
   my $domain = $map_family_to_domain{ $self->{socket_domain} };
   $domain = '(undef)' unless defined $domain;
-  my $success_state = $self->{state_success};
-  my $failure_state = $self->{state_failure};
+  my $success_state = \$self->{state_success};
+  my $failure_state = \$self->{state_failure};
 
   $poe_kernel->state
     ( $self->{state_accept} = $self . ' -> select accept',
@@ -102,11 +102,11 @@ sub _define_accept_state {
           else {
             die "sanity failure: socket domain == $domain";
           }
-          $k->call( $me, $success_state, $new_socket, $peer_addr, $peer_port );
+          $k->call($me, $$success_state, $new_socket, $peer_addr, $peer_port);
         }
         elsif ($! != EWOULDBLOCK) {
-          $failure_state &&
-            $k->call($me, $failure_state, 'accept', ($!+0), $!);
+          $$failure_state &&
+            $k->call($me, $$failure_state, 'accept', ($!+0), $!);
         }
       }
     );
@@ -123,8 +123,8 @@ sub _define_connect_state {
 
   my $domain = $map_family_to_domain{ $self->{socket_domain} };
   $domain = '(undef)' unless defined $domain;
-  my $success_state = $self->{state_success};
-  my $failure_state = $self->{state_failure};
+  my $success_state = \$self->{state_success};
+  my $failure_state = \$self->{state_failure};
 
   $poe_kernel->state
     ( $self->{state_connect} = $self . ' -> select connect',
@@ -141,8 +141,8 @@ sub _define_connect_state {
 
         # There is an error.
         if ($!) {
-          (defined $failure_state) and
-            $k->call($me, $failure_state, 'connect', ($!+0), $!);
+          (defined $$failure_state) and
+            $k->call($me, $$failure_state, 'connect', ($!+0), $!);
         }
 
         # No error; this is a successful connection.
@@ -160,7 +160,7 @@ sub _define_connect_state {
           else {
             die "sanity failure: socket domain == $domain";
           }
-          $k->call( $me, $success_state, $handle, $peer_addr, $peer_port );
+          $k->call( $me, $$success_state, $handle, $peer_addr, $peer_port );
         }
       }
     );

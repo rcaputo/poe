@@ -70,8 +70,8 @@ sub _define_states {
 
   my $filter        = $self->{filter};
   my $driver        = $self->{driver};
-  my $event_input   = $self->{event_input};
-  my $event_error   = $self->{event_error};
+  my $event_input   = \$self->{event_input};
+  my $event_error   = \$self->{event_error};
   my $state_wake    = $self->{state_wake} = $self . ' -> alarm';
   my $state_read    = $self->{state_read} = $self . ' -> select read';
   my $poll_interval = $self->{interval};
@@ -89,14 +89,14 @@ sub _define_states {
 
         while (defined(my $raw_input = $driver->get($hdl))) {
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            $k->call($ses, $event_input, $cooked_input)
+            $k->call($ses, $$event_input, $cooked_input)
           }
         }
 
         $k->select_read($hdl);
 
         if ($!) {
-          $event_error && $k->call($ses, $event_error, 'read', ($!+0), $!);
+          $$event_error && $k->call($ses, $$event_error, 'read', ($!+0), $!);
         }
         else {
           $k->delay($state_wake, $poll_interval);

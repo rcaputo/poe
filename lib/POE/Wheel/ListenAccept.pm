@@ -68,8 +68,9 @@ sub event {
 sub _define_accept_state {
   my $self = shift;
                                         # stupid closure trick
-  my ($event_accept, $event_error, $handle) =
-    @{$self}{'event accept', 'event error', 'handle'};
+  my $event_accept = \$self->{'event accept'};
+  my $event_error  = \$self->{'event error'};
+  my $handle       = $self->{handle};
                                         # register the select-read handler
   $poe_kernel->state
     ( $self->{'state read'} =  $self . ' -> select read',
@@ -82,11 +83,11 @@ sub _define_accept_state {
         my $new_socket = $handle->accept();
 
         if ($new_socket) {
-          $k->call($me, $event_accept, $new_socket);
+          $k->call($me, $$event_accept, $new_socket);
         }
         elsif ($! != EAGAIN) {
-          $event_error &&
-            $k->call($me, $event_error, 'accept', ($!+0), $!);
+          $$event_error &&
+            $k->call($me, $$event_error, 'accept', ($!+0), $!);
         }
       }
     );
