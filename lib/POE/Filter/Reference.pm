@@ -68,13 +68,12 @@ sub get {
 # freeze one or more references, and return a string representing them
 
 sub put {
-  my $self = shift;
-  my $return = '';
-  foreach my $raw (@_) {
-    my $frozen = freeze($raw);
-    $return .= length($frozen) . "\0" . $frozen;
-  }
-  $return;
+  my ($self, $references) = @_;
+  my @raw = map {
+    my $frozen = freeze($_);
+    length($frozen) . "\0" . $frozen;
+  } @$references;
+  \@raw;
 }
 
 ###############################################################################
