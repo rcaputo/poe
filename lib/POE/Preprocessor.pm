@@ -9,6 +9,9 @@ $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(croak);
 use Filter::Util::Call;
+use Symbol qw(gensym);
+use File::Path qw(mkpath);
+use File::Spec;
 
 sub MAC_PARAMETERS () { 0 }
 sub MAC_CODE       () { 1 }
@@ -23,6 +26,16 @@ sub COND_FLAG   () { 0 }
 sub COND_LINE   () { 1 }
 sub COND_INDENT () { 2 }
 
+BEGIN {
+  if (defined $ENV{POE_PREPROC_DUMP}) {
+    eval "sub DUMP_EXPANDED () { 1 }";
+    eval "sub DUMP_BASE     () { '$ENV{POE_PREPROC_DUMP}' }";
+  }
+  else {
+    eval "sub DUMP_EXPANDED () { 0 }";
+  }
+};
+
 #sub DEBUG () { 1 }
 #sub DEBUG_INVOKE () { 1 }
 #sub DEBUG_DEFINE () { 1 }
@@ -33,8 +46,10 @@ BEGIN {
   defined &DEBUG        or eval 'sub DEBUG        () { 0 }'; # preprocessor
   defined &DEBUG_INVOKE or eval 'sub DEBUG_INVOKE () { 0 }'; # macro invocs
   defined &DEBUG_DEFINE or eval 'sub DEBUG_DEFINE () { 0 }'; # macro defines
-  defined &WARN_DEFINE  or eval 'sub WARN_DEFINE  () { 0 }'; # macro/const redefinition warning
+  defined &WARN_DEFINE  or eval 'sub WARN_DEFINE  () { 0 }'; # redefine warning
 };
+
+### Start of regexp optimizer.
 
 # text_trie_trie is virtually identical to code in Ilya Zakharevich's
 # Text::Trie::Trie function.  The minor differences involve hardcoding
@@ -142,14 +157,28 @@ sub import {
 
     # Outer closure to define a unique scope.
     { my $macro_name = '';
-    my ($macro_line, $enum_index);
-    my ($package_name, $file_name, $line_number) = (caller)[0,1,2];
-    my $const_regexp_dirty = 0;
-    my $state = STATE_PLAIN;
+      my ($macro_line, $enum_index);
+      my ($package_name, $file_name, $line_number) = (caller)[0,1,2];
+      my $const_regexp_dirty = 0;
+      my $state = STATE_PLAIN;
+      my $dump_file;
 
-    # The following block processes inheritance requests for macros/constants and enums.  added by sungo 09/2001
+      DUMP_EXPANDED and do {
+        my ($vol, $dir, $file) = File::Spec->splitpath($file_name);
+        my $dest_dir      = File::Spec->catdir(DUMP_BASE, $dir);
+        my $dest_filename = File::Spec->catfile($dest_dir, $file);
+
+        mkpath($dest_dir, 0, 0777);
+        $dump_file = gensym;
+        open $dump_file, ">$dest_filename"
+          or die "POE::Preprocessor could not create $dest_filename: $!";
+        print $dump_file "package $package_name;\n";
+      };
+
+    # The following block processes inheritance requests for
+    # macros/constants and enums.  added by sungo 09/2001
     my @isas;
-     
+
     if($args{isa}) {
         if(ref $args{isa} eq 'ARRAY') {
             foreach my $isa (@{$args{isa}}) {
@@ -163,7 +192,8 @@ sub import {
             croak "Unable to load $isa : $@" if $@;
 
             foreach my $const (keys %{$constants{$isa}}) {
-                $constants{$package_name}->{$const} = $constants{$isa}->{$const};
+                $constants{$package_name}->{$const} =
+                  $constants{$isa}->{$const};
                 $const_regexp_dirty = 1;
             }
 
@@ -208,6 +238,7 @@ sub import {
                    $conditional_stacks{$package_name}->[0]->[COND_LINE] . "\n"
                  );
             }
+            DUMP_EXPANDED and close $dump_file;
             return $status;
           }
 
@@ -242,6 +273,10 @@ sub import {
                 DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
               }
 
+              DUMP_EXPANDED and do {
+                print $dump_file $_;
+                close $dump_file if $status <= 0;
+              };
               return $status;
             }
 
@@ -253,6 +288,10 @@ sub import {
 
               unless ($state & STATE_MACRO_DEF) {
                 DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+                DUMP_EXPANDED and do {
+                  print $dump_file $_;
+                  close $dump_file if $status <= 0;
+                };
                 return $status;
               }
             }
@@ -263,6 +302,10 @@ sub import {
                 die( "else { # include ... without if or unless " .
                      "at $file_name line $line_number\n"
                    );
+                DUMP_EXPANDED and do {
+                  print $dump_file $_;
+                  close $dump_file;
+                };
                 return -1;
               }
 
@@ -273,6 +316,11 @@ sub import {
 
               unless ($state & STATE_MACRO_DEF) {
                 DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+
+                DUMP_EXPANDED and do {
+                  print $dump_file $_;
+                  close $dump_file if $status <= 0;
+                };
                 return $status;
               }
             }
@@ -301,6 +349,10 @@ sub import {
                 DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
               }
 
+              DUMP_EXPANDED and do {
+                print $dump_file $_;
+                close $dump_file if $status <= 0;
+              };
               return $status;
             }
 
@@ -310,6 +362,10 @@ sub import {
                 die( "Include elsif without include if or unless " .
                      "at $file_name line $line_number\n"
                    );
+                DUMP_EXPANDED and do {
+                  print $dump_file $_;
+                  close $dump_file;
+                };
                 return -1;
               }
 
@@ -335,6 +391,10 @@ sub import {
                 DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
               }
 
+              DUMP_EXPANDED and do {
+                print $dump_file $_;
+                close $dump_file if $status <= 0;
+              };
               return $status;
             }
           }
@@ -350,6 +410,10 @@ sub import {
 
             unless ($state & STATE_MACRO_DEF) {
               DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+              DUMP_EXPANDED and do {
+                print $dump_file $_;
+                close $dump_file if $status <= 0;
+              };
               return $status;
             }
           }
@@ -402,6 +466,10 @@ sub import {
             $_ = "# mac 4: $_";
             DEBUG and warn sprintf "%4d M: %s", $line_number, $_;
 
+            DUMP_EXPANDED and do {
+              print $dump_file $_;
+              close $dump_file if $status <= 0;
+            };
             return $status;
           }
 
@@ -410,11 +478,21 @@ sub import {
           ### expense of preprocessing data and documentation.
           if (/^__(END|DATA)__\s*$/) {
             $_ = "# $_";
+            DUMP_EXPANDED and do {
+              print $dump_file $_;
+              close $dump_file;
+            };
             return 0;
           }
 
           ### We're done if we're excluding code.
-          return $status if $excluding_code{$package_name};
+          if ($excluding_code{$package_name}) {
+            DUMP_EXPANDED and do {
+              print $dump_file $_;
+              close $dump_file if $status <= 0;
+            };
+            return $status;
+          }
 
           ### Define an enum.
           if (/^enum(?:\s+(\d+|\+))?\s+(.*?)\s*$/) {
@@ -435,6 +513,10 @@ sub import {
 
             DEBUG and warn sprintf "%4d E: %s", $line_number, $_;
 
+            DUMP_EXPANDED and do {
+              print $dump_file $_;
+              close $dump_file if $status <= 0;
+            };
             return $status;
           }
 
@@ -443,6 +525,11 @@ sub import {
             &{$set_const}($1, $2);
             $_ = "# $_";
             DEBUG and warn sprintf "%4d E: %s", $line_number, $_;
+
+            DUMP_EXPANDED and do {
+              print $dump_file $_;
+              close $dump_file if $status <= 0;
+            };
             return $status;
           }
 
@@ -470,6 +557,11 @@ sub import {
 
             $_ = "# $temp_line";
             DEBUG and warn sprintf "%4d D: %s", $line_number, $_;
+
+            DUMP_EXPANDED and do {
+              print $dump_file $_;
+              close $dump_file if $status <= 0;
+            };
             return $status;
           }
 
@@ -498,6 +590,11 @@ sub import {
                       scalar(@mac_params),
                       ") at $file_name line $line_number\n"
                     );
+
+                DUMP_EXPANDED and do {
+                  print $dump_file $_;
+                  close $dump_file if $status <= 0;
+                };
                 return $status;
               }
 
@@ -571,7 +668,11 @@ sub import {
             }
           }
 
-          $status;
+          DUMP_EXPANDED and do {
+            print $dump_file $_;
+            close $dump_file if $status <= 0;
+          };
+          return $status;
         }
       );
   }
@@ -755,6 +856,38 @@ To see warnings when a macro or constant is redefined:
 
   sub POE::Preprocessor::WARN_DEFINE () { 1 }
 
+=head1 ENVIRONMENT
+
+Setting the POE_PREPROC_DUMP environment variable causes
+POE::Preprocessor to write new copies of the modules it expands.
+POE_PREPROC_DUMP should contain the name of a base directory.  It
+need not exist.  All the expanded files will be written under the
+directory in POE_PREPROC_DUMP.
+
+Note: Some modules such as POE::Kernel alter the macros they load at
+compile time.  Versions of these modules created by POE_PREPROC_DUMP
+may only be used in the same situation they were created in.  For
+instance, a version of POE::Kernel created with Gtk support macros may
+only be used in Gtk programs from that point on.
+
+Note: Because POE::Preprocessor can only dump source code from the
+point it it is used in a file, it should be the first statement after
+C<package Foo;> in a module.  Otherwise code before it will be missing
+from the resulting expanded file.  POE::Preprocessor will create a new
+C<package Foo;> line to replace the one that it could not see.
+
+This is good:
+
+  package Foo;  # Not seen but simulated in the expanded version.
+  use POE::Preprocessor;
+  use Carp;     # Seen and included in the expanded version.
+
+This is bad:
+
+  package Foo;  # Not seen but simulated in the expanded version.
+  use Carp;     # Not seen and OMITTED FROM the expanded version.
+  use POE::Preprocessor;
+
 =head1 BUGS
 
 Source filters are line-based, and so is the macro language.  The only
@@ -772,6 +905,9 @@ around until no more substitutions occurred.
 The regexp builder makes silly subexpressions like /(?:|m)/.  That
 could be done better as /m?/ or /(?:jklm)?/ if the literal is longer
 than a single character.
+
+The "# include" directives are not compatible with the
+POE_PREPROC_DUMP environment variable.
 
 =head1 SEE ALSO
 
