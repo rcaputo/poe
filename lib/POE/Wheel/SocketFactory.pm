@@ -113,7 +113,7 @@ sub _define_accept_state {
   my $unique_id     =  $self->[MY_UNIQUE_ID];
 
   $poe_kernel->state
-    ( $self->[MY_STATE_ACCEPT] = $self . ' -> select accept',
+    ( $self->[MY_STATE_ACCEPT] = ref($self) . "($unique_id) -> select accept",
       sub {
         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
@@ -170,7 +170,9 @@ sub _define_connect_state {
   my $socket_selected = \$self->[MY_SOCKET_SELECTED];
 
   $poe_kernel->state
-    ( $self->[MY_STATE_CONNECT] = $self . ' -> select connect',
+    ( $self->[MY_STATE_CONNECT] = ( ref($self) .
+                                    "($unique_id) -> select connect"
+                                  ),
       sub {
         # This prevents SEGV in older versions of Perl.
         0 && CRIMSON_SCOPE_HACK('<');

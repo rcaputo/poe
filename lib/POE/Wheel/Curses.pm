@@ -71,7 +71,7 @@ sub _define_input_state {
     my $unique_id   = $self->[SELF_ID];
 
     $poe_kernel->state
-      ( $self->[SELF_STATE_READ] = $self . ' -> select read',
+      ( $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> select read",
         sub {
 
           # Prevents SEGV in older Perls.

@@ -372,7 +372,7 @@ sub _define_stdin_flusher {
 
   # Register the select-write handler.
   $poe_kernel->state
-    ( $self->[STATE_STDIN] = $self . ' -> select stdin',
+    ( $self->[STATE_STDIN] = ref($self) . "($unique_id) -> select stdin",
       sub {                             # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
@@ -429,7 +429,7 @@ sub _define_stdout_reader {
     my $stdout_event  = \$self->[EVENT_STDOUT];
 
     $poe_kernel->state
-      ( $self->[STATE_STDOUT] = $self . ' -> select stdout',
+      ( $self->[STATE_STDOUT] = ref($self) . "($unique_id) -> select stdout",
         sub {
           # prevents SEGV
           0 && CRIMSON_SCOPE_HACK('<');
@@ -478,7 +478,7 @@ sub _define_stderr_reader {
     my $stderr_event  = \$self->[EVENT_STDERR];
 
     $poe_kernel->state
-      ( $self->[STATE_STDERR] = $self . ' -> select stderr',
+      ( $self->[STATE_STDERR] = ref($self) . "($unique_id) -> select stderr",
         sub {
           # prevents SEGV
           0 && CRIMSON_SCOPE_HACK('<');

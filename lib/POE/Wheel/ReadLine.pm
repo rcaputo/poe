@@ -273,10 +273,11 @@ sub _define_idle_state {
 
   my $has_timer   = \$self->[SELF_HAS_TIMER];
   my $put_buffer  = $self->[SELF_PUT_BUFFER];
+  my $unique_id   = $self->[SELF_UNIQUE_ID];
 
   # This handler is called when input has become idle.
   $poe_kernel->state
-    ( $self->[SELF_STATE_IDLE] = $self . ' -> input timeout',
+    ( $self->[SELF_STATE_IDLE] = ref($self) . "($unique_id) -> input timeout",
       sub {
         # Prevents SEGV in older Perls.
         0 && CRIMSON_SCOPE_HACK('<');
@@ -330,7 +331,7 @@ sub _define_read_state {
     my $unique_id      = $self->[SELF_UNIQUE_ID];
 
     $poe_kernel->state
-      ( $self->[SELF_STATE_READ] = $self . ' -> select read',
+      ( $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> select read",
         sub {
 
           # Prevents SEGV in older Perls.

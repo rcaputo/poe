@@ -113,7 +113,7 @@ sub _define_accept_state {
   my $unique_id    = $self->[SELF_UNIQUE_ID];
                                         # register the select-read handler
   $poe_kernel->state
-    ( $self->[SELF_STATE_ACCEPT] =  $self . ' -> select read',
+    ( $self->[SELF_STATE_ACCEPT] =  ref($self) . "($unique_id) -> select read",
       sub {
         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
