@@ -3,6 +3,11 @@
 
 package MyOtherFreezer;
 
+use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 sub new {
   my $type = shift;
   return bless [ ], $type;

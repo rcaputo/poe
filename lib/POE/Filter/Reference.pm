@@ -6,7 +6,11 @@
 package POE::Filter::Reference;
 
 use strict;
-use Carp;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
+use Carp qw(carp croak);
 
 #------------------------------------------------------------------------------
 # Try to require one of the default freeze/thaw packages.

@@ -3,6 +3,10 @@
 package POE::Wheel::Run;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp;
 use POSIX;  # termios stuff
 

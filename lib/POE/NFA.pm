@@ -3,6 +3,10 @@
 package POE::NFA;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp qw(carp croak confess);
 
 use POE::Preprocessor;

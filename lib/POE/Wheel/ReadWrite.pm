@@ -3,6 +3,10 @@
 package POE::Wheel::ReadWrite;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp;
 use POE qw(Wheel Driver::SysRW Filter::Line);
 

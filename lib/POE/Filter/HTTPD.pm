@@ -12,7 +12,11 @@
 # and from HTTPD filters, they should say so on POE's mailing list.
 
 package POE::Filter::HTTPD;
+
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(croak);
 use HTTP::Status;

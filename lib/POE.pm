@@ -58,7 +58,7 @@ __END__
 
 =head1 NAME
 
-POE - multitasking and networking with perl
+POE - multitasking and networking framework for perl
 
 =head1 SYNOPSIS
 

@@ -3,8 +3,12 @@
 # This is a `perl -d` debugger module that simply traces execution.
 # It's optional, and it may not even work.
 
-use strict;
 package Trace; # satisfies 'use'
+
+use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
 
 package DB;
 use vars qw($sub @args);

@@ -3,7 +3,11 @@
 package POE::Filter::Line;
 
 use strict;
-use Carp;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
+use Carp qw(carp croak);
 
 sub DEBUG () { 0 }
 

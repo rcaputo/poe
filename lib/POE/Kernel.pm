@@ -3,6 +3,10 @@
 package POE::Kernel;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use POSIX qw(errno_h fcntl_h sys_wait_h);
 use Carp qw(carp croak confess);
 use Sys::Hostname qw(hostname);
@@ -2379,7 +2383,7 @@ sub alarm_remove_all {
       my $removed_alarm = splice(@kr_events, $index, 1);
       delete $kr_event_ids{$removed_alarm->[ST_SEQ]};
       push( @removed,
-            ( @$removed_alarm[ST_NAME, ST_TIME], @{$removed_alarm->[ST_ARGS]} )
+            [ @$removed_alarm[ST_NAME, ST_TIME], @{$removed_alarm->[ST_ARGS]} ]
           );
     }
   }

@@ -4,6 +4,9 @@ package POE::Filter::Stream;
 
 use strict;
 
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 #------------------------------------------------------------------------------
 
 sub new {

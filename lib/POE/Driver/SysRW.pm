@@ -7,8 +7,12 @@
 package POE::Driver::SysRW;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use POSIX qw(EAGAIN);
-use Carp;
+use Carp qw(croak);
 
 sub OUTPUT_QUEUE        () { 0 }
 sub CURRENT_OCTETS_DONE () { 1 }

@@ -3,7 +3,11 @@
 package POE::Wheel;
 
 use strict;
-use Carp;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
+use Carp qw(croak);
 
 # Used to generate unique IDs for wheels.  This is static data, shared
 # by all.

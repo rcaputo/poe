@@ -9,6 +9,10 @@
 package POE::Filter::Stackable;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp qw(croak);
 
 sub FILTERS () { 0 }

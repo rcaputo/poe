@@ -3,6 +3,10 @@
 package POE::Preprocessor;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp qw(croak);
 use Filter::Util::Call;
 

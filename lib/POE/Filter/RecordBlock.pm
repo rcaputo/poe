@@ -2,8 +2,12 @@
 
 package POE::Filter::RecordBlock;
 
-use Carp qw(croak);
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
+use Carp qw(croak);
 
 sub BLOCKSIZE () { 0 };
 sub GETBUFFER () { 1 };

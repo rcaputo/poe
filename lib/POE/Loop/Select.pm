@@ -5,6 +5,11 @@
 # Empty package to appease perl.
 package POE::Kernel::Select;
 
+use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
 

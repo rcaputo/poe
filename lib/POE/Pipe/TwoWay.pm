@@ -6,6 +6,10 @@
 package POE::Pipe::TwoWay;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Symbol qw(gensym);
 use IO::Socket;
 use POE::Pipe;

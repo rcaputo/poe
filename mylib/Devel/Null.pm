@@ -4,6 +4,10 @@
 # optional, and it may not even work.
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 package Null; # satisfies 'use'
 
 package DB;

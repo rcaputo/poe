@@ -5,10 +5,18 @@
 # Empty package to appease perl.
 package POE::Kernel::Gtk;
 
+use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
 
 # Ensure that no other substrate module has been loaded.
 BEGIN {

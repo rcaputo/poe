@@ -4,6 +4,9 @@ package POE::Component::Client::TCP;
 
 use strict;
 
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp qw(carp croak);
 
 # Explicit use to import the parameter constants;

@@ -5,6 +5,9 @@ package TestSetup;
 
 use strict;
 
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Exporter;
 @TestSetup::ISA = qw(Exporter);
 @TestSetup::EXPORT = qw( &test_setup

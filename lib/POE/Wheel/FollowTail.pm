@@ -3,6 +3,10 @@
 package POE::Wheel::FollowTail;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp;
 use Symbol;
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END);

@@ -3,6 +3,10 @@
 package POE::Filter::Block;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp qw(croak);
 
 sub BLOCK_SIZE     () { 0 }

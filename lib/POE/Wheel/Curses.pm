@@ -1,7 +1,11 @@
 #!/usr/bin/perl -w
 
-use strict;
 package POE::Wheel::Curses;
+
+use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(croak);
 use Curses;

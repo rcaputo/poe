@@ -5,10 +5,8 @@
 # Empty package to appease perl.
 package POE::Kernel::Tk;
 
-# Bogus version to appease perl, otherwise it finds the next "unless"
-# statement, and CPAN.pm fails.
 use vars qw($VERSION);
-$VERSION = '0.00';
+$VERSION = (qw($Revision$ ))[1];
 
 BEGIN {
   die "POE's Tk support requires version Tk 800.021 or higher.\n"

@@ -3,6 +3,10 @@
 package POE::Session;
 
 use strict;
+
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp qw(carp croak);
 use POSIX qw(ENOSYS);
 
