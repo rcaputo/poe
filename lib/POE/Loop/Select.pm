@@ -36,6 +36,7 @@ BEGIN {
 # Signal handlers.
 
 sub _substrate_signal_handler_generic {
+  TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
@@ -46,6 +47,7 @@ sub _substrate_signal_handler_generic {
 }
 
 sub _substrate_signal_handler_pipe {
+  TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
@@ -58,6 +60,7 @@ sub _substrate_signal_handler_pipe {
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
 sub _substrate_signal_handler_child {
+  TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
@@ -210,13 +213,13 @@ macro substrate_do_timeslice {
 
   if (TRACE_QUEUE) {
     warn( '*** Kernel::run() iterating.  ' .
-          sprintf("now(%.2f) timeout(%.2f) then(%.2f)\n",
+          sprintf("now(%.4f) timeout(%.4f) then(%.4f)\n",
                   $now-$^T, $timeout, ($now-$^T)+$timeout
                  )
         );
     warn( '*** Event times: ' .
           join( ', ',
-                map { sprintf('%d=%.2f',
+                map { sprintf('%d=%.4f',
                               $_->[ST_SEQ], $_->[ST_TIME] - $now
                              )
                     } @kr_events
@@ -382,8 +385,8 @@ macro substrate_do_timeslice {
 
     if (TRACE_QUEUE) {
       $event = $kr_events[0];
-      warn( sprintf('now(%.2f) ', $now - $^T) .
-            sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
+      warn( sprintf('now(%.4f) ', $now - $^T) .
+            sprintf('sched_time(%.4f)  ', $event->[ST_TIME] - $^T) .
             "seq($event->[ST_SEQ])  " .
             "name($event->[ST_NAME])\n"
           );

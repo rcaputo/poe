@@ -26,6 +26,7 @@ sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_EVENT }
 # Signal handlers.
 
 sub _substrate_signal_handler_generic {
+  TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
@@ -35,6 +36,7 @@ sub _substrate_signal_handler_generic {
 }
 
 sub _substrate_signal_handler_pipe {
+  TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel->[KR_ACTIVE_SESSION],
       $poe_kernel,
@@ -45,6 +47,7 @@ sub _substrate_signal_handler_pipe {
 }
 
 sub _substrate_signal_handler_child {
+  TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SCPOLL, ET_SCPOLL,
