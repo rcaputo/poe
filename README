@@ -11,12 +11,14 @@ much more information.
 What POE Is
 -----------
 
-POE is a mature framework for creating networking and multitasking
-programs in Perl.  It has been in active, open development since
-August 1998.  It has been used in mission-critical systems such as
-internetworked financial markets, file systems, commerce and
-application servers.  It has been used in projects ranging from a few
-lines of code to nearly 20,000.
+POE is a networking and multitasking framework for Perl.  It has been
+in active development since 1996, with its first open release in 1998.
+The Perl Conference (now OSCON) named POE "Best New Module" in 1999.
+
+POE has been used in mission-critical systems such as internetworked
+financial markets, file systems, commerce and application servers.  It
+has been used in projects ranging from a few lines of code to tens of
+thousands.
 
 POE is compatible with perl 5.005_03 and up.
 
