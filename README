@@ -32,10 +32,10 @@ Manual Installation
 
 POE can also be installed manually.  The latest CPAN version can be
 found at <ftp://ftp.cpan.org/pub/CPAN/authors/id/R/RC/RCAPUTO/> or in
-a similarl named directory at your favorite CPAN mirror.  The most
+a similarly named directory at your favorite CPAN mirror.  The most
 recent development snapshot, which only rarely contains heinous
-showstopper bugs, is available from the author's web site at
-<http://www.newts.org/~troc/poe.html>.
+showstopper bugs, is available from POE's web site at
+<http://poe.perl.org/>.
 
 Downloading and unpacking the distribution are left as an exercise for
 the reader.  To "build" and test it afterwards:
@@ -61,21 +61,21 @@ Finally you can install it:
 Test Results and Coverage
 -------------------------
 
-These are the `make test' results for POE 0.1104.  Hardware: Cyrix
+These are the `make test' results for POE 0.1105.  Hardware: Cyrix
 P166+; 64MB RAM.  Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no
 Event.
 
   All tests successful, 3 tests skipped.
-  Files=21, Tests=365, 190 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+  Files=21, Tests=365, 216 wallclock secs ( [line shortened here] )
 
-These are the `make test' results for POE 0.1104.  Hardware: AMD
+These are the `make test' results for POE 0.1105.  Hardware: AMD
 486-40 (overclocked to 50); 16MB RAM.  Software: FreeBSD 4.0-STABLE;
 perl 5.6.0; Perl/Tk 800.021; Event 0.79.
 
   All tests successful.
-  Files=21, Tests=381, 577 wallclock secs (297.42 cusr + 25.35 csys = 322.77 CPU)
+  Files=21, Tests=381, 565 wallclock secs ( [line shortened here] )
 
-These coverage results are for POE 0.1104 on the FreeBSD machine.
+These coverage results are for POE 0.1105 on the FreeBSD machine.
 This machine more thoroughly tests different POE options, so the
 coverage results are more meaningful.  Even at their best, however,
 the results are highly misleading.  They are, in fact, slightly low

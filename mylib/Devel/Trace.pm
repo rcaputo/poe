@@ -150,3 +150,89 @@ END {
 
 ###############################################################################
 1;
+
+__END__
+
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+
+*** Testing ./t/01_sessions.t ...
+1..17
+ok 1
+ok 2
+ok 3
+ok 4
+
+-------------------------------------------------------------------------------
+
+*** Testing ./t/06_tk.t ...
+1..8
+
+***
+*** Please note: This test will pop up a Tk window.
+***
+ok 1
+ok 2
+ok 3
+ok 4
+ok 5
+ok 6
+ok 7
+ok 8
+
+-------------------------------------------------------------------------------
+
+*** Testing ./t/11_signals_poe.t ...
+1..2
+
+***
+*** This test may run for up to two minutes.
+*** This delay compensates for testing on slow machines.
+***
+ok 1
+not ok 2 # reaped 0 out of 8
+>>>>>  <<<<<
+can't enqueue state(_sigchld_poll) for nonexistent session(POE::Kernel=ARRAY(0x82fcffc))
+ at ./t/11_signals_poe.t line 0
+error running ./t/11_signals_poe.t: (65280)  at lib/coverage.perl line 60.
+
+-------------------------------------------------------------------------------
+
+*** Testing ./t/12_signals_ev.t ...
+1..2
+
+***
+*** This test may run for up to two minutes.
+*** This delay compensates for testing on slow machines.
+***
+ok 1
+not ok 2 # reaped 0 out of 8
+
+-------------------------------------------------------------------------------
+
+Use of uninitialized value in hash element at lib/coverage.perl line 91, <R> line 1174.
+Use of uninitialized value in hash element at lib/coverage.perl line 91, <R> line 1174.
+Use of uninitialized value in hash element at lib/coverage.perl line 91, <R> line 2002.
+Use of uninitialized value in hash element at lib/coverage.perl line 91, <R> line 2002.
+Use of uninitialized value in hash element at lib/coverage.perl line 91, <R> line 2350.
+Use of uninitialized value in hash element at lib/coverage.perl line 91, <R> line 2350.
+Use of uninitialized value in exists at lib/coverage.perl line 84, <R> line 2473.
+Use of uninitialized value in hash element at lib/coverage.perl line 85, <R> line 2473.
+Use of uninitialized value in addition (+) at lib/coverage.perl line 85, <R> line 2473.
+Use of uninitialized value in hash element at lib/coverage.perl line 86, <R> line 2473.
+Use of uninitialized value in string ne at lib/coverage.perl line 86, <R> line 2473.
+Use of uninitialized value in string ne at lib/coverage.perl line 86, <R> line 2473.
+Use of uninitialized value in exists at lib/coverage.perl line 84, <R> line 2596.
+Use of uninitialized value in hash element at lib/coverage.perl line 85, <R> line 2596.
+Use of uninitialized value in addition (+) at lib/coverage.perl line 85, <R> line 2596.
+Use of uninitialized value in hash element at lib/coverage.perl line 86, <R> line 2596.
+Use of uninitialized value in string ne at lib/coverage.perl line 86, <R> line 2596.
+Use of uninitialized value in string ne at lib/coverage.perl line 86, <R> line 2596.
+Argument "0POE/Kernel.pm" isn't numeric in addition (+) at lib/coverage.perl line 85, <R> line 3048.
+Argument "0/Kernel.pm" isn't numeric in addition (+) at lib/coverage.perl line 85, <R> line 3602.
+Argument "0t $line\\n";" isn't numeric in addition (+) at lib/coverage.perl line 85, <R> line 3816.
+Use of uninitialized value in string ne at lib/coverage.perl line 86, <R> line 3816.
+etc.
+
+-------------------------------------------------------------------------------

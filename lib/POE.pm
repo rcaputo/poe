@@ -841,10 +841,10 @@ POE.
 
 The POE Mailing List
 
-POE has a mailing list thanks to Artur Bergman and Vogon Solutions.
-You may subscribe to it by sending e-mail:
+POE has a mailing list at perl.org.  You may subscribe to it by
+sending e-mail:
 
-  To: poe-help@vogon.se
+  To: poe-help@perl.org
   Subject: (anything will do)
 
   Anything will do for the message body.
@@ -853,9 +853,10 @@ All forms of feedback are welcome.
 
 =item *
 
-POE has a web site thanks to Johnathan Vail.  The latest POE
-development snapshot, along with the Changes file and some other stuff
-can be found at <http://www.newts.org/~troc/poe.html>.
+The POE Web Site
+
+POE has a web site where the latest development snapshot, along with
+the Changes file and other stuff may be found: <http://poe.perl.org/>
 
 =back
 

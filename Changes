@@ -56,8 +56,11 @@ Version numbers have four fields: X.YYZZAA
 `-----------------
 
 
-0.1105 2000.??.??
+0.1105 2000.08.24
 -----------------
+
+Updated README and POE's main manpage to point to the new mailing list
+and web addresses.
 
 Added a note about using the same versions of the same modules when
 passing messages across different machines.  Differences in modules or
