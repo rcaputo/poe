@@ -52,14 +52,12 @@ sub new {
         if (defined $writes_pending) {
           unless ($writes_pending) {
             $k->select_write($handle);
+            $k->post($me, $state_flushed);
           }
         }
         elsif ($!) {
           $state_error && $k->post($me, $state_error, 'write', ($!+0), $!);
           $k->select_write($handle);
-        }
-        elsif ($state_flushed) {
-          $k->post($me, $state_flushed);
         }
       }
     );
@@ -91,7 +89,7 @@ sub DESTROY {
 
 sub put {
   my $self = shift;
-  if ($self->{'driver'}->put($self->{'filter'}->put(join('', @_)))) {
+  if ($self->{'driver'}->put($self->{'filter'}->put(@_))) {
     $self->{'kernel'}->select_write($self->{'handle'}, $self->{'state write'});
   }
 }
