@@ -14,9 +14,10 @@ Documentation Roadmap
 POE includes a lot of documentation.  The main POE man page includes
 references to everything else.
 
-The CHANGES file lists all the changes in the past year.  POE's web
-site (http://poe.perl.org/) includes a complete change history broken
-down by release.
+POE has been around for a while.  The CHANGES file has been limited to
+changes in the past year to help keep the distribution size down.
+POE's web site includes a complete change history broken down by
+release.
 
 --------------
 Installing POE
@@ -31,8 +32,7 @@ POE may be installed through the CPAN shell in the usual manner.
   cpan> install POE
 
 To install on a Win32 machine using ActiveState's PPM.  If PPM fails,
-try PPM3.  We hope starting with version 0.27 that this won't be
-necessary.
+try PPM3.
 
   > ppm install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
 
@@ -59,8 +59,8 @@ POE.
 
   % make reportupload
 
-That will generate poe_report.xml and upload it to eekeek.org.  If it
-fails, you can upload it manually from the form at
+Reportupload will test POE, generate a report file, and upload it.  If
+the upload fails, you can send it manually from the form at
 <http://eekeek.org/poe-tests/>.
 
 You can also file bug reports, feature requests, and even success
