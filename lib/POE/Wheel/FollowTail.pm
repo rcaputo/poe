@@ -22,9 +22,9 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $poe_kernel);
 
-  croak "Handle required" unless (exists $params{'Handle'});
-  croak "Driver required" unless (exists $params{'Driver'});
-  croak "Filter required" unless (exists $params{'Filter'});
+  croak "Handle required"     unless (exists $params{'Handle'});
+  croak "Driver required"     unless (exists $params{'Driver'});
+  croak "Filter required"     unless (exists $params{'Filter'});
   croak "InputState required" unless (exists $params{'InputState'});
 
   my ($handle, $driver, $filter, $state_in, $state_error) =
@@ -35,42 +35,25 @@ sub new {
                         : 1
                       );
 
-  my $self = bless { 'handle' => $handle,
-                     'driver' => $driver,
-                     'filter' => $filter,
+  my $self = bless { 'handle'   => $handle,
+                     'driver'   => $driver,
+                     'filter'   => $filter,
+                     'interval' => $poll_interval,
+                     'event input' => $params{'InputState'},
+                     'event error' => $params{'ErrorEvent'},
                    }, $type;
-                                        # pre-declare (whee!)
-  $self->{'state read'} = $self . ' -> select read';
-  $self->{'state wake'} = $self . ' -> alarm';
-                                        # check for file activity
+                                        # register the input state
+  $self->_define_read_state();
+                                        # set the file position to the end
+  seek($handle, 0, SEEK_END);
+  seek($handle, -4096, SEEK_CUR);
+                                        # discard partial input chunks
+  while (defined(my $raw_input = $driver->get($handle))) {
+    $filter->get($raw_input);
+  }
+                                        # register the alarm state
   $poe_kernel->state
-    ( $self->{'state read'},
-      sub {
-                                        # prevents SEGV
-        0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
-        my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
-        
-        while (defined(my $raw_input = $driver->get($hdl))) {
-          foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            $k->call($ses, $state_in, $cooked_input)
-          }
-        }
-
-        $k->select_read($hdl);
-
-        if ($!) {
-          defined($state_error)
-            && $k->call($ses, $state_error, 'read', ($!+0), $!);
-        }
-        else {
-          $k->delay($self->{'state wake'}, $poll_interval);
-        }
-      }
-    );
-                                        # wake up and smell the filehandle
-  $poe_kernel->state
-    ( $self->{'state wake'},
+    ( $self->{'state wake'} = $self . ' -> alarm',
       sub {
                                         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
@@ -79,17 +62,73 @@ sub new {
         $k->select_read($handle, $self->{'state read'});
       }
     );
-                                        # set the file position to the end
-  seek($handle, 0, SEEK_END);
-  seek($handle, -4096, SEEK_CUR);
-                                        # discard partial lines and stuff
-  while (defined(my $raw_input = $driver->get($handle))) {
-    $filter->get($raw_input);
-  }
                                         # nudge the wheel into action
   $poe_kernel->select($handle, $self->{'state read'});
 
   $self;
+}
+
+#------------------------------------------------------------------------------
+
+sub event {
+  my $self = shift;
+  push(@_, undef) if (scalar(@_) & 1);
+
+  while (@_) {
+    my ($name, $event) = splice(@_, 0, 2);
+
+    if ($name eq 'InputState') {
+      if (defined $event) {
+        $self->{'event input'} = $event;
+      }
+      else {
+        carp "InputState requires an event name.  ignoring undef";
+      }
+    }
+    elsif ($name eq 'ErrorState') {
+      $self->{'event error'} = $event;
+    }
+    else {
+      carp "ignoring unknown ReadWrite parameter '$name'";
+    }
+  }
+
+  $self->_define_read_state();
+}
+
+#------------------------------------------------------------------------------
+
+sub _define_read_state {
+  my $self = shift;
+                                        # stupid closure trick
+  my ($event_in, $event_error, $filter, $driver, $poll_interval)
+    = @{$self}{'event input', 'event error', 'filter', 'driver', 'interval'};
+                                        # check for file activity
+  $poe_kernel->state
+    ( $self->{'state read'} = $self . ' -> select read',
+      sub {
+                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
+        my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
+        
+        while (defined(my $raw_input = $driver->get($hdl))) {
+          foreach my $cooked_input (@{$filter->get($raw_input)}) {
+            $k->call($ses, $event_in, $cooked_input)
+          }
+        }
+
+        $k->select_read($hdl);
+
+        if ($!) {
+          defined($event_error)
+            && $k->call($ses, $event_error, 'read', ($!+0), $!);
+        }
+        else {
+          $k->delay($self->{'state wake'}, $poll_interval);
+        }
+      }
+    );
 }
 
 #------------------------------------------------------------------------------
