@@ -366,10 +366,10 @@ sub register_state {
 
 #------------------------------------------------------------------------------
 
-sub ID {
-  my $self = shift;
-  $POE::Kernel::poe_kernel->ID_session_to_id($self);
-}
+#sub ID {
+#  my $self = shift;
+#  $POE::Kernel::poe_kernel->ID_session_to_id($self);
+#}
 
 #------------------------------------------------------------------------------
 

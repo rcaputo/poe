@@ -80,7 +80,7 @@ sub _define_write_state {
 
         my $writes_pending = $driver->flush($handle);
         if ($!) {
-          $event_error && $k->call($me, $event_error, 'write', ($!+0), $!);
+          $event_error && $k->call( $me, $event_error, 'write', ($!+0), $! );
           $k->select_write($handle);
         }
         elsif (defined $writes_pending) {
@@ -120,11 +120,11 @@ sub _define_read_state {
           my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
           if (defined(my $raw_input = $driver->get($handle))) {
             foreach my $cooked_input (@{$filter->get($raw_input)}) {
-              $k->call($me, $event_input, $cooked_input)
+              $k->call($me, $event_input, $cooked_input);
             }
           }
           else {
-            $event_error && $k->call($me, $event_error, 'read', ($!+0), $!);
+            $event_error && $k->call( $me, $event_error, 'read', ($!+0), $! );
             $k->select_read($handle);
           }
         }

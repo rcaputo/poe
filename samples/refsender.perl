@@ -75,7 +75,7 @@ sub client_connected {
   $heap->{'wheel'} = new POE::Wheel::ReadWrite
     ( Handle       => $socket,                    # read/write on this handle
       Driver       => new POE::Driver::SysRW,     # using sysread and syswrite
-      Filter       => new POE::Filter::Reference, # parsing data as frozen refs
+      Filter       => new POE::Filter::Reference(undef,1), # parsing refs
       InputState   => 'received',                 # generating this on input
       ErrorState   => 'error',                    # generating this on error
       FlushedState => 'flushed',                  # generating this on flush

@@ -47,6 +47,15 @@ sub get_pending
 ###############################################################################
 1;
 
+# <Abigail> All I did was change the put function to:
+# <Abigail> # Turn newlines into "\x0D\x0A". Do *not* add a trailing newline.
+# <Abigail> sub put {
+# <Abigail>   my ($self, $lines) = @_;
+# <Abigail>   # Make a copy.
+# <Abigail>   my @raw = map {my $s = $_; $s =~ s/\n/\x0D\x0A/g; $s} @$lines;
+# <Abigail>   \@raw;
+# <Abigail> }
+
 __END__
 
 =head1 NAME

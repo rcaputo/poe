@@ -95,7 +95,7 @@ sub daemon_start {
   $heap->{wheel_client} = new POE::Wheel::ReadWrite
     ( Handle     => $handle,                    # on this handle
       Driver     => new POE::Driver::SysRW,     # using sysread and syswrite
-      Filter     => new POE::Filter::Reference, # and parsing I/O as references
+      Filter     => new POE::Filter::Reference(undef,1), # parsing as refs
       InputState => 'client',           # generate this event on input
       ErrorState => 'error',            # generate this event on error
     );
