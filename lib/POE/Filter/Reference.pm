@@ -6,6 +6,7 @@ package POE::Filter::Reference;
 use strict;
 
 BEGIN {
+  local $SIG{'__DIE__'} = 'DEFAULT';
   eval {
     require Storable;
     import Storable qw(freeze thaw);
