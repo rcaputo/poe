@@ -32,21 +32,21 @@ ExtUtils::AutoInstall->import
         Socket   => '',
         'Filter::Util::Call' => 1.04,
     ],
-    "Recommended: Modules POE uses for high-resolution timers." => [
+    "Recommended modules for high-resolution timers." => [
         -default      => 0,
         'Time::HiRes' => '',
     ],
-    "Optional: Modules POE uses to control full-screen programs." => [
+    "Optional modules for controlling full-screen programs (e.g. vi)." => [
         -default  => 0,
         'IO::Pty' => '1.02',
         'IPC::Run' => '0.72',
     ],
-    "Optional: Modules POE uses to marshal/serialize data." => [
+    "Optional modules for marshaling/serializing data." => [
         -default   => 0,
         'Storable' => '',
         'Compress::Zlib' => '',
     ],
-    "Optional: Modules used in POE web applications (client & server)." => [
+    "Optional modules for web applications (client & server)." => [
         -default => 0,
         'HTTP::Status'   => '',
         'HTTP::Request'  => '',
@@ -54,17 +54,17 @@ ExtUtils::AutoInstall->import
         'HTTP::Response' => '',
         'URI'            => '',
     ],
-    "Optional: Modules POE uses for Gtk+ graphical interfaces." => [
+    "Optional modules for Gtk+ graphical interfaces." => [
         -default => 0,
         -tests => [ qw(t/21_gtk.t) ],
         'Gtk'  => '',
     ],
-    "Optional: Modules POE uses for Tk graphical interfaces." => [
+    "Optional modules for Tk graphical interfaces." => [
         -default => 0,
         -tests => [ qw(t/06_tk.t) ],
         'Tk'   => '800.021',
     ],
-    "Optional: Modules POE uses to support Event.pm." => [
+    "Optional modules for Event.pm support." => [
         -default => 0,
         -tests  => [ qw(t/07_event.t t/12_signals_ev.t) ],
         'Event' => '',
