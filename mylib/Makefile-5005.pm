@@ -37,7 +37,7 @@ unless (grep /^--default$/, @ARGV) {
 }
 
 ExtUtils::AutoInstall->import
-  ( -version => '0.32',
+  ( -version => '0.50',
     -core => [
         Carp                 => '',
         Exporter             => '',
