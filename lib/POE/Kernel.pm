@@ -8,7 +8,8 @@ use POSIX qw(EINPROGRESS EINTR);
 use IO::Select;
 use Carp;
                                         # allow subsecond alarms, if available
-eval { require Time::HiRes; import Time::HiRes qw(time sleep); };
+# eval { require Time::HiRes; import Time::HiRes qw(time sleep); };
+use Time::HiRes qw(time sleep);
 
 #------------------------------------------------------------------------------
 # states  : [ [ $session, $source_session, $state, $time, \@etc ], ... ]
@@ -500,6 +501,16 @@ sub alarm {
   }
 }
 
+sub delay {
+  my ($self, $state, $delay, @etc) = @_;
+  if (defined $delay) {
+    $self->alarm($state, time() + $delay, @etc);
+  }
+  else {
+    $self->alarm($state, 0, @etc);
+  }
+}
+
 #------------------------------------------------------------------------------
 # Select management.
 
@@ -692,6 +703,17 @@ Any given C<$state_name> may only have one alarm pending.  Setting a
 subsequent alarm for an existing state will clear all pending events
 for that state, even if the existing states were not enqueued by
 previous calls to C<alarm()>.
+
+=item $kernel->delay($state_name, $delay, @etc)
+
+Posts a state for C<$delay> seconds in the future.  This is an alias
+for C<$kernel->alarm($state_name, time() + $time, @etc)>.  If
+C<$delay> is undefined, then the delay is removed.
+
+The main benefit for having the alias within Kernel.pm is that it uses
+whichever C<time()> that POE::Kernel does.  Otherwise, POE::Session
+code may be using a different version of C<time()>, and subsecond
+delays may not be working as expected.
 
 =back
 
