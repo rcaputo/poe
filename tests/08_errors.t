@@ -9,7 +9,7 @@ use lib qw(./lib ../lib);
 use TestSetup;
 
 BEGIN {
-  &test_setup(60);
+  &test_setup(59);
 };
 
 use POSIX qw(:errno_h);
@@ -484,33 +484,29 @@ if ($^O ne 'MSWin32' and $^O ne 'MacOS') {
   print 'not ' unless defined $@ and length $@;
   print "ok 54\n";
 
-  eval 'POE::Wheel::Run->new( Program => 1, StdinEvent => 1 )';
-  print 'not ' unless defined $@ and length $@;
-  print "ok 55\n";
-
   my $pwrun =
     eval 'POE::Wheel::Run->new( Program => 1, StdinEvent => 1, Filter => 1 )';
   print 'not ' if defined $@ and length $@;
-  print "ok 56\n";
+  print "ok 55\n";
 
   eval '$pwrun->set_filter()';
   print 'not ' unless defined $@ and length $@;
-  print "ok 57\n";
+  print "ok 56\n";
 
   eval '$pwrun->set_stderr_filter()';
   print 'not ' unless defined $@ and length $@;
-  print "ok 58\n";
+  print "ok 57\n";
 
   eval '$pwrun->set_stdin_filter()';
   print 'not ' unless defined $@ and length $@;
-  print "ok 59\n";
+  print "ok 58\n";
 
   eval '$pwrun->set_stdout_filter()';
   print 'not ' unless defined $@ and length $@;
-  print "ok 60\n";
+  print "ok 59\n";
 }
 else {
-  for (53..60) {
+  for (53..59) {
     print "ok $_ # skipped: Wheel::Run not working on Win32 today\n";
   }
 }

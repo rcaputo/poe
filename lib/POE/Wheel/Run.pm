@@ -10,7 +10,7 @@ $VERSION = (qw($Revision$ ))[1];
 use Carp;
 use POSIX;  # termios stuff
 
-use POE qw(Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW);
+use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 
 BEGIN {
   die "$^O does not support fork()\n" if $^O eq 'MacOS';
@@ -121,6 +121,9 @@ sub new {
           );
 
   my $all_filter    = delete $params{Filter};
+  $all_filter = POE::Filter::Line->new(Literal => "\n")
+    unless defined $all_filter;
+
   my $stdin_filter  = delete $params{StdinFilter};
   my $stdout_filter = delete $params{StdoutFilter};
   my $stderr_filter = delete $params{StderrFilter};
@@ -812,12 +815,16 @@ STDOUT or STDERR handles, respectively.
 
 =item StderrFilter
 
-C<Filter> contains a reference to a POE::Filter class that describes
-how the child process performs input and output.  C<Filter> will be
-used to describe the child's stdin, stdout and stderr.
+C<Filter> contains an instance of a POE::Filter subclass.  The filter
+describes how the child process performs input and output.  C<Filter>
+will be used to describe the child's stdin, stdout and stderr.
+C<Filter> is optional.  If left blank, it will default to an instance
+of C<POE::Filter::Line->new(Literal => "\n");>
 
 C<StdinFilter>, C<StdoutFilter> and C<StderrFilter> can be used
-instead of C<Filter> to set different filters for each handle.
+instead of or in addition to C<Filter>.  They will override the
+default filter's selection in situations where a process' input and
+output are in different formats.
 
 =item Group
 
@@ -1011,9 +1018,6 @@ Filter changing hasn't been implemented yet.  Let the author know if
 it's needed.  Better yet, patch the file based on the code in
 Wheel::ReadWrite.
 
-Wheel::Run generates SIGCHLD.  This may eventually cause Perl to
-segfault.  Bleah.
-
 Priority is a delta; there's no way to set it directly to some value.
 
 User must be specified by UID.  It would be nice to support login
@@ -1022,7 +1026,7 @@ names.
 Group must be specified by GID.  It would be nice to support group
 names.
 
-ActiveState Perl is not going to like this module one bit.
+ActiveState Perl doesn't like this module one bit.
 
 =head1 AUTHORS & COPYRIGHTS
 
