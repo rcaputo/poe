@@ -1,40 +1,112 @@
 $Id$
 
-ABOUT:
+ABOUT POE:
 
- POE is the Perl Object Environment, a framework for non-forking, non-blocking,
- co-operative multitasking, object-oriented virtual environment.  When
- finished, it should look suspiciously like a cross between a MUD and an
- operating system.
+Poe currently contains two layers.  It will contain at least four
+before the 1.00 release.  Each successively higher layer relies on the
+presence of the ones below it.  Lower levels do not require higher
+ones.
 
-DONE:
+Layer 0 (done):
 
- * The event queue, select(2) logic, alarms and signals (Kernel.pm).
- * State machines that run within the Kernel (Session.pm).
- * Templates (Wheel.pm).
- * Basic read/write/framing operations (Wheel.pm, Driver.pm, Filter.pm).
- * Low-level object management, and object invocation as Sessions (Curator.pm).
+POE's lowest layer consists of two classes for cooperative,
+event-driven multitasking.
 
-TO DO:
+POE::Kernel is the event dispatcher, with logic for select(2), delayed
+events (alarms), and signal handling.
 
- * Higher-level object management, including inheritance, security,
-   side-effects, and standard interactions.
- * Standard object library.
- * MUD input parser.
- * Sample world.
- * Use real threads, if available.
- * (etc.)
+POE::Session is the unit of execution and ownership, like a process in
+real operating systems.  POE::Session instances are composed of event
+handlers named after the events they accept from POE::Kernel.
+
+  For some applications, it may be easier to consider POE::Session
+  to be a generic state machines.  Events handlers map to states,
+  and events signal state transitions.  Considering it this way,
+  it's possible to have multiple threads of execution (outstanding
+  state transition events) within a single POE::Session.
+
+Layer 1a (done but needs more subclasses):
+
+This layer consists of classes that contain "integrated circuit" state
+machines.  These state machine subroutines do common, reusable things.
+Their public interfaces are designed so they can interlock to perform
+larger tasks.  This layer is composed of three basic types:
+
+  Drivers.  These classes move data into and out of filehandles.
+  Typically one end of a Driver is connected to a filehandle, and the
+  other end is attached to a filter.
+
+    For example, Driver::SysRW driver performs sysread() and
+    syswrite() operations.
+
+  Filters.  These classes translate raw streams into cooked units of
+  data, and uncook data back into streams.  They are most commonly
+  placed between a Driver and a POE::Session.
+
+    For example, Filter::Line translates between raw streams and
+    newline-delimited lines.
+
+  Wheels.  These classes contain select(2) event handlers.  They can
+  use Drivers to handle file activity and Filters to frame data.
+
+    For example, Wheel::ListenAccept is a generic TCP server.
+    Wheel::ReadWrite can be used on either end of a TCP socket.
+
+Subclasses generally are interchangable.  Wherever a Driver is needed,
+just about any Driver should do.  Wherever a Filter is needed, related
+filters should also work.
+
+Layer 1b and beyond (forthcoming):
+
+The probability that a "b" layer will be implemented as it's outlined
+here decreases in proportion to its number.  Consider this vaporware
+until proven innocent.
+
+  Layer 1b will be classes that provide persistent, MUD-like objects,
+  with MUD-like security, inheritance and referential integrity.
+  These objects' methods map neatly onto POE::Session event handlers.
+  Most of the basic object features (store, fetch, execute) will be
+  coded into object #0, the basic Object, so that they can be altered
+  (with care) during runtime.
+
+  Layer 2b will be a framework of layer 1b objects that duplicate
+  drivers, filters and wheels from layer 1a.
+
+  Layer 3b will be a MUD server written in Layer 1b and 2b objects.
+  It will provide commands to modify layer 1b objects.  This will
+  allow further development to occur within the "MUD" interface.
+
+  Layer 4b will be interactive programs ('bots) written in layer
+  1b-3b objects.
+
+Things become even fuzzier after this.
+
+  A Curses-based windowing interface, written in 1b and 2b objects.
+  An earlier version of this already exists as part of Serv+Face.
+  The morbidly curious can find Serv and Face at
+  <http://www.netrus.net/users/troc/download/serv.19960826.tar.gz>.
+
+  POE::Session::Safe.  This may be a POE::Session that runs in its own
+  Safe compartment.  It would include a runtime library to replace
+  "unsafe" things with safe counterparts.
+
+  A high-level object scripting language.  It should be translated
+  into native "Safe" Perl, and evaluated into bytecode on the fly.
+
+  POE::Session::Threaded.  This would be a POE::Session that uses
+  real threads.
 
 COMPATIBILITY:
 
- POE has been tested with Perl 5.004_04 (look ma', no threads!), on recent
- versions of Linux, FreeBSD, and OS/2.  It uses some packages that aren't
- included with Perl by default [must document better].
+ POE has been tested with Perl 5.004_04 on recent versions of Linux,
+ FreeBSD, and OS/2.  It uses some packages that aren't included with
+ Perl by default [must document better].  It does not require threads
+ or other 5.004_50+ features.
 
 AVAILABILITY:
 
- The latest version of POE should be available from
- <URL:http://www.netrus.net/users/troc/perl.html>.
+ The latest version of POE is in /authors/id/R/RC/RCAPUTO/ on your
+ favorite CPAN mirror.
 
 GETTING STARTED:
 
@@ -43,9 +115,9 @@ GETTING STARTED:
    perl Makefile.PL
    make test
 
- Real tests exist within the F<tests> directory, and just happen to be examples
- of how to use different parts of POE.  Once everything looks good, it can be
- installed by typing:
+ Real tests exist within the F<tests> directory, and just happen to be
+ examples of how to use different parts of POE.  Once everything looks
+ good, it can be installed by typing:
 
    make install
 
