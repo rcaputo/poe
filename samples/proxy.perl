@@ -15,24 +15,24 @@ use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Stream
 my $log_id = 0;
 
 # Redirections are in the form:
-#  listen_address:listen_port-connect_address:connect_port
+#  listen_address:listen_port (whitespace) connect_address:connect_port
 
-my @redirects =
-  qw( 127.0.0.1:7000-127.0.0.1:7001
-      127.0.0.1:7001-127.0.0.1:7002
-      127.0.0.1:7002-127.0.0.1:7003
-      127.0.0.1:7003-127.0.0.1:7004
-      127.0.0.1:7004-127.0.0.1:7005
-      127.0.0.1:7005-127.0.0.1:7006
-      127.0.0.1:7006-127.0.0.1:7007
-      127.0.0.1:7007-127.0.0.1:7008
-      127.0.0.1:7008-127.0.0.1:7009
-      127.0.0.1:7009-nexi.com:daytime
-      127.0.0.1:7010-127.0.0.1:7010
-      127.0.0.1:7777-127.0.0.1:12345
-      127.0.0.1:6667-nexi.com:1617
-      127.0.0.1:8000-127.0.0.1:32000
-      127.0.0.1:8888-bogusmachine.nowhere.land:80
+my %redirects =
+  qw( 127.0.0.1:7000   127.0.0.1:7001
+      127.0.0.1:7001   127.0.0.1:7002
+      127.0.0.1:7002   127.0.0.1:7003
+      127.0.0.1:7003   127.0.0.1:7004
+      127.0.0.1:7004   127.0.0.1:7005
+      127.0.0.1:7005   127.0.0.1:7006
+      127.0.0.1:7006   127.0.0.1:7007
+      127.0.0.1:7007   127.0.0.1:7008
+      127.0.0.1:7008   127.0.0.1:7009
+      127.0.0.1:7009   localhost:daytime
+      127.0.0.1:7010   127.0.0.1:7010
+      127.0.0.1:7777   127.0.0.1:12345
+      127.0.0.1:6667   localhost:1617
+      127.0.0.1:8000   127.0.0.1:32000
+      127.0.0.1:8888   bogusmachine.nowhere.land:80
     );
 
 ###############################################################################
@@ -292,11 +292,11 @@ sub server_accept_failure {
 ###############################################################################
 # Parse the redirects, and create a server session for each.
 
-foreach my $redirect (@redirects) {
-  my ($local_address, $local_port, $remote_address, $remote_port) =
-    split(/[-:]+/, $redirect);
+while (my ($from, $to) = each %redirects) {
+    my ($from_address, $from_port) = split(/:/, $from);
+    my (  $to_address,   $to_port) = split(/:/, $to);
 
-  &server_create($local_address, $local_port, $remote_address, $remote_port);
+    &server_create($from_address, $from_port, $to_address, $to_port);
 }
 
 $poe_kernel->run();
