@@ -52,7 +52,7 @@ sub machine_start {
   print "ok 7\n";
 
   # Resolve against something that doesn't exist.
-  $resolved_session = $kernel->alias_resolve( 'nonexistent' );
+  $resolved_session = eval { $kernel->alias_resolve( 'nonexistent' ) };
   print "not " if defined $resolved_session;
   print "ok 8\n";
 
