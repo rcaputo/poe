@@ -535,7 +535,7 @@ name, and the remaining items will be constructor parameters for the
 filter.  For example, this changes the line separator to a vertical
 pipe:
 
-  Filter => [ "POE::Filter::Line", InputLiteral => "|" ],
+  Filter => [ "POE::Filter::Line", Literal => "|" ],
 
 Filter is optional.  The component will supply a "POE::Filter::Line"
 instance none is specified.  If you supply a different value for

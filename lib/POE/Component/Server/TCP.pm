@@ -590,7 +590,7 @@ name, and the remaining items will be constructor parameters for the
 filter.  For example, this changes the line separator to a vertical
 bar:
 
-  ClientFilter => [ "POE::Filter::Line", InputLiteral => "|" ],
+  ClientFilter => [ "POE::Filter::Line", Literal => "|" ],
 
 ClientFilter is optional.  The component will supply a
 "POE::Filter::Line" instance if none is specified.  If you supply a
@@ -612,7 +612,7 @@ Filter modules are required at runtime, and if either fails to be
 loaded, it will fall back to the defaults as if no ClientFilter
 option was defined.
 
-  ClientInputFilter  => [ "POE::Filter::Line", InputLiteral => "|" ],
+  ClientInputFilter  => [ "POE::Filter::Line", Literal => "|" ],
   ClientOutputFilter => "POE::Filter::Stream",
 
 =item ClientInput
