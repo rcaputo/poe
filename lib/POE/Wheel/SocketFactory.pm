@@ -14,6 +14,7 @@ use Symbol;
 use POSIX qw(fcntl_h);
 use Errno qw(EWOULDBLOCK EADDRNOTAVAIL EINPROGRESS EADDRINUSE);
 use Socket;
+use IO::Handle;
 use POE qw(Wheel);
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
