@@ -3016,7 +3016,7 @@ sub alias_set {
   if (exists $kr_aliases{$name}) {
     if ($kr_aliases{$name} != $kr_active_session) {
       TRACE_RETURNS and carp "alias is in use by another session";
-      ASSERT_RETURNS and carp "alias is in use by another session";
+      ASSERT_RETURNS and croak "alias is in use by another session";
       return EEXIST;
     }
     return 0;
@@ -3037,12 +3037,12 @@ sub alias_remove {
 
   unless (exists $kr_aliases{$name}) {
     TRACE_RETURNS and carp "alias does not exist";
-    ASSERT_RETURNS and carp "alias does not exist";
+    ASSERT_RETURNS and croak "alias does not exist";
     return ESRCH;
   }
   if ($kr_aliases{$name} != $kr_active_session) {
     TRACE_RETURNS and carp "alias does not belong to current session";
-    ASSERT_RETURNS and carp "alias does not belong to current session";
+    ASSERT_RETURNS and croak "alias does not belong to current session";
     return EPERM;
   }
 
@@ -3056,7 +3056,7 @@ sub alias_resolve {
   my $session = {% alias_resolve $name %};
   unless (defined $session) {
     TRACE_RETURNS and carp "alias does not exist";
-    ASSERT_RETURNS and carp "alias does not exist";
+    ASSERT_RETURNS and croak "alias does not exist";
     $! = ESRCH;
   }
   $session;
@@ -3087,7 +3087,7 @@ sub ID_id_to_session {
     return $kr_session_ids{$id};
   }
   TRACE_RETURNS and carp "ID does not exist";
-  ASSERT_RETURNS and carp "ID does not exist";
+  ASSERT_RETURNS and croak "ID does not exist";
   $! = ESRCH;
   return undef;
 }
@@ -3101,7 +3101,7 @@ sub ID_session_to_id {
     return $kr_sessions{$session}->[SS_ID];
   }
   TRACE_RETURNS and carp "session does not exist";
-  ASSERT_RETURNS and carp "session does not exist";
+  ASSERT_RETURNS and croak "session does not exist";
   $! = ESRCH;
   return undef;
 }
@@ -3150,7 +3150,7 @@ sub refcount_increment {
   }
 
   TRACE_RETURNS and carp "session does not exist";
-  ASSERT_RETURNS and carp "session does not exist";
+  ASSERT_RETURNS and croak "session does not exist";
 
   $! = ESRCH;
   undef;
@@ -3193,7 +3193,7 @@ sub refcount_decrement {
   }
 
   TRACE_RETURNS and carp "session does not exist";
-  ASSERT_RETURNS and carp "session does not exist";
+  ASSERT_RETURNS and croak "session does not exist";
 
   $! = ESRCH;
   undef;
@@ -3220,7 +3220,7 @@ sub state {
   }
 
   TRACE_RETURNS and carp "session does not exist";
-  ASSERT_RETURNS and carp "session does not exist";
+  ASSERT_RETURNS and croak "session does not exist";
 
   return ESRCH;
 }
