@@ -40,7 +40,7 @@ warn( "\n",
 # Turn on all asserts.
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::Unidirectional);
+use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::OneWay);
 
 # How many things to push through the pipe.
 my $write_max = 10;
@@ -65,7 +65,7 @@ sub io_start {
 
   # A pipe.
 
-  my ($a_read, $b_write) = POE::Pipe::Unidirectional->new();
+  my ($a_read, $b_write) = POE::Pipe::OneWay->new();
 
   # Keep a copy of the unused handles so the pipes remain whole.
   unless (defined $a_read) {

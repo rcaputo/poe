@@ -15,7 +15,7 @@ sub DEBUG () { 0 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Wheel::ReadWrite Driver::SysRW
             Filter::Block Filter::Line Filter::Reference Filter::Stream
-            Pipe::Bidirectional
+            Pipe::TwoWay
           );
 
 # Showstopper here.  Try to build a pair of file handles.  This will
@@ -25,7 +25,7 @@ use POE qw( Wheel::ReadWrite Driver::SysRW
 
 # Socketpair.  Read and write handles are the same.
 my ($master_read, $master_write, $slave_read, $slave_write) =
-  POE::Pipe::Bidirectional->new();
+  POE::Pipe::TwoWay->new();
 unless (defined $master_read) {
   &test_setup(0, "could not create a pipe in any form");
 }

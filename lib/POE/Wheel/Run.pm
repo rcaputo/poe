@@ -6,7 +6,7 @@ package POE::Wheel::Run;
 
 use strict;
 use Carp;
-use POE qw(Wheel Pipe::Unidirectional Driver::SysRW);
+use POE qw(Wheel Pipe::OneWay Driver::SysRW);
 
 # Offsets into $self.
 sub UNIQUE_ID     () {  0 }
@@ -90,15 +90,15 @@ sub new {
 
   # Make the pipes.  We make more pipes than strictly necessary in
   # case someone wants to turn some onn later.
-  my ($stdin_read,  $stdin_write)  = POE::Pipe::Unidirectional->new();
+  my ($stdin_read,  $stdin_write)  = POE::Pipe::OneWay->new();
   croak "could not make stdin pipes: $!"
     unless defined $stdin_read and defined $stdin_write;
 
-  my ($stdout_read, $stdout_write) = POE::Pipe::Unidirectional->new();
+  my ($stdout_read, $stdout_write) = POE::Pipe::OneWay->new();
   croak "could not make stdout pipes: $!"
     unless defined $stdout_read and defined $stdout_write;
 
-  my ($stderr_read, $stderr_write) = POE::Pipe::Unidirectional->new();
+  my ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
   croak "could not make stderr pipes: $!"
     unless defined $stderr_read and defined $stderr_write;
 

@@ -21,8 +21,8 @@ POE/Filter/Stream.pm
 POE/Kernel.pm
 POE/NFA.pm
 POE/Object.pm
-POE/Pipe/Bidirectional.pm
-POE/Pipe/Unidirectional.pm
+POE/Pipe/OneWay.pm
+POE/Pipe/TwoWay.pm
 POE/Preprocessor.pm
 POE/Repository/Array.pm
 POE/Runtime.pm

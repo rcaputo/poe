@@ -1,9 +1,9 @@
 # $Id$
 
-# Portable bidirectional pipe creation, trying as many different
-# methods as we can.
+# Portable one-way pipe creation, trying as many different methods as
+# we can.
 
-package POE::Pipe::Bidirectional;
+package POE::Pipe::OneWay;
 
 use strict;
 use Symbol qw(gensym);
@@ -22,8 +22,6 @@ sub new {
 
   # Generate symbols to be used as filehandles for the pipe's ends.
   my $a_read  = gensym();
-  my $a_write = gensym();
-  my $b_read  = gensym();
   my $b_write = gensym();
 
   # Try the pipe if no preferred conduit type is specified, or if the
@@ -36,24 +34,22 @@ sub new {
     # nonblocking pipes.  Even if they support pipes themselves.
     unless (RUNNING_IN_HELL) {
 
-      # Try pipes.
+      # Try pipe.
       eval {
-        pipe($a_read, $b_write) or die "pipe 1 failed: $!";
-        pipe($b_read, $a_write) or die "pipe 2 failed: $!";
+        pipe($a_read, $b_write) or die "pipe failed: $!";
       };
 
       # Pipe succeeded.
       unless (length $@) {
         DEBUG and do {
           warn "using a pipe\n";
-          warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+          warn "ar($a_read) bw($b_write)\n";
         };
 
         # Turn off buffering.  POE::Kernel does this for us, but
         # someone might want to use the pipe class elsewhere.
-        select((select($a_write), $| = 1)[0]);
         select((select($b_write), $| = 1)[0]);
-        return($a_read, $a_write, $b_read, $b_write);
+        return($a_read, $b_write);
       }
     }
   }
@@ -64,24 +60,22 @@ sub new {
        ($conduit_type eq 'socketpair')
      ) {
     eval {
-      socketpair($a_read, $b_read, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
-        or die "socketpair 1 failed: $!";
+      socketpair($a_read, $b_write, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
+        or die "socketpair failed: $!";
     };
 
     # Socketpair succeeded.
     unless (length $@) {
       DEBUG and do {
-        warn"using UNIX domain socketpairs\n";
-        warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+        warn"using a UNIX domain socketpair: ar($a_read) bw($b_write)\n";
       };
 
-      # It's bidirectional, so each reader is also a writer.
-      $a_write = $a_read;
-      $b_write = $b_read;
+      # It's one-way, so shut down the unused directions.
+      shutdown($a_read,  1);
+      shutdown($b_write, 0);
 
       # Turn off buffering.  POE::Kernel does this for us, but someone
       # might want to use the pipe class elsewhere.
-      select((select($a_write), $| = 1)[0]);
       select((select($b_write), $| = 1)[0]);
       return($a_read, $b_write);
     }
@@ -117,10 +111,7 @@ sub new {
             Reuse     => 'yes',
           );
 
-        $b_read = $acceptor->accept() or die "accept";
-
-        $a_write = $a_read;
-        $b_write = $b_read;
+        $b_write = $acceptor->accept() or die "accept";
       };
       eval 'alarm(0)' unless RUNNING_IN_HELL;
       $SIG{ALRM} = $old_sig_alarm;
@@ -129,17 +120,20 @@ sub new {
       unless (length $@) {
         DEBUG and do {
           warn "using a plain INET socket\n";
-          warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+          warn "ar($a_read) bw($b_write)\n";
         };
 
         # Try sockets more often.
         $can_run_socket = 1;
 
+        # It's one-way, so shut down the unused directions.
+        shutdown($a_read,  1);
+        shutdown($b_write, 0);
+
         # Turn off buffering.  POE::Kernel does this for us, but someone
         # might want to use the pipe class elsewhere.
-        select((select($a_write), $| = 1)[0]);
         select((select($b_write), $| = 1)[0]);
-        return($a_read, $a_write, $b_read, $b_write);
+        return($a_read, $b_write);
       }
 
       # Sockets failed.  Don't dry them again.
@@ -151,11 +145,8 @@ sub new {
 
   # There's nothing left to try.
   DEBUG and warn "nothing worked\n";
-  return(undef, undef, undef, undef);
+  return(undef, undef);
 }
 
 ###############################################################################
 1;
-
-__END__
-

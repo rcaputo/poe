@@ -12,10 +12,10 @@ use TestSetup;
 
 # Turn on all asserts, and use POE and other modules.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE qw( Wheel::Run Filter::Line Pipe::Bidirectional Pipe::Unidirectional );
+use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
 
-### Test unidirectional pipe() pipe.
-{ my ($uni_read, $uni_write) = POE::Pipe::Unidirectional->new('pipe');
+### Test one-way pipe() pipe.
+{ my ($uni_read, $uni_write) = POE::Pipe::OneWay->new('pipe');
 
   if (defined $uni_read and defined $uni_write) {
     &ok(1);
@@ -29,8 +29,8 @@ use POE qw( Wheel::Run Filter::Line Pipe::Bidirectional Pipe::Unidirectional );
   }
 }
 
-### Test unidirectional socketpair() pipe.
-{ my ($uni_read, $uni_write) = POE::Pipe::Unidirectional->new('socketpair');
+### Test one-way socketpair() pipe.
+{ my ($uni_read, $uni_write) = POE::Pipe::OneWay->new('socketpair');
 
   if (defined $uni_read and defined $uni_write) {
     &ok(3);
@@ -44,8 +44,8 @@ use POE qw( Wheel::Run Filter::Line Pipe::Bidirectional Pipe::Unidirectional );
   }
 }
 
-### Test unidirectional pair of inet sockets.
-{ my ($uni_read, $uni_write) = POE::Pipe::Unidirectional->new('inet');
+### Test one-way pair of inet sockets.
+{ my ($uni_read, $uni_write) = POE::Pipe::OneWay->new('inet');
 
   if (defined $uni_read and defined $uni_write) {
     &ok(5);
@@ -59,9 +59,9 @@ use POE qw( Wheel::Run Filter::Line Pipe::Bidirectional Pipe::Unidirectional );
   }
 }
 
-### Test bidirectional pipe.
+### Test two-way pipe.
 { my ($a_rd, $a_wr, $b_rd, $b_wr) =
-    POE::Pipe::Bidirectional->new('pipe');
+    POE::Pipe::TwoWay->new('pipe');
 
   if (defined $a_rd and defined $a_wr and defined $b_rd and defined $b_wr) {
     &ok(7);
@@ -79,9 +79,9 @@ use POE qw( Wheel::Run Filter::Line Pipe::Bidirectional Pipe::Unidirectional );
   }
 }
 
-### Test bidirectional socketpair.
+### Test two-way socketpair.
 { my ($a_rd, $a_wr, $b_rd, $b_wr) =
-    POE::Pipe::Bidirectional->new('socketpair');
+    POE::Pipe::TwoWay->new('socketpair');
 
   if (defined $a_rd and defined $a_wr and defined $b_rd and defined $b_wr) {
     &ok(10);
@@ -99,9 +99,9 @@ use POE qw( Wheel::Run Filter::Line Pipe::Bidirectional Pipe::Unidirectional );
   }
 }
 
-### Test bidirectional inet sockets.
+### Test two-way inet sockets.
 { my ($a_rd, $a_wr, $b_rd, $b_wr) =
-    POE::Pipe::Bidirectional->new('inet');
+    POE::Pipe::TwoWay->new('inet');
 
   if (defined $a_rd and defined $a_wr and defined $b_rd and defined $b_wr) {
     &ok(13);
