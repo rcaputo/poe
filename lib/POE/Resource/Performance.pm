@@ -178,9 +178,9 @@ POE::Resource::Performance -- Performance metrics for POE::Kernel
 
 =head1 DESCRIPTION
 
-This module encapsulates and provides accessors for POE::Kernel's data
-structures that track performance metrics. To enable this monitoring,
-the TRACE_PERFORMANCE flag must be true.
+This module tracks POE::Kernel's performance metrics and provides
+accessors to them.  To enable this monitoring, the TRACE_PERFORMANCE
+flag must be true.  Otherwise no statistics will be gathered.
 
 The performance counters are totalled every 30 seconds and a rolling
 average is maintained for the last two minutes worth of data. At any
@@ -188,14 +188,22 @@ time the data can be retrieved using the perf_getdata() method of the
 POE::Kernel. On conclusion of the program, the statistics will be
 printed out by the POE::Kernel.
 
-The resolution of the performance metrics is not particularly high -
-unless Time::HiRes is being used then it will only be 1 second
-granularity, which can cause various rounding errors to occur in the
-metrics.
+The time() function is used to gather performance metrics.  If
+Time::HiRes is available, it will be used automatically.  Otherwise
+time is measured in whole seconds, and the resulting rounding errors
+will make the statistics useless.
+
+The performance metrics were added to POE 0.28.  They are still
+considered highly experimental.  Please be advised that the figures
+are quite likely wrong.  They may in fact be useless.  The reader is
+invited to investigate and improve the module's methods.
 
 =head1 METRICS
 
 The following fields are members of the hash returned by perf_getdata.
+
+For each of the counters, there will a corresponding entry prefixed
+'avg_' which is the rolling average of that counter.
 
 =over 4
 
@@ -203,8 +211,24 @@ The following fields are members of the hash returned by perf_getdata.
 
 The number of events (both user and kernel) which were delayed due to
 a user event running for too long. On conclusion of the program, POE
-will display a %blocked, by comparing this value with B<user_events>.
-This value should be as low as possible to ensure minimal latency.
+will display the blocked count.  By comparing this value with
+B<user_events>.  This value should be as low as possible to ensure
+minimal latency.
+
+In practice, this number is very close to (or even above)
+B<user_events>.  Events that are even the slightest bit late count as
+"blocked".  See B<blocked_seconds>.
+
+TODO - Perhaps this should only count events that were dispatched more
+than 1/100 second or so late?  Even then, the hundredths add up in
+long running programs.
+
+=item B<blocked_seconds>
+
+The total number of seconds that handlers waited for other events or
+POE before being dispatched.  This value is not as useful as its
+average version, B<avg_blocked_seconds>, which tells you the average
+latency between an event's due time and its dispatch time.
 
 =item B<idle_seconds>
 
@@ -235,8 +259,8 @@ does not include POE's own internal events such as polling for child
 processes. At program termination, a user_load value is computed
 showing the average number of user events which are running per
 second. A very active web server would have a high load value. The
-higher the user load, the more important it is that you have a small
-B<blocked> value.
+higher the user load, the more important it is that you have small
+B<blocked> and B<blocked_seconds> values.
 
 =item B<user_seconds>
 
@@ -245,17 +269,7 @@ idle_seconds will typically add up to total_duration. Any difference
 comes down to time spent in the POE kernel (which should be minimal)
 and rounding errors.
 
-=item B<blocked_seconds>
-
-The amount of time event handlers waited for other events (or POE)
-before they could be dispatched.  This figure is not as useful as its
-average, avg_blocked_seconds, which gives the average latency between
-an event's due time and its dispatch time.
-
 =back
-
-For each of the counters, there will a corresponding entry prefixed
-'avg_' which is the rolling average of that counter.
 
 =head1 SEE ALSO
 
@@ -267,7 +281,7 @@ Probably.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Contributed to POE by Nick Williams <Nick.Williams@morganstanley.com>.
+Contributed by Nick Williams <Nick.Williams@morganstanley.com>.
 
 Please see L<POE> for more information about authors and contributors.
 
