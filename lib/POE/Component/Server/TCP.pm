@@ -73,6 +73,7 @@ sub new {
   my $client_error        = delete $param{ClientError};
   my $client_filter       = delete $param{ClientFilter};
   my $client_flushed      = delete $param{ClientFlushed};
+  my $args                = delete $param{Args};
 
   # Defaults.
 
@@ -94,6 +95,7 @@ sub new {
     $client_connected    = sub {} unless defined $client_connected;
     $client_disconnected = sub {} unless defined $client_disconnected;
     $client_flushed      = sub {} unless defined $client_flushed;
+    $args = [] unless defined $args;
 
     # Extra states.
 
@@ -119,6 +121,9 @@ sub new {
 
     croak "ObjectsStates must be a list or array reference"
       unless ref($object_states) eq 'ARRAY';
+
+    croak "Args must be an array reference"
+      unless ref($args) eq 'ARRAY';
 
     # Revise the acceptor callback so it spawns a session.
 
@@ -197,6 +202,8 @@ sub new {
             # More user supplied states.
             package_states => $package_states,
             object_states  => $object_states,
+
+            args => $args,
           );
       };
     }
@@ -246,6 +253,8 @@ sub new {
         _stop   => sub { return 0 },
         _child  => sub { },
       },
+
+      args => $args,
     );
 
   # Return undef so nobody can use the POE::Session reference.  This
@@ -300,10 +309,11 @@ POE::Component::Server::TCP - a simplified TCP server
 
   POE::Component::Server::TCP->new
     ( Port     => $bind_port,
-      Address  => $bind_address,    # Optional.
-      Domain   => AF_INET,          # Optional.
-      Acceptor => \&accept_handler, # Optional.
-      Error    => \&error_handler,  # Optional.
+      Address  => $bind_address,      # Optional.
+      Domain   => AF_INET,            # Optional.
+      Acceptor => \&accept_handler,   # Optional.
+      Error    => \&error_handler,    # Optional.
+      Args     => [ "arg0", "arg1" ], # Optional.
 
       ClientInput        => \&handle_client_input,      # Required.
       ClientConnected    => \&handle_client_connect,    # Optional.
@@ -518,6 +528,12 @@ handle.  For more information, see POE::Session's create() method.
 PackageStates holds a list reference of Perl package names and the
 events they handle.  For more information, see POE::Session's create()
 method.
+
+=item Args LISTREF
+
+Args passes the contents of a LISTREF to the ClientConnected callback via
+@_[ARG0..$#_].  It allows you to pass extra information to the session
+created to handle the client connection.
 
 =item Port
 
