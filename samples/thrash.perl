@@ -1,4 +1,4 @@
-#!perl -w -I..
+#!/usr/bin/perl -w -I..
 # $Id$
 
 # This program creates a server session and an infinitude of clients

@@ -1,4 +1,4 @@
-#!perl -w -I..
+#!/usr/bin/perl -w -I..
 # $Id$
 
 # This program tests signals.  It tests OS signals (such as SIGINT),

@@ -1,4 +1,4 @@
-#!perl -w -I..
+#!/usr/bin/perl -w -I..
 # $Id$
 
 # This is a proof of concept for pre-forking POE servers.  It

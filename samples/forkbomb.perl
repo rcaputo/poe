@@ -1,4 +1,4 @@
-#!perl -w -I..
+#!/usr/bin/perl -w -I..
 # $Id$
 
 # This is another of the earlier test programs.  It creates a single

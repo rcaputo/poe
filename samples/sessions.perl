@@ -1,4 +1,4 @@
-#!perl -w -I..
+#!/usr/bin/perl -w -I..
 # $Id$
 
 # This is the first test program written for POE.  It originally was

@@ -1,4 +1,4 @@
-#!perl -w
+#!/usr/bin/perl -w
 # $Id$
 
 use strict;
@@ -308,7 +308,7 @@ while (<>) {
   elsif (s/^\#\)\s+//) {
     &format_outline(ST_ENUMLIST, $_);
   }
-  elsif (s/^\o\)\s+//) {
+  elsif (s/^o\)\s+//) {
     &format_outline(ST_BULLETLIST, $_);
   }
   else {

@@ -24,6 +24,11 @@ format.  Some suggested questions are:
 
 Problem: You need to construct a ``safe'' Internet service daemon.
 How do you start?
+**High-Precedence Development Methodology Changes
+***Rewrite the docs
+***Move to CVS
+***Split PODs back up, and put them in their respective files
+***Lots of stuff doesn't make sense right now.
 **Short-Term Core Features & Fixes
 ***Announce 0.06
 ***Fix functions to test for C®undef¯ B®or¯ C®@_==1¯
