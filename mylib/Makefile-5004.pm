@@ -46,7 +46,7 @@ coverage: Makefile
 cover: coverage
 
 ppmdist:
-\cIecho Use a recent version of Perl to build the PPM distribution.
+\cIecho Use a modern version of Perl to build the PPM distribution.
 \cIfalse
 EOF
 }
@@ -58,12 +58,15 @@ WriteMakefile(
   dist           => {
     COMPRESS => 'gzip -9f',
     SUFFIX   => 'gz',
-    PREOP    => ( 'false' ),
+    PREOP    => (
+      'echo Use a modern version of Perl to build distributions.; ' .
+      'false'
+    ),
   },
 
   clean => {
     FILES => $clean_files,
-  }
+  },
 
   PL_FILES    => { },
   PREREQ_PM => \%core_requirements,
