@@ -1,6 +1,7 @@
 # $Id$
 
 package POE::NFA;
+use POE::Preprocessor;
 
 use strict;
 
@@ -8,8 +9,6 @@ use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(carp croak confess);
-
-use POE::Preprocessor;
 
 sub SPAWN_INLINES       () { 'inline_states' }
 sub SPAWN_OPTIONS       () { 'options' }

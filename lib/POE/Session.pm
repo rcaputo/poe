@@ -1,6 +1,7 @@
 # $Id$
 
 package POE::Session;
+use POE::Preprocessor;
 
 use strict;
 
@@ -9,8 +10,6 @@ $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(carp croak);
 use POSIX qw(ENOSYS);
-
-use POE::Preprocessor;
 
 sub SE_NAMESPACE    () { 0 }
 sub SE_OPTIONS      () { 1 }

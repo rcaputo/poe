@@ -12,6 +12,7 @@ $VERSION = (qw($Revision$ ))[1];
 
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
+use POE::Preprocessor;
 
 use strict;
 
@@ -23,8 +24,6 @@ BEGIN {
   die( "POE can't use Gtk and " . &POE_SUBSTRATE_NAME . "\n" )
     if defined &POE_SUBSTRATE;
 };
-
-use POE::Preprocessor;
 
 # Declare the substrate we're using.
 sub POE_SUBSTRATE      () { SUBSTRATE_GTK      }

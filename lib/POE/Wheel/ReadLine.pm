@@ -1,6 +1,7 @@
 # $Id$
 
 package POE::Wheel::ReadLine;
+use POE::Preprocessor;
 
 use strict;
 
@@ -10,7 +11,6 @@ $VERSION = (qw($Revision$ ))[1];
 use Carp;
 use Symbol qw(gensym);
 use POE qw(Wheel);
-use POE::Preprocessor;
 use POSIX qw(B38400);
 
 # Things we'll need to interact with the terminal.
