@@ -181,6 +181,15 @@ BEGIN {
     import Time::HiRes qw(time);
   };
 
+  # Set a constant to indicate the presence of Time::HiRes.  This
+  # enables some runtime optimization.
+  if ($@) {
+    eval 'sub HAS_TIME_HIRES () { 0 }';
+  }
+  else {
+    eval 'sub HAS_TIME_HIRES () { 1 }';
+  }
+
   # Provide a dummy EINPROGRESS for systems that don't have one.  Give
   # it an improbable errno value.
   if ($^O eq 'MSWin32') {
@@ -217,11 +226,11 @@ BEGIN {
 
   defined &ASSERT_DEFAULT or eval 'sub ASSERT_DEFAULT () { 0 }';
 
-  {% define_assert SELECT    %}
-  {% define_assert GARBAGE   %}
-  {% define_assert RELATIONS %}
-  {% define_assert SESSIONS  %}
-  {% define_assert REFCOUNT  %}
+  {% define_assert SELECT      %}
+  {% define_assert GARBAGE     %}
+  {% define_assert RELATIONS   %}
+  {% define_assert SESSIONS    %}
+  {% define_assert REFCOUNT    %}
 }
 
 # Determine whether Tk is loaded.  If it is, we switch to Tk behavior.
@@ -247,7 +256,7 @@ enum + SS_SIGNALS SS_ALIASES  SS_PROCESSES SS_ID SS_EXTRA_REFS SS_ALCOUNT
 # session handle structure
 enum   SH_HANDLE SH_REFCOUNT SH_VECCOUNT
 
-# The Kernel object.  KR_SIZE goes last.
+# The Kernel object.  KR_SIZE goes last (it's the index count).
 enum   KR_SESSIONS KR_VECTORS KR_HANDLES KR_STATES KR_SIGNALS KR_ALIASES
 enum + KR_ACTIVE_SESSION KR_PROCESSES KR_ALARMS KR_ID KR_SESSION_IDS
 enum + KR_ID_INDEX KR_SIZE
@@ -291,6 +300,12 @@ const ET_CHILD  0x0020
 const ET_SCPOLL 0x0040
 const ET_ALARM  0x0080
 const ET_SELECT 0x0100
+
+# The amount of time to spend dispatching FIFO events.  Increasing
+# this value will improve POE's FIFO dispatch performance by
+# increasing the time between select and alarm checks.
+
+const FIFO_DISPATCH_TIME 0.01
 
 #------------------------------------------------------------------------------
 # Here is a roadmap of POE's internal data structures.  It's complex
@@ -827,6 +842,19 @@ sub _dispatch_state {
         }
       }
 
+      # Free any alarms that the departing session has in its queue.
+
+      my $alarms = $self->[KR_ALARMS];
+      $index = @$alarms;
+      while ($index-- && $sessions->{$session}->[SS_ALCOUNT]) {
+        if ($alarms->[$index]->[ST_SESSION] == $session) {
+
+          {% ses_refcount_dec2 $session, SS_ALCOUNT %}
+
+          splice(@$alarms, $index, 1);
+        }
+      }
+
       # Close any selects that the session still has open.  -><- This
       # is heavy handed; it does work it doesn't need to do.  There
       # must be a better way.
@@ -923,6 +951,10 @@ sub _dispatch_state {
 #------------------------------------------------------------------------------
 # POE's main loop!
 
+# As of 0.1002: The split alarms and fifos cut simple benchmarks by
+# 200 events per second.  This is a ridiculous performance hit, and I
+# believe that most of it is unnecessary.  This loop needs a rewrite.
+
 sub run {
   my $self = shift;
 
@@ -932,15 +964,24 @@ sub run {
   my $kr_handles  = $self->[KR_HANDLES];
   my $kr_sessions = $self->[KR_SESSIONS];
   my $kr_vectors  = $self->[KR_VECTORS];
+  my $kr_alarms   = $self->[KR_ALARMS];
+
+  # Continue running while there are sessions that need to be
+  # serviced.
 
   while (keys %$kr_sessions) {
 
-    # If the queue has emptied, and there are no filehandles to
-    # generate new events, then it means that everything still alive
-    # has stalled.  In this case, we post a fictitious SIGIDLE to
-    # initiate a graceful shutdown.
+    # If the FIFO is empty, and there are no pending alarms, and there
+    # are no event generators (such as filehandles), then the main
+    # loop may be ready to end.  Broadcast a SIGIDLE to begin a
+    # graceful shutdown.  Sessions may react to this in ways that
+    # prevent the shutdown from completing.
 
-    unless (@$kr_states || keys(%$kr_handles)) {
+    # -><- It may be more efficient to manage a kernel reference count
+    # when states, alarms and handles are added or removed.  This then
+    # would become a single scalar reference check.
+
+    unless (@$kr_states || @$kr_alarms || keys(%$kr_handles)) {
       $self->_enqueue_state( $self, $self,
                              EN_SIGNAL, ET_SIGNAL,
                              [ 'IDLE' ],
@@ -948,15 +989,26 @@ sub run {
                            );
     }
 
-    # Determine how long to wait.  0s if there are pending FIFO
-    # events, or however long it takes to reach the next alarm.
+    # Set the select timeout based on current queue conditions.  If
+    # there are FIFO events, then the timeout is zero to poll select
+    # and move on.  Otherwise set the select timeout until the next
+    # pending alarm, if any are in the alarm queue.  If no FIFO events
+    # or alarms are pending, then time out after some constant number
+    # of seconds.
 
     my $now = time();
-    my $timeout = ( (@$kr_states)
-                    ? ($kr_states->[0]->[ST_TIME] - $now)
-                    : 3600
-                  );
-    $timeout = 0 if $timeout < 0;
+    my $timeout;
+
+    if (@$kr_states) {
+      $timeout = 0;
+    }
+    elsif (@$kr_alarms) {
+      $timeout = $kr_alarms->[0]->[ST_TIME] - $now;
+      $timeout = 0 if $timeout < 0;
+    }
+    else {
+      $timeout = 3600;
+    }
 
     TRACE_QUEUE and do {
       warn( '*** Kernel::run() iterating.  ' .
@@ -964,12 +1016,12 @@ sub run {
                     $now-$^T, $timeout, ($now-$^T)+$timeout
                    )
           );
-      warn( '*** Queue times: ' .
+      warn( '*** Alarm times: ' .
             join( ', ',
                   map { sprintf('%d=%.2f',
                                 $_->[ST_SEQ], $_->[ST_TIME] - $now
                                )
-                      } @$kr_states
+                      } @$kr_alarms
                 ) .
             "\n"
           );
@@ -983,13 +1035,17 @@ sub run {
       warn "`--------------------------\n";
     };
 
-    # Wait for file activity or until the next alarm, whichever comes
-    # first.
-    my $hits = select( my $rout = $kr_vectors->[VEC_RD],
-                       my $wout = $kr_vectors->[VEC_WR],
-                       my $eout = $kr_vectors->[VEC_EX],
-                       $timeout
-                     );
+    # Avoid looking at filehandles if we don't need to.
+
+    if ($timeout || keys(%$kr_handles)) {
+
+      # Check filehandles, or wait for a period of time to elapse.
+
+      my $hits = select( my $rout = $kr_vectors->[VEC_RD],
+                         my $wout = $kr_vectors->[VEC_WR],
+                         my $eout = $kr_vectors->[VEC_EX],
+                         ($timeout < 0) ? 0 : $timeout
+                       );
 
     ASSERT_SELECT and do {
       if ($hits < 0) {
@@ -1012,33 +1068,40 @@ sub run {
       warn "`---------------------------\n";
     };
 
-    # One or more files have become ready for activity.  Gather up and
-    # dispatch the pending selects.
-    if ($hits > 0) {
+      # If select has seen filehandle activity, then gather up the
+      # active filehandles and synchronously dispatch events to the
+      # appropriate states.
 
-      # This is where they're gathered.  It's a variant on a neat hack
-      # Silmaril came up with.
+      if ($hits > 0) {
 
-      # -><- This does extra work.  Some of $%kr_handles don't have
-      # all their bits set (for example; VEX_EX is rarely used).  It
-      # might be more efficient to split this into three greps, for
-      # just the vectors that need to be checked.
+        # This is where they're gathered.  It's a variant on a neat
+        # hack Silmaril came up with.
 
-      my @selects =
-        map { ( ( vec($rout, $_->[HND_FILENO], 1)
-                  ? values(%{$_->[HND_SESSIONS]->[VEC_RD]})
-                  : ( )
-                ),
-                ( vec($wout, $_->[HND_FILENO], 1)
-                  ? values(%{$_->[HND_SESSIONS]->[VEC_WR]})
-                  : ( )
-                ),
-                ( vec($eout, $_->[HND_FILENO], 1)
-                  ? values(%{$_->[HND_SESSIONS]->[VEC_EX]})
-                  : ( )
+        # -><- This does extra work.  Some of $%kr_handles don't have
+        # all their bits set (for example; VEX_EX is rarely used).  It
+        # might be more efficient to split this into three greps, for
+        # just the vectors that need to be checked.
+
+        # -><- It has been noted that map is slower than foreach when
+        # the size of a list is grown.  The list is exploded on the
+        # stack and manipulated with stack ops, which are slower than
+        # just pushing on a list.  Evil probably ensues here.
+
+        my @selects =
+          map { ( ( vec($rout, $_->[HND_FILENO], 1)
+                    ? values(%{$_->[HND_SESSIONS]->[VEC_RD]})
+                    : ( )
+                  ),
+                  ( vec($wout, $_->[HND_FILENO], 1)
+                    ? values(%{$_->[HND_SESSIONS]->[VEC_WR]})
+                    : ( )
+                  ),
+                  ( vec($eout, $_->[HND_FILENO], 1)
+                    ? values(%{$_->[HND_SESSIONS]->[VEC_EX]})
+                    : ( )
+                  )
                 )
-              )
-            } values %$kr_handles;
+              } values %$kr_handles;
 
       TRACE_SELECT and do {
         if (@selects) {
@@ -1052,27 +1115,56 @@ sub run {
         }
       };
 
-      # Dispatch the gathered selects.  They're dispatched right away
-      # because files will continue to unblock select until they're
-      # taken care of.  The idea is for select handlers to do whatever
-      # is needed to shut up select, and then they post something
-      # indicating what input was got.  Nobody seems to use them this
-      # way, though, not even me.
+        # Dispatch the gathered selects.  They're dispatched right
+        # away because files will continue to unblock select until
+        # they're taken care of.  The idea is for select handlers to
+        # do whatever is needed to shut up select, and then they post
+        # something indicating what input was got.  Nobody seems to
+        # use them this way, though, not even the author.
 
-      foreach my $select (@selects) {
-        $self->_dispatch_state( $select->[HSS_SESSION], $select->[HSS_SESSION],
-                                $select->[HSS_STATE], ET_SELECT,
-                                [ $select->[HSS_HANDLE] ],
-                                time(), __FILE__, __LINE__, undef
-                              );
-        {% collect_garbage $select->[HSS_SESSION] %}
+        foreach my $select (@selects) {
+
+          $self->_dispatch_state
+            ( $select->[HSS_SESSION], $select->[HSS_SESSION],
+              $select->[HSS_STATE], ET_SELECT,
+              [ $select->[HSS_HANDLE] ],
+              time(), __FILE__, __LINE__, undef
+            );
+          {% collect_garbage $select->[HSS_SESSION] %}
+        }
       }
     }
 
-    # Now dispatch events until the queue has caught up with reality.
+    # Dispatch whatever alarms are due.
 
     $now = time();
-    while ( @$kr_states and ($kr_states->[0]->[ST_TIME] <= $now) ) {
+    while ( @$kr_alarms and ($kr_alarms->[0]->[ST_TIME] <= $now) ) {
+
+      TRACE_QUEUE and do {
+        my $event = $kr_alarms->[0];
+        warn( sprintf('now(%.2f) ', $now - $^T) .
+              sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
+              "seq($event->[ST_SEQ])  " .
+              "name($event->[ST_NAME])\n"
+            )
+      };
+
+      # Pull an alarm off the queue.
+      my $event = shift @$kr_alarms;
+      {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
+
+      # Dispatch it, and see if that was the last thing the session
+      # needed to do.
+      $self->_dispatch_state(@$event);
+      {% collect_garbage $event->[ST_SESSION] %}
+    }
+
+    # Dispatch one or more FIFOs, if they are available.  There is a
+    # lot of latency between executions of this code block, so we'll
+    # dispatch more than one event if we can.
+
+    my $stop_time = time() + FIFO_DISPATCH_TIME;
+    while (@$kr_states) {
 
       TRACE_QUEUE and do {
         my $event = $kr_states->[0];
@@ -1091,6 +1183,14 @@ sub run {
       # needed to do.
       $self->_dispatch_state(@$event);
       {% collect_garbage $event->[ST_SESSION] %}
+
+      # If Time::HiRes isn't available, then the fairest thing to do
+      # is loop immediately.
+      last unless HAS_TIME_HIRES;
+
+      # Otherwise, dispatch more FIFO events until $stop_time is
+      # reached.
+      last unless time() < $stop_time;
     }
   }
 
@@ -1250,6 +1350,7 @@ sub trace_gc_refcount {
   warn "+----- GC test for ", {% ssid %}, " -----\n";
   warn "| ref. count    : $ss->[SS_REFCOUNT]\n";
   warn "| event count   : $ss->[SS_EVCOUNT]\n";
+  warn "| alarm count   : $ss->[SS_ALCOUNT]\n";
   warn "| child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n";
   warn "| handles in use: ", scalar(keys(%{$ss->[SS_HANDLES]})), "\n";
   warn "| aliases in use: ", scalar(keys(%{$ss->[SS_ALIASES]})), "\n";
@@ -1269,6 +1370,7 @@ sub assert_gc_refcount {
 
   my $calc_ref =
     ( $ss->[SS_EVCOUNT] +
+      $ss->[SS_ALCOUNT] +
       scalar(keys(%{$ss->[SS_CHILDREN]})) +
       scalar(keys(%{$ss->[SS_HANDLES]})) +
       scalar(keys(%{$ss->[SS_EXTRA_REFS]})) +
@@ -1304,50 +1406,71 @@ sub _enqueue_state {
      ) = @_;
 
   TRACE_EVENTS and do {
-    warn "}}} enqueuing $state for ", {% ssid %}, "\n";
+    warn "}}} enqueuing state '$state' for ", {% ssid %}, "\n";
+  };
+
+  # These things are FIFO; just enqueue it.
+
+  if (exists $self->[KR_SESSIONS]->{$session}) {
+    push @{$self->[KR_STATES]}, {% state_to_enqueue %};
+    {% ses_refcount_inc2 $session, SS_EVCOUNT %}
+  }
+  else {
+    warn ">>>>> ", join('; ', keys(%{$self->[KR_SESSIONS]})), " <<<<<\n";
+    croak "can't enqueue state($state) for nonexistent session($session)\a\n";
+  }
+}
+
+sub _enqueue_alarm {
+  my ( $self, $session, $source_session, $state, $type, $etc, $time,
+       $file, $line
+     ) = @_;
+
+  TRACE_EVENTS and do {
+    warn "}}} enqueuing alarm '$state' for ", {% ssid %}, "\n";
   };
 
   if (exists $self->[KR_SESSIONS]->{$session}) {
-    my $kr_states = $self->[KR_STATES];
+    my $kr_alarms = $self->[KR_ALARMS];
 
-    # Special case: No states in the queue.  Put the new state in the
+    # Special case: No alarms in the queue.  Put the new alarm in the
     # queue, and be done with it.
-    unless (@$kr_states) {
-      $kr_states->[0] = {% state_to_enqueue %};
+    unless (@$kr_alarms) {
+      $kr_alarms->[0] = {% state_to_enqueue %};
     }
 
     # Special case: New state belongs at the end of the queue.  Push
     # it, and be done with it.
-    elsif ($time >= $kr_states->[-1]->[ST_TIME]) {
-      push @$kr_states, {% state_to_enqueue %};
+    elsif ($time >= $kr_alarms->[-1]->[ST_TIME]) {
+      push @$kr_alarms, {% state_to_enqueue %};
     }
 
     # Special case: New state comes before earliest state.  Unshift
     # it, and be done with it.
-    elsif ($time < $kr_states->[0]->[ST_TIME]) {
-      unshift @$kr_states, {% state_to_enqueue %};
+    elsif ($time < $kr_alarms->[0]->[ST_TIME]) {
+      unshift @$kr_alarms, {% state_to_enqueue %};
     }
 
-    # Special case: Two states in the queue.  The new state enters
+    # Special case: Two alarms in the queue.  The new state enters
     # between them, because it's not before the first one or after the
     # last one.
-    elsif (@$kr_states == 2) {
-      splice @$kr_states, 1, 0, {% state_to_enqueue %};
+    elsif (@$kr_alarms == 2) {
+      splice @$kr_alarms, 1, 0, {% state_to_enqueue %};
     }
 
     # Small queue.  Perform a reverse linear search on the assumption
     # that (a) a linear search is fast enough on small queues; and (b)
     # most events will be posted for "now" which tends to be towards
     # the end of the queue.
-    elsif (@$kr_states < 32) {
-      my $index = @$kr_states;
+    elsif (@$kr_alarms < 32) {
+      my $index = @$kr_alarms;
       while ($index--) {
-        if ($time >= $kr_states->[$index]->[ST_TIME]) {
-          splice @$kr_states, $index+1, 0, {% state_to_enqueue %};
+        if ($time >= $kr_alarms->[$index]->[ST_TIME]) {
+          splice @$kr_alarms, $index+1, 0, {% state_to_enqueue %};
           last;
         }
         elsif ($index == 0) {
-          unshift @$kr_states, {% state_to_enqueue %};
+          unshift @$kr_alarms, {% state_to_enqueue %};
         }
       }
     }
@@ -1355,7 +1478,7 @@ sub _enqueue_state {
     # And finally, we have this large queue, and the program has
     # already wasted enough time.
     else {
-      my $upper = @$kr_states - 1;
+      my $upper = @$kr_alarms - 1;
       my $lower = 0;
       while ('true') {
         my $midpoint = ($upper + $lower) >> 1;
@@ -1363,20 +1486,20 @@ sub _enqueue_state {
         # Upper and lower bounds crossed.  No match; insert at the
         # lower bound point.
         if ($upper < $lower) {
-          splice @$kr_states, $lower, 0, {% state_to_enqueue %};
+          splice @$kr_alarms, $lower, 0, {% state_to_enqueue %};
           last;
         }
 
         # The key at the midpoint is too high.  The element just below
         # the midpoint becomes the new upper bound.
-        if ($time < $kr_states->[$midpoint]->[ST_TIME]) {
+        if ($time < $kr_alarms->[$midpoint]->[ST_TIME]) {
           $upper = $midpoint - 1;
           next;
         }
 
         # The key at the midpoint is too low.  The element just above
         # the midpoint becomes the new lower bound.
-        if ($time > $kr_states->[$midpoint]->[ST_TIME]) {
+        if ($time > $kr_alarms->[$midpoint]->[ST_TIME]) {
           $lower = $midpoint + 1;
           next;
         }
@@ -1385,20 +1508,20 @@ sub _enqueue_state {
         # higher keys until the midpoint points to an element with a
         # higher key.  Insert the new state before it.
         $midpoint++
-          while ( ($midpoint < @$kr_states) 
-                  and ($time == $kr_states->[$midpoint]->[ST_TIME])
+          while ( ($midpoint < @$kr_alarms) 
+                  and ($time == $kr_alarms->[$midpoint]->[ST_TIME])
                 );
-        splice @$kr_states, $midpoint, 0, {% state_to_enqueue %};
+        splice @$kr_alarms, $midpoint, 0, {% state_to_enqueue %};
         last;
       }
     }
 
     # Manage reference counts.
-    {% ses_refcount_inc2 $session, SS_EVCOUNT %}
+    {% ses_refcount_inc2 $session, SS_ALCOUNT %}
   }
   else {
     warn ">>>>> ", join('; ', keys(%{$self->[KR_SESSIONS]})), " <<<<<\n";
-    croak "can't enqueue state($state) for nonexistent session($session)\a\n";
+    croak "can't enqueue alarm($state) for nonexistent session($session)\a\n";
   }
 }
 
@@ -1478,14 +1601,14 @@ sub queue_peek_alarms {
   my @pending_alarms;
 
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
-  my $state_count = $self->[KR_SESSIONS]->{$kr_active_session}->[SS_EVCOUNT];
+  my $alarm_count = $self->[KR_SESSIONS]->{$kr_active_session}->[SS_ALCOUNT];
 
-  foreach my $state (@{$self->[KR_STATES]}) {
-    last unless $state_count;
-    next unless $state->[ST_SESSION] == $kr_active_session;
-    next unless $state->[ST_TYPE] & ET_ALARM;
-    push @pending_alarms, $state->[ST_NAME];
-    $state_count--;
+  foreach my $alarm (@{$self->[KR_ALARMS]}) {
+    last unless $alarm_count;
+    next unless $alarm->[ST_SESSION] == $kr_active_session;
+    next unless $alarm->[ST_TYPE] & ET_ALARM;
+    push @pending_alarms, $alarm->[ST_NAME];
+    $alarm_count--;
   }
 
   @pending_alarms;
@@ -1500,21 +1623,21 @@ sub alarm {
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
   # Remove all previous instances of the alarm.
-  my $index = scalar(@{$self->[KR_STATES]});
+  my $index = scalar(@{$self->[KR_ALARMS]});
   while ($index--) {
-    if ( ($self->[KR_STATES]->[$index]->[ST_TYPE] & ET_ALARM) &&
-         ($self->[KR_STATES]->[$index]->[ST_SESSION] == $kr_active_session) &&
-         ($self->[KR_STATES]->[$index]->[ST_NAME] eq $state)
+    if ( ($self->[KR_ALARMS]->[$index]->[ST_TYPE] & ET_ALARM) &&
+         ($self->[KR_ALARMS]->[$index]->[ST_SESSION] == $kr_active_session) &&
+         ($self->[KR_ALARMS]->[$index]->[ST_NAME] eq $state)
     ) {
-      {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
-      splice(@{$self->[KR_STATES]}, $index, 1);
+      {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
+      splice(@{$self->[KR_ALARMS]}, $index, 1);
     }
   }
 
   # Add the new alarm if it includes a time.
   if ($time) {
     {% clip_time_to_now $time %}
-    $self->_enqueue_state( $kr_active_session, $kr_active_session,
+    $self->_enqueue_alarm( $kr_active_session, $kr_active_session,
                            $state, ET_ALARM,
                            [ @etc ],
                            $time, (caller)[1,2]
@@ -1529,7 +1652,7 @@ sub alarm_add {
   {% clip_time_to_now $time %}
 
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
-  $self->_enqueue_state( $kr_active_session, $kr_active_session,
+  $self->_enqueue_alarm( $kr_active_session, $kr_active_session,
                          $state, ET_ALARM,
                          [ @etc ],
                          $time, (caller)[1,2]
@@ -1668,7 +1791,7 @@ sub _internal_select {
   else {
     # KR_HANDLES
 
-    # Make sure the handle is registered with the kernel.
+    # Make sure the handle is deregistered with the kernel.
 
     if (exists $kr_handles->{$handle}) {
       my $kr_handle = $kr_handles->{$handle};
@@ -1715,6 +1838,7 @@ sub _internal_select {
         unless ($kr_handle->[HND_REFCOUNT]) {
           delete $kr_handles->{$handle};
         }
+
       }
     }
 

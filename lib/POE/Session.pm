@@ -359,7 +359,7 @@ sub create {
 
         elsif (ref($handlers) eq 'HASH') {
           while (my ($state, $method) = each %$handlers) {
-            $self->register_state($method, $package, $state);
+            $self->register_state($state, $package, $method);
           }
         }
 

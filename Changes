@@ -14,16 +14,30 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 ]
 
 
-To Do
------
-
-Overhaul Kernel and Session manpages' DESCRIPTIONs.
+,----- To Do -----
+|
+| Overhaul Kernel and Session manpages' DESCRIPTIONs.
+|
+`-----------------
 
 
 0.1002 2000.??.??
 -----------------
 
 Added t/05_macros.t to test POE::Preprocessor.
+
+Split the event queue into a FIFO for plain state transitions and a
+time-ordered priority queue for alarms.  This puts POE one step closer
+to coexistence with Tk and Event.
+
+Tony Cook found and patched brokenness while defining mapped package
+states with POE::Session->create.
+
+Optimized POE::Kernel::run to reclaim the speed that was lost during
+the queue split.  Time::HiRes' presence is required to enable a big
+part of the reclaimed speed, but POE will do its best without it.  See
+the FIFO_DISPATCH_TIME constant's comments for notes on tweaking
+0.1002's performance higher than 0.1001's. :)
 
 
 0.1001 2000.04.17 (!!!)
