@@ -32,6 +32,8 @@ much more confidence in this now that it's tested.
 
 Updated documentation to point to the samples/ directory.
 
+Fixed t/test.t to point to the samples/ directory.
+
 
 0.06_07 1999.05.12
 ------------------
