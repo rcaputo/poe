@@ -17,7 +17,7 @@ use POE::Pipe;
 @POE::Pipe::TwoWay::ISA = qw( POE::Pipe );
 
 sub DEBUG () { 0 }
-sub RUNNING_IN_HELL () { $^O eq 'MSWin32' }
+sub RUNNING_IN_HELL () { $^O eq 'MSWin32' or $^O eq 'MacOS' }
 
 # This flag is set true/false after the first attempt at using plain
 # INET sockets as pipes.

@@ -46,14 +46,14 @@ sub _stop_blocking {
            0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
            $set_it
          )
-      or die "ioctl: $!";
+      or die "ioctl fails: $!";
   }
 
   # Do it the way everyone else does.
   else {
-    my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl: $!";
+    my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
     $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
-      or die "setfl: $!";
+      or die "setfl fails: $!";
   }
 }
 
@@ -72,14 +72,14 @@ sub _start_blocking {
            0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
            $unset_it
          )
-      or die "ioctl: $!";
+      or die "ioctl fails: $!";
   }
 
   # Do it the way everyone else does.
   else {
-    my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl: $!";
+    my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
     $flags = fcntl($socket_handle, F_SETFL, $flags & ~O_NONBLOCK)
-      or die "setfl: $!";
+      or die "setfl fails: $!";
   }
 }
 
