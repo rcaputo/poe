@@ -97,7 +97,7 @@ macro substrate_resume_idle_watcher {
 }
 
 macro substrate_resume_alarm_watcher {
-  my $next_time = ($poe_kernel->[KR_ALARMS]->[0]->[ST_TIME] - time()) * 1000;
+  my $next_time = ($kr_alarms[0]->[ST_TIME] - time()) * 1000;
   $next_time = 0 if $next_time < 0;
   $poe_kernel->[KR_WATCHER_TIMER] =
     Gtk->timeout_add( $next_time, \&_substrate_alarm_callback );
@@ -145,7 +145,7 @@ macro substrate_ignore_filehandle {
 }
 
 macro substrate_pause_filehandle_write_watcher {
-  my $kr_handle = $poe_kernel->[KR_HANDLES]->{$handle};
+  my $kr_handle = $kr_handles{$handle};
   Gtk::Gdk->input_remove( $kr_handle->[HND_WATCHERS]->[VEC_WR] );
   $kr_handle->[HND_WATCHERS]->[VEC_WR] = undef;
 }
@@ -153,16 +153,16 @@ macro substrate_pause_filehandle_write_watcher {
 macro substrate_resume_filehandle_write_watcher {
   # Quietly ignore requests to resume unpaused handles.
   return 1
-    if defined $poe_kernel->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR];
+    if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR];
 
-  $poe_kernel->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR] =
+  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR] =
     Gtk::Gdk->input_add( fileno($handle), 'write',
                          \&_substrate_select_write_callback, $handle
                        );
 }
 
 macro substrate_pause_filehandle_read_watcher {
-  my $kr_handle = $poe_kernel->[KR_HANDLES]->{$handle};
+  my $kr_handle = $kr_handles{$handle};
   Gtk::Gdk->input_remove( $kr_handle->[HND_WATCHERS]->[VEC_RD] );
   $kr_handle->[HND_WATCHERS]->[VEC_RD] = undef;
 }
@@ -170,9 +170,9 @@ macro substrate_pause_filehandle_read_watcher {
 macro substrate_resume_filehandle_read_watcher {
   # Quietly ignore requests to resume unpaused handles.
   return 1
-    if defined $poe_kernel->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD];
+    if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD];
 
-  $poe_kernel->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD] =
+  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD] =
     Gtk::Gdk->input_add( fileno($handle), 'read',
                          \&_substrate_select_read_callback, $handle
                        );
@@ -187,7 +187,7 @@ macro substrate_define_callbacks {
     {% test_for_idle_poe_kernel %}
 
     # Perpetuate the Gtk idle callback if there's more to do.
-    return 1 if @{$self->[KR_STATES]};
+    return 1 if @kr_states;
 
     # Otherwise stop it.
     $self->[KR_WATCHER_IDLE] = undef;
@@ -205,8 +205,8 @@ macro substrate_define_callbacks {
     $self->[KR_WATCHER_TIMER] = undef;
 
     # Register the next timeout if there are alarms left.
-    if (@{$self->[KR_ALARMS]}) {
-      my $next_time = ($self->[KR_ALARMS]->[0]->[ST_TIME] - time()) * 1000;
+    if (@kr_alarms) {
+      my $next_time = ($kr_alarms[0]->[ST_TIME] - time()) * 1000;
       $next_time = 0 if $next_time < 0;
       $self->[KR_WATCHER_TIMER] =
         Gtk->timeout_add( $next_time, \&_substrate_alarm_callback );

@@ -94,7 +94,7 @@ macro substrate_resume_idle_watcher {
 }
 
 macro substrate_resume_alarm_watcher {
-  $self->[KR_WATCHER_TIMER]->at($self->[KR_ALARMS][0]->[ST_TIME]);
+  $self->[KR_WATCHER_TIMER]->at($kr_alarms[0]->[ST_TIME]);
   $self->[KR_WATCHER_TIMER]->start();
 }
 
@@ -123,19 +123,19 @@ macro substrate_ignore_filehandle {
 }
 
 macro substrate_pause_filehandle_write_watcher {
-  $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
+  $kr_handles->{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
 }
 
 macro substrate_resume_filehandle_write_watcher {
-  $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
+  $kr_handles->{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
 }
 
 macro substrate_pause_filehandle_read_watcher {
-  $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD]->stop();
+  $kr_handles->{$handle}->[HND_WATCHERS]->[VEC_RD]->stop();
 }
 
 macro substrate_resume_filehandle_read_watcher {
-  $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD]->start();
+  $kr_handles->{$handle}->[HND_WATCHERS]->[VEC_RD]->start();
 }
 
 macro substrate_define_callbacks {
@@ -148,7 +148,7 @@ macro substrate_define_callbacks {
     # Stop the idle watcher if there are no more state transitions in
     # the Kernel's FIFO.
 
-    unless (@{$self->[KR_STATES]}) {
+    unless (@kr_states) {
       $self->[KR_WATCHER_IDLE]->stop();
 
       # Make sure the kernel can still run.
@@ -164,8 +164,8 @@ macro substrate_define_callbacks {
 
     # Register the next timed callback if there are alarms left.
 
-    if (@{$self->[KR_ALARMS]}) {
-      $self->[KR_WATCHER_TIMER]->at( $self->[KR_ALARMS]->[0]->[ST_TIME] );
+    if (@kr_alarms) {
+      $self->[KR_WATCHER_TIMER]->at( $kr_alarms[0]->[ST_TIME] );
       $self->[KR_WATCHER_TIMER]->start();
     }
 

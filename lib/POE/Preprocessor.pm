@@ -3,6 +3,7 @@
 package POE::Preprocessor;
 
 use strict;
+use Carp qw(croak);
 use Filter::Util::Call;
 
 sub MAC_PARAMETERS () { 0 }

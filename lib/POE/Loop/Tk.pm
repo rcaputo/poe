@@ -102,7 +102,7 @@ macro substrate_resume_alarm_watcher {
     $self->[KR_WATCHER_TIMER] = undef;
   }
 
-  my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
+  my $next_time = $kr_alarms[0]->[ST_TIME] - time();
   $next_time = 0 if $next_time < 0;
   $self->[KR_WATCHER_TIMER] =
     $poe_main_window->after( $next_time * 1000, \&_substrate_alarm_callback );
@@ -225,7 +225,7 @@ macro substrate_define_callbacks {
     # I couldn't get anyone to test it on other platforms... (Hey,
     # this could trash yoru desktop! Wanna try it?) :)
 
-    if (@{$self->[KR_STATES]}) {
+    if (@kr_states) {
       $poe_main_window->after
         ( 0,
           sub {
@@ -255,7 +255,7 @@ macro substrate_define_callbacks {
 
     # Register the next timed callback if there are alarms left.
 
-    if (@{$self->[KR_ALARMS]}) {
+    if (@kr_alarms) {
 
       # Cancel the Tk alarm that handles alarms.
 
@@ -272,8 +272,8 @@ macro substrate_define_callbacks {
               $self->[KR_WATCHER_TIMER]->cancel();
               $self->[KR_WATCHER_TIMER] = undef;
 
-              if (@{$self->[KR_ALARMS]}) {
-                my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
+              if (@kr_alarms) {
+                my $next_time = $kr_alarms[0]->[ST_TIME] - time();
                 $next_time = 0 if $next_time < 0;
 
                 $self->[KR_WATCHER_TIMER] =

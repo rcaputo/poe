@@ -59,7 +59,6 @@ $poe_kernel = undef;
 #   ],
 #   ...
 # ]
-
 my @kr_states;
 
 # alarms:
@@ -68,15 +67,12 @@ my @kr_states;
 #   ],
 #   ...
 # ]
-
 my @kr_alarms;
 
 # processes: { $pid => $parent_session, ... }
-
 my %kr_processes;
 
 # session IDs: { $id => $session, ... }
-
 my %kr_session_ids;
 
 # handles:
@@ -91,15 +87,12 @@ my %kr_session_ids;
 #     [ $watcher_r, $watcher_w, $watcher_x ],
 #   ]
 # };
-
 my %kr_handles;
 
 # vectors: [ $read_vector, $write_vector, $expedite_vector ];
-
 my @kr_vectors = ( '', '', '' );
 
 # signals: { $signal => { $session => $state, ... } };
-
 my %kr_signals;
 
 # sessions:
@@ -124,11 +117,9 @@ my %kr_signals;
 #     $alarm_count,                # alarm count
 #   ]
 # };
-
 my %kr_sessions;
 
 # aliases: { $alias => $session };
-
 my %kr_aliases;
 
 #------------------------------------------------------------------------------
@@ -162,7 +153,6 @@ enum ST_SESSION ST_SOURCE ST_NAME ST_TYPE ST_ARGS
 enum + ST_TIME ST_OWNER_FILE ST_OWNER_LINE ST_SEQ
 
 # These are names of internal events.
-
 const EN_START  '_start'
 const EN_STOP   '_stop'
 const EN_SIGNAL '_signal'
@@ -172,7 +162,6 @@ const EN_CHILD  '_child'
 const EN_SCPOLL '_sigchld_poll'
 
 # These are ways a child may come or go.
-
 const CHILD_GAIN   'gain'
 const CHILD_LOSE   'lose'
 const CHILD_CREATE 'create'
@@ -182,7 +171,6 @@ const CHILD_CREATE 'create'
 # ET_ALARM describes anything posted by an alarm call.  Types are
 # preferred over names because bitmask tests tend to be faster than
 # string equality checks.
-
 const ET_USER     0x0001
 const ET_CALL     0x0002
 const ET_START    0x0004
@@ -197,8 +185,8 @@ const ET_SELECT   0x0400
 
 # The amount of time to spend dispatching FIFO events.  Increasing
 # this value will improve POE's FIFO dispatch performance by
-# increasing the time between select and alarm checks.
-
+# increasing the time between select and alarm checks.  It's only
+# meaningful when Time::HiRes is available.
 const FIFO_DISPATCH_TIME 0.01
 
 #------------------------------------------------------------------------------
