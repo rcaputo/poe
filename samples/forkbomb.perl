@@ -24,6 +24,7 @@ sub forkbomb {
        my ($k, $me, $from) = @_;
        $me->{'id'} = ++$forkbomber;
        print $me->{'id'}, ": starting...\n";
+       $k->sig('INT', 'signal handler');
        $k->post_state($me, 'fork');
      },
      '_stop' => sub
@@ -40,6 +41,11 @@ sub forkbomb {
      {
        my ($k, $me, $new_parent) = @_;
        print $me->{'id'}, ": parent now is $new_parent ...\n";
+     },
+     'signal handler' => sub 
+     {
+       my ($k, $me, $from, $signal) = @_;
+       print $me->{'id'}, ": caught SIG$signal\n";
      },
      'fork' => sub
      {

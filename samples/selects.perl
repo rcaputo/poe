@@ -12,6 +12,8 @@ use POSIX;                              # for EAGAIN
 
 my $kernel = new POE::Kernel();
 
+my $chargen_port = 30020;
+
 #------------------------------------------------------------------------------
 # Chargen server.
 
@@ -21,8 +23,8 @@ new POE::Session
    '_start' => sub
    {
      my ($k, $me, $from) = @_;
-     print "Starting chargen server on port 30019 ...\n";
-     my $listener = new IO::Socket::INET('LocalPort' => 30019,
+     print "Starting chargen server on port $chargen_port ...\n";
+     my $listener = new IO::Socket::INET('LocalPort' => $chargen_port,
                                          'Listen'    => 5,
                                          'Proto'     => 'tcp',
                                          'Reuse'     => 'yes',
@@ -32,7 +34,7 @@ new POE::Session
        $k->select($listener, 'accept');
      }
      else {
-       warn "chargen service not started - listen on 30019 failed: $!";
+       warn "chargen service not started - listen on $chargen_port failed: $!";
      }
    },
    '_stop' => sub
@@ -134,7 +136,7 @@ new POE::Session
      print "Starting chargen client ...\n";
      $me->{'lines read'} = 0;
      my $listener = new IO::Socket::INET('PeerHost' => 'localhost',
-                                         'PeerPort' => 30019,
+                                         'PeerPort' => $chargen_port,
                                          'Proto'    => 'tcp',
                                          'Reuse'    => 'yes',
                                         );
@@ -169,7 +171,7 @@ new POE::Session
        print $buffer;
        $me->{'lines read'} += ($buffer =~ s/(\x0D\x0A)/$1/g);
        if ($me->{'lines read'} > 5) {
-         $k->select($handle, undef, undef, undef);
+         $k->select($handle);
        }
      }
    },
