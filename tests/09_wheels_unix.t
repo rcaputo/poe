@@ -8,6 +8,11 @@ use lib qw(./lib ../lib);
 use TestSetup;
 use Socket;
 
+BEGIN {
+  &test_setup(0, "Windows doesn't seem to do UNIX sockets")
+    if $^O eq 'MSWin32';
+};
+
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Wheel::SocketFactory
@@ -118,8 +123,8 @@ sub server_unix_answered {
 }
 
 sub server_unix_error {
-  warn $_[SESSION]->ID;
-  # catch failed creates
+  my ($session, $operation, $errnum, $errstr) = @_[SESSION, ARG0..ARG2];
+  warn $session->ID, " got $operation error $errnum: $errstr\n";
 }
 
 # This arrives with 'lose' when a server session has closed.
@@ -190,8 +195,8 @@ sub client_unix_got_line {
 }
 
 sub client_unix_got_error {
-  my ($operation, $errnum, $errstr) = @_[ARG0..ARG2];
-  warn "$operation error $errnum: $errstr";
+  my ($session, $operation, $errnum, $errstr) = @_[SESSION, ARG0..ARG2];
+  warn $session->ID, " caught $operation error $errnum: $errstr";
 }
 
 sub client_unix_got_flush {

@@ -55,6 +55,7 @@ Version numbers have four fields: X.YYZZAA
 |
 `-----------------
 
+
 0.1105 2000.??.??
 -----------------
 
@@ -64,6 +65,21 @@ versions can introduce some pretty subtle and nasty problems.
 
 t/19_filterchange.t wouldn't work without Storable.  Made it use
 lib/MyOtherFreezer instead, so at least filter changing can be tested.
+
+Bypass alarm(3) calls in lib/TestPipe.pm when trying to create
+non-blocking pipes on MSWin32 systems.
+
+Bypass DISPLAY environment variable checking in t/06_tk.t on MSWin32
+systems.  Perl/Tk doesn't seem to use DISPLAY there.
+
+Made the tests' missing module messages more comprehensible.
+Hopefully they'll have a lesser tendency to be mistaken for test
+failures now.
+
+Skipped UNIX domain sockets tests on MSWin32, which seems not to
+support them.
+
+Skipped signals tests on MSWin32, which doesn't seem to do signals.
 
 
 0.1104 2000.08.12

@@ -14,7 +14,8 @@ BEGIN {
   unless (exists $INC{'Event.pm'}) {
     &test_setup(0, 'the Event module is not installed');
   }
-}
+  &test_setup(0, "Windows doesn't seem to do signals") if $^O eq 'MSWin32';
+};
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

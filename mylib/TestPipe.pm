@@ -7,6 +7,7 @@ use Symbol qw(gensym);
 use IO::Socket;
 
 sub DEBUG () { 0 }
+sub RUNNING_IN_HELL () { $^O eq 'MSWin32' }
 
 sub new {
   my $type = shift;
@@ -20,7 +21,7 @@ sub new {
 
   # Try a pair of pipes.  Avoid doing this on systems that don't
   # support non-blocking pipes.
-  if ($^O ne 'MSWin32') {
+  unless (RUNNING_IN_HELL) {
     eval {
       pipe($a_read, $b_write) or die "pipe failed";
       pipe($b_read, $a_write) or die "pipe failed";
@@ -39,7 +40,7 @@ sub new {
   my $old_sig_alarm = $SIG{ALRM};
   eval {
     local $SIG{ALRM} = sub { die "deadlock" };
-    alarm(5);
+    eval 'alarm(5)' unless RUNNING_IN_HELL;
 
     my $acceptor = IO::Socket::INET->new
       ( LocalAddr => '127.0.0.1',
@@ -59,7 +60,7 @@ sub new {
     $a_write = $a_read;
     $b_write = $b_read;
   };
-  alarm(0);
+  eval 'alarm(0)' unless RUNNING_IN_HELL;
   $SIG{ALRM} = $old_sig_alarm;
 
   unless (length $@) {

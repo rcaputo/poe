@@ -17,16 +17,20 @@ use TestPipe;
 
 # Skip if Tk isn't here.
 BEGIN {
-  unless ( exists $ENV{'DISPLAY'} and
-           defined $ENV{'DISPLAY'} and
-           length $ENV{'DISPLAY'}
-         ) {
-    &test_setup(0, 'no DISPLAY is set');
-  }
   eval 'use Tk';
-  &test_setup(0, "use Tk failed (Tk probably isn't installed)") if length $@;
-  unless (exists $INC{'Tk.pm'}) {
-    &test_setup(0, 'the Tk module is not installed');
+  &test_setup(0, 'need the Tk module installed to run this test')
+    if ( length($@) or
+         not exists($INC{'Tk.pm'})
+       );
+  }
+  # MSWin32 doesn't need DISPLAY set.
+  if ($^O ne 'MSWin32') {
+    unless ( exists $ENV{'DISPLAY'} and
+             defined $ENV{'DISPLAY'} and
+             length $ENV{'DISPLAY'}
+           ) {
+      &test_setup(0, "can't test Tk without a DISPLAY (set one today, ok?)");
+    }
   }
 };
 

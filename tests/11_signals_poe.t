@@ -7,6 +7,11 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
+
+BEGIN {
+  &test_setup(0, "Windows doesn't seem to do signals") if $^O eq 'MSWin32';
+};
+
 &test_setup(2);
 
 # Turn on all asserts.

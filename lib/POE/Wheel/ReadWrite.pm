@@ -576,8 +576,8 @@ change the input or output filters separately.
 
 =item *
 
-POE::Wheel::ReadWrite->set_high_mark( $high_mark_octets )
-POE::Wheel::ReadWrite->set_low_mark( $low_mark_octets )
+POE::Wheel::ReadWrite::set_high_mark( $high_mark_octets )
+POE::Wheel::ReadWrite::set_low_mark( $low_mark_octets )
 
 Sets the high and low watermark octet counts.  They will not take
 effect until the next $wheel->put() or internal buffer flush.

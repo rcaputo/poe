@@ -14,9 +14,10 @@ use TestPipe;
 # Skip if Event isn't here.
 BEGIN {
   eval 'use Event';
-  unless (exists $INC{'Event.pm'}) {
-    &test_setup(0, 'the Event module is not installed');
-  }
+  &test_setup(0, 'need the Event module installed to run this test')
+    if ( length($@) or
+         not exists($INC{'Event.pm'})
+       );
 };
 
 &test_setup(6);

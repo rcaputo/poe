@@ -15,7 +15,9 @@ use TestSetup;
 { local $SIG{__WARN__} = sub { };
   my $reference = eval { POE::Filter::Reference->new(); };
   if (length $@) {
-    $@ =~ s/\n.*$//;
+    &test_setup(0, "can't test without either Storable or FreezeThaw")
+      if $@ =~ /requires Storable/;
+    $@ =~ s/ at .*$//s;
     &test_setup(0, $@);
     exit;
   }
