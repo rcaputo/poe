@@ -339,8 +339,8 @@ sub new {
     ], $type;
 
   # Wait here while the child sets itself up.
-  close $sem_pipe_read;
   <$sem_pipe_read>;
+  close $sem_pipe_read;
   close $sem_pipe_write;
 
   $self->_define_stdin_flusher();
