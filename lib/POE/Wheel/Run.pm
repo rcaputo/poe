@@ -16,19 +16,28 @@ BEGIN {
     IO::Pty->import();
     eval 'sub PTY_AVAILABLE () { 1 }';
   }
+
   # How else can I get them out?!
   if (eval '&IO::Tty::Constant::TIOCSCTTY') {
     *TIOCSCTTY = *IO::Tty::Constant::TIOCSCTTY;
   }
-  else { eval 'sub TIOCSCTTY () { undef }'; }
+  else {
+    eval 'sub TIOCSCTTY () { undef }';
+  }
+
   if (eval '&IO::Tty::Constant::CIBAUD') {
     *CIBAUD = *IO::Tty::Constant::CIBAUD;
   }
-  else { eval 'sub CIBAUD () { undef; }'; }
+  else {
+    eval 'sub CIBAUD () { undef; }';
+  }
+
   if (eval '&IO::Tty::Constant::TIOCSWINSZ') {
     *TIOCSWINSZ = *IO::Tty::Constant::TIOCSWINSZ;
   }
-  else { eval 'sub TIOCSWINSZ () { undef; }'; }
+  else {
+    eval 'sub TIOCSWINSZ () { undef; }';
+  }
 };
 
 # Offsets into $self.
@@ -263,6 +272,11 @@ sub new {
     if (ref($program) eq 'ARRAY') {
       exec(@$program) or die "can't exec (@$program) in child pid $$: $!";
     }
+    elsif (ref($program) eq 'CODE') {
+      $program->();
+      eval { POSIX::_exit(0); };
+      exit(0);
+    }
     else {
       exec($program) or die "can't exec ($program) in child pid $$: $!";
     }
@@ -305,7 +319,7 @@ sub new {
   <$sem_pipe_read>;
   close $sem_pipe_read;
 
-  $self->_define_stdin_flusher() if defined $stdin_event;
+  $self->_define_stdin_flusher();
   $self->_define_stdout_reader() if defined $stdout_event;
   $self->_define_stderr_reader() if defined $stderr_event;
 
@@ -715,15 +729,20 @@ to be running as root for that to work.
 =item Program
 
 C<Program> is the program to exec() once pipes and fork have been set
-up.  C<Program> can contain either a scalar or an array reference, and
-that form will tell Wheel::Run how to exec() the program.
+up.  C<Program>'s type determines how the program will be run.
 
-If C<Program> holds a scalar, the child will be executed as
-exec($program).  exec() may pass C<Program> through a shell to expand
+If C<Program> holds a scalar, it will be executed as exec($scalar).
+Shell metacharacters will be expanded in this form.
+
+If C<Program> holds an array reference, it will executed as
+exec(@$array).  This form of exec() doesn't expand shell
 metacharacters.
 
-If C<Program> holds an array reference, the child will be executed as
-exec(@$program).  This form doesn't get passed through a shell.
+If C<Program> holds a code reference, it will be called in the forked
+child process, and then the child will exit.  This allows Wheel::Run
+to fork off bits of long-running code which can accept STDIN input and
+pass responses to STDOUT and/or STDERR.  Note, however, that POE's
+services are effectively disabled in the child process.
 
 L<perlfunc> has more information about exec() and the different ways
 to call it.
