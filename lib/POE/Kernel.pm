@@ -633,13 +633,15 @@ macro enqueue_ready_selects (<fileno>,<vector>) {
 
 sub SUBSTRATE_NAME_EVENT  () { 'Event.pm' }
 sub SUBSTRATE_NAME_GTK    () { 'Gtk.pm'   }
+sub SUBSTRATE_NAME_POLL   () { 'Poll.pm'  }
 sub SUBSTRATE_NAME_SELECT () { 'select()' }
 sub SUBSTRATE_NAME_TK     () { 'Tk.pm'    }
 
 sub SUBSTRATE_EVENT  () { 0x01 }
 sub SUBSTRATE_GTK    () { 0x02 }
-sub SUBSTRATE_SELECT () { 0x04 }
-sub SUBSTRATE_TK     () { 0x08 }
+sub SUBSTRATE_POLL   () { 0x04 }
+sub SUBSTRATE_SELECT () { 0x08 }
+sub SUBSTRATE_TK     () { 0x10 }
 
 BEGIN {
   if (exists $INC{'Gtk.pm'}) {
@@ -655,6 +657,11 @@ BEGIN {
   if (exists $INC{'Event.pm'}) {
     require POE::Kernel::Event;
     POE::Kernel::Event->import();
+  }
+
+  if (exists $INC{'IO/Poll.pm'}) {
+    require POE::Kernel::Poll;
+    POE::Kernel::Poll->import();
   }
 
   unless (defined &POE_SUBSTRATE) {
@@ -3331,11 +3338,11 @@ written entirely in Perl.  To use it, simply:
 
   use POE;
 
-POE's event loop will also work cooperatively with Gtk's, Tk's or
-Event's.  POE will see one of these three modules if it's used first
-and change its behavior accordingly.
+POE can adapt itself to work with other event loops and I/O multiplex
+systems.  Currently it adapts to Gtk, Tk, Event.pm, or IO::Poll when
+one of those modules is used before POE::Kernel.
 
-  use Gtk;  # or use Tk; or use Event;
+  use Gtk;  # Or Tk, Event, or IO::Poll;
   use POE;
 
 Methods to manage the process' global Kernel instance:
@@ -4623,10 +4630,24 @@ allows it to implement safe signals.
 This loop allows POE to work in graphical programs using the Gtk-Perl
 library.
 
+  use Gtk;
+  use POE;
+
+=item IO::Poll
+
+IO::Poll is potentially more efficient than POE's default select()
+code in large scale clients and servers.
+
+  use IO::Poll;
+  use POE;
+
 =item Tk's Event Loop
 
 This loop allows POE to work in graphical programs using the Tk-Perl
 library.
+
+  use Event;
+  use POE;
 
 =back
 

@@ -32,9 +32,13 @@ ExtUtils::AutoInstall->import
         Socket   => '',
         'Filter::Util::Call' => 1.04,
     ],
-    "Recommended modules for high-resolution timers." => [
+    "Recommended modules to increase timer/alarm/delay accuracy." => [
         -default      => 0,
         'Time::HiRes' => '',
+    ],
+    "Optional modules to speed up large-scale clients/servers." => [
+        -default => 0,
+        IO::Poll => 0.05,
     ],
     "Optional modules for controlling full-screen programs (e.g. vi)." => [
         -default  => 0,

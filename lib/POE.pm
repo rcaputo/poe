@@ -754,8 +754,8 @@ from this list, please let Rocco know.
 
 Ann Barcomb is <kudra@domaintje.com>, aka C<kudra>.  Ann contributed
 large portions of POE::Simple and the code that became the ReadWrite
-support in POE::Component::Server::TCP.  Her ideas were also used in
-the Client::TCP component introduced in version 0.1702.
+support in POE::Component::Server::TCP.  Her ideas also inspired
+Client::TCP component, introduced in version 0.1702.
 
 =item Artur Bergman
 
@@ -856,6 +856,11 @@ computers, towards the detection and eradication of a memory
 corruption bug that POE tickled in earlier Perl versions.  In the end,
 his work produced a simple compile-time hack that worked around a
 problem relating to anonymous subs, scope and @{} processing.
+
+=item Matt Sergeant
+
+Matt contributed POE::Kernel::Poll, a more efficient way to watch
+multiple files than select().
 
 =item Richard Soderberg
 

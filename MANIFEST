@@ -22,6 +22,7 @@ POE/Filter/Stream.pm
 POE/Kernel.pm
 POE/Kernel/Event.pm
 POE/Kernel/Gtk.pm
+POE/Kernel/Poll.pm
 POE/Kernel/Select.pm
 POE/Kernel/Tk.pm
 POE/NFA.pm
@@ -105,3 +106,4 @@ t/23_nfa.t
 t/24_filter_stack.t
 t/25_detach.t
 t/26_comp_tcp.t
+t/27_poll.t
