@@ -120,13 +120,23 @@ sub new {
             defined($stderr_event)
           );
 
-  my $stdio_filter = delete $params{StdioFilter};
-  $stdio_filter = POE::Filter::Line->new(Literal => "\n")
-    unless defined $stdio_filter;
-
   my $stdin_filter  = delete $params{StdinFilter};
   my $stdout_filter = delete $params{StdoutFilter};
   my $stderr_filter = delete $params{StderrFilter};
+
+  my $stdio_filter = delete $params{Filter};
+  if (defined $stdio_filter) {
+    croak "Filter and StdioFilter cannot be used together"
+      if defined $params{StdioFilter};
+    croak "Replace deprecated Filter with StdioFilter and StderrFilter"
+      if defined $stderr_event and not defined $stderr_filter;
+    carp "Filter is deprecated.  Please use StdioFilter and/or StderrFilter";
+  }
+  else {
+    $stdio_filter = delete $params{StdioFilter};
+  }
+  $stdio_filter = POE::Filter::Line->new(Literal => "\n")
+    unless defined $stdio_filter;
 
   $stdin_filter  = $stdio_filter unless defined $stdin_filter;
   $stdout_filter = $stdio_filter unless defined $stdout_filter;
@@ -731,8 +741,8 @@ POE::Wheel::Run - event driven fork/exec with added value
     StdoutEvent => 'stdout', # Event to emit with child stdout information.
     StderrEvent => 'stderr', # Event to emit with child stderr information.
 
-    # Identify the child process' I/O type.
-    Filter => POE::Filter::Line->new(), # Or some other filter.
+    # Set StdinFilter and StdoutFilter together.
+    StdioFilter => POE::Filter::Line->new(),    # Or some other filter.
 
     # May also specify filters per handle.
     StdinFilter  => POE::Filter::Line->new(),   # Child accepts input as lines.
@@ -806,7 +816,7 @@ C<StdoutEvent> and C<StderrEvent> contain names of events that
 Wheel::Run emits whenever the child process writes something to its
 STDOUT or STDERR handles, respectively.
 
-=item Filter
+=item StdioFilter
 
 =item StdinFilter
 
@@ -814,16 +824,19 @@ STDOUT or STDERR handles, respectively.
 
 =item StderrFilter
 
-C<Filter> contains an instance of a POE::Filter subclass.  The filter
-describes how the child process performs input and output.  C<Filter>
-will be used to describe the child's stdin, stdout and stderr.
-C<Filter> is optional.  If left blank, it will default to an instance
-of C<POE::Filter::Line->new(Literal => "\n");>
+C<StdioFilter> contains an instance of a POE::Filter subclass.  The
+filter describes how the child process performs input and output.
+C<Filter> will be used to describe the child's stdin and stdout
+methods.  If stderr is also to be used, StderrFilter will need to be
+specified separately.
 
-C<StdinFilter>, C<StdoutFilter> and C<StderrFilter> can be used
-instead of or in addition to C<Filter>.  They will override the
-default filter's selection in situations where a process' input and
-output are in different formats.
+C<Filter> is optional.  If left blank, it will default to an
+instance of C<POE::Filter::Line->new(Literal => "\n");>
+
+C<StdinFilter> and C<StdoutFilter> can be used instead of or in
+addition to C<StdioFilter>.  They will override the default filter's
+selection in situations where a process' input and output are in
+different formats.
 
 =item Group
 
