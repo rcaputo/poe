@@ -1052,17 +1052,34 @@ sub _data_handle_add {
       # about everywhere, so I don't need to add checks for AS Perl
       # 5.8.0, AS Perl 5.6.1, and Everybody else.
 
-      $handle->blocking(0);
+      # RCC 2003-01-20: Perl 5.005_03 doesn't like blocking(), so
+      # we'll only call it in Perl 5.8.0 and beyond.
 
-      # Make the handle stop blocking, the POSIX way.
-      #unless (RUNNING_IN_HELL) {
-      #  my $flags = fcntl($handle, F_GETFL, 0)
-      #    or confess "fcntl($handle, F_GETFL, etc.) fails: $!\n";
-      #  until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
-      #    confess "fcntl($handle, FSETFL, etc) fails: $!"
-      #      unless $! == EAGAIN or $! == EWOULDBLOCK;
-      #  }
-      #}
+      if ($] >= 5.008) {
+        $handle->blocking(0);
+      }
+      else {
+        # Make the handle stop blocking, the POSIX way.
+        unless (RUNNING_IN_HELL) {
+          my $flags = fcntl($handle, F_GETFL, 0)
+            or confess "fcntl($handle, F_GETFL, etc.) fails: $!\n";
+          until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
+            confess "fcntl($handle, FSETFL, etc) fails: $!"
+              unless $! == EAGAIN or $! == EWOULDBLOCK;
+          }
+        }
+        else {
+          # Do it the Win32 way.
+          my $set_it = "1";
+
+          # 126 is FIONBIO (some docs say 0x7F << 16)
+          ioctl( $handle,
+                 0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+                 $set_it
+               )
+            or confess "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
+        }
+      }
     }
 
     # Turn off buffering.

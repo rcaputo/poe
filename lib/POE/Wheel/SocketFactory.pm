@@ -595,42 +595,50 @@ sub new {
   # portable and less maintenance than rolling our own.  If things
   # work out, we'll remove the commented out code.
 
-  $socket_handle->blocking(0);
+  # RCC 2003-01-20: Unfortunately, blocking() isn't available in perl
+  # 5.005_03, and people still use that.  We'll use blocking() for
+  # Perl 5.8.0 and beyond, since that's the first version of
+  # ActivePerl that has a problem.
 
-  ## Do it the Win32 way.  XXX This is incomplete.
-  #if ($^O eq 'MSWin32') {
-  #  my $set_it = "1";
-  #
-  #  # 126 is FIONBIO (some docs say 0x7F << 16)
-  #  ioctl( $socket_handle,
-  #         0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-  #         $set_it
-  #       )
-  #    or do {
-  #      $poe_kernel->yield( $event_failure,
-  #                          'ioctl', $!+0, $!, $self->[MY_UNIQUE_ID]
-  #                        );
-  #      return $self;
-  #    };
-  #}
-  #
-  ## Do it the way everyone else does.
-  #else {
-  #  my $flags = fcntl($socket_handle, F_GETFL, 0)
-  #    or do {
-  #      $poe_kernel->yield( $event_failure,
-  #                          'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
-  #                        );
-  #      return $self;
-  #    };
-  #  $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
-  #    or do {
-  #      $poe_kernel->yield( $event_failure,
-  #                          'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
-  #                        );
-  #      return $self;
-  #    };
-  #}
+  if ($] >= 5.008) {
+    $socket_handle->blocking(0);
+  }
+  else {
+    # Do it the Win32 way.  XXX This is incomplete.
+    if ($^O eq 'MSWin32') {
+      my $set_it = "1";
+
+      # 126 is FIONBIO (some docs say 0x7F << 16)
+      ioctl( $socket_handle,
+             0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+             $set_it
+           )
+        or do {
+          $poe_kernel->yield( $event_failure,
+                              'ioctl', $!+0, $!, $self->[MY_UNIQUE_ID]
+                            );
+          return $self;
+        };
+    }
+
+    # Do it the way everyone else does.
+    else {
+      my $flags = fcntl($socket_handle, F_GETFL, 0)
+        or do {
+          $poe_kernel->yield( $event_failure,
+                              'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
+                            );
+          return $self;
+        };
+      $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
+        or do {
+          $poe_kernel->yield( $event_failure,
+                              'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
+                            );
+          return $self;
+        };
+    }
+  }
 
   # Make the socket reusable, if requested.
   if ( (defined $params{Reuse})
