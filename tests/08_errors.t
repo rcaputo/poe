@@ -198,22 +198,23 @@ print "ok 19\n";
   }
   else {
     # Odd parameters.
-    stderr_pause();
-    POE::Wheel::SocketFactory->new
-      ( SuccessEvent => [ ],
-        FailureEvent => [ ],
-      );
-    stderr_resume();
 
-    # Cygwin doesn't generate warnings here.  Everybody else gets two
-    # warnings.
+    # Cygwin behaves differently.
     if ($^O eq "cygwin") {
-      print "not" if $warnings;
+      print
+        "ok 21 # skipped: $^O does not support listen on unbound sockets.\n";
     }
     else {
+      stderr_pause();
+      POE::Wheel::SocketFactory->new
+        ( SuccessEvent => [ ],
+          FailureEvent => [ ],
+        );
+      stderr_resume();
+
       print "not " unless $warnings == 2;
+      print "ok 21\n";
     }
-    print "ok 21\n";
 
     # Any protocol on UNIX sockets.
     $warnings = 0;
