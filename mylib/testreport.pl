@@ -75,9 +75,37 @@ sub _print {
     print @_;
 }
 
+# Locate Makefile.  This allows the script to be run from POE's main
+# directory or from lib itself.
+
+my @test_files;
+my $directory = "";
+
+unless (-e "Makefile") {
+  unless (-e "../Makefile") {
+    die "Could not find Makefile or ../Makefile.  Stopping.\n";
+  }
+  $directory = "../";
+}
+
+# Fetch from Makefile the tests POE has been configured with.  Prepend
+# $directory to each so they're found no matter where the report is
+# run.
+
+open(MAKEFILE, "${directory}Makefile")
+  or die "Cannot read ${directory}Makefile: $!";
+
+while (<MAKEFILE>) {
+  chomp;
+  next unless /^TEST_FILES\s*=\s*(.*?)\s*$/;
+  @test_files = map { $directory . $_ } split /\s+/, $1;
+  last;
+}
+close MAKEFILE;
+
 my %test_results;
-my $width = Test::Harness::_leader_width(<../t/*.t>);
-foreach my $file (<../t/*.t>) {
+my $width = Test::Harness::_leader_width(@test_files);
+foreach my $file (@test_files) {
     ($leader, $ml) = Test::Harness::_mk_leader($file, $width);
     print $leader;
     my %result = $s->analyze_file($file);
