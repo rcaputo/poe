@@ -1537,8 +1537,8 @@ sub alias_resolve {
   return $self->[KR_SESSIONS]->{$name}->[SS_SESSION]
     if exists $self->[KR_SESSIONS]->{$name};
                                         # resolve against IDs
-  return $self->[KR_SESSION_IDS]->{$id}
-    if exists $self->[KR_SESSION_IDS]->{$id};
+  return $self->[KR_SESSION_IDS]->{$name}
+    if exists $self->[KR_SESSION_IDS]->{$name};
                                         # resolve against aliases
   return $self->[KR_ALIASES]->{$name}
     if exists $self->[KR_ALIASES]->{$name};
@@ -1930,7 +1930,7 @@ posting an alarm.  For example:
 As of version 0.0904, the alarm() function will only remove alarms.
 Other types of events will remain in the queue.
 
-=item*
+=item *
 
 POE::Kernel::alarm_add( $state, $time, @args )
 
