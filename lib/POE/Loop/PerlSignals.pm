@@ -71,12 +71,6 @@ sub loop_watch_signal {
     return;
   }
 
-  # Artur Bergman (sky) noticed that xterm resizing can generate a LOT
-  # of WINCH signals.  That rapidly crashes perl, which, with the help
-  # of most libc's, can't handle signals well at all.  We ignore
-  # WINCH, therefore.
-  return if $signal eq 'WINCH';
-
   # Everything else.
   $SIG{$signal} = \&_loop_signal_handler_generic;
 }

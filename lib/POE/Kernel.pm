@@ -3374,15 +3374,13 @@ instead.
 =item SIGWINCH Events
 
 Window resizes can generate a large number of signals very quickly,
-and this can easily cause perl to dump core.  Because of this, POE
-usually ignores SIGWINCH outright.
+and this can easily cause perl to dump core.  This should not be a
+problem in newer versions of Perl (after 5.8.0) because they make
+signals safe for the world.
 
-The Event module supports safe signals, so POE honors SIGWINCH when
-used with Event.
-
-TODO - Re-enable SIGWINCH handling in Perl versions 5.8.0 and newer.
-These are purported to have safe signal handling, and the rapid-fire
-SIGWINCH should not be fatal there.
+The Event module also claims to handle signals safely.  Its signal
+handlers are written in C++, and they can do more interesting things
+than plain Perl handlers.
 
 =back
 
