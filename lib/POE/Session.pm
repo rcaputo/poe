@@ -6,9 +6,25 @@ use strict;
 use Carp;
 use POSIX qw(ENOSYS);
 
-sub SE_NAMESPACE () { 0 }
-sub SE_OPTIONS   () { 1 }
-sub SE_STATES    () { 2 }
+use POE::Preprocessor;
+
+enum SE_NAMESPACE SE_OPTIONS SE_STATES
+
+# I had made these constant subs, but you can't use constant subs as
+# hash keys, so they're POE::Preprocessor constants.  Blargh!
+
+const CREATE_ARGS     'args'
+const CREATE_OPTIONS  'options'
+const CREATE_INLINES  'inline_states'
+const CREATE_PACKAGES 'package_states'
+const CREATE_OBJECTS  'object_states'
+
+const OPT_TRACE   'trace'
+const OPT_DEBUG   'debug'
+const OPT_DEFAULT 'default'
+
+const EN_START   '_start'
+const EN_DEFAULT '_default'
 
 # Define some debugging flags for subsystems, unless someone already
 # has defined them.
@@ -17,7 +33,50 @@ BEGIN {
 }
 
 #------------------------------------------------------------------------------
-# Export constants into calling packages.  This is evil.
+
+macro make_session {
+  my $self =
+    bless [ { }, # SE_NAMESPACE
+            { }, # SE_OPTIONS
+            { }, # SE_STATES
+          ], $type;
+}
+
+macro validate_kernel {
+  croak "$type requires a working Kernel"
+    unless defined $POE::Kernel::poe_kernel;
+}
+
+macro validate_state {
+  carp "redefining state($name) for session(", {% fetch_id $self %}, ")"
+    if ( (exists $self->[SE_OPTIONS]->{OPT_DEBUG}) &&
+         (exists $self->[SE_STATES]->{$name})
+       );
+}
+
+macro fetch_id (<whence>) {
+  $POE::Kernel::poe_kernel->ID_session_to_id(<whence>)
+}
+
+macro verify_start_state {
+  # Verfiy that the session has a special start state, otherwise how
+  # do we know what to do?  Don't even bother registering the session
+  # if the start state doesn't exist.
+
+  if (exists $self->[SE_STATES]->{EN_START}) {
+    $POE::Kernel::poe_kernel->session_alloc($self, @args);
+  }
+  else {
+    carp "discarding session ", {% fetch_id $self %}, " - no '_start' state";
+    $self = undef;
+  }
+}
+
+# MACROS END <-- search tag for editing
+
+#------------------------------------------------------------------------------
+# Export constants into calling packages.  This is evil; perhaps
+# EXPORT_OK instead?
 
 sub OBJECT  () {  0 }
 sub SESSION () {  1 }
@@ -43,6 +102,9 @@ use Exporter;
                           );
 
 #------------------------------------------------------------------------------
+# Classic style constructor.  This is unofficially depreciated in
+# favor of the create() constructor.  Its DWIM nature does things
+# people don't mean, so create() is a little more explicit.
 
 sub new {
   my ($type, @states) = @_;
@@ -52,16 +114,18 @@ sub new {
   croak "sessions no longer require a kernel reference as the first parameter"
     if ((@states > 1) && (ref($states[0]) eq 'POE::Kernel'));
 
-  croak "$type requires a working Kernel"
-    unless (defined $POE::Kernel::poe_kernel);
+  {% validate_kernel %}
+  {% make_session %}
 
-  my $self = bless [ ], $type;
-  $self->[SE_NAMESPACE] = { };
-  $self->[SE_OPTIONS  ] = { };
-  $self->[SE_STATES   ] = { };
+  # Scan all arguments.  It mainly expects them to be in pairs, except
+  # for some, uh, exceptions.
 
   while (@states) {
-                                        # handle arguments
+
+    # If the first of a hypothetical pair of arguments is an array
+    # reference, then this arrayref is the _start state's arguments.
+    # Pull them out and look for another pair.
+
     if (ref($states[0]) eq 'ARRAY') {
       if (@args) {
         croak "$type must only have one block of arguments";
@@ -71,151 +135,228 @@ sub new {
       next;
     }
 
+    # If there is a pair of arguments (or more), then we can continue.
+    # Otherwise this is done.
+
     if (@states >= 2) {
-      my ($state, $handler) = splice(@states, 0, 2);
 
-      unless ((defined $state) && (length $state)) {
-        carp "depreciated: using an undefined state";
+      # Pull the argument pair off the constructor parameters.
+
+      my ($first, $second) = splice(@states, 0, 2);
+
+      # Check for common problems.
+
+      unless ((defined $first) && (length $first)) {
+        carp "depreciated: using an undefined state name";
       }
 
-      if (ref($state) eq 'CODE') {
-        croak "using a CODE reference as an event handler name is not allowed";
+      if (ref($first) eq 'CODE') {
+        croak "using a code reference as an state name is not allowed";
       }
 
-      # regular states
-      if (ref($state) eq '') {
-        if (ref($handler) eq 'CODE') {
-          $self->register_state($state, $handler);
+      # Try to determine what sort of state it is.  A lot of WIM is D
+      # here.  It was nifty at the time, but it's gotten a little
+      # scary as POE has evolved.
+
+      # The first parameter has no blessing, so it's either a plain
+      # inline state or a package state.
+
+      if (ref($first) eq '') {
+
+        # The second parameter is a coderef, so it's a plain old
+        # inline state.
+
+        if (ref($second) eq 'CODE') {
+          $self->register_state($first, $second);
           next;
         }
 
-        elsif (ref($handler) eq 'ARRAY') {
-          foreach my $method (@$handler) {
-            $self->register_state($method, $state, $method);
+        # If the second parameter in the pair is a list reference,
+        # then this is a package state invocation.  Explode the list
+        # reference into separate state registrations.  Each state is
+        # a package method with the same name.
+
+        elsif (ref($second) eq 'ARRAY') {
+          foreach my $method (@$second) {
+            $self->register_state($method, $first, $method);
           }
           next;
         }
 
-        elsif (ref($handler) eq 'HASH') {
-          while (my ($state_name, $method_name) = each %$handler) {
-            $self->register_state($state_name, $state, $method_name);
+        # If the second parameter in the pair is a hash reference,
+        # then this is a mapped package state invocation.  Explode the
+        # hash reference into separate state registrations.  Each
+        # state is mapped to a package method with a separate
+        # (although not guaranteed to be different) name.
+
+        elsif (ref($second) eq 'HASH') {
+          while (my ($first_name, $method_name) = each %$second) {
+            $self->register_state($first_name, $first, $method_name);
           }
           next;
         }
+
+        # Something unexpected happened.
 
         else {
-          croak "using something other than a CODEREF for $state handler";
+          croak( "can't determine what you're doing with '$first'; ",
+                 "perhaps you should use POE::Session->create"
+               );
         }
       }
-                                        # object states
-      if (ref($handler) eq '') {
-        $self->register_state($handler, $state, $handler);
+
+      # Otherwise the first parameter is a blessed something, and
+      # these will be object states.  The second parameter is a plain
+      # scalar of some sort, so we'll register the state directly.
+
+      if (ref($second) eq '') {
+        $self->register_state($second, $first, $second);
         next;
       }
 
-      if (ref($handler) eq 'ARRAY') {
-        foreach my $method (@$handler) {
-          $self->register_state($method, $state, $method);
+      # The second parameter is a list reference; we'll explode it
+      # into several state registrations, each mapping the state name
+      # to a similarly named object method.
+
+      if (ref($second) eq 'ARRAY') {
+        foreach my $method (@$second) {
+          $self->register_state($method, $first, $method);
         }
         next;
       }
 
-      if (ref($handler) eq 'HASH') {
-        while (my ($state_name, $method_name) = each %$handler) {
-          $self->register_state($state_name, $state, $method_name);
+      # The second parameter is a hash reference; we'll explode it
+      # into several aliased state registrations, each mapping a state
+      # name to a separately (though not guaranteed to be differently)
+      # named object method.
+
+      if (ref($second) eq 'HASH') {
+        while (my ($first_name, $method_name) = each %$second) {
+          $self->register_state($first_name, $first, $method_name);
         }
         next;
       }
 
-      croak "strange reference ($handler) used as an object session method";
+      # Something unexpected happened.
+
+      croak( "can't determine what you're doing with '$second'; ",
+             "perhaps you should use POE::Session->create"
+           );
     }
+
+    # There are fewer than 2 parameters left.
+
     else {
       last;
     }
   }
 
+  # If any parameters are left, then there's a syntax error in the
+  # constructor parameter list.
+
   if (@states) {
-    croak "odd number of events/handlers (missing one or the other?)";
+    croak "odd number of parameters in POE::Session->new call";
   }
 
-  if (exists $self->[SE_STATES]->{'_start'}) {
-    $POE::Kernel::poe_kernel->session_alloc($self, @args);
-  }
-  else {
-    carp "discarding session ", $self->ID, " - no '_start' state";
-  }
+  {% verify_start_state %}
 
   $self;
 }
 
 #------------------------------------------------------------------------------
+# New style constructor.  This uses less DWIM and more DWIS, and it's
+# more comfortable for some folks; especially the ones who don't quite
+# know WTM.
 
 sub create {
   my ($type, @params) = @_;
   my @args;
 
-  croak "$type requires a working Kernel"
-    unless (defined $POE::Kernel::poe_kernel);
+  # We treat the parameter list strictly as a hash.  Rather than dying
+  # here with a Perl error, we'll catch it and blame it on the user.
 
   if (@params & 1) {
-    croak "odd number of events/handlers (missing one or the other?)";
+    croak "odd number of states/handlers (missing one or the other?)";
   }
-
   my %params = @params;
 
-  my $self = bless [ ], $type;
-  $self->[SE_NAMESPACE] = { };
-  $self->[SE_OPTIONS  ] = { };
-  $self->[SE_STATES   ] = { };
+  {% validate_kernel %}
+  {% make_session %}
 
-  if (exists $params{'args'}) {
-    if (ref($params{'args'}) eq 'ARRAY') {
-      push @args, @{$params{'args'}};
+  # Process _start arguments.  We try to do the right things with what
+  # we're given.  If the arguments are a list reference, map its items
+  # to ARG0..ARGn; otherwise make whatever the heck it is be ARG0.
+
+  if (exists $params{CREATE_ARGS}) {
+    if (ref($params{CREATE_ARGS}) eq 'ARRAY') {
+      push @args, @{$params{CREATE_ARGS}};
     }
     else {
-      push @args, $params{'args'};
+      push @args, $params{CREATE_ARGS};
     }
-    delete $params{'args'};
+    delete $params{CREATE_ARGS};
   }
 
-  if (exists $params{options}) {
-    if (ref($params{options}) eq 'HASH') {
-      $self->[SE_OPTIONS] = $params{options};
+  # Process session options here.  Several options may be set.
+
+  if (exists $params{CREATE_OPTIONS}) {
+    if (ref($params{CREATE_OPTIONS}) eq 'HASH') {
+      $self->[SE_OPTIONS] = $params{CREATE_OPTIONS};
     }
     else {
       croak "options for $type constructor is expected to be a HASH reference";
     }
-    delete $params{options};
+    delete $params{CREATE_OPTIONS};
   }
 
-  my @params_keys = keys(%params);
-  foreach (@params_keys) {
-    my $states = $params{$_};
+  # Get down to the business of defining states.
 
-     if ($_ eq 'inline_states') {
-      croak "$_ does not refer to a hash" unless (ref($states) eq 'HASH');
+  while (my ($param_name, $param_value) = each %params) {
 
-      while (my ($state, $handler) = each(%$states)) {
+    # Inline states are expected to be state-name/coderef pairs.
+
+    if ($param_name eq CREATE_INLINES) {
+      croak "$param_name does not refer to a hash"
+        unless (ref($param_value) eq 'HASH');
+
+      while (my ($state, $handler) = each(%$param_value)) {
         croak "inline state '$state' needs a CODE reference"
           unless (ref($handler) eq 'CODE');
         $self->register_state($state, $handler);
       }
     }
 
-    elsif ($_ eq 'package_states') {
-      croak "$_ does not refer to an array" unless (ref($states) eq 'ARRAY');
-      croak "the array for $_ has an odd number of elements" if (@$states & 1);
+    # Package states are expected to be package-name/list-or-hashref
+    # pairs.  If the second part of the pair is a listref, then the
+    # package methods are expected to be named after the states
+    # they'll handle.  If it's a hashref, then the keys are state
+    # names and the values are package methods that implement them.
 
-      while (my ($package, $handlers) = splice(@$states, 0, 2)) {
+    elsif ($param_name eq CREATE_PACKAGES) {
+      croak "$param_name does not refer to an array"
+        unless (ref($param_value) eq 'ARRAY');
+      croak "the array for $param_name has an odd number of elements"
+        if (@$param_value & 1);
 
-        # Array of handlers is passed through as method names.
+      while (my ($package, $handlers) = splice(@$param_value, 0, 2)) {
+
+        # -><- What do we do if the package name has some sort of
+        # blessing?  Do we use the blessed thingy's package, or do we
+        # maybe complain because the user might have wanted to make
+        # object states instead?
+
+        # An array of handlers.  The array's items are passed through
+        # as both state names and package method names.
+
         if (ref($handlers) eq 'ARRAY') {
           foreach my $method (@$handlers) {
             $self->register_state($method, $package, $method);
           }
         }
 
-        # Hashes of handlers are passed through as key names.
+        # A hash of handlers.  Hash keys are state names; values are
+        # package methods to implement them.
+
         elsif (ref($handlers) eq 'HASH') {
           while (my ($state, $method) = each %$handlers) {
             $self->register_state($method, $package, $state);
@@ -227,21 +368,39 @@ sub create {
         }
       }
     }
-    elsif ($_ eq 'object_states') {
-      croak "$_ does not refer to an array" unless (ref($states) eq 'ARRAY');
-      croak "the array for $_ has an odd number of elements" if (@$states & 1);
 
-      while (@$states) {
-        my ($object, $handlers) = splice @$states => 0, 2;
+    # Object states are expected to be object-reference/
+    # list-or-hashref pairs.  They must be passed to &create in a list
+    # reference instead of a hash reference because making object
+    # references into hash keys loses their blessings.
 
-        # Array of handlers is passed through as method names.
+    elsif ($param_name eq CREATE_OBJECTS) {
+      croak "$param_name does not refer to an array"
+        unless (ref($param_value) eq 'ARRAY');
+      croak "the array for $param_name has an odd number of elements"
+        if (@$param_value & 1);
+
+      while (@$param_value) {
+        my ($object, $handlers) = splice @$param_value => 0, 2;
+
+        # Verify that the object is an object.  This may catch simple
+        # mistakes; or it may be overkill since it already checks that
+        # $param_value is a listref.
+
+        carp "'$object' is not an object" unless ref($object);
+
+        # An array of handlers.  The array's items are passed through
+        # as both state names and object method names.
+
         if (ref($handlers) eq 'ARRAY') {
           foreach my $method (@$handlers) {
             $self->register_state($method, $object, $method);
           }
         }
 
-        # Hashes of handlers are passed through as key names.
+        # A hash of handlers.  Hash keys are state names; values are
+        # package methods to implement them.
+
         elsif (ref($handlers) eq 'HASH') {
           while (my ($state, $method) = each %$handlers) {
             $self->register_state($state, $object, $method);
@@ -255,16 +414,11 @@ sub create {
       }
     }
     else {
-      croak "unknown $type parameter: $_";
+      croak "unknown $type parameter: $param_name";
     }
   }
 
-  if (exists $self->[SE_STATES]->{'_start'}) {
-    $POE::Kernel::poe_kernel->session_alloc($self, @args);
-  }
-  else {
-    carp "discarding session ", $self->ID, " - no '_start' state";
-  }
+  {% verify_start_state %}
 
   $self;
 }
@@ -300,86 +454,114 @@ sub DESTROY {
 sub _invoke_state {
   my ($self, $source_session, $state, $etc, $file, $line) = @_;
 
-  if (exists($self->[SE_OPTIONS]->{'trace'})) {
-    warn $self->ID, " -> $state\n";
+  # Trace the state invocation if tracing is enabled.
+
+  if (exists($self->[SE_OPTIONS]->{OPT_TRACE})) {
+    warn {% fetch_id $self %}, " -> $state\n";
   }
 
-  if (exists $self->[SE_STATES]->{$state}) {
-                                        # inline
-    if (ref($self->[SE_STATES]->{$state}) eq 'CODE') {
-      return &{$self->[SE_STATES]->{$state}}(undef,                   # object
-                                            $self,                    # session
-                                            $POE::Kernel::poe_kernel, # kernel
-                                            $self->[SE_NAMESPACE],    # heap
-                                            $state,                   # state
-                                            $source_session,          # sender
-                                            @$etc                     # args
-                                           );
+  # The desired destination state doesn't exist in this session.
+  # Attempt to redirect the state transition to _default.
+
+  unless (exists $self->[SE_STATES]->{$state}) {
+
+    # There's no _default either; redirection's not happening today.
+    # Drop the state transition event on the floor, and optionally
+    # make some noise about it.
+
+    unless (exists $self->[SE_STATES]->{EN_DEFAULT}) {
+      $! = ENOSYS;
+      if (exists $self->[SE_OPTIONS]->{OPT_DEFAULT}) {
+        warn( "a '$state' state was sent from $file at $line to session ",
+              {% fetch_id $self %}, ", but session ", {% fetch_id $self %},
+              " has neither that state nor a _default state to handle it\n"
+            );
+      }
+      return undef;
     }
-                                        # package and object
-    else {
-      my ($object, $method) = @{$self->[SE_STATES]->{$state}};
-      return
-        $object->$method(                          # object
-                         $self,                    # session
-                         $POE::Kernel::poe_kernel, # kernel
-                         $self->[SE_NAMESPACE],    # heap
-                         $state,                   # state
-                         $source_session,          # sender
-                         @$etc                     # args
-                        );
+
+    # If we get this far, then there's a _default state to redirect
+    # the transition to.  Trace the redirection.
+
+    if (exists($self->[SE_OPTIONS]->{OPT_TRACE})) {
+      warn {% fetch_id $self %}, " -> $state redirected to _default\n";
     }
-  }
-                                        # recursive, so it does the right thing
-  elsif (exists $self->[SE_STATES]->{'_default'}) {
-    return $self->_invoke_state( $source_session,
-                                 '_default',
-                                 [ $state, $etc ]
-                               );
-  }
-                                        # whoops!  no _default?
-  else {
-    $! = ENOSYS;
-    if (exists $self->[SE_OPTIONS]->{'default'}) {
-      warn( "Someone posted a '$state' state to session ", $self->ID,
-            " from $file line $line\n"
-          );
-    }
-    return undef;
+
+    # Transmogrify the original state transition into a corresponding
+    # _default invocation.
+
+    $etc   = [ $state, $etc ];
+    $state = EN_DEFAULT;
   }
 
-  return 0;
+  # If we get this far, then the state can be invoked.  So invoke it
+  # already!
+
+  # Inline states are invoked this way.
+
+  if (ref($self->[SE_STATES]->{$state}) eq 'CODE') {
+    return &{$self->[SE_STATES]->{$state}}
+      ( undef,                          # object
+        $self,                          # session
+        $POE::Kernel::poe_kernel,       # kernel
+        $self->[SE_NAMESPACE],          # heap
+        $state,                         # state
+        $source_session,                # sender
+        @$etc                           # args
+      );
+  }
+
+  # Package and object states are invoked this way.
+
+  my ($object, $method) = @{$self->[SE_STATES]->{$state}};
+  return
+    $object->$method                    # package/object (implied)
+      ( $self,                          # session
+        $POE::Kernel::poe_kernel,       # kernel
+        $self->[SE_NAMESPACE],          # heap
+        $state,                         # state
+        $source_session,                # sender
+        @$etc                           # args
+      );
 }
 
 #------------------------------------------------------------------------------
+# Add, remove or replace states in the session.
 
 sub register_state {
-  my ($self, $state, $handler, $method) = @_;
-  $method = $state unless defined $method;
+  my ($self, $name, $handler, $method) = @_;
+  $method = $name unless defined $method;
+
+  # There is a handler, so try to define the state.  This replaces an
+  # existing state.
 
   if ($handler) {
-    # Inline coderef.
+
+    # Coderef handlers are inline states.
+
     if (ref($handler) eq 'CODE') {
-      carp "redefining state($state) for session(", $self->ID, ")"
-        if ( (exists $self->[SE_OPTIONS]->{'debug'}) &&
-             (exists $self->[SE_STATES]->{$state})
-           );
-      $self->[SE_STATES]->{$state} = $handler;
+      {% validate_state %}
+      $self->[SE_STATES]->{$name} = $handler;
     }
-    # Object or package method.
+
+    # Non-coderef handlers may be package or object states.  See if
+    # the method belongs to the handler.
+
     elsif ($handler->can($method)) {
-      carp "redefining state($state) for session(", $self->ID, ")"
-        if ( (exists $self->[SE_OPTIONS]->{'debug'}) &&
-             (exists $self->[SE_STATES]->{$state})
-           );
-      $self->[SE_STATES]->{$state} = [ $handler, $method ];
+      {% validate_state %}
+      $self->[SE_STATES]->{$name} = [ $handler, $method ];
     }
-    # Something's wrong.
+
+    # Something's wrong.  This code also seems wrong, since
+    # ref($handler) can't be 'CODE'.
+
     else {
-      if (ref($handler) eq 'CODE' &&
-          exists($self->[SE_OPTIONS]->{'trace'})
-      ) {
-        carp $self->id, " : state($state) is not a proper ref - not registered"
+      if ( (ref($handler) eq 'CODE') and
+           exists($self->[SE_OPTIONS]->{OPT_TRACE})
+         ) {
+        carp( {% fetch_id $self %},
+              " : state($name) is not a proper ref - not registered"
+            )
       }
       else {
         croak "object $handler does not have a '$method' method"
@@ -387,42 +569,59 @@ sub register_state {
       }
     }
   }
+
+  # No handler.  Delete the state!
+
   else {
-    delete $self->[SE_STATES]->{$state};
+    delete $self->[SE_STATES]->{$name};
   }
 }
 
 #------------------------------------------------------------------------------
+# Return the session's ID.  This is a thunk into POE::Kernel, where
+# the session ID really lies.
 
 sub ID {
-  my $self = shift;
-  $POE::Kernel::poe_kernel->ID_session_to_id($self);
+  {% fetch_id shift %}
 }
 
 #------------------------------------------------------------------------------
+# Set or fetch session options.
 
 sub option {
   my $self = shift;
   my %return_values;
 
+  # Options are set in pairs.
+
   while (@_ >= 2) {
     my ($flag, $value) = splice(@_, 0, 2);
     $flag = lc($flag);
-                                        # set the value, if defined
+
+    # If the value is defined, then set the option.
+
     if (defined $value) {
-                                        # booleanize some handy aliases
+
+      # Change some handy values into boolean representations.  This
+      # clobbers the user's original values for the sake of DWIM-ism.
+
       ($value = 1) if ($value =~ /^(on|yes|true)$/i);
       ($value = 0) if ($value =~ /^(no|off|false)$/i);
 
       $return_values{$flag} = $self->[SE_OPTIONS]->{$flag};
       $self->[SE_OPTIONS]->{$flag} = $value;
     }
-                                        # remove the value, if undefined
+
+    # Remove the option if the value is undefined.
+
     else {
       $return_values{$flag} = delete $self->[SE_OPTIONS]->{$flag};
     }
   }
-                                        # only one option?  fetch it.
+
+  # If only one option is left, then there's no value to set, so we
+  # fetch its value.
+
   if (@_) {
     my $flag = lc(shift);
     $return_values{$flag} =
@@ -431,7 +630,10 @@ sub option {
         : undef
       );
   }
-                                        # only one option?  return it
+
+  # If only one option was set or fetched, then return it as a scalar.
+  # Otherwise return it as a hash of option names and values.
+
   my @return_keys = keys(%return_values);
   if (@return_keys == 1) {
     return $return_values{$return_keys[0]};
@@ -442,9 +644,22 @@ sub option {
 }
 
 #------------------------------------------------------------------------------
-# Create an anonymous sub that, when called, posts
+# Create an anonymous sub that, when called, posts an event back to a
+# session.  This is highly experimental code to support Tk widgets and
+# maybe Event callbacks.  There's no guarantee that this code works
+# yet, nor is there one that it'll be here in the next version.
+
+# This maps postback references (stringified; blessing, and thus
+# refcount, removed) to parent session IDs.  Members are set when
+# postbacks are created, and postbacks' DESTROY methods use it to
+# perform the necessary cleanup when they go away.  Thanks to njt for
+# steering me right on this one.
 
 my %postback_parent_id;
+
+# I assume that when the postback owner loses all reference to it,
+# they are done posting things back to us.  That's when the postback's
+# DESTROY is triggered, and referential integrity is maintained.
 
 sub POE::Session::Postback::DESTROY {
   my $self = shift;
@@ -452,13 +667,21 @@ sub POE::Session::Postback::DESTROY {
   $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'postback' );
 }
 
+# Create a postback closure, maintaining referential integrity in the
+# process.  The next step is to give it to something that expects to
+# be handed a callback.
+
 sub postback {
   my ($self, $event, @etc) = @_;
   my $postback = bless
-    ( sub { $POE::Kernel::poe_kernel->post( $self->ID, $event, \@etc, \@_ ); },
+    ( sub {
+        $POE::Kernel::poe_kernel->post( {% fetch_id $self %},
+                                        $event, \@etc, \@_
+                                      );
+      },
       'POE::Session::Postback'
     );
-  $postback_parent_id{$postback} = $self->ID;
+  $postback_parent_id{$postback} = {% fetch_id $self %};
   $POE::Kernel::poe_kernel->refcount_increment( $self, 'postback' );
   $postback;
 }
@@ -473,61 +696,90 @@ POE::Session - POE State Machine Instance
 
 =head1 SYNOPSIS
 
-  # Original inline session constructor:
-  new POE::Session(
-    name1 => \&name1_handler, # \&name1_handler is the "name1" state
-    name2 => sub { ... },     # anonymous is the "name2" state
-    \@start_args,             # ARG0..ARGn for the the _start state
+  # POE::Session has two different constructors.  This is the classic
+  # session constructor.
+
+  POE::Session->new(
+
+    # Inline states map names to plain coderefs.
+    state_one => \&coderef_one,
+    state_two => sub { ... },
+
+    # Plain object and package states map names to identically named
+    # methods.  For example, $object_one->state_three() is called to
+    # handle 'state_three'.
+    $object_one  => [ 'state_three', 'state_four',  'state_five'  ],
+    $package_one => [ 'state_six',   'state_seven', 'state_eight' ],
+
+    # Aliased object and package states map state names to differently
+    # named methods.  For example, $package_two->method_ten() is
+    # called to handle 'state_ten'.
+    $object_two  => { state_nine => 'method_nine' },
+    $package_two => { state_ten  => 'method_ten' },
+
+    # A list reference in place of a state name indicates arguments to
+    # pass to the session's _start state in ARG0..ARGn.  This can
+    # occur anywhere in the constructor's parameters.
+    \@start_args,
   );
 
-  # Original package session constructor:
-  new POE::Session(
-    $package, [ 'name1',      # $package->name1() is the "name1" state
-                'name2',      # $package->name2() is the "name2" state
-              ],
-    \@start_args,             # ARG0..ARGn for the start _start state
-  );
+  # This is a newer constructor that requires more explicit
+  # parameters:
 
-  # Original object session constructor:
-  my $object1 = new SomeObject(...);
-  my $object2 = new SomeOtherObject(...);
-  new POE::Session(
-    # $object1->name1() is the "name1" state
-    # $object1->name2() is the "name2" state
-    $object1 => [ 'name1', 'name2' ],
-    # $object2->name1() is the "name3" state
-    # $object2->name2() is the "name3" state
-    $object2 => [ 'name3', 'name4' ],
-    \@start_args,             # ARG0..ARGn for the _start state
-  );
+  POE::Session->create(
 
-  # New constructor:
-  create POE::Session(
-    # ARG0..ARGn for the session's _start handler
+    # If the 'args' parameter contains a list reference, then its
+    # contents are passed to the session's _start state in ARG0..ARGn.
+    # Otherwise args' value is passed to _start in ARG0.
     args => \@args,
-    inline_states  => { state1 => \&handler1,
-                        state2 => \&handler2,
-                        ...
-                      },
-    object_states  => [ $objref1 => \@methods1,
-                        $objref2 => { state_name_1 => 'method_name_1',
-                                      state_name_2 => 'method_name_2',
-                                    },
-                        ...
-                      ],
-    package_states => [ $package1 => \@function_names_1,
-                        $package2 => { state_name_1 => 'method_name_1',
-                                       state_name_2 => 'method_name_2',
-                                     },
-                        ...
-                      ],
+
+    # These inline states are equivalent to the POE::Session->new
+    # synopsis.
+    inline_states =>
+      { state_one => \&coderef_one,
+        state_two => sub { ... },
+      },
+
+    # These plain and aliased object states match the ones shown in
+    # POE::Session-new's synopsis.  Note, though, that the right side
+    # of the => operator is a list reference; not a hash reference.
+    # Hashes would ruin the objects' blessing.
+    object_states =>
+    [ $object_one => [ 'state_three', 'state_four', 'state_five' ],
+      $object_two => { state_nine => 'method_nine' },
+    ],
+
+    # These plain and aliased package states match the ones shown in
+    # POE::Session->new's synopsis.  The right side of the => operator
+    # is a list reference for consistency with object_states.
+    package_states =>
+    [ $package_one => [ 'state_six', 'state_seven', 'state_eight' },
+      $package_two => { state_ten => 'method_ten' },
+    ],
+
+    # The create constructor has one feature over new.  It allows
+    # session options to be set at creation time.  options' value is a
+    # hash reference of option names and initial values.
     options => \%options,
   );
 
   # Set or clear some session options:
   $session->option( trace => 1, default => 1 );
 
+  # Fetch this session's ID:
+  print $session->ID;
+
+  # Create a postback for use where external libraries expect
+  # callbacks.  This is an experimental feature.  There is no
+  # guarantee that it will work, nor is it guaranteed to exist in the
+  # future.
+
+  $postback_coderef = $session->postback( $state_name, @state_args );
+
 =head1 DESCRIPTION
+
+This description is out of date as of version 0.1001, but the synopsis
+is accurate.  The description will be fixed shortly.
 
 (Note: Session constructors were changed in version 0.06.  Processes
 no longer support multiple kernels.  This made the $kernel parameter

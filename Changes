@@ -14,29 +14,31 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 ]
 
 *** To Do:
-***   Redocument the debugging constants.
-***   Check the macro preprocessor documentation.
+***   Overhaul Kernel and Session manpages' DESCRIPTIONs.
+***   Redocument the debugging constants (part of desc. overhaul).
+***   Verify POE::Preprocessor documentation.
 
 
 0.1001 2000.??.?? (!!!)
 -----------------------
 
-POE::Kernel overhaul.  Commented more things so the audience can
-follow along.  Broke some monolithic subs apart.  Cleaned up the code
-where it could be cleaned up.
+Added POE::Preprocessor, a source filter for macro preprocessing,
+constants, and enumerations.
 
-(!!!) Removed POE::Kernel::session_create, which was silly to begin
-with.
+Overhauled POE::Kernel's source.  Commented just about everything.
+Broke apart some monolithic subroutines.  Replaced redundant code and
+smaller internal subs with inline POE::Preprocessor macros.
 
-Added POE::Preprocessor, a source filter for macro preprocessing, true
-constants, and enumerated constants.  Macroized some redundant bits of
-POE::Kernel in the hope that less code equates to easier maintenance.
-Inlined some smaller common subroutines, trading away startup speed
-for runtime performance.
+Overhauled POE::Kernel's manpage SYNOPSIS.  Made the formatting a
+little neater.  Made the parameter names a little clearer.  Explained
+what's going on in greater detail.
+
+(!!!) Removed the silly and long-depreciated $kernel->session_create
+method.
 
 (!!!) Split the debugging constants between assertions which die
-noisily and traces that show ongoing activity.  The constans are
-renamed ASSERT_* and TRACE_* to reflect their function.
+noisily and traces that show ongoing activity.  Renamed them to
+ASSERT_* and TRACE_* to reflect their function.
 
 Added ASSERT_DEFAULT and TRACE_DEFAULT to change the defaults for
 ASSERT_* and TRACE_*.  These let programs turn everything on with one
@@ -44,13 +46,34 @@ or two statements.
 
 Set ASSERT_DEFAULT to true in t/*.t so the tests are more thorough.
 
-Removed poing.perl, which has evolved into a separate program in its
-own right.  It's now available from the author's page at
-<http://www.newts.org/~troc/poe-grams.html>.
-
 Added t/03_aliases.t to test session aliases.
 
 Added t/04_selects.t to test filehandle watchers.
+
+Overhauled POE::Session's source.  Commented just about everything,
+including the strange but true POE::Session->new() constructor.
+Replaced redundant code and smaller internal subs with inline
+POE::Preprocessor macros.
+
+Overhauled POE::Session's manpage SYNOPSIS.  Made the formatting a
+little neater.  Made the parameters a little clearer.  Explained
+what's going on in greater detail.
+
+Optimized away the recursion for redirecting unknown states to
+_default in POE::Session::_invoke_state.  Programs that rely on
+_default should run a bit faster without the extra function call.
+
+Removed poing.perl from the samples directory.  It had evolved into a
+separate program in its own right.  It's now available from the
+author's page at <http://www.newts.org/~troc/poe-grams.html>.
+
+Documented $kernel->fork() as experimental.
+
+Added experimental postback features to POE::Session.
+
+Un-depreciated $kernel->ID_session_to_id.  While
+$kernel->alias_resolve does the same thing, ID_session_to_id can be
+faster when code expects to be working with session IDs.
 
 
 0.10 2000.03.23 (!!!)
@@ -78,7 +101,7 @@ aliased to numbers.
 
 (!!!) Depreciated ID_session_to_id, since alias_resolve does the same
 thing.  No warnings have been set yet, to give developers time to
-react to the change.
+react to the change.  [This depreciation is rescinded in 0.1001.]
 
 Tweaked the Win32 support to eliminate some redefined sub warnings.
 
