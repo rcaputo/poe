@@ -180,19 +180,24 @@ sub loop_watch_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  # The Tk documentation implies by omission that expedited
-  # filehandles aren't, uh, handled.  This is part 1 of 2.
-  confess "Tk does not support expedited filehandles"
-    if $mode == MODE_EX;
+  my $tk_mode;
+  if ($mode == MODE_RD) {
+    $tk_mode = 'readable';
+  }
+  elsif ($mode == MODE_WR) {
+    $tk_mode = 'writable';
+  }
+  else {
+    # The Tk documentation implies by omission that expedited
+    # filehandles aren't, uh, handled.  This is part 1 of 2.
+    confess "Tk does not support expedited filehandles";
+  }
 
   # Start a filehandle watcher.
 
   $poe_main_window->fileevent
     ( $handle,
-
-      # It can only be MODE_RD or MODE_WR here (MODE_EX is checked a
-      # few lines up).
-      ( $mode == MODE_RD ) ? 'readable' : 'writable',
+      $tk_mode,
 
       # The handle is wrapped in quotes here to stringify it.  For
       # some reason, it seems to work as a filehandle anyway, and it
@@ -248,20 +253,24 @@ sub loop_ignore_filehandle {
 sub loop_pause_filehandle {
   my ($self, $handle, $mode) = @_;
 
-  # The Tk documentation implies by omission that expedited
-  # filehandles aren't, uh, handled.  This is part 2 of 2.
-  confess "Tk does not support expedited filehandles"
-    if $mode == MODE_EX;
+  my $tk_mode;
+  if ($mode == MODE_RD) {
+    $tk_mode = Tk::Event::IO::READABLE();
+  }
+  elsif ($mode == MODE_WR) {
+    $tk_mode = Tk::Event::IO::WRITABLE();
+  }
+  else {
+    # The Tk documentation implies by omission that expedited
+    # filehandles aren't, uh, handled.  This is part 2 of 2.
+    confess "Tk does not support expedited filehandles";
+  }
 
   # Use an internal work-around to fileevent quirks.
   my $tk_file_io = tied( *$handle );
   die "whoops; no tk file io object" unless defined $tk_file_io;
-  $tk_file_io->handler( ( ( $mode == MODE_RD )
-                          ? Tk::Event::IO::READABLE()
-                          : Tk::Event::IO::WRITABLE()
-                        ),
-                        ''
-                      );
+
+  $tk_file_io->handler($tk_mode, "");
 }
 
 sub loop_resume_filehandle {
