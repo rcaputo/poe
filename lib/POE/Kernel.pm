@@ -2184,7 +2184,7 @@ sub refcount_increment {
       unless defined $tag;
   };
 
-  my $session = $self->ID_id_to_session($session_id);
+  my $session = $self->_data_sid_resolve($session_id);
   unless (defined $session) {
     $self->_explain_return("session id $session_id does not exist");
     $! = ESRCH;
@@ -2206,7 +2206,7 @@ sub refcount_decrement {
       unless defined $tag;
   };
 
-  my $session = $self->ID_id_to_session($session_id);
+  my $session = $self->_data_sid_resolve($session_id);
   unless (defined $session) {
     $self->_explain_return("session id $session_id does not exist");
     $! = ESRCH;
@@ -2244,7 +2244,7 @@ sub state {
   # Kernel deallocates the session, which cascades destruction to its
   # HEAP.  That triggers a Wheel's destruction, which calls
   # $kernel->state() to remove a state from the session.  The session,
-  # though, is already gone.  If TRACE_RETURNS and/or ASSERT_RETURNS
+  # though, is already gone.  If TRACE_RETVALS and/or ASSERT_RETVALS
   # is set, this causes a warning or fatal error.
 
   $self->_explain_return("session ($kr_active_session) does not exist");
