@@ -108,6 +108,19 @@ sub _data_alias_count_ses {
   return scalar keys %{$kr_ses_to_alias{$session}};
 }
 
+### Return a count of all the aliases we have.  -><- Used for testing.
+
+sub _data_alias_count {
+  return scalar keys %kr_aliases;
+}
+
+### Return a count of the sessions we're tracking.  -><- Used for
+### testing.
+
+sub _data_alias_xref_count {
+  return scalar keys %kr_ses_to_alias;
+}
+
 ### Return a session's ID in a form suitable for logging.
 
 sub _data_alias_loggable {
