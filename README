@@ -163,6 +163,19 @@ IO::Pty : 0.01
 All tests successful.
 Files=26, Tests=578, 84 wallclock secs ( 7.73 cusr +  0.66 csys =  8.40 CPU)
 
+** POE 0.1502 on Solaris 8 (dynweb)
+
+Hardware: Ultra-80; 2x UltraSparc II-450; 1GB RAM
+System  : SunOS 5.8
+Perl    : 5.6.1
+Gtk     : (not installed)
+Tk      : 800.023
+Event   : 0.81
+IO::Pty : 0.01
+
+All tests successful, 1 test skipped.
+Files=26, Tests=570, 88 wallclock secs (17.99 cusr +  1.33 csys = 19.32 CPU)
+
 ** POE 0.1501 on Mac OS X (Jotham)
 
 Hardware: G4-400
@@ -176,19 +189,6 @@ IO::Pty : (not installed)
 (unknown test status)
 Files=26, Tests=444, 74 wallclock secs (20.47 cusr +  3.22 csys = 23.69 CPU)
 
-** POE 0.15 on Solaris 8 (dynweb)
-
-Hardware: Ultra-80; 2x UltraSparc II-450; 1GB RAM
-System  : SunOS 5.8
-Perl    : 5.6.1
-Gtk     : (not installed)
-Tk      : 800.023
-Event   : 0.81
-IO::Pty : 0.01
-
-All tests successful, 1 test skipped.
-Files=26, Tests=551, 85 wallclock secs (14.32 cusr + 1.47 csys = 15.79 CPU)
-
 ** POE 0.15 on Windows 4.10.2222 (also dynweb)
 
 Hardware: (unknown)
@@ -198,13 +198,6 @@ Gtk     : (not installed)
 Tk      : (not installed)
 Event   : (not installed)
 IO::Pty : (not installed)
-
-t\01_sessions.t           14  3584    29   29 100.00%  1-29
-t\04_selects.t             2   512    ??   ??       %  ??
-t\08_errors.t              2   512    26    7  26.92%  20-26
-t\14_wheels_ft.t         255 65280     9    9 100.00%  1-9
-t\19_filterchange.t        2   512    ??   ??       %  ??
-t\22_wheel_run.t           2   512    ??   ??       %  ??
 
 7 tests skipped.
 Failed 6/26 test scripts, 76.92% okay. 45/297 subtests failed, 84.85% okay.
