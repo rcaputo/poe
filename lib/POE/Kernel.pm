@@ -572,7 +572,7 @@ sub _test_if_kernel_is_idle {
   ) {
     $self->_data_ev_enqueue(
       $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
-      __FILE__, __LINE__, time(),
+      __FILE__, __LINE__, undef, time(),
     ) if $self->_data_ses_count();
   }
 }
@@ -661,7 +661,7 @@ sub signal {
   $self->_data_ev_enqueue(
     $session, $kr_active_session,
     EN_SIGNAL, ET_SIGNAL, [ $signal, @etc ],
-    (caller)[1,2], time(),
+    (caller)[1,2], $kr_active_event, time(),
   );
 }
 
@@ -762,7 +762,7 @@ sub new {
 
 sub _dispatch_event {
   my ( $self,
-       $session, $source_session, $event, $type, $etc, $file, $line,
+       $session, $source_session, $event, $type, $etc, $file, $line, $fromstate,
        $time, $seq
      ) = @_;
 
@@ -857,7 +857,7 @@ sub _dispatch_event {
           $self->_dispatch_event(
             $target_session, $self,
             $target_event, ET_SIGNAL_EXPLICIT, $etc,
-            $file, $line, time(), -__LINE__
+            $file, $line, $fromstate, time(), -__LINE__
           );
         }
       }
@@ -906,7 +906,7 @@ sub _dispatch_event {
       _warn("<ev>     signal($etc->[0])");
     }
   }
-
+  
   # Prepare to call the appropriate handler.  Push the current active
   # session on Perl's call stack.
   my $hold_active_session = $kr_active_session;
@@ -923,12 +923,14 @@ sub _dispatch_event {
   my $return;
   if (wantarray) {
     $return = [
-      $session->_invoke_state($source_session, $event, $etc, $file, $line)
+      $session->_invoke_state($source_session, $event, $etc, $file, $line,
+	  	$fromstate)
     ];
   }
   else {
     $return =
-      $session->_invoke_state($source_session, $event, $etc, $file, $line);
+      $session->_invoke_state($source_session, $event, $etc, $file, $line,
+	  	$fromstate);
   }
 
   if (TRACE_STATISTICS) {
@@ -1163,7 +1165,7 @@ sub _invoke_state {
 
           $self->_data_ev_enqueue(
             $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
-            __FILE__, __LINE__, time(),
+            __FILE__, __LINE__, undef, time(),
           );
         }
         elsif (TRACE_SIGNALS) {
@@ -1230,7 +1232,7 @@ sub _invoke_state {
 
     $self->_data_ev_enqueue(
       $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-      __FILE__, __LINE__, time() + 1
+      __FILE__, __LINE__, undef, time() + 1
     ) if $self->_data_ses_count() > 1;
   }
 
@@ -1246,7 +1248,7 @@ sub _invoke_state {
       ) {
         $self->_data_ev_enqueue(
           $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'ZOMBIE' ],
-          __FILE__, __LINE__, time(),
+          __FILE__, __LINE__, undef, time(),
         );
       }
     }
@@ -1300,7 +1302,7 @@ sub session_alloc {
   my $return = $self->_dispatch_event(
     $session, $kr_active_session,
     EN_START, ET_START, \@args,
-    __FILE__, __LINE__, time(), -__LINE__
+    __FILE__, __LINE__, undef, time(), -__LINE__
   );
 
   # If the child has not detached itself---that is, if its parent is
@@ -1310,14 +1312,14 @@ sub session_alloc {
   $self->_dispatch_event(
     $self->_data_ses_get_parent($session), $self,
     EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
-    __FILE__, __LINE__, time(), -__LINE__
+    __FILE__, __LINE__, undef, time(), -__LINE__
   );
 
   # Enqueue a delayed garbage-collection event so the session has time
   # to do its thing before it goes.
   $self->_data_ev_enqueue(
     $session, $session, EN_GC, ET_GC, [],
-    __FILE__, __LINE__, time(),
+    __FILE__, __LINE__, undef, time(),
   );
 }
 
@@ -1344,7 +1346,7 @@ sub detach_myself {
   $self->_dispatch_event(
     $old_parent, $self,
     EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session, undef ],
-    (caller)[1,2], time(), -__LINE__
+    (caller)[1,2], undef, time(), -__LINE__
   );
 
   # Tell the new parent (kernel) that it's gaining a child.
@@ -1355,7 +1357,7 @@ sub detach_myself {
   $self->_dispatch_event(
     $kr_active_session, $self,
     EN_PARENT, ET_PARENT, [ $old_parent, $self ],
-    (caller)[1,2], time(), -__LINE__
+    (caller)[1,2], undef, time(), -__LINE__
   );
 
   $self->_data_ses_move_child($kr_active_session, $self);
@@ -1396,7 +1398,7 @@ sub detach_child {
   $self->_dispatch_event(
     $kr_active_session, $self,
     EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session, undef ],
-    (caller)[1,2], time(), -__LINE__
+    (caller)[1,2], undef, time(), -__LINE__
   );
 
   # Tell the new parent (kernel) that it's gaining a child.
@@ -1407,7 +1409,7 @@ sub detach_child {
   $self->_dispatch_event(
     $child_session, $self,
     EN_PARENT, ET_PARENT, [ $kr_active_session, $self ],
-    (caller)[1,2], time(), -__LINE__
+    (caller)[1,2], undef, time(), -__LINE__
   );
 
   $self->_data_ses_move_child($child_session, $self);
@@ -1423,6 +1425,10 @@ sub detach_child {
 
 sub get_active_session {
   return $kr_active_session;
+}
+
+sub get_active_event {
+  return $kr_active_event;
 }
 
 sub get_event_count {
@@ -1467,7 +1473,7 @@ sub post {
 
   $self->_data_ev_enqueue
     ( $session, $kr_active_session, $event_name, ET_POST, \@etc,
-      (caller)[1,2], time(),
+      (caller)[1,2], $kr_active_event, time(),
     );
   return 1;
 }
@@ -1489,7 +1495,7 @@ sub yield {
 
   $self->_data_ev_enqueue
     ( $kr_active_session, $kr_active_session, $event_name, ET_POST, \@etc,
-      (caller)[1,2], time(),
+      (caller)[1,2], $kr_active_event, time(),
     );
 
   undef;
@@ -1534,22 +1540,22 @@ sub call {
   if (wantarray) {
     $return_value = [
       $session == $kr_active_session
-      ? $session->_invoke_state($session, $event_name, \@etc, (caller)[1,2])
-      : $self->_dispatch_event(
+      ? $session->_invoke_state($session, $event_name, \@etc, (caller)[1,2],
+	  $kr_active_event) : $self->_dispatch_event(
         $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
-        (caller)[1,2], time(), -__LINE__
+        (caller)[1,2], $kr_active_event, time(), -__LINE__
       )
     ];
   }
   else {
     $return_value = (
       $session == $kr_active_session
-      ? $session->_invoke_state($session, $event_name, \@etc, (caller)[1,2])
-      : $self->_dispatch_event(
+      ? $session->_invoke_state($session, $event_name, \@etc, (caller)[1,2],
+	  $kr_active_event) : $self->_dispatch_event(
         $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
-        (caller)[1,2], time(), -__LINE__
+        (caller)[1,2], $kr_active_event, time(), -__LINE__
       )
     );
   }
@@ -1621,7 +1627,7 @@ sub alarm {
     $self->_data_ev_enqueue
       ( $kr_active_session, $kr_active_session,
         $event_name, ET_ALARM, [ @etc ],
-        (caller)[1,2], $time,
+        (caller)[1,2], $kr_active_event, $time,
       );
   }
   else {
@@ -1654,7 +1660,7 @@ sub alarm_add {
   $self->_data_ev_enqueue
     ( $kr_active_session, $kr_active_session,
       $event_name, ET_ALARM, [ @etc ],
-      (caller)[1,2], $time,
+      (caller)[1,2], $kr_active_event, $time,
     );
 
   return 0;
@@ -1742,7 +1748,7 @@ sub alarm_set {
 
   return $self->_data_ev_enqueue
     ( $kr_active_session, $kr_active_session, $event_name, ET_ALARM, [ @etc ],
-      (caller)[1,2], $time,
+      (caller)[1,2], $kr_active_event, $time,
     );
 }
 
@@ -1826,7 +1832,7 @@ sub delay_set {
 
   return $self->_data_ev_enqueue
     ( $kr_active_session, $kr_active_session, $event_name, ET_ALARM, [ @etc ],
-      (caller)[1,2], time() + $seconds,
+      (caller)[1,2], $kr_active_event, time() + $seconds,
     );
 }
 
@@ -2482,6 +2488,10 @@ Kernel data accessors:
   # Return a reference to the currently active session, or to the
   # kernel if called outside any session.
   $session = $kernel->get_active_session();
+
+  # Return a the currently active event, or to the last event if
+  # called outside any session.
+  $event = $kernel->get_active_event();
 
 Exported symbols:
 
