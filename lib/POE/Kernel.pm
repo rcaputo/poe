@@ -103,6 +103,7 @@ sub KR_SESSION_IDS    () {  7 } #   \%kr_session_ids,
 sub KR_SID_SEQ        () {  8 } #   \$kr_sid_seq,
 sub KR_EXTRA_REFS     () {  9 } #   \$kr_extra_refs,
 sub KR_SIZE           () { 10 } #   XXX UNUSED ???
+sub KR_RUN            () { 11 } #   \$kr_run_warning
                                 # ]
 
 # This flag indicates that POE::Kernel's run() method was called.
@@ -633,6 +634,10 @@ sub new {
         undef,               # KR_ID 
         undef,               # KR_SESSION_IDS - loaded from POE::Resource::SIDS
         undef,               # KR_SID_SEQ - loaded from POE::Resource::SIDS - is a scalar ref
+        undef,               # KR_EXTRA_REFS
+        undef,               # KR_SIZE
+        \$kr_run_warning,    # KR_RUN 
+
       ], $type;
 
     POE::Resources->initialize();
