@@ -77,30 +77,34 @@ Test results for 0.1009 or a 486-50 with not much memory:
   t/11_signals_poe....ok
   t/12_signals_ev.....ok
   t/13_wheels_udp.....ok
+  t/14_wheels_ft......ok
   All tests successful.
-  Files=14, Tests=170, 459 wallclock secs (224.73 cusr + 30.79 csys = 255.52 CPU)
+  Files=15, Tests=179, 471 wallclock secs (240.88 cusr + 27.94 csys = 268.82 CPU)
 
 POE's development after 0.1005 consists of a big push to test
 everything.  To further this effort, the author wrote a test coverage
 reporting program; then he discovered Devel::Coverage.  Oh well!
-Anyway, here's the test coverage summary for version 0.1009:
+Anyway, here's the test coverage summary for version 0.1009.  The numbers
+don't match up yet, but this is a general guideline for how well-tested
+POE is.
 
   Source File                         =   Ran / Total = Covered
   POE.pm                              =    19 /    19 = 100.00%
   POE/Component/Server/TCP.pm         =    23 /    23 = 100.00%
   POE/Driver/SysRW.pm                 =    42 /    54 =  77.78%
+  POE/Filter/Block.pm                 =    21 /    24 =  87.50%
   POE/Filter/HTTPD.pm                 =    11 /    85 =  12.94%
   POE/Filter/Line.pm                  =    15 /    20 =  75.00%
   POE/Filter/Reference.pm             =     4 /    66 =   6.06%
   POE/Filter/Stream.pm                =     2 /    11 =  18.18%
-  POE/Kernel.pm                       =   694 /   926 =  74.95%
+  POE/Kernel.pm                       =   697 /   926 =  75.27%
   POE/Preprocessor.pm                 =   119 /   138 =  86.23%
   POE/Session.pm                      =    81 /   194 =  41.75%
-  POE/Wheel/FollowTail.pm             =     5 /    65 =   7.69%
+  POE/Wheel/FollowTail.pm             =    54 /    69 =  78.26%
   POE/Wheel/ListenAccept.pm           =     5 /    43 =  11.63%
-  POE/Wheel/ReadWrite.pm              =    99 /   183 =  54.10%
+  POE/Wheel/ReadWrite.pm              =   100 /   183 =  54.64%
   POE/Wheel/SocketFactory.pm          =   194 /   275 =  70.55%
-  All Told                            =  1313 /  2121 =  61.90%
+  All Told                            =  1387 /  2151 =  64.48%
 
 Good luck, and thank you for reading!
 
