@@ -137,7 +137,7 @@ foreach my $test_file (sort keys %test_results) {
         $xml .= "\t\t<skipped>\n";
         for (my $i = 0; $i < @{$test_results{$test_file}{details}}; $i++) {
             if($test_results{$test_file}{details}[$i]{type} eq 'skip') {
-                $xml .= "\t\t\t<test num=\"". ($i+1) ."\" reason=\"$test_results{$test_file}{details}[$i]->{reason} />\n";
+                $xml .= "\t\t\t<test num=\"". ($i+1) ."\" reason=\"$test_results{$test_file}{details}[$i]->{reason}\" />\n";
             }
         }
         $xml .= "\t\t</skipped>\n";
