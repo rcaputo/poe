@@ -423,7 +423,8 @@ No known problems.
 
 =item OS/2
 
-No known problems.
+No known problems.  POE has no OS/2 tester starting with version
+0.1206.
 
 =item Windows
 
