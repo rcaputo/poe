@@ -147,9 +147,9 @@ sub daemon_shutdown {
 # and port.
 
 sub server_create {
-  new POE::Session( _start => \&server_start,
-                    error  => \&server_error,
-                    accept => \&server_accept
+  new POE::Session( _start   => \&server_start,
+                    error    => \&server_error,
+                    'accept' => \&server_accept
                   );
 }
 
