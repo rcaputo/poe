@@ -104,6 +104,9 @@ component.  This is ahead of schedule.
 Added POE::Wheel::ReadLine.  This is a Term::ReadLine subset that
 cooperates with POE.  Now how do I test it non-interactively?
 
+Remove documentation in POE::Filter::Line and ::Block saying their
+put() methods can be used with single logical records.  They can't.
+
 
 0.1205 2001.02.12
 -----------------

@@ -118,8 +118,6 @@ POE::Filter::Block - filter between streams and blocks
     $filter->get($arrayref_of_raw_chunks_from_driver);
   $arrayref_of_streamable_chunks_for_driver =
     $filter->put($arrayref_of_blocks);
-  $arrayref_of_streamable_chunks_for_driver =
-    $filter->put($single_block);
   $arrayref_of_leftovers =
     $filter->get_pending();
 
@@ -131,7 +129,7 @@ It can handle two kinds of block: fixed-length and length-prepended.
 Fixed-length blocks are used when Block's constructor is given a block
 size.  Otherwise the Block filter uses length-prepended blocks.
 
-Users who specify block sizes less than one deserver to be soundly
+Users who specify block sizes less than one deserve to be soundly
 spanked.
 
 Extra bytes are buffered until more bytes arrive to complete a block.
@@ -149,7 +147,7 @@ the entire POE distribution.
 
 =head1 BUGS
 
-None known.
+The put() method doesn't verify block sizes.
 
 =head1 AUTHORS & COPYRIGHTS
 

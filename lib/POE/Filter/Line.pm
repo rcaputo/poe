@@ -233,8 +233,6 @@ POE::Filter::Line - filter data as lines
     $filter->get($arrayref_of_raw_chunks_from_driver);
   $arrayref_of_streamable_chunks_for_driver =
     $filter->put($arrayref_of_lines);
-  $arrayref_of_streamable_chunks_for_driver =
-    $filter->put($single_line);
   $arrayref_of_leftovers =
     $filter->get_pending();
 
