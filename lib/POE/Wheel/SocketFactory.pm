@@ -25,7 +25,7 @@ sub condition_handle {
                                         # do it the Win32 way
   if ($^O eq '"MSWin32') {
     my $set_it = "1";
-    ioctl(handle, 126, $set_it)
+    ioctl($handle, 126, $set_it)
       or return ['ioctl', $!+0, $!];
   }
                                         # do it the way everyone else does
