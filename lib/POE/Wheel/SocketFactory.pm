@@ -24,7 +24,7 @@ sub condition_handle {
   my ($self, $handle, $reuse) = @_;
                                         # fix DOSISHness
   binmode($handle);
-                                        # do it the Win32 way
+                                        # do it the Win32 way (XXX incomplete!)
   if ($^O eq 'MSWin32') {
     my $set_it = "1";
                                         # 126 is FIONBIO
@@ -64,8 +64,11 @@ sub condition_unix_address {
 
 #------------------------------------------------------------------------------
 
-sub register_listen_accept {
-  my ($self, $listen_handle, $success_state, $failure_state) = @_;
+sub _define_accept_state {
+  my $self = shift;
+
+  my ($success_event, $failure_event, $listen_handle)
+    = @{$self}{'event success', 'event failure', 'handle'};
 
   $poe_kernel->state
     ( $self->{'state accept'} = $self . ' -> select accept',
@@ -89,11 +92,11 @@ sub register_listen_accept {
           else {
             die "sanity failure: socket domain == $self->{'socket domain'}";
           }
-          $k->call($me, $success_state, $new_socket, $peer_addr, $peer_port);
+          $k->call($me, $success_event, $new_socket, $peer_addr, $peer_port);
         }
         elsif ($! != EWOULDBLOCK) {
-          $failure_state &&
-            $k->call($me, $failure_state, 'accept', ($!+0), $!);
+          $failure_event &&
+            $k->call($me, $failure_event, 'accept', ($!+0), $!);
         }
       }
     );
@@ -103,8 +106,27 @@ sub register_listen_accept {
 
 #------------------------------------------------------------------------------
 
-sub register_connect {
-  my ($self, $connect_handle, $success_state, $failure_state) = @_;
+sub _define_connect_state {
+  my $self = shift;
+
+  my ($success_event, $failure_event, $connect_handle)
+    = @{$self}{'event success', 'event failure', 'handle'};
+
+  $poe_kernel->state
+    ( $self->{'state noconnect'} = $self . ' -> select noconnect',
+      sub {
+                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+        $k->select($handle);
+                                        # acquire and dispatch connect error
+        if (defined $failure_event) {
+          sysread($handle, my $buf = '', 1);
+          $k->call($me, $failure_event, 'connect', ($!+0), $!);
+        }
+      }
+    );
 
   $poe_kernel->state
     ( $self->{'state connect'} = $self . ' -> select connect',
@@ -113,29 +135,60 @@ sub register_connect {
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+
         $k->select($handle);
-        $k->call($me, $success_state, $handle);
+        $k->call($me, $success_event, $handle);
       }
     );
 
-  $poe_kernel->select_write($connect_handle, $self->{'state connect'});
+  $poe_kernel->select($connect_handle,
+                      $self->{'state noconnect'},
+                      $self->{'state connect'}
+                     );
+}
 
-#   $poe_kernel->state
-#     ( $self->{'state connect'} = $self . ' -> select connect',
-#       sub {
-#                                        # prevents SEGV
-#         0 && CRIMSON_SCOPE_HACK('<');
-#                                        # subroutine starts here
-#         my ($k, $handle) = @_[KERNEL, ARG0];
-#         sysread($handle, my $buffer = '', 0, 0);
-#         if ($! && ($! != EINPROGRESS)) {
-#           $k->yield($failure_state, 'connect', $!+0, $!);
-#           $k->select($handle);
-#           close($handle);
-#         }
-#       }
-#     );
-#   $poe_kernel->select_read($connect_handle, $self->{'state connect'});
+#------------------------------------------------------------------------------
+
+sub event {
+  my $self = shift;
+  push(@_, undef) if (scalar(@_) & 1);
+
+  while (@_) {
+    my ($name, $event) = splice(@_, 0, 2);
+
+    if ($name eq 'SuccessState') {
+      if (defined $event) {
+        $self->{'event success'} = $event;
+      }
+      else {
+        carp "SuccessState requires an event name.  ignoring undef";
+      }
+    }
+    elsif ($name eq 'FailureState') {
+      if (defined $event) {
+        $self->{'event failure'} = $event;
+      }
+      else {
+        carp "FailureState requires an event name.  ignoring undef";
+      }
+    }
+    else {
+      carp "ignoring unknown SocketFactory parameter '$name'";
+    }
+  }
+
+  if (exists $self->{'state accept'}) {
+    $poe_kernel->select_read($self->{'handle'}, $self->{'state accept'});
+  }
+  elsif (exists $self->{'state connect'}) {
+    $poe_kernel->select($self->{'handle'},
+                        $self->{'state noconnect'},
+                        $self->{'state connect'}
+                       );
+  }
+  else {
+    die "POE developer error - no state defined";
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -147,17 +200,18 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $poe_kernel);
 
-  my $self = bless { }, $type;
-  my $socket_handle = gensym;
-
   croak 'SuccessState required' unless (exists $params{'SuccessState'});
   croak 'FailureState required' unless (exists $params{'FailureState'});
   croak 'SocketDomain required' unless (exists $params{'SocketDomain'});
   croak 'SocketType required'   unless (exists $params{'SocketType'});
 
-  my ($socket_domain, $socket_type, $success_state, $failure_state
-     ) = @params{ 'SocketDomain', 'SocketType', 'SuccessState', 'FailureState'
-                };
+  my $self = bless { 'event success' => $params{'SuccessState'},
+                     'event failure' => $params{'FailureState'},
+                   }, $type;
+  my $socket_handle = gensym;
+
+  my ($socket_domain, $socket_type, $success_event, $failure_event)
+    = @params{ 'SocketDomain', 'SocketType', 'SuccessState', 'FailureState'};
 
   $self->{'socket domain'} = $socket_domain;
 
@@ -171,7 +225,7 @@ sub new {
     croak 'BindAddress exists'    if (-e $params{'BindAddress'});
 
     unless (socket($socket_handle, $socket_domain, $socket_type, PF_UNSPEC)) {
-      $poe_kernel->yield($failure_state, 'socket', $!+0, $!);
+      $poe_kernel->yield($failure_event, 'socket', $!+0, $!);
       return undef;
     }
 
@@ -181,15 +235,21 @@ sub new {
                 )
                )
     ) {
-      $poe_kernel->yield($failure_state, @$ret);
+      $poe_kernel->yield($failure_event, @$ret);
       close($socket_handle);
       return undef;
     }
 
     my $bind_address = &condition_unix_address($params{'BindAddress'});
+    my $socket_address = sockaddr_un($bind_address);
+    unless ($socket_address) {
+      $poe_kernel->yield($failure_event, 'sockaddr_un', $!+0, $!);
+      close($socket_handle);
+      return undef;
+    }
 
-    unless (bind($socket_handle, sockaddr_un($bind_address))) {
-      $poe_kernel->yield($failure_state, 'bind', $!+0, $!);
+    unless (bind($socket_handle, $socket_address)) {
+      $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
       close($socket_handle);
       return undef;
     }
@@ -202,15 +262,13 @@ sub new {
       carp 'RemotePort ignored' if (exists $params{'RemotePort'});
 
       unless (listen($socket_handle, $listen_queue)) {
-        $poe_kernel->yield($failure_state, 'listen', $!+0, $!);
+        $poe_kernel->yield($failure_event, 'listen', $!+0, $!);
         close($socket_handle);
         return undef;
       }
 
-      $self->register_listen_accept($socket_handle,
-                                    $success_state, $failure_state
-                                   );
       $self->{'handle'} = $socket_handle;
+      $self->_define_accept_state();
     }
     else {
       croak 'RemoteAddress required' unless (exists $params{'RemoteAddress'});
@@ -218,16 +276,23 @@ sub new {
 
       my $remote_address =
         condition_unix_address($params{'RemoteAddress'});
+      my $socket_address = sockaddr_un($remote_address);
+      unless ($socket_address) {
+        $poe_kernel->yield($failure_event, 'sockaddr_un', $!+0, $!);
+        close $socket_handle;
+        return undef;
+      }
 
-      unless (connect($socket_handle, sockaddr_un($remote_address))) {
+      unless (connect($socket_handle, $socket_address)) {
         if ($! && ($! != EINPROGRESS)) {
-          $poe_kernel->yield($failure_state, 'connect', $!+0, $!);
+          $poe_kernel->yield($failure_event, 'connect', $!+0, $!);
           close($socket_handle);
           return undef;
         }
       }
 
-      $self->register_connect($socket_handle, $success_state, $failure_state);
+      $self->{'handle'} = $socket_handle;
+      $self->_define_connect_state();
     }
   }
 
@@ -237,14 +302,14 @@ sub new {
     my $socket_protocol = $params{'SocketProtocol'};
     if ($socket_protocol !~ /^\d+$/) {
       unless ($socket_protocol = getprotobyname($socket_protocol)) {
-        $poe_kernel->yield($failure_state, 'getprotobyname', $!+0, $!);
+        $poe_kernel->yield($failure_event, 'getprotobyname', $!+0, $!);
         return undef;
       }
     }
 
     my $protocol_name = getprotobynumber($socket_protocol);
     unless ($protocol_name) {
-      $poe_kernel->yield($failure_state, 'getprotobynumber', $!+0, $!);
+      $poe_kernel->yield($failure_event, 'getprotobynumber', $!+0, $!);
       return undef;
     }
 
@@ -255,7 +320,7 @@ sub new {
     unless (
       socket($socket_handle, $socket_domain, $socket_type, $socket_protocol)
     ) {
-      $poe_kernel->yield($failure_state, 'socket', $!+0, $!);
+      $poe_kernel->yield($failure_event, 'socket', $!+0, $!);
       return undef;
     }
 
@@ -265,7 +330,7 @@ sub new {
                 )
                )
     ) {
-      $poe_kernel->yield($failure_state, @$ret);
+      $poe_kernel->yield($failure_event, @$ret);
       close($socket_handle);
       return undef;
     }
@@ -280,7 +345,15 @@ sub new {
 
         my ($bind_address, $bind_port);
         if (exists $params{'BindAddress'}) {
-          $bind_address = inet_aton($params{'BindAddress'});
+          $bind_address = $params{'BindAddress'};
+          (length($bind_address) != 4) &&
+            ($bind_address = inet_aton($bind_address));
+          unless (defined $bind_address) {
+            $! = EADDRNOTAVAIL;
+            $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
+            close $socket_handle;
+            return undef;
+          }
         }
         else {
           $bind_address = INADDR_ANY;
@@ -296,21 +369,27 @@ sub new {
           $bind_port = 0;
         }
 
-        unless (bind($socket_handle, sockaddr_in($bind_port, $bind_address))) {
-          $poe_kernel->yield($failure_state, 'bind', $!+0, $!);
+        my $packed_bind_address = sockaddr_in($bind_port, $bind_address);
+        unless ($packed_bind_address) {
+          $poe_kernel->yield($failure_event, 'sockaddr_in', $!+0, $!);
+          close $socket_handle;
+          return undef;
+        }
+
+        unless (bind($socket_handle, $packed_bind_address)) {
+          $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
           close($socket_handle);
           return undef;
         }
 
         unless (listen($socket_handle, $listen_queue)) {
-          $poe_kernel->yield($failure_state, 'listen', $!+0, $!);
+          $poe_kernel->yield($failure_event, 'listen', $!+0, $!);
           close($socket_handle);
           return undef;
         }
 
-        $self->register_listen_accept($socket_handle,
-                                      $success_state, $failure_state
-                                     );
+        $self->{'handle'} = $socket_handle;
+        $self->_define_accept_state();
       }
                                         # connecting socket
       else {
@@ -323,27 +402,38 @@ sub new {
         my $remote_port = $params{'RemotePort'};
         if ($remote_port !~ /^\d+$/) {
           unless ($remote_port = getservbyname($remote_port, $protocol_name)) {
-            $poe_kernel->yield($failure_state, 'getservbyname', $!+0, $!);
+            $poe_kernel->yield($failure_event, 'getservbyname', $!+0, $!);
             close($socket_handle);
             return undef;
           }
         }
 
         my $remote_address = inet_aton($params{'RemoteAddress'});
+        unless (defined $remote_address) {
+          $! = EADDRNOTAVAIL;
+          $poe_kernel->yield($failure_event, 'inet_aton', $!+0, $!);
+          close($socket_handle);
+          return undef;
+        }
 
-        unless (
-          connect($socket_handle, sockaddr_in($remote_port, $remote_address))
-        ) {
+        my $packed_connect_address =
+          sockaddr_in($remote_port, $remote_address);
+        unless ($packed_connect_address) {
+          $poe_kernel->yield($failure_event, 'sockaddr_in', $!+0, $!);
+          close $socket_handle;
+          return undef;
+        }
+
+        unless (connect($socket_handle, $packed_connect_address)) {
           if ($! && ($! != EINPROGRESS)) {
-            $poe_kernel->yield($failure_state, 'connect', $!+0, $!);
+            $poe_kernel->yield($failure_event, 'connect', $!+0, $!);
             close($socket_handle);
             return undef;
           }
         }
 
-        $self->register_connect($socket_handle,
-                                $success_state, $failure_state
-                               );
+        $self->{'handle'} = $socket_handle;
+        $self->_define_connect_state();
       }
     }
     elsif ($protocol_name eq 'udp') {
@@ -381,6 +471,11 @@ sub DESTROY {
   if (exists $self->{'state connect'}) {
     $poe_kernel->state($self->{'state connect'});
     delete $self->{'state connect'};
+  }
+
+  if (exists $self->{'state noconnect'}) {
+    $poe_kernel->state($self->{'state noconnect'});
+    delete $self->{'state noconnect'};
   }
 }
 
