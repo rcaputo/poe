@@ -52,7 +52,10 @@ sub loop_finalize {
 # Signal handlers.
 
 sub _loop_signal_handler_generic {
-  TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing generic SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__, time(),
@@ -61,7 +64,10 @@ sub _loop_signal_handler_generic {
 }
 
 sub _loop_signal_handler_pipe {
-  TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__, time(),
@@ -72,7 +78,10 @@ sub _loop_signal_handler_pipe {
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
 sub _loop_signal_handler_child {
-  TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
+  }
+
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],

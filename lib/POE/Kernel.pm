@@ -221,10 +221,7 @@ BEGIN {
   $trace_default++ if defined $ENV{POE_TRACE_DEFAULT};
   defined &TRACE_DEFAULT or eval "sub TRACE_DEFAULT () { $trace_default }";
 
-  define_trace
-    qw( EVENTS GARBAGE PROFILE QUEUE REFCOUNT RETURNS SELECT SIGNALS ADHOC
-        RELATIONS
-      );
+  define_trace qw(EVENTS FILES PROFILE REFCNT RETVALS SESSIONS SIGNALS);
 
   # See the notes for TRACE_DEFAULT, except read ASSERT and assert
   # where you see TRACE and trace.
@@ -233,8 +230,7 @@ BEGIN {
   $assert_default++ if defined $ENV{POE_ASSERT_DEFAULT};
   defined &ASSERT_DEFAULT or eval "sub ASSERT_DEFAULT () { $assert_default }";
 
-  define_assert
-    qw(EVENTS GARBAGE REFCOUNT RELATIONS SELECT SESSIONS RETURNS USAGE ADHOC);
+  define_assert qw(DATA EVENTS FILES RETVALS USAGE);
 };
 
 #------------------------------------------------------------------------------
@@ -314,8 +310,13 @@ sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
   my $refcount = ++$kr_extra_refs{$session}->{$tag};
   $self->_data_ses_refcount_inc($session) if $refcount == 1;
-  TRACE_ADHOC and
-    warn "<er> incremented extref ``$tag'' (now $refcount) for $session";
+
+  if (TRACE_REFCNT) {
+    confess( "<rc> incremented extref ``$tag'' (now $refcount) for ",
+             $self->_data_alias_loggable($session)
+           );
+  }
+
   return $refcount;
 }
 
@@ -325,11 +326,23 @@ sub _data_extref_inc {
 
 sub _data_extref_dec {
   my ($self, $session, $tag) = @_;
-  confess "internal inconsistency"
-    unless exists $kr_extra_refs{$session}->{$tag};
+
+  if (ASSERT_DATA) {
+    unless (exists $kr_extra_refs{$session}->{$tag}) {
+      confess( "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
+               $self->_data_alias_loggable($session)
+             );
+    }
+  }
+
   my $refcount = --$kr_extra_refs{$session}->{$tag};
-  TRACE_ADHOC and
-    warn "<er> decremented extref ``$tag'' (now $refcount) for $session";
+
+  if (TRACE_REFCNT) {
+    confess( "<rc> decremented extref ``$tag'' (now $refcount) for ",
+             $self->_data_alias_loggable($session)
+           );
+  }
+
   $self->_data_extref_remove($session, $tag) unless $refcount;
   return $refcount;
 }
@@ -338,8 +351,15 @@ sub _data_extref_dec {
 
 sub _data_extref_remove {
   my ($self, $session, $tag) = @_;
-  confess "internal inconsistency"
-    unless exists $kr_extra_refs{$session}->{$tag};
+
+  if (ASSERT_DATA) {
+    unless (exists $kr_extra_refs{$session}->{$tag}) {
+      confess( "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
+               $self->_data_alias_loggable($session)
+             );
+    }
+  }
+
   delete $kr_extra_refs{$session}->{$tag};
   $self->_data_ses_refcount_dec($session);
   unless (keys %{$kr_extra_refs{$session}}) {
@@ -355,7 +375,14 @@ sub _data_extref_clear_session {
   foreach (keys %{$kr_extra_refs{$session}}) {
     $self->_data_extref_remove($session, $_);
   }
-  confess "internal inconsistency" if exists $kr_extra_refs{$session};
+
+  if (ASSERT_DATA) {
+    if (exists $kr_extra_refs{$session}) {
+      confess( "<dt> extref clear did not remove session ",
+               $self->_data_alias_loggable($session)
+             );
+    }
+  }
 }
 
 ### Fetch the number of extra references held in the entire system.
@@ -612,8 +639,13 @@ sub _data_sig_free_terminated_sessions {
      ) {
     foreach my $dead_session (@kr_signaled_sessions) {
       next unless $self->_data_ses_exists($dead_session);
-      TRACE_ADHOC and
-        warn "<sg> stopping signaled session ", $dead_session->ID;
+
+      if (TRACE_SIGNALS) {
+        warn( "<sg> stopping signaled session ",
+              $self->_data_alias_loggable($dead_session)
+            );
+      }
+
       $self->_data_ses_stop($dead_session);
     }
   }
@@ -881,8 +913,8 @@ sub _data_handle_resume_requested_state {
 
   my $kr_fno_rec  = $kr_filenos{$fileno}->[$mode];
 
-  if (TRACE_SELECT) {
-    warn( "<fd> decrementing event count in mode ($mode) ",
+  if (TRACE_FILES) {
+    warn( "<fh> decrementing event count in mode ($mode) ",
           "for fileno (", $fileno, ") from count (",
           $kr_fno_rec->[FMO_EV_COUNT], ")"
         );
@@ -945,8 +977,8 @@ sub _data_handle_enqueue_ready {
         $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
       }
 
-      if (TRACE_SELECT) {
-        warn( "<fd> incremented event count in mode ($mode) ",
+      if (TRACE_FILES) {
+        warn( "<fh> incremented event count in mode ($mode) ",
               "for fileno ($fileno) to count ($kr_fno_rec->[FMO_EV_COUNT])"
             );
       }
@@ -998,8 +1030,8 @@ sub _data_handle_add {
         0,            # FNO_TOT_REFCOUNT
       ];
 
-    if (TRACE_SELECT) {
-      warn "<sl> adding fd (", $fd, ")";
+    if (TRACE_FILES) {
+      warn "<fh> adding fd (", $fd, ")";
     }
 
     # For DOSISH systems like OS/2.  Wrapped in eval{} in case it's a
@@ -1047,8 +1079,8 @@ sub _data_handle_add {
     # as a "resume" in this mode.
 
     if (exists $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle}) {
-      if (TRACE_SELECT) {
-        warn( "<fd> running fileno(" . $fd . ") mode($mode) " .
+      if (TRACE_FILES) {
+        warn( "<fh> running fileno(" . $fd . ") mode($mode) " .
               "count($kr_fno_rec->[FMO_EV_COUNT])"
             );
       }
@@ -1166,14 +1198,14 @@ sub _data_handle_remove {
 
         $kr_fno_rec->[FMO_EV_COUNT]--;
 
-        if (TRACE_SELECT) {
-          confess( "<fd> fileno $fd mode $mode event count went to ",
+        if (TRACE_FILES) {
+          confess( "<fh> fileno $fd mode $mode event count went to ",
                    $kr_fno_rec->[FMO_EV_COUNT]
                  );
         }
 
-        if (ASSERT_REFCOUNT) {
-          confess "<fd> fileno $fd mode $mode event count went below zero"
+        if (ASSERT_DATA) {
+          confess "<dt> fileno $fd mode $mode event count went below zero"
             if $kr_fno_rec->[FMO_EV_COUNT] < 0;
         }
       }
@@ -1182,8 +1214,8 @@ sub _data_handle_remove {
 
       $kr_fno_rec->[FMO_REFCOUNT]--;
 
-      if (ASSERT_REFCOUNT) {
-        confess "fileno mode refcount went below zero"
+      if (ASSERT_DATA) {
+        confess "<dt> fileno mode refcount went below zero"
           if $kr_fno_rec->[FMO_REFCOUNT] < 0;
       }
 
@@ -1208,14 +1240,14 @@ sub _data_handle_remove {
 
       $kr_fileno->[FNO_TOT_REFCOUNT]--;
 
-      if (ASSERT_REFCOUNT) {
-        confess "fileno refcount went below zero"
+      if (ASSERT_DATA) {
+        confess "<dt> fileno refcount went below zero"
           if $kr_fileno->[FNO_TOT_REFCOUNT] < 0;
       }
 
       unless ($kr_fileno->[FNO_TOT_REFCOUNT]) {
-        if (TRACE_SELECT) {
-          warn "<sl> deleting fileno (", $fd, ")";
+        if (TRACE_FILES) {
+          warn "<fh> deleting fileno (", $fd, ")";
         }
         delete $kr_filenos{$fd};
       }
@@ -1242,8 +1274,9 @@ sub _data_handle_remove {
 
       $ss_handle->[SH_REFCOUNT]--;
 
-      if (ASSERT_REFCOUNT) {
-        confess "refcount went below zero" if $ss_handle->[SH_REFCOUNT] < 0;
+      if (ASSERT_DATA) {
+        confess "<dt> refcount went below zero"
+          if $ss_handle->[SH_REFCOUNT] < 0;
       }
 
       unless ($ss_handle->[SH_REFCOUNT]) {
@@ -1266,8 +1299,8 @@ sub _data_handle_resume {
   my $kr_fileno = $kr_filenos{fileno($handle)};
   my $kr_fno_rec = $kr_fileno->[$mode];
 
-  if (TRACE_SELECT) {
-    warn( "<fd> resume test: fileno(" . fileno($handle) . ") mode($mode) " .
+  if (TRACE_FILES) {
+    warn( "<fh> resume test: fileno(" . fileno($handle) . ") mode($mode) " .
           "count($kr_fno_rec->[FMO_EV_COUNT])"
         );
   }
@@ -1292,8 +1325,8 @@ sub _data_handle_pause {
   my $kr_fileno = $kr_filenos{fileno($handle)};
   my $kr_fno_rec = $kr_fileno->[$mode];
 
-  if (TRACE_SELECT) {
-    warn( "<fd> pause test: fileno(" . fileno($handle) . ") mode($mode) " .
+  if (TRACE_FILES) {
+    warn( "<fh> pause test: fileno(" . fileno($handle) . ") mode($mode) " .
           "count($kr_fno_rec->[FMO_EV_COUNT])"
         );
   }
@@ -1394,8 +1427,9 @@ sub _data_ev_enqueue {
   my $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
 
   if (TRACE_EVENTS) {
-    warn( "<ev> enqueued event $new_id ``$event'' from session ",
-          $source_session->ID, " to ", $self->_data_alias_loggable($session),
+    warn( "<ev> enqueued event $new_id ``$event'' from ",
+          $self->_data_alias_loggable($source_session), " to ",
+          $self->_data_alias_loggable($session),
           " at $time"
         );
   }
@@ -1535,7 +1569,7 @@ sub _data_ev_dispatch_due {
 
   if (TRACE_EVENTS) {
     foreach ($kr_queue->peek_items(sub { 1 })) {
-      warn( "<eq> time($_->[ITEM_PRIORITY]) id($_->[ITEM_ID]) ",
+      warn( "<ev> time($_->[ITEM_PRIORITY]) id($_->[ITEM_ID]) ",
             "event(@{$_->[ITEM_PAYLOAD]})\n"
           );
     }
@@ -1545,7 +1579,11 @@ sub _data_ev_dispatch_due {
   while (defined(my $next_time = $kr_queue->get_next_priority())) {
     last if $next_time > $now;
     my ($time, $id, $event) = $kr_queue->dequeue_next();
-    TRACE_EVENTS and warn "<eq> dispatching event $id ($event->[EV_NAME])";
+
+    if (TRACE_EVENTS) {
+      warn "<ev> dispatching event $id ($event->[EV_NAME])";
+    }
+
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
     $self->_dispatch_event(@$event, $time, $id);
   }
@@ -1621,7 +1659,14 @@ sub _data_ses_allocate {
   if (defined $parent) {
     confess "parent $parent does not exist"
       unless exists $kr_sessions{$parent};
-    TRACE_RELATIONS and warn "<pc> session $session has parent $parent";
+
+    if (TRACE_SESSIONS) {
+      warn( "<ss> ",
+            $self->_data_alias_loggable($session), " has parent ",
+            $self->_data_alias_loggable($parent)
+          );
+    }
+
     $kr_sessions{$parent}->[SS_CHILDREN]->{$session} = $session;
     $self->_data_ses_refcount_inc($parent);
   }
@@ -1634,7 +1679,11 @@ sub _data_ses_allocate {
 sub _data_ses_free {
   my ($self, $session) = @_;
 
-  TRACE_ADHOC and warn "<fr> freeing session $session";
+  if (TRACE_SESSIONS) {
+    warn( "<ss> freeing ",
+          $self->_data_alias_loggable($session)
+        );
+  }
 
   # Manage parent/child relationships.
 
@@ -1656,7 +1705,14 @@ sub _data_ses_free {
     confess "internal inconsistency ($parent/$session)"
       unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
     undef $kr_sessions{$session}->[SS_PARENT];
-    TRACE_RELATIONS and cluck "<pc> removed $session from $parent";
+
+    if (TRACE_SESSIONS) {
+      cluck( "<ss> removed ",
+             $self->_data_alias_loggable($session), " from ",
+             $self->_data_alias_loggable($parent)
+           );
+    }
+
     $self->_data_ses_refcount_dec($parent);
 
     # Move the departing session's children to its parent.
@@ -1701,7 +1757,12 @@ sub _data_ses_free {
 sub _data_ses_move_child {
   my ($self, $session, $new_parent) = @_;
 
-  TRACE_ADHOC and warn "<ch> moving $session to new parent $new_parent";
+  if (TRACE_SESSIONS) {
+    warn( "<ss> moving ",
+          $self->_data_alias_loggable($session), " to ",
+          $self->_data_alias_loggable($new_parent)
+        );
+  }
 
   confess "internal inconsistency" unless exists $kr_sessions{$session};
   confess "internal inconsistency" unless exists $kr_sessions{$new_parent};
@@ -1712,16 +1773,35 @@ sub _data_ses_move_child {
 
   # Remove the session from its old parent.
   delete $kr_sessions{$old_parent}->[SS_CHILDREN]->{$session};
-  TRACE_RELATIONS and warn "<pc> removed $session from $old_parent";
+
+  if (TRACE_SESSIONS) {
+    warn( "<ss> removed ",
+          $self->_data_alias_loggable($session), " from ",
+          $self->_data_alias_loggable($old_parent)
+        );
+  }
+
   $self->_data_ses_refcount_dec($old_parent);
 
   # Change the session's parent.
   $kr_sessions{$session}->[SS_PARENT] = $new_parent;
-  TRACE_RELATIONS and warn "<pc> changed parent of $session to $new_parent";
+
+  if (TRACE_SESSIONS) {
+    warn( "<ss> changed parent of ",
+          $self->_data_alias_loggable($session), " to ",
+          $self->_data_alias_loggable($new_parent)
+        );
+  }
 
   # Add the current session to the new parent's children.
   $kr_sessions{$new_parent}->[SS_CHILDREN]->{$session} = $session;
-  TRACE_RELATIONS and warn "<pc> added $session to $new_parent";
+
+  if (TRACE_SESSIONS) {
+    warn( "<ss> added ",
+          $self->_data_alias_loggable($session), " as child of ",
+          $self->_data_alias_loggable($new_parent)
+        );
+  }
 
   $self->_data_ses_refcount_inc($new_parent);
 }
@@ -1784,7 +1864,11 @@ sub _data_ses_resolve_to_id {
 sub _data_ses_refcount_dec {
   my ($self, $session) = @_;
 
-  TRACE_ADHOC and warn "<r-> decrementing refcount for $session";
+  if (TRACE_REFCNT) {
+    warn( "<rc> decrementing refcount for ",
+          $self->_data_alias_loggable($session)
+        );
+  }
 
   return unless exists $kr_sessions{$session};
   confess "internal inconsistency" unless exists $kr_sessions{$session};
@@ -1800,7 +1884,13 @@ sub _data_ses_refcount_dec {
 
 sub _data_ses_refcount_inc {
   my ($self, $session) = @_;
-  TRACE_ADHOC and warn "<r-> decrementing refcount for $session";
+
+  if (TRACE_REFCNT) {
+    warn( "<rc> incrementing refcount for ",
+          $self->_data_alias_loggable($session)
+        );
+  }
+
   confess "incrementing refcount for nonexistent session"
     unless exists $kr_sessions{$session};
   $kr_sessions{$session}->[SS_REFCOUNT]++;
@@ -1812,7 +1902,11 @@ sub _data_ses_refcount_inc {
 sub _data_ses_collect_garbage {
   my ($self, $session) = @_;
 
-  TRACE_ADHOC and warn "<gc> collecting garbage for $session";
+  if (TRACE_REFCNT) {
+    warn( "<rc> testing for idle ",
+          $self->_data_alias_loggable($session)
+        );
+  }
 
   # The next line is necessary for some strange reason.  This feels
   # like a kludge, but I'm currently not smart enough to figure out
@@ -1820,34 +1914,34 @@ sub _data_ses_collect_garbage {
 
   confess "internal inconsistency" unless exists $kr_sessions{$session};
 
-  if (TRACE_GARBAGE) {
+  if (TRACE_REFCNT) {
     my $ss = $kr_sessions{$session};
-    warn( "<gc> +----- GC test for ", $self->_data_alias_loggable($session),
+    warn( "<rc> +----- GC test for ", $self->_data_alias_loggable($session),
           " ($session) -----\n",
-          "<gc> | total refcnt  : $ss->[SS_REFCOUNT]\n",
-          "<gc> | event count   : ",
+          "<rc> | total refcnt  : $ss->[SS_REFCOUNT]\n",
+          "<rc> | event count   : ",
           $self->_data_ev_get_count_to($session), "\n",
-          "<gc> | post count    : ",
+          "<rc> | post count    : ",
           $self->_data_ev_get_count_from($session), "\n",
-          "<gc> | child sessions: ",
+          "<rc> | child sessions: ",
           scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
-          "<gc> | handles in use: ",
+          "<rc> | handles in use: ",
           $self->_data_handle_count_ses($session), "\n",
-          "<gc> | aliases in use: ",
+          "<rc> | aliases in use: ",
           $self->_data_alias_count_ses($session), "\n",
-          "<gc> | extra refs    : ",
+          "<rc> | extra refs    : ",
           $self->_data_extref_count_ses($session), "\n",
-          "<gc> +---------------------------------------------------\n",
+          "<rc> +---------------------------------------------------\n",
         );
     unless ($ss->[SS_REFCOUNT]) {
-      warn( "<gc> | ", $self->_data_alias_loggable($session),
+      warn( "<rc> | ", $self->_data_alias_loggable($session),
             " is garbage; stopping it...\n",
-            "<gc> +---------------------------------------------------\n",
+            "<rc> +---------------------------------------------------\n",
           );
     }
   }
 
-  if (ASSERT_GARBAGE) {
+  if (ASSERT_DATA) {
     my $ss = $kr_sessions{$session};
     my $calc_ref =
       ( $self->_data_ev_get_count_to($session) +
@@ -1861,7 +1955,7 @@ sub _data_ses_collect_garbage {
     # The calculated reference count really ought to match the one
     # POE's been keeping track of all along.
 
-    confess( $self->_data_alias_loggable($session),
+    confess( "<dt> ", $self->_data_alias_loggable($session),
              " has a reference count inconsistency",
              " (calc=$calc_ref; actual=$ss->[SS_REFCOUNT])\n"
            ) if $calc_ref != $ss->[SS_REFCOUNT];
@@ -1886,7 +1980,9 @@ sub _data_ses_count {
 sub _data_ses_stop {
   my ($self, $session) = @_;
 
-  TRACE_GARBAGE and warn "<gc> stopping $session";
+  if (TRACE_SESSIONS) {
+    warn "<ss> stopping ", $self->_data_alias_loggable($session);
+  }
 
   confess unless exists $kr_sessions{$session};
 
@@ -1934,7 +2030,7 @@ sub _resolve_session {
 sub _test_if_kernel_is_idle {
   my $self = shift;
 
-  if (TRACE_REFCOUNT) {
+  if (TRACE_REFCNT) {
     warn( "<rc> ,----- Kernel Activity -----\n",
           "<rc> | Events : ", $kr_queue->get_item_count(), "\n",
           "<rc> | Files  : ", $self->_data_handle_count(), "\n",
@@ -1964,12 +2060,13 @@ sub _explain_resolve_failure {
   my ($self, $whatever) = @_;
   local $Carp::CarpLevel = 2;
 
-  confess "Cannot resolve ``$whatever'' into a session reference\n"
-    if ASSERT_SESSIONS;
+  if (ASSERT_DATA) {
+    confess "<dt> Cannot resolve ``$whatever'' into a session reference";
+  }
 
   $! = ESRCH;
-  TRACE_RETURNS  and carp  "session not resolved: $!";
-  ASSERT_RETURNS and confess "session not resolved: $!";
+  TRACE_RETVALS  and carp    "<rv> session not resolved: $!";
+  ASSERT_RETVALS and confess "<rv> session not resolved: $!";
 }
 
 ### Explain why a function is returning unsuccessfully.
@@ -1977,8 +2074,8 @@ sub _explain_resolve_failure {
 sub _explain_return {
   my $message = shift;
   local $Carp::CarpLevel = 2;
-  ASSERT_RETURNS and confess $message;
-  TRACE_RETURNS  and carp  $message;
+  ASSERT_RETVALS and confess "<rv> $message";
+  TRACE_RETVALS  and carp "<rv> $message";
 }
 
 ### Explain how the user made a mistake calling a function.
@@ -1986,9 +2083,9 @@ sub _explain_return {
 sub _explain_usage {
   my $message = shift;
   local $Carp::CarpLevel = 2;
-  ASSERT_USAGE   and confess $message;
-  ASSERT_RETURNS and confess $message;
-  TRACE_RETURNS  and carp  $message;
+  ASSERT_USAGE   and confess "<us> $message";
+  ASSERT_RETVALS and confess "<rv> $message";
+  TRACE_RETVALS  and carp  "<rv> $message";
 }
 
 #==============================================================================
@@ -2003,9 +2100,9 @@ sub _explain_usage {
 sub sig {
   my ($self, $signal, $event_name) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined signal in sig()" unless defined $signal;
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+  if (ASSERT_USAGE) {
+    confess "<us> undefined signal in sig()" unless defined $signal;
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved assigning it to a signal"
         ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
@@ -2023,9 +2120,10 @@ sub sig {
 sub signal {
   my ($self, $destination, $signal, @etc) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined destination in signal()" unless defined $destination;
-    confess "undefined signal in signal()" unless defined $signal;
+  if (ASSERT_USAGE) {
+    confess "<us> undefined destination in signal()"
+      unless defined $destination;
+    confess "<us> undefined signal in signal()" unless defined $signal;
   };
 
   my $session = $self->_resolve_session($destination);
@@ -2136,15 +2234,17 @@ sub _dispatch_event {
        $time, $seq
      ) = @_;
 
-  ASSERT_ADHOC and do {
+  if (ASSERT_EVENTS) {
     confess "<ev> undefined dest session" unless defined $session;
     confess "<ev> undefined source session" unless defined $source_session;
   };
 
-  TRACE_ADHOC and
-    warn( "<ev> Dispatching event $seq ``$event'' (@$etc) ",
-          "from $source_session to $session"
+  if (TRACE_EVENTS) {
+    warn( "<ev> Dispatching event $seq ``$event'' (@$etc) from ",
+          $self->_data_alias_loggable($source_session), " to ",
+          $self->_data_alias_loggable($session)
         );
+  }
 
   my $local_event = $event;
 
@@ -2227,10 +2327,11 @@ sub _dispatch_event {
     elsif ($type & ET_SIGNAL) {
       my $signal = $etc->[0];
 
-      TRACE_SIGNALS and
-        warn( "<sg> dispatching ET_SIGNAL ($signal) to session ",
-              $session->ID, "\n"
+      if (TRACE_SIGNALS) {
+        warn( "<sg> dispatching ET_SIGNAL ($signal) to ",
+              $self->_data_alias_loggable($session)
             );
+      }
 
       # Step 0: Reset per-signal structures.
 
@@ -2242,10 +2343,11 @@ sub _dispatch_event {
         while (my ($session, $event) = $self->_data_sig_watchers($signal)) {
           my $session_ref = $self->_data_ses_resolve($session);
 
-          TRACE_SIGNALS and
+          if (TRACE_SIGNALS) {
             warn( "<sg> propagating explicit signal $event ($signal) ",
-                  "to session ", $session_ref->ID, "\n"
+                  "to ", $self->_data_alias_loggable($session_ref)
                 );
+          }
 
           $self->_dispatch_event
             ( $session_ref, $self,
@@ -2269,10 +2371,11 @@ sub _dispatch_event {
       my $signal = $etc->[0];
       foreach ($self->_data_ses_get_children($session)) {
 
-        TRACE_SIGNALS and
-          warn( "<sg> propagating compatible signal ($signal) to session ",
-                $_->ID, "\n"
+        if (TRACE_SIGNALS) {
+          warn( "<sg> propagating compatible signal ($signal) to ",
+                $self->_data_alias_loggable($_)
               );
+        }
 
         $self->_dispatch_event
           ( $_, $self,
@@ -2280,7 +2383,11 @@ sub _dispatch_event {
             $file, $line, time(), -__LINE__
           );
 
-        TRACE_SIGNALS and warn "<sg> propagated to $_ (", $_->ID, ")";
+        if (TRACE_SIGNALS) {
+          warn( "<sg> propagated to ",
+                $self->_data_alias_loggable($_)
+              );
+        }
       }
 
       # If this session already received a signal in step 1, then
@@ -2295,18 +2402,20 @@ sub _dispatch_event {
   # programming, possibly within POE::Kernel.
 
   unless ($self->_data_ses_exists($session)) {
-    warn( "<ev> discarding event $seq ``$event'' to nonexistent ",
-          $self->_data_alias_loggable($session), "\n"
-        ) if TRACE_EVENTS;
+    if (TRACE_EVENTS) {
+      warn( "<ev> discarding event $seq ``$event'' to nonexistent ",
+            $self->_data_alias_loggable($session)
+          );
+    }
     return;
   }
 
   if (TRACE_EVENTS) {
-    warn( "<ev> dispatching event $seq ``$event'' to $session ",
+    warn( "<ev> dispatching event $seq ``$event'' to ",
           $self->_data_alias_loggable($session)
         );
     if ($event eq EN_SIGNAL) {
-      warn "<ev>     signal($etc->[0])\n";
+      warn "<ev>     signal($etc->[0])";
     }
   }
 
@@ -2471,11 +2580,11 @@ sub finalize_kernel {
   $self->_data_ses_finalize();
 
   if (TRACE_PROFILE) {
-    print STDERR ',----- Event Profile ' , ('-' x 53), ",\n";
+    print STDERR '<pr> ,----- Event Profile ' , ('-' x 53), ",\n";
     foreach (sort keys %profile) {
-      printf STDERR "| %60.60s %10d |\n", $_, $profile{$_};
+      printf STDERR "<pr> | %60.60s %10d |\n", $_, $profile{$_};
     }
-    print STDERR '`', ('-' x 73), "'\n";
+    print STDERR '<pr> `', ('-' x 73), "'\n";
   }
 }
 
@@ -2531,8 +2640,9 @@ sub _invoke_state {
 
   if ($event eq EN_SCPOLL) {
 
-    TRACE_SIGNALS and
-      warn "POE::Kernel is polling for signals at " . time() . "\n";
+    if (TRACE_SIGNALS) {
+      warn "<sg> POE::Kernel is polling for signals at " . time();
+    }
 
     # Reap children for as long as waitpid(2) says something
     # interesting has happened.  -><- This has a strong possibility of
@@ -2547,20 +2657,22 @@ sub _invoke_state {
       if ((RUNNING_IN_HELL and $pid < -1) or ($pid > 0)) {
         if (RUNNING_IN_HELL or WIFEXITED($?) or WIFSIGNALED($?)) {
 
-          TRACE_SIGNALS and
-            warn "POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)\n";
+          if (TRACE_SIGNALS) {
+            warn "<sg> POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)";
+          }
 
           $self->_data_ev_enqueue
             ( $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
               __FILE__, __LINE__, time(),
             );
         }
-        else {
-          TRACE_SIGNALS and
-            warn "POE::Kernel detected strange exit (pid=$pid; exit=$?\n";
+        elsif (TRACE_SIGNALS) {
+          warn "<sg> POE::Kernel detected strange exit (pid=$pid; exit=$?";
         }
 
-        TRACE_SIGNALS and warn "POE::Kernel will poll again immediately.\n";
+        if (TRACE_SIGNALS) {
+          warn "<sg> POE::Kernel will poll again immediately";
+        }
 
         next;
       }
@@ -2573,10 +2685,11 @@ sub _invoke_state {
       # If the error is an interrupted syscall, poll again right away.
 
       if ($! == EINTR) {
-        TRACE_SIGNALS and
-          warn( "POE::Kernel's waitpid(2) was interrupted.\n",
+        if (TRACE_SIGNALS) {
+          warn( "<sg> POE::Kernel's waitpid(2) was interrupted.\n",
                 "POE::Kernel will poll again immediately.\n"
               );
+        }
         next;
       }
 
@@ -2586,13 +2699,17 @@ sub _invoke_state {
       # could restart polling when processes are forked.
 
       if ($! == ECHILD) {
-        TRACE_SIGNALS and warn "POE::Kernel has no child processes.\n";
+        if (TRACE_SIGNALS) {
+          warn "<sg> POE::Kernel has no child processes";
+        }
         last;
       }
 
       # Some other error occurred.
 
-      TRACE_SIGNALS and warn "POE::Kernel's waitpid(2) got error: $!\n";
+      if (TRACE_SIGNALS) {
+        warn "<sg> POE::Kernel's waitpid(2) got error: $!";
+      }
       last;
     }
 
@@ -2602,7 +2719,9 @@ sub _invoke_state {
 
     # The poll loop is over.  Resume slowly polling for signals.
 
-    TRACE_SIGNALS and warn "POE::Kernel will poll again after a delay.\n";
+    if (TRACE_SIGNALS) {
+      warn "<sg> POE::Kernel will poll again after a delay";
+    }
 
     $self->_data_ev_enqueue
       ( $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
@@ -2646,8 +2765,8 @@ sub session_alloc {
     $self->_initialize_kernel_signals();
   }
 
-  confess $self->_data_alias_loggable($session), " already exists\a"
-    if ASSERT_RELATIONS and $self->_data_ses_exists($session);
+  confess "<ss> ", $self->_data_alias_loggable($session), " already exists\a"
+    if ASSERT_DATA and $self->_data_ses_exists($session);
 
   # Register that a session was created.
   $kr_run_warning |= KR_RUN_SESSION;
@@ -2776,10 +2895,11 @@ sub get_next_event_time {
 sub post {
   my ($self, $destination, $event_name, @etc) = @_;
 
-  ASSERT_USAGE and do {
-    confess "destination is undefined in post()" unless defined $destination;
-    confess "event is undefined in post()" unless defined $event_name;
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+  if (ASSERT_USAGE) {
+    confess "<us> destination is undefined in post()"
+      unless defined $destination;
+    confess "<us> event is undefined in post()" unless defined $event_name;
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by posting it"
         ) if exists $poes_own_events{$event_name};
   };
@@ -2809,9 +2929,10 @@ sub post {
 sub yield {
   my ($self, $event_name, @etc) = @_;
 
-  ASSERT_USAGE and do {
-    confess "event name is undefined in yield()" unless defined $event_name;
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+  if (ASSERT_USAGE) {
+    confess "<us> event name is undefined in yield()"
+      unless defined $event_name;
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by yielding it"
         ) if exists $poes_own_events{$event_name};
   };
@@ -2830,10 +2951,11 @@ sub yield {
 sub call {
   my ($self, $destination, $event_name, @etc) = @_;
 
-  ASSERT_USAGE and do {
-    confess "destination is undefined in call()" unless defined $destination;
-    confess "event is undefined in call()" unless defined $event_name;
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+  if (ASSERT_USAGE) {
+    confess "<us> destination is undefined in call()"
+      unless defined $destination;
+    confess "<us> event is undefined in call()" unless defined $event_name;
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by calling it"
         ) if exists $poes_own_events{$event_name};
   };
@@ -2907,9 +3029,10 @@ sub queue_peek_alarms {
 sub alarm {
   my ($self, $event_name, $time, @etc) = @_;
 
-  ASSERT_USAGE and do {
-    confess "event name is undefined in alarm()" unless defined $event_name;
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+  if (ASSERT_USAGE) {
+    confess "<us> event name is undefined in alarm()"
+      unless defined $event_name;
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting an alarm for it"
         ) if exists $poes_own_events{$event_name};
   };
@@ -2942,10 +3065,11 @@ sub alarm {
 sub alarm_add {
   my ($self, $event_name, $time, @etc) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined event name in alarm_add()" unless defined $event_name;
-    confess "undefined time in alarm_add()" unless defined $time;
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+  if (ASSERT_USAGE) {
+    confess "<us> undefined event name in alarm_add()"
+      unless defined $event_name;
+    confess "<us> undefined time in alarm_add()" unless defined $time;
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by adding an alarm for it"
         ) if exists $poes_own_events{$event_name};
   };
@@ -2968,9 +3092,9 @@ sub alarm_add {
 sub delay {
   my ($self, $event_name, $delay, @etc) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined event name in delay()" unless defined $event_name;
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+  if (ASSERT_USAGE) {
+    confess "<us> undefined event name in delay()" unless defined $event_name;
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a delay for it"
         ) if exists $poes_own_events{$event_name};
   };
@@ -2994,10 +3118,11 @@ sub delay {
 sub delay_add {
   my ($self, $event_name, $delay, @etc) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined event name in delay_add()" unless defined $event_name;
-    confess "undefined time in delay_add()" unless defined $delay;
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+  if (ASSERT_USAGE) {
+    confess "<us> undefined event name in delay_add()"
+      unless defined $event_name;
+    confess "<us> undefined time in delay_add()" unless defined $delay;
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by adding a delay for it"
         ) if exists $poes_own_events{$event_name};
   };
@@ -3035,7 +3160,7 @@ sub alarm_set {
   }
 
   if (ASSERT_USAGE) {
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting an alarm for it"
         ) if exists $poes_own_events{$event_name};
   }
@@ -3111,7 +3236,7 @@ sub delay_set {
   }
 
   if (ASSERT_USAGE) {
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a delay for it"
         ) if exists $poes_own_events{$event_name};
   }
@@ -3171,11 +3296,12 @@ sub select {
   my ($self, $handle, $event_r, $event_w, $event_e) = @_;
 
   if (ASSERT_USAGE) {
-    confess "undefined filehandle in select()" unless defined $handle;
-    confess "invalid filehandle in select()" unless defined fileno($handle);
+    confess "<us> undefined filehandle in select()" unless defined $handle;
+    confess "<us> invalid filehandle in select()"
+      unless defined fileno($handle);
     foreach ($event_r, $event_w, $event_e) {
       next unless defined $_;
-      carp( "The '$_' event is one of POE's own.  Its " .
+      carp( "<us> The '$_' event is one of POE's own.  Its " .
             "effect cannot be achieved by setting a file watcher to it"
           ) if exists($poes_own_events{$_});
     }
@@ -3191,12 +3317,12 @@ sub select {
 sub select_read {
   my ($self, $handle, $event_name) = @_;
 
-  ASSERT_USAGE and do {
-    confess "<sl> undefined filehandle in select_read()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined filehandle in select_read()"
       unless defined $handle;
-    confess "<sl> invalid filehandle in select_read()"
+    confess "<us> invalid filehandle in select_read()"
       unless defined fileno($handle);
-    carp( "<sl> The '$event_name' event is one of POE's own.  Its " .
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a file watcher to it"
         ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
@@ -3209,11 +3335,12 @@ sub select_read {
 sub select_write {
   my ($self, $handle, $event_name) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined filehandle in select_write()" unless defined $handle;
-    confess "invalid filehandle in select_write()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined filehandle in select_write()"
+      unless defined $handle;
+    confess "<us> invalid filehandle in select_write()"
       unless defined fileno($handle);
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a file watcher to it"
         ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
@@ -3226,11 +3353,12 @@ sub select_write {
 sub select_expedite {
   my ($self, $handle, $event_name) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined filehandle in select_expedite()" unless defined $handle;
-    confess "invalid filehandle in select_expedite()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined filehandle in select_expedite()"
+      unless defined $handle;
+    confess "<us> invalid filehandle in select_expedite()"
       unless defined fileno($handle);
-    carp( "The '$event_name' event is one of POE's own.  Its " .
+    carp( "<us> The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a file watcher to it"
         ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
@@ -3244,10 +3372,10 @@ sub select_expedite {
 sub select_pause_write {
   my ($self, $handle) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined filehandle in select_pause_write()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined filehandle in select_pause_write()"
       unless defined $handle;
-    confess "invalid filehandle in select_pause_write()"
+    confess "<us> invalid filehandle in select_pause_write()"
       unless defined fileno($handle);
   };
 
@@ -3263,10 +3391,10 @@ sub select_pause_write {
 sub select_resume_write {
   my ($self, $handle) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined filehandle in select_resume_write()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined filehandle in select_resume_write()"
       unless defined $handle;
-    confess "invalid filehandle in select_resume_write()"
+    confess "<us> invalid filehandle in select_resume_write()"
       unless defined fileno($handle);
   };
 
@@ -3282,10 +3410,10 @@ sub select_resume_write {
 sub select_pause_read {
   my ($self, $handle) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined filehandle in select_pause_read()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined filehandle in select_pause_read()"
       unless defined $handle;
-    confess "invalid filehandle in select_pause_read()"
+    confess "<us> invalid filehandle in select_pause_read()"
       unless defined fileno($handle);
   };
 
@@ -3301,10 +3429,10 @@ sub select_pause_read {
 sub select_resume_read {
   my ($self, $handle) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined filehandle in select_resume_read()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined filehandle in select_resume_read()"
       unless defined $handle;
-    confess "invalid filehandle in select_resume_read()"
+    confess "<us> invalid filehandle in select_resume_read()"
       unless defined fileno($handle);
   };
 
@@ -3325,8 +3453,8 @@ sub select_resume_read {
 sub alias_set {
   my ($self, $name) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined alias in alias_set()" unless defined $name;
+  if (ASSERT_USAGE) {
+    confess "<us> undefined alias in alias_set()" unless defined $name;
   };
 
   # Don't overwrite another session's alias.
@@ -3348,8 +3476,8 @@ sub alias_set {
 sub alias_remove {
   my ($self, $name) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined alias in alias_remove()" unless defined $name;
+  if (ASSERT_USAGE) {
+    confess "<us> undefined alias in alias_remove()" unless defined $name;
   };
 
   my $existing_session = $self->_data_alias_resolve($name);
@@ -3373,8 +3501,8 @@ sub alias_remove {
 sub alias_resolve {
   my ($self, $name) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined alias in alias_resolve()" unless defined $name;
+  if (ASSERT_USAGE) {
+    confess "<us> undefined alias in alias_resolve()" unless defined $name;
   };
 
   my $session = $self->_resolve_session($name);
@@ -3424,8 +3552,8 @@ sub ID {
 sub ID_id_to_session {
   my ($self, $id) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined ID in ID_id_to_session()" unless defined $id;
+  if (ASSERT_USAGE) {
+    confess "<us> undefined ID in ID_id_to_session()" unless defined $id;
   };
 
   my $session = $self->_data_sid_resolve($id);
@@ -3441,8 +3569,9 @@ sub ID_id_to_session {
 sub ID_session_to_id {
   my ($self, $session) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined session in ID_session_to_id()" unless defined $session;
+  if (ASSERT_USAGE) {
+    confess "<us> undefined session in ID_session_to_id()"
+      unless defined $session;
   };
 
   my $id = $self->_data_ses_resolve_to_id($session);
@@ -3465,10 +3594,10 @@ sub ID_session_to_id {
 sub refcount_increment {
   my ($self, $session_id, $tag) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined session ID in refcount_increment()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined session ID in refcount_increment()"
       unless defined $session_id;
-    confess "undefined reference count tag in refcount_increment()"
+    confess "<us> undefined reference count tag in refcount_increment()"
       unless defined $tag;
   };
 
@@ -3487,10 +3616,10 @@ sub refcount_increment {
 sub refcount_decrement {
   my ($self, $session_id, $tag) = @_;
 
-  ASSERT_USAGE and do {
-    confess "undefined session ID in refcount_decrement()"
+  if (ASSERT_USAGE) {
+    confess "<us> undefined session ID in refcount_decrement()"
       unless defined $session_id;
-    confess "undefined reference count tag in refcount_decrement()"
+    confess "<us> undefined reference count tag in refcount_decrement()"
       unless defined $tag;
   };
 
@@ -3517,8 +3646,8 @@ sub state {
   my ($self, $event, $state_code, $state_alias) = @_;
   $state_alias = $event unless defined $state_alias;
 
-  ASSERT_USAGE and do {
-    confess "undefined event name in state()" unless defined $event;
+  if (ASSERT_USAGE) {
+    confess "<us> undefined event name in state()" unless defined $event;
   };
 
   if ( (ref($kr_active_session) ne '') &&
@@ -4919,41 +5048,34 @@ Assertions will be discussed first.
 
 =over 2
 
+=item ASSERT_DATA
+
+ASSERT_DATA enables a variety of runtime integrity checks within
+POE::Kernel and its event loop bridges.  This can impose a significant
+runtime penalty, so it is off by default.  The test programs for POE
+all enable ASSERT_DEFAULT, which includes ASSERT_DATA.
+
 =item ASSERT_DEFAULT
 
 ASSERT_DEFAULT is used as the default value for all the other assert
 constants.  Setting it true is a quick and reliable way to ensure all
 assertions are enabled.
 
-=item ASSERT_GARBAGE
+=item ASSERT_EVENTS
 
-ASSERT_GARBAGE turns on checks for proper garbage collection.  In
-particular, it ensures that sessions have released all their resources
-before they're destroyed.
+ASSERT_EVENTS enables checks for dispatching events to nonexistent
+sessions.
 
-=item ASSERT_REFCOUNT
+=item ASSERT_FILES
 
-ASSERT_REFCOUNT enables checks for negative reference counts.
+ASSERT_FILES enables some runtime checks on the file multiplexing
+syscalls used to drive POE.
 
-=item ASSERT_RELATIONS
+=item ASSERT_RETVALS
 
-ASSERT_RELATIONS turns on parent/child referential integrity checks.
-
-=item ASSERT_RETURNS
-
-ASSERT_RETURNS causes POE::Kernel's methods to confess instead of
-returning error codes.  See also TRACE_RETURNS if you don't want the
-Kernel to be so strict.
-
-=item ASSERT_SELECT
-
-ASSERT_SELECT enables extra error checking in the Kernel's select
-logic.  It has no effect if POE is using an external event loop.
-
-=item ASSERT_SESSIONS
-
-ASSERT_SESSIONS makes it fatal to send an event to a nonexistent
-session.
+ASSERT_RETVALS causes POE::Kernel to die if a method would return an
+error.  See also TRACE_RETVALS if you want a runtime warning rather
+than a hard error.
 
 =item ASSERT_USAGE
 
@@ -4980,41 +5102,35 @@ enables messages that tell what happens to FIFO and alarm events: when
 they're queued, dispatched, or discarded, and what their handlers
 return.
 
-=item TRACE_GARBAGE
+=item TRACE_FILES
 
-TRACE_GARBAGE shows what's keeping sessions alive.  It's useful for
-determining why a session simply refuses to die, or why it won't stick
-around.
+TRACE_FILES enables or disables messages that tell how files are being
+processed within POE::Kernel and the event loop bridges.
 
 =item TRACE_PROFILE
 
 TRACE_PROFILE switches on event profiling.  This causes the Kernel to
-keep a count of every event it dispatches.  It displays a frequency
-report when run() is about to return.
+keep a count of every event it dispatches.  A report of the events and
+their frequencies is displayed just before run() returns.
 
-=item TRACE_QUEUE
+=item TRACE_REFCNT
 
-TRACE_QUEUE complements TRACE_EVENTS.  When enabled, it traces the
-contents of POE's event queues, giving some insight into how events
-are ordered.  This has become less relevant since the alarm and FIFO
-queues have separated.
+TRACE_REFCOUNT displays messages about reference counts for sessions,
+including garbage collection tests (formerly TRACE_GARBAGE).  This is
+perhaps the most useful debugging trace since it will explain why
+sessions do or don't die.
 
-=item TRACE_REFCOUNT
+=item TRACE_RETVALS
 
-TRACE_REFCOUNT enables debugging output whenever an external reference
-count changes.
+TRACE_RETVALS enables carping whenever a Kernel method is about to
+return an error.  See ASSERT_RETVALS if you would like the Kernel to
+be stricter than this.
 
-=item TRACE_RETURNS
+=item TRACE_SESSIONS
 
-TRACE_RETURNS enables carping whenever a Kernel method is about to
-return an error.  See ASSERT_RETURNS if you'd like the Kernel to be
-stricter than this.
-
-=item TRACE_SELECT
-
-TRACE_SELECT enables or disables statistics about C<select()>'s
-parameters and return values.  It's only relevant when using POE's own
-select() loop.
+TRACE_SESSIONS enables messages pertaining to session management.
+These messages include notice when sessions are created or destroyed.
+They also include parent and child relationship changes.
 
 =item TRACE_SIGNALS
 

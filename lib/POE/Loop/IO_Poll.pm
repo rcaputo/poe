@@ -51,7 +51,10 @@ sub loop_finalize {
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
-  TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing generic SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__, time(),
@@ -60,7 +63,10 @@ sub _loop_signal_handler_generic {
 }
 
 sub _loop_signal_handler_pipe {
-  TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__, time(),
@@ -71,7 +77,10 @@ sub _loop_signal_handler_pipe {
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
 sub _loop_signal_handler_child {
-  TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
+  }
+
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
@@ -159,12 +168,13 @@ sub loop_watch_filehandle {
   my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current | $type;
 
-  TRACE_SELECT and
-    warn( sprintf( "<sl> Watch $fileno: " .
+  if (TRACE_FILES) {
+    warn( sprintf( "<fh> Watch $fileno: " .
                    "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
+  }
 
   $poll_fd_masks{$fileno} = $new;
 }
@@ -177,12 +187,13 @@ sub loop_ignore_filehandle {
   my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current & ~$type;
 
-  TRACE_SELECT and
-    warn( sprintf( "<sl> Ignore $fileno: " .
+  if (TRACE_FILES) {
+    warn( sprintf( "<fh> Ignore $fileno: " .
                    ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
+  }
 
   if ($new) {
     $poll_fd_masks{$fileno} = $new;
@@ -200,12 +211,13 @@ sub loop_pause_filehandle {
   my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current & ~$type;
 
-  TRACE_SELECT and
-    warn( sprintf( "<sl> Pause $fileno: " .
+  if (TRACE_FILES) {
+    warn( sprintf( "<fh> Pause $fileno: " .
                    ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
+  }
 
   if ($new) {
     $poll_fd_masks{$fileno} = $new;
@@ -223,12 +235,13 @@ sub loop_resume_filehandle {
   my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current | $type;
 
-  TRACE_SELECT and
-    warn( sprintf( "<sl> Resume $fileno: " .
+  if (TRACE_FILES) {
+    warn( sprintf( "<fh> Resume $fileno: " .
                    "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
+  }
 
   $poll_fd_masks{$fileno} = $new;
 }
@@ -259,8 +272,8 @@ sub loop_do_timeslice {
     $timeout = 3600;
   }
 
-  if (TRACE_QUEUE) {
-    warn( '<qu> Kernel::run() iterating.  ' .
+  if (TRACE_EVENTS) {
+    warn( '<ev> Kernel::run() iterating.  ' .
           sprintf("now(%.4f) timeout(%.4f) then(%.4f)\n",
                   $now-$^T, $timeout, ($now-$^T)+$timeout
                  )
@@ -269,7 +282,7 @@ sub loop_do_timeslice {
 
   my @filenos = %poll_fd_masks;
 
-  if (TRACE_SELECT) {
+  if (TRACE_FILES) {
     foreach (sort { $a<=>$b} keys %poll_fd_masks) {
       my @types;
       push @types, "plain-file"        if -f;
@@ -285,7 +298,7 @@ sub loop_do_timeslice {
       push @modes, 'r' if $flags & (POLLIN | POLLHUP | POLLERR);
       push @modes, 'w' if $flags & (POLLOUT | POLLHUP | POLLERR);
       push @modes, 'x' if $flags & (POLLRDBAND | POLLHUP | POLLERR);
-      warn( "<sl> file descriptor $_ = modes(@modes) types(@types)\n" );
+      warn( "<fh> file descriptor $_ = modes(@modes) types(@types)\n" );
     }
   }
 
@@ -301,9 +314,9 @@ sub loop_do_timeslice {
       # Check filehandles, or wait for a period of time to elapse.
       my $hits = IO::Poll::_poll($timeout * 1000, @filenos);
 
-      if (ASSERT_SELECT) {
+      if (ASSERT_FILES) {
         if ($hits < 0) {
-          confess "poll returned $hits (error): $!"
+          confess "<fh> poll returned $hits (error): $!"
             unless ( ($! == EINPROGRESS) or
                      ($! == EWOULDBLOCK) or
                      ($! == EINTR)
@@ -311,12 +324,12 @@ sub loop_do_timeslice {
         }
       }
 
-      if (TRACE_SELECT) {
+      if (TRACE_FILES) {
         if ($hits > 0) {
-          warn "<sl> poll hits = $hits\n";
+          warn "<fh> poll hits = $hits\n";
         }
         elsif ($hits == 0) {
-          warn "<sl> poll timed out...\n";
+          warn "<fh> poll timed out...\n";
         }
       }
 
@@ -336,21 +349,30 @@ sub loop_do_timeslice {
           if ( $watch_mask & POLLIN and
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
-            TRACE_SELECT and warn "<sl> enqueuing read for fileno $fd\n";
+            if (TRACE_FILES) {
+              warn "<fh> enqueuing read for fileno $fd";
+            }
+
             $self->_data_handle_enqueue_ready(MODE_RD, $fd);
           }
 
           if ( $watch_mask & POLLOUT and
                $got_mask & (POLLOUT | POLLHUP | POLLERR)
              ) {
-            TRACE_SELECT and warn "<sl> enqueuing write for fileno $fd\n";
+            if (TRACE_FILES) {
+              warn "<fh> enqueuing write for fileno $fd";
+            }
+
             $self->_data_handle_enqueue_ready(MODE_WR, $fd);
           }
 
           if ( $watch_mask & POLLRDBAND and
                $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
              ) {
-            TRACE_SELECT and warn "<sl> enqueuing expedite for fileno $fd\n";
+            if (TRACE_FILES) {
+              warn "<fh> enqueuing expedite for fileno $fd";
+            }
+
             $self->_data_handle_enqueue_ready(MODE_EX, $fd);
           }
         }

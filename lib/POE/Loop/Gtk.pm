@@ -52,7 +52,10 @@ sub loop_finalize {
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
-  TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing generic SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__, time(),
@@ -61,7 +64,10 @@ sub _loop_signal_handler_generic {
 }
 
 sub _loop_signal_handler_pipe {
-  TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__, time(),
@@ -72,7 +78,10 @@ sub _loop_signal_handler_pipe {
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
 sub _loop_signal_handler_child {
-  TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
+  }
+
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
@@ -188,7 +197,9 @@ sub loop_watch_filehandle {
     undef $fileno_watcher[$fileno]->[$mode];
   }
 
-  TRACE_SELECT and warn "<sl> watching $handle in mode $mode";
+  if (TRACE_FILES) {
+    warn "<fh> watching $handle in mode $mode";
+  }
 
   # Register the new watcher.
   $fileno_watcher[$fileno]->[$mode] =
@@ -214,7 +225,9 @@ sub loop_ignore_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  TRACE_SELECT and warn "<sl> ignoring $handle in mode $mode";
+  if (TRACE_FILES) {
+    warn "<fh> ignoring $handle in mode $mode";
+  }
 
   # Don't bother removing a select if none was registered.
   if (defined $fileno_watcher[$fileno]->[$mode]) {
@@ -227,7 +240,9 @@ sub loop_pause_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  TRACE_SELECT and warn "<sl> pausing $handle in mode $mode";
+  if (TRACE_FILES) {
+    warn "<fh> pausing $handle in mode $mode";
+  }
 
   Gtk::Gdk->input_remove($fileno_watcher[$fileno]->[$mode]);
   undef $fileno_watcher[$fileno]->[$mode];
@@ -240,7 +255,9 @@ sub loop_resume_filehandle {
   # Quietly ignore requests to resume unpaused handles.
   return 1 if defined $fileno_watcher[$fileno]->[$mode];
 
-  TRACE_SELECT and warn "<sl> resuming $handle in mode $mode";
+  if (TRACE_FILES) {
+    warn "<fh> resuming $handle in mode $mode";
+  }
 
   $fileno_watcher[$fileno]->[$mode] =
     Gtk::Gdk->input_add( $fileno,
@@ -287,7 +304,9 @@ sub _loop_select_read_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  TRACE_SELECT and warn "<sl> got read callback for $handle";
+  if (TRACE_FILES) {
+    warn "<fh> got read callback for $handle";
+  }
 
   $self->_data_handle_enqueue_ready(MODE_RD, $fileno);
   $self->_test_if_kernel_is_idle();
@@ -300,7 +319,9 @@ sub _loop_select_write_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  TRACE_SELECT and warn "<sl> got write callback for $handle";
+  if (TRACE_FILES) {
+    warn "<fh> got write callback for $handle";
+  }
 
   $self->_data_handle_enqueue_ready(MODE_WR, $fileno);
   $self->_test_if_kernel_is_idle();
@@ -313,7 +334,9 @@ sub _loop_select_expedite_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  TRACE_SELECT and warn "<sl> got expedite callback for $handle";
+  if (TRACE_FILES) {
+    warn "<fh> got expedite callback for $handle";
+  }
 
   $self->_data_handle_enqueue_ready(MODE_EX, $fileno);
   $self->_test_if_kernel_is_idle();

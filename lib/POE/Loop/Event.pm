@@ -57,7 +57,10 @@ sub loop_finalize {
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
-  TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing generic SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
       __FILE__, __LINE__, time(),
@@ -65,7 +68,10 @@ sub _loop_signal_handler_generic {
 }
 
 sub _loop_signal_handler_pipe {
-  TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel->get_active_session(), $poe_kernel,
       EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
@@ -74,7 +80,10 @@ sub _loop_signal_handler_pipe {
 }
 
 sub _loop_signal_handler_child {
-  TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
+  if (TRACE_SIGNALS) {
+    warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
+  }
+
   $poe_kernel->_data_ev_enqueue
     ( $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
       __FILE__, __LINE__, time(),
