@@ -103,7 +103,9 @@ open(CHANGES, ">>CHANGES") and close CHANGES;
 
 sub MY::postamble {
     return <<EOF;
-testreport:
+testreport: poe_report.xml
+
+poe_report.xml:     
 	lib/testreport.pl
 EOF
 
