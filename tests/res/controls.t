@@ -4,7 +4,7 @@ use strict;
 
 use lib qw(./mylib ../mylib ./lib ../lib ../../lib);
 
-use Test::More qw(no_plan);
+use Test::More tests => 22;
 
 BEGIN { use_ok('POE'); use_ok('POE::Resource::Controls'); }
 
