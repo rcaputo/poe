@@ -608,35 +608,31 @@ sub ID {
 # Pause the wheel's input watcher.
 sub pause_input {
   my $self = shift;
-  if (defined $self->[HANDLE_INPUT]) {
-    $poe_kernel->select_pause_read( $self->[HANDLE_INPUT] );
-  }
+  return unless defined $self->[HANDLE_INPUT];
+  $poe_kernel->select_pause_read( $self->[HANDLE_INPUT] );
 }
 
 # Resume the wheel's input watcher.
 sub resume_input {
   my $self = shift;
-  if (defined $self->[HANDLE_INPUT]) {
-    $poe_kernel->select_resume_read( $self->[HANDLE_INPUT] );
-  }
+  return unless  defined $self->[HANDLE_INPUT];
+  $poe_kernel->select_resume_read( $self->[HANDLE_INPUT] );
 }
 
 # Shutdown the socket for reading.
 sub shutdown_input {
   my $self = shift;
-  if (defined $self->[HANDLE_INPUT]) {
-    eval { local $^W = 0; shutdown($self->[HANDLE_INPUT], 0) };
-    $poe_kernel->select_read($self->[HANDLE_INPUT], undef);
-  }
+  return unless defined $self->[HANDLE_INPUT];
+  eval { local $^W = 0; shutdown($self->[HANDLE_INPUT], 0) };
+  $poe_kernel->select_read($self->[HANDLE_INPUT], undef);
 }
 
 # Shutdown the socket for writing.
 sub shutdown_output {
   my $self = shift;
-  if (defined $self->[HANDLE_OUTPUT]) {
-    eval { local $^W=0; shutdown($self->[HANDLE_OUTPUT], 1) };
-    $poe_kernel->select_write($self->[HANDLE_OUTPUT], undef);
-  }
+  return unless defined $self->[HANDLE_OUTPUT];
+  eval { local $^W=0; shutdown($self->[HANDLE_OUTPUT], 1) };
+  $poe_kernel->select_write($self->[HANDLE_OUTPUT], undef);
 }
 
 ###############################################################################

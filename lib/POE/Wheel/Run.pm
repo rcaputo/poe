@@ -8,9 +8,10 @@ use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(carp croak);
-use POSIX qw( sysconf _SC_OPEN_MAX ECHO ICANON IEXTEN ISIG BRKINT ICRNL
-              INPCK ISTRIP IXON CSIZE PARENB OPOST TCSANOW
-            );
+use POSIX qw(
+  sysconf _SC_OPEN_MAX ECHO ICANON IEXTEN ISIG BRKINT ICRNL INPCK
+  ISTRIP IXON CSIZE PARENB OPOST TCSANOW
+);
 
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 
@@ -71,25 +72,26 @@ sub CHILD_PID     () {  4 }
 sub CONDUIT_TYPE  () {  5 }
 sub IS_ACTIVE     () {  6 }
 sub CLOSE_ON_CALL () {  7 }
+sub STDIO_TYPE    () {  8 }
 
-sub HANDLE_STDIN  () {  8 }
-sub FILTER_STDIN  () {  9 }
-sub DRIVER_STDIN  () { 10 }
-sub EVENT_STDIN   () { 11 }
-sub STATE_STDIN   () { 12 }
-sub OCTETS_STDIN  () { 13 }
+sub HANDLE_STDIN  () {  9 }
+sub FILTER_STDIN  () { 10 }
+sub DRIVER_STDIN  () { 11 }
+sub EVENT_STDIN   () { 12 }
+sub STATE_STDIN   () { 13 }
+sub OCTETS_STDIN  () { 14 }
 
-sub HANDLE_STDOUT () { 14 }
-sub FILTER_STDOUT () { 15 }
-sub DRIVER_STDOUT () { 16 }
-sub EVENT_STDOUT  () { 17 }
-sub STATE_STDOUT  () { 18 }
+sub HANDLE_STDOUT () { 15 }
+sub FILTER_STDOUT () { 16 }
+sub DRIVER_STDOUT () { 17 }
+sub EVENT_STDOUT  () { 18 }
+sub STATE_STDOUT  () { 19 }
 
-sub HANDLE_STDERR () { 19 }
-sub FILTER_STDERR () { 20 }
-sub DRIVER_STDERR () { 21 }
-sub EVENT_STDERR  () { 22 }
-sub STATE_STDERR  () { 23 }
+sub HANDLE_STDERR () { 20 }
+sub FILTER_STDERR () { 21 }
+sub DRIVER_STDERR () { 22 }
+sub EVENT_STDERR  () { 23 }
+sub STATE_STDERR  () { 24 }
 
 # Used to work around a bug in older perl versions.
 sub CRIMSON_SCOPE_HACK ($) { 0 }
@@ -123,18 +125,18 @@ sub new {
   my $user_id  = delete $params{User};
   my $group_id = delete $params{Group};
 
-  # The following $stdio_pipe_type is new.  $conduit is kept around
-  # for now to preserve the logic of the rest of the module.  This
-  # change allows a Session using POE::Wheel::Run to define the type
-  # of pipe to be created for stdin and stdout.  Read the POD on
-  # Conduit.  However, the documentation lies, because if Conduit is
-  # undefined, $stdio_pipe_type is set to undefined (so the default
-  # pipe type provided by POE::Pipe::TwoWay will be used). Otherwise,
-  # $stdio_pipe_type determines what type of pipe Pipe:TwoWay creates
-  # unless it's 'pty'.
+  # The following $stdio_type is new.  $conduit is kept around for now
+  # to preserve the logic of the rest of the module.  This change
+  # allows a Session using POE::Wheel::Run to define the type of pipe
+  # to be created for stdin and stdout.  Read the POD on Conduit.
+  # However, the documentation lies, because if Conduit is undefined,
+  # $stdio_type is set to undefined (so the default pipe type provided
+  # by POE::Pipe::TwoWay will be used). Otherwise, $stdio_type
+  # determines what type of pipe Pipe:TwoWay creates unless it's
+  # 'pty'.
 
   my $conduit = delete $params{Conduit};
-  my $stdio_pipe_type;
+  my $stdio_type;
   if (defined $conduit) {
     croak "$type\'s Conduit type ($conduit) is unknown"
       if (
@@ -144,7 +146,7 @@ sub new {
         $conduit ne 'inet'
       );
     unless ($conduit eq "pty") {
-      $stdio_pipe_type = $conduit;
+      $stdio_type = $conduit;
       $conduit = "pipe";
     }
   }
@@ -242,9 +244,9 @@ sub new {
     # We make more pipes than strictly necessary in case someone wants
     # to turn some on later.  Uses a TwoWay pipe for STDIN/STDOUT and
     # a OneWay pipe for STDERR.  This may save 2 filehandles if
-    # socketpair() is available and no other $stdio_pipe_type is selected.
+    # socketpair() is available and no other $stdio_type is selected.
     ($stdin_read, $stdout_write, $stdout_read, $stdin_write) =
-      POE::Pipe::TwoWay->new($stdio_pipe_type);
+      POE::Pipe::TwoWay->new($stdio_type);
     croak "could not make stdin pipe: $!"
       unless defined $stdin_read and defined $stdin_write;
     croak "could not make stdout pipe: $!"
@@ -435,6 +437,7 @@ sub new {
       $conduit,       # CONDUIT_TYPE
       $handle_count,  # IS_ACTIVE
       $close_on_call, # CLOSE_ON_CALL
+      $stdio_type,    # STDIO_TYPE
       # STDIN
       $stdin_write,   # HANDLE_STDIN
       $stdin_filter,  # FILTER_STDIN
@@ -825,30 +828,41 @@ sub put {
 
 sub pause_stdout {
   my $self = shift;
-  if (defined $self->[HANDLE_STDOUT]) {
-    $poe_kernel->select_pause_read($self->[HANDLE_STDOUT]);
-  }
+  return unless defined $self->[HANDLE_STDOUT];
+  $poe_kernel->select_pause_read($self->[HANDLE_STDOUT]);
 }
 
 sub pause_stderr {
   my $self = shift;
-  if (defined $self->[HANDLE_STDERR]) {
-    $poe_kernel->select_pause_read($self->[HANDLE_STDERR]);
-  }
+  return unless defined $self->[HANDLE_STDERR];
+  $poe_kernel->select_pause_read($self->[HANDLE_STDERR]);
 }
 
 sub resume_stdout {
   my $self = shift;
-  if (defined $self->[HANDLE_STDOUT]) {
-    $poe_kernel->select_resume_read($self->[HANDLE_STDOUT]);
-  }
+  return unless defined $self->[HANDLE_STDOUT];
+  $poe_kernel->select_resume_read($self->[HANDLE_STDOUT]);
 }
 
 sub resume_stderr {
   my $self = shift;
-  if (defined $self->[HANDLE_STDERR]) {
-    $poe_kernel->select_resume_read($self->[HANDLE_STDERR]);
+  return unless defined $self->[HANDLE_STDERR];
+  $poe_kernel->select_resume_read($self->[HANDLE_STDERR]);
+}
+
+# Shutdown the pipe that leads to the child's STDIN.
+sub shutdown_stdin {
+  my $self = shift;
+  return unless defined $self->[HANDLE_STDIN];
+
+  if ($self->[STDIO_TYPE] eq "pipe" or $self->[STDIO_TYPE] eq "pty") {
+    close $self->[HANDLE_STDIN];
   }
+  else {
+    eval { local $^W = 0; shutdown($self->[HANDLE_STDIN], 1) };
+  }
+
+  $poe_kernel->select_write($self->[HANDLE_STDIN], undef);
 }
 
 #------------------------------------------------------------------------------
@@ -1282,6 +1296,12 @@ Set C<StdinFilter>, C<StdoutFilter>, or C<StderrFilter> respectively.
 Pause or resume C<StdoutEvent> or C<StderrEvent> events.  By using
 these methods a session can control the flow of Stdout and Stderr
 events coming in from this child process.
+
+=item shutdown_stdin
+
+Closes the child process' STDIN and stops the wheel from reporting
+StdinEvent.  It is extremely useful for running utilities that expect
+to receive EOF on their standard inputs before they respond.
 
 =item ID
 
