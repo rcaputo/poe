@@ -10,12 +10,12 @@ use strict;
 use Data::Dumper;
 
 BEGIN {
-    eval " use HTTP::Request; ";
+    eval " use HTTP::Request; use HTTP::Request::Common; ";
     if($@) {
         eval " use Test::More skip_all => 'HTTP::Request is needed for these tests.' ";
     } else {
         eval {
-            eval " use Test::More 'no_plan'; ";
+            eval " use Test::More tests => 47; ";
             use_ok('POE::Filter::HTTPD');
         }
     }
@@ -94,4 +94,89 @@ Connection: Keep-Alive
 
 } # }}}
 
+SKIP: { # simple post {{{ 
 
+    skip "Known bug in Content-Length parsing for POST requests",9;    
+    my $post_request = POST 'http://localhost/foo.mhtml', [ 'I' => 'like', 'tasty' => 'pie' ];
+
+    my $filter = POE::Filter::HTTPD->new();
+
+    my $data;
+    eval { $data = $filter->get([ $post_request->as_string ]); };
+    ok(!$@, 'simple post: get() throws no exceptions');
+    ok(defined $data, "simple post: get() returns something");
+    is(ref $data, 'ARRAY', 'simple post: get() returns list of requests');
+    is(scalar @$data, 1, 'simple post: get() returned single request');
+
+    my $req = shift @$data;
+   
+    is(ref $req, 'HTTP::Request',
+        'simple post: get() returns HTTP::Request object');
+
+    is($req->method, 'POST',
+        'simple post: HTTP::Request object contains proper HTTP method');
+
+    is($req->url, '/foo.mhtml',
+        'simple post: HTTP::Request object contains proper URI');
+
+    is($req->content, 'I=like&tasty=pie', 
+        'simple post: HTTP::Request object contains proper content');
+
+    is($req->header('Content-Type'), 'application/x-www-form-urlencoded',
+        'simple post: HTTP::Request object contains proper Content-Type header');
+
+} # }}}
+
+{ # simple head {{{ 
+
+        
+    my $head_request = HEAD 'http://localhost/foo.mhtml';
+
+    my $filter = POE::Filter::HTTPD->new();
+
+    my $data;
+    eval { $data = $filter->get([ $head_request->as_string ]); };
+    ok(!$@, 'simple head: get() throws no exceptions');
+    ok(defined $data, "simple head: get() returns something");
+    is(ref $data, 'ARRAY', 'simple head: get() returns list of requests');
+    is(scalar @$data, 1, 'simple head: get() returned single request');
+
+    my $req = shift @$data;
+   
+    is(ref $req, 'HTTP::Request',
+        'simple head: get() returns HTTP::Request object');
+
+    is($req->method, 'HEAD',
+        'simple head: HTTP::Request object contains proper HTTP method');
+
+    is($req->url, 'http://localhost/foo.mhtml',
+        'simple head: HTTP::Request object contains proper URI');
+
+} # }}}
+
+SKIP: { # simple put {{{ 
+    
+    skip "PUT not supported yet.", 7;
+    my $put_request = PUT 'http://localhost/foo.mhtml';
+
+    my $filter = POE::Filter::HTTPD->new();
+
+    my $data;
+    eval { $data = $filter->get([ $put_request->as_string ]); };
+    ok(!$@, 'simple put: get() throws no exceptions');
+    ok(defined $data, "simple put: get() returns something");
+    is(ref $data, 'ARRAY', 'simple put: get() returns list of requests');
+    is(scalar @$data, 1, 'simple put: get() returned single request');
+
+    my $req = shift @$data;
+   
+    is(ref $req, 'HTTP::Request',
+        'simple put: get() returns HTTP::Request object');
+
+    is($req->method, 'PUT',
+        'simple put: HTTP::Request object contains proper HTTP method');
+
+    is($req->url, 'http://localhost/foo.mhtml',
+        'simple put: HTTP::Request object contains proper URI');
+
+} # }}}
