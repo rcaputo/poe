@@ -308,7 +308,7 @@ sub _die {
 # Adapt POE::Kernel's personality to whichever event loop is present.
 
 sub LOOP_EVENT  () { 'Event.pm' }
-sub LOOP_GTK    () { 'Gtk.pm'   }
+sub LOOP_GTK    () { 'Gtk.pm'   }  # Gtk and Gnome support
 sub LOOP_POLL   () { 'Poll.pm'  }
 sub LOOP_SELECT () { 'select()' }
 sub LOOP_TK     () { 'Tk.pm'    }

@@ -37,6 +37,8 @@ my @fileno_watcher;
 
 sub loop_initialize {
   my $self = shift;
+
+  # Must Gnome->init() yourselves, as it takes parameters.
   unless (exists $INC{'Gnome.pm'}) {
     Gtk->init();
   }
@@ -276,11 +278,21 @@ sub loop_do_timeslice {
 }
 
 sub loop_run {
-  Gtk->main;
+  if (exists $INC{'Gnome.pm'}) {
+    Gnome->main();
+  }
+  else {
+    Gtk->main;
+  }
 }
 
 sub loop_halt {
-  Gtk->main_quit();
+  if (exists $INC{'Gnome.pm'}) {
+    Gnome->main_quit();
+  }
+  else {
+    Gtk->main_quit();
+  }
 }
 
 1;
