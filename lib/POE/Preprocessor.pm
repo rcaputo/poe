@@ -138,6 +138,10 @@ sub import {
           # Handle errors or EOF.
           return $status if $status <= 0;
 
+          # Ignore purely comment lines.  This doesn't grok here docs
+          # or anything special.
+          return $status if /^\s*\#/;
+
           # Inside a macro definition.
           if ($macro_name ne '') {
 
@@ -370,12 +374,12 @@ because an enumeration can't span lines:
 
 =item *
 
-Macro invocations may not span lines.
+Macro invocations may not span lines, but macro definitions may.
 
 =item *
 
 The regular expressions that detect and replace code are simplistic
-and may not do the right thing when given challenging Perl syntax to
+and may not do the right things when given challenging Perl syntax to
 parse.  This includes placing constants in strings.
 
 =item *
