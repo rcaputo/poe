@@ -25,8 +25,8 @@ POE/Kernel/Gtk.pm
 POE/Kernel/Poll.pm
 POE/Kernel/Select.pm
 POE/Kernel/Tk.pm
-POE/NFA.pm
 POE/Macro/UseBytes.pm
+POE/NFA.pm
 POE/Pipe.pm
 POE/Pipe/OneWay.pm
 POE/Pipe/TwoWay.pm
@@ -54,7 +54,9 @@ lib/Test/Harness/Iterator.pm
 lib/Test/Harness/Straps.pm
 lib/TestSetup.pm
 lib/coverage.perl
+lib/cvs-log.perl
 lib/deptest.perl
+lib/reportupload.pl
 lib/testreport.pl
 samples/create.perl
 samples/fakelogin.perl
