@@ -15,9 +15,12 @@ use strict;
 use lib '..';
 use Socket;
 
+#sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line
            Wheel::SocketFactory
           );
+
+sub MAX_SIMULTANEOUS_CLIENTS () { 5 }
                                         # make 1 to enable output
 sub DEBUG () { 0 }
                                         # address and port the server binds to
@@ -42,6 +45,7 @@ sub client_create {
                      error     => \&client_error,
                      connected => \&client_connected,
                      signals   => \&client_signals,
+                     _parent   => sub {},
 
                      # ARG0
                      [ $serial_number ]
@@ -87,6 +91,7 @@ sub client_stop {
 sub client_connected {
   my ($heap, $socket) = @_[HEAP, ARG0];
 
+  die "possible filehandle leak" if fileno($socket) > 63;
   DEBUG && print "Client $heap->{'serial'} is connected.\n";
                                         # switch to read/write behavior
   $heap->{'wheel'} = POE::Wheel::ReadWrite->new
@@ -156,6 +161,7 @@ sub pool_create {
       _stop   => \&pool_stop,
       signals => \&pool_signals,
       _child  => \&pool_child,
+      _parent => sub {},
     );
 }
 
@@ -184,7 +190,7 @@ sub pool_start {
   # holding up the event queue.  The program can only get away with
   # this loop because SocketFactory connections do not block.
 
-  for (my $i = 0; $i < 5; $i++) {
+  for (my $i = 0; $i < MAX_SIMULTANEOUS_CLIENTS; $i++) {
     &client_create(++$heap->{'client serial'});
   }
 }
@@ -267,6 +273,8 @@ sub session_create {
       flushed => \&session_flushed,
       error   => \&session_error,
       signals => \&session_signals,
+      _child  => sub {},
+      _parent => sub {},
 
       # ARG0, ARG1, ARG2
       [ $handle, $peer_host, $peer_port ]
@@ -372,7 +380,9 @@ sub server_create {
       _stop          => \&server_stop,
       accept_success => \&server_accept,
       accept_error   => \&server_error,
-      signals        => \&server_signals
+      signals        => \&server_signals,
+      _child         => sub {},
+      _parent        => sub {},
     );
 }
 
@@ -425,6 +435,7 @@ sub server_error {
 sub server_accept {
   my ($handle, $host, $port) = @_[ARG0, ARG1, ARG2];
                                         # spawn a server session
+  die "possible filehandle leak" if fileno($handle) > 63;
   &session_create($handle, $host, $port);
 }
 
