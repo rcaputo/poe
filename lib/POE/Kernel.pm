@@ -74,9 +74,6 @@ my @kr_events;
 # }
 my %kr_event_ids;
 
-# processes: { $pid => $parent_session, ... }
-my %kr_processes;
-
 # session IDs: { $id => $session, ... }
 my %kr_session_ids;
 
@@ -195,15 +192,14 @@ sub KR_FILENOS        () {  2 }
 sub KR_SIGNALS        () {  3 }
 sub KR_ALIASES        () {  4 }
 sub KR_ACTIVE_SESSION () {  5 }
-sub KR_PROCESSES      () {  6 }
-sub KR_EVENTS         () {  7 }
-sub KR_ID             () {  8 }
-sub KR_SESSION_IDS    () {  9 }
-sub KR_ID_INDEX       () { 10 }
-sub KR_WATCHER_TIMER  () { 11 }
-sub KR_EXTRA_REFS     () { 12 }
-sub KR_EVENT_IDS      () { 13 }
-sub KR_SIZE           () { 14 }
+sub KR_EVENTS         () {  6 }
+sub KR_ID             () {  7 }
+sub KR_SESSION_IDS    () {  8 }
+sub KR_ID_INDEX       () {  9 }
+sub KR_WATCHER_TIMER  () { 10 }
+sub KR_EXTRA_REFS     () { 11 }
+sub KR_EVENT_IDS      () { 12 }
+sub KR_SIZE           () { 13 }
 
 # Fileno structure.
 sub FNO_VEC_RD       () { VEC_RD }  # unused (for documentation)
@@ -307,9 +303,10 @@ BEGIN {
   {% define_trace PROFILE  %}
   {% define_trace QUEUE    %}
   {% define_trace REFCOUNT %}
-  {% define_trace SELECT   %}
   {% define_trace REFCOUNT %}
   {% define_trace RETURNS  %}
+  {% define_trace SELECT   %}
+  {% define_trace SIGNALS  %}
 
   # See the notes for TRACE_DEFAULT, except read ASSERT and assert
   # where you see TRACE and trace.
@@ -692,7 +689,6 @@ sub new {
         \%kr_signals,        # KR_SIGNALS
         \%kr_aliases,        # KR_ALIASES
         \$kr_active_session, # KR_ACTIVE_SESSION
-        \%kr_processes,      # KR_PROCESSES
         \@kr_events,         # KR_EVENTS
         undef,               # KR_ID
         \%kr_session_ids,    # KR_SESSION_IDS
@@ -1238,7 +1234,6 @@ macro finalize_kernel {
     {% kernel_leak_vec   VEC_EX          %}
     {% kernel_leak_hash  %kr_signals     %}
     {% kernel_leak_hash  %kr_aliases     %}
-    {% kernel_leak_hash  %kr_processes   %}
     {% kernel_leak_array @kr_events      %}
     {% kernel_leak_hash  %kr_session_ids %}
     {% kernel_leak_hash  %kr_event_ids   %}
@@ -1298,50 +1293,45 @@ sub DESTROY {
 sub _invoke_state {
   my ($self, $source_session, $event, $etc) = @_;
 
-  # A SIGCHLD was caught.  This is an event loop to poll for children
-  # without catching extra child signals.  This reduces the number of
-  # CHLD signals caught, which increases the process' chance for
-  # survival.
+  # This is an event loop to poll for child processes without needing
+  # to catch SIGCHLD.
 
   if ($event eq EN_SCPOLL) {
 
-    # Non-blocking wait for a child process.  If one was reaped,
-    # dispatch a SIGCHLD to the session who called fork.
+    TRACE_SIGNALS and
+      warn "POE::Kernel is polling for signals at " . time() . "\n";
+
+    # Reap a child process without blocking.
 
     my $pid = waitpid(-1, WNOHANG);
 
-    # A child stopped, or something.
+    # Deal with waitpid(2)'s return value.
+
+    # If it's above zero, then a child process was reaped.  Emit an
+    # appropriate SIGCHLD event and enqueue an event to poll again
+    # immediately.
+
+    # If it's below zero, then an error occurred.  If it's an
+    # unexpected error, warn about that, and resume slow polling.
+
+    # If it's zero, then no more children needed to be reaped.  Resume
+    # slow polling.
 
     if ($pid > 0) {
-
-      # Determine if the child process is really exiting and not just
-      # stopping for some other reason.  This is perl Perl Cookbook
-      # recipe 16.19 and the waitpid(2) manpage.
-
       if (WIFEXITED($?) or WIFSIGNALED($?)) {
 
-        # Map the process ID to a session reference.  First look for a
-        # session registered via $kernel->fork().  Next validate the
-        # session or signal everyone.
-
-        my $parent_session = delete $kr_processes{$pid};
-        $parent_session = $self
-          unless ( (defined $parent_session) and
-                   exists $kr_sessions{$parent_session}
-                 );
-
-        # Enqueue the signal event. -><- No way to determine whether
-        # the child left via exit or a signal. Add another parameter?
+        TRACE_SIGNALS and
+          warn "POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)\n";
 
         $self->_enqueue_event
-          ( $parent_session, $self,
+          ( $self, $self,
             EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
             time(), __FILE__, __LINE__
           );
       }
 
-      # Enqueue an immediate subsequent wait in case another child
-      # process is waiting.
+      TRACE_SIGNALS and
+        warn "POE::Kernel will poll again immediately.\n";
 
       $self->_enqueue_event
         ( $poe_kernel, $poe_kernel,
@@ -1350,33 +1340,35 @@ sub _invoke_state {
         );
 
     }
-
-    # An error occurred.
-
     elsif ($pid == -1) {
-
-      # waitpid(2) was interrupted.  Retry immediately.
-
       if ($! == EINTR) {
+
+        TRACE_SIGNALS and
+          warn "POE::Kernel's waitpid(2) interrupted.  Polling again soon.\n";
+
         $self->_enqueue_event
           ( $poe_kernel, $poe_kernel,
             EN_SCPOLL, ET_SCPOLL, [ ],
             time(), __FILE__, __LINE__
           );
       }
-
-      # Some other error occurred.  Assume we're stopping the wait
-      # loop.  Warn if it's something unexpected.
-
       else {
+
+        TRACE_SIGNALS and
+          warn( "POE::Kernel's waitpid(2) got error: $!\n",
+                "POE::Kernel will poll again after a delay.\n"
+              );
+
         {% substrate_resume_watching_child_signals %}
         warn $! if $! and $! != ECHILD;
       }
     }
-
-    # Nothing is left to wait for.  Stop the wait loop.
-
     else {
+      TRACE_SIGNALS and
+        warn( "POE::Kernel's waitpid(2) didn't see a stopped child.\n",
+              "POE::Kernel will poll again after a delay.\n"
+            );
+
       {% substrate_resume_watching_child_signals %}
     }
   }
@@ -4513,6 +4505,11 @@ stricter than this.
 TRACE_SELECT enables or disables statistics about C<select()>'s
 parameters and return values.  It's only relevant when using POE's own
 select() loop.
+
+=item TRACE_SIGNALS
+
+TRACE_SIGNALS enables or disables information about signals caught and
+dispatched within POE::Kernel.
 
 =back
 
