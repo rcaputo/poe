@@ -34,24 +34,12 @@ sub new {
 
   # STATE-EVENT
   if (exists $params{AcceptState}) {
-    carp "AcceptState is deprecated.  Use AcceptEvent";
-    if (exists $params{AcceptEvent}) {
-      delete $params{AcceptState};
-    }
-    else {
-      $params{AcceptEvent} = delete $params{AcceptState};
-    }
+    croak "AcceptState is deprecated.  Use AcceptEvent";
   }
 
   # STATE-EVENT
   if (exists $params{ErrorState}) {
-    carp "ErrorState is deprecated.  Use ErrorEvent";
-    if (exists $params{ErrorEvent}) {
-      delete $params{ErrorState};
-    }
-    else {
-      $params{ErrorEvent} = delete $params{ErrorState};
-    }
+    croak "ErrorState is deprecated.  Use ErrorEvent";
   }
 
   croak "Handle required"      unless defined $params{Handle};
@@ -81,8 +69,7 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      carp "$name is deprecated.  Use $1Event";
-      $name = $1 . 'Event';
+      croak "$name is deprecated.  Use $1Event";
     }
 
     if ($name eq 'AcceptEvent') {

@@ -321,9 +321,7 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      my $pkg = ref($self);
-      carp "$name is deprecated.  Use $1Event";
-      $name = $1 . 'Event';
+      croak "$name is deprecated.  Use $1Event";
     }
 
     if ($name eq 'SuccessEvent') {
@@ -402,25 +400,12 @@ sub new {
 
   # STATE-EVENT
   if (exists $params{SuccessState}) {
-    carp "SuccessState is deprecated.  Use SuccessEvent";
-
-    if (exists $params{SuccessEvent}) {
-      delete $params{SuccessState};
-    }
-    else {
-      $params{SuccessEvent} = delete $params{SuccessState};
-    }
+    croak "SuccessState is deprecated.  Use SuccessEvent";
   }
 
   # STATE-EVENT
   if (exists $params{FailureState}) {
-    carp "FailureState is deprecated.  Use FailureEvent";
-    if (exists $params{FailureEvent}) {
-      delete $params{FailureState};
-    }
-    else {
-      $params{FailureEvent} = delete $params{FailureState};
-    }
+    croak "FailureState is deprecated.  Use FailureEvent";
   }
 
   # Ensure some of the basic things are present.

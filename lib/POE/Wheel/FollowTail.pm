@@ -65,24 +65,12 @@ sub new {
 
   # STATE-EVENT
   if (exists $params{InputState}) {
-    carp "InputState is deprecated.  Use InputEvent";
-    if (exists $params{InputEvent}) {
-      delete $params{InputState};
-    }
-    else {
-      $params{InputEvent} = delete $params{InputState};
-    }
+    croak "InputState is deprecated.  Use InputEvent";
   }
 
   # STATE-EVENT
   if (exists $params{ErrorState}) {
-    carp "ErrorState is deprecated.  Use ErrorEvent";
-    if (exists $params{ErrorEvent}) {
-      delete $params{ErrorState};
-    }
-    else {
-      $params{ErrorEvent} = delete $params{ErrorState};
-    }
+    croak "ErrorState is deprecated.  Use ErrorEvent";
   }
 
   croak "FollowTail requires a Handle or Filename parameter, but not both"
@@ -380,8 +368,7 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      carp "$name is deprecated.  Use $1Event";
-      $name = $1 . 'Event';
+      croak "$name is deprecated.  Use $1Event";
     }
 
     if ($name eq 'InputEvent') {
