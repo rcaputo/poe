@@ -13,7 +13,7 @@ use TestSetup;
 #sub POE::Kernel::TRACE_EVENTS () { 1 }
 #sub POE::Kernel::TRACE_SELECT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE qw(Pipe::TwoWay);
+use POE qw(Pipe::OneWay Pipe::TwoWay);
 
 ### Test parameters.
 
@@ -232,16 +232,15 @@ for (my $index = 0; $index < $pair_count; $index++) {
 POE::Session->create
   ( inline_states =>
     { _start => sub {
-        open FOO, ">./unlinkme.now" or die $!;
-        close FOO;
-        open FOO, "+<./unlinkme.now" or die $!;
+
+        my ($r, $w) = POE::Pipe::OneWay->new("inet");
 
         my $kernel = $_[KERNEL];
-        $kernel->select_read(\*FOO, "input");
-        $kernel->select_write(\*FOO, "output");
-        $kernel->select_write(\*FOO);
-        $kernel->select_write(\*FOO, "output");
-        $kernel->select(\*FOO);
+        $kernel->select_read($r, "input");
+        $kernel->select_write($r, "output");
+        $kernel->select_write($r);
+        $kernel->select_write($r, "output");
+        $kernel->select($r);
         print "ok 2\n";
       },
       _stop => sub { },
