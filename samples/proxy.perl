@@ -21,6 +21,7 @@ foreach my $redirection
         127.0.0.1:7007-127.0.0.1:7008
         127.0.0.1:7008-127.0.0.1:7009
         127.0.0.1:7009-perl.com:daytime
+        127.0.0.1:7777-127.0.0.1:30019
       )
   )
 {
@@ -131,7 +132,7 @@ sub accept_and_start {
       },
       'client' => sub {
         my ($k,$me,$from,$line) = @_;
-        (exists $me->{wheel_server}) && $me->{wheel_server}->put($line);
+       (exists $me->{wheel_server}) && $me->{wheel_server}->put($line);
       },
       'client_error' => sub {
         my ($k,$me,$from,$operation,$errnum,$errstr) = @_;
@@ -141,7 +142,9 @@ sub accept_and_start {
         else {
           print "[$me->{'log'}] * client closed connection\n";
         }
-        $k->post($me, 'shutdown');
+                                        # stop the wheels
+        delete $me->{'wheel_client'};
+        delete $me->{'wheel_server'};
       },
       'server' => sub {
         my ($k,$me,$from,$line) = @_;
@@ -155,12 +158,9 @@ sub accept_and_start {
         else {
           print "[$me->{'log'}] * server closed connection\n";
         }
-        $k->post($me, 'shutdown');
-      },
-      'shutdown' => sub {
-        my ($k, $me, $from) = @_;
-        delete $me->{'wheel_server'};
+                                        # stop the wheels
         delete $me->{'wheel_client'};
-      }
+        delete $me->{'wheel_server'};
+      },
     );
 }
