@@ -277,6 +277,10 @@ sub new {
     open( STDERR, ">&" . fileno($stderr_write) )
       or die "can't redirect stderr in child: $!";
 
+    # Make STDOUT and/or STDERR auto-flush.
+    select STDERR;  $| = 1;
+    select STDOUT;  $| = 1;
+
     # Tell the parent that the stdio has been set up.
     close $sem_pipe_read;
     print $sem_pipe_write "go\n";
@@ -288,6 +292,11 @@ sub new {
     }
     elsif (ref($program) eq 'CODE') {
       $program->();
+
+      # In case flushing them wasn't good enough.
+      close STDOUT if defined fileno(STDOUT);
+      close STDERR if defined fileno(STDERR);
+
       eval { POSIX::_exit(0); };
       eval { kill KILL => $$; };
       exit(0);
