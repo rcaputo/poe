@@ -135,9 +135,6 @@ sub _dispatch_state {
 
     if ($self->{'sessions'}->{$session}->[5]) {
       my $hold_active_session = $self->{'active session'};
-
-      print ">>> invoking $source_session -> $state\n";
-
       $self->{'active session'} = $session;
       $session->_invoke_state($self, $source_session, $state, $etc);
       $self->{'active session'} = $hold_active_session;
