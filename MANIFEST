@@ -28,6 +28,7 @@ README
 t/test.t
 samples/create.perl
 samples/fakelogin.perl
+samples/filterchange.perl
 samples/followtail.perl
 samples/forkbomb.perl
 samples/httpd.perl

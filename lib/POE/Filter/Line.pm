@@ -12,7 +12,8 @@ use strict;
 
 sub new {
   my $type = shift;
-  my $self = bless { 'framing buffer' => '' }, $type;
+  my $t='';
+  my $self = bless \$t, $type;      # we now use a scalar ref -PG
   $self;
 }
 
@@ -20,10 +21,10 @@ sub new {
 
 sub get {
   my ($self, $stream) = @_;
-  $self->{'framing buffer'} .= join('', @$stream);
+  $$self .= join('', @$stream);
   my @result;
   while (
-         $self->{'framing buffer'} =~ s/^([^\x0D\x0A]*)(\x0D\x0A?|\x0A\x0D?)//
+         $$self =~ s/^([^\x0D\x0A]*)(\x0D\x0A?|\x0A\x0D?)//
   ) {
     push(@result, $1);
   }
@@ -36,6 +37,17 @@ sub put {
   my ($self, $lines) = @_;
   my @raw = map { $_ . "\x0D\x0A" } @$lines;
   \@raw;
+}
+
+#------------------------------------------------------------------------------
+
+sub get_pending 
+{
+    my($self)=@_;
+    return unless $$self;
+    my $ret=[$$self];
+    $$self='';
+    return $ret;
 }
 
 ###############################################################################

@@ -12,7 +12,8 @@ use strict;
 
 sub new {
   my $type = shift;
-  my $self = bless { }, $type;
+  my $t='';
+  my $self = bless \$t, $type;
   $self;
 }
 
@@ -30,6 +31,10 @@ sub put {
   my ($self, $chunks) = @_;
   $chunks;
 }
+
+#------------------------------------------------------------------------------
+
+sub get_pending {} #we don't keep any state
 
 ###############################################################################
 1;

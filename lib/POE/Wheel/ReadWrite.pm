@@ -167,5 +167,23 @@ sub put {
   }
 }
 
+#------------------------------------------------------------------------------
+# Redefine filter.  -PG
+sub set_filter
+{
+    my($self, $filter)=@_;
+    my $buf=$self->{filter}->get_pending();
+    $self->{filter}=$filter;
+    $self->_define_read_state();
+    $self->_define_write_state();
+    if ( defined($buf) )
+    {
+        foreach my $cooked_input (@{$filter->get($buf)})
+        {
+            $poe_kernel->yield($self->{'event input'}, $cooked_input)
+        }
+    }
+}
+
 ###############################################################################
 1;

@@ -93,11 +93,24 @@ sub get {
 
 sub put {
   my ($self, $references) = @_;
+
   my @raw = map {
     my $frozen = $self->{freeze}->($_);
     length($frozen) . "\0" . $frozen;
   } @$references;
   \@raw;
+}
+
+#------------------------------------------------------------------------------
+# We are about to be destroyed!  Hand all we have left over to our Wheel
+
+sub get_pending
+{
+  my($self)=@_;
+  return unless $self->{'framing buffer'};
+  my $ret=[$self->{'framing buffer'}];
+  $self->{'framing buffer'}='';
+  return $ret;
 }
 
 ###############################################################################

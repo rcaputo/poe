@@ -22,9 +22,15 @@ Added samples/olayer.perl to test the current Object Layer features.
 The object layer is in early development, so there's no documentation
 outside the olayer.perl comments.
 
-Added Philip Gwyn's serialization patch to Filter::Reference.
-Added Philip Gwyn's serialization test as samples/ref-type.perl.
-Updated documentation for Filter::Reference to match patch.
+Applied Philip Gwyn's serialization patch to Filter::Reference.  Added
+his serialization test as samples/ref-type.perl.  Updated
+documentation for Filter::Reference to match patch.
+
+Applied Philip Gwyn's updated patches for hot-swappable filters.
+Added his filter swapping test as samples/filterchange.perl.  I have
+much more confidence in this now that it's tested.
+
+Updated documentation to point to the samples/ directory.
 
 
 0.06_07 1999.05.12
