@@ -265,9 +265,11 @@ sub new {
 # The default error handler logs to STDERR and shuts down the socket.
 
 sub _default_error {
-  warn( 'Client ', $_[SESSION]->ID,
-        " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
-      );
+  unless ($_[ARG0] eq "read" and $_[ARG1] == 0) {
+    warn(
+      'Client ', $_[SESSION]->ID, " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
+    );
+  }
   delete $_[HEAP]->{server};
 }
 

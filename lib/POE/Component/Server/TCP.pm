@@ -291,10 +291,13 @@ sub _default_server_error {
 
 sub _default_client_error {
   my ($syscall, $errno, $error) = @_[ARG0..ARG2];
-  $error = "Normal disconnection" unless $errno;
-  warn( 'Client session ', $_[SESSION]->ID,
-        " got $syscall error $errno ($error)\n"
-      );
+  unless ($syscall eq "read" and $errno == 0) {
+    $error = "Normal disconnection" unless $errno;
+    warn(
+      'Client session ', $_[SESSION]->ID,
+      " got $syscall error $errno ($error)\n"
+    );
+  }
 }
 
 1;
