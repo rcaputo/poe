@@ -180,6 +180,7 @@ sub new {
           foreach my $method (@$second) {
             $self->register_state($method, $first, $method);
           }
+
           next;
         }
 
@@ -674,16 +675,19 @@ sub POE::Session::Postback::DESTROY {
 
 sub postback {
   my ($self, $event, @etc) = @_;
+
   my $postback = bless
     ( sub {
-        $POE::Kernel::poe_kernel->post( {% fetch_id $self %},
-                                        $event, \@etc, \@_
-                                      );
+        my $id = {% fetch_id $self %};
+        $POE::Kernel::poe_kernel->post( $id, $event, \@etc, \@_ );
       },
       'POE::Session::Postback'
     );
+
   $postback_parent_id{$postback} = {% fetch_id $self %};
-  $POE::Kernel::poe_kernel->refcount_increment( $self, 'postback' );
+  $POE::Kernel::poe_kernel->refcount_increment( {% fetch_id $self %},
+                                                'postback'
+                                              );
   $postback;
 }
 

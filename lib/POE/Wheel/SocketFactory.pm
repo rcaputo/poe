@@ -184,12 +184,14 @@ sub event {
             ( $self->{state_success} = $self . ' -> success',
               $event
             );
+          $self->{mine_success} = 'yes';
         }
         else {
           if (ref($event) ne '') {
             carp "Strange reference used as SuccessState event";
           }
           $self->{state_success} = $event;
+          delete $self->{mine_success};
         }
       }
       else {
@@ -203,12 +205,14 @@ sub event {
             ( $self->{state_failure} = $self . ' -> failure',
               $event
             );
+          $self->{mine_failure} = 'yes';
         }
         else {
           if (ref($event) ne '') {
             carp "Strange reference used as FailureState event (ignored)"
           }
           $self->{state_failure} = $event;
+          delete $self->{mine_failure};
         }
       }
       else {
@@ -647,12 +651,12 @@ sub DESTROY {
     delete $self->{state_connect};
   }
 
-  if (exists $self->{state_success}) {
+  if (exists $self->{mine_success}) {
     $poe_kernel->state($self->{state_success});
     delete $self->{state_success};
   }
 
-  if (exists $self->{state_failure}) {
+  if (exists $self->{mine_failure}) {
     $poe_kernel->state($self->{state_failure});
     delete $self->{state_failure};
   }

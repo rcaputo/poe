@@ -205,10 +205,10 @@ sub _define_write_state {
       }
    );
 
-  $poe_kernel->select_write($self->[HANDLE_INPUT], $self->[STATE_WRITE]);
+  $poe_kernel->select_write($self->[HANDLE_OUTPUT], $self->[STATE_WRITE]);
 
   # Pause the write select immediately, unless output is pending.
-  $poe_kernel->select_pause_write($self->[HANDLE_INPUT])
+  $poe_kernel->select_pause_write($self->[HANDLE_OUTPUT])
     unless ($self->[DRIVER_BUFFERED_OUT_OCTETS]);
 }
 

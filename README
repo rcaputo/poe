@@ -40,8 +40,9 @@ testing pool) can find.  This includes Linux, FreeBSD, and OS/2, all
 of which support enough of POSIX to run POE.  It is known to work with
 older Perl versions, back to 5.004_03 (maybe earlier).  It should also
 work with the latest stable release (the latest development release
-may also work).  For the most recent compatibility results, see
-<http://www.perl.org/cpan-testers/results.cgi?request=dist&dist=POE>.
+may also work).  For the most recent compatibility results, see:
+
+http://testers.cpan.org/search?request=dist&dist=POE
 
 If you have news about breakage or success that's not documented,
 please let me know.  Thank you!

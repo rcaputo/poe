@@ -42,6 +42,7 @@ samples/olayer.perl
 samples/packagesessions.perl
 samples/preforkedserver.perl
 samples/proxy.perl
+samples/queue.perl
 samples/ref-type.perl
 samples/refsender.perl
 samples/refserver.perl
@@ -50,6 +51,7 @@ samples/sessions.perl
 samples/signals.perl
 samples/socketfactory.perl
 samples/thrash.perl
+samples/tk.perl
 samples/tutorial-chat.perl
 samples/udp.perl
 samples/watermarks.perl

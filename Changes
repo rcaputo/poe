@@ -13,12 +13,66 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
   cvs tag -Rc v0_10 .
 ]
 
-
 ,----- To Do -----
 |
 | Overhaul Kernel and Session manpages' DESCRIPTIONs.
+| Create a test program for fork and sigchld.
+| Finish full Tk support.  This requires a Tk and Perl/Tk rebuild.
 |
 `-----------------
+
+
+0.100201 2000.05.10
+-------------------
+
+This is a private release, 0.10_02_01, for Addi.  He's been having
+trouble with POE and POE::Component::IRC on Win32.
+
+Found a bug in Wheel::ReadWrite that prevented separate InputHandle
+and OutputHandle from working correctly.
+
+Finished initial Tk support.  Posted/yielded events, alarms/delays,
+and selects are now handled through the Tk event loop, if Tk is used
+before POE.
+
+Philip Gwyn has noticed POE leaving zombie processes behind.  This was
+traced back to naive signal handlers for $SIG{CH?LD} and the
+$kernel->fork() "safe" polling code.  Both handlers have been changed
+to use waitpid() and loop until all children have been reaped.
+
+Deleted $POE::Kernel::{signal} before defining &POE::Kernel::signal.
+As of 5.6.0, perl warns of a redefined function, even though it's
+supposed to be called as a POE::Kernel method.  Grrr.
+
+Addi pointed out that the PREREQ_PM line for Filter was incorrect.  It
+should be requiring Filter::Util::Call 1.04.  Fixed!
+
+Addi also noted that the Perl debugger sets $SIG{BUS} under MSWin32.
+MSWin32 doesn't support a $SIG{BUS}, so POE dies when it grovels
+%SIG's keys to register handlers.  Bleah!  POE::Kernel now avoids
+$SIG{BUS} on MSWin32 systems.
+
+Fixed a bug that Addi found in Wheel::SocketFactory.  SocketFactory
+needed code to manage temporary states.  These states are created from
+coderefs which are passed to the SocketFactory constructor instead of
+state names.  Anyway, to do this, SocketFactory instances needed to
+register and remove success and failure states from sessions that own
+them.  Unfortunately, they deregistered states even when they were
+passed by name, removing the owning session's states without its prior
+consent or knowledge!  Even more troublesome, if the event is a result
+of constructor failure, then the SocketFactory instance dies (and
+deregisters the FailureState) before the failure event can be
+delivered.  The upshot is: Bind errors in samples/httpd.perl never
+displayed an error message.
+
+Randal Schwartz wanted examples of programs that used job queues, so I
+banged out samples/queue.perl.  Cleaning it up, documenting it, and
+including it in the POE distribution took longer than writing it. :/
+
+Updated the README to point to a new CPAN Testers location.
+
+Added samples/tk.perl, in case anyone wants to try the Tk code in
+POE::Kernel and POE::Session.
 
 
 0.1002 2000.04.20

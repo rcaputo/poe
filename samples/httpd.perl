@@ -11,7 +11,6 @@
 
 use strict;
 use lib '..';
-
 use POE qw(Wheel::ReadWrite Driver::SysRW Filter::HTTPD Wheel::SocketFactory);
 
 ###############################################################################
@@ -25,7 +24,7 @@ use strict;
 use HTTP::Response;
 use POE::Session;
 
-sub DEBUG { 1 }
+sub DEBUG () { 1 }
 
 #------------------------------------------------------------------------------
 # Create the ServerSession, and wrap it in a POE session.
@@ -35,11 +34,12 @@ sub new {
 
   my $self = bless { }, $type;
 
-  new POE::Session( $self,
-                    [ qw(_start _stop receive flushed error signals) ],
-                                        # ARG0, ARG1, ARG2
-                    [ $handle, $peer_addr, $peer_port ]
-                  );
+  POE::Session->new
+    ( $self,
+      [ qw(_start _stop receive flushed error signals) ],
+      # ARG0, ARG1, ARG2
+      [ $handle, $peer_addr, $peer_port ]
+    );
 
   # This returns undef so there is no chance that the reference is
   # saved elsewhere.  Keeping extra copies of session references tends
@@ -155,22 +155,26 @@ use strict;
 use Socket;
 use POE::Session;
 
-sub DEBUG { 1 }
+sub DEBUG () { 1 }
 
 #------------------------------------------------------------------------------
 # Start the server when POE says it's okay.
 
 sub _start {
   my ($kernel, $heap, $port) = @_[KERNEL, HEAP, ARG0];
-                                        # watch for SIGINT
+                                         # watch for SIGINT
   $kernel->sig('INT', 'signals');
-                                        # create a socket factory
+                                         # create a socket factory
   $heap->{wheel} = new POE::Wheel::SocketFactory
-    ( BindPort       => $port,          # on this port
-      Reuse          => 'yes',          # and allow immediate port reuse
-      SuccessState   => 'accept',       # generating this event on connection
-      FailureState   => 'accept_error'  # generating this event on error
+    ( BindPort       => $port,           # on this port
+      Reuse          => 'yes',           # and allow immediate port reuse
+      SuccessState   => 'accept_client', # generating this event on connection
+      FailureState   => 'accept_error'   # generating this event on error
     );
+
+  # -><- Bug here!  When binding to an existing port, it *should* be
+  # firing back a FailureState, but it isn't.  More correctly: it *is*
+  # firing one, but it doesn't seem to be delivered.  What's going on?
 
   DEBUG && print "Listening to port $port on all interfaces.\n";
 }
@@ -192,7 +196,7 @@ sub accept_error {
 
 #------------------------------------------------------------------------------
 
-sub accept {
+sub accept_client {
   my ($accepted_handle, $peer_addr, $peer_port) = @_[ARG0, ARG1, ARG2];
 
   $peer_addr = inet_ntoa($peer_addr);
@@ -220,11 +224,10 @@ package main;
 
 my $listen_port = shift(@ARGV) || 80;
 
-new POE::Session('Server',
-                 [ qw(_start accept accept_error signals) ],
-                                        # ARG0
-                 [ $listen_port ]
-                );
+my $session = POE::Session->new
+  ( Server => [ qw(_start accept_client accept_error signals) ],
+    [ $listen_port ], # ARG0
+  );
 
 $poe_kernel->run();
 
