@@ -168,7 +168,7 @@ $new_priority, which should match $priority.
 
 =head1 SEE ALSO
 
-L<POE>, L<POE::Queue::Array>, L<ADT::PriorityQueue>
+L<POE>, L<POE::Queue::Array>
 
 =head1 BUGS
 
