@@ -1459,7 +1459,12 @@ sub _data_ev_clear_session {
     ($_[0]->[EV_SESSION] == $session) || ($_[0]->[EV_SOURCE] == $session)
   };
 
-  my @removed = $kr_queue->remove_items($my_event);
+  my $total_event_count =
+    ( ( $event_count{$session} || 0) +
+      ($post_count{$session} || 0)
+    );
+
+  my @removed = $kr_queue->remove_items($my_event, $total_event_count);
   foreach (@removed) {
     $self->_data_ev_refcount_dec( $_->[ITEM_PAYLOAD]->[EV_SOURCE],
                                   $_->[ITEM_PAYLOAD]->[EV_SESSION]
