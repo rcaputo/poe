@@ -25,6 +25,7 @@ POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
 POE/Wheel/SocketFactory.pm
 README
+lib/TestSetup.pm
 samples/create.perl
 samples/fakelogin.perl
 samples/filterchange.perl
@@ -52,4 +53,5 @@ samples/udp.perl
 samples/watermarks.perl
 samples/wheels.perl
 samples/wheels2.perl
-t/test.t
+t/01_sessions.t
+t/02_alarms.t

@@ -17,7 +17,7 @@ sub DEBUG () { 0 }
 # it an improbable errno value.
 BEGIN {
   if ($^O eq 'MSWin32') {
-    eval "sub EINPROGRESS () { 3.141 }";
+    eval '*EINPROGRESS = sub { 3.141 };'
   }
 }
 

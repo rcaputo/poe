@@ -8,6 +8,38 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
+0.0908 2000.??.??
+-----------------
+
+Added logging to samples/poing.perl.  Now it records up and down times
+to a tab-delimited file.
+
+Added POE::Kernel::select_(pause|resume)_write, to pause and resume a
+write select without bothering to maintain POE::Kernel's reference
+counts on the filehandle.  Made POE::Wheel::ReadWrite use this instead
+of POE::Kernel::select_write, which should improve performance a
+little bit.
+
+POE::Kernel::call was setting $! to 0 when it oughtn't.  $! now
+properly reflects the status of POE::Kernel::call.
+
+Removed the place-holder test that suggested people trie the samples
+directory.
+
+Added t/01_sessions.t to test sessions (new and inline create) and
+basic events (post and yield);
+
+Added t/02_alarms.t to test delayed events (alarm, delay, alarm_add
+and delay_add).
+
+Tweaked the Win32 EINPROGRESS support to quietly turn itself off in
+the case that ActiveState adds this constant to POSIX.pm.
+
+Added POE::Kernel::(alarm|delay)_add to post additional alarms to a
+particular state.  Unlike POE::Kernel::(alarm|delay), these don't
+clear existing alarms for the destination state.
+
+
 0.0907 2000.03.02
 -----------------
 

@@ -199,11 +199,17 @@ sub _define_write_state {
         # call and a flushed call at the same time (if the low mark
         # is 1).
         unless ($$driver_buffered_out_octets) {
-          $k->select_write($handle);
+          $k->select_pause_write($handle);
           $event_flushed && $k->call($me, $event_flushed);
         }
       }
    );
+
+  $poe_kernel->select_write($self->[HANDLE_INPUT], $self->[STATE_WRITE]);
+
+  # Pause the write select immediately, unless output is pending.
+  $poe_kernel->select_pause_write($self->[HANDLE_INPUT])
+    unless ($self->[DRIVER_BUFFERED_OUT_OCTETS]);
 }
 
 #------------------------------------------------------------------------------
@@ -328,7 +334,7 @@ sub put {
   if ( $self->[DRIVER_BUFFERED_OUT_OCTETS] =
        $self->[DRIVER_BOTH]->put($self->[FILTER_OUTPUT]->put(\@chunks))
   ) {
-    $poe_kernel->select_write($self->[HANDLE_OUTPUT], $self->[STATE_WRITE]);
+    $poe_kernel->select_resume_write($self->[HANDLE_OUTPUT]);
   }
 
   # Return true if the high watermark has been reached.
