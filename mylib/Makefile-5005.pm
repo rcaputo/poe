@@ -118,6 +118,13 @@ testreport: poe_report.xml
 
 poe_report.xml: Makefile
 	$^X lib/testreport.pl
+
+ppmdist: pm_to_blib
+	\$(TAR) --exclude '*/man[13]*' -cvf \\
+		\$(DISTVNAME)-win32ppd.tar blib
+	\$(COMPRESS) \$(DISTVNAME)-win32ppd.tar
+
+ppddist: ppmdist
 EOF
 
 }
