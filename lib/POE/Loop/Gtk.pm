@@ -41,15 +41,22 @@ sub loop_initialize {
 
   # Must Gnome->init() yourselves, as it takes parameters.
   unless (exists $INC{'Gnome.pm'}) {
-    # Gtk->init_check() only succeeds on the first call.
-    unless (defined $gtk_init_check) {
-      $gtk_init_check = Gtk->init_check();
-    }
-    # Now check whether the init was ok.
-    if (defined $gtk_init_check) {
-      Gtk->init();
-    } else {
-      POE::Kernel::_die "Gtk initialization failed. Chances are it couldn't connect to a display. Of course, Gtk doesn't put its error message anywhere I can find so we can't be more specific here.";
+    
+    # Gtk can only be initialized once. 
+    # So if we've initalized it already, skip the whole deal.
+    unless($gtk_init_check) {
+      $gtk_init_check++;
+    
+      my $res = Gtk->init_check();
+      
+      # Now check whether the init was ok.
+      # undefined == icky; TRUE (whatever that means in gtk land) means Ok.
+      if (defined $res) {
+        Gtk->init();
+
+      } else {
+        POE::Kernel::_die "Gtk initialization failed. Chances are it couldn't connect to a display. Of course, Gtk doesn't put its error message anywhere I can find so we can't be more specific here.";
+      }
     }
   }
 }
