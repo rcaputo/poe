@@ -539,13 +539,13 @@ parameter.
 The ServerInput function will stop being called when $heap->{shutdown}
 is true.
 
-=item Start
+=item Started
 
-Start is an optional callback.  It is called after Client::TCP is
+Started is an optional callback.  It is called after Client::TCP is
 initialized but before a connection has been established.
 
 The Args parameter can be used to pass initialization values to the
-Start callback, eliminating the need for closures to get values into
+Started callback, eliminating the need for closures to get values into
 the component.
 
 =back
