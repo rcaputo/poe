@@ -3,6 +3,8 @@
 
 package POE;
 
+use vars qw($VERSION);
+
 $VERSION = "0.05";
 
 use strict;
@@ -15,7 +17,7 @@ sub import {
 
   my @failed;
   foreach my $module (@modules) {
-    eval("local $SIG{'__DIE__'} = 'DEFAULT'; require POE::" . $module)
+    eval("require POE::$module")
       or push(@failed, $module);
   }
 
