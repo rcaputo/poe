@@ -23,10 +23,33 @@ use vars qw($poe_kernel $poe_main_window);
 # A cheezy exporter to avoid using Exporter.
 
 sub import {
+  my ($class, $args) = @_;
   my $package = caller();
-  no strict 'refs';
-  *{ $package . '::poe_kernel'      } = \$poe_kernel;
-  *{ $package . '::poe_main_window' } = \$poe_main_window;
+
+  {
+    no strict 'refs';
+    *{ $package . '::poe_kernel'      } = \$poe_kernel;
+    *{ $package . '::poe_main_window' } = \$poe_main_window;
+  }
+
+  # Extract the import arguments we're interested in here.
+
+  my $loop = delete $args->{loop};
+
+  # Don't accept unknown/mistyped arguments.
+
+  my @unknown = sort keys %$args;
+  croak "Unknown POE::Kernel import arguments: @unknown" if @unknown;
+
+  # Now do things with them.
+
+  unless (UNIVERSAL::can('POE::Kernel', 'poe_kernel_loop')) {
+    $loop =~ s/^((POE::)?Loop::)?/POE::Loop::/ if defined $loop;
+    test_loop($loop);
+    # Bootstrap the kernel.  This is inherited from a time when multiple
+    # kernels could be present in the same Perl process.
+    POE::Kernel->new() if UNIVERSAL::can('POE::Kernel', 'poe_kernel_loop');
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -399,75 +422,89 @@ sub _die {
 #------------------------------------------------------------------------------
 # Adapt POE::Kernel's personality to whichever event loop is present.
 
-BEGIN {
-  my $used_first;
+sub find_loop {
+  my ($mod) = @_;
+
+  foreach my $dir (@INC) {
+    return 1 if (-r "$dir/$mod");
+  }
+  return 0;
+}
+
+sub load_loop {
+  my $loop = shift;
+
+  eval "sub poe_kernel_loop { return \"$loop\"; }";
+  eval "require $loop";
+
+  # Modules can die with "not really dying" if they've loaded
+  # something else.  This exception prevents the rest of the
+  # originally used module from being parsed, so the module it's
+  # handed off to takes over.
+  if ($@ and $@ !~ /not really dying/) {
+    die(
+	"*\n",
+	"* POE can't use $loop:\n",
+	"* $@\n",
+	"*\n",
+       );
+  }
+}
+sub test_loop {
+  my $used_first = shift;
   local $SIG{__DIE__} = "DEFAULT";
 
-  # First see if someone has loaded a POE::Loop or XS version
-  # explicitly.  Make a note of it if they already have.  The next
-  # loop through %INC will just verify that two loops aren't active at
-  # once.
-  foreach my $file (keys %INC) {
-    if ($file =~ /^POE\/(?:XS\/)?Loop\/(.+)\.pm$/) {
-      $used_first = $1;
-    }
+  # First see if someone wants to load a POE::Loop or XS version
+  # explicitly.
+  if (defined $used_first) {
+    load_loop($used_first);
   }
+  else {
+    foreach my $file (keys %INC) {
+      next if (substr ($file, -3) ne '.pm');
+      my @split_dirs = File::Spec->splitdir($file);
 
-  foreach my $file (keys %INC) {
-    my @split_dirs = File::Spec->splitdir($file);
+      # Create a module name by replacing the path separators with
+      # dashes and removing ".pm"
+      my $module = join("_", @split_dirs);
+      substr($module, -3) = "";
 
-    # Create a module name by replacing the path separators with
-    # dashes and removing ".pm"
-    my $module = join("_", @split_dirs);
-    substr($module, -3) = "";
+      # Skip the module name if it isn't legal.
+      next if $module =~ /[^\w\.]/;
 
-    # Skip the module name if it isn't legal.
-    next if $module =~ /[^\w\.]/;
+      # Try for the XS version first.  If it fails, try the plain
+      # version.  If that fails, we're up a creek.
+      my $module = "POE/XS/Loop/$module.pm";
+      unless (find_loop($module)) {
+        $module =~ s|XS/||;
+        next unless (find_loop($module));
+      }
 
-    # Modules can die with "not really dying" if they've loaded
-    # something else.  This exception prevents the rest of the
-    # originally used module from being parsed, so the module it's
-    # handed off to takes over.
+      if (defined $used_first and $used_first ne $module) {
+        die(
+          "*\n",
+          "* POE can't use multiple event loops at once.\n",
+          "* You used $used_first and $module.\n",
+          "* Specify the loop you want as an argument to POE\n",
+          "*  use POE qw(Loop::Select);\n",
+          "* or;\n",
+          "*  use POE::Kernel { loop => 'Select' };\n",
+          "*\n",
+        );
+      }
 
-    # Try for the XS version first.  If it fails, try the plain
-    # version.  If that fails, we're up a creek.
-    my $mod = "POE::XS::Loop::$module";
-    eval "use $mod";
-    if ($@ =~ /^Can't locate/) {
-      $mod = "POE::Loop::$module";
-      eval "use $mod";
+      $used_first = $module;
     }
 
-    next if $@ =~ /^Can't locate/;
-    die if $@ and $@ !~ /not really dying/;
-
-    if (defined $used_first and $used_first ne $module) {
-      die(
-        "*\n",
-        "* POE can't use multiple event loops at once.\n",
-        "* You used $used_first and $module.\n",
-        "*\n",
-      );
+    unless (defined $used_first) {
+      $used_first = "POE/XS/Loop/Select.pm";
+      unless (find_loop($used_first)) {
+        $used_first =~ s/XS\///;
+      }
     }
-
-    $used_first = $module;
-  }
-
-  unless (defined $used_first) {
-    $used_first = "POE::XS::Loop::Select";
-    eval "require $used_first";
-    if ($@ and $@ =~ /^Can't locate/) {
-      $used_first =~ s/XS:://;
-      eval "require $used_first";
-    }
-    if ($@) {
-      die(
-        "*\n",
-        "* POE can't use $used_first:\n",
-        "* $@\n",
-        "*\n",
-      );
-    }
+    substr($used_first, -3) = "";
+    $used_first =~ s|/|::|g;
+    load_loop($used_first);
   }
 }
 
@@ -1027,6 +1064,7 @@ sub run_one_timeslice {
 
 sub run {
   # So run() can be called as a class method.
+  POE::Kernel->new unless (defined $poe_kernel);
   my $self = $poe_kernel;
 
   # Flag that run() was called.
@@ -2233,11 +2271,6 @@ sub state {
   return ESRCH;
 }
 
-###############################################################################
-# Bootstrap the kernel.  This is inherited from a time when multiple
-# kernels could be present in the same Perl process.
-POE::Kernel->new();
-###############################################################################
 1;
 
 __END__
@@ -2259,6 +2292,15 @@ one of those modules is used before POE::Kernel.
 
   use Gtk;  # Or Tk, Event, or IO::Poll;
   use POE;
+
+  or
+
+  use POE qw(Loop::Gtk);
+
+  or
+
+  use POE::Kernel { loop => "Gtk" };
+  use POE::Session;
 
 Methods to manage the process' global Kernel instance:
 
@@ -3553,63 +3595,56 @@ tediously need to include C<SESSION> with every call.
 
 =head1 Using POE with Other Event Loops
 
-POE::Kernel supports four event loops.  Three of them come from other
-modules, and the Kernel will adapt to whichever one is loaded before
-it.  The Kernel's resource functions are designed to work the same
-regardless of the underlying event loop.
+POE::Kernel supports any number of event loops.  Four are included in
+the base distribution, and others are available on the CPAN.  POE's
+public interfaces remain the same regardless of the event loop being
+used.
 
-=over 2
-
-=item POE's select() Loop
-
-This is the default event loop.  It is included in POE::Kernel and
-written in plain Perl for maximum portability.
-
-  use POE;
-
-=item Event's Loop
-
-Event is written in C for maximum performance.  It requires either a C
-compiler or a binary distribtution for your platform, and its C nature
-allows it to implement safe signals.
-
-  use Event;
-  use POE;
-
-=item Gtk's Event Loop
-
-This loop allows POE to work in graphical programs using the Gtk-Perl
-library.
+There are three ways to load an alternate event loop.  The simplest is
+to load the event loop before loading POE::Kernel.  Remember that POE
+loads POE::Kernel internally.
 
   use Gtk;
   use POE;
 
-=item IO::Poll
+POE::Kernel detects that Gtk has been loaded, and it loads the
+appropriate internal code to use it.
 
-IO::Poll is potentially more efficient than POE's default select()
-code in large scale clients and servers.
+You can also specify which loop to load directly.  Event loop bridges
+are named "POE::Loop::$loop_module", where $loop_module is the name of
+the module, with "::" translated to underscores.  For example:
 
-  use IO::Poll;
-  use POE;
+  use POE qw( Loop::Event_Lib );
 
-=item Tk's Event Loop
+would load POE::Loop::Event_Lib (which may or may not be on CPAN).
 
-This loop allows POE to work in graphical programs using the Tk-Perl
-library.  When using Tk with POE, POE supplies an already-created
+If you'd rather use POE::Kernel directly, it has a different import
+syntax:
+
+  use POE::Kernel { loop => "Tk" };
+
+The four event loops included in POE's distribution:
+
+POE's default select() loop.  It is included so at least something
+will work on any given platform.
+
+Event.pm.  This provides compatibility with other modules requiring
+Event's loop.  It may also introduce safe signals in versions of Perl
+prior to 5.8, should you need them.
+
+Gtk and Tk event loops.  These are included to support graphical
+toolkits.  Others are on the CPAN, including Gtk2 and hopefully WxPerl
+soon.  When using Tk with POE, POE supplies an already-created
 $poe_main_window variable to use for your main window.  Calling Tk's
 MainWindow->new() often has an undesired outcome.
 
-  use Tk;
-  use POE;
+IO::Poll.  This is potentially more efficient than POE's default
+select() code in large scale clients and servers.
 
-=back
-
-External event loops expect plain coderefs as callbacks.  POE::Session
-has a postback() method which will create callbacks these loops can
-use.  Callbacks created with C<postback()> are designed to post POE
-events when called, letting just about any loop's native callbacks
-work with POE.  This includes widget callbacks and event watchers POE
-never dreamt of.
+Many external event loops expect plain coderefs as callbacks.
+POE::Session has postback() and callback() methods that create
+callbacks suitable for external event loops.  In turn, they post() or
+call() POE event handlers.
 
 =head2 Kernel's Debugging Features
 

@@ -13,8 +13,9 @@ $REVISION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 sub import {
   my $self = shift;
 
+  my @loops    = map { s/^Loop\:\:// } grep(/^Loop\:\:/, @_);
   my @sessions = grep(/^(Session|NFA)$/, @_);
-  my @modules = grep(!/^(Kernel|Session|NFA)$/, @_);
+  my @modules  = grep(!/^(Kernel|Session|NFA)$/, @_);
 
   croak "POE::Session and POE::NFA export conflicting constants"
     if grep(/^(Session|NFA)$/, @sessions) > 1;
@@ -27,16 +28,32 @@ sub import {
     unshift @modules, 'Session';
   }
 
-  # Add Kernel back in, whether anybody wanted it or not.  Ensure that
-  # it comes before any sessions, since the sessions need to refer to
-  # constants defined in Kernel's namespace.
-  unshift @modules, 'Kernel';
-
-  my $package = (caller())[0];
-
+  my $package = caller();
   my @failed;
+
+  # Load POE::Kernel in the caller's package.  This is separate
+  # because we need to push POE::Loop classes through POE::Kernel's
+  # import().
+
+  {
+    my $loop = "";
+    if (@loops) {
+      $loop = '{ loop => [ "' . join("', '", @loops) . "' ] }";
+    }
+    my $code = "package $package; use POE::Kernel $loop;";
+    # warn $code;
+    eval $code;
+    if ($@) {
+      warn $@;
+      push @failed, "Kernel"
+    };
+  }
+
+  # Load all the others.
+
   foreach my $module (@modules) {
     my $code = "package $package; use POE::$module;";
+    # warn $code;
     eval($code);
     if ($@) {
       warn $@;
