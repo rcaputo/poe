@@ -12,7 +12,9 @@ use TestSetup;
 
 sub load_optional_module {
   my ($test_number, $module) = @_;
+  stderr_pause();
   eval "package Test::Number_$test_number; use $module";
+  stderr_resume();
   my $reason = $@;
   $reason =~ s/[\x0a\x0d]+/ \/ /g;
   $reason =~ tr[ ][ ]s;
