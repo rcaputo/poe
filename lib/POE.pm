@@ -58,7 +58,7 @@ __END__
 
 =head1 NAME
 
-POE - multitasking and networking framework for perl
+POE - multitasking and networking framework for Perl
 
 =head1 SYNOPSIS
 
@@ -119,8 +119,8 @@ examples, and modules using POE.
 
 POE is an acronym of "Perl Object Environment".  It originally was
 designed as the core of a persistent object server and runtime
-environment, but it's evolved into a general purpose multitasking and
-networking framework.
+environment, but it has evolved into a general purpose multitasking
+and networking framework.
 
 POE's core contains two types of modules.  First there's POE::Kernel;
 this is the main resource manager and event loop.  Second are the
@@ -190,10 +190,10 @@ subroutines in a session constructor call.
 
 =item Start initial sessions or machines
 
-The Kernel only runs as long as there is something for it to do.  It's
+The Kernel only runs as long as there is something for it to do.  Its
 main loop returns after the last session has stopped.  The obvious
-corolary to this rule is that the main loop will return immediately if
-nothing is set up when it's called.
+corollary to this rule is that the main loop will return immediately
+if nothing is set up when it's called.
 
   for (0..9) {
     POE::Session->create(
@@ -228,9 +228,9 @@ it, but no low-level layer requires a higher one.
 =item Events layer
 
 The events layer consists of an event dispatcher, POE::Kernel, and the
-sessions or state machines it runs: POE::Session (a generic event
-driven thread) and POE::NFA (an event driven nondeterministic finite
-automaton).
+sessions or state machines it runs: POE::Session (a generic,
+event-driven thread) and POE::NFA (an event-driven non-deterministic
+finite automaton).
 
 =item One or more I/O layers
 
@@ -247,7 +247,7 @@ POE comes with six wheels.
 
 The Curses wheel handles non-blocking input for programs using the
 curses text interface.  It requires the Curses perl module and a
-familiarity with curses programming.q
+familiarity with curses programming.
 
 =item POE::Wheel::FollowTail
 
@@ -285,12 +285,12 @@ D comes before F, so Drivers go first.
 
 =item POE::Driver::SysRW
 
-Nobody has needed another driver yet, so this is the only one
+Nobody has needed another driver yet, so this is the only one that is
 currently available.  It performs sysread and syswrite in a generic
-way so that ReadWrite can use it and future drivers interchangeably.
+way, so that ReadWrite can use it and future drivers interchangeably.
 
-Other drivers will use the same interface, should they ever be
-written.
+Other drivers, should they ever be written, will use the same
+interface.
 
 =back
 
@@ -383,8 +383,8 @@ writing TCP servers.  A simple echo server is about 20 lines.
 
 Finally, there are some files which POE uses but aren't required
 elsewhere.  These include POE::Preprocessor and the base classes:
-POE::Component, POE::Driver, POE::Filter and POE::Wheel.  There also
-are some development files in the lib directory.
+POE::Component, POE::Driver, POE::Filter and POE::Wheel.  In addition,
+there are some development files in the lib directory.
 
 =over 2
 
@@ -735,12 +735,12 @@ the hope that one of them will work on any given platform.
 This creates unbuffered two-way pipes.  It tries various methods in
 the hope that one of them will work on any given platform.  It's
 preferred over two OneWay pipes because sometimes two-way transports
-are available and it can save you a couple filehandles.
+are available and it can save you a couple of filehandles.
 
 =item POE::Preprocessor
 
 POE's preprocessor covers inline constant replacement, enumerated
-constants, and macro substitutions in perl programs.
+constants, and macro substitutions in Perl programs.
 
 =back
 
@@ -788,7 +788,7 @@ idea fairies.  Jos is working with Ann on POE::Simple.
 Matt Cashner is <eek@eekeek.org>, aka C<sungo>.  Matt is a POE
 ambassador, or something, between Rocco's point of view and people who
 haven't had the benefit of knowing the system since its conception.
-He's spearheaded the movement to smiplify POE for new users,
+He's spearheaded the movement to simplify POE for new users,
 flattening the learning curve and making the system more accessible to
 everyone.  He's almost singlehandedly rewriting POE's documentation.
 He uses the system in mission critical applications, folding feedback
