@@ -158,12 +158,13 @@ delete_package('MyOtherFreezer');
 # Create some "pretend" entries in the symbol table, to ensure that
 # POE::Filter::Reference loads the entire module if all needed methods
 # are not present.
-eval qq{
+eval q{
     sub never_called
     {
-        return MyOtherFreezer::thaw( MyOtherFreezer::freeze(@_));
+        return MyOtherFreezer::thaw(MyOtherFreezer::freeze(@_));
     }
 };
+die if $@;
 
 # Test each combination of things.
 &test_freeze_and_thaw( 90,  'MyOtherFreezer',            undef );
