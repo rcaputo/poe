@@ -389,8 +389,9 @@ POE::Component::Client::TCP - a simplified TCP client
 
   # Accepted public events.
 
-  $kernel->yield( "shutdown" )   # shut down a connection
-  $kernel->yield( "reconnect" )  # reconnect to a server
+  $kernel->yield( "connect", $host, $port )  # connect to a new host/port
+  $kernel->yield( "reconnect" )  # reconnect to the previous host/port
+  $kernel->yield( "shutdown" )   # shut down a connection gracefully
 
   # Responding to a server.
 
@@ -613,6 +614,13 @@ the component.
 =head1 Public Events
 
 =over 2
+
+=item connect
+
+Cause the TCP client to connect, optionally providing a new RemoteHost
+and RemotePort (which will also be used for subsequent "reconnect"s.
+If the client is already connected, it will disconnect harshly, as
+with reconnect, discarding any pending input or output.
 
 =item reconnect
 
