@@ -1577,6 +1577,9 @@ sub _enqueue_alarm {
     # queue, and be done with it.
     unless (@kr_alarms) {
       $kr_alarms[0] = $state_to_enqueue;
+
+      # This alarm restarts the substrate's watcher.
+      {% substrate_resume_alarm_watcher %}
     }
 
     # Special case: New state belongs at the end of the queue.  Push
@@ -1589,6 +1592,9 @@ sub _enqueue_alarm {
     # it, and be done with it.
     elsif ($time < $kr_alarms[0]->[ST_TIME]) {
       unshift @kr_alarms, $state_to_enqueue;
+
+      # This alarm refreshes the substrate's watcher.
+      {% substrate_reset_alarm_watcher %}
     }
 
     # Special case: Two alarms in the queue.  The new state enters
@@ -1652,10 +1658,6 @@ sub _enqueue_alarm {
         splice @kr_alarms, $midpoint, 0, $state_to_enqueue;
         last;
       }
-    }
-
-    if (@kr_alarms == 1) {
-      {% substrate_resume_alarm_watcher %}
     }
 
     # Manage reference counts.
