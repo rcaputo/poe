@@ -113,6 +113,7 @@ sub io_timer_increment {
 
 sub io_sig_usr1 {
   $_[HEAP]->{signal_count}++ if $_[ARG0] eq 'USR1';
+  $_[KERNEL]->sig_handled();
 }
 
 sub io_stop {

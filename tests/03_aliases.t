@@ -91,17 +91,20 @@ sub machine_start {
 sub machine_signal {
   my ($kernel, $heap, $signal) = @_[KERNEL, HEAP, ARG0];
 
+  # Count and handle SIGIDLE and SIGZOMBIE.  The latter is
+  # nonmaskable, however, so the program continues to run.
+
   if ($signal eq 'IDLE') {
     $heap->{idle_count}++;
-    return 1;
+    return $kernel->sig_handled();
   }
-
-  if ($signal eq 'ZOMBIE') {
+  elsif ($signal eq 'ZOMBIE') {
     $heap->{zombie_count}++;
-    return 1;
+    return $kernel->sig_handled();
   }
 
-  # Don't handle other signals.
+  # We must still return 0 until significant return values are fully
+  # removed.
   return 0;
 }
 

@@ -125,10 +125,12 @@ POE::Session->create
       sigalrm_target =>
       sub {
         $sigalrm_caught++ if $_[ARG0] eq 'ALRM';
+        $_[KERNEL]->sig_handled();
       },
       sigpipe_target =>
       sub {
         $sigpipe_caught++ if $_[ARG0] eq 'PIPE';
+        $_[KERNEL]->sig_handled();
       },
     }
   );
