@@ -3,8 +3,6 @@
 
 package POE::Kernel;
 
-my $VERSION = 1.0;
-
 use strict;
 use POSIX qw(EINPROGRESS EINTR);
 use IO::Select;
@@ -682,6 +680,20 @@ parameters (C<@etc>) can be passed along.
 Registers a CODE reference (C<$state_code>) for the event C<$state_name> in
 the currently active C<POE::Session>.  If C<$state_code> is undefined, then
 the named state will be removed.
+
+=item $kernel->alarm($state_name, $time, @etc)
+
+Posts a state for a specific future time, with possible extra parameters.  The
+time is represented as system time, just like C<time()> returns.  If C<$time>
+is zero, then the alarm is cleared.  Otherwise C<$time> is clipped to no
+earlier than the current C<time()>.
+
+The current session will receive its C<$state_name> event when C<time()>
+catches up with C<$time>.
+
+Any given C<$state_name> may only have one alarm pending.  Setting a subsequent
+alarm for an existing state will clear all pending events for that state, even
+if the existing states were not enqueued by previous calls to C<alarm()>.
 
 =back
 

@@ -3,8 +3,6 @@
 
 package POE::Wheel::ListenAccept;
 
-my $VERSION = 1.0;
-
 use strict;
 use Carp;
 use POSIX qw(EAGAIN);

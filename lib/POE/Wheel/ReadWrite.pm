@@ -3,8 +3,6 @@
 
 package POE::Wheel::ReadWrite;
 
-my $VERSION = 1.0;
-
 use strict;
 use Carp;
 

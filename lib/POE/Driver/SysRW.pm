@@ -3,8 +3,6 @@
 
 package POE::Driver::SysRW;
 
-my $VERSION = 1.0;
-
 use strict;
 use POSIX qw(EAGAIN);
 
