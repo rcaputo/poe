@@ -28,14 +28,16 @@ Version numbers have four fields: X.YYZZAA
 |
 | How about Gtk support?
 |
-| Better alarms API.
+| Better alarms API.  Roderick has threatened to do something.
 |
 | Why does samples/tk.perl leak memory, and how can I fix it?
 |
 | caller() calls in POE::Kernel report POE::Kernel lines.  They
-| should follow the call chain out to someone else's code.
+| should follow the call chain out to someone else's code.  This
+| will be slow.
 |
-| Write a Filter::HTTPD test.
+| Write a Filter::HTTPD test.  Which may involve writing a web
+| server and client.  Ow! Ow! Ow!
 |
 | Wheel::ListenAccept is way behind SocketFactory's listen/accept
 | code.  Migrate SocketFactory's code to ListenAccept, and write
@@ -52,7 +54,7 @@ Version numbers have four fields: X.YYZZAA
 `-----------------
 
 
-0.1103 2000.??.??
+0.1103 2000.08.06
 -----------------
 
 Addi provided an algorithm for automatically detecting incoming
