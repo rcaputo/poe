@@ -9,12 +9,12 @@ use strict;
 my $cover = `which cover`; chomp $cover;
 my $make  = `which make`;  chomp $make;
 
-system( $make, "distclean" ) and exit($? >> 8);
+system( $make, "distclean" );
 system( $^X, "Makefile.PL", "--default" ) and exit($? >> 8);
 system( $^X, $cover, "-delete" ) and exit($? >> 8);
 
 {
-  local $ENV{PERL5OPT} = "-MDevel::Cover=+ignore,mylib,+ignore,t";
+  local $ENV{PERL5OPT} = "-MDevel::Cover=+ignore,mylib";
   local $ENV{HARNESS_PERL_SWITCHES} = $ENV{PERL5OPT};
 
   if (@ARGV) {
