@@ -105,6 +105,11 @@ sub new {
     my $object_states = delete $param{ObjectStates};
     $object_states = [] unless defined $object_states;
 
+    my $shutdown_on_error = 1;
+    if (exists $param{ClientShutdownOnError}) {
+      $shutdown_on_error = delete $param{ClientShutdownOnError};
+    }
+
     croak "InlineStates must be a hash reference"
       unless ref($inline_states) eq 'HASH';
 
@@ -125,7 +130,7 @@ sub new {
                 my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
 
                 $heap->{shutdown} = 0;
-                $heap->{shutdown_on_error} = 1;
+                $heap->{shutdown_on_error} = $shutdown_on_error;
 
                 if (length($remote_addr) == 4) {
                   $heap->{remote_ip} = inet_ntoa($remote_addr);
@@ -297,6 +302,7 @@ POE::Component::Server::TCP - a simplified TCP server
       ClientError        => \&handle_client_error,      # Optional.
       ClientFlushed      => \&handle_client_flush,      # Optional.
       ClientFilter       => "POE::Filter::Xyz",         # Optional.
+      ClientShutdownOnError => 0,                       # Optional.
 
       # Optionally define other states for the client session.
       InlineStates  => { ... },
@@ -452,6 +458,18 @@ ID.
 
 ClientInput and Acceptor are mutually exclusive.  Enabling one
 prohibits the other.
+
+=item ClientShutdownOnError => BOOLEAN
+
+ClientShutdownOnError is a boolean value that determines whether
+client sessions shut down automatically on errors.  The default value
+is 1 (true).  Setting it to 0 or undef (false) turns this off.
+
+If client shutdown-on-error is turned off, it becomes your
+responsibility to deal with client errors properly.  Not handling
+them, or not closing wheels when they should be, will cause the
+component to spit out a constant stream of errors, eventually bogging
+down your application with dead connections that spin out of control.
 
 =item Domain
 
