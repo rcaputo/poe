@@ -180,7 +180,7 @@ sub loop_do_timeslice {
       '<ev> Kernel::run() iterating.  ' .
       sprintf(
         "now(%.4f) timeout(%.4f) then(%.4f)\n",
-        $now-$start_time, $timeout, ($now-$start_time)+$timeout
+        $now - $start_time, $timeout, ($now - $start_time) + $timeout
       )
     );
   }
@@ -211,11 +211,12 @@ sub loop_do_timeslice {
 
     if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
-      my $hits = select( my $rout = $loop_vectors[MODE_RD],
-                         my $wout = $loop_vectors[MODE_WR],
-                         my $eout = $loop_vectors[MODE_EX],
-                         $timeout,
-                       );
+      my $hits = select(
+        my $rout = $loop_vectors[MODE_RD],
+        my $wout = $loop_vectors[MODE_WR],
+        my $eout = $loop_vectors[MODE_EX],
+        $timeout,
+      );
 
       if (ASSERT_FILES) {
         if ($hits < 0) {
