@@ -10,9 +10,21 @@ use POE qw(Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW);
 
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
-  eval    { require IO::Pty; IO::Pty->import(); };
+  eval    { require IO::Pty; };
   if ($@) { eval 'sub PTY_AVAILABLE () { 0 }';  }
-  else    { eval 'sub PTY_AVAILABLE () { 1 }';  }
+  else {
+    IO::Pty->import();
+    eval 'sub PTY_AVAILABLE () { 1 }';
+  }
+  if (PTY_AVAILABLE) {
+    require IO::Tty;
+    IO::Tty->import();
+    IO::Tty::Constant->import();
+  }
+  else {
+    eval 'sub TIOCSCTTY () { undef; }';
+    eval 'sub CIBAUD    () { undef; }';
+  }
 };
 
 # Offsets into $self.
@@ -166,13 +178,19 @@ sub new {
     # doing the necessary bits to become our own [unix] session.
     if ($conduit eq 'pty') {
 
-      # Become a new unix session.  Program 19.3, APITUE.  W. Richard
-      # Stevens built my hot rod.
+      # Become a new unix session.
+      # Program 19.3, APITUE.  W. Richard Stevens built my hot rod.
       eval 'setsid()';
 
       # Open the slave side of the pty.
       $stdin_read = $stdout_write = $stderr_write = $stdin_write->slave();
       croak "could not create slave pty: $!" unless defined $stdin_read;
+
+      # Acquire a controlling terminal.  Program 19.3, APITUE.
+      if (defined TIOCSCTTY and not defined CIBAUD) {
+warn "yay";
+        ioctl( $stdin_read, TIOCSCTTY, 0 );
+      }
 
       # Turn off echo for slave pty.  Program 19.4, APITUE.
       my $tio = POSIX::Termios->new();
