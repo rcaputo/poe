@@ -163,15 +163,16 @@ macro substrate_ignore_filehandle (<fileno>,<vector>) {
 
   my $type = vec_to_poll(<vector>);
   my $current = $POE::Kernel::Poll::KR_Poll->mask($handle) || 0;
+  my $new = $current & ~$type;
 
   TRACE_SELECT and
     warn( sprintf( "Ignore ". <fileno> .
                    ": Current mask: 0x%02X - combine with 0x%02X = 0x%02X\n",
-                   $current, $type, $current & ~$type
+                   $current, $type, $new
                  )
         );
 
-  $POE::Kernel::Poll::KR_Poll->mask($handle, $current & ~$type);
+  $POE::Kernel::Poll::KR_Poll->mask($handle, $new);
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
@@ -181,15 +182,16 @@ macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
 
   my $type = vec_to_poll(<vector>);
   my $current = $POE::Kernel::Poll::KR_Poll->mask($handle) || 0;
+  my $new = $current & ~$type;
 
   TRACE_SELECT and
     warn( sprintf( "Pause " . <fileno> .
                    ": Current mask: 0x%02X - combine with 0x%02X = 0x%02X\n",
-                   $current, $type, $current & ~$type
+                   $current, $type, $new
                  )
         );
 
-  $POE::Kernel::Poll::KR_Poll->mask($handle, $current & ~$type);
+  $POE::Kernel::Poll::KR_Poll->mask($handle, $new);
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
@@ -270,23 +272,46 @@ macro substrate_do_timeslice {
     }
   }
 
-  my $filenos = $POE::Kernel::Poll::KR_Poll->handles();
+  @filenos = $POE::Kernel::Poll::KR_Poll->handles();
+
+  if (TRACE_SELECT) {
+    foreach (@filenos) {
+      my @types;
+      push @types, "plain-file"        if -f;
+      push @types, "directory"         if -d;
+      push @types, "symlink"           if -l;
+      push @types, "pipe"              if -p;
+      push @types, "socket"            if -S;
+      push @types, "block-special"     if -b;
+      push @types, "character-special" if -c;
+      push @types, "tty"               if -t;
+      my @modes;
+      my $flags = $POE::Kernel::Poll::KR_Poll->mask($_);
+      push @modes, 'r' if $flags & POLLIN;
+      push @modes, 'w' if $flags & POLLOUT;
+      push @modes, 'x' if $flags & POLLERR;
+      warn( "file handle $_ = fileno(" .
+            fileno($_) .
+            ") modes(@modes) types(@types)\n"
+          );
+    }
+  }
 
   # Avoid looking at filehandles if we don't need to.  -><- The added
   # code to make this sleep is non-optimal.  There is a way to do this
   # in fewer tests.
 
-  if ($timeout or $filenos) {
+  if ($timeout or @filenos) {
 
     # There are filehandles to poll, so do so.
 
-    if ($filenos) {
+    if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
       my $hits = $POE::Kernel::Poll::KR_Poll->poll($timeout);
 
       if (ASSERT_SELECT) {
         if ($hits < 0) {
-          confess "poll error: $!"
+          confess "poll returned $hits (error): $!"
             unless ( ($! == EINPROGRESS) or
                      ($! == EWOULDBLOCK) or
                      ($! == EINTR)
