@@ -650,7 +650,7 @@ sub sig {
 
 BEGIN { delete $POE::Kernel::{signal}; }
 sub POE::Kernel::signal {
-  my ($self, $destination, $signal) = @_;
+  my ($self, $destination, $signal, @etc) = @_;
 
   ASSERT_USAGE and do {
     croak "undefined destination in signal()" unless defined $destination;
@@ -662,7 +662,7 @@ sub POE::Kernel::signal {
 
   $self->_enqueue_event
     ( $session, $kr_active_session,
-      EN_SIGNAL, ET_SIGNAL, [ $signal ],
+      EN_SIGNAL, ET_SIGNAL, [ $signal, @etc ],
       time(), (caller)[1,2]
     );
 }
