@@ -46,6 +46,8 @@ alarm events.  Documented the change.
 Added POE::Kernel::queue_peek_alarms, which returns the pending alarm
 events queued for the current session.
 
+Updated samples/signals.perl to display pending alarms.
+
 
 0.0903 2000.02.08 (!!!)
 -----------------------
