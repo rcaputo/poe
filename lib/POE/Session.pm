@@ -137,16 +137,18 @@ sub HEAP    () {  3 }
 sub STATE   () {  4 }
 sub SENDER  () {  5 }
 # NFA keeps its state in 6.  unused in session so that args match up.
-sub ARG0    () {  7 }
-sub ARG1    () {  8 }
-sub ARG2    () {  9 }
-sub ARG3    () { 10 }
-sub ARG4    () { 11 }
-sub ARG5    () { 12 }
-sub ARG6    () { 13 }
-sub ARG7    () { 14 }
-sub ARG8    () { 15 }
-sub ARG9    () { 16 }
+sub CALLER_FILE () { 7 }
+sub CALLER_LINE () { 8 }
+sub ARG0    () { 9 }
+sub ARG1    () { 10 }
+sub ARG2    () { 11 }
+sub ARG3    () { 12 }
+sub ARG4    () { 13 }
+sub ARG5    () { 14 }
+sub ARG6    () { 15 }
+sub ARG7    () { 16 }
+sub ARG8    () { 17 }
+sub ARG9    () { 18 }
 
 sub import {
   my $package = caller();
@@ -167,6 +169,8 @@ sub import {
   *{ $package . '::ARG7'    } = \&ARG7;
   *{ $package . '::ARG8'    } = \&ARG8;
   *{ $package . '::ARG9'    } = \&ARG9;
+  *{ $package . '::CALLER_FILE' } = \&CALLER_FILE;
+  *{ $package . '::CALLER_LINE' } = \&CALLER_LINE;
 }
 
 #------------------------------------------------------------------------------
@@ -587,6 +591,8 @@ sub _invoke_state {
         $state,                         # state
         $source_session,                # sender
         undef,                          # unused #6
+        $file,                          # caller file name
+        $line,                          # caller file line
         @$etc                           # args
       );
   }
@@ -602,6 +608,8 @@ sub _invoke_state {
         $state,                         # state
         $source_session,                # sender
         undef,                          # unused #6
+        $file,                          # caller file name
+        $line,                          # caller file line
         @$etc                           # args
       );
 }
@@ -1457,6 +1465,14 @@ in cases where a single state handles several different events.
       ten => \&some_state,
     }
   );
+
+=item CALLER_FILE
+
+=item CALLER_LINE
+
+    my ($caller_file, $caller_line) = @_[CALLER_FILE,CALLER_LINE];
+
+The file and line number from which this state was called.
 
 =back
 
