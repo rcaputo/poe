@@ -808,6 +808,18 @@ enormously cool to revise this and make it work with POE.
 
 * RESEARCH AND DEVELOPMENT
 
+** KST
+
+Fmh suggests looking at the Knowledge Server Toolkit, at
+<http://lambda.gsfc.nasa.gov/kst/kst.html>.  Apparently it is a
+socket-based application for monitor and control.
+
+** Java Application Servers
+
+Fmh says POE needs Java Application Server functionality.  There's
+one, with explanation and overview and stuff, at
+<http://www.enhydra.org/>.
+
 ** Object System Architecture
 
 Artur Bergman emphatically recommended the book _Object Database
@@ -834,6 +846,7 @@ bookmark some links they gave me:
 
   What CORBA is: <http://www.omg.org/corba/whatiscorba.html>
   Open CORBA: <http://diamant-atm.vsb.cs.uni-frankfurt.de/~mico/>
+  Tutorial: <http://www.cs.wustl.edu/~schmidt/tutorials-corba.html>
 
 The one-line descriptions for the CORBA services look like a lot of
 fun.  I haven't made time to look at them in detail, though.  I'd like
