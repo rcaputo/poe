@@ -3397,7 +3397,7 @@ their frequencies is displayed just before run() returns.
 
 =item TRACE_REFCNT
 
-TRACE_REFCOUNT displays messages about reference counts for sessions,
+TRACE_REFCNT displays messages about reference counts for sessions,
 including garbage collection tests (formerly TRACE_GARBAGE).  This is
 perhaps the most useful debugging trace since it will explain why
 sessions do or don't die.
