@@ -18,8 +18,10 @@ package POE::Kernel;
 
 use strict;
 
-# Be sure we're using a contemporary version of IO::Poll.
-use IO::Poll 0.05;
+# Be sure we're using a contemporary version of IO::Poll.  There were
+# issues with certain versios of IO::Poll prior to 0.05.  The latest
+# version is 0.01, however.
+use IO::Poll 0.01;
 
 # Hand off to POE::Loop::Select if we're running under ActivePerl.
 BEGIN {
