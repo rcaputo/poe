@@ -243,7 +243,7 @@ sub io_stop {
         print "not ";
       }
       else {
-        $reason = " # skipped: $^O does not support Tk $Tk::VERSION.";
+        $reason = " # skipped: Tk $Tk::VERSION fileevent is broken on $^O.";
       }
     }
     else {
