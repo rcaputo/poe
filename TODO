@@ -10,7 +10,9 @@ $Id$
 What This Is
 ------------
 
-This file is part roadmap and part wishlist.
+This file is part roadmap and part wishlist.  There's a third part
+with stuff that's done, but you can ignore it unless you're morbidly
+curious about the project's development history.
 
 The roadmap section is relatively small and lists confirmed changes.
 Most of these changes will break existing code, which is why they're
@@ -275,6 +277,8 @@ do next with a signal.  Here are some ideas for signal flags.
 SIGTSTP Does the Wrong Thing (???)
 ----------------------------------
 
+This change depends upon signal dispatching being fixed.
+
 This one's marked with "(???)" because I'm not really sure it'll break
 anything.
 
@@ -357,6 +361,8 @@ something like this:
 -----------------------------------------
 Wheel::ReadWrite Needs Input Flow Control
 -----------------------------------------
+
+This change depends on fixed filter changing.
 
 2001-07-16
 
@@ -503,6 +509,8 @@ them out into method calls, which WILL be slower than inlined code.
 Simplify Session Definition
 ---------------------------
 
+This change requries that sessions be made inheritance friendly.
+
 Add new base classes: POE::Session::Inline, POE::Session::Object, and
 POE::Session::Package.  Each somehow scours their subclasses'
 namespaces for methods or functions that begin with "poe_".  The base
@@ -577,6 +585,10 @@ I'm finding this a lot easier to say than to do.
 Give Exported Constants Some Prefix(es)
 ---------------------------------------
 
+This change depends on sessions becoming inheritance friendly.  I'd
+like to put the prefix thing into a base class so everyone can enjoy
+it.
+
 <Micksa> eep, poe uses yet another calling convention
 <Micksa> like:
 <Micksa>    my ($kernel, $heap, $session) = @_[KERNEL, HEAP, SESSION];
@@ -618,6 +630,9 @@ Tweaks would be global.
 -------------------------------------------
 Change Internal Helpers To Static Functions
 -------------------------------------------
+
+This change may never happen if it hinders the ability to inherit
+stuff.
 
 Despite recent optimizations in perl 5, object methods are still a wee
 bit slower than function calls.  Furthermore, those changes aren't in
