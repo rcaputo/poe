@@ -1,8 +1,9 @@
-###############################################################################
-# Select.pm - Documentation and Copyright are after __END__.
-###############################################################################
+package POE::Wheel::ReadWrite;
 
-package POE::Wheel::Select;
+# POD documentation exists after __END__
+# '$Id$';
+
+my $VERSION = 1.0;
 
 use strict;
 
@@ -88,8 +89,62 @@ sub put {
 1;
 __END__
 
-Documentation: to be
+=head1 NAME
 
-Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-This is a pre-release version.  Redistribution and modification are
-prohibited.
+POE::Wheel::ReadWrite - manage read/write states for a session
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+=head1 PUBLIC METHODS
+
+=over 4
+
+=item new POE::Wheel::ReadWrite
+
+=over 2
+
+=item Takes:
+=item C<$kernel> - A C<POE::Kernel> instance.
+=item C<$handle> - A reference to an object based on C<IO::Handle>.
+=item C<'driver' =E<gt> $driver> - A C<POE::Driver::*> reference.
+=item C<'filter' =E<gt> $filter> - A C<POE::Filter::*> reference.
+=item C<'input state' =E<gt> $state_name> - the C<POE::Session> state that will accept filtered input.
+=item C<'flushed state' =E<gt> $state_name> - Optional.  The C<POE::Session> state that needs to know when all C<$handle> output is flushed.
+
+($kernel, $handle,$driver, $filter, $state_in, $state_flush, $state_error)
+
+=item put($unit_of_output)
+
+=back
+
+=head1 PROTECTED METHODS
+
+None.
+
+=head1 PRIVATE METHODS
+
+Not for general use.
+
+=over 4
+
+=item DESTROY
+
+Actually does something.  Document, please.
+
+=head1 EXAMPLES
+
+Please see the tests directory that comes with the POE bundle.
+
+=head1 BUGS
+
+None known.
+
+=head1 CONTACT AND COPYRIGHT
+
+Copyright 1998 Rocco Caputo E<lt>troc@netrus.netE<gt>.  All rights reserved.
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
