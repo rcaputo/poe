@@ -7,12 +7,6 @@ use Carp qw(carp croak confess);
 
 use POE::Preprocessor;
 
-# This NFA isn't NFA enough for some people.  Turning this constant on
-# should make it NFA enough, at the expense of breaking posted events.
-# It's experimental; use it at your own risk.
-
-sub EXPERIMENTAL_SYNCHRONOUS_STUFF () { 0 }
-
 sub SPAWN_INLINES       () { 'inline_states' }
 sub SPAWN_OPTIONS       () { 'options' }
 
@@ -212,19 +206,6 @@ sub DESTROY {
 
 sub _invoke_state {
   my ($self, $sender, $event, $args, $file, $line) = @_;
-
-  # Turn a synchronous wheel call into an asynchronous event.  This
-  # desynchronizes wheel callbacks to us.
-  unless (EXPERIMENTAL_SYNCHRONOUS_STUFF) {
-    if ($self->[SELF_IS_IN_INTERNAL]) {
-      if ($self->[SELF_OPTIONS]->{+OPT_TRACE}) {
-        warn {% fetch_id $self %}, " -> $event (reposting to desynchronize)\n";
-      }
-
-      $POE::Kernel::poe_kernel->post( $self, $event, @$args );
-      return;
-    }
-  }
 
   # Trace the state invocation if tracing is enabled.
 
@@ -580,52 +561,27 @@ sub postback {
 
 sub goto_state {
   my ($self, $new_state, $entry_event, @entry_args) = @_;
-  if (EXPERIMENTAL_SYNCHRONOUS_STUFF) {
-    $POE::Kernel::poe_kernel->call( $self, NFA_EN_GOTO_STATE,
-                                    $new_state, $entry_event, @entry_args
-                                  );
-  }
-  else {
-    $POE::Kernel::poe_kernel->post( $self, NFA_EN_GOTO_STATE,
-                                    $new_state, $entry_event, @entry_args
-                                  );
-  }
+  $POE::Kernel::poe_kernel->post( $self, NFA_EN_GOTO_STATE,
+                                  $new_state, $entry_event, @entry_args
+                                );
 }
 
 sub stop {
   my $self = shift;
-  if (EXPERIMENTAL_SYNCHRONOUS_STUFF) {
-    $POE::Kernel::poe_kernel->call( $self, NFA_EN_STOP );
-  }
-  else {
-    $POE::Kernel::poe_kernel->post( $self, NFA_EN_STOP );
-  }
+  $POE::Kernel::poe_kernel->post( $self, NFA_EN_STOP );
 }
 
 sub call_state {
   my ($self, $return_event, $new_state, $entry_event, @entry_args) = @_;
-  if (EXPERIMENTAL_SYNCHRONOUS_STUFF) {
-    $POE::Kernel::poe_kernel->call( $self, NFA_EN_PUSH_STATE,
-                                    $return_event,
-                                    $new_state, $entry_event, @entry_args
-                                  );
-  }
-  else {
-    $POE::Kernel::poe_kernel->post( $self, NFA_EN_PUSH_STATE,
-                                    $return_event,
-                                    $new_state, $entry_event, @entry_args
-                                  );
-  }
+  $POE::Kernel::poe_kernel->post( $self, NFA_EN_PUSH_STATE,
+                                  $return_event,
+                                  $new_state, $entry_event, @entry_args
+                                );
 }
 
 sub return_state {
   my ($self, @entry_args) = @_;
-  if (EXPERIMENTAL_SYNCHRONOUS_STUFF) {
-    $POE::Kernel::poe_kernel->call( $self, NFA_EN_POP_STATE, @entry_args );
-  }
-  else {
-    $POE::Kernel::poe_kernel->post( $self, NFA_EN_POP_STATE, @entry_args );
-  }
+  $POE::Kernel::poe_kernel->post( $self, NFA_EN_POP_STATE, @entry_args );
 }
 
 ###############################################################################
