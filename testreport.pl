@@ -117,6 +117,7 @@ eval {
     $xml .= "\t</machine>\n";
 };
 $xml .= "\t<perl_modules>\n";
+$xml .= "\t\t<perl version=\"$]\" />\n";
 
 eval "require POE;";
 if($@) {
