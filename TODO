@@ -48,7 +48,7 @@ blank, then you're doubly safe, and so on.
 
 ===============================================================================
 ===============================================================================
-                 Depreciations & Changes IN PROGRESS
+                 Deprecations & Changes IN PROGRESS
 ===============================================================================
 ===============================================================================
 
@@ -83,7 +83,7 @@ Schedule:
 5. Release a version that does not support XyzState at all.
 
 ----------------------------------
-Depreciate queue_peek_alarms (!!!)
+Deprecate queue_peek_alarms (!!!)
 ----------------------------------
 
 The new alarm functions let programs track their alarms by ID, so they
@@ -91,7 +91,7 @@ no longer need to peek into POE's alarm queue.
 
 Schedule:
 
-1. Release a version with queue_peek_alarms() depreciated and
+1. Release a version with queue_peek_alarms() deprecated and
    undocumented.
 
    Done: 2001-07-15.
@@ -99,7 +99,7 @@ Schedule:
 2. Wait at least 28 days after the release before continuing this
    schedule.  Step 3 will be implemented on or after 2001-08-12.
 
-3. Release a version with a depreciation warning in
+3. Release a version with a deprecation warning in
    queue_peek_alarms().
 
 4. Wait at least 28 days after the release before continuing this
@@ -184,15 +184,21 @@ be read.
 
 ===============================================================================
 ===============================================================================
-               Depreciations & Changes BEING CONSIDERED
+               Deprecations & Changes BEING CONSIDERED
 ===============================================================================
 ===============================================================================
 
 These changes are not confirmed yet.  They are still under heavy
 consideration, and they may never actually happen.  Even if they
-include depreciation schedules, they are only tentative.  I can't
+include deprecation schedules, they are only tentative.  I can't
 overly stress that this is the wishlist section of the TODO file, but
 I'll certainly try. :)
+
+=======
+SIGNALS
+=======
+
+Several issues grouped together.
 
 ----------------------------------
 Fix Signal Event Dispatching (!!!)
@@ -248,7 +254,7 @@ Hmm... that may not be immediately useful.  Plan A goes on.
    Documentation changes:
 
    a. Document the new signal handler dispatch phases.
-   b. Depreciate (but leave documented) the significance of signal
+   b. Deprecate (but leave documented) the significance of signal
       handler return values.
    c. Document $kernel->handle_signal() and say it's recommended.
 
@@ -448,6 +454,12 @@ something like this:
 4. The process stops in kill() and doesn't resume until kill()
    returns.  When kill() returns, dispatch CONT to everyone to let
    them know they've awakened.
+
+======
+Wheels
+======
+
+Several issues grouped together.
 
 ------------------
 Wheels Must Evolve
@@ -680,6 +692,11 @@ years.
 
 2. Release it!
 
+2001-08-08 - Status
+
+Filter::Xyz are deoptimized, I think.  I need to expand test 19 to try
+changing filters rapidly before I close that.  Test 19 hurts my brain.
+
 --------------------------------
 Make Things Inheritance-Friendly
 --------------------------------
@@ -699,12 +716,23 @@ stuff there and make components do the right things.
 
 Kernel?  Should it be inheritable?
 
-2001-07-25
+2001-07-25 - Status
 
 Removed const and enum from Session and NFA, turning them into plain
 constant subs instead.  This makes the constants inheritable.
 Something must be done about the macros, though.  I may have to back
 them out into method calls, which WILL be slower than inlined code.
+
+2001-08-08 - Status
+
+Requires wheels not to be so closely tied to sessions.  Especially
+requires them not to insert states into sessions, since different
+kinds of sessions may have different parameter orders or counts.  See
+POE::IO::Stream somewhere else in this document.
+
+========
+Etcetera
+========
 
 ---------------------------
 Simplify Session Definition
@@ -810,9 +838,13 @@ it.
 
 That sounds like a good idea.
 
-2001-07-25 - One Idea
+2001-07-25 - Development
 
 use POE::Session qw( ConstPrefix => 'POE_SESSION_' );
+
+---------------------------------
+ASSERT_XYZ and TRACE_XYZ Are Ugly
+---------------------------------
 
 It would also be fun to tweak TRACE_ and ASSERT_ through POE::Kernel's
 and POE::Session's import() methods.
@@ -820,13 +852,62 @@ and POE::Session's import() methods.
 use POE::Session qw( Traces => [ DEFAULT => 1, GARBAGE => 0 ] ) ... or
 something.
 
-2001-07-26 - Two Idea
+2001-07-26 - More ideas
 
 use POE::Tweak qw( Trace  => qw( +default -garbage   ),
                    Assert => qw( +default -reference ),
                  );
 
 Tweaks would be global.
+
+2001-08-08 - Development
+
+The previous idea is still too verbose.  Here's something easier that
+Artur came up with.  Artur would like to see a POE::strict directive
+that turns on everything.  It's certainly more convenient than the
+other goop.  So:
+
+  use POE::strict qw( events states parameters returns );
+  use POE::assert qw( default -references );
+  use POE::trace  qw( garbage references );
+
+These would still need to be before the first instance of C<use POE;>
+because they dis/enable things at compile time.
+
+Known interested people: Artur, Rocco :)
+
+-------
+Threads
+-------
+
+Artur is working tirelessly on iThreads (now C<use threads;> in 5.8.0
+or something).  He's even got a patch to POE::Kernel with adds them.
+I need a day's worth of tuits to try this out.
+
+Threads would really enhance IKC.
+
+Known interested people: Artur, YAPC::EU
+
+--------
+Security
+--------
+
+POE needs a thorough code review.  It needs to stay still long enough
+to be examined. :)
+
+Known interested people: Artur, YAPC::EU
+
+--------------------------
+Inter-Kernel Communication
+--------------------------
+
+Artur says there's a need for an official IKC.  I'd rather let
+Philip's become it than try to write my own.  I guess maybe what
+Artur's asking for is tighter integration between POE and IKC.
+
+To do: Find out what Artur means. :)
+
+Known interested people: Artur, YAPC::EU
 
 -------------------
 Automatic Postbacks
@@ -875,6 +956,12 @@ and writing.  The handlers would customize things from there.
 
 Artur has some specific ideas how this should work.
 
+2001-08-08 - Status
+
+I haven't seen Artur's specifications, but embedding the ReadWrite
+into the server component would let Fletch write Server::SSL as a
+drop-in replacement for Server::TCP.  That's fun.
+
 -------------------------------------------
 Change Internal Helpers To Static Functions
 -------------------------------------------
@@ -921,6 +1008,8 @@ To do:
 
 * Add select_remove_all()
 
+  Wheels confound the ability to remove all selects.
+
 * Add event_remove_all()
 
 Notes:
@@ -957,7 +1046,7 @@ These names have been suggested instead:
   $session->post  (2 votes)
 
 This is a pretty basic function, and it's one a lot of people are
-probably using.  This depreciation should have a longer than usual
+probably using.  This deprecation should have a longer than usual
 schedule, to avoid unnecessary breakage.
 
 The $session->post() idea is doable, but not until Session and NFA can
@@ -969,7 +1058,7 @@ POE::Kernel's call() Pretty Much Sucks, Too (!!!)
 -------------------------------------------------
 
 The call() method is incongruous, and that's putting it nicely.  It
-should be depreciated for inter-session calls, and it should probably
+should be deprecated for inter-session calls, and it should probably
 become $session->call to match $session->post, or something.
 
 General ideas:
@@ -988,7 +1077,7 @@ However, the ARG0..ARG9 parameters aren't descriptive and still
 contain position dependence.  This robs event parameters of many of
 the benefits of using symbolic constants in the first place.
 
-This is the current plan to depreciate them:
+This is the current plan to deprecate them:
 
 * Introduce new constants for the different built-in events.  Leave
   ARG0..ARG9 for user parameters.
@@ -1001,7 +1090,7 @@ This is the current plan to depreciate them:
 * Release version ?.??.
 
 * Wait at least 28 days after releasing the documentation change
-  (until ????.??.??) before continuing this depreciation schedule, to
+  (until ????.??.??) before continuing this deprecation schedule, to
   give people time to react to the initial round of changes.
 
 * Generate warnings when ARG0..ARG9 are used for built-in events.
@@ -1009,10 +1098,10 @@ This is the current plan to depreciate them:
   constant nature and slowing things down in general.
 
 * Release version ?.??, and announce that the ARG0..ARG9 built-in
-  parameter depreciation is proceding apace.
+  parameter deprecation is proceding apace.
 
 * Wait at least 28 days after releasing the warnings (until
-  ????.??.??) before continuing this depreciation schedule, to give
+  ????.??.??) before continuing this deprecation schedule, to give
   people time to react to the warnings and adapt their code to the new
   symbolic constants.
 
@@ -1020,7 +1109,7 @@ This is the current plan to depreciate them:
   speeding things up once more.
 
 * Release version ?.??, and announce that the ARG0..ARG9 built-in
-  parameter depreciation has completed.
+  parameter deprecation has completed.
 
 -------------------
 Finish POE::Message
@@ -1156,13 +1245,22 @@ raise() and lower() methods.
 Constructor takes details of the event to fire.  Possibly acts as a
 postback or creates one internally.
 
-----------
-POE::Nexus
-----------
+---------------------
+Session Relationships
+---------------------
 
-Probably POE::Component::Nexus or something.  Subscribe/broadcast
-model thing that CanyonMan wants.  Could also implement the guts of
-chat reflecting.
+POE::Relationship::Channel or something - A subscribe/broadcast model,
+useful for inter-session communication channels and monitors.  Philip
+Gwyn has wanted monitors for a long time.  CanyonMan wants something
+similar for inter-session coordination.
+
+POE::Relationship::Matrix - An XY or XYZ grid of sessions with
+neighbors.  Methods to add and remove sessions.  Methods to broadcast
+events to neighbors based on radius or some other distance.
+
+POE::Relationship::Network - A directed graph of sessions, suitable
+for writing neural or other networks.  Convenience methods for
+broadcasting events to connected sessions.
 
 ------------------------------
 Delay Garbage Collection (???)
@@ -1205,28 +1303,29 @@ developers statically preprocess applications into stand-alone files.
 This sort of preprocessing would kill the startup delay filters have
 introduced.
 
-Let Ilya Melamed know when this is done.  It's his request.
+Known interested people: Ilya Melamed (he requested it)
+
+----------------------
+Named State Parameters
+----------------------
+
+Doable with backwards compatibility.  Add a create-time option:
+
+  options => { named_parameters => 1 }
+
+Which changes the dispatch semantics to hashref instead of arrayref.
+
+Known interested people:  Sungo, Coral, Artur, Lenzo
 
 ---------------------------
-Uncategorized User Requests
+Pluggable Queue Disciplines
 ---------------------------
 
-POE::Message - Parameters for states instead of a mash of @_
-values. (Lenzo)
+Add the ability to change the way events are dispatched.  Priority
+queues instead of FIFO, or something.  Possibly a POE2 kind of thing.
 
-Pluggable queue disciplines. (Lenzo) Replace the FIFO with some kind
-of priority queue.
+Known interested people:  Lenzo
 
-POE::Strict or POE::strict (easy form of POE::Tweak [see elsewhere in
-this document]). (Artur)
-
-Security.  Code review. (Artur, on behalf of YAPC::EU)
-
-Official IKC. (Artur, on behalf of YAPC::EU) Requires subclassable
-sessions.
-
-Threads. (Artur, on behalf of YAPC::EU) Artur has a preliminary patch
-to add iThreads support to the Kernel.
 
 ===============================================================================
 ===============================================================================
