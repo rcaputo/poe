@@ -28,7 +28,10 @@ sub SELF_STATE_WAKE  () { 10 }
 sub SELF_LAST_STAT   () { 11 }
 
 # Turn on tracing.  A lot of debugging occurred just after 0.11.
-sub TRACE () { 0 }
+sub TRACE_RESET        () { 0 }
+sub TRACE_STAT         () { 0 }
+sub TRACE_STAT_VERBOSE () { 0 }
+sub TRACE_POLL         () { 0 }
 
 # Tk doesn't provide a SEEK method, as of 800.022
 BEGIN {
@@ -188,7 +191,7 @@ sub _define_states {
 
   # Define the read state.
 
-  TRACE and do { warn $state_read; };
+  TRACE_POLL and do { warn $state_read; };
 
   $poe_kernel->state
     ( $state_read,
@@ -200,38 +203,47 @@ sub _define_states {
         # The actual code starts here.
         my ($k, $ses) = @_[KERNEL, SESSION];
 
-        $k->select_read($handle);
-
         eval {
           if (defined $filename) {
             my @new_stat = stat($filename);
-            # warn "@new_stat\n";
+
+            TRACE_STAT_VERBOSE and do {
+              my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
+              my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
+              warn "=== @test_new" if "@test_new" ne "@test_old";
+            };
+
             if (@new_stat) {
+              if ($new_stat[7] < $last_stat->[7]) {
+                $$event_reset and $k->call( $ses,
+                                            $$event_reset, $unique_id
+                                          );
+                $last_stat->[7] = $new_stat[7];
+              }
+
               if ( $new_stat[1] != $last_stat->[1] or # inode's number
                    $new_stat[0] != $last_stat->[0] or # inode's device
                    $new_stat[6] != $last_stat->[6] or # device type
-                   $new_stat[7] <  $last_stat->[7]    # file shrunk
+                   $new_stat[3] != $last_stat->[3]    # number of links
                  ) {
 
-                TRACE and do {
+                TRACE_STAT and do {
                   warn "inode $new_stat[1] != old $last_stat->[1]\n"
                     if $new_stat[1] != $last_stat->[1];
                   warn "inode device $new_stat[0] != old $last_stat->[0]\n"
                     if $new_stat[0] != $last_stat->[0];
                   warn "device type $new_stat[6] != old $last_stat->[6]\n"
                     if $new_stat[6] != $last_stat->[6];
+                  warn "number of links $new_stat[3] != old $last_stat->[3]\n"
+                    if $new_stat[3] != $last_stat->[3];
                   warn "file size $new_stat[7] < old $last_stat->[7]\n"
                     if $new_stat[7] < $last_stat->[7];
                 };
 
+                @$last_stat = @new_stat;
+
                 close $handle;
-                if (open $handle, "<$filename") {
-                  @$last_stat = @new_stat;
-                  $$event_reset and $k->call( $ses,
-                                              $$event_reset, $unique_id
-                                            );
-                }
-                else {
+                unless (open $handle, "<$filename") {
                   $$event_error and
                     $k->call( $ses, $$event_error, 'reopen',
                               ($!+0), $!, $unique_id
@@ -249,31 +261,35 @@ sub _define_states {
         };
         $! = 0;
 
-        TRACE and do { warn time . " read ok\n"; };
+        TRACE_POLL and do { warn time . " read ok\n"; };
 
         if (defined(my $raw_input = $driver->get($handle))) {
-          TRACE and do { warn time . " raw input\n"; };
-          foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            TRACE and do { warn time . " cooked input\n"; };
-            $k->call($ses, $$event_input, $cooked_input, $unique_id);
+          if (@$raw_input) {
+            TRACE_POLL and do { warn time . " raw input\n"; };
+            foreach my $cooked_input (@{$filter->get($raw_input)}) {
+              TRACE_POLL and do { warn time . " cooked input\n"; };
+              $k->call($ses, $$event_input, $cooked_input, $unique_id);
+            }
           }
+        }
+        else {
+          TRACE_POLL and do { warn time . " set delay\n"; };
+          $k->delay($state_wake, $poll_interval);
+          $k->select_read($handle);
         }
 
         if ($!) {
-          TRACE and do { warn time . " error: $!\n"; };
+          TRACE_POLL and do { warn time . " error: $!\n"; };
           $$event_error and
             $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
         }
-
-        TRACE and do { warn time . " set delay\n"; };
-        $k->delay($state_wake, $poll_interval);
       }
     );
 
   # Define the alarm state that periodically wakes the wheel and
   # retries to read from the file.
 
-  TRACE and do { warn $state_wake; };
+  TRACE_POLL and do { warn $state_wake; };
 
   $poe_kernel->state
     ( $state_wake,
@@ -283,7 +299,7 @@ sub _define_states {
                                         # subroutine starts here
         my $k = $_[KERNEL];
 
-        TRACE and do { warn time . " wake up and select the handle\n"; };
+        TRACE_POLL and do { warn time . " wake up and select the handle\n"; };
 
         $k->select_read($handle, $state_read);
       }
@@ -527,6 +543,16 @@ the entire POE distribution.
 =head1 BUGS
 
 This wheel can't tail pipes and consoles on some systems.
+
+Because this wheel is cooperatively multitasked, it may lose records
+just prior to a file reset.  For a more robust way to watch files,
+consider using POE::Wheel::Run and your operating system's native
+"tail" utility instead.
+
+  $heap->{tail} = POE::Wheel::Run->new
+    ( Program     => [ "/usr/bin/tail", "-f", $file_name ],
+      StdoutEvent => "log_record",
+    );
 
 =head1 AUTHORS & COPYRIGHTS
 
