@@ -116,20 +116,20 @@ sub new {
     $seek = -4096;
   }
 
-  my $self = bless
-    [ $handle,                          # SELF_HANDLE
-      $filename,                        # SELF_FILENAME
-      $driver,                          # SELF_DRIVER
-      $filter,                          # SELF_FILTER
-      $poll_interval,                   # SELF_INTERVAL
-      delete $params{InputEvent},       # SELF_EVENT_INPUT
-      delete $params{ErrorEvent},       # SELF_EVENT_ERROR
-      delete $params{ResetEvent},       # SELF_EVENT_RESET
-      &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
-      undef,                            # SELF_STATE_READ
-      \@start_stat,                     # SELF_LAST_STAT
-      undef,                            # SELF_FOLLOW_MODE
-    ], $type;
+  my $self = bless [
+    $handle,                          # SELF_HANDLE
+    $filename,                        # SELF_FILENAME
+    $driver,                          # SELF_DRIVER
+    $filter,                          # SELF_FILTER
+    $poll_interval,                   # SELF_INTERVAL
+    delete $params{InputEvent},       # SELF_EVENT_INPUT
+    delete $params{ErrorEvent},       # SELF_EVENT_ERROR
+    delete $params{ResetEvent},       # SELF_EVENT_RESET
+    &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
+    undef,                            # SELF_STATE_READ
+    \@start_stat,                     # SELF_LAST_STAT
+    undef,                            # SELF_FOLLOW_MODE
+  ], $type;
 
   # SeekBack and partial-input discarding only work for plain files.
   # SeekBack attempts to position the file pointer somewhere before
@@ -225,46 +225,46 @@ sub _define_select_states {
 
   TRACE_POLL and warn "defining select state";
 
-  $poe_kernel->state
-    ( $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> select read",
-      sub {
+  $poe_kernel->state(
+    $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> select read",
+    sub {
 
-        # Protects against coredump on older perls.
-        0 && CRIMSON_SCOPE_HACK('<');
+      # Protects against coredump on older perls.
+      0 && CRIMSON_SCOPE_HACK('<');
 
-        # The actual code starts here.
-        my ($k, $ses) = @_[KERNEL, SESSION];
+      # The actual code starts here.
+      my ($k, $ses) = @_[KERNEL, SESSION];
 
-        eval {
-          sysseek($handle, 0, SEEK_CUR);
-        };
-        $! = 0;
+      eval {
+        sysseek($handle, 0, SEEK_CUR);
+      };
+      $! = 0;
 
-        TRACE_POLL and warn time . " read ok";
+      TRACE_POLL and warn time . " read ok";
 
-        if (defined(my $raw_input = $driver->get($handle))) {
-          if (@$raw_input) {
-            TRACE_POLL and warn time . " raw input";
-            foreach my $cooked_input (@{$filter->get($raw_input)}) {
-              TRACE_POLL and warn time . " cooked input";
-              $k->call($ses, $$event_input, $cooked_input, $unique_id);
-            }
+      if (defined(my $raw_input = $driver->get($handle))) {
+        if (@$raw_input) {
+          TRACE_POLL and warn time . " raw input";
+          foreach my $cooked_input (@{$filter->get($raw_input)}) {
+            TRACE_POLL and warn time . " cooked input";
+            $k->call($ses, $$event_input, $cooked_input, $unique_id);
           }
-        }
-
-        # Error reading.  Report the error if it's not EOF, or if it's
-        # EOF on a socket or TTY.  Shut down the select, too.
-        else {
-          if ($! or (-S $handle) or (-t $handle)) {
-            TRACE_POLL and warn time . " error: $!";
-            $$event_error and
-              $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
-            $k->select($handle);
-          }
-          eval { IO::Handle::clearerr($handle) }; # could be a globref
         }
       }
-    );
+
+      # Error reading.  Report the error if it's not EOF, or if it's
+      # EOF on a socket or TTY.  Shut down the select, too.
+      else {
+        if ($! or (-S $handle) or (-t $handle)) {
+          TRACE_POLL and warn time . " error: $!";
+          $$event_error and
+            $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
+          $k->select($handle);
+        }
+        eval { IO::Handle::clearerr($handle) }; # could be a globref
+      }
+    }
+  );
 
   $poe_kernel->select_read($handle, $self->[SELF_STATE_READ]);
 }
@@ -291,100 +291,101 @@ sub _define_timer_states {
 
   TRACE_POLL and warn "defining timer state";
 
-  $poe_kernel->state
-    ( $state_read,
-      sub {
+  $poe_kernel->state(
+    $state_read,
+    sub {
 
-        # Protects against coredump on older perls.
-        0 && CRIMSON_SCOPE_HACK('<');
+      # Protects against coredump on older perls.
+      0 && CRIMSON_SCOPE_HACK('<');
 
-        # The actual code starts here.
-        my ($k, $ses) = @_[KERNEL, SESSION];
+      # The actual code starts here.
+      my ($k, $ses) = @_[KERNEL, SESSION];
 
-        eval {
-          if (defined $filename) {
-            my @new_stat = stat($filename);
+      eval {
+        if (defined $filename) {
+          my @new_stat = stat($filename);
 
-            TRACE_STAT_VERBOSE and do {
-              my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
-              my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
-              warn "=== @test_new" if "@test_new" ne "@test_old";
-            };
+          TRACE_STAT_VERBOSE and do {
+            my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
+            my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
+            warn "=== @test_new" if "@test_new" ne "@test_old";
+          };
 
-            if (@new_stat) {
+          if (@new_stat) {
 
-              # File shrank.  Consider it a reset.  Seek to the top of
-              # the file.
-              if ($new_stat[7] < $last_stat->[7]) {
-                $$event_reset and $k->call($ses, $$event_reset, $unique_id);
-                sysseek($handle, 0, SEEK_SET);
-              }
+            # File shrank.  Consider it a reset.  Seek to the top of
+            # the file.
+            if ($new_stat[7] < $last_stat->[7]) {
+              $$event_reset and $k->call($ses, $$event_reset, $unique_id);
+              sysseek($handle, 0, SEEK_SET);
+            }
 
-              $last_stat->[7] = $new_stat[7];
+            $last_stat->[7] = $new_stat[7];
 
-              # Something fundamental about the file changed.  Reopen it.
-              if ( $new_stat[1] != $last_stat->[1] or # inode's number
-                   $new_stat[0] != $last_stat->[0] or # inode's device
-                   $new_stat[6] != $last_stat->[6] or # device type
-                   $new_stat[3] != $last_stat->[3]    # number of links
-                 ) {
+            # Something fundamental about the file changed.  Reopen it.
+            if (
+              $new_stat[1] != $last_stat->[1] or # inode's number
+              $new_stat[0] != $last_stat->[0] or # inode's device
+              $new_stat[6] != $last_stat->[6] or # device type
+              $new_stat[3] != $last_stat->[3]    # number of links
+            ) {
 
-                TRACE_STAT and do {
-                  warn "inode $new_stat[1] != old $last_stat->[1]\n"
-                    if $new_stat[1] != $last_stat->[1];
-                  warn "inode device $new_stat[0] != old $last_stat->[0]\n"
-                    if $new_stat[0] != $last_stat->[0];
-                  warn "device type $new_stat[6] != old $last_stat->[6]\n"
-                    if $new_stat[6] != $last_stat->[6];
-                  warn "number of links $new_stat[3] != old $last_stat->[3]\n"
-                    if $new_stat[3] != $last_stat->[3];
-                  warn "file size $new_stat[7] < old $last_stat->[7]\n"
-                    if $new_stat[7] < $last_stat->[7];
-                };
+              TRACE_STAT and do {
+                warn "inode $new_stat[1] != old $last_stat->[1]\n"
+                  if $new_stat[1] != $last_stat->[1];
+                warn "inode device $new_stat[0] != old $last_stat->[0]\n"
+                  if $new_stat[0] != $last_stat->[0];
+                warn "device type $new_stat[6] != old $last_stat->[6]\n"
+                  if $new_stat[6] != $last_stat->[6];
+                warn "number of links $new_stat[3] != old $last_stat->[3]\n"
+                  if $new_stat[3] != $last_stat->[3];
+                warn "file size $new_stat[7] < old $last_stat->[7]\n"
+                  if $new_stat[7] < $last_stat->[7];
+              };
 
-                @$last_stat = @new_stat;
+              @$last_stat = @new_stat;
 
-                close $handle;
-                unless (open $handle, "<$filename") {
-                  $$event_error and
-                    $k->call( $ses, $$event_error, 'reopen',
-                              ($!+0), $!, $unique_id
-                            );
-                }
+              close $handle;
+              unless (open $handle, "<$filename") {
+                $$event_error and $k->call(
+                  $ses, $$event_error, 'reopen',
+                  ($!+0), $!, $unique_id
+                );
               }
             }
           }
-        };
-        $! = 0;
-
-        TRACE_POLL and warn time . " read ok\n";
-
-        # Got input.  Read a bunch of it, then poll again right away.
-        if (defined(my $raw_input = $driver->get($handle))) {
-          if (@$raw_input) {
-            TRACE_POLL and warn time . " raw input\n";
-            foreach my $cooked_input (@{$filter->get($raw_input)}) {
-              TRACE_POLL and warn time . " cooked input\n";
-              $k->call($ses, $$event_input, $cooked_input, $unique_id);
-            }
-          }
-          $k->yield($state_read);
         }
+      };
+      $! = 0;
 
-        # Got an error of some sort.
-        else {
-          TRACE_POLL and warn time . " set delay\n";
-          if ($!) {
-            TRACE_POLL and warn time . " error: $!\n";
-            $$event_error and
-              $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
-            $k->select($handle);
+      TRACE_POLL and warn time . " read ok\n";
+
+      # Got input.  Read a bunch of it, then poll again right away.
+      if (defined(my $raw_input = $driver->get($handle))) {
+        if (@$raw_input) {
+          TRACE_POLL and warn time . " raw input\n";
+          foreach my $cooked_input (@{$filter->get($raw_input)}) {
+            TRACE_POLL and warn time . " cooked input\n";
+            $k->call($ses, $$event_input, $cooked_input, $unique_id);
           }
-          $k->delay($state_read, $poll_interval);
-          IO::Handle::clearerr($handle);
         }
+        $k->yield($state_read);
       }
-    );
+
+      # Got an error of some sort.
+      else {
+        TRACE_POLL and warn time . " set delay\n";
+        if ($!) {
+          TRACE_POLL and warn time . " error: $!\n";
+          $$event_error and
+            $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
+          $k->select($handle);
+        }
+        $k->delay($state_read, $poll_interval);
+        IO::Handle::clearerr($handle);
+      }
+    }
+  );
 
   $poe_kernel->yield($state_read);
 }
@@ -456,6 +457,11 @@ sub ID {
   return $_[0]->[SELF_UNIQUE_ID];
 }
 
+sub tell {
+  my $self = shift;
+  return sysseek($self->[SELF_HANDLE], 0, SEEK_CUR);
+}
+
 ###############################################################################
 1;
 
@@ -491,6 +497,8 @@ POE::Wheel::FollowTail - follow the tail of an ever-growing file
     Seek         => $offset,            # How far from BOF to start
   );
 
+  $pos = $wheel->tell();  # Get the current log position.
+
 =head1 DESCRIPTION
 
 FollowTail follows the end of an ever-growing file, such as a log of
@@ -515,6 +523,18 @@ C<ErrorEvent>.
 The ID method returns a FollowTail wheel's unique ID.  This ID will be
 included in every event the wheel generates, and it can be used to
 match events with the wheels which generated them.
+
+=item tell
+
+Returns where POE::Wheel::FollowTail is currently in the log file.
+tell() may be useful for seeking back into a file when resuming
+tailing.
+
+  my $pos = $wheel->tell();
+
+FollowTail generally reads ahead of the data it returns, so the file
+position is not necessarily the point after the last record you have
+received.
 
 =back
 
@@ -676,10 +696,10 @@ just prior to a file reset.  For a more robust way to watch files,
 consider using POE::Wheel::Run and your operating system's native
 "tail" utility instead.
 
-  $heap->{tail} = POE::Wheel::Run->new
-    ( Program     => [ "/usr/bin/tail", "-f", $file_name ],
-      StdoutEvent => "log_record",
-    );
+  $heap->{tail} = POE::Wheel::Run->new(
+    Program     => [ "/usr/bin/tail", "-f", $file_name ],
+    StdoutEvent => "log_record",
+  );
 
 =head1 AUTHORS & COPYRIGHTS
 
