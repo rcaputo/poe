@@ -1,7 +1,5 @@
 #!perl -w -I..
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This is a pre-release version.  Redistribution and modification are
-# prohibited.
+# $Id$
 
 use strict;
 
@@ -34,7 +32,7 @@ new POE::Session
    },
    'set an alarm' => sub
    {
-     my ($k, $me, $from, $name) = @_;
+     my ($k, $me, $from) = @_;
      print ".";
      $k->alarm('set an alarm', time()+1);
    },
@@ -44,6 +42,5 @@ new POE::Session
      print "\nSignal watcher caught SIG$signal_name.\n";
    },
   );
-
 
 $kernel->run();

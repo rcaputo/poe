@@ -1,7 +1,5 @@
 #!perl -w -I..
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This is a pre-release version.  Redistribution and modification are
-# prohibited.
+# $Id$
 
 package main;
 use strict;
