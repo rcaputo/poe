@@ -6,7 +6,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(20);
+&test_setup(21);
 
 use POSIX qw (:errno_h);
 
@@ -84,6 +84,9 @@ sub machine_start {
              grep( /^second name$/, @aliases ) == 1
            );
   print "ok 14\n";
+
+  print "not " if $kernel->alias_list($session) eq 2;
+  print "ok 15\n";
 }
 
 # Catch SIGIDLE and SIGZOMBIE.
@@ -114,10 +117,10 @@ sub machine_stop {
   my $heap = $_[HEAP];
 
   print "not " unless $heap->{idle_count} == 1;
-  print "ok 18\n";
+  print "ok 19\n";
 
   print "not " unless $heap->{zombie_count} == 1;
-  print "ok 19\n";
+  print "ok 20\n";
 }
 
 ### Main loop.
@@ -147,7 +150,7 @@ POE::Session->create
       sub {
         $_[KERNEL]->alias_set( 'a_sample_alias' );
         print "not " if $_[KERNEL]->alias_remove( 'a_sample_alias' );
-        print "ok 16\n";
+        print "ok 17\n";
       },
       _signal =>
       sub {
@@ -158,13 +161,13 @@ POE::Session->create
     }
   );
 
-print "ok 17\n";
+print "ok 18\n";
 
 # Now run the kernel until there's nothing left to do.
 
 my $poe_kernel = POE::Kernel->new();
 $poe_kernel->run();
 
-print "ok 20\n";
+print "ok 21\n";
 
 exit;

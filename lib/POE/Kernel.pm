@@ -3156,7 +3156,8 @@ sub alias_list {
   }
 
   # Return whatever can be found.
-  return keys %{$kr_sessions{$search_session}->[SS_ALIASES]};
+  my @alias_list = keys %{$kr_sessions{$search_session}->[SS_ALIASES]};
+  return wantarray() ? @alias_list : $alias_list[0];
 }
 
 #==============================================================================
