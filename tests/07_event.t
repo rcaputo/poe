@@ -9,7 +9,6 @@ use lib qw(./lib ../lib);
 use Symbol;
 
 use TestSetup;
-use TestPipe;
 
 # Skip if Event isn't here.
 BEGIN {
@@ -24,7 +23,7 @@ BEGIN {
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);
+use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::Unidirectional);
 
 # Congratulate ourselves for getting this far.
 print "ok 1\n";
@@ -36,7 +35,7 @@ sub io_start {
 
   # A pipe.
 
-  my ($a_read, $a_write, $b_read, $b_write) = TestPipe->new();
+  my ($a_read, $b_write) = POE::Pipe::Unidirectional->new();
   unless (defined $a_read) {
     print "skip 2 # $@\n";
   }

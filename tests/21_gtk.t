@@ -10,7 +10,6 @@ use lib qw(./lib ../lib);
 use Symbol;
 
 use TestSetup;
-use TestPipe;
 
 # Skip if Gtk isn't here.
 BEGIN {
@@ -41,7 +40,7 @@ warn( "\n",
 # Turn on all asserts.
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);
+use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::Unidirectional);
 
 # How many things to push through the pipe.
 my $write_max = 10;
@@ -66,11 +65,9 @@ sub io_start {
 
   # A pipe.
 
-  my ($a_read, $a_write, $b_read, $b_write) = TestPipe->new();
+  my ($a_read, $b_write) = POE::Pipe::Unidirectional->new();
 
   # Keep a copy of the unused handles so the pipes remain whole.
-  $heap->{unused_pipe_1} = $b_read;
-  $heap->{unused_pipe_2} = $a_write;
   unless (defined $a_read) {
     print "skip 2 # $@\n";
   }

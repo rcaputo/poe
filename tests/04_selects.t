@@ -6,14 +6,13 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-use TestPipe;
 
 &test_setup(13);
 
 # Turn on all asserts.
 #sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE;
+use POE qw(Pipe::Bidirectional);
 
 ### Test parameters.
 
@@ -41,7 +40,7 @@ sub master_start {
   $test_index *= 2;
 
   my ($master_read, $master_write, $slave_read, $slave_write) =
-    TestPipe->new();
+    POE::Pipe::Bidirectional->new();
 
   unless (defined $master_read) {
     $test_results[$test_index] = $test_results[$test_index + 1] = undef;

@@ -9,13 +9,13 @@ use lib qw(./lib ../lib);
 
 use TestSetup qw(ok not_ok results test_setup ok_if many_not_ok);
 use MyOtherFreezer;
-use TestPipe;
 
 sub DEBUG () { 0 }
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Wheel::ReadWrite Driver::SysRW
             Filter::Block Filter::Line Filter::Reference Filter::Stream
+            Pipe::Bidirectional
           );
 
 # Showstopper here.  Try to build a pair of file handles.  This will
@@ -24,7 +24,8 @@ use POE qw( Wheel::ReadWrite Driver::SysRW
 # will be tested on my test platforms.
 
 # Socketpair.  Read and write handles are the same.
-my ($master_read, $master_write, $slave_read, $slave_write) = TestPipe->new();
+my ($master_read, $master_write, $slave_read, $slave_write) =
+  POE::Pipe::Bidirectional->new();
 unless (defined $master_read) {
   &test_setup(0, "could not create a pipe in any form");
 }
