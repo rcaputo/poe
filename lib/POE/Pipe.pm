@@ -118,6 +118,10 @@ sub make_socket {
     die "connect: $!" if $! and ($! != EINPROGRESS) and ($! != EWOULDBLOCK);
   }
 
+  my $connector_address = getsockname($connector);
+  my ($connector_port, $connector_addr) =
+    unpack_sockaddr_in($connector_address);
+
   ### Loop around 'til it's all done.  I thought I was done writing
   ### select loops.  Damnit.
 
@@ -139,7 +143,12 @@ sub make_socket {
     # Accept happened.
     if (vec($out_read, fileno($acceptor), 1)) {
       my $peer = accept($accepted, $acceptor);
-      if ($peer eq getsockname($connector)) {
+      my ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
+
+      if ( $peer_port == $connector_port and
+           $peer_addr eq $connector_addr
+         ) {
+        vec($in_read, fileno($acceptor), 1) = 0;
         $done |= 0x10;
       }
     }
@@ -149,8 +158,7 @@ sub make_socket {
       $! = unpack('i', getsockopt($connector, SOL_SOCKET, SO_ERROR));
       die "connect: $!" if $!;
 
-      my $peer = getpeername($connector) or die "getpeername: $!";
-      die "peer not server" unless $peer eq getsockname($acceptor);
+      vec($in_read, fileno($acceptor), 1) = 0;
       $done |= 0x01;
     }
   }
