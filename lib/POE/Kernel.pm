@@ -5,11 +5,12 @@ package POE::Kernel;
 use strict;
 use POSIX qw(errno_h fcntl_h sys_wait_h uname);
 use Carp;
-use vars qw($poe_kernel);
+use vars qw( $poe_kernel );
 
 use Exporter;
 @POE::Kernel::ISA = qw(Exporter);
-@POE::Kernel::EXPORT = qw($poe_kernel);
+@POE::Kernel::EXPORT = qw( $poe_kernel );
+
                                         # allow subsecond alarms, if available
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
@@ -86,6 +87,7 @@ sub DEB_REFCOUNT () { 0 }
 sub DEB_QUEUE    () { 0 }
 sub DEB_STRICT   () { 0 }
 sub DEB_INSERT   () { 0 }
+sub DEB_PROFILE  () { 0 }
                                         # handles & vectors structures
 sub VEC_RD       () { 0 }
 sub VEC_WR       () { 1 }
@@ -130,10 +132,13 @@ sub HSS_STATE   () { 2 }
 sub ST_SESSION () { 0 }
 sub ST_SOURCE  () { 1 }
 sub ST_NAME    () { 2 }
-sub ST_ARGS    () { 3 }
-sub ST_TIME    () { 4 }
-sub ST_DEB_SEQ () { 5 }
-                                        # event names
+sub ST_TYPE    () { 3 }
+sub ST_ARGS    () { 4 }
+sub ST_TIME    () { 5 }
+sub ST_DEB_SEQ () { 6 }
+
+# These are names of internal events.
+
 sub EN_START  () { '_start'           }
 sub EN_STOP   () { '_stop'            }
 sub EN_SIGNAL () { '_signal'          }
@@ -142,9 +147,24 @@ sub EN_PARENT () { '_parent'          }
 sub EN_CHILD  () { '_child'           }
 sub EN_SCPOLL () { '_sigchld_poll'    }
 
+# These are event classes (types).  They often shadow actual event
+# names, but they can encompass a large group of events.  For example,
+# ET_ALARM describes anything posted by an alarm call.
+
+sub ET_USER   () { 0x0000 }
+sub ET_START  () { 0x0001 }
+sub ET_STOP   () { 0x0002 }
+sub ET_SIGNAL () { 0x0004 }
+sub ET_GC     () { 0x0008 }
+sub ET_PARENT () { 0x0010 }
+sub ET_CHILD  () { 0x0020 }
+sub ET_SCPOLL () { 0x0040 }
+sub ET_ALARM  () { 0x0080 }
+sub ET_SELECT () { 0x0100 }
+
 #------------------------------------------------------------------------------
 #
-# states: [ [ $session, $source_session, $state, \@etc, $time ],
+# states: [ [ $session, $source_session, $state, $type, \@etc, $time ],
 #           ...
 #         ];
 #
@@ -194,7 +214,7 @@ my %_terminal_signals =
 sub _signal_handler_generic {
   if (defined(my $signal = $_[0])) {
     $poe_kernel->_enqueue_state
-      ( $poe_kernel, $poe_kernel, EN_SIGNAL, time(), [ $signal ] );
+      ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, time(), [ $signal ] );
     $SIG{$_[0]} = \&_signal_handler_generic;
   }
   else {
@@ -206,7 +226,7 @@ sub _signal_handler_pipe {
   if (defined(my $signal = $_[0])) {
     $poe_kernel->_enqueue_state
       ( $poe_kernel->[KR_ACTIVE_SESSION], $poe_kernel,
-        EN_SIGNAL, time(), [ $signal ]
+        EN_SIGNAL, ET_SIGNAL, time(), [ $signal ]
       );
     $SIG{$_[0]} = \&_signal_handler_pipe;
   }
@@ -220,7 +240,9 @@ sub _signal_handler_child {
     my $pid = wait();
     if ($pid >= 0) {
       $poe_kernel->_enqueue_state
-        ( $poe_kernel, $poe_kernel, EN_SIGNAL, time(), [ 'CHLD', $pid, $? ] );
+        ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL,
+          time(), [ 'CHLD', $pid, $? ]
+        );
     }
     $SIG{$_[0]} = \&_signal_handler_child;
   }
@@ -252,8 +274,8 @@ sub sig {
 sub signal {
   my ($self, $session, $signal) = @_;
   if (defined($session = $self->alias_resolve($session))) {
-    $self->_enqueue_state($session, $self->[KR_ACTIVE_SESSION],
-                          EN_SIGNAL, time(), [ $signal ]
+    $self->_enqueue_state( $session, $self->[KR_ACTIVE_SESSION],
+                           EN_SIGNAL, ET_SIGNAL, time(), [ $signal ]
                          );
   }
 }
@@ -350,87 +372,100 @@ sub new {
 # Send a state to a session right now.  Used by _disp_select to expedite
 # select() states, and used by run() to deliver posted states from the queue.
 
+my %profile;
+
 sub _dispatch_state {
-  my ($self, $session, $source_session, $state, $etc) = @_;
+  my ($self, $session, $source_session, $state, $type, $etc) = @_;
+
   my $local_state = $state;
   my $sessions = $self->[KR_SESSIONS];
-                                        # add this session to kernel tables
-  if ($state eq EN_START) {
-    my $new_session = $sessions->{$session} = [ ];
-    $new_session->[SS_SESSION ] = $session;
-    $new_session->[SS_REFCOUNT] = 0;
-    $new_session->[SS_EVCOUNT ] = 0;
-    $new_session->[SS_PARENT  ] = $source_session;
-    $new_session->[SS_CHILDREN] = { };
-    $new_session->[SS_HANDLES ] = { };
-    $new_session->[SS_SIGNALS ] = { };
-    $new_session->[SS_ALIASES ] = { };
-    $new_session->[SS_ID      ] = $self->[KR_ID_INDEX]++;
-    $self->[KR_SESSION_IDS]->{$new_session->[SS_ID]} = $session;
+
+  DEB_PROFILE and $profile{$state}++;
+
+  # The _start state is dispatched immediately as part of allocating a
+  # session.  Set up the kernel's tables for this session.
+
+  if ($type) {
+    if ($type & ET_START) {
+      my $new_session = $sessions->{$session} = [ ];
+      $new_session->[SS_SESSION ] = $session;
+      $new_session->[SS_REFCOUNT] = 0;
+      $new_session->[SS_EVCOUNT ] = 0;
+      $new_session->[SS_PARENT  ] = $source_session;
+      $new_session->[SS_CHILDREN] = { };
+      $new_session->[SS_HANDLES ] = { };
+      $new_session->[SS_SIGNALS ] = { };
+      $new_session->[SS_ALIASES ] = { };
+      $new_session->[SS_ID      ] = $self->[KR_ID_INDEX]++;
+      $self->[KR_SESSION_IDS]->{$new_session->[SS_ID]} = $session;
                                         # add to parent's children
-    if (DEB_RELATION) {
-      die "$session is its own parent\a" if ($session eq $source_session);
+      DEB_RELATION and do {
+        die "$session is its own parent\a" if ($session eq $source_session);
+        die "!!! $session already is a child of $source_session\a"
+          if (exists $sessions->{$source_session}->[SS_CHILDREN]->{$session});
+      };
+      $sessions->{$source_session}->[SS_CHILDREN]->{$session} = $session;
+      $sessions->{$source_session}->[SS_REFCOUNT]++;
+
+      DEB_REFCOUNT and do {
+        warn("+++ parent ($source_session) receives child: ",
+             $sessions->{$source_session}->[SS_REFCOUNT], "\n"
+            );
+      };
     }
-    if (DEB_RELATION) {
-      die "!!! $session already is a child of $source_session\a"
-        if (exists $sessions->{$source_session}->[SS_CHILDREN]->{$session});
-    }
-    $sessions->{$source_session}->[SS_CHILDREN]->{$session} = $session;
-    $sessions->{$source_session}->[SS_REFCOUNT]++;
-    if (DEB_REFCOUNT) {
-      warn("+++ parent ($source_session) receives child: ",
-           $sessions->{$source_session}->[SS_REFCOUNT], "\n"
-          );
-    }
-  }
                                         # delayed GC after _start
-  elsif ($state eq EN_GC) {
-    $self->_collect_garbage($session);
-    return 0;
-  }
+    elsif ($type & ET_GC) {
+      $self->_collect_garbage($session);
+      return 0;
+    }
                                         # warn of pending session removal
-  elsif ($state eq EN_STOP) {
+    elsif ($type & ET_STOP) {
                                         # tell children they have new parents,
                                         # and tell parent it has new children
-    my $parent   = $sessions->{$session}->[SS_PARENT];
-    my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
-    foreach my $child (@children) {
-      $self->_dispatch_state($parent, $self, EN_CHILD, [ 'gain', $child ] );
-      $self->_dispatch_state($child, $self, EN_PARENT,
-                             [ $sessions->{$child}->[SS_PARENT],
-                               $parent,
-                             ]
-                            );
-    }
+      my $parent   = $sessions->{$session}->[SS_PARENT];
+      my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
+      foreach my $child (@children) {
+        $self->_dispatch_state( $parent, $self, EN_CHILD, ET_CHILD,
+                                [ 'gain', $child ]
+                              );
+        $self->_dispatch_state( $child, $self, EN_PARENT, ET_PARENT,
+                                [ $sessions->{$child}->[SS_PARENT],
+                                  $parent,
+                                ]
+                              );
+      }
                                         # tell the parent its child is gone
-    if (defined $parent) {
-      $self->_dispatch_state($parent, $self, EN_CHILD, [ 'lose', $session ]);
+      if (defined $parent) {
+        $self->_dispatch_state( $parent, $self, EN_CHILD, ET_CHILD,
+                                [ 'lose', $session ]
+                              );
+      }
     }
-  }
                                         # signal preprocessing
-  elsif ($state eq EN_SIGNAL) {
-    my $signal = $etc->[0];
+    elsif ($type & ET_SIGNAL) {
+      my $signal = $etc->[0];
                                         # propagate to children
-    my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
-    foreach (@children) {
-      $self->_dispatch_state($_, $self, $state, $etc);
-    }
+      my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
+      foreach (@children) {
+        $self->_dispatch_state($_, $self, $state, ET_SIGNAL, $etc);
+      }
                                         # translate signal to local event
-    if (exists $self->[KR_SIGNALS]->{$signal}->{$session}) {
-      $local_state = $self->[KR_SIGNALS]->{$signal}->{$session};
+      if (exists $self->[KR_SIGNALS]->{$signal}->{$session}) {
+        $local_state = $self->[KR_SIGNALS]->{$signal}->{$session};
+      }
     }
   }
                                         # the session may have been GC'd
   unless (exists $self->[KR_SESSIONS]->{$session}) {
-    if (DEB_EVENTS) {
+    DEB_EVENTS and do {
       warn ">>> discarding $state to $session (session was GC'd)\n";
-    }
+    };
     return;
   }
 
-  if (DEB_EVENTS) {
+  DEB_EVENTS and do {
     warn ">>> dispatching $state to $session\n";
-  }
+  };
                                         # dispatch this object's state
   my $hold_active_session = $self->[KR_ACTIVE_SESSION];
   $self->[KR_ACTIVE_SESSION] = $session;
@@ -448,145 +483,148 @@ sub _dispatch_state {
 
   $self->[KR_ACTIVE_SESSION] = $hold_active_session;
 
-  if (DEB_EVENTS) {
+  DEB_EVENTS and do {
     warn "<<< $session -> $state returns ($return)\n";
-  }
+  };
                                         # if _start, notify parent
-  if ($state eq EN_START) {
-    $self->_dispatch_state($sessions->{$session}->[SS_PARENT], $self,
-                           EN_CHILD, [ 'create', $session, $return ]
-                          );
-  }
-                                        # if _stop, fix up tables
-  elsif ($state eq EN_STOP) {
-                                        # remove us from our parent
-    my $parent = $sessions->{$session}->[SS_PARENT];
-    if (defined $parent) {
-      if (DEB_RELATION) {
-        die "$session is its own parent\a" if ($session eq $parent);
-        die "$session is not a child of $parent\a"
-          unless (($session eq $parent) ||
-                  exists($sessions->{$parent}->[SS_CHILDREN]->{$session})
-                 );
-      }
-      delete $sessions->{$parent}->[SS_CHILDREN]->{$session};
-      $sessions->{$parent}->[SS_REFCOUNT]--;
-      if (DEB_REFCOUNT) {
-        warn("--- parent $parent loses child $session: ",
-             $sessions->{$parent}->[SS_REFCOUNT], "\n"
-            );
-        die "\a" if ($sessions->{$parent}->[SS_REFCOUNT] < 0);
-      }
+  if ($type) {
+    if ($type & ET_START) {
+      $self->_dispatch_state($sessions->{$session}->[SS_PARENT], $self,
+                             EN_CHILD, ET_CHILD,
+                             [ 'create', $session, $return ]
+                            );
     }
-                                        # give our children to our parent
-    my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
-    foreach (@children) {
-      if (DEB_RELATION) {
-        die "$_ is already a child of $parent\a"
-          if (exists $sessions->{$parent}->[SS_CHILDREN]->{$_});
-      }
-      $sessions->{$_}->[SS_PARENT] = $parent;
+                                        # if _stop, fix up tables
+    elsif ($type & ET_STOP) {
+                                        # remove us from our parent
+      my $parent = $sessions->{$session}->[SS_PARENT];
       if (defined $parent) {
-        $sessions->{$parent}->[SS_CHILDREN]->{$_} = $_;
-        $sessions->{$parent}->[SS_REFCOUNT]++;
-        if (DEB_REFCOUNT) {
-          warn("+++ parent $parent receives child: ",
+        DEB_RELATION and do {
+          die "$session is its own parent\a" if ($session eq $parent);
+          die "$session is not a child of $parent\a"
+            unless (($session eq $parent) ||
+                    exists($sessions->{$parent}->[SS_CHILDREN]->{$session})
+                   );
+        };
+        delete $sessions->{$parent}->[SS_CHILDREN]->{$session};
+        $sessions->{$parent}->[SS_REFCOUNT]--;
+        DEB_REFCOUNT and do {
+          warn("--- parent $parent loses child $session: ",
                $sessions->{$parent}->[SS_REFCOUNT], "\n"
               );
-        }
+          die "\a" if ($sessions->{$parent}->[SS_REFCOUNT] < 0);
+        };
       }
-      delete $sessions->{$session}->[SS_CHILDREN]->{$_};
-      $sessions->{$session}->[SS_REFCOUNT]--;
-      if (DEB_REFCOUNT) {
-        warn("--- session $session loses child: ",
-             $sessions->{$session}->[SS_REFCOUNT], "\n"
-            );
-        die "\a" if ($sessions->{$session}->[SS_REFCOUNT] < 0);
-      }
-    }
-                                        # free lingering signals
-    my @signals = keys %{$sessions->{$session}->[SS_SIGNALS]};
-    foreach (@signals) {
-      $self->_internal_sig($session, $_);
-    }
-                                        # free pending states
-    my $states = $self->[KR_STATES];
-    my $index = @$states;
-    while ($index-- && $sessions->{$session}->[SS_EVCOUNT]) {
-      if ($states->[$index]->[ST_SESSION] eq $session) {
-        $sessions->{$session}->[SS_EVCOUNT]--;
-        if (DEB_REFCOUNT) {
-          die "\a" if ($sessions->{$session}->[SS_EVCOUNT] < 0);
+                                        # give our children to our parent
+      my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
+      foreach (@children) {
+        DEB_RELATION and do {
+          die "$_ is already a child of $parent\a"
+            if (exists $sessions->{$parent}->[SS_CHILDREN]->{$_});
+        };
+        $sessions->{$_}->[SS_PARENT] = $parent;
+        if (defined $parent) {
+          $sessions->{$parent}->[SS_CHILDREN]->{$_} = $_;
+          $sessions->{$parent}->[SS_REFCOUNT]++;
+          DEB_REFCOUNT and do {
+            warn("+++ parent $parent receives child: ",
+                 $sessions->{$parent}->[SS_REFCOUNT], "\n"
+                );
+          };
         }
+        delete $sessions->{$session}->[SS_CHILDREN]->{$_};
         $sessions->{$session}->[SS_REFCOUNT]--;
-        if (DEB_REFCOUNT) {
-          warn("--- discarding event for $session: ",
+        DEB_REFCOUNT and do {
+          warn("--- session $session loses child: ",
                $sessions->{$session}->[SS_REFCOUNT], "\n"
               );
           die "\a" if ($sessions->{$session}->[SS_REFCOUNT] < 0);
+        };
+      }
+                                        # free lingering signals
+      my @signals = keys %{$sessions->{$session}->[SS_SIGNALS]};
+      foreach (@signals) {
+        $self->_internal_sig($session, $_);
+      }
+                                        # free pending states
+      my $states = $self->[KR_STATES];
+      my $index = @$states;
+      while ($index-- && $sessions->{$session}->[SS_EVCOUNT]) {
+        if ($states->[$index]->[ST_SESSION] eq $session) {
+          $sessions->{$session}->[SS_EVCOUNT]--;
+          DEB_REFCOUNT and do {
+            die "\a" if ($sessions->{$session}->[SS_EVCOUNT] < 0);
+          };
+          $sessions->{$session}->[SS_REFCOUNT]--;
+          DEB_REFCOUNT and do {
+            warn("--- discarding event for $session: ",
+                 $sessions->{$session}->[SS_REFCOUNT], "\n"
+                );
+            die "\a" if ($sessions->{$session}->[SS_REFCOUNT] < 0);
+          };
+          splice(@$states, $index, 1);
         }
-        splice(@$states, $index, 1);
       }
-    }
                                         # free lingering selects
-    my @handles = values %{$sessions->{$session}->[SS_HANDLES]};
-    foreach (@handles) {
-      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_RD);
-      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_WR);
-      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_EX);
-    }
+      my @handles = values %{$sessions->{$session}->[SS_HANDLES]};
+      foreach (@handles) {
+        $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_RD);
+        $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_WR);
+        $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_EX);
+      }
                                         # free lingering names
-    my @aliases = keys %{$sessions->{$session}->[SS_ALIASES]};
-    foreach (@aliases) {
-      $self->_internal_alias_remove($session, $_);
-    }
+      my @aliases = keys %{$sessions->{$session}->[SS_ALIASES]};
+      foreach (@aliases) {
+        $self->_internal_alias_remove($session, $_);
+      }
                                         # remove session ID
-    delete $self->[KR_SESSION_IDS]->{$sessions->{$session}->[SS_ID]};
-    $session->[SS_ID] = undef;
+      delete $self->[KR_SESSION_IDS]->{$sessions->{$session}->[SS_ID]};
+      $session->[SS_ID] = undef;
                                         # check for leaks
-    if (DEB_GC) {
-      my $errors = 0;
-      if (my $leaked = $sessions->{$session}->[SS_REFCOUNT]) {
-        warn "*** LEAK: refcount = $leaked ($session)\a\n";
-        $errors++;
-      }
-      if (my $leaked = keys(%{$sessions->{$session}->[SS_CHILDREN]})) {
-        warn "*** LEAK: children = $leaked ($session)\a\n";
-        $errors++;
-      }
-      if (my $leaked = keys(%{$sessions->{$session}->[SS_HANDLES]})) {
-        warn "*** LEAK: handles  = $leaked ($session)\a\n";
-        $errors++;
-      }
-      if (my $leaked = keys(%{$sessions->{$session}->[SS_SIGNALS]})) {
-        warn "*** LEAK: signals  = $leaked ($session)\a\n";
-        $errors++;
-      }
-      if (my $leaked = keys(%{$sessions->{$session}->[SS_ALIASES]})) {
-        warn "*** LEAK: aliases  = $leaked ($session)\a\n";
-        $errors++;
-      }
-      die "\a" if ($errors);
-    }
+      DEB_GC and do {
+        my $errors = 0;
+        if (my $leaked = $sessions->{$session}->[SS_REFCOUNT]) {
+          warn "*** LEAK: refcount = $leaked ($session)\a\n";
+          $errors++;
+        }
+        if (my $leaked = keys(%{$sessions->{$session}->[SS_CHILDREN]})) {
+          warn "*** LEAK: children = $leaked ($session)\a\n";
+          $errors++;
+        }
+        if (my $leaked = keys(%{$sessions->{$session}->[SS_HANDLES]})) {
+          warn "*** LEAK: handles  = $leaked ($session)\a\n";
+          $errors++;
+        }
+        if (my $leaked = keys(%{$sessions->{$session}->[SS_SIGNALS]})) {
+          warn "*** LEAK: signals  = $leaked ($session)\a\n";
+          $errors++;
+        }
+        if (my $leaked = keys(%{$sessions->{$session}->[SS_ALIASES]})) {
+          warn "*** LEAK: aliases  = $leaked ($session)\a\n";
+          $errors++;
+        }
+        die "\a" if ($errors);
+      };
                                         # remove this session (should be empty)
-    delete $sessions->{$session};
+      delete $sessions->{$session};
                                         # qarbage collect the parent
-    if (defined $parent) {
-      $self->_collect_garbage($parent);
+      if (defined $parent) {
+        $self->_collect_garbage($parent);
+      }
     }
-  }
                                         # check for death by signal
-  elsif ($state eq EN_SIGNAL) {
-    my $signal = $etc->[0];
+    elsif ($type & ET_SIGNAL) {
+      my $signal = $etc->[0];
                                         # stop whoever doesn't handle terminals
-    if (($signal eq 'ZOMBIE') ||
-        (!$return && exists($_terminal_signals{$signal}))
-    ) {
-      $self->session_free($session);
-    }
+      if (($signal eq 'ZOMBIE') ||
+          (!$return && exists($_terminal_signals{$signal}))
+         ) {
+        $self->session_free($session);
+      }
                                         # otherwise garbage-collect
-    else {
-      $self->_collect_garbage($session);
+      else {
+        $self->_collect_garbage($session);
+      }
     }
   }
                                         # return what the state handler did
@@ -601,7 +639,9 @@ sub run {
   while (keys(%{$self->[KR_SESSIONS]})) {
                                         # send SIGIDLE if queue empty
     unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_HANDLES]})) {
-      $self->_enqueue_state($self, $self, EN_SIGNAL, time(), [ 'IDLE' ]);
+      $self->_enqueue_state( $self, $self, EN_SIGNAL, ET_SIGNAL,
+                             time(), [ 'IDLE' ]
+                           );
     }
                                         # select, if necessary
     my $now = time();
@@ -611,7 +651,7 @@ sub run {
                   );
     $timeout = 0 if ($timeout < 0);
 
-    if (DEB_QUEUE) {
+    DEB_QUEUE and do {
       warn( '*** Kernel::run() iterating.  ' .
             sprintf("now(%.2f) timeout(%.2f) then(%.2f)\n",
                     $now-$^T, $timeout, ($now-$^T)+$timeout
@@ -626,15 +666,15 @@ sub run {
                 ) .
             "\n"
           );
-    }
+    };
 
-    if (DEB_SELECT) {
+    DEB_SELECT and do {
       warn ",----- SELECT BITS IN -----\n";
       warn "| READ    : ", unpack('b*', $self->[KR_VECTORS]->[VEC_RD]), "\n";
       warn "| WRITE   : ", unpack('b*', $self->[KR_VECTORS]->[VEC_WR]), "\n";
       warn "| EXPEDITE: ", unpack('b*', $self->[KR_VECTORS]->[VEC_EX]), "\n";
       warn "`--------------------------\n";
-    }
+    };
 
     my $hits = select( my $rout = $self->[KR_VECTORS]->[VEC_RD],
                        my $wout = $self->[KR_VECTORS]->[VEC_WR],
@@ -642,7 +682,7 @@ sub run {
                        $timeout
                      );
 
-    if (DEB_SELECT) {
+    DEB_SELECT and do {
       if ($hits > 0) {
         warn "select hits = $hits\n";
       }
@@ -659,7 +699,7 @@ sub run {
       warn "| WRITE   : ", unpack('b*', $wout), "\n";
       warn "| EXPEDITE: ", unpack('b*', $eout), "\n";
       warn "`---------------------------\n";
-    }
+    };
                                         # gather pending selects
     if ($hits > 0) {
       my @selects = map { ( ( vec($rout, fileno($_->[HND_HANDLE]), 1)
@@ -677,63 +717,66 @@ sub run {
                           )
                         } values(%{$self->[KR_HANDLES]});
 
-      if (DEB_SELECT) {
+      DEB_SELECT and do {
         if (@selects) {
           warn "found pending selects: @selects\n";
         }
         else {
           die "found no selects, with $hits hits from select???\a\n";
         }
-      }
+      };
                                         # dispatch the selects
       foreach my $select (@selects) {
         $self->_dispatch_state( $select->[HSS_SESSION], $select->[HSS_SESSION],
-                                $select->[HSS_STATE], [ $select->[HSS_HANDLE] ]
+                                $select->[HSS_STATE], ET_SELECT,
+                                [ $select->[HSS_HANDLE] ]
                               );
         $self->_collect_garbage($select->[HSS_SESSION]);
       }
     }
                                         # dispatch queued events
     $now = time();
-    while (@{$self->[KR_STATES]}) {
+    while (@{$self->[KR_STATES]}
+           and ($self->[KR_STATES]->[0]->[ST_TIME] <= $now)
+    ) {
 
-      if (DEB_QUEUE) {
+      DEB_QUEUE and do {
         my $event = $self->[KR_STATES]->[0];
         warn( sprintf('now(%.2f) ', $now - $^T) .
               sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
               "seq($event->[ST_DEB_SEQ])  " .
               "name($event->[ST_NAME])\n"
             )
-      }
-
-      last unless ($self->[KR_STATES]->[0]->[ST_TIME] <= $now);
+      };
 
       my $event = shift @{$self->[KR_STATES]};
 
       $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_EVCOUNT]--;
-      if (DEB_REFCOUNT) {
+
+      DEB_REFCOUNT and do {
         die "\a" if
           ($self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_EVCOUNT] < 0);
-      }
+      };
+
       $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT]--;
-      if (DEB_REFCOUNT) {
+      DEB_REFCOUNT and do {
         warn("--- dispatching event to $event->[ST_SESSION]: ",
              $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT],
              "\n"
             );
         die "\a" if
           ($self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT] < 0);
-      }
+      };
       $self->_dispatch_state(@$event);
       $self->_collect_garbage($event->[ST_SESSION]);
     }
   }
                                         # buh-bye!
-  if (DEB_MAIN) {
+  DEB_MAIN and do {
     warn "POE stopped.\n";
-  }
+  };
                                         # oh, by the way...
-  if (DEB_GC) {
+  DEB_GC and do {
     my $bits;
     if (my $leaked = keys %{$self->[KR_SESSIONS]}) {
       warn "*** KERNEL LEAK: sessions = $leaked\a\n";
@@ -759,6 +802,16 @@ sub run {
     if (my $leaked = keys %{$self->[KR_ALIASES]}) {
       warn "*** KERNEL LEAK: aliases = $leaked\a\n";
     }
+  };
+
+  DEB_PROFILE and do {
+    my $title = ',----- State Profile ';
+    $title .= '-' x (74 - length($title)) . ',';
+    warn $title, "\n";
+    foreach (sort keys %profile) {
+      printf "| %60s %10d |\n", $_, $profile{$_};
+    }
+    warn '`', '-' x 73, "'\n";
   }
 }
 
@@ -766,7 +819,10 @@ sub run {
 
 sub DESTROY {
   my $self = shift;
-  # destroy all sessions - will cascade destruction to all resources
+  # Destroy all sessions.  This will cascade destruction to all
+  # resources.  It's taken care of by Perl's own garbage collection.
+  # For completeness, I suppose a copy of POE::Kernel->run's leak
+  # detection should be included here.
 }
 
 #------------------------------------------------------------------------------
@@ -782,7 +838,8 @@ sub _invoke_state {
         $parent_session = $self
           unless exists $self->[KR_SESSIONS]->{$parent_session};
         $self->_enqueue_state( $parent_session, $self,
-                               EN_SIGNAL, time(), [ 'CHLD', $child_pid, $? ]
+                               EN_SIGNAL, ET_SIGNAL, time(),
+                               [ 'CHLD', $child_pid, $? ]
                              );
       }
       else {
@@ -791,14 +848,16 @@ sub _invoke_state {
     }
 
     if (keys %{$self->[KR_PROCESSES]}) {
-      $self->_enqueue_state($self, $self, EN_SCPOLL, time() + 1);
+      $self->_enqueue_state($self, $self, EN_SCPOLL, ET_SCPOLL, time() + 1);
     }
   }
 
   elsif ($state eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
       unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_HANDLES]})) {
-        $self->_enqueue_state($self, $self, EN_SIGNAL, time(), [ 'ZOMBIE' ]);
+        $self->_enqueue_state( $self, $self, EN_SIGNAL, ET_SIGNAL,
+                               time(), [ 'ZOMBIE' ]
+                             );
       }
     }
   }
@@ -820,24 +879,30 @@ sub session_alloc {
   my ($self, $session, @args) = @_;
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
-  if (DEB_RELATION) {
+  DEB_RELATION and do {
     die "session $session already exists\a"
       if (exists $self->[KR_SESSIONS]->{$session});
-  }
+  };
 
-  $self->_dispatch_state($session, $kr_active_session, EN_START, \@args);
-  $self->_enqueue_state($session, $kr_active_session, EN_GC, time(), []);
+  $self->_dispatch_state( $session, $kr_active_session,
+                          EN_START, ET_START, \@args
+                        );
+  $self->_enqueue_state( $session, $kr_active_session, EN_GC, ET_GC,
+                         time(), []
+                       );
 }
 
 sub session_free {
   my ($self, $session) = @_;
 
-  if (DEB_RELATION) {
+  DEB_RELATION and do {
     die "session $session doesn't exist\a"
       unless (exists $self->[KR_SESSIONS]->{$session});
-  }
+  };
 
-  $self->_dispatch_state($session, $self->[KR_ACTIVE_SESSION], EN_STOP, []);
+  $self->_dispatch_state( $session, $self->[KR_ACTIVE_SESSION],
+                          EN_STOP, ET_STOP, []
+                        );
   $self->_collect_garbage($session);
 }
 
@@ -848,8 +913,8 @@ sub _collect_garbage {
 
     my $ss = $self->[KR_SESSIONS]->{$session};
 
-    if (DEB_GC) {
-      warn ",----- GC test for $session -----\n";
+    DEB_GC and do {
+      warn ",----- GC test for ", $session->ID, " -----\n";
       warn "| ref. count    : $ss->[SS_REFCOUNT]\n";
       warn "| event count   : $ss->[SS_EVCOUNT]\n";
       warn "| child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n";
@@ -857,9 +922,9 @@ sub _collect_garbage {
       warn "| aliases in use: ", scalar(keys(%{$ss->[SS_ALIASES]})), "\n";
       warn "`---------------------------------------------------\n";
       warn "<<< GARBAGE: $session\n" unless ($ss->[SS_REFCOUNT]);
-    }
+    };
 
-    if (DEB_REFCOUNT) {
+    DEB_REFCOUNT and do {
       my $calc_ref = $ss->[SS_EVCOUNT] +
         scalar(keys(%{$ss->[SS_CHILDREN]})) +
         scalar(keys(%{$ss->[SS_HANDLES]})) +
@@ -871,7 +936,7 @@ sub _collect_garbage {
           $_->[SH_VECCOUNT]->[VEC_WR] + $_->[SH_VECCOUNT]->[VEC_EX];
         die if ($calc_ref != $_->[SH_REFCOUNT]);
       }
-    }
+    };
 
     unless ($ss->[SS_REFCOUNT]) {
       $self->session_free($session);
@@ -911,83 +976,122 @@ sub debug_insert {
 }
 
 sub _enqueue_state {
-  my ($self, $session, $source_session, $state, $time, $etc) = @_;
+  my ($self, $session, $source_session, $state, $type, $time, $etc) = @_;
 
-  my $state_to_queue = [ $session, $source_session, $state, $etc, $time ];
+  my $state_to_queue =
+    [ $session, $source_session, $state, $type, $etc, $time ];
 
-  if (DEB_QUEUE) {
+  DEB_QUEUE and do {
     $state_to_queue->[ST_DEB_SEQ]  = ++$queue_seqnum;
-  }
+  };
 
-  if (DEB_EVENTS) {
+  DEB_EVENTS and do {
     warn "}}} enqueuing $state for $session\n";
-  }
+  };
 
   if (exists $self->[KR_SESSIONS]->{$session}) {
     my $kr_states = $self->[KR_STATES];
-    if (@$kr_states) {
-                                        # small queue; linear search
-      if (@$kr_states < 8) {
-        my $index = @$kr_states;
-        while ($index--) {
-          if ($time >= $kr_states->[$index]->[ST_TIME]) {
-            splice(@$kr_states, $index+1, 0, $state_to_queue);
-            last;
-          }
-          elsif ($index == 0) {
-            unshift @$kr_states, $state_to_queue;
-          }
-        }
-      }
-                                        # larger queue; binary search
-      else {
-        my $upper = @$kr_states - 1;
-        my $lower = 0;
-        while ('true') {
-          my $midpoint = ($upper + $lower) >> 1;
 
-          DEB_INSERT &&
-            warn "<<<<< lo($lower)  mid($midpoint)  hi($upper) >>>>>\n";
-
-          if ($upper < $lower) {
-            DEB_INSERT && &debug_insert($kr_states, $lower, $time);
-            splice(@$kr_states, $lower, 0, $state_to_queue);
-            last;
-          }
-                                        # too high
-          if ($time < $kr_states->[$midpoint]->[ST_TIME]) {
-            $upper = $midpoint - 1;
-            next;
-          }
-                                        # too low
-          if ($time > $kr_states->[$midpoint]->[ST_TIME]) {
-            $lower = $midpoint + 1;
-            next;
-          }
-                                        # just right
-          if ($time == $kr_states->[$midpoint]->[ST_TIME]) {
-            while ( ($midpoint < @$kr_states) &&
-                    ($time == $kr_states->[$midpoint]->[ST_TIME])
-            ) {
-              $midpoint++;
-            }
-            DEB_INSERT && &debug_insert($kr_states, $midpoint, $time);
-            splice(@$kr_states, $midpoint, 0, $state_to_queue);
-            last;
-          }
-        }
-      }
-    }
-    else {
+    # Special cases: No states in the queue.  Put the new state in the
+    # queue, and be done with it.
+    unless (@$kr_states) {
       $kr_states->[0] = $state_to_queue;
     }
+
+    # Special case: New state belongs at the end of the queue.  Push
+    # it, and be done with it.
+    elsif ($time >= $kr_states->[-1]->[ST_TIME]) {
+      push @$kr_states, $state_to_queue;
+    }
+
+    # Special case: New state comes before earliest state.  Unshift
+    # it, and be done with it.
+    elsif ($time < $kr_states->[0]->[ST_TIME]) {
+      unshift @$kr_states, $state_to_queue;
+    }
+
+    # Special case: Two states in the queue.  The new state enters
+    # between them.
+    elsif (@$kr_states == 2) {
+      splice(@$kr_states, 1, 0, $state_to_queue);
+    }
+
+    # Small queue.  Perform a reverse linear search on the assumption
+    # that (a) a linear search is fast enough on small queues; and (b)
+    # most events will be posted for "now" which tends to be at the
+    # end of the queue.
+    elsif (@$kr_states < 32) {
+      my $index = @$kr_states;
+      while ($index--) {
+        if ($time >= $kr_states->[$index]->[ST_TIME]) {
+          splice(@$kr_states, $index+1, 0, $state_to_queue);
+          last;
+        }
+        elsif ($index == 0) {
+          unshift @$kr_states, $state_to_queue;
+        }
+      }
+    }
+
+    # And finally, we have this large queue, and the program has
+    # already wasted enough time.
+    else {
+      my $upper = @$kr_states - 1;
+      my $lower = 0;
+      while ('true') {
+        my $midpoint = ($upper + $lower) >> 1;
+
+        DEB_INSERT and do {
+          warn "<<<<< lo($lower)  mid($midpoint)  hi($upper) >>>>>\n";
+        };
+
+        # Upper and lower bounds crossed.  No match; insert at the
+        # lower bound point.
+        if ($upper < $lower) {
+          DEB_INSERT and do {
+            &debug_insert($kr_states, $lower, $time);
+          };
+          splice(@$kr_states, $lower, 0, $state_to_queue);
+          last;
+        }
+
+        # The key at the midpoint is too high.  The element just below
+        # the midpoint becomes the new upper bound.
+        if ($time < $kr_states->[$midpoint]->[ST_TIME]) {
+          $upper = $midpoint - 1;
+          next;
+        }
+
+        # The key at the midpoint is too low.  The element just above
+        # the midpoint becomes the new lower bound.
+        if ($time > $kr_states->[$midpoint]->[ST_TIME]) {
+          $lower = $midpoint + 1;
+          next;
+        }
+
+        # The key matches the one at the midpoint.  Scan towards
+        # higher keys until the midpoint points to an element with a
+        # higher key.  Insert the new state before it.
+        $midpoint++
+          while ( ($midpoint < @$kr_states) 
+                  and ($time == $kr_states->[$midpoint]->[ST_TIME])
+                );
+        DEB_INSERT and do {
+          &debug_insert($kr_states, $midpoint, $time);
+        };
+        splice(@$kr_states, $midpoint, 0, $state_to_queue);
+        last;
+      }
+    }
+
     $self->[KR_SESSIONS]->{$session}->[SS_EVCOUNT]++;
     $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT]++;
-    if (DEB_REFCOUNT) {
+
+    DEB_REFCOUNT and do {
       warn("+++ enqueuing state for $session: ",
            $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT], "\n"
           );
-    }
+    };
   }
   else {
     warn ">>>>> ", join('; ', keys(%{$self->[KR_SESSIONS]})), " <<<<<\n";
@@ -1002,15 +1106,15 @@ sub _enqueue_state {
 sub post {
   my ($self, $destination, $state_name, @etc) = @_;
   if (defined($destination = $self->alias_resolve($destination))) {
-    $self->_enqueue_state($destination, $self->[KR_ACTIVE_SESSION],
-                          $state_name, time(), \@etc
+    $self->_enqueue_state( $destination, $self->[KR_ACTIVE_SESSION],
+                           $state_name, ET_USER, time(), \@etc
                          );
     return 1;
   }
-  if (DEB_STRICT) {
+  DEB_STRICT and do {
     warn "Cannot resolve alias $destination for session\n";
     confess;
-  }
+  };
   return undef;
 }
 
@@ -1020,8 +1124,9 @@ sub post {
 sub yield {
   my ($self, $state_name, @etc) = @_;
 
-  $self->_enqueue_state($self->[KR_ACTIVE_SESSION], $self->[KR_ACTIVE_SESSION],
-                        $state_name, time(), \@etc
+  $self->_enqueue_state( $self->[KR_ACTIVE_SESSION],
+                         $self->[KR_ACTIVE_SESSION],
+                         $state_name, ET_USER, time(), \@etc
                        );
 }
 
@@ -1033,16 +1138,37 @@ sub call {
   if (defined($destination = $self->alias_resolve($destination))) {
     my $retval = $self->_dispatch_state( $destination,
                                          $self->[KR_ACTIVE_SESSION],
-                                         $state_name, \@etc
+                                         $state_name, ET_USER, \@etc
                                        );
     $! = 0;
     return $retval;
   }
-  if (DEB_STRICT) {
+  DEB_STRICT and do {
     warn "Cannot resolve alias $destination for session\n";
     confess;
-  }
+  };
   return undef;
+}
+
+#------------------------------------------------------------------------------
+# Peek at pending alarms.  Returns a list of pending alarms.
+
+sub queue_peek_alarms {
+  my ($self) = @_;
+  my @pending_alarms;
+
+  my $kr_active_session = $self->[KR_ACTIVE_SESSION];
+  my $state_count = $self->[KR_SESSIONS]->{$kr_active_session}->[SS_EVCOUNT];
+
+  foreach my $state (@{$self->[KR_STATES]}) {
+    last unless $state_count;
+    next unless $state->[ST_SESSION] eq $kr_active_session;
+    next unless $state->[ST_SESSION]->[ST_TYPE] & ET_ALARM;
+    push @pending_alarms, $state->[ST_NAME];
+    $state_count--;
+  }
+
+  @pending_alarms;
 }
 
 #==============================================================================
@@ -1055,20 +1181,21 @@ sub alarm {
                                         # remove alarm (all instances)
   my $index = scalar(@{$self->[KR_STATES]});
   while ($index--) {
-    if (($self->[KR_STATES]->[$index]->[ST_SESSION] eq $kr_active_session) &&
-        ($self->[KR_STATES]->[$index]->[ST_NAME] eq $state)
+    if ( ($self->[KR_STATES]->[$index]->[ST_SESSION] eq $kr_active_session) &&
+         ($self->[KR_STATES]->[$index]->[ST_TYPE] & ET_ALARM) &&
+         ($self->[KR_STATES]->[$index]->[ST_NAME] eq $state)
     ) {
       $self->[KR_SESSIONS]->{$kr_active_session}->[SS_EVCOUNT]--;
-      if (DEB_REFCOUNT) {
+      DEB_REFCOUNT and do {
         die if ($self->[KR_SESSIONS]->{$kr_active_session}->[SS_EVCOUNT] < 0);
-      }
+      };
       $self->[KR_SESSIONS]->{$kr_active_session}->[SS_REFCOUNT]--;
-      if (DEB_REFCOUNT) {
+      DEB_REFCOUNT and do {
         warn("--- removing alarm for $kr_active_session: ",
              $self->[KR_SESSIONS]->{$kr_active_session}->[SS_REFCOUNT], "\n"
             );
         die if ($self->[KR_SESSIONS]->{$kr_active_session}->[SS_REFCOUNT] < 0);
-      }
+      };
       splice(@{$self->[KR_STATES]}, $index, 1);
     }
   }
@@ -1077,8 +1204,8 @@ sub alarm {
     if ($time < (my $now = time())) {
       $time = $now;
     }
-    $self->_enqueue_state($kr_active_session, $kr_active_session,
-                          $state, $time, [ @etc ]
+    $self->_enqueue_state( $kr_active_session, $kr_active_session,
+                           $state, ET_ALARM, $time, [ @etc ]
                          );
   }
 }
@@ -1123,9 +1250,10 @@ sub _internal_select {
       }
 
 # This depends heavily on socket.ph, or somesuch.  It's way
-# unportable.
-#      setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
-#        or die "Couldn't disable Nagle's algorithm: $!\a\n";
+# unportable.  I can't begin to figure out a way to make this work
+# everywhere, so I'm not even going to try.
+#       setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
+#         or die "Couldn't disable Nagle's algorithm: $!\a\n";
 
                                         # turn off buffering
       select((select($handle), $| = 1)[0]);
@@ -1146,11 +1274,11 @@ sub _internal_select {
     unless (exists $kr_session->[SS_HANDLES]->{$handle}) {
       $kr_session->[SS_HANDLES]->{$handle} = [ $handle, 0, [ 0, 0, 0 ] ];
       $kr_session->[SS_REFCOUNT]++;
-      if (DEB_REFCOUNT) {
+      DEB_REFCOUNT and do {
         warn("+++ added select for $session: ",
              $kr_session->[SS_REFCOUNT], "\n"
             );
-      }
+      };
     }
 
     my $ss_handle = $kr_session->[SS_HANDLES]->{$handle};
@@ -1167,16 +1295,16 @@ sub _internal_select {
       if (exists $kr_handle->[HND_SESSIONS]->[$select_index]->{$session}) {
         delete $kr_handle->[HND_SESSIONS]->[$select_index]->{$session};
         $kr_handle->[HND_VECCOUNT]->[$select_index]--;
-        if (DEB_REFCOUNT) {
+        DEB_REFCOUNT and do {
           die if ($kr_handle->[HND_VECCOUNT]->[$select_index] < 0);
-        }
+        };
         unless ($kr_handle->[HND_VECCOUNT]->[$select_index]) {
           vec($self->[KR_VECTORS]->[$select_index], fileno($handle), 1) = 0;
         }
         $kr_handle->[HND_REFCOUNT]--;
-        if (DEB_REFCOUNT) {
+        DEB_REFCOUNT and do {
           die if ($kr_handle->[HND_REFCOUNT] < 0);
-        }
+        };
         unless ($kr_handle->[HND_REFCOUNT]) {
           delete $kr_handles->{$handle};
         }
@@ -1189,18 +1317,18 @@ sub _internal_select {
       if ($ss_handle->[SH_VECCOUNT]->[$select_index]) {
         $ss_handle->[SH_VECCOUNT]->[$select_index] = 0;
         $ss_handle->[SH_REFCOUNT]--;
-        if (DEB_REFCOUNT) {
+        DEB_REFCOUNT and do {
           die if ($ss_handle->[SH_REFCOUNT] < 0);
-        }
+        };
         unless ($ss_handle->[SH_REFCOUNT]) {
           delete $kr_session->[SS_HANDLES]->{$handle};
           $kr_session->[SS_REFCOUNT]--;
-          if (DEB_REFCOUNT) {
+          DEB_REFCOUNT and do {
             warn("--- removed select for $session: ",
                  $kr_session->[SS_REFCOUNT], "\n"
                 );
             die if ($kr_session->[SS_REFCOUNT] < 0);
-          }
+          };
         }
       }
     }
@@ -1249,11 +1377,11 @@ sub alias_set {
   $self->[KR_ALIASES]->{$name} = $kr_active_session;
   $self->[KR_SESSIONS]->{$kr_active_session}->[SS_ALIASES]->{$name} = 1;
   $self->[KR_SESSIONS]->{$kr_active_session}->[SS_REFCOUNT]++;
-  if (DEB_REFCOUNT) {
+  DEB_REFCOUNT and do {
     warn("+++ added alias for $kr_active_session: ",
          $self->[KR_SESSIONS]->{$kr_active_session}->[SS_REFCOUNT], "\n"
         );
-  }
+  };
   return 1;
 }
 
@@ -1262,12 +1390,12 @@ sub _internal_alias_remove {
   delete $self->[KR_ALIASES]->{$name};
   delete $self->[KR_SESSIONS]->{$session}->[SS_ALIASES]->{$name};
   $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT]--;
-  if (DEB_REFCOUNT) {
+  DEB_REFCOUNT and do {
     warn("--- removed alias for $session: ",
          $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT], "\n"
         );
     die if ($self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT] < 0);
-  }
+  };
 }
 
 sub alias_remove {
@@ -1369,7 +1497,7 @@ sub fork {
     # Went from 0 to 1 child processes; start a poll loop.  This uses
     # a very raw, basic form of POE::Kernel::delay.
     if (keys(%{$self->[KR_PROCESSES]}) == 1) {
-      $self->_enqueue_state($self, $self, EN_SCPOLL, time() + 1);
+      $self->_enqueue_state($self, $self, EN_SCPOLL, ET_SCPOLL, time() + 1);
     }
 
     return( $new_pid, 0, 0 ) if wantarray;
@@ -1451,7 +1579,8 @@ POE::Kernel - POE Event Queue and Resource Manager
   # Event management methods:
   $kernel->post( $session, $state, @args );
   $kernel->yield( $state, @args );
-  $kernel->call( $session, $state, @args );
+  $state_retval = $kernel->call( $session, $state, @args );
+  @alarms = $kernel->queue_peek_alarms( );
 
   # Alarms and timers:
   $kernel->alarm( $state, $time, @args );
@@ -1477,7 +1606,7 @@ POE::Kernel - POE Event Queue and Resource Manager
   $kernel->signal( $session, $signal_name ); # Posts a signal.
 
   # Processes.
-  $kernel->fork();   # "Safe" fork that polls for SIGCHLD.
+  $fork_retval = $kernel->fork();   # "Safe" fork that polls for SIGCHLD.
 
   # States:
   $kernel->state( $state_name, $code_reference );    # Inline state
@@ -1489,9 +1618,9 @@ POE::Kernel - POE Event Queue and Resource Manager
                 );
 
   # IDs:
-  $kernel->ID();                       # Return the Kernel's unique ID.
-  $kernel->ID_id_to_session($id);      # Return undef, or the ID's session.
-  $kernel->ID_session_to_id($session); # Return undef, or the session's ID.
+  $id = $kernel->ID();                       # Return the Kernel's unique ID.
+  $id = $kernel->ID_id_to_session($id);      # Return undef, or a session.
+  $id = $kernel->ID_session_to_id($session); # Return undef, or a session's ID.
 
 =head1 DESCRIPTION
 
@@ -1618,6 +1747,13 @@ if the called state returns success.  What a mess.  call() also sets
 $! to 0 on success, regardless of what it's set to in the called
 state.
 
+=item *
+
+POE::Kernel::queue_peek_alarms()
+
+Peeks at the current session's event queue, returning a list of
+pending alarms.  The list is empty if no alarms are pending.
+
 =back
 
 =head2 Alarm Management Methods
@@ -1646,6 +1782,8 @@ Alarms are keyed by state name.  That is, there can be only one
 pending alarm for any given state.  This is a design bug, and there
 are plans to fix it.
 
+@args are passed to the alarm handler as C<@_[ARG0..$#_]>.
+
 It is possible to remove an alarm that hasn't yet been dispatched:
 
   $kernel->alarm( $state ); # Removes the alarm for $state
@@ -1653,10 +1791,8 @@ It is possible to remove an alarm that hasn't yet been dispatched:
 Subsequent alarms set for the same name will overwrite previous ones.
 This is useful for timeout timers that must be continually refreshed.
 
-The alarm() method can be misused to remove events from the kernel's
-queue.  This happens because alarms are merely events scheduled for a
-future time.  This behavior is considered to be a bug, and there are
-plans to fix it.
+As of version 0.0904, the alarm() function will only remove alarms.
+Other types of events will remain in the queue.
 
 =item *
 
@@ -1676,8 +1812,8 @@ parameters:
 
   $kernel->delay( $state ); # Removes the delay for $state
 
-And delay() can be misused to remove events from the kernel's queue.
-Please see POE::Kernel::alarm() for more information.
+As of version 0.0904, the delay() function will only remove alarms.
+Other types of events will remain in the queue.
 
 =back
 

@@ -8,6 +8,45 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
+0.0904 2000.02.09
+-----------------
+
+Replaced some lame hosts with some interesting routers in the
+poing.perl sample.  For values of lame and interesting.  Added some
+code to read configuration options from ~/.poingrc (or default to the
+options after __END__) so I can change options to my heart's content
+without annoying anyone.
+
+Gabriel Kihlman <joshua.haninge.kth.se!gk> found a race in
+SocketFactory's connect error detection.  Changed the way errors are
+detected during connection, removing an entire state in the process.
+People from Connecticut should let me know if this is a problem. :)
+
+Added a brief note about _signal and _default signal-handling
+semantics in POE::Session, with a pointer to the more comprehensive
+POE::Kernel signal discussion.
+
+Separated alarms from plain events.  Made the plain event queue FIFO;
+the alarm queue time ordered.  Posting and dispatching events should
+be faster, since they would not need to binary seek and insert.  This
+turned out to be false, because the constant overhead of checking two
+queues greatly offset any increased post/dispatch efficiency.  Backed
+this "optimization" out.
+
+Benchmarked several different "switch" implementations, only to find
+out that if/elsif/else is fastest anyway.
+
+Added internal event types within POE::Kernel.  The only thing anyone
+will ever notice is a little better performance.
+
+Fixed POE::Kernel->alarm() and POE::Kernel->delay() to make use of the
+new internal event types.  Now these two functions can only discard
+alarm events.  Documented the change.
+
+Added POE::Kernel::queue_peek_alarms, which returns the pending alarm
+events queued for the current session.
+
+
 0.0903 2000.02.08 (!!!)
 -----------------------
 

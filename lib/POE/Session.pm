@@ -6,11 +6,14 @@ use strict;
 use Carp;
 use POSIX qw(ENOSYS);
 
-use Exporter;
-@POE::Session::ISA = qw(Exporter);
-@POE::Session::EXPORT = qw(OBJECT SESSION KERNEL HEAP STATE SENDER
-                           ARG0 ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9
-                          );
+sub SE_NAMESPACE () { 0 }
+sub SE_OPTIONS   () { 1 }
+sub SE_STATES    () { 2 }
+
+sub DEB_DESTROY  () { 0 }
+
+#------------------------------------------------------------------------------
+# Export constants into calling packages.  This is evil.
 
 sub OBJECT  () {  0 }
 sub SESSION () {  1 }
@@ -29,10 +32,11 @@ sub ARG7    () { 13 }
 sub ARG8    () { 14 }
 sub ARG9    () { 15 }
 
-sub SE_NAMESPACE () { 0 }
-sub SE_OPTIONS   () { 1 }
-sub SE_KERNEL    () { 2 }
-sub SE_STATES    () { 3 }
+use Exporter;
+@POE::Session::ISA = qw(Exporter);
+@POE::Session::EXPORT = qw( OBJECT SESSION KERNEL HEAP STATE SENDER
+                            ARG0 ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9
+                          );
 
 #------------------------------------------------------------------------------
 
@@ -50,7 +54,6 @@ sub new {
   my $self = bless [ ], $type;
   $self->[SE_NAMESPACE] = { };
   $self->[SE_OPTIONS  ] = { };
-  $self->[SE_KERNEL   ] = undef;
   $self->[SE_STATES   ] = { };
 
   while (@states) {
@@ -159,7 +162,6 @@ sub create {
   my $self = bless [ ], $type;
   $self->[SE_NAMESPACE] = { };
   $self->[SE_OPTIONS  ] = { };
-  $self->[SE_KERNEL   ] = undef;
   $self->[SE_STATES   ] = { };
 
   if (exists $params{'args'}) {
@@ -195,6 +197,7 @@ sub create {
         $self->register_state($state, $handler);
       }
     }
+
     elsif ($_ eq 'package_states') {
       croak "$_ does not refer to an array" unless (ref($states) eq 'ARRAY');
       croak "the array for $_ has an odd number of elements" if (@$states & 1);
@@ -266,7 +269,26 @@ sub create {
 
 sub DESTROY {
   my $self = shift;
-  # -><- clean out things
+
+  # Session's data structures are destroyed through Perl's usual
+  # garbage collection.  DEB_DESTROY here just shows what's in the
+  # session before the destruction finishes.
+
+  DEB_DESTROY and do {
+    print "----- Session $self Leak Check -----\n";
+    print "-- Namespace (HEAP):\n";
+    foreach (sort keys (%{$self->[SE_NAMESPACE]})) {
+      print "   $_ = ", $self->[SE_NAMESPACE]->{$_}, "\n";
+    }
+    print "-- Options:\n";
+    foreach (sort keys (%{$self->[SE_OPTIONS]})) {
+      print "   $_ = ", $self->[SE_OPTIONS]->{$_}, "\n";
+    }
+    print "-- States:\n";
+    foreach (sort keys (%{$self->[SE_STATES]})) {
+      print "   $_ = ", $self->[SE_STATES]->{$_}, "\n";
+    }
+  };
 }
 
 #------------------------------------------------------------------------------
@@ -355,7 +377,7 @@ sub register_state {
         carp $self->id, " : state($state) is not a proper ref - not registered"
       }
       else {
-        croak "object $handler does not have a '$state' method"
+        croak "object $handler does not have a '$method' method"
           unless ($handler->can($method));
       }
     }
@@ -752,6 +774,10 @@ Another way to grab the arguments, no matter how many there are, is:
 
   my @args = @_[ARG0..$#_];
 
+... or...
+
+  &something($_) foreach (@_[ARG0..$#_]);
+
 =back
 
 =head1 CUSTOM EVENTS AND PARAMETERS
@@ -828,7 +854,8 @@ guarantees that every session receives them.
 
 POE does not yet magically solve Perl's problems with signals.
 Namely, perl tends to dump core if it keeps receiving signals.  That
-has a detrimental effect on programs that expect long uptimes.
+has a detrimental effect on programs that expect long uptimes, to say
+the least.
 
 There are a few kinds of signals.  The kernel processes each kind
 differently:
@@ -848,6 +875,12 @@ sessions.  ARG0 contains the signal name as it appears in %SIG.
 
 SIGWINCH is ignored.  Resizing an xterm causes a bunch of these,
 quickly killing perl.
+
+Signal handlers' return values tell POE whether signals have been
+handled.  Returning true tells POE the signal was absorbed; returning
+false tells POE it wasn't.  This is only a factor with so-called
+"terminal" signals, which are explained in the POE::Kernel manpage.
+Basically: Sessions that don't handle terminal signals are stopped.
 
 =item *
 
@@ -923,6 +956,11 @@ B<_signal> event for more information.
 
 The B<_default> state can be used to catch misspelled events, but
 $session->option('default',1) may be better.
+
+Be careful: The B<_default> handler will catch signals, and its return
+value will be used as an indicator of whether signals have been
+handled.  It's easy to create programs that must be kill -KILL'ed this
+way.
 
 =back
 

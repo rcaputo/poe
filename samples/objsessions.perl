@@ -31,7 +31,7 @@ sub new {
 
 #------------------------------------------------------------------------------
 # This is a normal Perl object method.  It destroys a Counter object,
-# doing any late cleanup on the object.  This is different that the
+# doing any late cleanup on the object.  This is different than the
 # _stop event handler, which handles late cleanup on the object's
 # Session.
 
