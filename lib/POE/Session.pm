@@ -1174,8 +1174,11 @@ C<handler_twelve()> method.
 
 =item new LOTS_OF_STUFF
 
-WARNING: C<new()> will be deprecated as per POE's roadmap, the actual
-schedule can be seen at http://poe.perl.org/?POE_RFCs/Change_procedures
+WARNING: C<new()> will be deprecated as per POE's roadmap.  The actual
+schedule can be seen at
+L<http://poe.perl.org/?POE_RFCs/Change_procedures>.
+You can track the deprecation by visiting
+L<http://rt.cpan.org/Ticket/Display.html?id=8462>.
 
 C<new()> is Session's older constructor.  Its design was clever at the
 time, but it didn't expand well.  It's still useful for quick one-line
