@@ -154,7 +154,9 @@ sub KR_SIZE           () { 13 } #   XXX UNUSED ???
 # This flag indicates that POE::Kernel's run() method was called.
 # It's used to warn about forgetting $poe_kernel->run().
 
-my $kr_run_was_called = 0;
+sub KR_RUN_CALLED  () { 0x01 }  # $kernel->run() called
+sub KR_RUN_SESSION () { 0x02 }  # sessions created
+my $kr_run_warning = 0;
 
 #------------------------------------------------------------------------------
 # Session structure.
@@ -1425,7 +1427,7 @@ sub run {
   my $self = $poe_kernel;
 
   # Flag that run() was called.
-  $kr_run_was_called++;
+  $kr_run_warning |= KR_RUN_CALLED;
 
   {% substrate_main_loop %}
 
@@ -1442,7 +1444,9 @@ sub DESTROY {
   # detection could be included here.
 
   warn "POE::Kernel's run() method was never called.\n"
-    unless $kr_run_was_called;
+    if ( ($kr_run_warning & KR_RUN_SESSION) and not
+         ($kr_run_warning & KR_RUN_CALLED)
+       );
 }
 
 #------------------------------------------------------------------------------
@@ -1568,6 +1572,9 @@ sub session_alloc {
     die {% ssid %}, " already exists\a"
       if (exists $kr_sessions{$session});
   }
+
+  # Register that a session was created.
+  $kr_run_warning |= KR_RUN_SESSION;
 
   $self->_dispatch_event
     ( $session, $kr_active_session,
