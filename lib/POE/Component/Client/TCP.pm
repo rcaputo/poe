@@ -47,9 +47,13 @@ sub new {
   my $bind_address = delete $param{BindAddress};
   my $bind_port    = delete $param{BindPort};
   my $ctimeout     = delete $param{ConnectTimeout};
+  my $args         = delete $param{Args};
+
+  $args = [] unless defined $args;
+  croak "Args must be an array reference" unless ref($args) eq "ARRAY";
 
   foreach ( qw( Connected ConnectError Disconnected ServerInput
-                ServerError ServerFlushed
+                ServerError ServerFlushed Started
               )
           ) {
     croak "$_ must be a coderef"
@@ -62,6 +66,7 @@ sub new {
   my $input_callback      = delete $param{ServerInput};
   my $error_callback      = delete $param{ServerError};
   my $flush_callback      = delete $param{ServerFlushed};
+  my $start_callback      = delete $param{Started};
   my $filter              = delete $param{Filter};
 
   # Extra states.
@@ -106,6 +111,7 @@ sub new {
   $disc_callback  = sub {} unless defined $disc_callback;
   $conn_callback  = sub {} unless defined $conn_callback;
   $flush_callback = sub {} unless defined $flush_callback;
+  $start_callback = sub {} unless defined $start_callback;
 
   # Spawn the session that makes the connection and then interacts
   # with what was connected to.
@@ -117,6 +123,7 @@ sub new {
           $heap->{shutdown_on_error} = 1;
           $kernel->alias_set( $alias ) if defined $alias;
           $kernel->yield( 'reconnect' );
+          $start_callback->(@_);
         },
 
         # To quiet ASSERT_STATES.
@@ -232,6 +239,9 @@ sub new {
         %$inline_states,
       },
 
+      # User arguments.
+      args => $args,
+
       # User supplied states.
       package_states => $package_states,
       object_states  => $object_states,
@@ -285,8 +295,9 @@ POE::Component::Client::TCP - a simplified TCP client
       RemotePort     => "chargen",
       BindAddress    => "127.0.0.1",
       BindPort       => 8192,
-      Domain         => AF_INET,     # Optional.
-      ConnectTimeout => 5,           # Seconds; optional.
+      Domain         => AF_INET,  # Optional.
+      ConnectTimeout => 5,        # Seconds; optional.
+      Args           => [ "arg0", "arg1" ],  # Optional.
 
       Connected      => \&handle_connect,
       ConnectError   => \&handle_connect_error,
@@ -304,6 +315,10 @@ POE::Component::Client::TCP - a simplified TCP client
     );
 
   # Sample callbacks.
+
+  sub handle_start {
+    my @args = @_[ARG0..$#_];
+  }
 
   sub handle_connect {
     my ($socket, $peer_address, $peer_port) = @_[ARG0, ARG1, ARG2];
@@ -365,6 +380,12 @@ Alias is an optional component alias.  It's used to post events to the
 TCP client component from other sessions.  The most common use of
 Alias is to allow a client component to receive "shutdown" and
 "reconnect" events from a user interface session.
+
+=item Args LISTREF
+
+Args passes the contents of a LISTREF to the Started callback via
+@_[ARG0..$#_].  It allows you to pass extra information to the session
+created to handle the client connection.
 
 =item BindAddress
 
@@ -517,6 +538,15 @@ parameter.
 
 The ServerInput function will stop being called when $heap->{shutdown}
 is true.
+
+=item Start
+
+Start is an optional callback.  It is called after Client::TCP is
+initialized but before a connection has been established.
+
+The Args parameter can be used to pass initialization values to the
+Start callback, eliminating the need for closures to get values into
+the component.
 
 =back
 
