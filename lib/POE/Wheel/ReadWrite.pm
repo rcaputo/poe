@@ -299,31 +299,73 @@ sub _define_read_state {
 
     # If any of these change, then the read state is invalidated and
     # needs to be redefined.
-    my $driver       = $self->[DRIVER_BOTH];
-    my $input_filter = $self->[FILTER_INPUT];
+
+    my $driver       = \$self->[DRIVER_BOTH];
+    my $input_filter = \$self->[FILTER_INPUT];
     my $event_input  = \$self->[EVENT_INPUT];
     my $event_error  = \$self->[EVENT_ERROR];
     my $unique_id    = $self->[UNIQUE_ID];
 
-    $poe_kernel->state
-      ( $self->[STATE_READ] = $self . ' select read',
-        sub {
-                                        # prevents SEGV
-          0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          if (defined(my $raw_input = $driver->get($handle))) {
-            foreach my $cooked_input (@{$input_filter->get($raw_input)}) {
-              $k->call($me, $$event_input, $cooked_input, $unique_id);
+    # If the filter can get_one, then define the input state in terms
+    # of get_one_start() and get_one().
+
+    if ( $$input_filter->can('get_one') and
+         $$input_filter->can('get_one_start')
+       ) {
+      $poe_kernel->state
+        ( $self->[STATE_READ] = $self . ' select read',
+          sub {
+
+            # Protects against coredump on older perls.
+            0 && CRIMSON_SCOPE_HACK('<');
+
+            # The actual code starts here.
+            my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+            if (defined(my $raw_input = $$driver->get($handle))) {
+              $$input_filter->get_one_start($raw_input);
+              while (1) {
+                my $next_rec = $$input_filter->get_one();
+                last unless @$next_rec;
+                foreach my $cooked_input (@$next_rec) {
+                  $k->call($me, $$event_input, $cooked_input, $unique_id);
+                }
+              }
+            }
+            else {
+              $$event_error and
+                $k->call( $me, $$event_error, 'read', ($!+0), $!, $unique_id );
+              $k->select_read($handle);
             }
           }
-          else {
-            $$event_error and
-              $k->call( $me, $$event_error, 'read', ($!+0), $!, $unique_id );
-            $k->select_read($handle);
+        );
+    }
+
+    # Otherwise define the input state in terms of the older, less
+    # robust, yet faster get().
+
+    else {
+      $poe_kernel->state
+        ( $self->[STATE_READ] = $self . ' select read',
+          sub {
+
+            # Protects against coredump on older perls.
+            0 && CRIMSON_SCOPE_HACK('<');
+
+            # The actual code starts here.
+            my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+            if (defined(my $raw_input = $$driver->get($handle))) {
+              foreach my $cooked_input (@{$$input_filter->get($raw_input)}) {
+                $k->call($me, $$event_input, $cooked_input, $unique_id);
+              }
+            }
+            else {
+              $$event_error and
+                $k->call( $me, $$event_error, 'read', ($!+0), $!, $unique_id );
+              $k->select_read($handle);
+            }
           }
-        }
-      );
+        );
+    }
                                         # register the state's select
     $poe_kernel->select_read($self->[HANDLE_INPUT], $self->[STATE_READ]);
   }
