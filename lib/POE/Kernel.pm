@@ -957,6 +957,34 @@ sub run {
   $kr_run_warning |= KR_RUN_DONE;
 }
 
+# Stops the kernel cold
+# No events happen as a result of this, all structures are
+# cleaned up except the current session which will be cleaned
+# up when the current state handler returns
+# XXX Experimental
+sub stop {
+  # So stop() can be called as a class method.
+  my $self = $poe_kernel;
+
+  my @children = ($self);
+  foreach my $session (@children) {
+    push @children, $self->_data_ses_get_children($session);
+  }
+
+  # Remove the kernel itself.
+  shift @children;
+
+  # Walk backwards to avoid inconsistency errors.
+  foreach my $session (reverse @children) {
+    $self->_data_ses_free($session);
+  }
+
+  # So new sessions will not be child of the current defunct session.
+  $kr_active_session = $self;
+
+  undef;
+}
+
 #------------------------------------------------------------------------------
 
 sub DESTROY {
@@ -2370,6 +2398,28 @@ It may also be called as class method.
   POE::Kernel->run();
 
 The run() method does not return a meaningful value.
+
+=item stop
+
+stop() forcibly stops the kernel.  The event queue is emptied, all
+resources are released, and all sessions are deallocated.
+POE::Kernel's run() method returns as if everything ended normally,
+which is a lie.
+
+B<This function has a couple serious caveats.  Use it with caution.>
+
+The session running when stop() is called will not fully destruct
+until it returns.  If you think about it, there's at least a reference
+to the session in its call stack, plus POE::Kernel is holding onto at
+least one reference so it can invoke the session.
+
+Sessions are not notified about their destruction.  If anything relies
+on _stop being delivered, it will break and/or leak memory.
+
+stop() has been added as an B<experimental> function to support
+forking child kernels with POE::Wheel::Run.  We may remove it without
+notice if it becomes really icky.  If you have good uses for it,
+please mention them on POE's mailing list.
 
 =back
 

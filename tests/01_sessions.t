@@ -12,7 +12,7 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-test_setup(30);
+test_setup(43);
 
 use POE;
 
@@ -475,6 +475,141 @@ for (0..7) {
   print 'not ' unless $objpack[$_] == $event_count;
   print 'ok ', $_ + 23, "\n";
 }
+
+my $sessions_destroyed = 0;
+my $objects_destroyed = 0;
+my $stop_called = 0;
+my $parent_called = 0;
+my $child_called = 0;
+
+package POE::MySession;
+
+use vars qw(@ISA);
+
+use POE::Session;
+@ISA = qw(POE::Session);
+
+sub DESTROY {
+  $_[0]->SUPER::DESTROY;
+  $sessions_destroyed++;
+}
+
+package MyObject;
+
+sub new { bless {} }
+sub DESTROY { $objects_destroyed++ }
+
+package main;
+
+POE::MySession->new(
+  _start => sub {
+    $_[HEAP]->{object} = MyObject->new;
+    POE::MySession->new(
+      _start => sub {
+        $_[HEAP]->{object} = MyObject->new;
+        POE::MySession->new(
+          _start => sub {
+            $_[HEAP]->{object} = MyObject->new;
+            POE::MySession->new(
+              _start => sub {
+                $_[HEAP]->{object} = MyObject->new;
+                $_[KERNEL]->delay(nonexistent => 3600);
+                $_[KERNEL]->alias_set('test4');
+              },
+              _parent => sub {
+                $parent_called++;
+              },
+              _child => sub { }, # To shush ASSERT
+              _stop => sub {
+                $stop_called++;
+              },
+            ),
+            $_[KERNEL]->delay(nonexistent => 3600);
+            $_[KERNEL]->alias_set('test3');
+          },
+          _parent => sub {
+            $parent_called++;
+          },
+          _child => sub {
+            $child_called++ if $_[ARG0] eq 'lose';
+          },
+          _stop => sub {
+            $stop_called++;
+          },
+        ),
+        $_[KERNEL]->delay(nonexistent => 3600);
+        $_[KERNEL]->alias_set('test2');
+      },
+      _parent => sub {
+        $parent_called++;
+      },
+      _child => sub {
+        $child_called++ if $_[ARG0] eq 'lose';
+      },
+      _stop => sub {
+        $stop_called++;
+      },
+    ),
+    $_[KERNEL]->delay(nonexistent => 3600);
+    $_[KERNEL]->alias_set('test1');
+    $_[KERNEL]->yield("stop");
+  },
+  _parent => sub {
+    $parent_called++;
+  },
+  _child => sub {
+    $child_called++ if $_[ARG0] eq 'lose';
+  },
+  _stop => sub {
+    $stop_called++;
+  },
+  stop => sub {
+    POE::Kernel->stop();
+    print 'not ' unless $sessions_destroyed == 3;
+    print "ok 31\n";
+    print 'not ' unless $objects_destroyed == 3;
+    print "ok 32\n";
+  }
+);
+
+$poe_kernel->run;
+print 'not ' unless $stop_called == 0;
+print "ok 33\n";
+print 'not ' unless $child_called == 0;
+print "ok 34\n";
+print 'not ' unless $parent_called == 0;
+print "ok 35\n";
+print 'not ' unless $sessions_destroyed == 4;
+print "ok 36\n";
+print 'not ' unless $objects_destroyed == 4;
+print "ok 37\n";
+
+# This simple session just makes sure we can start another Session and
+# another Kernel.  If all goes well, it'll dispatch some events and
+# exit normally.
+
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      print "ok 38\n";
+      $_[KERNEL]->yield("woot");
+      $_[KERNEL]->delay(narf => 1);
+    },
+    woot => sub {
+      print "ok 40\n";
+    },
+    narf => sub {
+      print "ok 41\n";
+    },
+    _stop => sub {
+      print "ok 42\n";
+    },
+  }
+);
+
+print "ok 39\n";
+POE::Kernel->run();
+print "ok 43\n";
 
 exit;
 
