@@ -1,7 +1,7 @@
 # $Id$
 
 # Filter::Reference partial copyright 1998 Artur Bergman
-# <artur@vogon-solutions.com>.
+# <artur@vogon-solutions.com>.  Partial copyright 1999 Philip Gwyn.
 
 # Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
 # This program is free software; you can redistribute it and/or modify
@@ -10,31 +10,55 @@
 package POE::Filter::Reference;
 
 use strict;
+use Carp;
 
-BEGIN {
+#------------------------------------------------------------------------------
+# Try to require one of the default freeze/thaw packages.
+
+sub _default_freezer
+{
   local $SIG{'__DIE__'} = 'DEFAULT';
-  eval {
-    require Storable;
-    import Storable qw(nfreeze thaw);
-    *freeze = *nfreeze;
-  };
-  if ($@ ne '') {
-    eval {
-      require FreezeThaw;
-      import FreezeThaw qw(freeze thaw);
-    };
+  my $ret;
+
+  foreach my $p (qw(Storable FreezeThaw)) {
+    eval { require "$p.pm"; import $p ();};
+    warn $@ if $@;
+    return $p if $@ eq '';
   }
-  if ($@ ne '') {
-    die "Filter::Reference requires Storable or FreezeThaw";
-  }
+  die "Filter::Reference requires Storable or FreezeThaw";
 }
 
 #------------------------------------------------------------------------------
 
-sub new {
-  my $type = shift;
+sub new 
+{
+  my($type, $freezer) = @_;
+  $freezer||=_default_freezer();
+                                        # not a reference... maybe a package?
+    unless(ref $freezer) {
+      unless(exists $::{$freezer.'::'}) {
+        eval {require "$freezer.pm"; import $freezer ();};
+        croak $@ if $@;
+      }
+    }
+
+  # Now get the methodes we want
+  my $freeze=$freezer->can('freeze') || $freezer->can('nfreeze');
+  carp "$freezer doesn't have a freeze method" unless $freeze;
+  my $thaw=$freezer->can('thaw');
+  carp "$freezer doesn't have a thaw method" unless $thaw;
+
+
+  # If it's an object, we use closures to create a $self->method()
+  my $tf=$freeze;
+  my $tt=$thaw;
+  if(ref $freezer) {
+    $tf=sub {$freeze->($freezer, @_)};
+    $tt=sub {$thaw->($freezer, @_)};
+  }
   my $self = bless { 'framing buffer' => '',
-                     'expecting' => 0
+                     'expecting' => 0,
+                     'thaw'=>$tt, 'freeze'=>$tf,
                    }, $type;
   $self;
 }
@@ -57,7 +81,7 @@ sub get {
          )
   ) {
     last unless ($self->{'framing buffer'} =~ s/^(.{$self->{'expecting'}})//s);
-    push @return, thaw($1);
+    push @return, $self->{thaw}->($1);
     $self->{'expecting'} = 0;
   }
 
@@ -70,7 +94,7 @@ sub get {
 sub put {
   my ($self, $references) = @_;
   my @raw = map {
-    my $frozen = freeze($_);
+    my $frozen = $self->{freeze}->($_);
     length($frozen) . "\0" . $frozen;
   } @$references;
   \@raw;

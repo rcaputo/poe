@@ -37,6 +37,7 @@ samples/olayer.perl
 samples/packagesessions.perl
 samples/preforkedserver.perl
 samples/proxy.perl
+samples/ref-type.perl
 samples/refsender.perl
 samples/refserver.perl
 samples/selects.perl
