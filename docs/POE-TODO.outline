@@ -12,6 +12,286 @@ let Rocco know (so they can be added to the list).
 
 Also see the POE mailing list, which tends to be pretty quiet.
 
+* PROBLEMS
+
+** Infinite Loops
+
+The real world has multiple inconsistent event loops, all blocking.
+POE's loop cannot coexist with the others.
+
+Tk and POE could be made to half-cooperate by breaking POE's event
+loop open and allowing polled mode.  POE would register a
+Tk_DoWhenIdle callback, and some other ugliness.
+
+** Blocking
+
+Blocking procedural code is useful, even in an event driven world.
+How to say:
+
+  $line = readline($term);
+
+* MAJOR RESTRUCTURING
+
+I'm considering moving things around in a Big Way.
+
+** New Interface
+
+*** POE::Kernel
+
+In version 0.07, POE::Kernel holds the event queue and manages
+resources that it uses.
+
+The current Kernel's main responsibility is to manage resources.
+Sessions are resources, along with selects, alarms, aliases, signals
+and other things.  The current Kernel also holds POE's event loop.
+
+As more people use POE, the desire to use it for other purposes
+increases.  POE's Kernel, however, was designed for a particular task
+and is too rigid to be used for some things.
+
+There are two main problems with the current kernel.  First, the
+functions that make its programmer interface are too rigid.  It's
+really hard to change them, or to add new functions, because the
+Kernel class is a monolith.  Second, its event queue is hard-coded, so
+it's really difficult to cooperate with something like Tk.
+
+So first, let's make POE::Kernel a generic resource manager:
+
+  package POE::Kernel;
+  use strict;
+
+  my @resources;
+  my @sessions;
+
+  sub RES_NAME   () { 0 }
+  sub RES_FLAGS  () { 1 }
+  sub RES_RECORD () { 2 }
+
+  # Allocate a resource.  That is, let the Kernel know it should
+  # manage the "session uses resource" association for this resource.
+  # It is up to the resource to manage the "resource is used by
+  # session" association.
+
+  sub resource_alloc {
+    my $resource_name = shift;
+    # -><- lock @resources here
+    push @resources, [ $resource_name, \@_, {} ];
+    my $new_resource_id = @resources;
+    # -><- unlock @resources here
+    my $resource_record = $resources[$new_resource_id]->[RES_RECORD];
+    $resources{$resource_record} = $new_resource_id;
+    ( 'resource allocated okay',                 # status
+      $new_resource_id,                          # resource index
+      $resources[$new_resource_id]->[RES_RECORD] # resource record
+    );
+  }
+
+  # Free a resource.  This occurs when the program ends.  It ensures
+  # that session destructors have already cleaned up the references
+  # for each managed resources.
+
+  sub resource_free {
+    my ($resource_id) = @_;
+    my $resource = $resources[$resource_id];
+
+    if (keys %{$resource->[RES_RECORD]}) {
+      carp "leak in $resource->[RES_RECORD]->[RES_NAME] resource";
+    }
+
+    # -><- lock @resources here
+    $resources[$resource_id] = undef;
+    # -><- unlock @resources here
+  }
+
+  # Register a resource instance.  This lets the kernel know that a
+  # particular session uses a specific resource.
+
+  sub resource_associate {
+    my ($resource_id, $resource
+
+**** POE::Resource::Select
+
+The Select resource is somewhat equivalent to the current Kernel's
+select_* functions, but it has different semantics as a "resource"
+instead of a "function library".
+
+  package POE::Resource::Select;
+
+  use strict;
+  use POE::Kernel;
+
+  my $resource_serial = 0;
+  my $resource_record = undef;
+
+  ($status, $resource_record) = &POE::Kernel::resource_alloc( RES_SELECT );
+  die $status unless (defined $resource_record);
+
+  END {
+    # test $resource_record for leaks
+  }
+
+  sub new {
+    my ($package, %params) = @_;
+    my $current_session = &stupid_caller_trick();
+    my $self = $resource_serial++;
+    $self = bless \$self, $package;
+    &POE::Kernel::session_use($current_session, $self);
+    $resource_record->{$self} = [ $current_session ];
+  }
+
+  sub DESTROY {
+    my $self = shift;
+    &POE::Kernel::session_free($self);
+    delete $resource_record{$self};
+  }
+
+  package main;
+
+  use POE;
+  use POE::Resource::Select;
+
+  sub state_start {
+    $id = new POE::Resource::Select(
+      Handle        => $handle,
+      ReadState     => $read_state,
+      WriteState    => $write_state,
+      ExpediteState => $expedite_state,
+    );
+  }
+
+  $id->state( Read     => undef,     # Undef turns it off.
+              Write    => '',        # '' turns it on, using last state
+              Expedite => $new_state # scalar changes the state
+            );
+
+    
+
+**** POE::Kernel as Resource Manager
+
+  package POE::Kernel;
+
+  @resources;
+
+
+**** POE::K
+
+** Current Interface
+
+*** POE::Kernel
+
+The program's event loop and resource management stuff.
+
+  $k = new POE::Kernel();
+
+  $k->sig($signal, $state);
+  $k->signal($session, $signal);
+
+  $k->run();
+
+  $k->post($session, $state, @etc);
+  $k->yield($state, @etc);
+  $k->call($session, $state, @etc);
+
+  $k->alarm($state, $time, @etc);
+  $k->delay($state, $delay, @etc);
+
+  $k->select($handle, $state_r, $state_w, $state_e);
+  $k->select_read($handle, $state);
+  $k->select_write($handle, $state);
+  $k->select_expedite($handle, $state);
+
+  $k->alias_set($name);
+  $k->alias_remove($name);
+  $k->alias_resolve($name);
+
+  $k->state($state, $code);
+
+*** POE::Session
+
+A unit of execution in POE.
+
+  new POE::Session( ... );
+  create POE::Session( ... );
+
+  $s->option( ... );
+
+*** Sample Usage
+
+  use POE;
+
+  sub state_start {
+    $_[KERNEL]->yield('do_something');
+  }
+
+  sub state_something {
+    print "hello, world!\n";
+  }
+
+  new POE::Session( _start => \&state_start,
+                    do_something => \&state_something
+                  );
+
+  $poe_kernel->run();
+  exit;
+
+** Proposed Interface (being taken apart for parts)
+
+Live document defining next major step in POE's interface.
+
+*** POE::Session
+
+A unit of execution in POE.
+
+  new POE::Session( ... );
+  create POE::Session( ... );
+  $s->option( ... );
+
+** POE::Queue
+
+A pure virtual class that defines a generic queue interface.
+
+  $q = new POE::Queue::???( ... );
+  $q->post($session, $state, @etc);
+
+*** POE::Queue::Select
+
+A select-based queue.  Follows the POE::Queue interface.
+
+*** POE::Queue::Event
+
+An Event-based queue.  Follows the POE::Queue interface.
+
+*** POE::Queue::Tk
+
+A Tk-based queue.  Follows the POE::Queue interface.
+
+** POE::Alarm
+
+Alarm resources.
+
+  my $alarm = new POE::Alarm($time, $event, @etc);
+  $alarm->adjust($seconds_to_adjust);
+  $alarm->set($new_absolute_time);
+  undef $alarm;
+  my $alarm = new POE::Delay($seconds, $event, @etc);
+
+** POE::Delay
+
+Delay resources.
+
+  my $delay = new POE::Delay($seconds, $event, @etc);
+  $delay->adjust($seconds_to_adjust);
+  $delay->reset($seconds_from_now);
+
+
+** POE::Select
+
+Select resources.
+
+** POE::Alias
+
+Alias resources.
+
 * TUTORIALS, PAPERS AND OTHER DOCUMENTATION
 
 ** Tutorials
@@ -95,6 +375,41 @@ After anonymous updates are working for a while, it should be okay to
 start giving authorship rights to some of the more dedicated POE
 kernel hackers.
 
+** Event
+
+Event.pm is destined to become Perl's standard event queue.  POE
+should probably cooperate with or use it at some point.
+
+While I've heard that Event cooperates with Tk, there doesn't seem to
+be anything in the source or documentation about this.  Perhaps Tk
+will use it if it's present?
+
+Event is supposed to make perl's signals safe.  If true, that's a big
+win.
+
+Event has multiple queues and priorities.  That could be useful.
+
+Event has a C API.  While it's subject to incompatible changes every
+time Event or perl is upgraded, it's supposed to be faster than the
+Perl API.  No wonder, there's one less level of indirection.
+
+Migration to Event.  It may be better to wait for Event to reach 1.00
+before going ahead with this, but it's good to keep in mind.
+
+*** Wrap Event's C API
+
+Some of the Event things don't work the way I'd like.  Function calls
+are slow, so fetching event attributes with them is extra overhead.
+Passing them to states as another parameter (array reference) and
+accessing them with offset constants might be faster.
+
+*** Replace POE::Kernel Event Guts
+
+This will lighten POE a lot, at the expense of requiring a bundle of
+modules including some C.  Plus POE will have XS to interface Event's,
+and then POE may be incompatibly outdated whenever perl or Event
+changes.  Blargh.
+
 ** Namespaces
 
 *** Components
@@ -165,6 +480,78 @@ badly needs some sort of automated test suite.
 SocketFactory doesn't support connectionless sockets.
 
 Wheels need to be able to stack things.
+
+** Cascaded States
+
+Cherem <joeo@suninternet.com> wants this for NIRC.
+
+I think building a cascading mechanism can be useful for non-POE
+programs, so building it into POE would limit its use.  Since POE
+states are just Perl subs, the mechanism should focus on cascading
+subs instead of states.
+
+As I interpret cascading, it is the ability to call a sequence of subs
+to handle a single call.  Each sub in the sequence can decide whether
+or not co continue the cascade to the next sub.  Here are a couple
+cascading sub examples to start things:
+
+  sub user_kick {
+    &do_cascade(@_) if ($needs_to_cascade_before_work);
+    # ... do some work ...
+    &do_cascade(@_) if ($needs_to_cascade_amidst_work);
+    # ... do more work ...
+    &do_cascade(@_) if ($needs_to_cascade_after_work);
+  }
+
+  sub user_join {
+    # ... do some work ...
+    &stop_cascade() if ($this_should_be_the_last_state_called);
+    # ... do some work ...
+  }
+
+The cascader continues the sequence of subs by default.  However,
+&do_cascade() and &stop_cascade() will set a flag indicating that the
+current sub has already cascaded.  This will prevent the cascader from
+calling the next sub once the current one returns.
+
+Now for cascader instantiation:
+
+  my $cascader = new Cascader(
+    kick => [ \&default_kick ],
+    join => [ \&default_join ],
+  );
+
+The cascader uses AUTOLOAD to resolve cascades from their names.  For
+example, $cascader->kick() is mapped to the 'kick' sequence through
+AUTOLOAD.  Manipulating the Cascader package's symbol table is not
+recommended, because the symbol table is shared among all instances.
+
+Cascader lists can be manipulated with push and pop methods.  To add a
+new sub to the 'kick' cascade:
+
+  $cascader->push( 'kick', \&user_kick );
+
+To remove the last pushed sub:
+
+  $cascader->pop( 'kick' );
+
+Push would allow multiple subs.  If one of the subs is \&stop_cascade,
+then the cascade is stopped unconditionally at that point:
+
+  $cascader->push( 'join', \&user_join, \&stop_cascade );
+
+And finally, integration with POE via object states:
+
+  new POE::Session( _start    => \&state_start,
+                    $cascader => [ 'kick', 'join' ]
+                  );
+
+The 'kick' event will go to $cascader->kick(), and 'join' is sent to
+$cascader->join().  AUTOLOAD fires off the proper cascade for each
+meta-method.
+
+This has evolved out of the scope of POE proper, and so I've delegated
+any further work to Cherem.
 
 ** Reorganize Wheels
 

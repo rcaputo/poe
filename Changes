@@ -16,6 +16,18 @@ immediately.  The problem was tested on four systems: Linux (broke);
 Solaris (broke); FreeBSD (worked); OS/2 (worked).  Go figure.  It
 should work on all four now.
 
+Modified POE::Filter::HTTPD to respond with the protocol version
+(hardcoded to 1.0).  The wget utility had a problem with 'HTTP ...',
+and I assume it won't be the only thing to.
+
+Replaced a regular expression in POE::Filter::Reference with a
+substr() call.  The regexp was used to frame input streams, and large
+structures (over 32KB) were not being framed correctly.  This was
+fixed in a previous version, but the fix was reverted for some reason.
+The new &get method code also supports 0-byte blocks, which is
+pointless for a Reference filter, but lets you use Reference as a
+"reference" for other variable-length block filters. :)
+
 
 0.07 1999.06.18 (!!!)
 ---------------------

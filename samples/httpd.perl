@@ -196,7 +196,7 @@ sub accept {
 
   $peer_addr = inet_ntoa($peer_addr);
   print "Server received connection from $peer_addr : $peer_port\n";
-  
+
   new ServerSession($accepted_handle, $peer_addr, $peer_port);
 }
 

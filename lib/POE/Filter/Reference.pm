@@ -11,8 +11,7 @@ use Carp;
 #------------------------------------------------------------------------------
 # Try to require one of the default freeze/thaw packages.
 
-sub _default_freezer
-{
+sub _default_freezer {
   local $SIG{'__DIE__'} = 'DEFAULT';
   my $ret;
 
@@ -26,8 +25,7 @@ sub _default_freezer
 
 #------------------------------------------------------------------------------
 
-sub new 
-{
+sub new {
   my($type, $freezer) = @_;
   $freezer||=_default_freezer();
                                         # not a reference... maybe a package?
@@ -52,9 +50,10 @@ sub new
     $tf=sub {$freeze->($freezer, @_)};
     $tt=sub {$thaw->($freezer, @_)};
   }
-  my $self = bless { 'framing buffer' => '',
-                     'expecting' => 0,
-                     'thaw'=>$tt, 'freeze'=>$tf,
+  my $self = bless { buffer    => '',
+                     expecting => undef,
+                     thaw      => $tt,
+                     freeze    => $tf,
                    }, $type;
   $self;
 }
@@ -65,20 +64,19 @@ sub get {
   my ($self, $stream) = @_;
   my @return;
 
-  $self->{'framing buffer'} .= join('', @$stream);
+  $self->{buffer} .= join('', @$stream);
 
-  # This doesn't allow 0-byte messages.  That's not a problem for
-  # passing frozen references, but it may cause trouble for filters
-  # derived from this code.  Modify according to taste.
-
-  while ($self->{'expecting'} ||
-         ( ($self->{'framing buffer'} =~ s/^(\d+)\0//s) &&
-           ($self->{'expecting'} = $1)
-         )
+  while ( defined($self->{expecting}) ||
+          ( ($self->{buffer} =~ s/^(\d+)\0//s) &&
+            ($self->{expecting} = $1)
+          )
   ) {
-    last unless ($self->{'framing buffer'} =~ s/^(.{$self->{'expecting'}})//s);
-    push @return, $self->{thaw}->($1);
-    $self->{'expecting'} = 0;
+    last if (length $self->{buffer} < $self->{expecting});
+    push( @return,
+          $self->{thaw}->(substr( $self->{buffer}, 0, $self->{expecting}))
+        );
+    substr($self->{buffer}, 0, $self->{expecting}) = '';
+    undef $self->{expecting};
   }
 
   return \@return;
@@ -100,8 +98,7 @@ sub put {
 #------------------------------------------------------------------------------
 # We are about to be destroyed!  Hand all we have left over to our Wheel
 
-sub get_pending
-{
+sub get_pending {
   my($self)=@_;
   return unless $self->{'framing buffer'};
   my $ret=[$self->{'framing buffer'}];
