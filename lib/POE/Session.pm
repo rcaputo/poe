@@ -697,6 +697,19 @@ sub POE::Session::Postback::DESTROY {
   $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'postback' );
 }
 
+# This next bit of code tunes the postback return value depending on
+# what each toolkit expects callbacks to return.  Tk wants 0.  Gtk
+# seems to want 0 or 1 in different places, but the tests want 0.
+
+BEGIN {
+  if (exists $INC{'Gtk.pm'}) {
+    eval 'sub POSTBACK_RETVAL () { 0 }';
+  }
+  else {
+    eval 'sub POSTBACK_RETVAL () { 0 }';
+  }
+};
+
 # Create a postback closure, maintaining referential integrity in the
 # process.  The next step is to give it to something that expects to
 # be handed a callback.
@@ -708,7 +721,7 @@ sub postback {
   my $postback = bless
     sub {
       $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
-      0;
+      return POSTBACK_RETVAL;
     }, 'POE::Session::Postback';
 
   $postback_parent_id{$postback} = $id;
