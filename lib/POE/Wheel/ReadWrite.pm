@@ -193,9 +193,9 @@ POE::Wheel::ReadWrite - POE Read/Write Logic Abstraction
 =head1 SYNOPSIS
 
   $wheel = new POE::Wheel::ReadWrite(
-    Handle       => $file_or_socket_handle,       # Handle to read and write
-    Driver       => new POE::Driver::Something(), # Driver to read/write with
-    Filter       => new POE::Filter::Something(), # Filter to parse with
+    Handle       => $file_or_socket_handle,       # Handle to read/write
+    Driver       => new POE::Driver::Something(), # How to read/write it
+    Filter       => new POE::Filter::Something(), # How to parse it
     InputState   => $input_state_name,  # Input received state
     FlushedState => $flush_state_name,  # Output flushed state
     ErrorState   => $error_state_name,  # Error occurred state
@@ -233,7 +233,7 @@ Please see POE::Wheel.
 
 =item *
 
-POE::Wheel::ReadWrite::set_filter( new POE::Filter::Something() )
+POE::Wheel::ReadWrite::set_filter( $poe_filter )
 
 The set_filter method changes the filter that the ReadWrite wheel uses
 to translate between streams and logical chunks of data.  It uses
@@ -245,7 +245,8 @@ side effects.  The description of POE::Filter::get_pending() discusses
 them further.
 
 POE::Filter::HTTPD does not support the get_pending() method.
-Switching from an HTTPD filter to another one will display a reminder.
+Switching from an HTTPD filter to another one will display a reminder
+that it sn't supported.
 
 =back
 
@@ -285,8 +286,8 @@ A sample FlushedState state:
 
   sub flushed_state {
     # Stop the wheel after all outgoing data is flushed.
-    # This frees the wheel's resources, including the filehandle,
-    # and closes the connection.
+    # This frees the wheel's resources, including the
+    # filehandle, and closes the connection.
     delete $_[HEAP]->{wheel};
   }
 

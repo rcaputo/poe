@@ -93,7 +93,7 @@ never buffers data.
 Switching filters usually requires some sort of flow control,
 otherwise it's easy to cause a race condition where one side sends the
 wrong type of information for the other side's current filter.
-Framing errors will enuse.  Consider the following:
+Framing errors will ensue.  Consider the following:
 
 Assume a server and client are using POE::Filter::Line.  When the
 client asks the server to switch to POE::Filter::Reference, it should
@@ -104,13 +104,12 @@ is parsing lines.
 Here's something else to consider.  Programs using POE::Wheel::put()
 on TCP sockets cannot rely on each put data chunk arriving separately
 on the receiving end of the connection.  This is because TCP coalesces
-packets whenever possible, to minimize packet header overhead.  There
-is a workaround, but it's not implemented in standard Perl:
+packets whenever possible, to minimize packet header overhead.
 
-  The workaround is to disable Nagle's algorithm for the socket.  This
-  involves setting the TCP_NODELAY socket option.  It is not portable
-  or standard.  Some systems will only disable Nagle's algorithm for
-  the entire TCP stack (thus all sockets, which may not be desirable).
+Most systems have a way to disable the TCP delay (Nagle's algorithm),
+in one form or another.  If you need this, please check your C headers
+for the TCP_NODELAY socket option.  It's neither portable, nor
+supported in Perl by default.
 
 The filterchange.perl sample program copes with flow control while
 switching filters.

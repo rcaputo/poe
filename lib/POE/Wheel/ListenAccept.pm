@@ -112,7 +112,7 @@ __END__
 
 =head1 NAME
 
-POE::Wheel::ListenAccept - POE ListenAccept Logic Abstraction
+POE::Wheel::ListenAccept - POE Listen/Accept Logic Abstraction
 
 =head1 SYNOPSIS
 
@@ -184,7 +184,7 @@ ErrorState
 
 The ErrorState event contains the name of the state that will be
 called when a socket error occurs.  The ListenAccept wheel knows what
-to do with EAGAIN, so it's not considered a true error.
+to do with EAGAIN, so it's not considered an error worth reporting.
 
 The ARG0 parameter contains the name of the function that failed.
 This usually is 'accept'.  ARG1 and ARG2 contain the numeric and

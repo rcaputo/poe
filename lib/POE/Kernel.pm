@@ -134,38 +134,38 @@ sub EN_GC     () { '_garbage_collect' }
 sub EN_PARENT () { '_parent'          }
 sub EN_CHILD  () { '_child'           }
 
-=doc #-------------------------------------------------------------------------
-
-states: [ [ $session, $source_session, $state, \@etc, $time ],
-          ...
-        ];
-
-handles: { $handle => [ $handle, $refcount, [$ref_r, $ref_w, $ref_x ],
-                        [ { $session => [ $handle, $session, $state ], .. },
-                          { $session => [ $handle, $session, $state ], .. },
-                          { $session => [ $handle, $session, $state ], .. }
-                        ]
-                      ]
-         };
-
-vectors: [ $read_vector, $write_vector, $expedite_vector ];
-
-signals: { $signal => { $session => $state, ... } };
-
-sessions: { $session => [ $session,     # blessed version of the key
-                          $refcount,    # number of things keeping this alive
-                          $evcnt,       # event count
-                          $parent,      # parent session
-                          { $child => $child, ... },
-                          { $handle => [ $hdl, $rcnt, [ $r, $w, $e ] ], ... },
-                          { $signal => $state, ... },
-                          { $name => 1, ... },
-                        ]
-          };
-
-names: { $name => $session };
-
-=cut #-------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+#
+# states: [ [ $session, $source_session, $state, \@etc, $time ],
+#           ...
+#         ];
+#
+# handles: { $handle => [ $handle, $refcount, [$ref_r, $ref_w, $ref_x ],
+#                         [ { $session => [ $handle, $session, $state ], .. },
+#                           { $session => [ $handle, $session, $state ], .. },
+#                           { $session => [ $handle, $session, $state ], .. }
+#                         ]
+#                       ]
+#          };
+#
+# vectors: [ $read_vector, $write_vector, $expedite_vector ];
+#
+# signals: { $signal => { $session => $state, ... } };
+#
+# sessions: { $session => [ $session,     # blessed version of the key
+#                           $refcount,    # number of things keeping this alive
+#                           $evcnt,       # event count
+#                           $parent,      # parent session
+#                           { $child => $child, ... },
+#                           { $handle => [ $hdl, $rcnt, [ $r,$w,$e ] ], ... },
+#                           { $signal => $state, ... },
+#                           { $name => 1, ... },
+#                         ]
+#           };
+#
+# names: { $name => $session };
+#
+#------------------------------------------------------------------------------
 
 #==============================================================================
 # SIGNALS
@@ -1240,9 +1240,9 @@ POE::Kernel - POE Event Queue and Resource Manager
 
   # Selects:
   $kernel->select( $file_handle,
-                   $read_state_name,     # or undef to remove read state
-                   $write_state_name,    # or undef to remove write state
-                   $expedite_state_same, # or undef to remove expedite state
+                   $read_state_name,     # or undef to remove it
+                   $write_state_name,    # or undef to remove it
+                   $expedite_state_same, # or undef to remove it
                  );
   $kernel->select_read( $file_handle, $read_state_name );
   $kernel->select_write( $file_handle, $write_state_name );
@@ -1280,6 +1280,10 @@ invoking the object.
 POE::Kernel contains methods to manage the kernel itself, sessions,
 and resources such as files, signals and alarms.
 
+Many of the public Kernel methods generate events.  Please see the
+"PREDEFINED EVENTS AND PARAMETERS" section in POE::Session's
+documentation.
+
 =head2 Kernel Management Methods
 
 =over 4
@@ -1288,10 +1292,10 @@ and resources such as files, signals and alarms.
 
 POE::Kernel::run()
 
-POE::Kernel::run() starts the kernel's event loop.  It will not until
-all its sessions have stopped.  There are two corolaries to this rule:
-It will return immediately if there are no sessions; and if sessions
-never exit, neither will run().
+POE::Kernel::run() starts the kernel's event loop.  It will not return
+until all its sessions have stopped.  There are two corollaries to
+this rule: It will return immediately if there are no sessions; and if
+sessions never exit, neither will run().
 
 =back
 
@@ -1326,6 +1330,9 @@ FIFO order.  States can also be called immediately, bypassing the
 queue.  Immediate calls can be useful for "critical sections"; for
 example, POE's I/O abstractions use call() to minimize event latency.
 
+To learn more about events and the information they convey, please see
+"PREDEFINED EVENTS AND PARAMETERS" in the POE::Session documentation.
+
 =over 4
 
 =item *
@@ -1356,7 +1363,7 @@ sure like to know.
 
 =item *
 
-POE::Kernel::call( $session, $state, $args)
+POE::Kernel::call( $session, $state, $args )
 
 POE::Kernel::call immediately dispatches an event to a session.
 States invoked this way are evaluated in a scalar context, and call()
@@ -1489,9 +1496,9 @@ undef and sets $! to one of:
 
 =head2 Select Management Methods
 
-Selects are filehandle monitors.  They generate events to indicate
-when activity occurs on the filehandles they watch.  POE keeps track
-of how many selects are watching a filehandle, and it will close the
+Selects are file handle monitors.  They generate events to indicate
+when activity occurs on the file handles they watch.  POE keeps track
+of how many selects are watching a file handle, and it will close the
 file when nobody is looking at it.
 
 There are three types of select.  Each corresponds to one of the bit
@@ -1507,7 +1514,7 @@ read.
 
 POE::Kernel::select( $filehandle, $rd_state, $wr_state, $ex_state )
 
-The select() method manipulates all three selects for a filehandle at
+The select() method manipulates all three selects for a file handle at
 the same time.  Selects are added for each defined state, and selects
 are removed for undefined states.
 
@@ -1515,26 +1522,34 @@ are removed for undefined states.
 
 POE::Kernel::select_read( $filehandle, $read_state )
 
-The select_read() method adds or removes a filehandle's read select.
+The select_read() method adds or removes a file handle's read select.
 It leaves the other two unchanged.
 
 =item *
 
 POE::Kernel::select_write( $filehandle, $write_state )
 
-The select_write() method adds or removes a filehandle's write select.
-It leaves the other two unchanged.
+The select_write() method adds or removes a file handle's write
+select.  It leaves the other two unchanged.
 
 =item *
 
 POE::Kernel::select_expedite( $filehandle, $expedite_state )
 
-The select_expedite() method adds or removes a filehandle's expedite
+The select_expedite() method adds or removes a file handle's expedite
 select.  It leaves the other two unchanged.
 
 =back
 
 =head2 Signal Management Methods
+
+The POE::Session documentation has more information about B<_signal>
+events.
+
+POE does not make Perl's signals safe.  Using signals is okay in
+short-lived programs, but long-running servers may eventually dump
+core if they receive a lot of signals.  This includes SIGCHLD from
+forked children.  Mileage varies considerably.
 
 The kernel generates B<_signal> events when it receives signals from
 the operating system.  Sessions may also send signals between
@@ -1545,7 +1560,7 @@ looking at B<_signal> states' return values.  If the state returns
 logical true, then it means the signal was handled.  If it returns
 false, then the kernel assumes the signal wasn't handled.
 
-POE will stop sessions if they don't handle some signals.  These
+POE will stop sessions that don't handle some signals.  These
 "terminal" signals are QUIT, INT, KILL, TERM and HUP.
 
 Finally, there is one fictitious signal that always stops a session:
@@ -1568,6 +1583,9 @@ The sig() method registers a state to handle a particular signal.
 Only one state in any given session may be registered for a particular
 signal.  Registering a second state for the same signal will replace
 the previous state with the new one.
+
+Signals that don't have states will be dispatched to the _signal state
+instead.
 
 =item *
 
@@ -1600,16 +1618,52 @@ The state() method has three different uses, each for adding, updating
 or removing a different kind of state.  It manipulates states in the
 current session.
 
-  $kernel->state($state_name, $code_reference);      # inline state
-  $kernel->state($method_name, $object_reference);   # object state
-  $kernel->state($function_name, $package_name);     # package state
-
-It returns 1 on success.  On failure, it returns 0 and sets $! to one
-of:
+The state() method returns 1 on success.  On failure, it returns 0 and
+sets $! to one of:
 
   ESRCH - Somehow, the current session does not exist.
 
 This function can only register or remove one state at a time.
+
+=over 2
+
+=item *
+
+Inline States
+
+Inline states are manipulated with:
+
+  $kernel->state($state_name, $code_reference);
+
+If $code_reference is undef, then $state_name will be removed.  Any
+pending events destined for $state_name will be redirected to
+_default.
+
+=item *
+
+Object States
+
+Object states are manipulated with:
+
+  $kernel->state($method_name, $object_reference);
+
+If $object_reference is undef, then the $method_name state will be
+removed.  Any pending events destined for $method_name will be
+redirected to _default.
+
+=item *
+
+Package States
+
+Package states are manipulated with:
+
+  $kernel->state($function_name, $package_name);
+
+If $package_name is undef, then the $function_name state will be
+removed.  Any pending events destined for $function_name will be
+redirected to _default.
+
+=back
 
 =back
 

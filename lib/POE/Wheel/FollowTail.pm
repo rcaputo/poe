@@ -161,11 +161,11 @@ POE::Wheel - POE FollowTail Protocol Logic
 
   $wheel = new POE::Wheel::FollowTail(
     Handle       => $file_handle,                 # File to tail
-    Driver       => new POE::Driver::Something(), # How to read the file
-    Filter       => new POE::Filter::Something(), # How to parse the file
+    Driver       => new POE::Driver::Something(), # How to read it
+    Filter       => new POE::Filter::Something(), # How to parse it
+    PollInterval => 1,                  # How often to check it
     InputState   => $input_event_name,  # State to call upon input
     ErrorState   => $error_event_name,  # State to call upon error
-    PollInterval => 1,                  # How often to check for file growth
   );
 
 =head1 DESCRIPTION
@@ -173,8 +173,8 @@ POE::Wheel - POE FollowTail Protocol Logic
 This wheel follows the end of an ever-growing file, perhaps a log
 file, and generates events whenever new data appears.  It is a
 read-only wheel, so it does not include a put() method.  It uses
-tell() and seek() functions, so it's only suitable for random-access
-files.
+tell() and seek() functions, so it's only suitable for plain files.
+It won't tail pipes or consoles.
 
 =head1 PUBLIC METHODS
 
@@ -194,10 +194,22 @@ Please see POE::Wheel.
 
 =item *
 
+PollInterval
+
+PollInterval is the number of seconds to wait between file checks.
+Once FollowTail re-reaches the end of the file, it waits this long
+before checking again.
+
+=item *
+
 InputState
 
 The InputState event is identical to POE::Wheel::ReadWrite's
-InputState.
+InputState.  It's the state to be called when the followed file
+lengthens.
+
+ARG0 contains a logical chunk of data, read from the end of the tailed
+file.
 
 =item *
 
@@ -227,7 +239,7 @@ POE::Wheel::SocketFactory
 
 =head1 BUGS
 
-Oh, probably some.
+This wheel can't tail pipes and consoles.  Blargh.
 
 =head1 AUTHORS & COPYRIGHTS
 

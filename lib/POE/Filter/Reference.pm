@@ -3,10 +3,6 @@
 # Filter::Reference partial copyright 1998 Artur Bergman
 # <artur@vogon-solutions.com>.  Partial copyright 1999 Philip Gwyn.
 
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
-
 package POE::Filter::Reference;
 
 use strict;
@@ -211,6 +207,10 @@ Oh, probably some.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage.
+The Reference filter was contributed by Arturn Bergman, with changes
+by Philip Gwyn.
+
+Please see the POE manpage for more information about authors and
+contributors.
 
 =cut

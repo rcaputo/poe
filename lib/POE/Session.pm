@@ -342,40 +342,47 @@ POE::Session - POE State Machine
 
   # Original inline session constructor:
   new POE::Session(
-    name1 => \&name1_handler, # \&name1_handler handles the "name1" event
-    name2 => sub { ... },     # anonymous sub handles the "name2" event
-    \@start_args,             # ARG0..ARGn for the session's _start handler
+    name1 => \&name1_handler, # \&name1_handler is the "name1" state
+    name2 => sub { ... },     # anonymous is the "name2" state
+    \@start_args,             # ARG0..ARGn for the the _start state
   );
 
   # Original package session constructor:
   new POE::Session(
-    $package, [ 'name1',      # $package->name1() handles "name1" event
-                'name2',      # $package->name2() handles "name2" event
+    $package, [ 'name1',      # $package->name1() is the "name1" state
+                'name2',      # $package->name2() is the "name2" state
               ],
-    \@start_args,             # ARG0..ARGn for the session's _start handler
+    \@start_args,             # ARG0..ARGn for the start _start state
   );
 
   # Original object session constructor:
   my $object1 = new SomeObject(...);
   my $object2 = new SomeOtherObject(...);
   new POE::Session(
-    # $object1->name1() handles the "name1" event;
-    # $object1->name2() handles the "name2" event;
+    # $object1->name1() is the "name1" state
+    # $object1->name2() is the "name2" state
     $object1 => [ 'name1', 'name2' ],
-    # $object2->name1() handles the "name3" event;
-    # $object2->name2() handles the "name3" event;
+    # $object2->name1() is the "name3" state
+    # $object2->name2() is the "name3" state
     $object2 => [ 'name3', 'name4' ],
-    \@start_args,             # ARG0..ARGn for the session's _start handler
+    \@start_args,             # ARG0..ARGn for the _start state
   );
 
   # New constructor:
   create POE::Session(
     # ARG0..ARGn for the session's _start handler
     args => \@args,
-    inline_states  => { state1 => \&handler1, state2 => \&handler2, ... },
-    object_states  => { $objref1 => \@methods2, $objref2 => \@methods2, ... },
+    inline_states  => { state1 => \&handler1,
+                        state2 => \&handler2,
+                        ...
+                      },
+    object_states  => { $objref1 => \@methods2,
+                        $objref2 => \@methods2,
+                        ...
+                      },
     package_states => { $package1 => \@function_names_1,
-                        $package2 => \@function_names_2, ...
+                        $package2 => \@function_names_2,
+                        ...
                       },
   );
 
@@ -447,7 +454,7 @@ an array of method names.  The named methods will be invoked to handle
 similarly named events.
 
   my $object = new Object;
-  new POE::Session( $object => [ 'method1', 'method2', 'method3' ] );
+  new POE::Session( $object => [ qw(method1 method2 method3) ] );
 
 Package states are described by a package name and a reference to an
 array of subroutine names.  The subroutines will handle events with
@@ -460,13 +467,13 @@ last one wins.
 Sessions may use any combination of Inline, Object and Package states:
 
   my $object = new Object;
-  new POE::Sessio( event_name => \&state_handler,
-                   $object => [ 'method1', 'method2', 'method3' ],
-                   'Package' => [ 'sub1', 'sub2', 'sub3' ]
-                 );
+  new POE::Session( event_name => \&state_handler,
+                    $object   => [ qw(method1 method2 method3) ],
+                    'Package' => [ 'sub1', 'sub2', 'sub3' ]
+                  );
 
 There is one parameter that isn't part of a pair.  It is a stand-alone
-array or list reference, the contents of which are sent as arguments
+array reference.  The contents of this arrayref are sent as arguments
 to the session's B<_start> state.
 
 =item *
@@ -489,15 +496,30 @@ The option() method's behavior changed in version 0.06_09.  It now
 supports fetching option values without changing or deleting the
 option.
 
-  $session->option( 'name1' );                 # Fetches option 'name1'
-  $session->option( name2 => undef );          # Deletes option 'name2'
-  $session->option( name3 => 1, name4 => 2 );  # Sets 'name3' and 'name4'
+  $session->option( 'name1' );         # Fetches option 'name1'
+  $session->option( name2 => undef );  # Deletes option 'name2'
+  $session->option( name3 => 1,        # Sets name3...
+                    name4 => 2         # ... and name4.
+                  );
 
 Actually, option() always returns the values of the options its
 passed.  If more than one option is supplied in the parameters, then
 option() returns a reference to a hash containing names and previous
 values.  If a single option is specified, then option() returns its
 value as a scalar.
+
+The option() method can only accept more than one option name while
+storing or deleting.  POE::Session::option() only changes the options
+that are present as parameters.  Unspecified options are left alone.
+
+For example:
+
+  $session->option( trace => 1, default => 0 );
+
+Logical values may be sent as either 1, 0, 'on', 'off', 'yes', 'no',
+'true' or 'false'.  Stick with 1 and 0, though, because somebody
+somewhere won't like the value translation and will request that it be
+removed.
 
 These are the options that POE currently uses internally.  Others may
 be added later.
@@ -522,14 +544,6 @@ session has a B<_default> state, because then every event can be
 dispatched.
 
 =back
-
-  $session->option( trace => 1, default => 0 );
-
-Logical values may be sent as either 1, 0, 'on', 'off', 'yes', 'no',
-'true' or 'false'.
-
-POE::Session::option() only changes the options that are present as
-parameters.  Unspecified options are left alone.
 
 =back
 
@@ -576,7 +590,9 @@ exists in.
 KERNEL
 
 $_[KERNEL] is a reference to the kernel that is managing this session.
-It exists for times when $poe_kernel isn't available.
+It exists for times when $poe_kernel isn't available.  $_[KERNEL] is
+recommended over $poe_kernel in states.  They may be different at some
+point.
 
 =item *
 
@@ -590,14 +606,14 @@ session options.
 
 HEAP
 
-$_[HEAP] is a reference to a hash set aside for sessions to store
-global data.  Information stored in the heap will be persistent
+$_[HEAP] is a reference to a hash set aside for each session to store
+its global data.  Information stored in the heap will be persistent
 between states, for the life of the session.
 
-POE will destroy the heap itself, but it will not walk the heap and
-make sure that circular references are broken.  Developers are
-expected to do any special heap cleanup in the session's B<_stop>
-state.
+POE will destroy the heap when its session stops, but it will not walk
+the heap and make sure that circular references are broken.
+Developers are expected to do any special heap cleanup in the
+session's B<_stop> state.
 
 Support for using $_[HEAP] (formerly known as $me or $namespace) as an
 alias for $_[SESSION] in Kernel method calls is depreciated, starting
@@ -611,6 +627,10 @@ $_[STATE] is the name of the state being invoked.  In most cases, this
 will be the name of the event that caused this handler to be called.
 In some cases though, most notably with B<_default> and B<_signal>,
 the state being invoked may not match the event being dispatched.
+(Predictably enough, it will be _default or _signal).  You can find
+out the original event name for B<_default> (see the B<_default>
+event's description).  The B<_signal> event includes the signal name
+that caused it to be posted.
 
 =item *
 
@@ -676,6 +696,8 @@ Sessions stop when they run out of pending state transition events and
 don't hold resources to create new ones.  Event-generating resources
 include selects (filehandle monitors), child sessions, and aliases.
 
+The kernel's run() method will return if all its sessions stop.
+
 SENDER is the session that posted the B<_stop> event.  In the case of
 resource starvation, this is the KERNEL.
 
@@ -695,6 +717,8 @@ is a descendent of the kernel, posting signals to the kernel
 guarantees that every session receives them.
 
 POE does not yet magically solve Perl's problems with signals.
+Namely, perl tends to dump core if it keeps receiving signals.  That
+has a detrimental effect on programs that expect long uptimes.
 
 There are a few kinds of signals.  The kernel processes each kind
 differently:
@@ -706,14 +730,14 @@ signal name, as it appears in %SIG.
 The handler for SIGCHLD and SIGCLD calls wait() to acquire the dying
 child's process ID and result code.  If the child PID is valid, a
 B<_signal> event will be posted to all sessions.  ARG0 will contain
-CHLD regardless of the actual signal name.  ARG1 wcontains the child
+CHLD regardless of the actual signal name.  ARG1 contains the child
 PID, and ARG2 contains the contents of $? just after the wait() call.
 
 All other signals cause a B<_signal> event to be posted to all
 sessions.  ARG0 contains the signal name as it appears in %SIG.
 
 SIGWINCH is ignored.  Resizing an xterm causes a bunch of these,
-quickly killing Perl.
+quickly killing perl.
 
 =item *
 
@@ -722,8 +746,8 @@ _garbage_collect
 The B<_garbage_collect> event tells the kernel to check a session's
 resources and stop it if none are left.  It never is dispatched to a
 session.  This was added to delay garbage collection checking for new
-sessions.  This sometimes lets parent sessions interact with children
-before they might stop.
+sessions.  This delayed garbage collection gives parent sessions a
+chance to interact with their newly-created children.
 
 =item *
 
@@ -762,6 +786,15 @@ for more information about states' return values.
 
 =item *
 
+Select Events
+
+Select events are generated by POE::Kernel when selected file handles
+become active.  They have no default names.
+
+ARG0 is the file handle that had activity.
+
+=item *
+
 _default
 
 The B<_default> state is invoked whenever a session receives an event
@@ -778,8 +811,8 @@ used to determine if the signal was handled.  This may make some
 programs difficult to stop.  Please see the description for the
 B<_signal> event for more information.
 
-The B<_default> state can be used to catch misspelled events, but the
-B<default> option may be better.
+The B<_default> state can be used to catch misspelled events, but
+$session->option('default',1) may be better.
 
 =back
 
@@ -795,10 +828,10 @@ B<_signal> state for more information.
 POE::Kernel::call() will return whatever a called state returns.  See
 the description of POE::Kernel::call() for more information.
 
-If an even handler returns a reference to an object in the POE
-namespace (or any namespace starting with POE::), then that reference
-is immediately stringified.  This is done to prevent "blessing bleed"
-(see the Changes file) from interfering with POE's and Perl's garbage
+If a state returns a reference to an object in the POE namespace (or
+any namespace starting with POE::), then that reference is immediately
+stringified.  This is done to prevent "blessing bleed" (see the
+Changes file) from interfering with POE's and Perl's garbage
 collection.  The code that checks for POE objects does not look inside
 data passed by reference-- it's just there to catch accidents, like:
 

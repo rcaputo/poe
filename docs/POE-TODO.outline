@@ -162,6 +162,10 @@ would determine if dropped user events were displayed.
 It's becoming unfun to run samples/*.perl before each release.  POE
 badly needs some sort of automated test suite.
 
+SocketFactory doesn't support connectionless sockets.
+
+Wheels need to be able to stack things.
+
 ** Reorganize Wheels
 
 I think the Wheels abstraction should be reorganized into a new
@@ -246,6 +250,22 @@ state for the coderef being stored.  For example:
   $SIGNAL{HUP} = 'sighup_state';
 
 And 'DEFAULT' and 'IGNORE' would do the right things, too.
+
+** Fix Signals
+
+Write an XS that polls signals in the relative safety of C.  Use POSIX
+signal functions to block signals until a critical section of C code.
+Unblock them there, and the signals should hit in the C code.  That'll
+prevent them from corrupting perl, I hope.
+
+SIGPIPE can be faked.  Block it entirely, and simulate it when a file
+operation catches EPIPE.  No OS signals involved, and wheels can post
+signals to the appropriate sessions-- even in Concurrent POE with
+multiple kernels.
+
+SIGCH?LD can be faked.  Use SysV semaphores, SysV shared memory, pipes
+or sockets.  Lock files, maybe.  Or perhaps poll for children instead
+of waiting for the signal, as Sean Puckett suggests.
 
 ** Fix Alarm Semantics
 

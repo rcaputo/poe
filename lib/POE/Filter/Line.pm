@@ -1,9 +1,5 @@
 # $Id$
 
-# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
-
 package POE::Filter::Line;
 
 use strict;
@@ -62,9 +58,12 @@ POE::Filter::Line - POE Line Protocol Abstraction
 =head1 SYNOPSIS
 
   $filter = new POE::Filter::Line();
-  $arrayref_of_lines = $filter->get($arrayref_of_raw_chunks_from_driver);
-  $arrayref_of_streamable_chunks_for_driver = $filter->put($arrayref_of_lines);
-  $arrayref_of_streamable_chunks_for_driver = $filter->put($single_line);
+  $arrayref_of_lines =
+    $filter->get($arrayref_of_raw_chunks_from_driver);
+  $arrayref_of_streamable_chunks_for_driver =
+    $filter->put($arrayref_of_lines);
+  $arrayref_of_streamable_chunks_for_driver =
+    $filter->put($single_line);
 
 =head1 DESCRIPTION
 
@@ -90,7 +89,7 @@ POE::Filter::Stream
 
 =head1 BUGS
 
-This filter's newlines are hardcoded.
+This filter's newlines are hard-coded.
 
 =head1 AUTHORS & COPYRIGHTS
 

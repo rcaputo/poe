@@ -1,6 +1,6 @@
 # $Id$
 
-# Filter::HTTPD copyright 1998 Artur Bergman <artur@vogon.se>.
+# Filter::HTTPD Copyright 1998 Artur Bergman <artur@vogon.se>.
 
 # Thanks go to Gisle Aas for his excellent HTTP::Daemon.  Some of the
 # get code was copied out if, unfournatly HTTP::Daemon is not easily
@@ -35,7 +35,7 @@ sub get {
 
 
   local($_);
-  
+
   if($self->{'finish'}) {
     die "Didn't want any more data\n";
   }
@@ -49,19 +49,19 @@ sub get {
     if(length($buf) >= $r->content_length()) {
       $r->content($buf);
       $self->{finish}++;
-      return [$r];      
+      return [$r];
     } else {
       print $r->content_length()." wanted, got ".length($buf)."\n";
     }
     return [];
   }
-     
 
 
-  
 
 
-  return [] unless($self->{buffer} =~/(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)/s);
+
+  return []
+    unless($self->{buffer} =~/(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)/s);
 
   my $buf = $self->{buffer};
 
@@ -90,13 +90,13 @@ sub get {
 	$val .= " $1";
       } else {
 	last HEADER;
-      }      
+      }
     }
     $r->push_header($key,$val) if($key);
   }
-  
 
-  $self->{header} = $r;   
+
+  $self->{header} = $r;
 
   if($r->method() eq 'GET') {
     $self->{finish}++;
@@ -112,7 +112,7 @@ sub get {
     if(length($buf) >= $r->content_length()) {
       $r->content($buf);
       $self->{finish}++;
-      return [$r];      
+      return [$r];
     }
   }
 
@@ -129,7 +129,7 @@ sub put {
 
 #------------------------------------------------------------------------------
 
-sub get_pending 
+sub get_pending
 {
     my($self)=@_;
     warn ref($self)." does not support the get_pending() method\n";
@@ -202,8 +202,10 @@ POE::Filter::HTTPD - POE HTTP 1.0 (Server Side) Protocol Abstraction
 =head1 DESCRIPTION
 
 The HTTPD filter parses the first HTTP 1.0 request from an incoming
-stream into an HTTP::Request object.  It accepts a single HTTP
-response object, and returns a HTTP 1.0 stream for sending.
+stream into an HTTP::Request object.  It accepts a single
+HTTP::Response object, and returns a HTTP 1.0 stream for sending.
+
+Please see the documentation for HTTP::Request and HTTP::Response.
 
 =head1 PUBLIC FILTER METHODS
 
@@ -212,14 +214,17 @@ Please see POE::Filter.
 =head1 SEE ALSO
 
 POE::Filter; POE::Filter::Line; POE::Filter::Reference;
-POE::Filter::Stream
+POE::Filter::Stream; HTTP::Request; HTTP::Response
 
 =head1 BUGS
 
-Keepalive is not supported.
+Keep-alive is not supported.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage.
+The HTTPD filter was contributed by Artur Bergman.
+
+Please see the POE manpage for more information about authors and
+contributors.
 
 =cut

@@ -498,8 +498,8 @@ POE::Wheel::SocketFactory - POE Socket Creation Logic Abstraction
     SocketDomain  => AF_UNIX,              # Sets the socket() domain
     BindAddress   => $unix_client_address, # Sets the bind() address
     RemoteAddress => $unix_server_address, # Sets the connect() address
-    SuccessState  => $success_state,       # State to call upon connection
-    FailureState  => $failure_state,       # State to call upon error
+    SuccessState  => $success_state,       # State to call on connection
+    FailureState  => $failure_state,       # State to call on error
     # Optional parameters (and default values):
     SocketType    => SOCK_STREAM,          # Sets the socket() type
   );
@@ -514,21 +514,21 @@ POE::Wheel::SocketFactory - POE Socket Creation Logic Abstraction
     SocketDomain   => AF_INET,             # Sets the socket() domain
     SocketType     => SOCK_STREAM,         # Sets the socket() type
     SocketProtocol => 'tcp',               # Sets the socket() protocol
-    ListenQueue    => SOMAXCONN,           # Sets the listen() queue length
-    Reuse          => 'no',                # Allows the port to be reused
+    ListenQueue    => SOMAXCONN,           # The listen() queue length
+    Reuse          => 'no',                # Lets the port be reused
   );
 
   # Connecting INET domain socket.
   $wheel = new POE::Wheel::SocketFactory(
     RemoteAddress  => $inet_address,       # Sets the connect() address
     RemotePort     => $inet_port,          # Sets the connect() port
-    SuccessState   => $success_state,      # State to call upon connection
-    FailureState   => $failure_state,      # State to call upon error
+    SuccessState   => $success_state,      # State to call on connection
+    FailureState   => $failure_state,      # State to call on error
     # Optional parameters (and default values):
     SocketDomain   => AF_INET,             # Sets the socket() domain
     SocketType     => SOCK_STREAM,         # Sets the socket() type
     SocketProtocol => 'tcp',               # Sets the socket() protocol
-    Reuse          => 'no',                # Allows the port to be reused
+    Reuse          => 'no',                # Lets the port be reused
   );
 
   $wheel->event( ... );
@@ -608,7 +608,8 @@ BindPort
 
 BindPort is the port of the local interface(s) that the socket will
 try to bind to.  It is ignored for UNIX sockets and recommended for
-INET sockets.  It defaults to 0 if omitted.
+INET sockets.  It defaults to 0 if omitted, which will bind the socket
+to an unspecified available port.
 
 The bind port may be a number, or a name in the /etc/services (or
 equivalent) database.
@@ -666,7 +667,7 @@ Please see POE::Wheel.
 SuccessState
 
 The SuccessState event contains the name of the state that will be
-caled when the SocketFactory has successfully accepted or connected a
+called when the SocketFactory has successfully accepted or connected a
 socket.  The operation it succeeds on depends on the type of socket
 being created.
 
@@ -680,8 +681,8 @@ If the socket in ARG0 was created by an accept() call on a listening
 INET domain socket, then ARG1 and ARG2 will contain the accepted
 socket's remote address and port, as returned by unpack_sockaddr_in().
 
-Because the remote address is undefined for UNIX domain sockets, so
-are ARG0 and ARG1.
+According to _Perl Cookbook_, the remote address for accepted UNIX
+domain sockets is undefined.  So ARG0 and ARG1 are, too.
 
 =item *
 
@@ -711,7 +712,7 @@ POE::Wheel::ReadWrite; POE::Wheel::SocketFactory
 
 =head1 BUGS
 
-Oh, probably some.
+No connectionless sockets yet.
 
 =head1 AUTHORS & COPYRIGHTS
 

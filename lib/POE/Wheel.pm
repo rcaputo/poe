@@ -68,10 +68,9 @@ implicitly when the parent session lets go of the wheel's reference.
 
 POE::Wheel::put()
 
-Wheels hide their resources behind a high-level interface, so it's
-really hard to call their put() methods directly.  Instead, wheels
-provide public put() methods that combine POE::Filter::put() and
-POE::Driver::put() in predictable ways.
+Wheels hide their resources behind a high-level interface.  Part of
+that interface is the put() method, which calls Filter and Driver
+put() methods as needed.
 
 =item *
 
@@ -101,7 +100,8 @@ POE::Wheel::ReadWrite; POE::Wheel::SocketFactory
 
 =head1 BUGS
 
-Oh, probably some.
+Wheels are fine for what they do, but they tend to be limiting when
+they're used in more interesting ways.
 
 =head1 AUTHORS & COPYRIGHTS
 

@@ -177,7 +177,7 @@ Repository.  This is the object database.  It provides a consistent
 interface between the Curator and whatever database it hides.
 
 Object.  This is a Perl representation of a Repository object.  It
-hides the Curator and Repository behind an interface that resemmbles a
+hides the Curator and Repository behind an interface that resembles a
 plain Perl object.
 
 Runtime.  This is a namespace where Object methods are run.  It
@@ -224,7 +224,7 @@ your .cpan/build/POE-(version) directory.
 
 =head2 Events Layer Examples
 
-These sample programs demonstrate and exercize POE's events layer and
+These sample programs demonstrate and exercise POE's events layer and
 resource management functions.
 
 =over 4
@@ -279,7 +279,7 @@ selects.perl
 This program exercises the POE::Kernel interface to select(2).  It
 creates a simple chargen server, and a simple client to visit it.  The
 client will disconnect after receiving a few lines from the server.
-The server will remain active.
+The server will remain active, and it will accept telnet connections.
 
 =item *
 
@@ -302,7 +302,7 @@ and periodically send signals to themselves.
 
 =head2 I/O Layer Examples
 
-These sample programs demonstrate and exercize POE's default I/O
+These sample programs demonstrate and exercise POE's default I/O
 layer.
 
 =over 4
@@ -384,7 +384,7 @@ the current time, and destructs.  The client pool creates replacements
 for destroyed clients, and so it goes.
 
 This program has been known to exhaust some systems' available
-sockets.  On systems that are susceptible to socket exmaustion,
+sockets.  On systems that are susceptible to socket exhaustion,
 netstat will report a lot of sockets in various WAIT states, and
 thrash.perl will show an abnormally low connections/second rate.
 
@@ -427,6 +427,13 @@ considered while POE was being designed.
 preforkedserver.perl
 
 This program demonstrates a way to write pre-forking servers with POE.
+It tends to dump core after a while.  Perl still isn't safe with
+signals, especially in a long-running daemon process.
+
+One work-around is to comment out the yield('_stop') calls (there are
+two).  They only exist to cycle the child servers.  That idea was
+borrowed from Apache, which only did it to thwart memory leaks.  POE
+shouldn't leak memory, so churning the children shouldn't be needed.
 
 =item *
 
@@ -508,7 +515,7 @@ Philip Gwyn
 Philip Gwyn is <artware.qc.ca!gwynp>.
 
 He has extended the Wheels I/O abstraction to allow filters to be
-changed at runtim.  He has enhanced Filter::Reference to support
+changed at runtime.  He has enhanced Filter::Reference to support
 different serialization methods.  His intangible contributions include
 feedback and quality assurance (bug finding).  A lot of cleanup
 between 0.06 and 0.07 is a result of his keen eye.  His other eye's
