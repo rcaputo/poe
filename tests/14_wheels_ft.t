@@ -36,8 +36,9 @@ sub sss_new {
   POE::Session->create
     ( inline_states =>
       { _start     => \&sss_start,
+        _stop      => \&sss_stop,
+        got_error  => \&sss_error,
         got_block  => \&sss_block,
-        got_flush  => \&sss_flush,
         ev_timeout => sub { delete $_[HEAP]->{wheel} },
       },
       args => [ $socket, $peer_addr, $peer_port ],
@@ -56,7 +57,8 @@ sub sss_start {
       ErrorState   => 'got_error',
     );
 
-  &ok_if(2, defined $heap->{wheel});
+  $heap->{test_two} = 1;
+  $heap->{wheel_id} = $heap->{wheel}->ID;
   $heap->{read_count} = 0;
 }
 
@@ -64,6 +66,14 @@ sub sss_block {
   my ($kernel, $heap, $block) = @_[KERNEL, HEAP, ARG0];
   $heap->{read_count}++;
   $kernel->delay( ev_timeout => 2 );
+}
+
+sub sss_error {
+  $_[HEAP]->{test_two} = 0;
+}
+
+sub sss_stop {
+  &ok_if(2, $_[HEAP]->{test_two});
 }
 
 ###############################################################################
@@ -79,12 +89,15 @@ sub client_tcp_start {
       FailureState  => 'got_error',
     );
 
-  &ok_if(3, defined $heap->{wheel});
+  $heap->{socketfactory_wheel_id} = $heap->{wheel}->ID;
+  $heap->{test_three} = 1;
 }
 
 sub client_tcp_stop {
+  &ok_if(3, $_[HEAP]->{test_three});
   &ok_if(4, $_[HEAP]->{put_count} == $max_send_count);
   &ok_if(5, $_[HEAP]->{flush_count} == $_[HEAP]->{put_count} / 2);
+  &ok_if(6, $_[HEAP]->{test_six});
 }
 
 sub client_tcp_connected {
@@ -99,7 +112,8 @@ sub client_tcp_connected {
       FlushedState => 'got_flush',
     );
 
-  &ok_if(6, defined $heap->{wheel});
+  $heap->{test_six} = 1;
+  $heap->{readwrite_wheel_id} = $heap->{wheel}->ID;
 
   $heap->{flush_count} = 0;
   $heap->{put_count}   = 0;
@@ -119,7 +133,17 @@ sub client_tcp_got_alarm {
 }
 
 sub client_tcp_got_error {
-  my ($operation, $errnum, $errstr) = @_[ARG0..ARG2];
+  my ($heap, $operation, $errnum, $errstr, $wheel_id) = @_[HEAP, ARG0..ARG3];
+
+  if ($wheel_id == $heap->{socketfactory_wheel_id}) {
+    $heap->{test_three} = 0;
+  }
+
+  if ($wheel_id == $heap->{readwrite_wheel_id}) {
+    $heap->{test_six} = 0;
+  }
+
+  delete $heap->{wheel};
   warn "$operation error $errnum: $errstr";
 }
 

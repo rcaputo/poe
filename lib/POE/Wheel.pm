@@ -3,12 +3,27 @@
 package POE::Wheel;
 
 use strict;
+use Carp;
 
-#------------------------------------------------------------------------------
+# Used to generate unique IDs for wheels.  This is static data, shared
+# by all.
+my $next_id = 1;
+my %active_socketfactory_ids;
 
 sub new {
   my $type = shift;
   croak "$type is not meant to be used directly";
+}
+
+sub allocate_wheel_id {
+  while (1) {
+    last unless exists $active_socketfactory_ids{ $next_id++ };
+  }
+  return $active_socketfactory_ids{$next_id} = $next_id;
+}
+
+sub free_wheel_id {
+  delete $active_socketfactory_ids{shift};
 }
 
 #------------------------------------------------------------------------------
@@ -42,6 +57,18 @@ events until it's destroyed.
 These are the methods that are common to every wheel.
 
 =over 2
+
+=item allocate_wheel_id
+
+This is a static function; it should be called as
+&POE::Wheel::allocate_wheel_id().  It returns a number that may be
+used to uniquely identify a wheel.  POE::Wheel keeps track of
+allocated IDs to avoid collisions, so it's important to free the ID
+when it's done.
+
+=item free_wheel_id($wheel_id)
+
+Frees a wheel ID.  Used when a wheel is being destroyed.
 
 =item new LOTS_OF_STUFF
 

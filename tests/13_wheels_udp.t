@@ -35,6 +35,8 @@ sub udp_start {
         FailureState   => 'ev_peer_a_error',
       );
 
+  $heap->{peer_a_id} = $heap->{peer_a_setup_wheel}->ID;
+
   $heap->{peer_b_setup_wheel} =
     POE::Wheel::SocketFactory->new
       ( BindAddress    => '127.0.0.1',
@@ -44,6 +46,8 @@ sub udp_start {
         SuccessState   => 'ev_peer_b_socket',
         FailureState   => 'ev_peer_b_error',
       );
+
+  $heap->{peer_b_id} = $heap->{peer_b_setup_wheel}->ID;
 
   $heap->{peer_a_recv_error} = 0;
   $heap->{peer_a_send_error} = 0;
@@ -56,14 +60,17 @@ sub udp_start {
   $heap->{peer_a_send_count} = 0;
   $heap->{peer_b_send_count} = 0;
 
-  &ok_if( 1, defined $heap->{peer_a_setup_wheel} );
-  &ok_if( 2, defined $heap->{peer_b_setup_wheel} );
+  $heap->{test_one} = 1;
+  $heap->{test_two} = 1;
 
   $kernel->delay( ev_took_too_long => 5 );
 }
 
 sub udp_stop {
   my $heap = $_[HEAP];
+
+  &ok_if( 1, $heap->{test_one} );
+  &ok_if( 2, $heap->{test_two} );
 
   &ok_unless(5,  $heap->{peer_a_recv_error});
   &ok_unless(6,  $heap->{peer_a_send_error});
@@ -125,11 +132,21 @@ sub udp_peer_b_socket {
 }
 
 sub udp_peer_a_error {
-  $_[HEAP]->{peer_a_sock_error}++;
+  my ($heap, $wheel_id) = @_[HEAP, ARG3];
+  if ($wheel_id == $heap->{peer_a_id}) {
+    delete $heap->{peer_a_setup_wheel};
+    $heap->{test_one} = 0;
+  }
+  $heap->{peer_a_sock_error}++;
 }
 
 sub udp_peer_b_error {
-  $_[HEAP]->{peer_b_sock_error}++;
+  my ($heap, $wheel_id) = @_[HEAP, ARG3];
+  if ($wheel_id == $heap->{peer_b_id}) {
+    delete $heap->{peer_b_setup_wheel};
+    $heap->{test_two} = 0;
+  }
+  $heap->{peer_b_sock_error}++;
 }
 
 sub udp_peer_a_input {

@@ -7,7 +7,7 @@ use Carp;
 use Symbol;
 
 use POSIX qw(fcntl_h errno_h);
-use POE;
+use POE qw(Wheel);
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -28,6 +28,7 @@ sub new {
   my $self = bless { handle        => $params{Handle},
                      event_accept  => $params{AcceptState},
                      event_error   => $params{ErrorState},
+                     unique_id     => &POE::Wheel::allocate_wheel_id(),
                    }, $type;
                                         # register private event handlers
   $self->_define_accept_state();
@@ -107,6 +108,14 @@ sub DESTROY {
     $poe_kernel->state($self->{state_accept});
     delete $self->{state_accept};
   }
+
+  &POE::Wheel::free_wheel_id($self->{unique_id});
+}
+
+#------------------------------------------------------------------------------
+
+sub ID {
+  return $_[0]->{unique_id};
 }
 
 ###############################################################################
@@ -144,6 +153,8 @@ such as IO::Socket or plain socket() calls.
 
 =over 4
 
+=item *
+
 POE::Wheel::ListenAccept::event( ... )
 
 The event() method changes the events that a ListenAccept wheel emits
@@ -157,6 +168,13 @@ turns off its ErrorState event.
   $wheel->event( AcceptState => $new_accept_state_name,
                  ErrorState  => undef
                );
+
+=item *
+
+POE::Wheel::ListenAccept::ID()
+
+Returns the ListenAccept wheel's unique ID.  This can be used to
+associate the wheel's events back to the wheel itself.
 
 =back
 

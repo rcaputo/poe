@@ -5,7 +5,7 @@ package POE::Wheel::FollowTail;
 use strict;
 use Carp;
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END);
-use POE;
+use POE qw(Wheel);
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -64,6 +64,7 @@ sub new {
                      interval    => $poll_interval,
                      event_input => $params{'InputState'},
                      event_error => $params{'ErrorEvent'},
+                     unique_id   => &POE::Wheel::allocate_wheel_id(),
                    }, $type;
 
   $self->_define_states();
@@ -100,7 +101,7 @@ sub new {
     }
   }
 
-  $self;
+  return $self;
 }
 
 #------------------------------------------------------------------------------
@@ -122,6 +123,7 @@ sub _define_states {
   my $state_read    = $self->{state_read} = $self . ' select read';
   my $poll_interval = $self->{interval};
   my $handle        = $self->{handle};
+  my $unique_id     = $self->{unique_id};
 
   # Define the read state.
 
@@ -146,13 +148,14 @@ sub _define_states {
           TRACE and do { warn time . " raw input\n"; };
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
             TRACE and do { warn time . " cooked input\n"; };
-            $k->call($ses, $$event_input, $cooked_input);
+            $k->call($ses, $$event_input, $cooked_input, $unique_id);
           }
         }
 
         if ($!) {
           TRACE and do { warn time . " error: $!\n"; };
-          $$event_error && $k->call($ses, $$event_error, 'read', ($!+0), $!);
+          $$event_error and
+            $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
         }
 
         TRACE and do { warn time . " set delay\n"; };
@@ -224,6 +227,14 @@ sub DESTROY {
     $poe_kernel->state($self->{state_wake});
     delete $self->{state_wake};
   }
+
+  &POE::Wheel::free_wheel_id($self->{unique_id});
+}
+
+#------------------------------------------------------------------------------
+
+sub ID {
+  return $_[0]->{unique_id};
 }
 
 ###############################################################################
@@ -265,6 +276,13 @@ POE::Wheel::FollowTail::event(...)
 
 Please see POE::Wheel.
 
+=item *
+
+POE::Wheel::FollowTail::ID()
+
+Returns the FollowTail wheel's unique ID.  This can be used to
+associate the wheel's events back to the wheel itself.
+
 =back
 
 =head1 EVENTS AND PARAMETERS
@@ -298,7 +316,7 @@ InputState.  It's the state to be called when the followed file
 lengthens.
 
 ARG0 contains a logical chunk of data, read from the end of the tailed
-file.
+file.  ARG1 contains the ID of the wheel that received this input.
 
 =item *
 
@@ -312,7 +330,9 @@ things if that's what it wants.
 
 The ARG0 parameter contains the name of the function that failed.
 ARG1 and ARG2 contain the numeric and string versions of $! at the
-time of the error, respectively.
+time of the error, respectively.  ARG3 contains the ID of the wheel
+that encountered the error; this is useful for closing the proper
+wheel when one of several has encountered an error.
 
 A sample ErrorState state:
 

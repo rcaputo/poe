@@ -57,8 +57,8 @@ sub sss_start {
       FlushedState => 'got_flush',
     );
 
-  &ok_if(6, defined $heap->{wheel});
-
+  $heap->{wheel_id}    = $heap->{wheel}->ID;
+  $heap->{test_six}    = 1;
   $heap->{flush_count} = 0;
   $heap->{put_count}   = 0;
 }
@@ -73,11 +73,17 @@ sub sss_line {
 }
 
 sub sss_error {
-  my ($operation, $errnum, $errstr) = @_[ARG0..ARG2];
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
 
-  &ok_unless(8, $errnum);
+  if ($errnum) {
+    $heap->{test_six} = 0;
+    &not_ok(8);
+  }
+  else {
+    &ok(8);
+  }
 
-  delete $_[HEAP]->{wheel};
+  delete $heap->{wheel};
 }
 
 sub sss_flush {
@@ -85,7 +91,8 @@ sub sss_flush {
 }
 
 sub sss_stop {
-  &ok_if (10, $_[HEAP]->{put_count} == $_[HEAP]->{flush_count});
+  &ok_if(6,  $_[HEAP]->{test_six});
+  &ok_if(10, $_[HEAP]->{put_count} == $_[HEAP]->{flush_count});
 }
 
 ###############################################################################
@@ -103,14 +110,14 @@ sub server_unix_start {
       FailureState => 'got_error',
     );
 
-  $_[HEAP]->{client_count} = 0;
-
-  &ok_if(2, defined $heap->{wheel});
+  $heap->{client_count} = 0;
+  $heap->{test_two}     = 1;
 }
 
 sub server_unix_stop {
   delete $_[HEAP]->{wheel};
 
+  &ok_if(2,  $_[HEAP]->{test_two});
   &ok_if(11, $_[HEAP]->{client_count} == 1);
 
   unlink $unix_server_socket if -e $unix_server_socket;
@@ -123,7 +130,14 @@ sub server_unix_answered {
 }
 
 sub server_unix_error {
-  my ($session, $operation, $errnum, $errstr) = @_[SESSION, ARG0..ARG2];
+  my ($session, $heap, $operation, $errnum, $errstr, $wheel_id) =
+    @_[SESSION, HEAP, ARG0..ARG3];
+
+  if ($wheel_id == $heap->{wheel}->ID) {
+    delete $heap->{wheel};
+    $heap->{test_two} = 0;
+  }
+
   warn $session->ID, " got $operation error $errnum: $errstr\n";
 }
 
@@ -151,10 +165,13 @@ sub client_unix_start {
       FailureState  => 'got_error',
     );
 
-  &ok_if(3, defined $heap->{wheel});
+  $heap->{socket_wheel_id} = $heap->{wheel}->ID;
+  $heap->{test_three} = 1;
 }
 
 sub client_unix_stop {
+  &ok_if(3, $_[HEAP]->{test_three});
+  &ok_if(4, $_[HEAP]->{test_four});
   &ok(7);
 }
 
@@ -171,8 +188,8 @@ sub client_unix_connected {
       FlushedState => 'got_flush',
     );
 
-  &ok_if(4, defined $heap->{wheel});
-
+  $heap->{readwrite_wheel_id} = $heap->{wheel}->ID;
+  $heap->{test_four}   = 1;
   $heap->{flush_count} = 0;
   $heap->{put_count}   = 1;
   $heap->{wheel}->put( '1: this is a test' );
@@ -195,7 +212,18 @@ sub client_unix_got_line {
 }
 
 sub client_unix_got_error {
-  my ($session, $operation, $errnum, $errstr) = @_[SESSION, ARG0..ARG2];
+  my ($session, $heap, $operation, $errnum, $errstr, $wheel_id) =
+    @_[SESSION, HEAP, ARG0..ARG3];
+
+  if ($wheel_id == $heap->{socket_wheel_id}) {
+    $heap->{test_three} = 0;
+  }
+
+  if ($wheel_id == $heap->{readwrite_wheel_id}) {
+    $heap->{test_four} = 0;
+  }
+
+  delete $heap->{wheel};
   warn $session->ID, " caught $operation error $errnum: $errstr";
 }
 

@@ -4,7 +4,7 @@ package POE::Wheel::ReadWrite;
 
 use strict;
 use Carp;
-use POE;
+use POE qw(Wheel);
 
 # Offsets into $self.
 sub HANDLE_INPUT               () {  0 }
@@ -23,6 +23,7 @@ sub WATERMARK_STATE            () { 12 }
 sub DRIVER_BUFFERED_OUT_OCTETS () { 13 }
 sub STATE_WRITE                () { 14 }
 sub STATE_READ                 () { 15 }
+sub UNIQUE_ID                  () { 16 }
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -101,22 +102,27 @@ sub new {
   }
 
   my $self = bless
-    [ $in_handle,
-      $out_handle,
-      $in_filter,
-      $out_filter,
-      delete $params{Driver},
-      delete $params{InputState},
-      delete $params{ErrorState},
-      delete $params{FlushedState},
+    [ $in_handle,                       # HANDLE_INPUT
+      $out_handle,                      # HANDLE_OUTPUT
+      $in_filter,                       # FILTER_INPUT
+      $out_filter,                      # FILTER_OUTPUT
+      delete $params{Driver},           # DRIVER_BOTH
+      delete $params{InputState},       # EVENT_INPUT
+      delete $params{ErrorState},       # EVENT_ERROR
+      delete $params{FlushedState},     # EVENT_FLUSHED
       # Water marks.
-      delete $params{HighMark},
-      delete $params{LowMark},
-      delete $params{HighState},
-      delete $params{LowState},
-      0,
+      delete $params{HighMark},         # WATERMARK_MARK_HIGH
+      delete $params{LowMark},          # WATERMARK_MARK_LOW
+      delete $params{HighState},        # WATERMARK_EVENT_HIGH
+      delete $params{LowState},         # WATERMARK_EVENT_LOW
+      0,                                # WATERMARK_STATE
       # Driver statistics.
-      0,
+      0,                                # DRIVER_BUFFERED_OUT_OCTETS
+      # Dynamic state names.
+      undef,                            # STATE_WRITE
+      undef,                            # STATE_READ
+      # Unique ID.
+      &POE::Wheel::allocate_wheel_id(), # UNIQUE_ID
     ];
 
   if (scalar keys %params) {
@@ -128,7 +134,7 @@ sub new {
   $self->_define_read_state();
   $self->_define_write_state();
 
-  $self;
+  return $self;
 }
 
 #------------------------------------------------------------------------------
@@ -147,6 +153,7 @@ sub _define_write_state {
   my $low_mark      = $self->[WATERMARK_MARK_LOW];
   my $event_high    = \$self->[WATERMARK_EVENT_HIGH];
   my $event_low     = \$self->[WATERMARK_EVENT_LOW];
+  my $unique_id     = $self->[UNIQUE_ID];
 
   # Read/write members.  These are done by reference, to avoid pushing
   # $self into the anonymous sub.  Extra copies of $self are bad and
@@ -167,7 +174,9 @@ sub _define_write_state {
 
         # When you can't write, nothing else matters.
         if ($!) {
-          $$event_error && $k->call( $me, $$event_error, 'write', ($!+0), $! );
+          $$event_error && $k->call( $me, $$event_error,
+                                     'write', ($!+0), $!, $unique_id
+                                   );
           $k->select_write($handle);
         }
 
@@ -181,7 +190,7 @@ sub _define_write_state {
           if ($$is_in_high_water_state) {
             if ( $$driver_buffered_out_octets <= $low_mark ) {
               $$is_in_high_water_state = 0;
-              $k->call( $me, $$event_low ) if defined $$event_low;
+              $k->call( $me, $$event_low, $unique_id ) if defined $$event_low;
             }
           }
 
@@ -195,7 +204,7 @@ sub _define_write_state {
                   ( $$driver_buffered_out_octets >= $high_mark )
                 ) {
             $$is_in_high_water_state = 1;
-            $k->call( $me, $$event_high ) if defined $$event_high;
+            $k->call( $me, $$event_high, $unique_id ) if defined $$event_high;
           }
         }
 
@@ -205,7 +214,7 @@ sub _define_write_state {
         # is 1).
         unless ($$driver_buffered_out_octets) {
           $k->select_pause_write($handle);
-          $$event_flushed && $k->call($me, $$event_flushed);
+          $$event_flushed && $k->call($me, $$event_flushed, $unique_id);
         }
       }
    );
@@ -234,6 +243,7 @@ sub _define_read_state {
     my $input_filter = $self->[FILTER_INPUT];
     my $event_input  = \$self->[EVENT_INPUT];
     my $event_error  = \$self->[EVENT_ERROR];
+    my $unique_id    = $self->[UNIQUE_ID];
 
     $poe_kernel->state
       ( $self->[STATE_READ] = $self . ' select read',
@@ -244,12 +254,12 @@ sub _define_read_state {
           my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
           if (defined(my $raw_input = $driver->get($handle))) {
             foreach my $cooked_input (@{$input_filter->get($raw_input)}) {
-              $k->call($me, $$event_input, $cooked_input);
+              $k->call($me, $$event_input, $cooked_input, $unique_id);
             }
           }
           else {
             $$event_error and
-              $k->call( $me, $$event_error, 'read', ($!+0), $! );
+              $k->call( $me, $$event_error, 'read', ($!+0), $!, $unique_id );
             $k->select_read($handle);
           }
         }
@@ -332,6 +342,8 @@ sub DESTROY {
     $poe_kernel->state($self->[STATE_WRITE]);
     $self->[STATE_WRITE] = undef;
   }
+
+  &POE::Wheel::free_wheel_id($self->[UNIQUE_ID]);
 }
 
 #------------------------------------------------------------------------------
@@ -366,7 +378,9 @@ sub set_filter {
   # Push pending data from the old filter into the new one.
   if (defined $buf) {
     foreach my $cooked_input (@{$new_filter->get($buf)}) {
-      $poe_kernel->yield($self->[EVENT_INPUT], $cooked_input)
+      $poe_kernel->yield( $self->[EVENT_INPUT],
+                          $cooked_input, $self->[UNIQUE_ID]
+                        );
     }
   }
 }
@@ -382,7 +396,9 @@ sub set_input_filter {
 
   if (defined $buf) {
     foreach my $cooked_input (@{$new_filter->get($buf)}) {
-      $poe_kernel->yield($self->[EVENT_INPUT], $cooked_input)
+      $poe_kernel->yield( $self->[EVENT_INPUT],
+                          $cooked_input, $self->[UNIQUE_ID]
+                        );
     }
   }
 }
@@ -452,6 +468,11 @@ sub get_driver_out_messages {
   $_[0]->[DRIVER_BOTH]->get_out_messages_buffered();
 }
 
+# Get the wheel's ID.
+sub ID {
+  return $_[0]->[UNIQUE_ID];
+}
+
 ###############################################################################
 1;
 
@@ -514,6 +535,9 @@ POE::Wheel::ReadWrite - POE Read/Write Logic Abstraction
   # To fetch driver statistics:
   $pending_octets   = $wheel->get_driver_out_octets();
   $pending_messages = $wheel->get_driver_out_messages();
+
+  # To retrieve the wheel's ID:
+  print $wheel->ID;
 
 =head1 DESCRIPTION
 
@@ -584,6 +608,13 @@ effect until the next $wheel->put() or internal buffer flush.
 POE::Wheel::ReadWrite->event() can change the high and low watermark
 events.
 
+=item *
+
+POE::Wheel::ReadWrite::ID()
+
+Returns the ReadWrite wheel's unique ID.  This can be used to
+associate the wheel's events back to the wheel itself.
+
 =back
 
 =head1 EVENTS AND PARAMETERS
@@ -599,13 +630,13 @@ called for each chunk of logical data returned by the ReadWrite
 wheel's filter.
 
 The ARG0 parameter contains the chunk of logical data that was
-received.
+received.  ARG1 contains the ID of the wheel that received the input.
 
 A sample InputState state:
 
   sub input_state {
-    my ($heap, $input) = @_[HEAP, ARG0];
-    print "Echoing input: $input\n";
+    my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
+    print "Echoing input from wheel $wheel_id: $input\n";
     $heap->{wheel}->put($input);     # Echo it back.
   }
 
@@ -615,16 +646,16 @@ FlushedState
 
 The FlushedState event contains the name of the state that will be
 called whenever the wheel's driver's output queue becomes empty.  This
-signals that all pending data has been written.  It does not include
-parameters.
+signals that all pending data has been written.  It comes with a
+single parameter, ARG0, that indicates which wheel flushed its buffer.
 
 A sample FlushedState state:
 
   sub flushed_state {
-    # Stop the wheel after all outgoing data is flushed.
+    # Stop a wheel after all outgoing data is flushed.
     # This frees the wheel's resources, including the
     # filehandle, and closes the connection.
-    delete $_[HEAP]->{wheel};
+    delete $_[HEAP]->{wheel}->{$_[ARG0]};
   }
 
 =item *
@@ -637,13 +668,17 @@ with EAGAIN, so it's not considered a true error.
 
 The ARG0 parameter contains the name of the function that failed.
 ARG1 and ARG2 contain the numeric and string versions of $! at the
-time of the error, respectively.
+time of the error, respectively.  ARG3 holds the ID of the wheel that
+encountered an error; this is good for times when you have several
+wheels and need to know which one's having trouble.
 
 A sample ErrorState state:
 
   sub error_state {
-    my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
+    my ($heap, $operation, $errnum, $errstr, $wheel_id) =
+      @_[HEAP, ARG0, ARG1..ARG3];
     warn "$operation error $errnum: $errstr\n";
+    delete $heap->{wheels}->{$wheel_id}; # shut down that wheel
   }
 
 =item *
@@ -659,7 +694,8 @@ HighState and LowState together are used for flow control.  The idea
 is to perform some sort of throttling when HighState is called and
 resume full-speed transmission when LowState is called.
 
-HighState includes no parameters.
+HighState comes with ARG0, the ID of the wheel that encountered the
+high-water condition.
 
 =item *
 
@@ -673,7 +709,8 @@ HighState and LowState together are used for flow control.  The idea
 is to perform some sort of throttling when HighState is called and
 resume full-speed transmission when LowState is called.
 
-LowState includes no parameters.
+LowState comes with ARG0, the ID of the wheel that encounterd the
+low-water condition.
 
 =back
 

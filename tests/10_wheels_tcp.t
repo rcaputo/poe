@@ -52,7 +52,8 @@ sub sss_start {
       FlushedState => 'got_flush',
     );
 
-  &ok_if(2, defined $heap->{wheel});
+  $heap->{wheel_id} = $heap->{wheel}->ID;
+  $heap->{test_two} = 1;
 
   $heap->{flush_count} = 0;
   $heap->{put_count}   = 0;
@@ -68,11 +69,17 @@ sub sss_line {
 }
 
 sub sss_error {
-  my ($operation, $errnum, $errstr) = @_[ARG0..ARG2];
+  my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
 
-  &ok_unless(3, $errnum);
+  if ($errnum) {
+    $heap->{test_two} = 0;
+    &not_ok(3);
+  }
+  else {
+    &ok(3);
+  }
 
-  delete $_[HEAP]->{wheel};
+  delete $heap->{wheel};
 }
 
 sub sss_flush {
@@ -80,7 +87,8 @@ sub sss_flush {
 }
 
 sub sss_stop {
-  &ok_if (4, $_[HEAP]->{put_count} == $_[HEAP]->{flush_count});
+  &ok_if(2, $_[HEAP]->{test_two});
+  &ok_if(4, $_[HEAP]->{put_count} == $_[HEAP]->{flush_count});
 }
 
 ###############################################################################
@@ -96,11 +104,14 @@ sub client_tcp_start {
       FailureState  => 'got_error',
     );
 
-  &ok_if(5, defined $heap->{wheel});
+  $heap->{socket_wheel_id} = $heap->{wheel}->ID;
+  $heap->{test_five} = 1;
 }
 
 sub client_tcp_stop {
+  &ok_if(5, $_[HEAP]->{test_five});
   &ok(6);
+  &ok_if(7, $_[HEAP]->{test_seven});
 }
 
 sub client_tcp_connected {
@@ -116,7 +127,8 @@ sub client_tcp_connected {
       FlushedState => 'got_flush',
     );
 
-  &ok_if(7, defined $heap->{wheel});
+  $heap->{readwrite_wheel_id} = $heap->{wheel}->ID;
+  $heap->{test_seven} = 1;
 
   $heap->{flush_count} = 0;
   $heap->{put_count}   = 1;
@@ -140,7 +152,17 @@ sub client_tcp_got_line {
 }
 
 sub client_tcp_got_error {
-  my ($operation, $errnum, $errstr) = @_[ARG0..ARG2];
+  my ($heap, $operation, $errnum, $errstr, $wheel_id) = @_[HEAP, ARG0..ARG3];
+
+  if ($wheel_id == $heap->{socket_wheel_id}) {
+    $heap->{test_five} = 0;
+  }
+
+  if ($wheel_id == $heap->{readwrite_wheel_id}) {
+    $heap->{test_seven} = 0;
+  }
+
+  delete $heap->{wheel};
   warn "$operation error $errnum: $errstr";
 }
 
