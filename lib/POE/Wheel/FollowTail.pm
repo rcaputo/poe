@@ -10,7 +10,9 @@ $VERSION = (qw($Revision$ ))[1];
 use Carp;
 use Symbol;
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END);
+use Fcntl qw(:mode);
 use POE qw(Wheel Driver::SysRW Filter::Line);
+use IO::Handle;
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -24,8 +26,11 @@ sub SELF_EVENT_ERROR () {  6 }
 sub SELF_EVENT_RESET () {  7 }
 sub SELF_UNIQUE_ID   () {  8 }
 sub SELF_STATE_READ  () {  9 }
-sub SELF_STATE_WAKE  () { 10 }
-sub SELF_LAST_STAT   () { 11 }
+sub SELF_LAST_STAT   () { 10 }
+sub SELF_FOLLOW_MODE () { 11 }
+
+sub MODE_TIMER  () { 0x01 } # Follow on a timer loop.
+sub MODE_SELECT () { 0x02 } # Follow via select().
 
 # Turn on tracing.  A lot of debugging occurred just after 0.11.
 sub TRACE_RESET        () { 0 }
@@ -56,8 +61,7 @@ sub new {
   croak "wheels no longer require a kernel reference as their first parameter"
     if (@_ && (ref($_[0]) eq 'POE::Kernel'));
 
-  croak "$type requires a working Kernel"
-    unless (defined $poe_kernel);
+  croak "$type requires a working Kernel" unless (defined $poe_kernel);
 
   # STATE-EVENT
   if (exists $params{InputState}) {
@@ -81,7 +85,7 @@ sub new {
     }
   }
 
-  croak "Handle or Filename required, but not both"
+  croak "FollowTail requires a Handle or Filename parameter, but not both"
     unless $params{Handle} xor defined $params{Filename};
 
   my $driver = delete $params{Driver};
@@ -92,56 +96,52 @@ sub new {
 
   croak "InputEvent required" unless defined $params{InputEvent};
 
-  my ($handle, $filename) = @params{ qw(Handle Filename) };
+  my $handle   = $params{Handle};
+  my $filename = $params{Filename};
 
   my @start_stat;
   if (defined $filename) {
     $handle = gensym();
-    open $handle, "<$filename" or croak "can't open $filename: $!";
+
+    # FIFOs (named pipes) are opened R/W so they don't report EOF.
+    if (-p $filename) {
+      open $handle, "+<$filename" or
+        croak "can't open fifo $filename for R/W: $!";
+    }
+
+    # Everything else is opened read-only.
+    else {
+      open $handle, "<$filename" or croak "can't open $filename: $!";
+    }
     @start_stat = stat($filename);
   }
 
-  my $poll_interval = ( (defined $params{PollInterval})
-                        ? $params{PollInterval}
-                        : 1
-                      );
-
-  my $seek_back = ( (defined $params{SeekBack})
-                    ? $params{SeekBack}
-                    : 4096
-                  );
+  my $poll_interval = $params{PollInterval} || 1;
+  my $seek_back     = $params{SeekBack} || 4096;
   $seek_back = 0 if $seek_back < 0;
 
-  my $self = bless [ $handle,                          # SELF_HANDLE
-                     $filename,                        # SELF_FILENAME
-                     $driver,                          # SELF_DRIVER
-                     $filter,                          # SELF_FILTER
-                     $poll_interval,                   # SELF_INTERVAL
-                     delete $params{InputEvent},       # SELF_EVENT_INPUT
-                     delete $params{ErrorEvent},       # SELF_EVENT_ERROR
-                     delete $params{ResetEvent},       # SELF_EVENT_RESET
-                     &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
-                     undef,                            # SELF_STATE_READ
-                     undef,                            # SELF_STATE_WAKE
-                     \@start_stat,                     # SELF_LAST_STAT
-                  ], $type;
+  my $self = bless
+    [ $handle,                          # SELF_HANDLE
+      $filename,                        # SELF_FILENAME
+      $driver,                          # SELF_DRIVER
+      $filter,                          # SELF_FILTER
+      $poll_interval,                   # SELF_INTERVAL
+      delete $params{InputEvent},       # SELF_EVENT_INPUT
+      delete $params{ErrorEvent},       # SELF_EVENT_ERROR
+      delete $params{ResetEvent},       # SELF_EVENT_RESET
+      &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
+      undef,                            # SELF_STATE_READ
+      \@start_stat,                     # SELF_LAST_STAT
+      undef,                            # SELF_FOLLOW_MODE
+    ], $type;
 
-  $self->_define_states();
+  # SeekBack and partial-input discarding only work for plain files.
+  # SeekBack attempts to position the file pointer somewhere before
+  # the end of the file.  If it's specified, we assume the user knows
+  # where a record begins.  Otherwise we just seek back and discard
+  # everything to EOF so we can frame the input record.
 
-  # Nudge the wheel into action before performing initial operations
-  # on it.  Part of the Kernel's select() logic is making things
-  # non-blocking, and the following code will assume that.
-
-  $poe_kernel->select($handle, $self->[SELF_STATE_READ]);
-
-  # Try to position the file pointer before the end of the file.  This
-  # is so we can "tail -f" an existing file.  FreeBSD, at least,
-  # allows sysseek to go before the beginning of a file.  Trouble
-  # ensues at that point, causing the file never to be read again.
-  # This code does some extra work to prevent seeking beyond the start
-  # of a file.
-
-  eval {
+  if (-f $handle or -l $handle) {
     my $end = sysseek($handle, 0, SEEK_END);
     if (defined($end) and ($end < $seek_back)) {
       sysseek($handle, 0, SEEK_SET);
@@ -149,49 +149,125 @@ sub new {
     else {
       sysseek($handle, -$seek_back, SEEK_END);
     }
-  };
 
-  # Discard partial input chunks unless a SeekBack was specified.
-  unless (defined $params{SeekBack}) {
-    while (defined(my $raw_input = $driver->get($handle))) {
-      # Skip out if there's no more input.
-      last unless @$raw_input;
-      $filter->get($raw_input);
+    # Discard partial input chunks unless a SeekBack was specified.
+    unless (defined $params{SeekBack}) {
+      while (defined(my $raw_input = $driver->get($handle))) {
+        # Skip out if there's no more input.
+        last unless @$raw_input;
+        $filter->get($raw_input);
+      }
     }
+
+    # Start the timer loop.
+    $self->[SELF_FOLLOW_MODE] = MODE_TIMER;
+    $self->_define_timer_states();
+  }
+
+  # Strange things that ought not be tailed?  Directories...
+  elsif (-d $handle) {
+    croak "FollowTail does not accept directories";
+  }
+
+  # Otherwise it's not a plain file.  We won't honor SeekBack, and we
+  # will use select_read to watch the handle.
+  else {
+    carp "FollowTail does not support SeekBack on a special file"
+      if defined $params{SeekBack};
+    carp "FollowTail does not use PollInterval for special files"
+      if defined $params{PollInterval};
+
+    # Start the select loop.
+    $self->[SELF_FOLLOW_MODE] = MODE_SELECT;
+    $self->_define_select_states();
   }
 
   return $self;
 }
 
-#------------------------------------------------------------------------------
-# This relies on stupid closure tricks to keep references to $self out
-# of anonymous coderefs.  Otherwise, the wheel won't disappear when a
-# state deletes it.
+### Define the select based polling loop.  This relies on stupid
+### closure tricks to keep references to $self out of anonymous
+### coderefs.  Otherwise a circular reference would occur, and the
+### wheel would never self-destruct.
 
-sub _define_states {
+sub _define_select_states {
   my $self = shift;
 
-  # If any of these change, then the states are invalidated and must
-  # be redefined.
+  my $filter      = $self->[SELF_FILTER];
+  my $driver      = $self->[SELF_DRIVER];
+  my $handle      = $self->[SELF_HANDLE];
+  my $unique_id   = $self->[SELF_UNIQUE_ID];
+  my $event_input = \$self->[SELF_EVENT_INPUT];
+  my $event_error = \$self->[SELF_EVENT_ERROR];
+  my $event_reset = \$self->[SELF_EVENT_RESET];
+
+  TRACE_POLL and warn "defining select state";
+
+  $poe_kernel->state
+    ( $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> select read",
+      sub {
+
+        # Protects against coredump on older perls.
+        0 && CRIMSON_SCOPE_HACK('<');
+
+        # The actual code starts here.
+        my ($k, $ses) = @_[KERNEL, SESSION];
+
+        eval {
+          sysseek($handle, 0, SEEK_CUR);
+        };
+        $! = 0;
+
+        TRACE_POLL and warn time . " read ok";
+
+        if (defined(my $raw_input = $driver->get($handle))) {
+          if (@$raw_input) {
+            TRACE_POLL and warn time . " raw input";
+            foreach my $cooked_input (@{$filter->get($raw_input)}) {
+              TRACE_POLL and warn time . " cooked input";
+              $k->call($ses, $$event_input, $cooked_input, $unique_id);
+            }
+          }
+        }
+
+        # Error reading.  Report the error if it's not EOF, or if it's
+        # EOF on a socket or TTY.  Shut down the select, too.
+        else {
+          if ($! or (-S $handle) or (-t $handle)) {
+            TRACE_POLL and warn time . " error: $!";
+            $$event_error and
+              $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
+            $k->select($handle);
+          }
+          $handle->clearerr();
+        }
+      }
+    );
+
+  $poe_kernel->select_read($handle, $self->[SELF_STATE_READ]);
+}
+
+### Define the timer based polling loop.  This also relies on stupid
+### closure tricks.
+
+sub _define_timer_states {
+  my $self = shift;
 
   my $filter        = $self->[SELF_FILTER];
   my $driver        = $self->[SELF_DRIVER];
-  my $event_input   = \$self->[SELF_EVENT_INPUT];
-  my $event_error   = \$self->[SELF_EVENT_ERROR];
-  my $event_reset   = \$self->[SELF_EVENT_RESET];
   my $unique_id     = $self->[SELF_UNIQUE_ID];
-  my $state_wake    = $self->[SELF_STATE_WAKE] =
-    ref($self) . "($unique_id) -> alarm";
-  my $state_read    = $self->[SELF_STATE_READ] =
-    ref($self) . "($unique_id) -> select read";
   my $poll_interval = $self->[SELF_INTERVAL];
   my $filename      = $self->[SELF_FILENAME];
   my $last_stat     = $self->[SELF_LAST_STAT];
   my $handle        = $self->[SELF_HANDLE];
+  my $state_read    = $self->[SELF_STATE_READ] =
+    ref($self) . "($unique_id) -> timer read";
 
-  # Define the read state.
+  my $event_input   = \$self->[SELF_EVENT_INPUT];
+  my $event_error   = \$self->[SELF_EVENT_ERROR];
+  my $event_reset   = \$self->[SELF_EVENT_RESET];
 
-  TRACE_POLL and do { warn $state_read; };
+  TRACE_POLL and warn "defining timer state";
 
   $poe_kernel->state
     ( $state_read,
@@ -214,13 +290,14 @@ sub _define_states {
             };
 
             if (@new_stat) {
+
+              # File shrank.  Consider it a reset.
               if ($new_stat[7] < $last_stat->[7]) {
-                $$event_reset and $k->call( $ses,
-                                            $$event_reset, $unique_id
-                                          );
+                $$event_reset and $k->call($ses, $$event_reset, $unique_id);
                 $last_stat->[7] = $new_stat[7];
               }
 
+              # Something fundamental about the file changed.  Reopen it.
               if ( $new_stat[1] != $last_stat->[1] or # inode's number
                    $new_stat[0] != $last_stat->[0] or # inode's device
                    $new_stat[6] != $last_stat->[6] or # device type
@@ -250,61 +327,47 @@ sub _define_states {
                             );
                 }
               }
-              else {
-                sysseek($handle, 0, SEEK_CUR);
-              }
             }
-          }
-          else {
-            sysseek($handle, 0, SEEK_CUR);
           }
         };
         $! = 0;
 
-        TRACE_POLL and do { warn time . " read ok\n"; };
+        TRACE_POLL and warn time . " read ok\n";
 
+        # Got input.  Read a bunch of it, then poll again right away.
         if (defined(my $raw_input = $driver->get($handle))) {
           if (@$raw_input) {
-            TRACE_POLL and do { warn time . " raw input\n"; };
+            TRACE_POLL and warn time . " raw input\n";
             foreach my $cooked_input (@{$filter->get($raw_input)}) {
-              TRACE_POLL and do { warn time . " cooked input\n"; };
+              TRACE_POLL and warn time . " cooked input\n";
               $k->call($ses, $$event_input, $cooked_input, $unique_id);
             }
           }
+          $k->yield($state_read);
         }
+
+        # Got an error of some sort.
         else {
-          TRACE_POLL and do { warn time . " set delay\n"; };
-          $k->delay($state_wake, $poll_interval);
-          $k->select_read($handle);
-        }
-
-        if ($!) {
-          TRACE_POLL and do { warn time . " error: $!\n"; };
-          $$event_error and
-            $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
+          TRACE_POLL and warn time . " set delay\n";
+          if ($!) {
+            TRACE_POLL and warn time . " error: $!\n";
+            $$event_error and
+              $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
+            $k->select($handle);
+          }
+          $k->delay($state_read, $poll_interval);
+          $handle->clearerr();
         }
       }
     );
 
-  # Define the alarm state that periodically wakes the wheel and
-  # retries to read from the file.
-
-  TRACE_POLL and do { warn $state_wake; };
-
-  $poe_kernel->state
-    ( $state_wake,
-      sub {
-                                        # prevents SEGV
-        0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
-        my $k = $_[KERNEL];
-
-        TRACE_POLL and do { warn time . " wake up and select the handle\n"; };
-
-        $k->select_read($handle, $state_read);
-      }
-    );
+  $poe_kernel->yield($state_read);
 }
+
+# ### Define the select states, and begin reading the special handle.
+# ### This also relies on stupid closure tricks.
+
+#     $poe_kernel->select($handle, $self->[SELF_STATE_READ]);
 
 #------------------------------------------------------------------------------
 
@@ -340,7 +403,15 @@ sub event {
     }
   }
 
-  $self->_define_states();
+  if ($self->[SELF_FOLLOW_MODE] & MODE_TIMER) {
+    $self->_define_timer_states();
+  }
+  elsif ($self->[SELF_FOLLOW_MODE] & MODE_SELECT) {
+    $self->_define_select_states();
+  }
+  else {
+    die;
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -353,11 +424,6 @@ sub DESTROY {
   if ($self->[SELF_STATE_READ]) {
     $poe_kernel->state($self->[SELF_STATE_READ]);
     undef $self->[SELF_STATE_READ];
-  }
-
-  if ($self->[SELF_STATE_WAKE]) {
-    $poe_kernel->state($self->[SELF_STATE_WAKE]);
-    undef $self->[SELF_STATE_WAKE];
   }
 
   &POE::Wheel::free_wheel_id($self->[SELF_UNIQUE_ID]);

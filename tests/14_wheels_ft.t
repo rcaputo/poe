@@ -11,7 +11,6 @@ use TestSetup;
 &test_setup(9);
 
 # Turn on all asserts.
-# sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Session::ASSERT_STATES () { 0 }
 use POE qw( Component::Server::TCP
@@ -22,6 +21,8 @@ use POE qw( Component::Server::TCP
             Filter::Block
             Driver::SysRW
           );
+
+sub DEBUG () { 0 }
 
 my $tcp_server_port = 31909;
 my $max_send_count  = 10;    # expected to be even
@@ -70,15 +71,21 @@ sub sss_start {
 
 sub sss_block {
   my ($kernel, $heap, $block) = @_[KERNEL, HEAP, ARG0];
+  DEBUG and warn "sss got block";
   $heap->{read_count}++;
   $kernel->delay( ev_timeout => 5 );
 }
 
 sub sss_error {
-  $_[HEAP]->{test_two} = 0;
+  my ($heap, $syscall, $errnum, $errstr, $wheel_id) = @_[HEAP, ARG0..ARG3];
+  DEBUG and warn "sss got $syscall error $errnum: $errstr";
+  if ($errnum) {
+    $_[HEAP]->{test_two} = 0;
+  }
 }
 
 sub sss_stop {
+  DEBUG and warn "sss stopped";
   &ok_if(2, $_[HEAP]->{test_two});
   &ok_if(3, $_[HEAP]->{read_count} == $max_send_count);
 }
@@ -88,6 +95,8 @@ sub sss_stop {
 
 sub client_tcp_start {
   my $heap = $_[HEAP];
+
+  DEBUG and warn "client tcp started";
 
   $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => '127.0.0.1',
@@ -124,6 +133,8 @@ sub client_tcp_connected {
       FlushedEvent => 'got_flush_nonexistent',
     );
 
+  DEBUG and warn "client tcp connected";
+
   # Test event changing.
   $heap->{wheel}->event( ErrorEvent   => 'got_error',
                          FlushedEvent => 'got_flush',
@@ -140,6 +151,8 @@ sub client_tcp_connected {
 
 sub client_tcp_got_alarm {
   my ($kernel, $heap, $line) = @_[KERNEL, HEAP, ARG0];
+
+  DEBUG and warn "client tcp got alarm";
 
   $heap->{wheel}->put( '0123456789ABCDEF0123456789ABCDEF' );
 
@@ -166,6 +179,7 @@ sub client_tcp_got_error {
 
 sub client_tcp_got_flush {
   $_[HEAP]->{flush_count}++;
+  DEBUG and warn "client_tcp_got_flush";
   # Delays destruction until all data is out.
   delete $_[HEAP]->{wheel} if $_[HEAP]->{put_count} >= $max_send_count;
 }
@@ -175,18 +189,19 @@ sub client_tcp_got_flush {
 
 POE::Component::Server::TCP->new
   ( Port     => $tcp_server_port,
-    Acceptor => sub { &sss_new(@_[ARG0..ARG2]);
-                      # This next badness is just for testing.
-                      my $sockname = $_[HEAP]->{listener}->getsockname();
-                      delete $_[HEAP]->{listener};
+    Acceptor => sub {
+      &sss_new(@_[ARG0..ARG2]);
+      # This next badness is just for testing.
+      my $sockname = $_[HEAP]->{listener}->getsockname();
+      delete $_[HEAP]->{listener};
 
-                      my ($port, $addr) = sockaddr_in($sockname);
-                      $addr = inet_ntoa($addr);
-                      &ok_if( 8,
-                              ($addr eq '0.0.0.0') &&
-                              ($port == $tcp_server_port)
-                            )
-                    },
+      my ($port, $addr) = sockaddr_in($sockname);
+      $addr = inet_ntoa($addr);
+      &ok_if( 8,
+              ($addr eq '0.0.0.0') &&
+              ($port == $tcp_server_port)
+            )
+    },
   );
 
 POE::Session->create
