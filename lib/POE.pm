@@ -61,7 +61,7 @@ __END__
 
 =head1 NAME
 
-POE - multitasking and networking framework for Perl
+POE - portable multitasking and networking framework for Perl
 
 =head1 SYNOPSIS
 
@@ -88,355 +88,138 @@ POE - multitasking and networking framework for Perl
     print "Session ", $_[SESSION]->ID, " has stopped.\n";
   }
 
-  for (0..9) {
+  for (1..10) {
     POE::Session->create(
-      inline_states =>
-        { _start    => \&handler_start,
-          increment => \&handler_increment,
-          _stop     => \&handler_stop,
-        }
+      inline_states => {
+        _start    => \&handler_start,
+        increment => \&handler_increment,
+        _stop     => \&handler_stop,
+      }
     );
   }
 
-  $poe_kernel->run();
+  POE::Kernel->run();
   exit;
-
-=head1 QUICK LINKS
-
-Please see the SEE ALSO section for conceptual summary of all POE's
-documentation.
-
-POE's distribution comes with a directory full of examples, but they
-are gradually being phased out in favor of an online "cookbook".
-Please see the samples directory, and also look at
-http://poe.perl.org/?POE_Cookbook for more contemporary examples.
-
-Please see http://www.perl.com/pub/2001/01/poe.html for an excellent,
-and more importantly: gradual, introduction to POE.  If this manpage
-doesn't make sense, perhaps the introduction will.
-
-Please see POE's web site at http://poe.perl.org/ for FAQs, cookbook
-examples, and modules using POE.
 
 =head1 DESCRIPTION
 
-POE is an acronym of "Perl Object Environment".  It originally was
-designed as the core of a persistent object server and runtime
-environment, but it has evolved into a general purpose multitasking
-and networking framework.
-
-POE's core contains two types of modules.  First there's POE::Kernel;
-this is the main resource manager and event loop.  Second are the
-sessions or state machines which implement the actual threads.  The
-sessions are POE::Session (not quite a proper state machine) and
-POE::NFA.
-
-The remainder of this distribution consists of convenience and helper
-modules, most of which aren't required to begin using POE.
-
-=head1 USING POE
-
-Using POE can be pretty tedious.  Consider this example, which pulls
-in the necessary modules for a line-based TCP server:
-
-  use POE::Kernel;
-  use POE::Session;
-  use POE::Wheel::SocketFactory;
-  use POE::Wheel::ReadWrite;
-  use POE::Filter::Line;
-  use POE::Driver::SysRW;
-
-The POE.pm module fixes some of this tedium.  When POE.pm is used
-directly, it automatically includes POE::Kernel and POE::Session.  It
-also includes each of the C<use> statement's parameters, first
-prepending "POE::" to them.  An example is in order:
-
-This C<use> statement is equivalent to the previous six.
-
-  use POE qw( Wheel::SocketFactory Wheel::ReadWrite
-              Filter::Line Driver::SysRW
-            );
-
-=head1 WRITING POE PROGRAMS
-
-Basic POE programs have four parts.
-
-=over 2
-
-=item Preliminary program setup
-
-This is the usual overhead for writing a Perl program: a shebang line,
-perhaps some C<use> statements to import things, and maybe some global
-variables or configuration constants.  It's all pretty standard stuff.
-
-  #!/usr/bin/perl -w
-  use strict;
-  use POE;
-
-=item Define the program's event handlers or states
-
-Declare functions which will handle events here.  This is deceptive,
-since the functions can be declared anywhere, including as anonymous
-subroutines in a session constructor call.
-
-  sub handler_start {
-    ...
-  }
-
-  sub handler_increment {
-    ...
-  }
-
-  sub handler_stop {
-    ...
-  }
-
-=item Start initial sessions or machines
-
-The Kernel only runs as long as there is something for it to do.  Its
-main loop returns after the last session has stopped.  The obvious
-corollary to this rule is that the main loop will return immediately
-if nothing is set up when it's called.
-
-  for (0..9) {
-    POE::Session->create(
-      inline_states =>
-        { _start    => \&handler_start,
-          increment => \&handler_increment,
-          _stop     => \&handler_stop,
-        }
-    );
-  }
-
-=item Start the kernel's main loop
-
-_start handlers are invoked immediately when sessions are
-instantiated.  Everything else happens because the kernel makes it so,
-and the kernel can't do that 'til it's started.  Most programs exit
-afterwards since the kernel only returns after everything is done.
-
-  $poe_kernel->run();
-  exit 0;
-
-=back
-
-
-=head1 POE's ARCHITECTURE
-
-POE is built in separate layers.  Each layer requires the ones beneath
-it, but no low-level layer requires a higher one.
-
-=over 2
-
-=item Events layer
-
-The events layer consists of an event dispatcher, POE::Kernel, and the
-sessions or state machines it runs: POE::Session (a generic,
-event-driven thread) and POE::NFA (an event-driven non-deterministic
-finite automaton).
-
-=item One or more I/O layers
-
-I/O layers are built upon the event layer, and that allows them to
-coexist in the same program.  POE only includes one I/O layer: Wheels.
-"Wheels" is a whimsical name for interlocking cogs that together make
-things go.  They're also reinvented a lot, and this is no exception.
-
-POE comes with six wheels.
-
-=over 2
-
-=item POE::Wheel::Curses
-
-The Curses wheel handles non-blocking input for programs using the
-curses text interface.  It requires the Curses perl module and a
-familiarity with curses programming.
-
-=item POE::Wheel::FollowTail
-
-FollowTail follows the tail of an ever-growing file.  It's useful for
-watching logs and things of that nature.
-
-=item POE::Wheel::ListenAccept
-
-ListenAccept performs ye olde non-blocking socket listen and accept.
-It's great for programs that can't use SocketFactory and instead must
-listen and accept connections from sockets created elsewhere.
-
-=item POE::Wheel::ReadLine
-
-The ReadLine wheel accepts console input as lines only.  It handles
-many of the common shell command editing keystrokes, making it pretty
-easy to input things.  It's event driven, unlike Term::ReadLine, and
-it cooperates nicely with the rest of POE.
-
-=item POE::Wheel::ReadWrite
-
-ReadWrite is the star of POE's default I/O layer.  It performs
-buffered, flow-controlled I/O on non-blocking, unbuffered filehandles.
-It almost acts like a Unix stream which can't stack protocol layers,
-but that may change.
-
-ReadWrite uses two other classes to do its dirty work: Driver and
-Filter.  Drivers do the actual work of reading and writing
-filehandles.  Filters translate between raw streams and cooked chunks
-of tasty dada.
-
-D comes before F, so Drivers go first.
-
-=over 2
-
-=item POE::Driver::SysRW
-
-Nobody has needed another driver yet, so this is the only one that is
-currently available.  It performs sysread and syswrite in a generic
-way, so that ReadWrite can use it and future drivers interchangeably.
-
-Other drivers, should they ever be written, will use the same
-interface.
-
-=back
-
-Filters next.  There are a few.
-
-=over 2
-
-=item POE::Filter::Block
-
-This filter parses input as fixed-length blocks.  On the output side,
-it merely passes data through unscathed.
-
-=item POE::Filter::HTTPD
-
-The HTTPD filter parses input as HTTP requests and translates them
-into HTTP::Request objects.  On the output side, it takes
-HTTP::Response objects and turns them into something suitable to be
-sent to a web client/user-agent.
-
-=item POE::Filter::Line
-
-The Line filter parses incoming streams into lines and turns outgoing
-lines into streams.  It used to be very basic, but recent improvements
-have added interesting features like newline autodetection.
-
-=item POE::Filter::Reference
-
-The Reference filter is used to send Perl structures between POE
-programs or between POE and other Perl programs.  On the input side,
-frozen data (via Storable, FreezeThaw, YAML, or some other data
-mechanism) is thawed into Perl data structures.  On output, references
-given to the filter are frozen.  Data may also be compressed on
-request if Compress::Zlib is installed.
-
-=item POE::Filter::Stream
-
-The stream filter does nothing.  It merely passes data through without
-any change.
-
-=back
-
-=item POE::Wheel::Run
-
-The Run wheel provides a way to run functions or other programs in
-child processes.  It encapsulates the necessary pipe() and fork()
-code, and sometimes exec().  Internally, it handles reading from and
-writing to child processes without further intervention.  Child output
-arrives in the Wheel's owner as events.
-
-=item POE::Wheel::SocketFactory
-
-SocketFactory creates all manner of connectionless and connected
-network sockets.  It also listens on TCP server sockets, only
-returning accepted client connections as they arrive.
-
-=back
-
-=back
-
-=head1 POE COMPONENTS
-
-Components consist of one or more sessions or state machines that
-encapsulate a very high level procedure.  For example,
-POE::Component::IRC (not included) performs nearly all the functions
-of a full-featured IRC client.  POE::Component::UserBase (not
-included) is a user authentication and data persistence servlet.
-
-Components tend to be highly reusable libraries that handle tedious
-tasks, freeing programmers to focus on more interesting things.  This
-should be true for any library, though.
-
-A list of released POE::Component modules is at:
-http://search.cpan.org/search?mode=module&query=POE%3A%3AComponent
-
-=over 2
-
-=item POE::Component::Client::TCP
-
-The Client::TCP component provides the most common core features for
-writing TCP clients.
-
-=item POE::Component::Server::TCP
-
-The Server::TCP component provides the most common core features for
-writing TCP servers.  A simple echo server is about 20 lines.
-
-=back
-
-=head1 Support Modules
-
-Finally, there are some files which POE uses but aren't required
-elsewhere.  These include POE::Preprocessor and the base classes:
-POE::Component, POE::Driver, POE::Filter and POE::Wheel.  In addition,
-there are some development files in the lib directory.
-
-=over 2
-
-=item POE::Preprocessor
-
-This is a macro preprocessor.  It also implements plain and enumerated
-constants.  POE::Kernel uses it to inline smaller functions and make
-the source generally more readable.  There seem to be two drawbacks:
-First, code is more difficult to examine in perl's debugger since it
-doesn't necessarily look like the original source.  Second, programs
-take longer to start up because every source line must first pass
-through a perl filter.  The compile-time penalty is negligible in
-long-running programs, and the runtime boost from fewer function calls
-can make up for it over time.
-
-POE::Component, POE::Driver and POE::Filter exist to document their
-classes of objects.  POE::Wheel contains some base functions for
-tracking unique wheel IDs.
-
-=back
-
-=head1 SAMPLE PROGRAMS
-
-This distribution contains several example and/or tutorial programs in
-the ./samples directory.  Be advised, however, that they are old and
-may not exhibit the most current coding practices.
-
-The sample programs are scheduled for removal from this distribution
-in version 0.1301.  They are being moved to the web version of the POE
-Cookbook, which is available at <http://poe.perl.org/?POE_Cookbook>.
-
-The author is always looking for new example ideas.
+POE is a framework for cooperative, event driven multitasking in Perl.
+Other languages have similar frameworks.  Python has Twisted.  TCL has
+"the event loop".
+
+POE originally was developed as the core of a persistent object server
+and runtime environment.  It has evolved into a general purpose
+multitasking and networking framework, encompassing and providing a
+consistent interface to other event loops such as Event and the Tk and
+Gtk toolkits.
+
+POE is written in layers, each building upon the previous.  It's
+therefore possible to use POE at varying levels of abstraction.
+
+The lowest level uses POE::Kernel and POE::Session.  The former class
+acts as POE's event watcher and dispatcher.  The latter encapsulates
+the notion of an event driven task.
+
+POE::Wheel classes operate at a slightly higher level.  They plug into
+sessions and perform very common, general tasks.  For example,
+POE::Wheel::ReadWrite performs buffered I/O.  
+
+Unlike cheese, wheels do not stand alone.  They are customized by
+POE::Driver and POE::Filter classes.  Using the proper filter, a
+ReadWrite wheel can read and write streams, lines, fixed-length
+blocks, HTTP requests and responses, and so on.
+
+The highest level of POE programming uses components.  They may
+perform narrowly defined tasks, such as POE::Component::Child (on the
+CPAN).  Often they encapsulate nearly everything necessary for an
+entire program.
+
+Every level eventually boils down to the lowest common
+denominator---POE::Kernel and POE::Session.  Because of this, classes
+coexist and cooperate at every level of abstraction.
+
+=head1 DOCUMENTATION ROADMAP
+
+POE's documentation rewards the methodical reader.  Skim everything,
+and you should have a pretty good idea of what's available and where
+to find it later.
+
+You're reading the main POE document.  It's the general entry point to
+POE's documentation.
+
+Documentation for POE's basic features is spread across POE::Kernel
+and POE::Session in non-intuitive ways.  POE turns out to be difficult
+to document from either module's perspective, so there is a lot of
+overlap and cross-referencing.  We have plans to rewrite them, but
+that only helps if you want to join in the fun.
+
+POE::NFA is a second kind of session---a Non-deterministic Finite
+Automaton class, which happens to be driven by events.  This is an
+abstract state machine, which can be either Mealy or Moore (or a
+little bit of both, or neither) depending on how it's configured.
+
+POE::Wheel, POE::Driver, POE::Filter, and POE::Component describe
+entire classes of modules in broad strokes.  Where applicable, they
+document the features common among their subclasses.  This is
+confusing, since most people are inclined to read POE::Wheel::Foo and
+assume that something doesn't exist if it's not there.
+
+There are also some helper classes.  POE::Pipe is the base class for
+POE::Pipe::OneWay and POE::Pipe::TwoWay.  They are portable pipe
+creation functions, mainly for POE's test suite.  POE::Preprocessor is
+a macro language implemented as a source filter.
+
+POE is a relatively large system.  It includes internal classes that
+allow it to be customized without needing to know too much about the
+system as a whole.  POE::Queue describes POE's event queue interface.
+POE::Loop covers the commonalities of every event loop POE supports.
+POE::Resource discusses the notion of system resources, which
+correspond to event watchers and generators in other systems.
+
+The SEE ALSO sections of each major module class will list the
+subclasses beneath it.  This document's SEE ALSO lists every module in
+the distribution.
+
+Finally, there are many POE resources on the web.  The CPAN contains a
+growing number of POE modules.  POE's wiki, at
+L<http://poe.perl.org/>, includes tutorials, an extensive set of
+examples, documentation, and more.
 
 =head1 COMPATIBILITY ISSUES
 
-POE has tested favorably on as many Perl versions as the author can
-find or harass people into trying.  This includes Linux, FreeBSD, OS/2
-and at least one unspecified version of Windows.  As far as anyone can
-tell, nobody ever has tried it on any version of MacOS.
+The developers of POE strive to make it as portable as possible.  If
+you discover a problem, please e-mail a report to
+<bug-POE@rt.cpan.org>.  If you can, include error messages, perl -V
+output, and/or test cases.  The more information you can provide, the
+quicker we can turn around a fix.  Patches are also welcome, of
+course.
+
+POE is known to work on FreeBSD, MacOS X, Linux, Solaris, and other
+forms of UNIX.  It also works to one extent or another on various
+versions of Windows, including 98, ME, NT, 2000, and XP.  It should
+work on OS/2, although we no longer have a developer who uses it.  It
+has been reported to work on MacOS 9, of all things.
 
 POE has been tested with Perl versions as far back as 5.004_03 and as
-recent as 5.7.2.  The CPAN testers are a wonderful bunch of people who
-have dedicated resources to running new modules on a variety of
-platforms.  The latest POE tests are visible at
-<http://testers.cpan.org/search?request=dist&dist=POE>.  Thanks,
-people!
+recent as 5.8.3.
 
-Please let the author know of breakage or success that hasn't been
-covered already.  Thanks!
+Thanks go out to the CPAN testers, who have dedicated resources to
+running new modules on a variety of platforms.  The latest POE tests
+are visible at <http://testers.cpan.org/search?request=dist&dist=POE>.
+
+We maintain our own test results at <http://eekeek.org/poe-tests/>.
+You may participate by running
+
+  perl Makefile.PL
+  make uploadreport
+
+from POE's source directory.  A set of tests will be run, and their
+results will be uploaded to our test page.
+
+We also try to cover all of POE with our test suite, although we only
+succeed in exercising about 70% of its code at any given time.  A
+coverage report is online at
+<http://poe.perl.org/?POE's_test_coverage_report>.
 
 Specific issues:
 
@@ -448,68 +231,71 @@ No known problems.
 
 =item OS/2
 
-No known problems.  POE has no OS/2 tester starting with version
-0.1206.
+No known problems.  POE has no OS/2 tester as of version 0.1206.
 
 =item Windows
 
 POE seems to work very nicely with Perl compiled for CygWin.  If you
 must use ActiveState Perl, please use build 631 or newer.
 
-Currently there is nobody maintaining POE for Windows.  Rocco will be
-fixing things as he's able, but he has only limited access to Windows
-machines for testing and development.  If you would like to accelerate
-POE's Windows support, please contact Rocco or the mailing list.
+POE's Windows port is current maintained by Rocco Caputo, but he has
+only limited knowledge of Windows development.  Please contact Rocco
+if you or someone you know would like to accelerate POE's Windows
+support.
 
-Thanks to Sean Puckett, Douglas Couch, Hachi, and Dynweb for their
-help in bringing POE's Windows support so far.
+Sean Puckett, Douglas Couch, and Andrew Chen have helped to bring
+POE's Windows support this far.
+
+TODO: I'm sure there are others.  Find them in the changelog and thank
+them here.
 
 =item MacOS
 
-POE 0.18 passes all tests on MacOS/X.
+No known problems on MacOS X.
 
-Its pre-X support seems like a lost cause unless someone steps forward
-to make it happen.
+Mac Classic (versions 9.x and before) was reported to work at one
+time, but it seems like a lost cause unless someone would like to step
+forward and make it happen.
 
 =back
 
 =head1 SYSTEM REQUIREMENTS
 
-POE requires Filter::Util::Call version 1.18 or newer.  All the other
-modules are optional.
+POE has only one absolute external requirement: Filter::Util::Call
+version 1.04 or later.  All the other modules are optional, although
+people tend to install them anyway.
 
-Time::HiRes is recommended.
+POE's installer will prompt for required and optional modules.  It's
+important to read the prompts and only install what you will need.
+You may always reinstall it later, adding new prerequisites as the
+need arises.  B<Note that Tk and Gtk support require very large
+dependencies.>
 
-Some of POE's sample programs use fork().  They won't work wherever
-fork() isn't available; sorry.
+Time::HiRes is recommended.  POE will work without it, but alarms and
+other features will be much more accurate with it.
+
+POE::Wheel::Run requires a working fork() implementation.
+Unfortunately ActivePerl's fork() emulation is not sufficient for it.
+CygWin's fork() works just fine however.
 
 POE relies heavily on constants in the POSIX module.  Some of the
 constants aren't defined on some platforms.  POE works around this as
-best it can.
+best it can, but problems occasionally crop up.  Please let us know if
+you run into problems, and we'll work with you to fix them.
 
-Some of POE's sample programs require a recent IO bundle, but you get
-that for free with recent versions of Perl.
+Filter::Reference needs a module to serialize data for transporting it
+across a network.  It will use Storable, FreezeThaw, YAML, or some
+other package with freeze() and thaw() methods.  It can also use
+Compress::Zlib to conserve bandwidth and reduce latency over slow
+links, but it's not required.
 
-If you want to use Filter::Reference to serialize data for
-transporting over a network, you will need Storable, FreezeThaw, or
-some other freezer/thawer package installed.  If you want your data to
-be shipped compressed, you will also need Compress::Zlib.
+If you want to write web servers, you'll need to install libwww-perl,
+which requires libnet.  This is a small world of modules that includes
+HTTP::Status, HTTP::Request, HTTP::Date, and HTTP::Response.  They are
+generally good to have, and recent versions of Perl include them.
 
-B<Important Filter::Reference note:> If you're using Filter::Reference
-to pass data to another machine, make sure every machine has the same
-versions of the same libraries.  Subtle differences, even in different
-versions of modules like Storable, can cause mysterious errors when
-data is reconstituted at the receiving end.  When all else fails,
-upgrade to the latest versions.
-
-Filter::HTTPD uses a small world of modules including HTTP::Status;
-HTTP::Request; HTTP::Date and URI::URL.  The httpd.perl sample program
-uses Filter::HTTPD, which uses all that other stuff.  If you want to
-write web servers, you'll need to install libwww-perl, which requires
-libnet.
-
-Wheel::Curses requires the Curses module, which in turn requires some
-sort of curses library.
+Programs that use Wheel::Curses require the Curses module, which in
+turn requires some sort of curses library.
 
 =head1 SUPPORT RESOURCES
 
@@ -518,244 +304,81 @@ POE.
 
 =over 2
 
-=item The POE Mailing List
+=item POE's Request Tracker
 
-POE has a mailing list at perl.org.  You can receive subscription
-information by sending e-mail:
+Bug reports, suggestions, and feedback of all kinds should be e-mailed
+to <bug-POE@rt.cpan.org>.  It will be entered into our request queue
+where it will remain until addressed.  If your return address is
+valid, you will be notified when the status of your request changes.
+
+=item POE's Mailing List
+
+POE has a mailing list where you can discuss it with the community at
+large.  You can receive subscription information by sending e-mail:
 
   To: poe-help@perl.org
   Subject: (anything will do)
 
-  The message body is ignored.
+The message body is ignored.
 
-All forms of feedback are welcome.
+=item POE's Web Site
 
-=item The POE Web Site
-
-POE has a web site where the latest development snapshot, along with
-the Changes file and other stuff may be found: http://poe.perl.org/
+POE's web site contains the latest development snapshot along with
+examples, tutorials, and other fun stuff.  It's at
+<http://poe.perl.org/>.
 
 =item SourceForge
 
-POE's development has moved to SourceForge as an experiment in project
-management.  You can reach POE's project summary page at
+POE is developed at SourceForge.  The project is hosted at
 http://sourceforge.net/projects/poe/
 
 =back
 
 =head1 SEE ALSO
 
-This is a summary of POE's modules and the things documented in each.
+POE::Kernel, POE::Session, POE::NFA
 
-=head2 Events Layer
+POE::Wheel, POE::Wheel::Curses, POE::Wheel::FollowTail,
+POE::Wheel::ListenAccept, POE::Wheel::ReadLine, POE::Wheel::ReadWrite,
+POE::Wheel::Run, POE::Wheel::SocketFactory
 
-These are POE's core modules.
+POE::Driver, POE::Driver::SysRW
 
-=over 2
+POE::Filter, POE::Filter::Block, POE::Filter::Grep,
+POE::Filter::HTTPD, POE::Filter::Line, POE::Filter::Map,
+POE::Filter::RecordBlock, POE::Filter::Reference,
+POE::Filter::Stackable, POE::Filter::Stream
 
-=item POE (this document)
+POE::Component, POE::Component::Client::TCP,
+POE::Component::Server::TCP
 
-The POE manpage includes a sample program and walkthrough of its
-parts, a summary of the modules which comprise this distribution,
-POE's general system requirements, how to use POE (literally), and
-where to get help.  It also has a table of contents which you're even
-now reading.
+POE::Loop, POE::Loop::Event, POE::Loop::Gtk, POE::Loop::Poll,
+POE::Loop::Select, POE::Loop::Tk
 
-=item POE::Kernel
+POE::Pipe, POE::Pipe::OneWay, POE::Pipe::TwoWay
 
-The POE::Kernel manpage includes information about debugging traces
-and assertions; FIFO events; filehandle watchers; Kernel data
-accessors; posting events from traditional callbacks (postbacks);
-redefining sessions' states; resource management; session aliases;
-signal types, handlers, and pitfalls; signal watchers; synchronous
-vs. asynchronous events; and timed events (alarms and delays).
+POE::Preprocessor
 
-=item POE::NFA
+POE::Queue, POE::Queue::Array
 
-The POE::NFA manpage covers this session's additional predefined
-events, how NFA differs from Session, state changing methods, and the
-spawn constructor.
-
-=item POE::Session
-
-The POE::Session manpage covers different kinds of states (inline
-coderef, object methods, and package methods); postback mechanics;
-predefined event names and the parameters included with them; resource
-management and its effects on sessions; session constructors (new and
-create); session data accessors; synchronous vs. asynchronous events
-in more detail; why sessions don't stop by themselves, and how to
-force them to.
-
-=back
-
-=head2 I/O Layer
-
-These modules comprise POE's default I/O abstraction.
-
-=over 2
-
-=item POE::Driver
-
-The POE::Driver manpage covers drivers in general and their common
-interface.
-
-=item POE::Driver::SysRW
-
-The SysRW driver's manpage describes the sysread/syswrite abstraction
-and covers parameters which can be used to customize a SysRW driver's
-operation.
-
-=item POE::Filter
-
-The POE::Filter manpage covers filters in general and their common
-interface.  It discusses the pitfalls involved in switching filters
-on a running wheel.
-
-=item POE::Filter::Grep
-
-Grep is part of the family of filters that includes Stackable, Map,
-and RecordBlock.  It applies a regexp filter on data passing through
-it, before it reaches a Session.  It's mainly used in filter stacks
-(see POE::Filter::Stackable).
-
-=item POE::Filter::HTTPD
-
-The HTTPD filter's manpage covers using POE as a web server.
-
-=item POE::Filter::Line
-
-The Line filter's manpage discusses how to read and write data by
-lines; how to change the newline literal or regular expression; and
-how to enable newline autodetection when working with strange peers.
-
-=item POE::Filter::Map
-
-Map is part of the family of filters that includes Stackable, Grep,
-and RecordBlock.  It transforms data passing through it, before it
-reaches a Session.
-
-The Map filter is designed primarily to act as an interface between
-filters that deal with different data formats, but it can be used
-stand-alone to perform unique functions that no other filter does.  In
-this case it's something of a wildcard filter.
-
-If you find yourself reusing the same custom Map filter, you may want
-to turn it into a full-fledged filter.
-
-=item POE::Filter::RecordBlock
-
-RecordBlock combines records into groups by count and flattens groups
-of records back into a record stream.  For example, RecordBlock might
-combine log records into pairs.
-
-=item POE::Filter::Reference
-
-The Reference filter's manpage talks about marshalling data and
-passing it between POE programs; and customizing the way data is
-frozen, thawed and optionally compressed.
-
-=item POE::Filter::Stackable
-
-Stackable is a meta-filter designed to stack other filters.  Stackable
-manages the filters it contains and passes data between them.  In
-essence, the inner filters are combined into one super filter.
-
-The Map filter can also be used to perform quick and dirty functions
-that aren't implemented in any single existing filter.
-
-=item POE::Filter::Stream
-
-The Stream filter's manpage is pretty empty since it doesn't do much
-of anything.
-
-=item POE::Wheel
-
-The Wheel's manpage talks about wheels in general and their common
-interface.
-
-=item POE::Wheel::FollowTail
-
-The FollowTail wheel's manpage discusses how to watch the end of an
-ever-growing file (not to be confused with that orb tune) and how to
-change aspects of the wheel's behavior with constructor parameters.
-
-=item POE::Wheel::ListenAccept
-
-The ListenAccept wheel's manpage discusses how to listen and accept
-connections using sockets created from sources other than
-SocketFactory.
-
-=item POE::Wheel::ReadWrite
-
-The ReadWrite wheel's manpage covers non-blocking I/O with optional
-flow control.
-
-=item POE::Wheel::SocketFactory
-
-The SocketFactory wheel's manpage discusses how socket factories
-create and manage sockets; the events they emit on connection,
-acceptance, and failure; and the parameters which govern what they do.
-
-=back
-
-=head2 Standard Components
-
-These components are included with POE because they're nearly
-universally useful.
-
-=over 2
-
-=item POE::Component
-
-The POE::Component manpage discusses what components are and why they
-exist.
-
-=item POE::Component::Client::TCP
-
-The TCP client component explains how to create TCP clients quickly
-and easily.
-
-=item POE::Component::Server::TCP
-
-The TCP server component explains how to create TCP servers with a
-minimum of fuss.
-
-=back
-
-=head2 Supporting Cast
-
-These modules help in the background.
-
-=over 2
-
-=item POE::Pipe::OneWay
-
-This creates unbuffered one-way pipes.  It tries various methods in
-the hope that one of them will work on any given platform.
-
-=item POE::Pipe::TwoWay
-
-This creates unbuffered two-way pipes.  It tries various methods in
-the hope that one of them will work on any given platform.  It's
-preferred over two OneWay pipes because sometimes two-way transports
-are available and it can save you a couple of filehandles.
-
-=item POE::Preprocessor
-
-POE's preprocessor covers inline constant replacement, enumerated
-constants, and macro substitutions in Perl programs.
-
-=back
+POE::Resource, POE::Resource::Aliases, POE::Resource::Events,
+POE::Resource::Extrefs, POE::Resource::FileHandles,
+POE::Resource::Performance, POE::Resource::SIDs,
+POE::Resource::Sessions, POE::Resource::Signals
 
 =head1 BUGS
 
-The t/*.t tests only cover about 70% of POE.  The latest numbers are
-on POE's web site.
+The t/*.t tests only cover about 70% of POE.
+
+Outstanding issues, including wish list items, are available in POE's
+queue at L<http://rt.cpan.org/>.
 
 =head1 AUTHORS & COPYRIGHT
 
-POE is the combined effort of several people.  If someone is missing
-from this list, please let Rocco know.
+POE is the combined effort of several people.  Please let us know if
+someone is missing from this list.
+
+TODO: Scour the CHANGES file for credit where it's due.
 
 =over 2
 
@@ -768,34 +391,32 @@ Client::TCP component, introduced in version 0.1702.
 
 =item Artur Bergman
 
-Artur Bergman is <artur@vogon-solutions.com>.  He contributed many
-hours' work into POE and quite a lot of ideas.  Years later, I decide
-he's right and actually implement them.
+Artur Bergman is <sky@cpan.org>.  He contributed many hours' work into
+POE and quite a lot of ideas.  Years later, I decide he's right and
+actually implement them.
 
 Artur is the author of Filter::HTTPD and Filter::Reference, as well as
-bits and pieces throughout POE.  His intangible contributions include
-feedback, testing, conceptual planning and inspiration.  POE would
-never have come this far without his support.
+bits and pieces throughout POE.  His feedback, testing, design and
+inspiration have been instrumental in making POE what it is today.
 
-Artur is investing his time heavily into perl 5's ithreads at the
-moment.  This project has far-reaching implications for POE's future.
+Artur is investing his time heavily into perl 5's iThreads and PONIE
+at the moment.  This project has far-reaching implications for POE's
+future.
 
 =item Jos Boumans
 
 Jos Boumans is <boumans@frg.eur.nl>, aka C<Co-Kane>.  Jos is a major
-driving force behind the POE::Simple movement and is one of the POE
-idea fairies.  Jos is working with Ann on POE::Simple.
+driving force behind the POE::Simple movement and has helped inspire
+the POE::Components for TCP clients and servers.
 
 =item Matt Cashner
 
-Matt Cashner is <eek@eekeek.org>, aka C<sungo>.  Matt is a POE
-ambassador, or something, between Rocco's point of view and people who
-haven't had the benefit of knowing the system since its conception.
-He's spearheaded the movement to simplify POE for new users,
-flattening the learning curve and making the system more accessible to
-everyone.  He's almost singlehandedly rewriting POE's documentation.
-He uses the system in mission critical applications, folding feedback
-and features back into the distribution for everyone's enjoyment.
+Matt Cashner is <eek@eekeek.org>, aka C<sungo>.  Matt is one of POE's
+core developers.  He's spearheaded the movement to simplify POE for
+new users, flattening the learning curve and making the system more
+accessible to everyone.  He uses the system in mission critical
+applications, folding feedback and features back into the distribution
+for everyone's enjoyment.
 
 =item Andrew Chen
 
@@ -805,9 +426,8 @@ the SPARC and Windows on various Intel platforms.
 
 =item Douglas Couch
 
-Douglas Couch is <dscouch@purdue.edu>.  Douglas maintains POE's PPD
-for Windows as well as up-to-date online documentation at
-http://poe.sourceforge.net/
+Douglas Couch is <dscouch@purdue.edu>.  Douglas helped port and
+maintain POE for Windows early on.
 
 =item Jeffrey Goff
 
@@ -823,29 +443,26 @@ abstraction to support hot-swappable filters, and he eventually
 convinced Rocco that unique session and kernel IDs were a good thing.
 
 Philip also enhanced Filter::Reference to support different
-serialization methods.  His intangible contributions include the
-discovery and/or destruction of several bugs (see the Changes file)
-and a thorough code review around version 0.06.
+serialization methods.  He has also improved POE's quality by finding
+and fixing several bugs.  He provided POE a much needed code review
+around version 0.06.
 
 =item Arnar M. Hrafnkelsson
 
 Arnar is <addi@umich.edu>.  Addi tested POE and POE::Component::IRC on
 Windows, finding bugs and testing fixes.  He appears throughout the
-Changes file.
+Changes file.  He has also written "cpoe", which is a POE-like library
+for C.
 
 =item Dave Paris
 
 Dave Paris is <dparis@w3works.com>.  Dave tested and benchmarked POE
 around version 0.05, discovering some subtle (and not so subtle)
 timing problems.  The pre-forking server sample was his idea.
-Versions 0.06 and later should scale to higher loads because of his
-work.  He has contributed a lot of testing and feedback, much of which
-is tagged in the Changes file as a-mused.
-
-And I do mean *lots* of testing.  I go and announce a new development
-version, and he's, like, "All tests passed!" just a few minutes later.
-If that wasn't enough, he investigates any bugs that turn up, and
-often fixes them.  The man's scarily good.
+Versions 0.06 and later scaled to higher loads because of his work.
+He has contributed a lot of testing and feedback, much of which is
+tagged in the Changes file as a-mused.  The man is scarily good at
+testing and troubleshooting.
 
 =item Dieter Pearcey
 
@@ -882,7 +499,8 @@ provides valuable testing and feedback from a user's point of view.
 Dennis Taylor is <dennis@funkplanet.com>.  Dennis has been testing,
 debugging and patching bits here and there, such as Filter::Line which
 he improved by leaps in 0.1102.  He's also the author of
-POE::Component::IRC.
+POE::Component::IRC, the widely popular POE-based successor to his
+wildly popular Net::IRC library.
 
 =item Others?
 
@@ -898,7 +516,7 @@ Please contact the author if you've been forgotten.
 
 Rocco Caputo is <rcaputo@cpan.org>.  POE is his brainchild.
 
-Except where otherwise noted, POE is Copyright 1998-2002 Rocco Caputo.
+Except where otherwise noted, POE is Copyright 1998-2004 Rocco Caputo.
 All rights reserved.  POE is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 
