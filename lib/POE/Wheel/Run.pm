@@ -222,6 +222,8 @@ sub new {
   my $error_event = delete $params{ErrorEvent};
   my $close_event = delete $params{CloseEvent};
 
+  my $no_setsid = delete $params{NoSetSid};
+
   # Make sure the user didn't pass in parameters we're not aware of.
   if (scalar keys %params) {
     carp(
@@ -294,7 +296,7 @@ sub new {
 
       # Become a new unix session.
       # Program 19.3, APITUE.  W. Richard Stevens built my hot rod.
-      eval 'setsid()';
+      eval 'setsid()' unless $no_setsid;
 
       # Open the slave side of the pty.
       $stdin_read = $stdout_write = $stderr_write = $stdin_write->slave();
@@ -1249,6 +1251,12 @@ C<Group> contains a numerical group ID that the child process should
 run at.  This may not be meaningful on systems that have no concept of
 group IDs.  The current process may need to run as root in order to
 change group IDs.  Mileage varies considerably.
+
+=item NoSetSid
+
+When true, C<NoSetSid> disables setsid() in the child process.  By
+default, setsid() is called to execute the child process in a separate
+Unix session.
 
 =item Priority
 
