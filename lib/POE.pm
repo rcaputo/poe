@@ -3,7 +3,7 @@
 
 package POE;
 
-$VERSION = "1.00";
+$VERSION = "0.01";
 
 use strict;
 use Carp;
@@ -55,31 +55,76 @@ In specific, POE uses C<POE::Kernel> and C<POE::Session> for you.
 
 =item * POE::Session - state machine managed by C<POE::Kernel>
 
-=item * POE::Driver - abstract C<IO::Handle> driver
+=item * POE::Driver (abstract) - drive (read and write) an C<IO::Handle>
 
 =item * POE::Driver::SysRW - C<sysread> and C<syswrite> on an C<IO::Handle>
 
-=item * POE::Filter - abstract raw E<lt>-E<gt> cooked stream translator
+=item * POE::Filter (abstract) - bidirectional stream cooker; converts raw
+data to something useful (such as lines), and back
 
 =item * POE::Filter::Line - break input into lines; add newlines to output
 
-=item * POE::Wheel - extend C<POE::Session> by adding or removing event handlers
+=item * POE::Wheel (abstract) - a way to extend C<POE::Session> by adding or
+removing event handlers from state machines
 
 =item * POE::Wheel::ReadWrite - manage read/write states for a session
 
-=item * POE::Wheel::ListenAccept - handle incoming TCP socket connections
+=item * POE::Wheel::ListenAccept - accept incoming TCP socket connections
 
-=item * POE::Wheel::FollowTail - watch the end of a growing file (to be written)
+=item * POE::Wheel::FollowTail - watch the end of an ever-growing file
 
 =back
 
 =head1 EXAMPLES
 
-Please see the tests directory that comes with the POE bundle.
+=over
+
+=item * F<tests/followtail.perl>
+
+Starts 21 sessions, and runs them until SIGINT.  10 sessions write to dummy
+log files; 10 sessions follow the log tails; one session spins its wheels to
+make sure things are not blocking.
+
+=item * F<tests/forkbomb.perl>
+
+Starts one session whose job is to continually start copies of itself (and
+occasionally quit).  A counter limits this test to about 150 total sessions,
+and the kernel will respond to SIGINT by killing everything and exiting.
+
+This is an excellent shakedown of parent/child relationships and signals.
+
+=item * F<tests/selects.perl>
+
+Starts two sessions, and runs until SIGINT.  The first session is a TCP chargen
+server; the second is a simple TCP client that connects to the first.  The
+client session has a limiter that causes the session to exit after printing a
+few chargen lines.
+
+C<POE::Wheel::ReadWrite> and C<POE::Wheel::ListenAccept> were based on the code
+here.
+
+This was the second test, written to exercise the C<select(2)> logic in
+C<POE::Kernel>.
+
+=item * F<tests/sessions.perl>
+
+Starts five sessions that loop a few times and stop.  It was written to
+exercise the C<POE::Kernel> event queue.
+
+=item * F<tests/signals.perl>
+
+One session that prints out a dot every second and recognizes SIGINT.
+
+=back
 
 =head1 BUGS
 
-None known.
+C<POE::Kernel> will exit on some signals, even if they are caught by sessions.
+This behavior can be evil for things that don't especially want to go away, so
+don't depend on it, okay?  Thanks!
+
+Signals just go to sessions in willy-nilly order.  This may not be desirable,
+but it was quick to implement.
 
 =head1 CONTACT AND COPYRIGHT
 
