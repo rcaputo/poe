@@ -21,7 +21,7 @@ use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line
 sub DEBUG () { 0 }
                                         # address and port the server binds to
 my $server_addr = '127.0.0.1';
-my $server_port = 12345;
+my $server_port = 31415;
 
 ###############################################################################
 # This is a single client session.  It uses two separater wheels: a
