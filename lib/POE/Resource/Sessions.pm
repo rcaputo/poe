@@ -296,6 +296,9 @@ sub _data_ses_refcount_dec {
         );
   }
 
+  # -><- Why do we return if the session does not exist, but then confess
+  # that there is a problem if the session does not exist?  One of
+  # these must go!
   return unless exists $kr_sessions{$session};
   confess "internal inconsistency" unless exists $kr_sessions{$session};
 
@@ -349,23 +352,18 @@ sub _data_ses_collect_garbage {
 
   if (TRACE_REFCNT) {
     my $ss = $kr_sessions{$session};
-    warn( "<rc> +----- GC test for ", $self->_data_alias_loggable($session),
-          " ($session) -----\n",
-          "<rc> | total refcnt  : $ss->[SS_REFCOUNT]\n",
-          "<rc> | event count   : ",
-          $self->_data_ev_get_count_to($session), "\n",
-          "<rc> | post count    : ",
-          $self->_data_ev_get_count_from($session), "\n",
-          "<rc> | child sessions: ",
-          scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
-          "<rc> | handles in use: ",
-          $self->_data_handle_count_ses($session), "\n",
-          "<rc> | aliases in use: ",
-          $self->_data_alias_count_ses($session), "\n",
-          "<rc> | extra refs    : ",
-          $self->_data_extref_count_ses($session), "\n",
-          "<rc> +---------------------------------------------------\n",
-        );
+    warn(
+      "<rc> +----- GC test for ", $self->_data_alias_loggable($session),
+      " ($session) -----\n",
+      "<rc> | total refcnt  : ", $ss->[SS_REFCOUNT], "\n",
+      "<rc> | event count   : ", $self->_data_ev_get_count_to($session), "\n",
+      "<rc> | post count    : ", $self->_data_ev_get_count_from($session), "\n",
+      "<rc> | child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
+      "<rc> | handles in use: ", $self->_data_handle_count_ses($session), "\n",
+      "<rc> | aliases in use: ", $self->_data_alias_count_ses($session), "\n",
+      "<rc> | extra refs    : ", $self->_data_extref_count_ses($session), "\n",
+      "<rc> +---------------------------------------------------\n",
+    );
     unless ($ss->[SS_REFCOUNT]) {
       warn( "<rc> | ", $self->_data_alias_loggable($session),
             " is garbage; stopping it...\n",

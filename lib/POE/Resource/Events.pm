@@ -101,7 +101,7 @@ sub _data_ev_clear_session {
   };
 
   my $total_event_count =
-    ( ( $event_count{$session} || 0) +
+    ( ($event_count{$session} || 0) +
       ($post_count{$session} || 0)
     );
 

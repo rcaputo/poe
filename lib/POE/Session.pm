@@ -573,12 +573,13 @@ sub _invoke_state {
     unless (exists $self->[SE_STATES]->{+EN_DEFAULT}) {
       $! = ENOSYS;
       if ($self->[SE_OPTIONS]->{+OPT_DEFAULT} and $state ne EN_SIGNAL) {
-        warn( "a '$state' event was sent from $file at $line to session ",
-              $POE::Kernel::poe_kernel->ID_session_to_id($self),
-              ", but session ",
-              $POE::Kernel::poe_kernel->ID_session_to_id($self),
-              " has neither a handler for it nor one for _default\n"
-            );
+        my $loggable_self =
+          $POE::Kernel::poe_kernel->_data_alias_loggable($self);
+        warn(
+          "a '$state' event was sent from $file at $line to $loggable_self ",
+          "but $loggable_self has neither a handler for it ",
+          "nor one for _default\n"
+        );
       }
       return undef;
     }
