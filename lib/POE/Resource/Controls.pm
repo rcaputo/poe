@@ -9,7 +9,7 @@ $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 package POE::Kernel;
 
 use strict;
-use Sys::Hostname;
+use Sys::Hostname qw( hostname );
 use Carp qw(croak);
 
 # %kr_magic = (

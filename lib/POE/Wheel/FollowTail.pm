@@ -7,11 +7,11 @@ use strict;
 use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
-use Carp;
-use Symbol;
+use Carp qw( croak carp );
+use Symbol qw( gensym );
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END);
 use POE qw(Wheel Driver::SysRW Filter::Line);
-use IO::Handle;
+use IO::Handle ();
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 

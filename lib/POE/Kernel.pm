@@ -8,12 +8,12 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use POE::Queue::Array;
-use POSIX qw(fcntl_h sys_wait_h);
+use POSIX qw(:fcntl_h :sys_wait_h);
 use Errno qw(ESRCH EINTR ECHILD EPERM EINVAL EEXIST EAGAIN EWOULDBLOCK);
 use Carp qw(carp croak confess cluck);
 use Sys::Hostname qw(hostname);
-use IO::Handle;
-use File::Spec;
+use IO::Handle ();
+use File::Spec ();
 
 # People expect these to be lexical.
 

@@ -8,9 +8,11 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Carp qw(croak);
-use Curses;
-use POSIX qw(fcntl_h);
-use POE qw(Wheel);
+use Curses qw(	initscr start_color cbreak raw noecho nonl nodelay timeout keypad intrflush
+		meta typeahead mousemask ALL_MOUSE_EVENTS clear refresh endwin COLS
+	);
+use POSIX qw(:fcntl_h);
+use POE qw( Wheel );
 
 
 sub SELF_STATE_READ  () { 0 }

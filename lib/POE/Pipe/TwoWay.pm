@@ -11,7 +11,7 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Symbol qw(gensym);
-use IO::Socket;
+use IO::Socket qw( AF_UNIX SOCK_STREAM PF_UNSPEC );
 use POE::Pipe;
 
 @POE::Pipe::TwoWay::ISA = qw( POE::Pipe );

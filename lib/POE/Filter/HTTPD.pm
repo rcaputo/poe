@@ -20,11 +20,11 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Carp qw(croak);
-use HTTP::Status;
-use HTTP::Request;
-use HTTP::Response;
+use HTTP::Status qw( RC_BAD_REQUEST RC_OK RC_LENGTH_REQUIRED );
+use HTTP::Request ();
+use HTTP::Response ();
 use HTTP::Date qw(time2str);
-use URI;
+use URI ();
 
 my $HTTP_1_0 = _http_version("HTTP/1.0");
 my $HTTP_1_1 = _http_version("HTTP/1.1");

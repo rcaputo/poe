@@ -8,14 +8,14 @@ use bytes; # don't assume UTF while reading bizarre key sequences
 use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
-use Carp;
+use Carp qw( croak carp );
 use Symbol qw(gensym);
-use POE qw(Wheel);
-use POSIX;
+use POE qw( Wheel );
+use POSIX ();
 
 # Things we'll need to interact with the terminal.
-use Term::Cap;
-use Term::ReadKey;
+use Term::Cap ();
+use Term::ReadKey qw( ReadKey ReadMode GetTerminalSize );
 
 my $initialised = 0;
 my $termcap;         # Termcap entry.
@@ -729,7 +729,7 @@ sub global_init {
     # the input state engine (so that we have valid values) and
     # before handing control back to the user (so that they get
     # an up-to-date value).
-    ($trk_cols, $trk_rows) = Term::ReadKey::GetTerminalSize($stdout);
+    ($trk_cols, $trk_rows) = GetTerminalSize($stdout);
 
     # Set up console using Term::ReadKey.
     ReadMode('ultra-raw');
@@ -1005,7 +1005,7 @@ sub get {
   return if $self->[SELF_READING_LINE];
   # recheck the terminal size every prompt, in case the size
   # has changed
-  ($trk_cols, $trk_rows) = Term::ReadKey::GetTerminalSize($stdout);
+  ($trk_cols, $trk_rows) = GetTerminalSize($stdout);
 
   # Set up for the read.
   $self->[SELF_READING_LINE]   = 1;
@@ -1730,7 +1730,7 @@ sub rl_accept_line {
     $self->[SELF_READING_LINE] = 0;
     $self->[SELF_HIST_INDEX] = @{$self->[SELF_HIST_LIST]};
     $self->flush_output_buffer;
-    ($trk_cols, $trk_rows) = Term::ReadKey::GetTerminalSize($stdout);
+    ($trk_cols, $trk_rows) = GetTerminalSize($stdout);
     if ($self->[SELF_KEYMAP]->{name} =~ /vi/) {
 	$self->rl_set_keymap('vi-insert');
     }

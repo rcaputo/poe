@@ -10,7 +10,7 @@ $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 use POE::Kernel;
 use POE::Resource::Controls;
 
-use Carp;
+use Carp qw( carp );
 
 sub import {
     my $package = caller();

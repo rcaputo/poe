@@ -4,7 +4,7 @@
 package POE;
 
 use strict;
-use Carp;
+use Carp qw( croak );
 
 use vars qw($VERSION $REVISION);
 $VERSION = '0.3004';

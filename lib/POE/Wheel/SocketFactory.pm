@@ -8,14 +8,18 @@ use strict;
 use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
-use Carp;
-use Symbol;
+use Carp qw( carp croak );
+use Symbol qw( gensym );
 
-use POSIX qw(fcntl_h);
+use POSIX qw(:fcntl_h);
 use Errno qw(EWOULDBLOCK EADDRNOTAVAIL EINPROGRESS EADDRINUSE);
-use Socket;
-use IO::Handle;
-use POE qw(Wheel);
+use Socket qw(	AF_INET SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 
+		PF_INET SOCK_DGRAM SO_ERROR unpack_sockaddr_in 
+		unpack_sockaddr_un PF_UNSPEC SO_REUSEADDR INADDR_ANY 
+		pack_sockaddr_in pack_sockaddr_un inet_aton SOMAXCONN
+	);
+use IO::Handle ();
+use POE qw( Wheel );
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 sub DEBUG () { 0 }

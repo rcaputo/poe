@@ -12,8 +12,11 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Symbol qw(gensym);
-use IO::Socket;
-use POSIX qw(fcntl_h);
+use IO::Socket qw( 	PF_INET SOCK_STREAM SOL_SOCKET SO_REUSEADDR 
+			pack_sockaddr_in unpack_sockaddr_in inet_aton
+			SOMAXCONN SO_ERROR
+		);
+use POSIX qw(:fcntl_h);
 use Errno qw(EINPROGRESS EWOULDBLOCK);
 
 # CygWin seems to have a problem with socketpair() and exec().  When
