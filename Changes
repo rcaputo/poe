@@ -54,6 +54,15 @@ Version numbers have four fields: X.YYZZAA
 `-----------------
 
 
+0.1104 2000.??.??
+-----------------
+
+Thanks to jaxdahl's donation of shell time on a Windows 2000 machine,
+I think I've found a bug in POE::Preprocessor.  This bug only occurs
+on Windows machines so far.  Although it should also appear on other
+multi-byte newline systems, it doesn't on my OS/2 system.
+
+
 0.1103 2000.08.06
 -----------------
 

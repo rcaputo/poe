@@ -1,8 +1,8 @@
 # $Id$
 
-use strict;
-
 package POE::Component::Server::TCP;
+
+use strict;
 
 use Carp qw(carp croak);
 use vars qw($VERSION);

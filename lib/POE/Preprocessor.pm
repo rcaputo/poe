@@ -144,7 +144,7 @@ sub import {
             DEBUG and warn sprintf "%4d M: %s", $line_number, $_;
 
             # Close it!
-            if (/^\}$/) {
+            if (/^\}\s*$/) {
 
               DEBUG and
                 warn( ",-----\n",
@@ -157,7 +157,7 @@ sub import {
                       "`-----\n"
                     );
 
-              unless ($macros{$macro_name}->[MAC_CODE] =~ /\;$/) {
+              unless ($macros{$macro_name}->[MAC_CODE] =~ /\;\s*$/) {
                 $macros{$macro_name}->[MAC_CODE] =~ s/^\s*//;
                 $macros{$macro_name}->[MAC_CODE] =~ s/\s*$//;
               }
