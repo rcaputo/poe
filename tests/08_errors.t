@@ -442,14 +442,16 @@ eval 'POE::Wheel::ReadWrite->new()';
 print 'not ' unless defined $@ and length $@;
 print "ok 49\n";
 
-eval 'POE::Wheel::ReadWrite->new( Handle => \*STDIN )';
-print 'not ' if defined $@ and length $@;
-print "ok 50\n";
-
 if ($^O eq 'MSWin32') {
-  print "ok 51 # skipped: Windows can't set STDIN non-blocking\n";
+  for (50..51) {
+    print "ok $_ # skipped: Windows can't set STDIN non-blocking\n";
+  }
 }
 else {
+  eval 'POE::Wheel::ReadWrite->new( Handle => \*STDIN )';
+  print 'not ' if defined $@ and length $@;
+  print "ok 50\n";
+
   eval( 'POE::Wheel::ReadWrite->new( Handle => \*STDIN,' .
         '  Filter => POE::Filter::Stream->new(),' .
         ')'
