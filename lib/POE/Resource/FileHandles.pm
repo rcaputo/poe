@@ -31,11 +31,13 @@ sub FMO_ST_ACTUAL    () { 1      }  #     $requested_file_state (see HS_PAUSED)
 sub FMO_ST_REQUEST   () { 2      }  #     $actual_file_state (see HS_PAUSED)
 sub FMO_EV_COUNT     () { 3      }  #     $number_of_pending_events,
 sub FMO_SESSIONS     () { 4      }  #     { $session_watching_this_handle =>
+                                    #       { $handle_watched_as =>
 # --- BEGIN SUB STRUCT 2 ---        #
-sub HSS_HANDLE       () { 0      }  #       [ $blessed_handle,
-sub HSS_SESSION      () { 1      }  #         $blessed_session,
-sub HSS_STATE        () { 2      }  #         $event_name,
-                                    #       ],
+sub HSS_HANDLE       () { 0      }  #         [ $blessed_handle,
+sub HSS_SESSION      () { 1      }  #           $blessed_session,
+sub HSS_STATE        () { 2      }  #           $event_name,
+                                    #         ],
+                                    #       },
 # --- CEASE SUB STRUCT 2 ---        #     },
 # --- CEASE SUB STRUCT 1 ---        #   ],
                                     #
@@ -80,8 +82,12 @@ sub _data_handle_initialize {
 ### End-run leak checking.
 
 sub _data_handle_finalize {
+  my $finalized_ok = 1;
+
   while (my ($fd, $fd_rec) = each(%kr_filenos)) {
     my ($rd, $wr, $ex, $tot) = @$fd_rec;
+    $finalized_ok = 0;
+
     warn "!!! Leaked fileno: $fd (total refcnt=$tot)\n";
 
     warn( "!!!\tRead:\n",
@@ -89,11 +95,14 @@ sub _data_handle_finalize {
           "!!!\t\tev cnt  = $rd->[FMO_EV_COUNT]\n",
         );
     while (my ($ses, $ses_rec) = each(%{$rd->[FMO_SESSIONS]})) {
-      warn( "!!!\t\tsession = $ses\n",
-            "!!!\t\t\thandle  = $ses_rec->[HSS_HANDLE]\n",
-            "!!!\t\t\tsession = $ses_rec->[HSS_SESSION]\n",
-            "!!!\t\t\tevent   = $ses_rec->[HSS_STATE]\n",
-          );
+      warn "!!!\t\tsession = $ses\n";
+      while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
+        warn(
+          "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
+          "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
+          "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
+        );
+      }
     }
 
     warn( "!!!\tWrite:\n",
@@ -101,11 +110,14 @@ sub _data_handle_finalize {
           "!!!\t\tev cnt  = $wr->[FMO_EV_COUNT]\n",
         );
     while (my ($ses, $ses_rec) = each(%{$wr->[FMO_SESSIONS]})) {
-      warn( "!!!\t\tsession = $ses\n",
-            "!!!\t\t\thandle  = $ses_rec->[HSS_HANDLE]\n",
-            "!!!\t\t\tsession = $ses_rec->[HSS_SESSION]\n",
-            "!!!\t\t\tevent   = $ses_rec->[HSS_STATE]\n",
-          );
+      warn "!!!\t\tsession = $ses\n";
+      while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
+        warn(
+          "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
+          "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
+          "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
+        );
+      }
     }
 
     warn( "!!!\tException:\n",
@@ -113,15 +125,19 @@ sub _data_handle_finalize {
           "!!!\t\tev cnt  = $ex->[FMO_EV_COUNT]\n",
         );
     while (my ($ses, $ses_rec) = each(%{$ex->[FMO_SESSIONS]})) {
-      warn( "!!!\t\tsession = $ses\n",
-            "!!!\t\t\thandle  = $ses_rec->[HSS_HANDLE]\n",
-            "!!!\t\t\tsession = $ses_rec->[HSS_SESSION]\n",
-            "!!!\t\t\tevent   = $ses_rec->[HSS_STATE]\n",
-          );
+      warn "!!!\t\tsession = $ses\n";
+      while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
+        warn(
+          "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
+          "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
+          "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
+        );
+      }
     }
   }
 
   while (my ($ses, $hnd_rec) = each(%kr_ses_to_handle)) {
+    $finalized_ok = 0;
     warn "!!! Leaked handle in $ses\n";
     while (my ($hnd, $rc) = each(%$hnd_rec)) {
       warn( "!!!\tHandle: $hnd (tot refcnt=$rc->[SH_REFCOUNT])\n",
@@ -131,6 +147,8 @@ sub _data_handle_finalize {
           );
     }
   }
+
+  return $finalized_ok;
 }
 
 ### Ensure a handle's actual state matches its requested one.  Pause
@@ -618,6 +636,14 @@ sub _data_handle_clear_session {
     $self->_data_handle_remove($handle, MODE_EX, $session)
       if $refcount->[MODE_EX];
   }
+}
+
+# -><- Testing accessors.  Maybe useful for introspection.  May need
+# modification before that.
+
+sub _data_handle_get_fileno_rec {
+  my ($self, $fd) = @_;
+  return $kr_filenos{$fd};
 }
 
 1;
