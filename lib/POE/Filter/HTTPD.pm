@@ -12,6 +12,7 @@
 # and from HTTPD filters, they should say so on POE's mailing list.
 
 package POE::Filter::HTTPD;
+use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 
@@ -43,6 +44,8 @@ sub new {
 
 sub get {
   my ($self, $stream) = @_;
+
+  {% use_bytes %}
 
   local($_);
 
@@ -243,6 +246,8 @@ sub _http_version {
 
 sub build_basic_response {
   my ($self, $content, $content_type, $status) = @_;
+
+  {% use_bytes %}
 
   $content_type ||= 'text/html';
   $status       ||= RC_OK;

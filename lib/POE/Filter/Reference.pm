@@ -4,6 +4,7 @@
 # <artur@vogon-solutions.com>.  Partial copyright 1999 Philip Gwyn.
 
 package POE::Filter::Reference;
+use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 
@@ -122,6 +123,8 @@ sub get {
   my ($self, $stream) = @_;
   my @return;
 
+  {% use_bytes %}
+
   $self->{buffer} .= join('', @$stream);
 
   while ( defined($self->{expecting}) ||
@@ -155,6 +158,8 @@ sub get_one_start {
 sub get_one {
   my $self = shift;
 
+  {% use_bytes %}
+
   while ( defined($self->{expecting}) ||
           ( ($self->{buffer} =~ s/^(\d+)\0//s) &&
             ($self->{expecting} = $1)
@@ -178,6 +183,8 @@ sub get_one {
 
 sub put {
   my ($self, $references) = @_;
+
+  {% use_bytes %}
 
   my @raw = map {
     my $frozen = $self->{freeze}->($_);

@@ -1646,6 +1646,10 @@ A: You probably are using print or printf to write screen output.
    refresh the prompt after you do this.  Use ReadLine's put() method
    to write lines to the console.
 
+=head1 BUGS
+
+I am not sure how well this supports unicode.
+
 =head1 AUTHORS & COPYRIGHTS
 
 Please see L<POE> for more information about authors and contributors.

@@ -5,6 +5,7 @@
 # and/or modify it under the same terms as Perl itself.
 
 package POE::Driver::SysRW;
+use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 
@@ -55,6 +56,8 @@ sub new {
 sub put {
   my ($self, $chunks) = @_;
   my $old_queue_octets = $self->[TOTAL_OCTETS_LEFT];
+
+  {% use_bytes %}
 
   foreach (grep { length } @$chunks) {
     $self->[TOTAL_OCTETS_LEFT] += length;
@@ -113,6 +116,8 @@ sub get {
 
 sub flush {
   my ($self, $handle) = @_;
+
+  {% use_bytes %}
 
   # syswrite() it, like we're supposed to
   while (@{$self->[OUTPUT_QUEUE]}) {

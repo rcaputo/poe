@@ -1,6 +1,7 @@
 # $Id$
 
 package POE::Wheel::SocketFactory;
+use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 
@@ -561,6 +562,8 @@ sub new {
                         ? $params{BindAddress}
                         : INADDR_ANY
                       );
+
+      {% use_bytes %}
 
       # Resolve the bind address if it's not already packed.
       (length($bind_address) == 4)

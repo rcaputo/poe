@@ -1,6 +1,7 @@
 # $Id$
 
 package POE::Filter::Block;
+use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 
@@ -41,6 +42,8 @@ sub get {
   my ($self, $stream) = @_;
   my @blocks;
   $self->[FRAMING_BUFFER] .= join '', @{$stream};
+
+  {% use_bytes %}
 
   # If a block size is specified, then frame input into blocks of that
   # size.
@@ -86,8 +89,10 @@ sub get_one_start {
 sub get_one {
   my $self = shift;
 
+  {% use_bytes %}
+
   # If a block size is specified, then pull off a block of that many
-  # bytes and/or characters, depending upon what length() does.
+  # bytes.
 
   if (defined $self->[BLOCK_SIZE]) {
     return [ ] unless length($self->[FRAMING_BUFFER]) >= $self->[BLOCK_SIZE];
@@ -121,6 +126,8 @@ sub get_one {
 sub put {
   my ($self, $blocks) = @_;
   my @raw;
+
+  {% use_bytes %}
 
   # If a block size is specified, then just assume the put is right.
   # This will cause quiet framing errors on the receiving side.  Then
