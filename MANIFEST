@@ -18,6 +18,7 @@ POE/Filter/Line.pm
 POE/Filter/Reference.pm
 POE/Filter/Stream.pm
 POE/Kernel.pm
+POE/NFA.pm
 POE/Object.pm
 POE/Preprocessor.pm
 POE/Repository/Array.pm

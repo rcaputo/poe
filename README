@@ -67,7 +67,7 @@ Hardware: Cyrix P166+; 64MB RAM.
 Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no Event; no Gtk.
 
   All tests successful, 4 tests skipped.
-  Files=22, Tests=373, 132 wallclock secs ( [line shortened] )
+  Files=22, Tests=374, 173 wallclock secs ( [line shortened] )
 
 These are the `make test' results for POE 0.1109 or FreeBSD:
 

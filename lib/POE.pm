@@ -11,8 +11,23 @@ $VERSION = '0.1109';
 
 sub import {
   my $self = shift;
-  my @modules = grep(!/^(Kernel|Session)$/, @_);
-  unshift @modules, qw(Kernel Session);
+
+  my @sessions = grep(/^(Session|NFA)$/, @_);
+  my @modules = grep(!/^(Kernel|Session|NFA)$/, @_);
+
+  croak "Can't load both POE::Session and POE::NFA at once"
+    if grep(/^(Session|NFA)$/, @sessions) > 1;
+
+  # Add Kernel back it, whether anybody wanted it or not.
+  unshift @modules, 'Kernel';
+
+  # If a session was specified, use that.  Otherwise use Session.
+  if (@sessions) {
+    unshift @modules, @sessions;
+  }
+  else {
+    unshift @modules, 'Session';
+  }
 
   my $package = (caller())[0];
 
@@ -234,8 +249,8 @@ they need but no more.  The layers are:
 Events layer
 
 This was already discussed earlier.  It consists of an event
-dispatcher, POE::Kernel, and POE::Session, which is a generic state
-machine.
+dispatcher, POE::Kernel; POE::Session, which is a generic state
+machine; and POE::NFA, which is a non-deterministic finite automaton.
 
 =item *
 
@@ -870,7 +885,7 @@ This is a summary of POE's modules.
 
 Events Layer
 
-POE::Kernel; POE::Session
+POE::Kernel; POE::NFA; POE::Session
 
 =item *
 

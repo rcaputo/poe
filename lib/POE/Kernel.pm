@@ -1443,10 +1443,11 @@ sub run {
 
       $now = time();
       while ( @$kr_alarms and ($kr_alarms->[0]->[ST_TIME] <= $now) ) {
+        my $event;
 
         if (TRACE_QUEUE) { # include
 
-          my $event = $kr_alarms->[0];
+          $event = $kr_alarms->[0];
           warn( sprintf('now(%.2f) ', $now - $^T) .
                 sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
                 "seq($event->[ST_SEQ])  " .
@@ -1456,7 +1457,7 @@ sub run {
         } # include
 
         # Pull an alarm off the queue, and dispatch it.
-        my $event = shift @$kr_alarms;
+        $event = shift @$kr_alarms;
         {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
         $self->_dispatch_state(@$event);
       }

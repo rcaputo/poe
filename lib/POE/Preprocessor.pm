@@ -17,102 +17,73 @@ sub COND_INDENT () { 2 }
 
 BEGIN {
   defined &DEBUG        or eval 'sub DEBUG        () { 0 }'; # preprocessor
-  defined &DEBUG_ROP    or eval 'sub DEBUG_ROP    () { 0 }'; # regexp optimizer
   defined &DEBUG_INVOKE or eval 'sub DEBUG_INVOKE () { 0 }'; # macro invocs
   defined &DEBUG_DEFINE or eval 'sub DEBUG_DEFINE () { 0 }'; # macro defines
 };
 
-# Create an optimal regexp to match a list of things.
-my $debug_level = 0;
+# text_trie_trie is virtually identical to code in Ilya Zakharevich's
+# Text::Trie::Trie function.  The minor differences involve hardcoding
+# the minimum substring length to 1 and sorting the output.
 
-sub optimum_match {
-  my @sorted = sort { (length($b) <=> length($a)) || ($a cmp $b) } @_;
-  my @regexp;
-  my $width = 40 - $debug_level;
+sub text_trie_trie {
+  my @list = @_;
+  return shift if @_ == 1;
+  my (@trie, %first);
 
-  DEBUG_ROP and do {
-    warn ' ' x $debug_level, "+-----\n";
-    warn ' ' x $debug_level, "| Given: @sorted\n";
-    warn ' ' x $debug_level, "+-----\n";
-  };
-
-  while (@sorted) {
-    my $longest = $sorted[0];
-
-    DEBUG_ROP and do {
-      warn ' ' x $debug_level, "+-----\n";
-      warn( ' ' x $debug_level,
-            "| Longest : ",
-            sprintf("%-${width}s", unpack('H*', $longest)),
-            " ($longest)\n"
-          );
-    };
-
-    # Find the length of the longest match.
-    my $minimum_match_count = length $longest;
-    foreach (@sorted) {
-      my $xor = $_ ^ $longest;
-      if (($xor =~ /^(\000+)/) and (length($1) < $minimum_match_count)) {
-        $minimum_match_count = length($1);
-      }
+  foreach (@list) {
+    my $c = substr $_, 0, 1;
+    if (exists $first{$c}) {
+      push @{$first{$c}}, $_;
     }
-
-    DEBUG_ROP and
-      warn ' ' x $debug_level, "| sz_match: $minimum_match_count\n";
-
-    # Extract the things matching it.
-    my $minimum_match_string = substr($longest, 0, $minimum_match_count);
-    DEBUG_ROP and
-      warn ' ' x $debug_level, "| st_match: $minimum_match_string\n";
-
-    my @matches = grep /^$minimum_match_string/, @sorted;
-    @sorted = grep !/^$minimum_match_string/, @sorted;
-
-    # Only one match? Nothing to compare, or anything.
-    if (@matches == 1) {
-      DEBUG_ROP and warn ' ' x $debug_level, "| matches : $matches[0]\n";
-      push @regexp, $matches[0];
-    }
-
-    # More than one match? Recurse!
     else {
-      # Remove the common prefix.
-      my $matches_index = @matches;
-      while ($matches_index--) {
-        $matches[$matches_index] =~ s/^$minimum_match_string//;
-        splice(@matches, $matches_index, 1)
-          unless length $matches[$matches_index];
-      }
-
-      # If only one left now, then it's an optional prefix.
-      if (@matches == 1) {
-        my $sub_expression = "$minimum_match_string(?:$matches[0])?";
-        DEBUG_ROP and warn ' ' x $debug_level, "| option  : $sub_expression\n";
-        push @regexp, $sub_expression;
-      }
-      else {
-        DEBUG_ROP and warn ' ' x $debug_level, "| recurse : @matches\n";
-
-        $debug_level++;
-        my $sub_expression = &optimum_match(@matches);
-        $debug_level--;
-
-        # Build part of this regexp.
-        push @regexp, '(?:' . $minimum_match_string . $sub_expression . ')';
-      }
+      $first{$c} = [ $_ ];
     }
   }
 
-  my $sub_expression = '(?:' . join('|', @regexp). ')';
+  foreach (sort keys %first) {
+    # Find common substring
+    my $substr = $first{$_}->[0];
+    (push @trie, $substr), next if @{$first{$_}} == 1;
+    my $l = length($substr);
+    foreach (@{$first{$_}}) {
+      $l-- while substr($_, 0, $l) ne substr($substr, 0, $l);
+    }
+    $substr = substr $substr, 0, $l;
 
-  DEBUG_ROP and do {
-    warn ' ' x $debug_level, "+-----\n";
-    warn ' ' x $debug_level, "| Returns: $sub_expression\n";
-    warn ' ' x $debug_level, "+-----\n";
-  };
+    # Feed the trie.
+    @list = map {substr $_, $l} @{$first{$_}};
+    push @trie, [$substr, text_trie_trie(@list)];
+  }
 
-  $sub_expression;
+  @trie;
 }
+
+# This is basically Text::Trie::walkTrie, but it's hardcoded to build
+# regular expressions.
+
+sub text_trie_as_regexp {
+  my @trie   = @_;
+  my $num    = 0;
+  my $regexp = '';
+
+  foreach (@trie) {
+    $regexp .= '|' if $num++;
+    if (ref $_ eq 'ARRAY') {
+      $regexp .= $_->[0] . '(?:';
+      if ($#$_ > 1) {
+        $regexp .= text_trie_as_regexp( @{$_}[1 .. $#$_] );
+      }
+      $regexp .= ')';
+    }
+    else {
+      $regexp .= $_;
+    }
+  }
+
+  $regexp;
+}
+
+### End of regexp optimizer.
 
 # These must be accessible from outside the current package.
 use vars qw(%conditional_stacks %excluding_code %exclude_indent);
@@ -180,7 +151,7 @@ sub import {
           ### are hardcoded and always handled.
 
           # Only do the conditionals if there's a flag present.
-          if (/[\{\}]\s*\#\s*include\s*$/) {
+          if (/include/) {
 
             # if (...) { # include
             if (/^(\s*)if\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
@@ -390,7 +361,7 @@ sub import {
           }
 
           ### Define a constant.
-          if (/^const\s+([A-Z_][A-Z_0-9]+)\s+(.+?)\s*$/) {
+          if (/^const\s+(\S+)\s+(.+?)\s*$/i) {
             &{$set_const}($1, $2);
             $_ = "# $_";
             DEBUG and warn sprintf "%4d E: %s", $line_number, $_;
@@ -490,7 +461,8 @@ sub import {
           # prevents redundant regexp rebuilds when defining several
           # constants all together.
           if ($const_regexp_dirty) {
-            $const_regexp = &optimum_match(keys %constants);
+            $const_regexp =
+              text_trie_as_regexp(text_trie_trie(keys %constants));
             $const_regexp_dirty = 0;
           }
 
@@ -627,14 +599,13 @@ later.
 
 =head1 DEBUGGING
 
-POE::Preprocessor has four debugging constants: DEBUG (which traces
-source filtering to stderr); DEBUG_ROP (which shows what the regexp
-optimizer is up to); DEBUG_INVOKE (which traces macro substitutions);
-and DEBUG_DEFINE (which traces macro, const and enum definitions).
-They can be overridden prior to POE::Preprocessor's use:
+POE::Preprocessor has three debugging constants: DEBUG (which traces
+source filtering to stderr); DEBUG_INVOKE (which traces macro
+substitutions); and DEBUG_DEFINE (which traces macro, const and enum
+definitions).  They can be overridden prior to POE::Preprocessor's
+use:
 
   sub POE::Preprocessor::DEBUG        () { 1 } # trace preprocessor
-  sub POE::Preprocessor::DEBUG_ROP    () { 1 } # trace regexp optimizer
   sub POE::Preprocessor::DEBUG_INVOKE () { 1 } # trace macro use
   sub POE::Preprocessor::DEBUG_DEFINE () { 1 } # trace macro/const/enum defs
   use POE::Preprocessor;
@@ -666,6 +637,11 @@ around until no more substitutions occurred.
 Optimum matches aren't, but they're better than nothing.
 
 =back
+
+=head1 SEE ALSO
+
+The regexp optimizer is based on code in Ilya Zakharevich's
+Text::Trie.
 
 =head1 AUTHOR & COPYRIGHT
 

@@ -44,22 +44,28 @@ Version numbers have four fields: X.YYZZAA
 | things greatly...
 |
 | Split the samples out into a separate distribution.  POE's
-| distribution tree is over 800 kilobytes!  Most of it's supporting
-| documentation, tests, and samples.
+| distribution tree is over 800 kilobytes!  The samples take up to
+| half of that.
 |
 | Benchmark index vs. rindex vs. regexp for finding line terminators.
+|
+| Real streams.
+|
+| Macros and stuff are nice, but they're killing startup time.  What
+| can be done without losing POE's "pure Perl" aspect?
 |
 `-----------------
 
 
-0.1109 2000.??.??
+0.1109 2000.10.30
 -----------------
 
 Revised large chunks of POE::Preprocessor.  Added conditional code
 inclusion on the assumption that not performing macro substitution and
 compiling code we don't use will be faster.  This could well be false.
 
-Added DEBUG_INVOKE and DEBUG_DEFINE to POE::Preprocessor.
+Added DEBUG_INVOKE and DEBUG_DEFINE to POE::Preprocessor, mainly so
+the defining and invoking output doesn't clutter up DEBUG'S.
 
 Revised POE::Kernel to use conditional code inclusion instead of
 optimized-away optrees.
@@ -72,6 +78,24 @@ the tracing library would cause some subtle hang.
 Revised the coverage testing tools to cope with conditional code
 inclusion.  Conditional code inclusion inside macros changes line
 numbers no matter what I do, so the coverage report has to cope.
+
+POE::Preprocessor didn't allow consts which weren't all-caps; now it
+does.  Also permit consts which aren't all letters.  This allows a
+crude sort of operator overloading.
+
+Lifted most of Ilya Zakharevich's nifty Text::Trie to rewrite the
+regexp optimizer in POE::Preprocessor.
+
+Added POE::NFA, the nondeterministic finite automaton flavor of
+POE::Session.
+
+Tweaked test t/00_coverage.t to load each module in a separate
+package.  POE::NFA and POE::Session both export constants which
+overlap.
+
+Tweaked POE.pm to load Session by default.  If NFA is specified, it
+overrides Session.  This should prevent accidentally loading Session
+and NFA at once.
 
 
 0.1108 2000.10.06
@@ -325,8 +349,8 @@ sample, as far as I can tell.  I think it's corrected now.
 69% test coverage now.  Check the README for stats.
 
 
-0.1010 2000.06.20 (!!!)
------------------------
+0.1010 2000.06.20
+-----------------
 
 Wheel::FollowTail was working on its filehandles before setting them
 non-blocking.  Rearranged a couple lines of code to turn off blocking
@@ -355,8 +379,8 @@ do, but I'm not sure why I think so.
 Added a new test, t/16_filter_stream.t to exercise the stream filter.
 
 
-0.1009 2000.06.17 (!!!)
------------------------
+0.1009 2000.06.17
+-----------------
 
 (!!!) Documented in the changes for 0.1006 that $kernel->fork() was
 broken.
@@ -458,8 +482,8 @@ Many thanks to ignatz and a-mused for quick testing, and to Fletch
 for verifying that 0.1007 works on RedHat 6.2 x86!
 
 
-0.1006 2000.06.07 (!!!)
------------------------
+0.1006 2000.06.07
+-----------------
 
 This version was placed on the web site, but a-mused and ignatz found
 bugs SocketFactory right away.  As a result, I held off announcing it
@@ -744,8 +768,8 @@ the FIFO_DISPATCH_TIME constant's comments for notes on tweaking
 0.1002's performance higher than 0.1001's. :)
 
 
-0.1001 2000.04.17 (!!!)
------------------------
+0.1001 2000.04.17
+-----------------
 
 MJD pointed out (heh) that references have string/number magic like
 $!.  That is, they return just a number in numeric context, and in
@@ -808,8 +832,8 @@ $kernel->alias_resolve does the same thing, ID_session_to_id can be
 faster when code expects to be working with session IDs.
 
 
-0.10 2000.03.23 (!!!)
----------------------
+0.10 2000.03.23
+---------------
 
 Added POE::Component to the MANIFEST.  Whoops!
 
@@ -819,8 +843,8 @@ what has changed, paying extra attention to the bits marked
 incompatible.
 
 
-0.0910 2000.03.09 (!!!)
------------------------
+0.0910 2000.03.09
+-----------------
 
 POE now keeps track of the file and line number where an event was
 generated.  $session->option( default => 1 ) will report the line and
@@ -891,8 +915,8 @@ removed.
 Updated documentation for POE::Kernel::alarm()
 
 
-0.0906 2000.02.20 (!!!)
------------------------
+0.0906 2000.02.20
+-----------------
 
 (!!!) Revised Wheel::ReadWrite->put() to return true if the high
 watermark is reached; false if it hasn't been.  ReadWrite->put() may
@@ -977,8 +1001,8 @@ this "optimization" out.
 Benchmarked several different "switch" implementations, only to find
 out that if/elsif/else is fastest anyway.
 
-Added internal event types within POE::Kernel.  The only thing anyone
-will ever notice is a little better performance.
+(!!!) Added internal event types within POE::Kernel.  Posting _stop at
+a session will not kill it anymore.
 
 Fixed POE::Kernel->alarm() and POE::Kernel->delay() to make use of the
 new internal event types.  Now these two functions can only discard
@@ -990,8 +1014,8 @@ events queued for the current session.
 Updated samples/signals.perl to display pending alarms.
 
 
-0.0903 2000.02.08 (!!!)
------------------------
+0.0903 2000.02.08
+-----------------
 
 Put the incomplete, experimental Win32 code back.  It appears to have
 been working all along!  Please note, this is only for making
@@ -1072,8 +1096,8 @@ Fix the release date for 0.0806 in the Changes file.
 function... BACK!
 
 
-0.0806 2000.01.24 (!!!)
------------------------
+0.0806 2000.01.24
+-----------------
 
 Added the ability to compress referenced data passing through
 Filter::Reference.  This doesn't break backward compatibility, but it
@@ -1305,8 +1329,8 @@ pointless for a Reference filter, but lets you use Reference as a
 "reference" for other variable-length block filters. :)
 
 
-0.07 1999.06.18 (!!!)
----------------------
+0.07 1999.06.18
+---------------
 
 Revised the new manpages based on reader feedback.
 
@@ -1316,8 +1340,8 @@ change.  It's that change that warrants the (!!!) icon, so don't
 panic.  This is NOT another 0.05 -> 0.06 API changefest of pain.
 
 
-0.0609 1999.06.15 (!!!)
------------------------
+0.0609 1999.06.15
+-----------------
 
 Updated samples/*sessions.perl to test $kernel->state(...) and
 discovered that the documentation was wrong about this function.
@@ -1526,15 +1550,15 @@ let the author know.
 Split the TO-DO list out of the main POE.pm file.
 
 
-0.06 1999.02.03 (!!!)
----------------------
+0.06 1999.02.03
+---------------
 
 This is a public CPAN release.  It incorporates all the changes since
 version 0.05.
 
 
-0.05_57 1999.02.02 (!!!)
-------------------------
+0.05_57 1999.02.02
+------------------
 
 (!!!) Renamed POE::Session::debug() as POE::Session::option(), per
 feedback from testers.  This changes the original "_debug" semantics
@@ -1587,8 +1611,8 @@ side, sockets seem to function very well.  Thanks to Sean Puckett
 (catbear) for tracking this down.
 
 
-0.05_04 1999.01.15 (!!!)
-------------------------
+0.05_04 1999.01.15
+------------------
 
 Fixed Reference.pm again.  Storable's nfreeze is portable across
 networks and faster than FreezeThaw, so it's preferred.  Thanks to
@@ -1623,8 +1647,8 @@ difference, but this will break compatibility for Filter and Driver
 writers.
 
 
-0.05_03 1999.01.14 (!!!)
-------------------------
+0.05_03 1999.01.14
+------------------
 
 Fixed Kernel select dispatching.  Changing $_ in event handlers would
 cause a fatal error.
@@ -1651,8 +1675,8 @@ to Dave Paris for pointing this out.
 Added new tests.
 
 
-0.05_02 1999.01.12 (!!!)
-------------------------
+0.05_02 1999.01.12
+------------------
 
 Fixed signals.  Now runs garbage collection on sessions after
 execution returns from non-terminal signal handlers.
