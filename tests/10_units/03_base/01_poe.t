@@ -5,7 +5,7 @@ use strict;
 
 use Test::More tests => 4;
 
-BEGIN { use_ok("POE") }
+BEGIN { eval "use POE"; ok(!$@, "you just saved a kitten"); }
 
 # Start with errors.
 
