@@ -39,7 +39,7 @@ sub new {
   my $port    = delete $param{RemotePort};
 
   foreach ( qw( Connected ConnectError Disconnected ServerInput
-                ServerError ServerFlushed Filter
+                ServerError ServerFlushed
               )
           ) {
     croak "$_ must be a coderef"
