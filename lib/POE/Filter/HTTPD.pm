@@ -6,6 +6,11 @@
 # get code was copied out if, unfournatly HTTP::Daemon is not easily
 # subclassed for POE because of the blocking nature.
 
+# 2001-07-27 RCC: This filter will not support the newer get_one()
+# interface.  It gets single things by default, and it does not
+# support filter switching.  If someone absolutely needs to switch to
+# and from HTTPD filters, they should say so on POE's mailing list.
+
 package POE::Filter::HTTPD;
 use HTTP::Status;
 use HTTP::Request;
@@ -32,7 +37,6 @@ sub new {
 
 sub get {
   my ($self, $stream) = @_;
-
 
   local($_);
 
@@ -175,13 +179,11 @@ sub put {
 
 #------------------------------------------------------------------------------
 
-sub get_pending
-{
-    my($self)=@_;
-    warn ref($self)." does not support the get_pending() method\n";
-    return;
+sub get_pending {
+  my $self = shift;
+  warn ref($self)." does not support the get_pending() method\n";
+  return;
 }
-
 
 #------------------------------------------------------------------------------
 #function specific to HTTPD;
@@ -200,26 +202,26 @@ sub _http_version {
 }
 
 sub send_status_line {
-    my($self, $status, $message, $proto) = @_;
-    $status  ||= RC_OK;
-    $message ||= status_message($status) || "";
-    $proto   ||= "HTTP/1.1";
-    $self->put("$proto $status $message");
+  my($self, $status, $message, $proto) = @_;
+  $status  ||= RC_OK;
+  $message ||= status_message($status) || "";
+  $proto   ||= "HTTP/1.1";
+  $self->put("$proto $status $message");
 }
 
 
 sub send_error {
-    my($self, $status, $error) = @_;
-    $status ||= RC_BAD_REQUEST;
-    my $mess = status_message($status);
-    $error  ||= "";
-    $mess = "<title>$status $mess</title><h1>$status $mess</h1>$error";
-    $self->send_basic_header($status);
-    $self->put("Content-Type: text/html");
-    $self->put("Content-Length: " . length($mess));
-    $self->put("");
-    $self->put("$mess");
-    $status;
+  my($self, $status, $error) = @_;
+  $status ||= RC_BAD_REQUEST;
+  my $mess = status_message($status);
+  $error  ||= "";
+  $mess = "<title>$status $mess</title><h1>$status $mess</h1>$error";
+  $self->send_basic_header($status);
+  $self->put("Content-Type: text/html");
+  $self->put("Content-Length: " . length($mess));
+  $self->put("");
+  $self->put("$mess");
+  $status;
 }
 
 
