@@ -83,8 +83,6 @@ sub io_start {
 
   # And counters to monitor read/write progress.
 
-  $poe_main_window->set_border_width(5);
-
   my $box = Gtk::VBox->new(0, 0);
   $poe_main_window->add($box);
   $box->show();
@@ -146,14 +144,6 @@ sub io_start {
     6 => "not ok 6\n",
     7 => "not ok 7\n",
   };
-
-  # Force the window's position.  Some window managers, including the
-  # author's, will use this to circumvent a user needing to set the
-  # position.  It's highly *not* recommended, bad coding practice, but
-  # this is a test, and I strongly feel that tests should run
-  # unattended whenever possible.
-  $poe_main_window->realize();
-  $poe_main_window->window->set_geometry_hints( 20, 20, 'pos' );
 
   $poe_main_window->show();
 }
