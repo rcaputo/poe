@@ -11,6 +11,11 @@ package POE::Kernel;
 use strict;
 use POSIX qw(errno_h fcntl_h);
 use Carp;
+use Exporter;
+use vars qw($kernel);
+
+@POE::Kernel::ISA = qw(Exporter);
+@POE::Kernel::EXPORT = qw($kernel);
                                         # allow subsecond alarms, if available
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
@@ -63,7 +68,7 @@ BEGIN {
 #------------------------------------------------------------------------------
 # globals
 
-$POE::Kernel::self = undef;             # only one active kernel; sorry
+$kernel = undef;                        # only one active kernel; sorry
 
 #------------------------------------------------------------------------------
                                         # debugging flags for subsystems
@@ -116,12 +121,12 @@ sub ST_ARGS     () { 3 }
 sub ST_TIME     () { 4 }
 sub ST_DEB_SEQ  () { 5 }
                                         # event names
-sub EN_START  () { '_start' }
-sub EN_STOP   () { '_stop' }
-sub EN_SIGNAL () { '_signal' }
+sub EN_START  () { '_start'           }
+sub EN_STOP   () { '_stop'            }
+sub EN_SIGNAL () { '_signal'          }
 sub EN_GC     () { '_garbage_collect' }
-sub EN_PARENT () { '_parent' }
-sub EN_CHILD  () { '_child' }
+sub EN_PARENT () { '_parent'          }
+sub EN_CHILD  () { '_child'           }
 
 =doc #-------------------------------------------------------------------------
 
@@ -165,10 +170,8 @@ my %_terminal_signals = ( QUIT => 1, INT => 1, KILL => 1, TERM => 1, HUP => 1);
                                         # static signal handlers
 sub _signal_handler_generic {
   if (defined(my $signal = $_[0])) {
-    $POE::Kernel::self->_enqueue_state
-      ( $POE::Kernel::self, $POE::Kernel::self,
-        EN_SIGNAL, time(), [ $signal ]
-      );
+    $kernel->_enqueue_state
+      ( $kernel, $kernel, EN_SIGNAL, time(), [ $signal ] );
     $SIG{$_[0]} = \&_signal_handler_generic;
   }
   else {
@@ -178,8 +181,8 @@ sub _signal_handler_generic {
 
 sub _signal_handler_pipe {
   if (defined(my $signal = $_[0])) {
-    $POE::Kernel::self->_enqueue_state
-      ( $POE::Kernel::self->[KR_ACTIVE_SESSION], $POE::Kernel::self,
+    $kernel->_enqueue_state
+      ( $kernel->[KR_ACTIVE_SESSION], $kernel,
         EN_SIGNAL, time(), [ $signal ]
       );
     $SIG{$_[0]} = \&_signal_handler_pipe;
@@ -193,10 +196,8 @@ sub _signal_handler_child {
   if (defined(my $signal = $_[0])) {
     my $pid = wait();
     if ($pid >= 0) {
-      $POE::Kernel::self->_enqueue_state
-        ( $POE::Kernel::self, $POE::Kernel::self,
-          EN_SIGNAL, time(), [ 'CHLD', $pid, $? ]
-        );
+      $kernel->_enqueue_state
+        ( $kernel, $kernel, EN_SIGNAL, time(), [ 'CHLD', $pid, $? ] );
     }
     $SIG{$_[0]} = \&_signal_handler_child;
   }
@@ -240,8 +241,8 @@ sub signal {
 sub new {
   my $type = shift;
                                         # prevent multiple instances
-  unless (defined $POE::Kernel::self) {
-    my $self = $POE::Kernel::self = bless [ ], $type;
+  unless (defined $kernel) {
+    my $self = $kernel = bless [ ], $type;
                                         # the long way to ensure correctness
     $self->[KR_SESSIONS] = { };
     $self->[KR_VECTORS ] = [ '', '', '' ];
@@ -287,7 +288,7 @@ sub new {
     $kernel_session->[SS_ALIASES ] = { };
   }
                                         # return the global instance
-  $POE::Kernel::self;
+  $kernel;
 }
 
 #------------------------------------------------------------------------------
@@ -332,15 +333,20 @@ sub _dispatch_state {
   }
                                         # warn of pending session removal
   elsif ($state eq EN_STOP) {
-                                        # tell children they have new parents
+                                        # tell children they have new parents,
+                                        # and tell parent it has new children
     my $parent   = $sessions->{$session}->[SS_PARENT];
     my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
-    foreach (@children) {
-      $self->_dispatch_state($_, $parent, EN_PARENT, []);
+    foreach my $child (@children) {
+      $self->_dispatch_state($parent, $self, EN_CHILD, [ 'gain', $child ] );
+      $self->_dispatch_state($child, $self, EN_PARENT, [ $parent,
+                                                         $child->[SS_PARENT]
+                                                       ]
+                            );
     }
                                         # tell the parent its child is gone
     if (defined $parent) {
-      $self->_dispatch_state($parent, $session, EN_CHILD, []);
+      $self->_dispatch_state($parent, $self, EN_CHILD, [ 'lose', $session ]);
       $self->_collect_garbage($parent);
     }
   }
@@ -364,9 +370,7 @@ sub _dispatch_state {
                                         # dispatch this object's state
   my $hold_active_session = $self->[KR_ACTIVE_SESSION];
   $self->[KR_ACTIVE_SESSION] = $session;
-  my $handled = $session->_invoke_state( $self, $source_session,
-                                         $local_state, $etc
-                                       );
+  my $handled = $session->_invoke_state($source_session, $local_state, $etc);
                                         # stringify to remove possible blessing
   defined($handled) ? ($handled = "$handled") : ($handled = '');
   $self->[KR_ACTIVE_SESSION] = $hold_active_session;
@@ -684,7 +688,7 @@ sub DESTROY {
 # This is a dummy _invoke_state so the Kernel can pretend it's also a Session.
 
 sub _invoke_state {
-  my ($self, $kernel, $source_session, $state, $etc) = @_;
+  my ($self, $source_session, $state, $etc) = @_;
   return 1;
 }
 
@@ -1108,6 +1112,12 @@ sub state {
   $! = ESRCH;
   return 0;
 }
+
+###############################################################################
+# Bootstrap the kernel.  This is inherited from a time when multiple
+# kernels could be present in the same Perl process.
+
+new POE::Kernel();
 
 ###############################################################################
 1;
