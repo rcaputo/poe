@@ -25,18 +25,59 @@ sub new {
   croak "Driver required" unless (exists $params{'Driver'});
   croak "Filter required" unless (exists $params{'Filter'});
 
-  my ($handle, $driver, $filter, $state_flushed, $state_error) =
-    @params{ qw(Handle Driver Filter FlushedState ErrorState) };
-
-  my $self = bless { 'handle' => $handle,
-                     'driver' => $driver,
-                     'filter' => $filter,
-                     'state error' => $state_error,
-                     'state flushed' => $state_flushed,
+  my $self = bless { 'handle'        => $params{'Handle'},
+                     'driver'        => $params{'Driver'},
+                     'filter'        => $params{'Filter'},
+                     'event input'   => $params{'InputState'},
+                     'event error'   => $params{'ErrorState'},
+                     'event flushed' => $params{'FlushedState'},
                    }, $type;
+                                        # register private event handlers
+  $self->_define_read_state();
+  $self->_define_write_state();
+
+  $self;
+}
+
+#------------------------------------------------------------------------------
+# Redefine events.
+
+sub event {
+  my $self = shift;
+  push(@_, undef) if (scalar(@_) & 1);
+
+  while (@_) {
+    my ($name, $event) = splice(@_, 0, 2);
+
+    if ($name eq 'InputState') {
+      $self->{'event input'} = $event;
+    }
+    elsif ($name eq 'ErrorState') {
+      $self->{'event error'} = $event;
+    }
+    elsif ($name eq 'FlushedState') {
+      $self->{'event flushed'} = $event;
+    }
+    else {
+      carp "ignoring unknown ReadWrite parameter '$name'";
+    }
+  }
+
+  $self->_define_read_state();
+  $self->_define_write_state();
+}
+
+#------------------------------------------------------------------------------
+# Re/define the read state.  Moved out of new so that it can be redone
+# whenever the input and/or error states are changed.
+
+sub _define_read_state {
+  my $self = shift;
+                                        # stupid closure trick
+  my ($event_in, $event_error, $driver, $filter, $handle) =
+    @{$self}{'event input', 'event error', 'driver', 'filter', 'handle'};
                                         # register the select-read handler
-  if (exists $params{'InputState'}) {
-    my $state_in = $params{'InputState'};
+  if (defined $event_in) {
     $poe_kernel->state
       ( $self->{'state read'} = $self . ' -> select read',
         sub {
@@ -46,20 +87,37 @@ sub new {
           my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
           if (defined(my $raw_input = $driver->get($handle))) {
             foreach my $cooked_input (@{$filter->get($raw_input)}) {
-              $k->call($me, $state_in, $cooked_input)
+              $k->call($me, $event_in, $cooked_input)
             }
           }
           else {
-            $state_error && $k->call($me, $state_error, 'read', ($!+0), $!);
+            $event_error && $k->call($me, $event_error, 'read', ($!+0), $!);
             $k->select_read($handle);
           }
         }
       );
+                                        # register the state's select
+    $poe_kernel->select_read($handle, $self->{'state read'});
   }
+                                        # undefine the select, just in case
+  else {
+    $poe_kernel->select_read($handle)
+  }
+}
+
+#------------------------------------------------------------------------------
+# Re/define the write state.  Moved out of new so that it can be
+# redone whenever the input and/or error states are changed.
+
+sub _define_write_state {
+  my $self = shift;
+                                        # stupid closure trick
+  my ($event_error, $event_flushed, $handle, $driver) =
+    @{$self}{'event error', 'event flushed', 'handle', 'driver'};
                                         # register the select-write handler
   $poe_kernel->state
     ( $self->{'state write'} = $self . ' -> select write',
-      sub {                                        # prevents SEGV
+      sub {                             # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
@@ -68,21 +126,15 @@ sub new {
         if (defined $writes_pending) {
           unless ($writes_pending) {
             $k->select_write($handle);
-            (defined $state_flushed) && $k->call($me, $state_flushed);
+            (defined $event_flushed) && $k->call($me, $event_flushed);
           }
         }
         elsif ($!) {
-          $state_error && $k->call($me, $state_error, 'write', ($!+0), $!);
+          $event_error && $k->call($me, $event_error, 'write', ($!+0), $!);
           $k->select_write($handle);
         }
       }
     );
-
-  if (exists $params{'InputState'}) {
-    $poe_kernel->select($handle, $self->{'state read'});
-  }
-
-  $self;
 }
 
 #------------------------------------------------------------------------------
