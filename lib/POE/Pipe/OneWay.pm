@@ -55,6 +55,9 @@ sub new {
       select((select($b_write), $| = 1)[0]);
       return($a_read, $b_write);
     }
+    elsif (DEBUG) {
+      warn "pipe failed: $@";
+    }
   }
 
   # Try UNIX-domain socketpair if no preferred conduit type is
@@ -86,6 +89,9 @@ sub new {
       # might want to use the pipe class elsewhere.
       select((select($b_write), $| = 1)[0]);
       return($a_read, $b_write);
+    }
+    elsif (DEBUG) {
+      warn "socketpair failed: $@";
     }
   }
 
@@ -126,6 +132,7 @@ sub new {
 
     # Sockets failed.  Don't dry them again.
     else {
+      DEBUG and warn "make_socket failed: $@";
       $can_run_socket = 0;
     }
   }
