@@ -2537,12 +2537,24 @@ sub _dispatch_event {
   }
 
   # Post-dispatch processing.  This is a user event (but not a call),
-  # so garbage collect it.  Also garbage collect the sender, if needed.
+  # so garbage collect it.  Also garbage collect the sender, if
+  # needed.  Avoid collecting garbage on the source session if it's
+  # already died somewhere else.  -><- I'm not sure that's the best
+  # solution; a better one might avoid the double free situation
+  # altogether.
+
+  # Maybe we should defer all garbage collection until the current
+  # event handler returns.  That may simplify a lot of things; just
+  # touch the ones that need to be GC'd and then run through them all
+  # at once.  No, probably not, since GC triggers _stop, which may
+  # trigger other GC. -><-
 
   if ($type & ET_USER) {
     $self->_data_ses_collect_garbage($session);
     $self->_data_ses_collect_garbage($source_session)
-      unless $session == $source_session;
+      if ( $session != $source_session and
+           $self->_data_ses_exists($source_session)
+         );
   }
 
   # A new session has started.  Tell its parent.  Incidental _start
@@ -3694,10 +3706,7 @@ sub refcount_decrement {
   }
 
   my $refcount = $self->_data_extref_dec($session, $tag);
-
-  # -><- hachi isolated this as a double-free cause.  Commented out
-  # for testing.
-#  $self->_data_ses_collect_garbage($session);
+  $self->_data_ses_collect_garbage($session);
 
   # trace it here
   return $refcount;
