@@ -3,7 +3,7 @@
 
 package POE;
 
-$VERSION = "0.01";
+$VERSION = "0.02";
 
 use strict;
 use Carp;
@@ -92,6 +92,12 @@ occasionally quit).  A counter limits this test to about 150 total sessions,
 and the kernel will respond to SIGINT by killing everything and exiting.
 
 This is an excellent shakedown of parent/child relationships and signals.
+
+=item * F<tests/proxy.perl>
+
+This is a simple line-based TCP proxy.  It redirects connections from
+localhost:7777 to perl.com:echo.  It shows how to use two or more wheels
+from a single session.
 
 =item * F<tests/selects.perl>
 
