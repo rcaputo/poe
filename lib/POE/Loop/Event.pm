@@ -202,8 +202,19 @@ sub loop_resume_filehandle {
 }
 
 # Timer callback to dispatch events.
+
+my $last_time = time();
+
 sub _loop_event_callback {
   my $self = $poe_kernel;
+
+  if (TRACE_PERFORMANCE) {
+    # TODO - I'm pretty sure the startup time will count as an unfair
+    # amout of idleness.
+    #
+    # TODO - Introducing many new time() syscalls.  Bleah.
+    $self->_data_perf_add('idle_seconds', time() - $last_time);
+  }
 
   $self->_data_ev_dispatch_due();
 
@@ -229,6 +240,9 @@ sub _loop_event_callback {
   else {
     $self->_test_if_kernel_is_idle();
   }
+
+  # Transfering control back to Event; this is idle time.
+  $last_time = time() if TRACE_PERFORMANCE;
 }
 
 # Event filehandle callback to dispatch selects.

@@ -46,6 +46,7 @@ POE/Resource/Aliases.pm
 POE/Resource/Events.pm
 POE/Resource/Extrefs.pm
 POE/Resource/FileHandles.pm
+POE/Resource/Performance.pm
 POE/Resource/SIDs.pm
 POE/Resource/Sessions.pm
 POE/Resource/Signals.pm

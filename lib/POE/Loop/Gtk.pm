@@ -210,8 +210,19 @@ sub loop_resume_filehandle {
 ### Callbacks.
 
 # Event callback to dispatch pending events.
+
+my $last_time = time();
+
 sub _loop_event_callback {
   my $self = $poe_kernel;
+
+  if (TRACE_PERFORMANCE) {
+    # TODO - I'm pretty sure the startup time will count as an unfair
+    # amout of idleness.
+    #
+    # TODO - Introducing many new time() syscalls.  Bleah.
+    $self->_data_perf_add('idle_seconds', time() - $last_time);
+  }
 
   $self->_data_ev_dispatch_due();
   $self->_test_if_kernel_is_idle();
@@ -223,6 +234,9 @@ sub _loop_event_callback {
   if ($self->get_event_count()) {
     $_watcher_timer = Gtk->idle_add(\&_loop_resume_timer);
   }
+
+  # And back to Gtk, so we're in idle mode.
+  $last_time = time() if TRACE_PERFORMANCE;
 
   # Return false to stop.
   return 0;

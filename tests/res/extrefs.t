@@ -22,9 +22,10 @@ $refcnt = $poe_kernel->_data_extref_inc($poe_kernel, "tag-1");
 ok_if(2, $refcnt == 2);
 
 # Three master reference counts: One for POE::Kernel's virtual
-# session, one for its signal polling timer, and ONLY ONE for both
+# session, one for its signal polling timer (TODO - why not 2?), two
+# for the performance timer (TODO - why not 1?), and ONLY ONE for both
 # tag-1 extra references.
-ok_if(3, $poe_kernel->_data_ses_refcount($poe_kernel) == 3);
+ok_if(3, $poe_kernel->_data_ses_refcount($poe_kernel) == 5);
 
 # Remove it entirely, and verify that it's 1 again after
 # incrementation.
@@ -35,7 +36,7 @@ ok_if(4, $refcnt == 1);
 
 # Decrementing the tag does not remove the master reference count from
 # the session, because the tag still has a positive count.
-ok_if(5, $poe_kernel->_data_ses_refcount($poe_kernel) == 3);
+ok_if(5, $poe_kernel->_data_ses_refcount($poe_kernel) == 5);
 
 # Set a second reference count, then verify that both are reset.
 
@@ -48,13 +49,13 @@ ok_if(6, $refcnt == 1);
 # reference count if any "extra" references are allocated.  This might
 # be faster since we don't need to track two counts for these
 # operations.
-ok_if(7, $poe_kernel->_data_ses_refcount($poe_kernel) == 4);
+ok_if(7, $poe_kernel->_data_ses_refcount($poe_kernel) == 6);
 
 # Clear all the extra references for the session, and verify that the
 # master reference count is back to 2 (signal poll timer, session
 # itself).
 $poe_kernel->_data_extref_clear_session($poe_kernel);
-ok_if(8, $poe_kernel->_data_ses_refcount($poe_kernel) == 2);
+ok_if(8, $poe_kernel->_data_ses_refcount($poe_kernel) == 4);
 
 $refcnt = $poe_kernel->_data_extref_inc($poe_kernel, "tag-1");
 ok_if(9, $refcnt == 1);

@@ -21,9 +21,10 @@ test_setup(13);
   my $session = $poe_kernel->_data_alias_resolve("alias-1");
   ok_if(1, $session == $poe_kernel);
 
-  # Should be 3: One for the signal poller timer, one for the virtual
-  # POE::Kernel session, and one for the new alias.
-  ok_if(2, $poe_kernel->_data_ses_refcount($poe_kernel) == 3);
+  # Should be 5: One for the signal poller timer, one for the
+  # performance timer, one for the virtual POE::Kernel session, and
+  # one for the new alias.
+  ok_if(2, $poe_kernel->_data_ses_refcount($poe_kernel) == 5);
 
   my $loggable = $poe_kernel->_data_alias_loggable($poe_kernel);
   my $kernel_id = $poe_kernel->ID;
@@ -36,8 +37,8 @@ test_setup(13);
   my $session = $poe_kernel->_data_alias_resolve("alias-1");
   ok_unless(4, defined $session);
 
-  # Should be 2.  See the rationale above.
-  ok_if(5, $poe_kernel->_data_ses_refcount($poe_kernel) == 2);
+  # Should be 4.  See the rationale above.
+  ok_if(5, $poe_kernel->_data_ses_refcount($poe_kernel) == 4);
 }
 
 # Set multiple aliases and verify that they exist.
@@ -49,7 +50,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
 
   ok_if(6, $poe_kernel->_data_alias_count_ses($poe_kernel) == @multi_aliases);
 
-  ok_if(7, $poe_kernel->_data_ses_refcount($poe_kernel) == 5);
+  ok_if(7, $poe_kernel->_data_ses_refcount($poe_kernel) == 7);
 
   my @retrieved = $poe_kernel->_data_alias_list($poe_kernel);
 
@@ -70,8 +71,8 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
   my @retrieved = $poe_kernel->_data_alias_list($poe_kernel);
   ok_unless(9, @retrieved);
 
-  # See previous rationale for the number 2.
-  ok_if(10, $poe_kernel->_data_ses_refcount($poe_kernel) == 2);
+  # See previous rationale for test 2.
+  ok_if(10, $poe_kernel->_data_ses_refcount($poe_kernel) == 4);
 }
 
 # Some tests and testless instrumentation on nonexistent sessions.

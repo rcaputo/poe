@@ -74,7 +74,18 @@ sub loop_pause_time_watcher {
 # That includes afterIdle and even internal Tk events.
 
 # Tk timer callback to dispatch events.
+
+my $last_time = time();
+
 sub _loop_event_callback {
+  if (TRACE_PERFORMANCE) {
+    # TODO - I'm pretty sure the startup time will count as an unfair
+    # amout of idleness.
+    #
+    # TODO - Introducing many new time() syscalls.  Bleah.
+    $poe_kernel->_data_perf_add('idle_seconds', time() - $last_time);
+  }
+
   $poe_kernel->_data_ev_dispatch_due();
 
   # As was mentioned before, $widget->after() events can dominate a
@@ -95,25 +106,25 @@ sub _loop_event_callback {
 
     # Replace it with an idle event that will reset the alarm.
 
-    $_watcher_timer =
-      $poe_main_window->afterIdle
-        ( [ sub {
-              $_watcher_timer->cancel();
-              undef $_watcher_timer;
+    $_watcher_timer = $poe_main_window->afterIdle(
+      [
+        sub {
+          $_watcher_timer->cancel();
+          undef $_watcher_timer;
 
-              my $next_time = $poe_kernel->get_next_event_time();
-              if (defined $next_time) {
-                $next_time -= time();
-                $next_time = 0 if $next_time < 0;
+          my $next_time = $poe_kernel->get_next_event_time();
+          if (defined $next_time) {
+            $next_time -= time();
+            $next_time = 0 if $next_time < 0;
 
-                $_watcher_timer =
-                  $poe_main_window->after( $next_time * 1000,
-                                           [\&_loop_event_callback]
-                                         );
-              }
-            }
-          ],
-        );
+            $_watcher_timer = $poe_main_window->after(
+              $next_time * 1000,
+              [\&_loop_event_callback]
+            );
+          }
+        }
+      ],
+    );
 
     # POE::Kernel's signal polling loop always keeps one event in the
     # queue.  We test for an idle kernel if the queue holds only one
@@ -130,6 +141,9 @@ sub _loop_event_callback {
   else {
     $poe_kernel->_test_if_kernel_is_idle();
   }
+
+  # And back to Tk, so we're in idle mode.
+  $last_time = time() if TRACE_PERFORMANCE;
 }
 
 #------------------------------------------------------------------------------
