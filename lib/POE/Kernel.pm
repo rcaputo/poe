@@ -1,6 +1,7 @@
 # $Id$
 
 package POE::Kernel;
+use POE::Preprocessor;
 
 use strict;
 
@@ -10,8 +11,6 @@ $VERSION = (qw($Revision$ ))[1];
 use POSIX qw(errno_h fcntl_h sys_wait_h);
 use Carp qw(carp croak confess);
 use Sys::Hostname qw(hostname);
-
-use POE::Preprocessor;
 
 # People expect these to be lexical.
 
@@ -426,10 +425,10 @@ macro kernel_leak_array (<field>) {
 }
 
 macro assert_session_refcount (<session>,<count>) {
-  if (ASSERT_REFCOUNT) { # include
+  if (ASSERT_REFCOUNT) {
     die {% sid <session> %}, " reference count <count> went below zero"
       if $kr_sessions{<session>}->[<count>] < 0;
-  } # include
+  }
 }
 
 
@@ -459,10 +458,10 @@ macro remove_extra_reference (<session>,<tag>) {
   {% ses_refcount_dec <session> %}
 
   $kr_extra_refs--;
-  if (ASSERT_REFCOUNT) { # include
+  if (ASSERT_REFCOUNT) {
     die( "--- ", {% ssid %}, " refcounts for kernel dropped below 0")
       if $kr_extra_refs < 0;
-  } # include
+  }
 }
 
 # There is an string equality test in alias_resolve that should not be
@@ -495,12 +494,12 @@ macro collect_garbage (<session>) {
     # like a kludge, but I'm currently not smart enough to figure out
     # what it's working around.
     if (exists $kr_sessions{<session>}) {
-      if (TRACE_GARBAGE) { # include
+      if (TRACE_GARBAGE) {
         $self->trace_gc_refcount(<session>);
-      } # include
-      if (ASSERT_GARBAGE) { # include
+      }
+      if (ASSERT_GARBAGE) {
         $self->assert_gc_refcount(<session>);
-      } # include
+      }
 
       if ( (exists $kr_sessions{<session>})
            and (!$kr_sessions{<session>}->[SS_REFCOUNT])
@@ -531,9 +530,9 @@ macro event_to_enqueue {
 
 macro test_resolve (<name>,<resolved>) {
   unless (defined <resolved>) {
-    if (ASSERT_SESSIONS) { # include
+    if (ASSERT_SESSIONS) {
       confess "Cannot resolve <name> into a session reference\n";
-    } # include
+    }
     $! = ESRCH;
     TRACE_RETURNS  and carp  "session not resolved: $!";
     ASSERT_RETURNS and croak "session not resolved: $!";
@@ -543,7 +542,7 @@ macro test_resolve (<name>,<resolved>) {
 
 macro test_for_idle_poe_kernel {
   my @filenos = grep { defined $_ } @kr_filenos;
-  if (TRACE_REFCOUNT) { # include
+  if (TRACE_REFCOUNT) {
     warn( ",----- Kernel Activity -----\n",
           "| Events : ", scalar(@kr_events), "\n",
           "| Files  : ", scalar(@filenos), "\n",
@@ -552,7 +551,7 @@ macro test_for_idle_poe_kernel {
           "`---------------------------\n",
           " ..."
          );
-  } # include
+  }
 
   unless ( @kr_events > 1    or  # > 1 for signal poll loop
            @filenos          or
@@ -866,9 +865,9 @@ sub _dispatch_event {
 
   my $local_event = $event;
 
-  if (TRACE_PROFILE) { # include
+  if (TRACE_PROFILE) {
     $profile{$event}++;
-  } # include
+  }
 
   # Pre-dispatch processing.
 
@@ -904,7 +903,7 @@ sub _dispatch_event {
       # For the ID to session reference lookup.
       $kr_session_ids{$kr_id_index} = $session;
 
-      if (ASSERT_RELATIONS) { # include
+      if (ASSERT_RELATIONS) {
         # Ensure sanity.
         die {% ssid %}, " is its own parent\a" if $session == $source_session;
 
@@ -913,7 +912,7 @@ sub _dispatch_event {
            )
           if (exists $kr_sessions{$source_session}->[SS_CHILDREN]->{$session});
 
-      } # include
+      }
 
       # Add the new session to its parent's children.
       $kr_sessions{$source_session}->[SS_CHILDREN]->{$session} = $session;
@@ -1089,19 +1088,19 @@ sub _dispatch_event {
 
   unless (exists $kr_sessions{$session}) {
 
-    if (TRACE_EVENTS) { # include
+    if (TRACE_EVENTS) {
       warn ">>> discarding $event to nonexistent ", {% ssid %}, "\n";
-    } # include
+    }
 
     return;
   }
 
-  if (TRACE_EVENTS) { # include
+  if (TRACE_EVENTS) {
     warn ">>> dispatching $event to $session ", {% ssid %}, "\n";
     if ($event eq EN_SIGNAL) {
       warn ">>>     signal($etc->[0])\n";
     }
-  } # include
+  }
 
   # Prepare to call the appropriate handler.  Push the current active
   # session on Perl's call stack.
@@ -1136,9 +1135,9 @@ sub _dispatch_event {
   # Pop the active session, now that it's not active anymore.
   $kr_active_session = $hold_active_session;
 
-  if (TRACE_EVENTS) { # include
+  if (TRACE_EVENTS) {
     warn "<<< ", {% ssid %}, " -> $event returns ($return)\n";
-  } # include
+  }
 
   # Post-dispatch processing.  This is a user event (but not a call),
   # so garbage collect it.  Also garbage collect the sender.
@@ -1170,13 +1169,13 @@ sub _dispatch_event {
     my $parent = $kr_sessions{$session}->[SS_PARENT];
     if (defined $parent) {
 
-      if (ASSERT_RELATIONS) { # include
+      if (ASSERT_RELATIONS) {
         die {% ssid %}, " is its own parent\a" if ($session == $parent);
         die {% ssid %}, " is not a child of ", {% sid $parent %}, "\a"
           unless ( ($session == $parent) or
                    exists($kr_sessions{$parent}->[SS_CHILDREN]->{$session})
                  );
-      } # include
+      }
 
       delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
       {% ses_refcount_dec $parent %}
@@ -1187,10 +1186,10 @@ sub _dispatch_event {
     my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
     foreach (@children) {
 
-      if (ASSERT_RELATIONS) { # include
+      if (ASSERT_RELATIONS) {
         die {% sid $_ %}, " is already a child of ", {% sid $parent %}, "\a"
           if (exists $kr_sessions{$parent}->[SS_CHILDREN]->{$_});
-      } # include
+      }
 
       $kr_sessions{$_}->[SS_PARENT] = $parent;
       if (defined $parent) {
@@ -1263,7 +1262,7 @@ sub _dispatch_event {
     # And finally, check all the structures for leakage.  POE's pretty
     # complex internally, so this is a happy fun check.
 
-    if (ASSERT_GARBAGE) { # include
+    if (ASSERT_GARBAGE) {
       my $errors = 0;
 
       if (my $leaked = $kr_sessions{$session}->[SS_REFCOUNT]) {
@@ -1289,7 +1288,7 @@ sub _dispatch_event {
 
       die "\a\n" if ($errors);
 
-    } # include
+    }
 
     # Remove the session's structure from the kernel's structure.
     delete $kr_sessions{$session};
@@ -1544,10 +1543,10 @@ sub _invoke_state {
 sub session_alloc {
   my ($self, $session, @args) = @_;
 
-  if (ASSERT_RELATIONS) { # include
+  if (ASSERT_RELATIONS) {
     die {% ssid %}, " already exists\a"
       if (exists $kr_sessions{$session});
-  } # include
+  }
 
   $self->_dispatch_event
     ( $session, $kr_active_session,
@@ -1567,10 +1566,10 @@ sub session_alloc {
 sub session_free {
   my ($self, $session) = @_;
 
-  if (ASSERT_RELATIONS) { # include
+  if (ASSERT_RELATIONS) {
     die {% ssid %}, " doesn't exist\a"
       unless (exists $kr_sessions{$session});
-  } # include
+  }
 
   $self->_dispatch_event
     ( $session, $kr_active_session,
@@ -1763,11 +1762,11 @@ sub _enqueue_event {
        $file, $line
      ) = @_;
 
-  if (TRACE_EVENTS) { # include
+  if (TRACE_EVENTS) {
     warn( "}}} enqueuing event '$event' from session ", $source_session->ID,
           " to ", {% ssid %}, " at $time"
         );
-  } # include
+  }
 
   if (exists $kr_sessions{$session}) {
 
@@ -2722,10 +2721,10 @@ sub _internal_select {
 
         $kr_fno_vec->[FVC_REFCOUNT]--;
 
-        if (ASSERT_REFCOUNT) { # include
+        if (ASSERT_REFCOUNT) {
           die "fileno vector refcount went below zero"
             if $kr_fno_vec->[FVC_REFCOUNT] < 0;
-        } # include
+        }
 
         # If the "vector" count drops to zero, then stop selecting the
         # handle.
@@ -2747,10 +2746,10 @@ sub _internal_select {
 
         $kr_fileno->[FNO_TOT_REFCOUNT]--;
 
-        if (ASSERT_REFCOUNT) { # include
+        if (ASSERT_REFCOUNT) {
           die "fileno refcount went below zero"
             if $kr_fileno->[FNO_TOT_REFCOUNT] < 0;
-        } # include
+        }
 
         unless ($kr_fileno->[FNO_TOT_REFCOUNT]) {
           if (TRACE_SELECT) {
@@ -2780,9 +2779,9 @@ sub _internal_select {
 
         $ss_handle->[SH_REFCOUNT]--;
 
-        if (ASSERT_REFCOUNT) { # include
+        if (ASSERT_REFCOUNT) {
           die if ($ss_handle->[SH_REFCOUNT] < 0);
-        } # include
+        }
 
         unless ($ss_handle->[SH_REFCOUNT]) {
           delete $kr_session->[SS_HANDLES]->{$handle};
@@ -3187,26 +3186,26 @@ sub refcount_increment {
 
     my $refcount = ++$kr_sessions{$session}->[SS_EXTRA_REFS]->{$tag};
 
-    if (TRACE_REFCOUNT) { # include
+    if (TRACE_REFCOUNT) {
       carp( "+++ ", {% ssid %}, " refcount for tag '$tag' incremented to ",
             $refcount
           );
-    } # include
+    }
 
     if ($refcount == 1) {
       {% ses_refcount_inc $session %}
 
-      if (TRACE_REFCOUNT) { # include
+      if (TRACE_REFCOUNT) {
           carp( "+++ ", {% ssid %}, " refcount for session is at ",
                 $kr_sessions{$session}->[SS_REFCOUNT]
              );
-      } # include
+      }
 
       $kr_extra_refs++;
 
-      if (TRACE_REFCOUNT) { # include
+      if (TRACE_REFCOUNT) {
         carp( "+++ session refcounts in kernel: $kr_extra_refs" );
-      } # include
+      }
 
     }
 
@@ -3244,25 +3243,25 @@ sub refcount_decrement {
 
     my $refcount = --$kr_sessions{$session}->[SS_EXTRA_REFS]->{$tag};
 
-    if (ASSERT_REFCOUNT) { # include
+    if (ASSERT_REFCOUNT) {
       croak( "--- ", {% ssid %}, " refcount for tag '$tag' dropped below 0" )
         if $refcount < 0;
-    } # include
+    }
 
-    if (TRACE_REFCOUNT) { # include
+    if (TRACE_REFCOUNT) {
       carp( "--- ", {% ssid %}, " refcount for tag '$tag' decremented to ",
             $refcount
           );
-    } # include
+    }
 
     unless ($refcount) {
       {% remove_extra_reference $session, $tag %}
 
-      if (TRACE_REFCOUNT) { # include
+      if (TRACE_REFCOUNT) {
         carp( "--- ", {% ssid %}, " refcount for session is at ",
               $kr_sessions{$session}->[SS_REFCOUNT]
             );
-      } # include
+      }
     }
 
     {% collect_garbage $session %}
