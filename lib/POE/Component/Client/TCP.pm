@@ -8,8 +8,10 @@ use Carp qw(carp croak);
 
 # Explicit use to import the parameter constants;
 use POE::Session;
-use POE::Wheel::SocketFactory;
+use POE::Driver::SysRW;
+use POE::Filter::Line;
 use POE::Wheel::ReadWrite;
+use POE::Wheel::SocketFactory;
 
 # Create the client.  This is just a handy way to encapsulate
 # POE::Session->create().  Because the states are so small, it uses
@@ -88,7 +90,6 @@ sub new {
 
   $disc_callback  = sub {} unless defined $disc_callback;
   $conn_callback  = sub {} unless defined $conn_callback;
-  $error_callback = sub {} unless defined $error_callback;
   $flush_callback = sub {} unless defined $flush_callback;
 
   # Spawn the session that makes the connection and then interacts
@@ -178,6 +179,15 @@ sub new {
       package_states => $package_states,
       object_states  => $object_states,
     );
+}
+
+# The default error handler logs to STDERR and shuts down the socket.
+
+sub _default_error {
+  warn( 'Client ', $_[SESSION]->ID,
+        " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
+      );
+  delete $_[HEAP]->{server};
 }
 
 1;
