@@ -40,6 +40,7 @@ BEGIN {
         ET_PARENT ET_CHILD ET_SCPOLL ET_ALARM ET_SELECT
         FIFO_DISPATCH_TIME
 
+        import
       );
 
   @files_to_unuse =
