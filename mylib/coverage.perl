@@ -18,6 +18,14 @@ my (%counts, %uncalled);
 
 # Find the tests.
 
+use File::Find;
+my @test_files;
+sub wanted {
+  return unless -f;
+  return unless /\.t$/;
+  push @test_files, $File::Find::dir . "/" . $_;
+}
+
 my $test_directory =
   ( (-d './t')
     ? './t'
@@ -27,9 +35,17 @@ my $test_directory =
       )
   );
 
-opendir T, $test_directory or die "can't open directory $test_directory: $!";
-my @test_files = map { $test_directory . '/' . $_ } grep /\.t$/, readdir T;
-closedir T;
+find(\&wanted, $test_directory);
+
+# -><- For testing, limit the report to a single file.
+#@test_files = (
+#  "./t/01_sessions.t",
+#  "./t/03_aliases.t",
+#  "./t/04_selects.t",
+#);
+
+#@test_files = ( "./t/11_signals_poe.t", "./t/12_signals_ev.t" );
+#@test_files = ( "./t/23_nfa.t" );
 
 # Run each test with coverage statistics.
 
@@ -87,6 +103,21 @@ foreach my $test_file (@test_files) {
 
     # Ignore preprocessor BEGIN lines.
     next if $source =~ /^BEGIN.*\#\s*include\s*$/;
+
+    # -><- Might be proper to ignore these things when outside any
+    # sub.
+
+    # Ignore constants.
+    next if $source =~ /^sub\s+\S+\s*\([^\)]*\)\s*\{.*?\};?(\s*\#.*?)?$/;
+
+    # Ignore the 1; line at the end of a module.
+    next if $source =~ /^\s*1\s*;\s*$/;
+
+    # Ignore C<use> lines, which often falsely appear as uninstrumented.
+    next if $source =~ /^use\s+/;
+
+    # Ignore $VERSION lines.
+    next if $source =~ /^\$VERSION\s*=\s*/;
 
     # Ignore uninitialized lines.  Sanity check them, too.
     if ($source eq '(uninitialized)') {
