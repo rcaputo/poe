@@ -240,7 +240,7 @@ macro test_resolve (<name>,<resolved>) {
 }
 
 macro test_for_idle_poe_kernel {
-  TRACE_REFCOUNT and do {
+  if (TRACE_REFCOUNT) { # include
     warn( ",----- Kernel Activity -----\n",
           "| States : ", scalar(@{$self->[KR_STATES]}), "\n",
           "| Alarms : ", scalar(@{$self->[KR_ALARMS]}), "\n",
@@ -250,7 +250,7 @@ macro test_for_idle_poe_kernel {
           "`---------------------------\n",
           " ..."
          );
-  };
+  } # include
 
   unless ( @{$self->[KR_STATES]} or
            @{$self->[KR_ALARMS]} or

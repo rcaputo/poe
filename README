@@ -61,27 +61,30 @@ Finally you can install it:
 Test Results and Coverage
 -------------------------
 
-These are the `make test' results for POE 0.1108 on OS/2:
+These are the `make test' results for POE 0.1109 on OS/2:
 
 Hardware: Cyrix P166+; 64MB RAM.
 Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no Event; no Gtk.
 
   All tests successful, 4 tests skipped.
-  Files=22, Tests=366, 122 wallclock secs ( [line shortened] )
+  Files=22, Tests=373, 132 wallclock secs ( [line shortened] )
 
-These are the `make test' results for POE 0.1108 or FreeBSD:
+These are the `make test' results for POE 0.1109 or FreeBSD:
 
 Hardware: AMD 486-40; 16MB RAM.
 Software: FreeBSD 4.0-STABLE; perl 5.6.0; Perl/Tk 800.021; Event 0.79;
           Gtk/Perl 0.7000.
 
   All tests successful.
-  Files=22, Tests=391, 660 wallclock secs ( [line shortened] )
+  Files=22, Tests=398, 496 wallclock secs ( [line shortened] )
 
-These coverage results are for POE 0.1108 on the FreeBSD machine.
+These coverage results are for POE 0.1109 on the FreeBSD machine.
 This machine more thoroughly tests different POE options, so the
 coverage results are more meaningful.  Even at their best, however,
 the results are highly misleading.
+
+Coverage results are much higher in 0.1109 because unused debugging
+traces have been excluded.
 
   Source File                         =   Ran / Total = Covered
   POE.pm                              =    19 /    19 = 100.00%
