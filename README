@@ -55,10 +55,14 @@ to be necessary and useful.  It was put back in version 0.0807, and at
 least one Windows user, Douglas Couch <purdue.edu!dscouch>, has found
 joy using POE.
 
-As of this writing, Doug reports that POE works with the latest stable
-ActivePerl, prior to (but not including) version 5.6.  He says that
-the 5.6 version includes fork() and other Unix compatibilities, but it
-still definitely seems to be beta level code.
+Doug reports that POE works with the latest stable ActivePerl, prior
+to (but not including) version 5.6.0 RC1.  He says that the 5.6.0
+version includes fork() and other Unix compatibilities, but it still
+definitely seems to be beta level code.
+
+As of this writing, 5.6.0 has gone through its remaining release
+candidates and is in early "golden" distribution, so mileage most
+probably will vary.
 
 He writes:
 
@@ -97,8 +101,7 @@ And later, after it was suggested to remove the EINPROGRESS code:
   I couldn't make it do an http proxy, but I also couldn't make it
   break.
 
-... so I made EINPROGRESS a dummy thing on Win32.  Let me know if
-there's breakage!
+... so POE includes a fake EINPROGRESS constant on MSWin32 systems.
 
 P.S.: If you've just skipped ahead to read about Windows, you should
 skip back one section, to the General compatibility information, which
@@ -111,7 +114,7 @@ MacOS
 Macintosh users have rumored that POE might work on MacOS, but none of
 them have stepped forward with actual failure or success reports.  It
 would be greatly appreciated if someone could confirm or deny
-something.  Anything.  Bueller?
+something.  Anything?  Bueller?
 
 
 Non-requirements
