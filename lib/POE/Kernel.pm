@@ -11,6 +11,7 @@ use POE::Queue::Array;
 use POSIX qw(errno_h fcntl_h sys_wait_h);
 use Carp qw(carp croak confess cluck);
 use Sys::Hostname qw(hostname);
+use IO::Handle;
 
 # People expect these to be lexical.
 
@@ -1041,26 +1042,23 @@ sub _data_handle_add {
     # Turn off blocking unless it's tied or a plain file.
     unless (tied *$handle or -f $handle) {
 
-      # Make the handle stop blocking, the Windows way.
-      if (RUNNING_IN_HELL) {
-        my $set_it = "1";
+      # RCC 2002-12-19: ActiveState Perl 5.8.0 disliked the Win32 code
+      # to make a socket non-blocking, so we're trying IO::Handle's
+      # blocking(0) method.  Bonus: It does "the right thing" just
+      # about everywhere, so I don't need to add checks for AS Perl
+      # 5.8.0, AS Perl 5.6.1, and Everybody else.
 
-        # 126 is FIONBIO (some docs say 0x7F << 16)
-        ioctl( $handle,
-               0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-               $set_it
-             ) or confess "Can't set the handle non-blocking: $!";
-      }
+      $handle->blocking(0);
 
       # Make the handle stop blocking, the POSIX way.
-      else {
-        my $flags = fcntl($handle, F_GETFL, 0)
-          or confess "fcntl($handle, F_GETFL, etc.) fails: $!\n";
-        until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
-          confess "fcntl($handle, FSETFL, etc) fails: $!"
-            unless $! == EAGAIN or $! == EWOULDBLOCK;
-        }
-      }
+      #unless (RUNNING_IN_HELL) {
+      #  my $flags = fcntl($handle, F_GETFL, 0)
+      #    or confess "fcntl($handle, F_GETFL, etc.) fails: $!\n";
+      #  until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
+      #    confess "fcntl($handle, FSETFL, etc) fails: $!"
+      #      unless $! == EAGAIN or $! == EWOULDBLOCK;
+      #  }
+      #}
     }
 
     # Turn off buffering.

@@ -37,24 +37,32 @@ BEGIN {
 sub _stop_blocking {
   my $socket_handle = shift;
 
-  # Do it the Win32 way.  XXX This is incomplete.
-  if ($^O eq 'MSWin32') {
-    my $set_it = "1";
+  # RCC 2002-12-19: Replace the complex blocking checks and methods
+  # with IO::Handle's blocking(0) method.  This is theoretically more
+  # portable and less maintenance than rolling our own.  If things
+  # work out, we'll replace this function entirely.
 
-    # 126 is FIONBIO (some docs say 0x7F << 16)
-    ioctl( $socket_handle,
-           0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-           $set_it
-         )
-      or die "ioctl fails: $!";
-  }
+  $socket_handle->blocking(0);
+  return;
 
-  # Do it the way everyone else does.
-  else {
-    my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
-    $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
-      or die "setfl fails: $!";
-  }
+  ## Do it the Win32 way.  XXX This is incomplete.
+  #if ($^O eq 'MSWin32') {
+  #  my $set_it = "1";
+  #
+  #  # 126 is FIONBIO (some docs say 0x7F << 16)
+  #  ioctl( $socket_handle,
+  #         0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+  #         $set_it
+  #       )
+  #    or die "ioctl fails: $!";
+  #}
+  #
+  ## Do it the way everyone else does.
+  #else {
+  #  my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
+  #  $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
+  #    or die "setfl fails: $!";
+  #}
 }
 
 # Another static member.  Turn blocking on when we're done, in case
@@ -63,24 +71,32 @@ sub _stop_blocking {
 sub _start_blocking {
   my $socket_handle = shift;
 
-  # Do it the Win32 way.  XXX This is incomplete.
-  if ($^O eq 'MSWin32') {
-    my $unset_it = "0";
+  # RCC 2002-12-19: Replace the complex blocking checks and methods
+  # with IO::Handle's blocking(1) method.  This is theoretically more
+  # portable and less maintenance than rolling our own.  If things
+  # work out, we'll replace this function entirely.
 
-    # 126 is FIONBIO (some docs say 0x7F << 16)
-    ioctl( $socket_handle,
-           0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-           $unset_it
-         )
-      or die "ioctl fails: $!";
-  }
+  $socket_handle->blocking(1);
+  return;
 
-  # Do it the way everyone else does.
-  else {
-    my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
-    $flags = fcntl($socket_handle, F_SETFL, $flags & ~O_NONBLOCK)
-      or die "setfl fails: $!";
-  }
+  ## Do it the Win32 way.  XXX This is incomplete.
+  #if ($^O eq 'MSWin32') {
+  #  my $unset_it = "0";
+  #
+  #  # 126 is FIONBIO (some docs say 0x7F << 16)
+  #  ioctl( $socket_handle,
+  #         0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+  #         $unset_it
+  #       )
+  #    or die "ioctl fails: $!";
+  #}
+  #
+  ## Do it the way everyone else does.
+  #else {
+  #  my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
+  #  $flags = fcntl($socket_handle, F_SETFL, $flags & ~O_NONBLOCK)
+  #    or die "setfl fails: $!";
+  #}
 }
 
 # Make a socket.  This is a homebrew socketpair() for systems that
