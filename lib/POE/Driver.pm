@@ -72,6 +72,10 @@ flush() attempts to flush some data from the driver's output queue to
 the FILEHANDLE.  It returns the number of octets remaining in the
 output queue after the flush attempt.
 
+flush() does the physical write, counterpoint to get's read.  If
+flush() fails for any reason, $! will be set with the reason for its
+failure.  Otherwise $! will be zero.
+
 =item get_out_messages_buffered
 
 This data accessor returns the number of messages in the driver's
