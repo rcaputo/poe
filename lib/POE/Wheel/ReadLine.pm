@@ -535,8 +535,29 @@ sub _define_read_state {
                 next;
               }
 
-              # Delete a character.
+              # Delete a character.  On an empty line, it throws an
+              # "eot" exception, just like Term::ReadLine does.
               if ( $key eq '^D' or $key eq $tck_delete ) {
+                unless (length $$input) {
+                  print $stdout $key, "\x0D\x0A";
+                  $poe_kernel->select_read($stdin);
+                  if ($$has_timer) {
+                    $k->delay( $state_idle );
+                    $$has_timer = 0;
+                  }
+                  $poe_kernel->yield( $$event_input, undef, "eot",
+                                      $unique_id
+                                    );
+                  $$reading = 0;
+                  $$hist_index = @$hist_list;
+
+                  flush_output_buffer(
+                    self_put_buffer => $self_put_buffer,
+                    stdout          => $stdout,
+                  );
+                  next;
+                }
+
                 if ($$cursor_input < length($$input)) {
                   my $kill_width =
                     display_width(substr($$input, $$cursor_input, 1));
@@ -1633,6 +1654,9 @@ do next.
 
 The 'cancel' exception means a user pressed C-g (^G) to cancel a line
 of input.
+
+The 'eot' exception means the user pressed C-d (^D) while the input
+line was empty.  EOT is the ASCII name for ^D.
 
 Finally, C<ARG2> contains the ReadLine wheel's unique ID.
 
