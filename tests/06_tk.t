@@ -31,6 +31,11 @@ BEGIN {
 
 &test_setup(8);
 
+warn( "***\n",
+      "*** Please note: This test will pop up a Tk window.\n",
+      "***\n",
+    );
+
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);

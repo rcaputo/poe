@@ -3084,7 +3084,8 @@ their states return.
 =item TRACE_GARBAGE
 
 TRACE_GARBAGE shows what's keeping sessions alive.  It's useful for
-determining why a session simply refuses to die.
+determining why a session simply refuses to die, or why it won't stay
+alive.
 
 =item TRACE_PROFILE
 

@@ -5,6 +5,8 @@
 
 use strict;
 use lib qw(./lib ../lib);
+
+sub POE::Kernel::TRACE_DEFAULT () { 1 } # not needed though
 use POE::Filter::Reference;
 
 use TestSetup;

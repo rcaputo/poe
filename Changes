@@ -26,7 +26,9 @@ Version numbers have four fields: X.YYZZAA
 
 ,----- To Do -----
 |
-| Warn people that the Tk tests will pop up windows.
+| How about Gtk support?
+|
+| Better alarms API.
 |
 | Why does samples/tk.perl leak memory, and how can I fix it?
 |
@@ -57,6 +59,21 @@ Addi provided an algorithm for automatically detecting incoming
 newlines in Filter::Line, and we both implemented it in parallel.  The
 best bits of both implementations are in POE::Filter::Line; see the
 documentation for how to enable this nifty feature.
+
+Addi caught on that long lines in samples/filterchange.perl were
+wrapped by some misguided program.  I reformatted the source so that
+no lines are longer than 79 columns, just in case.
+
+Made Wheel::ReadWrite carp about unknown parameters.
+
+Added t/19_filterchange.t to test filter changing between every filter
+that supports the get_pending() method.
+
+Tweaked the timing on t/11_signals_poe.t and t/12_signals_ev.t to take
+less time.  Put messages in them anyway to tell people to be patient.
+
+Added a message to t/06_tk.t to let anyone paying attention to the
+test terminal know that a Tk window will pop up.
 
 
 0.1102 2000.07.27

@@ -33,6 +33,8 @@ sub new {
   # Literal newline for both incoming and outgoing.  Every other known
   # parameter conflicts with this one.
   if (exists $params{Literal}) {
+    croak "Literal must be defined and have a nonzero length"
+      unless defined($params{Literal}) and length($params{Literal});
     $input_regexp   = quotemeta $params{Literal};
     $output_literal = $params{Literal};
     croak "$type cannot have Literal with any other parameter"
@@ -52,7 +54,7 @@ sub new {
 
       # InputLiteral is defined.  Turn it into a regexp and be done.
       # Otherwise we will autodetect it.
-      if (defined $input_regexp) {
+      if (defined($input_regexp) and length($input_regexp)) {
         $input_regexp = quotemeta $input_regexp;
       }
       else {
@@ -81,9 +83,8 @@ sub new {
   }
 
   delete @params{qw(Literal InputLiteral OutputLiteral InputRegexp)};
-  if (keys %params) {
-    carp "$type ignores unknown parameters: ", join(', ', sort keys %params);
-  }
+  carp("$type ignores unknown parameters: ", join(', ', sort keys %params))
+    if scalar keys %params;
 
   my $self =
     bless [ '',              # FRAMING_BUFFER
@@ -212,7 +213,8 @@ sub get_pending {
   my $self = shift;
   my $framing_buffer = $self->[FRAMING_BUFFER];
   $self->[FRAMING_BUFFER] = '';
-  return $framing_buffer;
+  return [ $framing_buffer ] if length $framing_buffer;
+  return undef;
 }
 
 ###############################################################################

@@ -112,11 +112,13 @@ sub _start
 
         '"IWANT Stream\nHELLO"',
         '"IWANT Reference"',
-        '{my $f = freeze(\ "IWANT Line"); return length($f) . "\0" . $f . "HELLO
-\n"}',
+        ( '{my $f = freeze(\ "IWANT Line"); return length($f) ' .
+          '. "\0" . $f . "HELLO\n"}'
+        ),
         '"IWANT Reference\n"',
-        '{my $f = freeze(\ "IWANT Stream"); return length($f) . "\0" . $f . "HEL
-LO"}',
+        ( '{my $f = freeze(\ "IWANT Stream"); return length($f) ' .
+          '. "\0" . $f . "HELLO"}'
+        ),
         '"DONE"',
     ];
 }
@@ -176,7 +178,7 @@ sub received
         if($send)
         {
             print "Cause  [$$] send '$send'\n";
-print "Cause  [$$] (running $send )\n";
+            #print "Cause  [$$] (running $send)\n";
             $send=eval($send);
             die $@ if $@;
             # print "Cause  [$$] send '", quotemeta($send), "'\n";
@@ -428,6 +430,3 @@ if(not defined $pid)                    # wha?  we can't!
 print "$me [$$] POE->run\n";
 $poe_kernel->run();
 print "$me [$$] Exit\n";
-
-
-

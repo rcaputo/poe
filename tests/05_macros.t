@@ -8,6 +8,7 @@ use lib qw(./lib ../lib);
 use TestSetup;
 &test_setup(13);
 
+sub POE::Kernel::TRACE_DEFAULT () { 1 } # not needed though
 use POE::Preprocessor;
 
 # Did we get this far?

@@ -35,24 +35,23 @@ sub new {
   croak "wheels no longer require a kernel reference as their first parameter"
     if (@_ && (ref($_[0]) eq 'POE::Kernel'));
 
-  croak "$type requires a working Kernel"
-    unless (defined $poe_kernel);
+  croak "$type requires a working Kernel" unless defined $poe_kernel;
 
   my ($in_handle, $out_handle);
   if (exists $params{Handle}) {
     carp "Ignoring InputHandle parameter (Handle parameter takes precedence)"
-      if (exists $params{InputHandle});
+      if exists $params{InputHandle};
     carp "Ignoring OutputHandle parameter (Handle parameter takes precedence)"
-      if (exists $params{OutputHandle});
-    $in_handle = $out_handle = $params{Handle};
+      if exists $params{OutputHandle};
+    $in_handle = $out_handle = delete $params{Handle};
   }
   else {
     croak "Handle or InputHandle required"
-      unless (exists $params{InputHandle});
+      unless exists $params{InputHandle};
     croak "Handle or OutputHandle required"
-      unless (exists $params{OutputHandle});
-    $in_handle = $params{InputHandle};
-    $out_handle = $params{OutputHandle};
+      unless exists $params{OutputHandle};
+    $in_handle  = delete $params{InputHandle};
+    $out_handle = delete $params{OutputHandle};
   }
 
   my ($in_filter, $out_filter);
@@ -61,18 +60,18 @@ sub new {
       if (exists $params{InputFilter});
     carp "Ignoring OUtputFilter parameter (Filter parameter takes precedence)"
       if (exists $params{OutputFilter});
-    $in_filter = $out_filter = $params{Filter};
+    $in_filter = $out_filter = delete $params{Filter};
   }
   else {
     croak "Filter or InputFilter required"
       unless exists $params{InputFilter};
     croak "Filter or OutputFilter required"
       unless exists $params{OutputFilter};
-    $in_filter = $params{InputFilter};
-    $out_filter = $params{OutputFilter};
+    $in_filter  = delete $params{InputFilter};
+    $out_filter = delete $params{OutputFilter};
   }
 
-  croak "Driver required" unless (exists $params{Driver});
+  croak "Driver required" unless exists $params{Driver};
 
   { my $mark_errors = 0;
     if (exists($params{HighMark}) xor exists($params{LowMark})) {
@@ -106,19 +105,25 @@ sub new {
       $out_handle,
       $in_filter,
       $out_filter,
-      $params{Driver},
-      $params{InputState},
-      $params{ErrorState},
-      $params{FlushedState},
+      delete $params{Driver},
+      delete $params{InputState},
+      delete $params{ErrorState},
+      delete $params{FlushedState},
       # Water marks.
-      $params{HighMark},
-      $params{LowMark},
-      $params{HighState},
-      $params{LowState},
+      delete $params{HighMark},
+      delete $params{LowMark},
+      delete $params{HighState},
+      delete $params{LowState},
       0,
       # Driver statistics.
       0,
     ];
+
+  if (scalar keys %params) {
+    carp( "unknown parameters in $type constructor call: ",
+          join(', ', keys %params)
+        );
+  }
 
   $self->_define_read_state();
   $self->_define_write_state();
@@ -350,48 +355,43 @@ sub put {
 # one input and one output, make this set both of them at the same
 # time. -RC
 
-sub set_filter
-{
-    my($self, $new_filter)=@_;
-    my $buf=$self->[FILTER_INPUT]->get_pending();
-    $self->[FILTER_INPUT]=$self->[FILTER_OUTPUT]=$new_filter;
+sub set_filter {
+  my ($self, $new_filter) = @_;
+  my $buf = $self->[FILTER_INPUT]->get_pending();
+  $self->[FILTER_INPUT] = $self->[FILTER_OUTPUT] = $new_filter;
 
-    # Updates a closure dealing with the input filter.
-    $self->_define_read_state();
+  # Updates a closure dealing with the input filter.
+  $self->_define_read_state();
 
-    if ( defined($buf) )
-    {
-        foreach my $cooked_input (@{$new_filter->get($buf)})
-        {
-            $poe_kernel->yield($self->[EVENT_INPUT], $cooked_input)
-        }
+  # Push pending data from the old filter into the new one.
+  if (defined $buf) {
+    foreach my $cooked_input (@{$new_filter->get($buf)}) {
+      $poe_kernel->yield($self->[EVENT_INPUT], $cooked_input)
     }
+  }
 }
 
 # Redefine input and/or output filters separately.
-
 sub set_input_filter {
-    my($self, $new_filter)=@_;
-    my $buf=$self->[FILTER_INPUT]->get_pending();
-    $self->[FILTER_INPUT]=$new_filter;
+  my ($self, $new_filter) = @_;
+  my $buf = $self->[FILTER_INPUT]->get_pending();
+  $self->[FILTER_INPUT] = $new_filter;
 
-    # Updates a closure dealing with the input filter.
-    $self->_define_read_state();
+  # Updates a closure dealing with the input filter.
+  $self->_define_read_state();
 
-    if ( defined($buf) )
-    {
-        foreach my $cooked_input (@{$new_filter->get($buf)})
-        {
-            $poe_kernel->yield($self->[EVENT_INPUT], $cooked_input)
-        }
+  if (defined $buf) {
+    foreach my $cooked_input (@{$new_filter->get($buf)}) {
+      $poe_kernel->yield($self->[EVENT_INPUT], $cooked_input)
     }
+  }
 }
 
 # No closures need to be redefined or anything.  All the previously
 # put stuff has been serialized already.
 sub set_output_filter {
-    my($self, $new_filter)=@_;
-    $self->[FILTER_OUTPUT]=$new_filter;
+  my ($self, $new_filter) = @_;
+  $self->[FILTER_OUTPUT] = $new_filter;
 }
 
 # Set the high water mark.

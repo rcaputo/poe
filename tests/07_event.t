@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # $Id$
 
-# Tests FIFO, alarm, select and Tk postback events using Event's event
+# Tests FIFO, alarm, select and postback events using Event's event
 # loop.
 
 use strict;

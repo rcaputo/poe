@@ -35,6 +35,17 @@ eval {
   import Time::HiRes qw(time sleep);
 };
 
+my $delay_per_child = time() - $^T;
+$delay_per_child = 5 if $delay_per_child < 5;
+my $time_to_wait = $delay_per_child * $fork_count;
+
+# Let the user know what in heck is going on.
+warn( "***\n",
+      "*** This test will run for around $time_to_wait seconds.\n",
+      "*** The delay ensures that all child processes are accounted for.\n",
+      "***\n"
+      );
+
 # Set up a signal catching session.  This test uses plain fork(2) and
 # POE's $SIG{CHLD} handler.
 
@@ -45,7 +56,7 @@ POE::Session->create
         $_[HEAP]->{forked} = $_[HEAP]->{reaped} = 0;
         $_[KERNEL]->sig( CHLD => 'catch_sigchld' );
 
-        my $wake_time = time() + 60;
+        my $wake_time = time() + $time_to_wait;
 
         # Fork some child processes, all to exit at the same time.
         for (my $child = 0; $child < $fork_count; $child++) {
@@ -72,7 +83,7 @@ POE::Session->create
           print "not ok 1 # forked $_[HEAP]->{forked} out of $fork_count\n";
         }
 
-        $_[KERNEL]->delay( time_is_up => 120 );
+        $_[KERNEL]->delay( time_is_up => $time_to_wait );
       },
 
       _stop =>
