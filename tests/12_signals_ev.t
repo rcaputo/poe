@@ -152,7 +152,7 @@ POE::Session->create
 
         # Forking time is over.  We kill all the children as
         # immediately as possible.
-        my $kill_count = kill 1, keys(%{$heap->{children}});
+        my $kill_count = kill INT => keys(%{$heap->{children}});
         print 'not ' unless $kill_count == $heap->{forked};
         print "ok 2\n";
 
