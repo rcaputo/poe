@@ -866,10 +866,6 @@ sub _dispatch_event {
 	  $self->_data_perf_add('user_seconds', $elapsed);
 	  $self->_data_perf_add('user_events', 1);
       }
-      my $peek = $self->get_next_event_time;
-      if ($peek && $peek < $after) {
-	  $self->_data_perf_add('blocked', 1);
-      }
   }
 
   # Stringify the handler's return value if it belongs in the POE
@@ -2456,6 +2452,27 @@ It may also be called as class method.
   POE::Kernel->run();
 
 The run() method does not return a meaningful value.
+
+=item run_one_timeslice
+
+run_one_timeslice() checks for new events, which are enqueued, then
+dispatches any events that were due at the time it was called.  Then
+it returns.
+
+It is often used to emulate blocking behavior for procedural code.
+
+  my $done = 0;
+
+  sub handle_some_event {
+    $done = 1;
+  }
+
+  while (not $done) {
+    $kernel->run_one_timeslice();
+  }
+
+Note: The above example will "spin" if POE::Kernel is done but $done
+isn't set.
 
 =item stop
 
