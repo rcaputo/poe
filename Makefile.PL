@@ -7,6 +7,8 @@ use ExtUtils::MakeMaker;
 
 WriteMakefile
   ( NAME         => 'POE',
+    AUTHOR       => 'Rocco Caputo <troc@netrus.net>',
+    ABSTRACT     => 'Event driven state machines and I/O abstractions.',
     VERSION_FROM => 'POE.pm',
     dist         => { 'COMPRESS' => 'gzip -9',
                       'SUFFIX'   => 'gz',
@@ -24,3 +26,9 @@ WriteMakefile
                       URI::URL       => 5.01,
                     },
   );
+
+__END__
+
+  DIR
+    Ref to array of subdirectories containing Makefile.PLs e.g. [ 'sdbm' ]
+    in ext/SDBM_File
