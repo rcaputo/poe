@@ -39,7 +39,7 @@ warn( "\n",
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::OneWay);
+use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::TwoWay);
 
 # How many things to push through the pipe.
 my $write_max = 10;
@@ -64,26 +64,29 @@ sub io_start {
 
   # A pipe.
 
-  my ($a_read, $b_write) = POE::Pipe::OneWay->new();
+  my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new();
 
-  unless (defined $a_read) {
-    print "skip 2 # $@\n";
-  }
-  else {
+  if (defined $a_read) {
     # The wheel uses read and write file events internally, so they're
     # tested here.
-    $heap->{pipe_wheel} =
+    $heap->{a_pipe_wheel} =
       POE::Wheel::ReadWrite->new
-        ( InputHandle  => $heap->{pipe_read}  = $a_read,
-          OutputHandle => $heap->{pipe_write} = $b_write,
+        ( InputHandle  => $a_read,
+          OutputHandle => $a_write,
           Filter       => POE::Filter::Line->new(),
           Driver       => POE::Driver::SysRW->new(),
-          InputState   => 'ev_pipe_read',
+          InputState   => 'ev_a_read',
         );
 
-    # Toggle writability on the pipe for testing.
-    $kernel->select_pause_write( $a_read );
-    $kernel->select_resume_write( $a_read );
+    # Second wheel to test a fileevent quirk.
+    $heap->{b_pipe_wheel} =
+      POE::Wheel::ReadWrite->new
+        ( InputHandle  => $b_read,
+          OutputHandle => $b_write,
+          Filter       => POE::Filter::Line->new(),
+          Driver       => POE::Driver::SysRW->new(),
+          InputState   => 'ev_b_read',
+        );
 
     # And a timer loop to test alarms.
     $kernel->delay( ev_pipe_write => 1 );
@@ -99,10 +102,15 @@ sub io_start {
   $poe_main_window->Label( -text => 'Write Count' )->pack;
   $poe_main_window->Label( -textvariable => $heap->{write_count} )->pack;
 
-  my $read_count  = 0;
-  $heap->{read_count} = \$read_count;
+  my $a_read_count = 0;
+  $heap->{a_read_count} = \$a_read_count;
   $poe_main_window->Label( -text => 'Read Count' )->pack;
-  $poe_main_window->Label( -textvariable => $heap->{read_count} )->pack;
+  $poe_main_window->Label( -textvariable => $heap->{a_read_count} )->pack;
+
+  my $b_read_count = 0;
+  $heap->{b_read_count} = \$b_read_count;
+  $poe_main_window->Label( -text => 'Read Count' )->pack;
+  $poe_main_window->Label( -textvariable => $heap->{b_read_count} )->pack;
 
   # And an idle loop.
 
@@ -125,35 +133,51 @@ sub io_start {
   # delivered.
 
   $heap->{postback_tests} =
-  { 5 => "not ok 5\n",
-    6 => "not ok 6\n",
+  { 6 => "not ok 6\n",
     7 => "not ok 7\n",
+    8 => "not ok 8\n",
   };
 }
 
 sub io_pipe_write {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
-  $heap->{pipe_wheel}->put( scalar localtime );
+  $heap->{a_pipe_wheel}->put( scalar localtime );
+  $heap->{b_pipe_wheel}->put( scalar localtime );
   if (++${$heap->{write_count}} < $write_max) {
     $kernel->delay( ev_pipe_write => 1 );
   }
   else {
-    $after_alarms[5] =
+    $after_alarms[6] =
       Tk::After->new( $poe_main_window, 1000, 'once',
-                      $_[SESSION]->postback( ev_postback => 5 )
+                      $_[SESSION]->postback( ev_postback => 6 )
                     );
     undef;
   }
 }
 
-sub io_pipe_read {
-  my ($kernel, $heap) = @_[KERNEL, HEAP];
-  ${$heap->{read_count}}++;
+# This is a plain function; not an event handler.
+sub shut_down_if_done {
+  my $heap = shift;
 
-  # Shut down the wheel if we're done.
-  if ( ${$heap->{write_count}} == $write_max ) {
-    delete $heap->{pipe_wheel};
+  # Shut down both wheels if we're done.
+  if ( ${$heap->{a_read_count}} == $write_max and
+       ${$heap->{b_read_count}} == $write_max
+     ) {
+    delete $heap->{a_pipe_wheel};
+    delete $heap->{b_pipe_wheel};
   }
+}
+
+sub io_a_read {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+  ${$heap->{a_read_count}}++;
+  shut_down_if_done($heap);
+}
+
+sub io_b_read {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+  ${$heap->{b_read_count}}++;
+  &shut_down_if_done($heap);
 }
 
 sub io_idle_increment {
@@ -161,9 +185,9 @@ sub io_idle_increment {
     $_[KERNEL]->yield( 'ev_idle_increment' );
   }
   else {
-    $after_alarms[6] =
+    $after_alarms[7] =
       Tk::After->new( $poe_main_window, 1000, 'once',
-                      $_[SESSION]->postback( ev_postback => 6 )
+                      $_[SESSION]->postback( ev_postback => 7 )
                     );
     undef;
   }
@@ -180,9 +204,9 @@ sub io_timer_increment {
   # given at creation time.
 
   else {
-    $after_alarms[7] =
+    $after_alarms[8] =
       Tk::After->new( $poe_main_window, 1000, 'once',
-                      $_[SESSION]->postback( ev_postback => 7 )
+                      $_[SESSION]->postback( ev_postback => 8 )
                     );
     undef;
   }
@@ -191,16 +215,17 @@ sub io_timer_increment {
 sub io_stop {
   my $heap = $_[HEAP];
 
-  if (${$heap->{read_count}}) {
-    print "not " unless ${$heap->{read_count}} == ${$heap->{write_count}};
-    print "ok 2\n";
-  }
+  print "not " unless ${$heap->{a_read_count}} == ${$heap->{write_count}};
+  print "ok 2\n";
 
-  print "not " unless ${$heap->{idle_count}};
+  print "not " unless ${$heap->{b_read_count}} == ${$heap->{write_count}};
   print "ok 3\n";
 
-  print "not " unless ${$heap->{timer_count}};
+  print "not " unless ${$heap->{idle_count}};
   print "ok 4\n";
+
+  print "not " unless ${$heap->{timer_count}};
+  print "ok 5\n";
 
   foreach (sort { $a <=> $b } keys %{$heap->{postback_tests}}) {
     print $heap->{postback_tests}->{$_};
@@ -230,7 +255,8 @@ sub io_postback {
 
 sub io_timeout {
   my $heap = $_[HEAP];
-  delete $_[HEAP]->{pipe_wheel};
+  delete $heap->{a_pipe_wheel};
+  delete $heap->{b_pipe_wheel};
 }
 
 # Start the I/O session.
@@ -239,7 +265,8 @@ POE::Session->create
   ( inline_states =>
     { _start             => \&io_start,
       _stop              => \&io_stop,
-      ev_pipe_read       => \&io_pipe_read,
+      ev_a_read          => \&io_a_read,
+      ev_b_read          => \&io_b_read,
       ev_pipe_write      => \&io_pipe_write,
       ev_idle_increment  => \&io_idle_increment,
       ev_timer_increment => \&io_timer_increment,
@@ -254,6 +281,6 @@ $poe_kernel->run();
 
 # Congratulate ourselves on a job completed, regardless of how well it
 # was done.
-print "ok 8\n";
+print "ok 9\n";
 
 exit;

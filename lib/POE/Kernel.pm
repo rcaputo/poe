@@ -2614,16 +2614,16 @@ sub _internal_select {
 
           # The Tk documentation implies by omission that expedited
           # filehandles aren't, uh, handled.  This is part 1 of 2.
-
           confess "Tk does not support expedited filehandles"
             if $select_index == VEC_EX;
 
-          $poe_main_window->fileevent
+          my $direction = ( $select_index == VEC_RD ) ? 'readable' : 'writable';
+          Tk::Event::IO->fileevent
             ( $handle,
 
               # It can only be VEC_RD or VEC_WR here (VEC_EX is
               # checked a few lines up).
-              ( ( $select_index == VEC_RD ) ? 'readable' : 'writable' ),
+              $direction,
 
               [ \&_tk_select_callback, $handle, $select_index ],
             );
@@ -2739,11 +2739,10 @@ sub _internal_select {
 
             # The Tk documentation implies by omission that expedited
             # filehandles aren't, uh, handled.  This is part 2 of 2.
-
             confess "Tk does not support expedited filehandles"
               if $select_index == VEC_EX;
 
-            $poe_main_window->fileevent
+            Tk::Event::IO->fileevent
               ( $handle,
 
                 # It can only be VEC_RD or VEC_WR here (VEC_EX is
@@ -2878,7 +2877,7 @@ sub select_pause_write {
 
   } elsif (POE_USES_TK) { # include
 
-    $poe_main_window->fileevent
+    Tk::Event::IO->fileevent
       ( $handle,
         'writable',
         ''
@@ -2915,7 +2914,7 @@ sub select_resume_write {
 
   } elsif (POE_USES_TK) { # include
 
-    $poe_main_window->fileevent
+    Tk::Event::IO->fileevent
       ( $handle,
         'writable',
         [ \&_tk_select_callback, $handle, VEC_WR ],
@@ -2952,7 +2951,12 @@ sub select_pause_read {
 
   } elsif (POE_USES_TK) { # include
 
-    $poe_main_window->fileevent
+    warn( "-----\n",
+          "paused read select for handle($handle)\n"
+        );
+
+    #$poe_main_window->fileevent
+    Tk::Event::IO->fileevent
       ( $handle,
         'readable',
         ''
@@ -2989,7 +2993,7 @@ sub select_resume_read {
 
   } elsif (POE_USES_TK) { # include
 
-    $poe_main_window->fileevent
+    Tk::Event::IO->fileevent
       ( $handle,
         'readable',
         [ \&_tk_select_callback, $handle, VEC_RD ],
