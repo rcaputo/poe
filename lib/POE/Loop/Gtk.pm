@@ -309,7 +309,7 @@ sub _loop_select_read_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  enqueue_ready_selects($fileno, VEC_RD);
+  enqueue_ready_selects(VEC_RD, $fileno);
   test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
@@ -320,7 +320,7 @@ sub _loop_select_write_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  enqueue_ready_selects($fileno, VEC_WR);
+  enqueue_ready_selects(VEC_WR, $fileno);
   test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
@@ -331,7 +331,7 @@ sub _loop_select_expedite_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  enqueue_ready_selects($fileno, VEC_EX);
+  enqueue_ready_selects(VEC_EX, $fileno);
   test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.

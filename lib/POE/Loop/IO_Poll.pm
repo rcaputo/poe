@@ -384,21 +384,21 @@ sub loop_do_timeslice {
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing read for fileno $fd\n";
-            enqueue_ready_selects($fd, VEC_RD);
+            enqueue_ready_selects(VEC_RD, $fd);
           }
 
           if ( $watch_mask & POLLOUT and
                $got_mask & (POLLOUT | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing write for fileno $fd\n";
-            enqueue_ready_selects($fd, VEC_WR);
+            enqueue_ready_selects(VEC_WR, $fd);
           }
 
           if ( $watch_mask & POLLRDBAND and
                $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing expedite for fileno $fd\n";
-            enqueue_ready_selects($fd, VEC_EX);
+            enqueue_ready_selects(VEC_EX, $fd);
           }
         }
       }
@@ -419,27 +419,7 @@ sub loop_do_timeslice {
   }
 
   # Dispatch whatever events are due.
-
-  $now = time();
-  while ( @$kr_events and ($kr_events->[0]->[ST_TIME] <= $now) ) {
-    my $event;
-
-    if (TRACE_QUEUE) {
-      $event = $kr_events->[0];
-      warn( sprintf('now(%.4f) ', $now - $^T) .
-            sprintf('sched_time(%.4f)  ', $event->[ST_TIME] - $^T) .
-            "seq($event->[ST_SEQ])  " .
-            "name($event->[ST_NAME])\n"
-          );
-    }
-
-    # Pull an event off the queue, and dispatch it.
-    $event = shift @$kr_events;
-    delete $kr_event_ids->{$event->[ST_SEQ]};
-    ses_refcount_dec2($event->[ST_SESSION], SS_EVCOUNT);
-    ses_refcount_dec2($event->[ST_SOURCE], SS_POST_COUNT);
-    $poe_kernel->_dispatch_event(@$event);
-  }
+  dispatch_due_events();
 }
 
 sub loop_run {

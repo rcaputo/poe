@@ -371,7 +371,7 @@ sub _loop_event_callback {
 # Tk filehandle callback to dispatch selects.
 sub _loop_select_callback {
   my ($fileno, $vector) = @_;
-  enqueue_ready_selects($fileno, $vector);
+  enqueue_ready_selects($vector, $fileno);
   test_for_idle_poe_kernel();
 }
 

@@ -407,23 +407,14 @@ sub loop_do_timeslice {
         # Enqueue the gathered selects, and flag them as temporarily
         # paused.  They'll resume after dispatch.
 
-        foreach my $fileno (@rd_selects) {
-          enqueue_ready_selects($fileno, VEC_RD);
-        }
-
-        foreach my $fileno (@wr_selects) {
-          enqueue_ready_selects($fileno, VEC_WR);
-        }
-
-        foreach my $fileno (@ex_selects) {
-          enqueue_ready_selects($fileno, VEC_EX);
-        }
+        @rd_selects and enqueue_ready_selects(VEC_RD, @rd_selects);
+        @wr_selects and enqueue_ready_selects(VEC_WR, @wr_selects);
+        @ex_selects and enqueue_ready_selects(VEC_EX, @ex_selects);
       }
     }
 
-    # No filehandles to select on.  Try to sleep instead.  Use sleep()
-    # itself on MSWin32.  Use a dummy four-argument select()
-    # everywhere else.
+    # No filehandles to select on.  Four-argument select() fails on
+    # MSWin32 with all undef bitmasks.  Use sleep() there instead.
 
     else {
       if ($^O eq 'MSWin32') {
@@ -436,27 +427,7 @@ sub loop_do_timeslice {
   }
 
   # Dispatch whatever events are due.
-
-  $now = time();
-  while ( @$kr_events and ($kr_events->[0]->[ST_TIME] <= $now) ) {
-    my $event;
-
-    if (TRACE_QUEUE) {
-      $event = $kr_events->[0];
-      warn( sprintf('now(%.4f) ', $now - $^T) .
-            sprintf('sched_time(%.4f)  ', $event->[ST_TIME] - $^T) .
-            "seq($event->[ST_SEQ])  " .
-            "name($event->[ST_NAME])\n"
-          );
-    }
-
-    # Pull an event off the queue, and dispatch it.
-    $event = shift @$kr_events;
-    delete $kr_event_ids->{$event->[ST_SEQ]};
-    ses_refcount_dec2($event->[ST_SESSION], SS_EVCOUNT);
-    ses_refcount_dec2($event->[ST_SOURCE], SS_POST_COUNT);
-    $poe_kernel->_dispatch_event(@$event);
-  }
+  dispatch_due_events();
 }
 
 sub loop_run {

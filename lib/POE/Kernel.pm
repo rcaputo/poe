@@ -601,34 +601,36 @@ sub dispatch_due_events {
 }
 
 sub enqueue_ready_selects {
-  my ($fileno, $vector) = @_;
+  my ($vector, @filenos) = @_;
 
-  die "internal inconsistency: undefined fileno" unless defined $fileno;
-  my $kr_fno_vec = $kr_filenos{$fileno}->[$vector];
+  foreach my $fileno (@filenos) {
+    die "internal inconsistency: undefined fileno" unless defined $fileno;
+    my $kr_fno_vec = $kr_filenos{$fileno}->[$vector];
 
-  # Gather all the events to emit for this fileno/vector pair.
+    # Gather all the events to emit for this fileno/vector pair.
 
-  my @selects = map { values %$_ } values %{ $kr_fno_vec->[FVC_SESSIONS] };
+    my @selects = map { values %$_ } values %{ $kr_fno_vec->[FVC_SESSIONS] };
 
-  # Emit them.
+    # Emit them.
 
-  foreach my $select (@selects) {
-    $poe_kernel->_enqueue_event
-      ( $select->[HSS_SESSION], $select->[HSS_SESSION],
-        $select->[HSS_STATE], ET_SELECT,
-        [ $select->[HSS_HANDLE], $vector ],
-        time(), __FILE__, __LINE__,
-      );
+    foreach my $select (@selects) {
+      $poe_kernel->_enqueue_event
+        ( $select->[HSS_SESSION], $select->[HSS_SESSION],
+          $select->[HSS_STATE], ET_SELECT,
+          [ $select->[HSS_HANDLE], $vector ],
+          time(), __FILE__, __LINE__,
+        );
 
-    unless ($kr_fno_vec->[FVC_EV_COUNT]++) {
-      my $handle = $select->[HSS_HANDLE];
-      loop_pause_filehandle_watcher($kr_fno_vec, $handle, $vector);
-    }
+      unless ($kr_fno_vec->[FVC_EV_COUNT]++) {
+        my $handle = $select->[HSS_HANDLE];
+        loop_pause_filehandle_watcher($kr_fno_vec, $handle, $vector);
+      }
 
-    if (TRACE_SELECT) {
-      warn( "+++ incremented event count in vector ($vector) ",
-            "for fileno ($fileno) to count ($kr_fno_vec->[FVC_EV_COUNT])"
-          );
+      if (TRACE_SELECT) {
+        warn( "+++ incremented event count in vector ($vector) ",
+              "for fileno ($fileno) to count ($kr_fno_vec->[FVC_EV_COUNT])"
+            );
+      }
     }
   }
 }

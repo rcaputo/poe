@@ -269,7 +269,7 @@ sub _loop_select_callback {
                    )
                );
 
-  enqueue_ready_selects($fileno, $vector);
+  enqueue_ready_selects($vector, $fileno);
   test_for_idle_poe_kernel();
 }
 
