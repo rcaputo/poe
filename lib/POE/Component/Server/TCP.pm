@@ -115,82 +115,84 @@ sub new {
 
     # Revise the acceptor callback so it spawns a session.
 
-    $accept_callback = sub {
-      my ($socket, $remote_addr, $remote_port) = @_[ARG0, ARG1, ARG2];
-      POE::Session->create
-        ( inline_states =>
-          { _start => sub {
-              my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
+    unless (defined $accept_callback) {
+      $accept_callback = sub {
+        my ($socket, $remote_addr, $remote_port) = @_[ARG0, ARG1, ARG2];
+        POE::Session->create
+          ( inline_states =>
+            { _start => sub {
+                my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
 
-              $heap->{shutdown}    = 0;
-              $heap->{remote_ip}   = inet_ntoa($remote_addr);
-              $heap->{remote_port} = $remote_port;
+                $heap->{shutdown}    = 0;
+                $heap->{remote_ip}   = inet_ntoa($remote_addr);
+                $heap->{remote_port} = $remote_port;
 
-              $heap->{client} = POE::Wheel::ReadWrite->new
-                ( Handle       => $socket,
-                  Driver       => POE::Driver::SysRW->new( BlockSize => 4096 ),
-                  Filter       => $client_filter->new(@client_filter_args),
-                  InputEvent   => 'tcp_server_got_input',
-                  ErrorEvent   => 'tcp_server_got_error',
-                  FlushedEvent => 'tcp_server_got_flush',
-                );
+                $heap->{client} = POE::Wheel::ReadWrite->new
+                  ( Handle       => $socket,
+                    Driver       => POE::Driver::SysRW->new(BlockSize => 4096),
+                    Filter       => $client_filter->new(@client_filter_args),
+                    InputEvent   => 'tcp_server_got_input',
+                    ErrorEvent   => 'tcp_server_got_error',
+                    FlushedEvent => 'tcp_server_got_flush',
+                  );
 
-              $client_connected->(@_);
+                $client_connected->(@_);
+              },
+
+              # To quiet ASSERT_STATES.
+              _child  => sub { },
+              _signal => sub { 0 },
+
+              tcp_server_got_input => sub {
+                my $heap = $_[HEAP];
+                return if $heap->{shutdown};
+                $client_input->(@_);
+              },
+              tcp_server_got_error => sub {
+                my ($heap, $operation, $errnum) = @_[HEAP, ARG0, ARG1];
+
+                $heap->{shutdown} = 1;
+
+                # Read error 0 is disconnect.
+                if ($operation eq 'read' and $errnum == 0) {
+                  $client_disconnected->(@_);
+                }
+                else {
+                  $client_error->(@_);
+                }
+
+                delete $heap->{client};
+              },
+              tcp_server_got_flush => sub {
+                my $heap = $_[HEAP];
+                $client_flushed->(@_);
+                delete $heap->{client} if $heap->{shutdown};
+              },
+              shutdown => sub {
+                my $heap = $_[HEAP];
+                $heap->{shutdown} = 1;
+                if (defined $heap->{client}) {
+                  delete $heap->{client}
+                    unless $heap->{client}->get_driver_out_octets();
+                }
+              },
+              _stop => $client_disconnected,
+
+              tcp_server_got_flushed => sub {
+                my ($kernel, $heap) = @_[KERNEL, HEAP];
+                delete $heap->{client} if $heap->{shutdown};
+              },
+
+              # User supplied states.
+              %$inline_states
             },
 
-            # To quiet ASSERT_STATES.
-            _child  => sub { },
-            _signal => sub { 0 },
-
-            tcp_server_got_input => sub {
-              my $heap = $_[HEAP];
-              return if $heap->{shutdown};
-              $client_input->(@_);
-            },
-            tcp_server_got_error => sub {
-              my ($heap, $operation, $errnum) = @_[HEAP, ARG0, ARG1];
-
-              $heap->{shutdown} = 1;
-
-              # Read error 0 is disconnect.
-              if ($operation eq 'read' and $errnum == 0) {
-                $client_disconnected->(@_);
-              }
-              else {
-                $client_error->(@_);
-              }
-
-              delete $heap->{client};
-            },
-            tcp_server_got_flush => sub {
-              my $heap = $_[HEAP];
-              $client_flushed->(@_);
-              delete $heap->{client} if $heap->{shutdown};
-            },
-            shutdown => sub {
-              my $heap = $_[HEAP];
-              $heap->{shutdown} = 1;
-              if (defined $heap->{client}) {
-                delete $heap->{client}
-                  unless $heap->{client}->get_driver_out_octets();
-              }
-            },
-            _stop => $client_disconnected,
-
-            tcp_server_got_flushed => sub {
-              my ($kernel, $heap) = @_[KERNEL, HEAP];
-              delete $heap->{client} if $heap->{shutdown};
-            },
-
-            # User supplied states.
-            %$inline_states
-          },
-
-          # More user supplied states.
-          package_states => $package_states,
-          object_states  => $object_states,
-        );
-    };
+            # More user supplied states.
+            package_states => $package_states,
+            object_states  => $object_states,
+          );
+      };
+    }
   };
 
   # Complain about strange things we're given.
@@ -351,6 +353,10 @@ POE::Component::Server::TCP - a simplified TCP server
   $kernel->yield( "shutdown" )           # initiate shutdown in a connection
   $kernel->post( server => "shutdown" )  # stop listening for connections
 
+  # Responding to a client.
+
+  $heap->{client}->put(@things_to_send);
+
 =head1 DESCRIPTION
 
 The TCP server component hides the steps needed to create a server
@@ -375,8 +381,8 @@ and numeric port, respectively.  ARG3 is the SocketFactory wheel's ID.
 
   Acceptor => \&accept_handler
 
-Acceptor and ClientInput are mutually exclusive.  Enabling one
-prohibits the other.
+Acceptor lets programmers rewrite the guts of Server::TCP entirely.
+It disables the code that provides the /Client.*/ callbacks.
 
 =item Address
 
@@ -440,7 +446,7 @@ ClientFilter is optional.  The component will supply a
 =item ClientInput
 
 ClientInput is a coderef that will be called to handle client input.
-The callback receives its parameters directyl from ReadWrite's
+The callback receives its parameters directly from ReadWrite's
 InputEvent.  ARG0 is the input record, and ARG1 is the wheel's unique
 ID.
 

@@ -300,6 +300,10 @@ POE::Component::Client::TCP - a simplified TCP client
   $kernel->yield( "shutdown" )   # shut down a connection
   $kernel->yield( "reconnect" )  # reconnect to a server
 
+  # Responding to a server.
+
+  $heap->{server}->put(@things_to_send);
+
 =head1 DESCRIPTION
 
 The TCP client component hides the steps needed to create a client
