@@ -1204,7 +1204,7 @@ sub rl_re_read_init_file {
 	$self->rl_set_keymap('vi-insert'); # by default, start in insert mode already
     }
 
-    my $isearch_term = $self->option('isearch-terminators') || 'C-[ C-J C-M';
+    my $isearch_term = $self->option('isearch-terminators') || 'C-[ C-J';
     foreach my $key (split(/\s+/, $isearch_term)) {
 	$isearch->bind_key($key, 'search-abort');
     }
@@ -2709,14 +2709,14 @@ sub rl_search_abort {
 }
 
 sub rl_search_finish {
-    my ($self, $key) = @_;
+    my ($self, $key, $raw) = @_;
     $self->wipe_input_line;
     $self->[SELF_PROMPT] = $self->[SELF_PREV_PROMPT];
     $self->repaint_input_line;
     $self->[SELF_KEYMAP] = $self->[SELF_SEARCH_MAP];
     $self->[SELF_SEARCH_MAP] = undef;
     $self->[SELF_SEARCH] = undef;
-    $self->apply_key($key, $key);
+    $self->apply_key($key, $raw);
 }
 
 sub rl_search_key {
