@@ -319,12 +319,17 @@ eval 'POE::Driver::SysRW->new( Booga => 1 )';
 print 'not ' unless defined $@ and length $@;
 print "ok 29\n";
 
-use POE::Filter::HTTPD;
-my $pfhttpd = POE::Filter::HTTPD->new();
+eval 'use POE::Filter::HTTPD';
+if (defined $@ and length $@) {
+  my $pfhttpd = POE::Filter::HTTPD->new();
 
-eval '$pfhttpd->get_pending()';
-print 'not ' unless defined $@ and length $@;
-print "ok 30\n";
+  eval '$pfhttpd->get_pending()';
+  print 'not ' unless defined $@ and length $@;
+  print "ok 30\n";
+}
+else {
+  print "ok 30 # skipped: Prerequisites missing for POE::Filter::HTTPD\n";
+}
 
 # POE::Session constructor stuff.
 
