@@ -983,11 +983,10 @@ sub run {
   $kr_run_warning |= KR_RUN_DONE;
 }
 
-# Stops the kernel cold
-# No events happen as a result of this, all structures are
-# cleaned up except the current session which will be cleaned
-# up when the current state handler returns
-# XXX Experimental
+# Stops the kernel cold.  XXX Experimental!
+# No events happen as a result of this, all structures are cleaned up
+# except the current session which will be cleaned up when the current
+# state handler returns.
 sub stop {
   # So stop() can be called as a class method.
   my $self = $poe_kernel;

@@ -43,10 +43,12 @@ sub new {
   my $port    = delete $param{Port};
   my $domain  = delete $param{Domain};
 
-  foreach ( qw( Acceptor Error ClientInput ClientConnected
-                ClientDisconnected ClientError ClientFlushed
-              )
-          ) {
+  foreach (
+    qw(
+      Acceptor Error ClientInput ClientConnected ClientDisconnected
+      ClientError ClientFlushed
+    )
+  ) {
     croak "$_ must be a coderef"
       if defined($param{$_}) and ref($param{$_}) ne 'CODE';
   }
@@ -602,8 +604,8 @@ class.
 ClientInputFilter and ClientOutputFilter are provided to allow for
 using different filters on the input from and output to each client.
 Usage is the same as the ClientFilter option above, allowing either
-a scalar or a list reference. Both must be defined in order to be 
-used, and these options override the ClientFilter option if its 
+a scalar or a list reference. Both must be defined in order to be
+used, and these options override the ClientFilter option if its
 defined as well.
 
 Filter modules are required at runtime, and if either fails to be
