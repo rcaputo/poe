@@ -130,7 +130,7 @@ my %kr_sessions;
 my %kr_aliases;
 
 # Extra references.
-my $kr_extra_refs;
+my $kr_extra_refs = 0;
 
 # Session ID index.
 my $kr_id_index = 1;
@@ -291,6 +291,7 @@ BEGIN {
   {% define_assert SELECT    %}
   {% define_assert SESSIONS  %}
   {% define_assert RETURNS   %}
+  {% define_assert USAGE     %}
 };
 
 #------------------------------------------------------------------------------
@@ -554,7 +555,7 @@ BEGIN {
     require POE::Kernel::Event;
     POE::Kernel::Event->import();
   }
-    
+
   unless (defined &POE_SUBSTRATE) {
     require POE::Kernel::Select;
     POE::Kernel::Select->import();
@@ -584,6 +585,11 @@ my %_terminal_signals =
 
 sub sig {
   my ($self, $signal, $state) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined signal in sig()" unless defined $signal;
+  };
+
   if (defined $state) {
     my $session = $kr_active_session;
     $kr_sessions{$session}->[SS_SIGNALS]->{$signal} = $state;
@@ -601,6 +607,11 @@ sub sig {
 BEGIN { delete $POE::Kernel::{signal}; }
 sub POE::Kernel::signal {
   my ($self, $destination, $signal) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined destination in signal()" unless defined $destination;
+    croak "undefined signal in signal()" unless defined $signal;
+  };
 
   my $session = {% alias_resolve $destination %};
   {% test_resolve $destination, $session %}
@@ -1535,6 +1546,11 @@ sub _enqueue_alarm {
 sub post {
   my ($self, $destination, $state_name, @etc) = @_;
 
+  ASSERT_USAGE and do {
+    croak "destination is undefined in post()" unless defined $destination;
+    croak "event is undefined in post()" unless defined $state_name;
+  };
+
   # Attempt to resolve the destination session reference against
   # various things.
 
@@ -1558,6 +1574,10 @@ sub post {
 sub yield {
   my ($self, $state_name, @etc) = @_;
 
+  ASSERT_USAGE and do {
+    croak "event name is undefined in yield()" unless defined $state_name;
+  };
+
   $self->_enqueue_state
     ( $kr_active_session, $kr_active_session,
       $state_name, ET_USER, \@etc,
@@ -1572,6 +1592,11 @@ sub yield {
 
 sub call {
   my ($self, $destination, $state_name, @etc) = @_;
+
+  ASSERT_USAGE and do {
+    croak "destination is undefined in call()" unless defined $destination;
+    croak "event name is undefined in call()" unless defined $state_name;
+  };
 
   # Attempt to resolve the destination session reference against
   # various things.
@@ -1627,6 +1652,10 @@ sub queue_peek_alarms {
 sub alarm {
   my ($self, $state, $time, @etc) = @_;
 
+  ASSERT_USAGE and do {
+    croak "event name is undefined in alarm()" unless defined $state;
+  };
+
   unless (defined $state) {
     TRACE_RETURNS and carp "invalid parameter to alarm() call";
     ASSERT_RETURNS and croak "invalid parameter to alarm() call";
@@ -1667,6 +1696,11 @@ sub alarm {
 sub alarm_add {
   my ($self, $state, $time, @etc) = @_;
 
+  ASSERT_USAGE and do {
+    croak "undefined event name in alarm_add()" unless defined $state;
+    croak "undefined time in alarm_add()" unless defined $time;
+  };
+
   unless (defined $state and defined $time) {
     TRACE_RETURNS and carp "invalid parameter to alarm_add() call";
     ASSERT_RETURNS and croak "invalid parameter to alarm_add() call";
@@ -1685,6 +1719,10 @@ sub alarm_add {
 # Add a delay, which is just an alarm relative to the current time.
 sub delay {
   my ($self, $state, $delay, @etc) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined event name in delay()" unless defined $state;
+  };
 
   unless (defined $state) {
     TRACE_RETURNS and carp "invalid parameter to delay() call";
@@ -1705,6 +1743,11 @@ sub delay {
 # Add a delay without clobbering previous delays of the same name.
 sub delay_add {
   my ($self, $state, $delay, @etc) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined event name in delay_add()" unless defined $state;
+    croak "undefined time in delay_add()" unless defined $delay;
+  };
 
   unless (defined $state and defined $delay) {
     TRACE_RETURNS and carp "invalid parameter to delay_add() call";
@@ -1920,6 +1963,12 @@ sub _internal_select {
 # together.
 sub select {
   my ($self, $handle, $state_r, $state_w, $state_e) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined filehandle in select()" unless defined $handle;
+    croak "invalid filehandle in select()" unless defined fileno($handle);
+  };
+
   $self->_internal_select($kr_active_session, $handle, $state_r, VEC_RD);
   $self->_internal_select($kr_active_session, $handle, $state_w, VEC_WR);
   $self->_internal_select($kr_active_session, $handle, $state_e, VEC_EX);
@@ -1929,6 +1978,12 @@ sub select {
 # Only manipulate the read select.
 sub select_read {
   my ($self, $handle, $state) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined filehandle in select_read()" unless defined $handle;
+    croak "invalid filehandle in select_read()" unless defined fileno($handle);
+  };
+
   $self->_internal_select($kr_active_session, $handle, $state, VEC_RD);
   return 0;
 }
@@ -1936,6 +1991,13 @@ sub select_read {
 # Only manipulate the write select.
 sub select_write {
   my ($self, $handle, $state) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined filehandle in select_write()" unless defined $handle;
+    croak "invalid filehandle in select_write()"
+      unless defined fileno($handle);
+  };
+
   $self->_internal_select($kr_active_session, $handle, $state, VEC_WR);
   return 0;
 }
@@ -1943,6 +2005,13 @@ sub select_write {
 # Only manipulate the expedite select.
 sub select_expedite {
   my ($self, $handle, $state) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined filehandle in select_expedite()" unless defined $handle;
+    croak "invalid filehandle in select_expedite()"
+      unless defined fileno($handle);
+  };
+
   $self->_internal_select($kr_active_session, $handle, $state, VEC_EX);
   return 0;
 }
@@ -1951,6 +2020,14 @@ sub select_expedite {
 # garbage-collection things.
 sub select_pause_write {
   my ($self, $handle) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined filehandle in select_pause_write()"
+      unless defined $handle;
+    croak "invalid filehandle in select_pause_write()"
+      unless defined fileno($handle);
+  };
+
   {% validate_handle $handle, VEC_WR %}
   {% substrate_pause_filehandle_write_watcher %}
   return 0;
@@ -1960,6 +2037,14 @@ sub select_pause_write {
 # things.
 sub select_resume_write {
   my ($self, $handle) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined filehandle in select_resume_write()"
+      unless defined $handle;
+    croak "invalid filehandle in select_resume_write()"
+      unless defined fileno($handle);
+  };
+
   {% validate_handle $handle, VEC_WR %}
   {% substrate_resume_filehandle_write_watcher %}
   return 1;
@@ -1969,6 +2054,14 @@ sub select_resume_write {
 # things.
 sub select_pause_read {
   my ($self, $handle) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined filehandle in select_pause_read()"
+      unless defined $handle;
+    croak "invalid filehandle in select_pause_read()"
+      unless defined fileno($handle);
+  };
+
   {% validate_handle $handle, VEC_RD %}
   {% substrate_pause_filehandle_read_watcher %}
   return 0;
@@ -1978,6 +2071,14 @@ sub select_pause_read {
 # things.
 sub select_resume_read {
   my ($self, $handle) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined filehandle in select_resume_write()"
+      unless defined $handle;
+    croak "invalid filehandle in select_resume_write()"
+      unless defined fileno($handle);
+  };
+
   {% validate_handle $handle, VEC_RD %}
   {% substrate_resume_filehandle_read_watcher %}
   return 1;
@@ -1989,6 +2090,10 @@ sub select_resume_read {
 
 sub alias_set {
   my ($self, $name) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined alias in alias_set()" unless defined $name;
+  };
 
   # Don't overwrite another session's alias.
   if (exists $kr_aliases{$name}) {
@@ -2012,6 +2117,10 @@ sub alias_set {
 sub alias_remove {
   my ($self, $name) = @_;
 
+  ASSERT_USAGE and do {
+    croak "undefined alias in alias_remove()" unless defined $name;
+  };
+
   unless (exists $kr_aliases{$name}) {
     TRACE_RETURNS and carp "alias does not exist";
     ASSERT_RETURNS and croak "alias does not exist";
@@ -2030,6 +2139,11 @@ sub alias_remove {
 
 sub alias_resolve {
   my ($self, $name) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined alias in alias_resolve()" unless defined $name;
+  };
+
   my $session = {% alias_resolve $name %};
   unless (defined $session) {
     TRACE_RETURNS and carp "alias does not exist";
@@ -2059,6 +2173,11 @@ sub ID {
 
 sub ID_id_to_session {
   my ($self, $id) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined ID in ID_id_to_session()" unless defined $id;
+  };
+
   if (exists $kr_session_ids{$id}) {
     $! = 0;
     return $kr_session_ids{$id};
@@ -2073,6 +2192,11 @@ sub ID_id_to_session {
 
 sub ID_session_to_id {
   my ($self, $session) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined session in ID_session_to_id()" unless defined $session;
+  };
+
   if (exists $kr_sessions{$session}) {
     $! = 0;
     return $kr_sessions{$session}->[SS_ID];
@@ -2091,6 +2215,14 @@ sub ID_session_to_id {
 
 sub refcount_increment {
   my ($self, $session_id, $tag) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined session ID in refcount_increment()"
+      unless defined $session_id;
+    croak "undefined reference count tag in refcount_increment()"
+      unless defined $tag;
+  };
+
   my $session = $self->ID_id_to_session( $session_id );
   if (defined $session) {
 
@@ -2135,12 +2267,25 @@ sub refcount_increment {
 
 sub refcount_decrement {
   my ($self, $session_id, $tag) = @_;
+
+  ASSERT_USAGE and do {
+    croak "undefined session ID in refcount_decrement()"
+      unless defined $session_id;
+    croak "undefined reference count tag in refcount_decrement()"
+      unless defined $tag;
+  };
+
   my $session = $self->ID_id_to_session( $session_id );
   if (defined $session) {
 
     # Decrement the tag's count for the session.  If this was the last
     # time the tag's been used for the session, then decrement the
     # session's reference count as well.
+
+    ASSERT_USAGE and do {
+      croak "no such reference count tag in refcount_decrement()"
+        unless exists $kr_sessions{$session}->[SS_EXTRA_REFS]->{$tag};
+    };
 
     my $refcount = --$kr_sessions{$session}->[SS_EXTRA_REFS]->{$tag};
 
@@ -2184,6 +2329,10 @@ sub refcount_decrement {
 sub state {
   my ($self, $state_name, $state_code, $state_alias) = @_;
   $state_alias = $state_name unless defined $state_alias;
+
+  ASSERT_USAGE and do {
+    croak "undefined event name in state()" unless defined $state_name;
+  };
 
   if ( (ref($kr_active_session) ne '') &&
        (ref($kr_active_session) ne 'POE::Kernel')
@@ -3362,6 +3511,12 @@ logic.  It has no effect if POE is using an external event loop.
 
 ASSERT_SESSIONS makes it fatal to send an event to a nonexistent
 session.
+
+=item ASSERT_USAGE
+
+ASSERT_USAGE enables runtime parameter checking in a lot of
+POE::Kernel method calls.  These are disabled by default because they
+impart a hefty performance penalty.
 
 =back
 
