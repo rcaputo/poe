@@ -145,11 +145,18 @@ my $program =
           $heap->{wheel} = POE::Wheel::Run->new
             ( Program     => $program,
               Filter      => POE::Filter::Line->new( Literal => "!" ),
-              StdoutEvent => 'stdout',
-              StderrEvent => 'stderr',
-              ErrorEvent  => 'error',
-              StdinEvent  => 'stdin',
+              StdoutEvent => 'stdout_nonexistent',
+              StderrEvent => 'stderr_nonexistent',
+              ErrorEvent  => 'error_nonexistent',
+              StdinEvent  => 'stdin_nonexistent',
             );
+
+          # Test event changing.
+          $heap->{wheel}->event( StdoutEvent => 'stdout',
+                                 StderrEvent => 'stderr',
+                                 ErrorEvent  => 'error',
+                                 StdinEvent  => 'stdin',
+                               );
 
           # Ask the child for something on stdout.
           $heap->{wheel}->put( 'out test-out' );
@@ -208,11 +215,18 @@ my $coderef_flush_count = 0;
           $heap->{wheel} = POE::Wheel::Run->new
             ( Program     => $program,
               Filter      => POE::Filter::Line->new( Literal => "!" ),
-              StdoutEvent => 'stdout',
-              StderrEvent => 'stderr',
-              ErrorEvent  => 'error',
-              StdinEvent  => 'stdin',
+              StdoutEvent => 'stdout_nonexistent',
+              StderrEvent => 'stderr_nonexistent',
+              ErrorEvent  => 'error_nonexistent',
+              StdinEvent  => 'stdin_nonexistent',
             );
+
+          # Test event changing.
+          $heap->{wheel}->event( StdoutEvent => 'stdout',
+                                 StderrEvent => 'stderr',
+                                 ErrorEvent  => 'error',
+                                 StdinEvent  => 'stdin',
+                               );
 
           # Ask the child for something on stdout.
           $heap->{wheel}->put( 'out test-out' );
@@ -259,11 +273,17 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
           $heap->{wheel} = POE::Wheel::Run->new
             ( Program     => $program,
               Filter      => POE::Filter::Line->new( Literal => "!" ),
-              StdoutEvent => 'stdout',
-              ErrorEvent  => 'error',
-              StdinEvent  => 'stdin',
+              StdoutEvent => 'stdout_nonexistent',
+              ErrorEvent  => 'error_nonexistent',
+              StdinEvent  => 'stdin_nonexistent',
               Conduit     => 'pty',
             );
+
+          # Test event changing.
+          $heap->{wheel}->event( StdoutEvent => 'stdout',
+                                 ErrorEvent  => 'error',
+                                 StdinEvent  => 'stdin',
+                               );
 
           # Ask the child for something on stdout.
           $heap->{wheel}->put( 'out test-out' );

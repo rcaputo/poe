@@ -8,7 +8,7 @@ use lib qw(./lib ../lib);
 use Socket;
 
 use TestSetup;
-&test_setup(8);
+&test_setup(9);
 
 # Turn on all asserts.
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
@@ -35,11 +35,11 @@ sub sss_new {
   my ($socket, $peer_addr, $peer_port) = @_;
   POE::Session->create
     ( inline_states =>
-      { _start     => \&sss_start,
-        _stop      => \&sss_stop,
-        got_error  => \&sss_error,
-        got_block  => \&sss_block,
-        ev_timeout => sub { delete $_[HEAP]->{wheel} },
+      { _start      => \&sss_start,
+        _stop       => \&sss_stop,
+        got_error   => \&sss_error,
+        got_block   => \&sss_block,
+        ev_timeout  => sub { delete $_[HEAP]->{wheel} },
       },
       args => [ $socket, $peer_addr, $peer_port ],
     );
@@ -53,13 +53,19 @@ sub sss_start {
     ( Handle       => $socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 24 ),
       Filter       => POE::Filter::Block->new( BlockSize => 16 ),
-      InputState   => 'got_block',
-      ErrorState   => 'got_error',
+      InputState   => 'got_block_nonexistent',
+      ErrorState   => 'got_error_nonexistent',
     );
+
+  # Test event changing.
+  $heap->{wheel}->event( InputState => 'got_block',
+                         ErrorState => 'got_error',
+                       );
 
   $heap->{test_two} = 1;
   $heap->{wheel_id} = $heap->{wheel}->ID;
-  $heap->{read_count} = 0;
+  $heap->{read_count_1} = 0;
+  $heap->{read_count_2} = 0;
 }
 
 sub sss_block {
@@ -74,6 +80,7 @@ sub sss_error {
 
 sub sss_stop {
   &ok_if(2, $_[HEAP]->{test_two});
+  &ok_if(3, $_[HEAP]->{read_count} == $max_send_count);
 }
 
 ###############################################################################
@@ -85,19 +92,24 @@ sub client_tcp_start {
   $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => '127.0.0.1',
       RemotePort    => $tcp_server_port,
-      SuccessState  => 'got_server',
-      FailureState  => 'got_error',
+      SuccessState  => 'got_server_nonexistent',
+      FailureState  => 'got_error_nonexistent',
     );
+
+  # Test event changing.
+  $heap->{wheel}->event( SuccessState => 'got_server',
+                         FailureState => 'got_error',
+                       );
 
   $heap->{socketfactory_wheel_id} = $heap->{wheel}->ID;
   $heap->{test_three} = 1;
 }
 
 sub client_tcp_stop {
-  &ok_if(3, $_[HEAP]->{test_three});
-  &ok_if(4, $_[HEAP]->{put_count} == $max_send_count);
-  &ok_if(5, $_[HEAP]->{flush_count} == $_[HEAP]->{put_count} / 2);
-  &ok_if(6, $_[HEAP]->{test_six});
+  &ok_if(4, $_[HEAP]->{test_three});
+  &ok_if(5, $_[HEAP]->{put_count} == $max_send_count);
+  &ok_if(6, $_[HEAP]->{flush_count} == $_[HEAP]->{put_count} / 2);
+  &ok_if(7, $_[HEAP]->{test_six});
 }
 
 sub client_tcp_connected {
@@ -108,9 +120,14 @@ sub client_tcp_connected {
     ( Handle       => $server_socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 32 ),
       Filter       => POE::Filter::Block->new( BlockSize => 16 ),
-      ErrorState   => 'got_error',
-      FlushedState => 'got_flush',
+      ErrorState   => 'got_error_nonexistent',
+      FlushedState => 'got_flush_nonexistent',
     );
+
+  # Test event changing.
+  $heap->{wheel}->event( ErrorState   => 'got_error',
+                         FlushedState => 'got_flush',
+                       );
 
   $heap->{test_six} = 1;
   $heap->{readwrite_wheel_id} = $heap->{wheel}->ID;
@@ -165,7 +182,7 @@ POE::Component::Server::TCP->new
 
                       my ($port, $addr) = sockaddr_in($sockname);
                       $addr = inet_ntoa($addr);
-                      &ok_if( 7,
+                      &ok_if( 8,
                               ($addr eq '0.0.0.0') &&
                               ($port == $tcp_server_port)
                             )
@@ -187,7 +204,7 @@ POE::Session->create
 
 $poe_kernel->run();
 
-&ok(8);
+&ok(9);
 &results;
 
 exit;

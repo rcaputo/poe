@@ -36,9 +36,13 @@ sub listener_start {
 
   $heap->{listener_wheel} = POE::Wheel::ListenAccept->new
     ( Handle      => $listening_socket,
-      AcceptState => 'got_connection',
-      ErrorState  => 'got_error'
+      AcceptState => 'got_connection_nonexistent',
+      ErrorState  => 'got_error_nonexistent'
     );
+
+  $heap->{listener_wheel}->event( AcceptState => 'got_connection',
+                                  ErrorState  => 'got_error'
+                                );
 
   $heap->{accept_count} = 0;
   $_[KERNEL]->delay( got_timeout => 15 );
