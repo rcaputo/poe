@@ -243,22 +243,23 @@ print "ok 19\n";
 { my $warnings = 0;
   local $SIG{__WARN__} = sub { $warnings++; };
 
-  # Odd parameters.
-  stderr_pause();
-  POE::Wheel::SocketFactory->new
-    ( SuccessEvent => [ ],
-      FailureEvent => [ ],
-    );
-  stderr_resume();
-
-  print "not " unless $warnings == 2;
-  print "ok 21\n";
-
   # Grar!  No UNIX sockets on Windows.
   if ($^O eq 'MSWin32') {
+    print "ok 21 # skipped: Windows won't listen on unbound sockets\n";
     print "ok 22 # skipped: Windows doesn't seem to UNIX sockets\n";
   }
   else {
+    # Odd parameters.
+    stderr_pause();
+    POE::Wheel::SocketFactory->new
+      ( SuccessEvent => [ ],
+        FailureEvent => [ ],
+      );
+    stderr_resume();
+
+    print "not " unless $warnings == 2;
+    print "ok 21\n";
+
     # Any protocol on UNIX sockets.
     $warnings = 0;
     stderr_pause();
