@@ -9,7 +9,7 @@
 # 2001-07-27 RCC: This filter will not support the newer get_one()
 # interface.  It gets single things by default, and it does not
 # support filter switching.  If someone absolutely needs to switch to
-# and from HTTPD filters, they should say so on POE's mailing list.
+# and from HTTPD filters, they should submit their request as a patch.
 
 package POE::Filter::HTTPD;
 use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
@@ -33,10 +33,11 @@ my $HTTP_1_1 = _http_version("HTTP/1.1");
 
 sub new {
   my $type = shift;
-  my $self = { type   => 0,
-               buffer => '',
-               finish => 0,
-             };
+  my $self = {
+    type   => 0,
+    buffer => '',
+    finish => 0,
+  };
   bless $self, $type;
   $self;
 }
@@ -77,12 +78,13 @@ sub get {
       $offset += 16;
     }
 
-    return [ $self->build_error
-             ( RC_BAD_REQUEST,
-               "Did not want any more data.  Got this:" .
-               "<p><pre>" . join("", @dump) . "</pre></p>"
-             )
-           ];
+    return [
+      $self->build_error(
+        RC_BAD_REQUEST,
+        "Did not want any more data.  Got this:" .
+        "<p><pre>" . join("", @dump) . "</pre></p>"
+      )
+    ];
   }
 
   # Accumulate data in a framing buffer.
@@ -122,7 +124,9 @@ sub get {
   # Parse the request line.
 
   if ($buf !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
-    return [ $self->build_error(RC_BAD_REQUEST, "Request line parse failure.") ];
+    return [
+      $self->build_error(RC_BAD_REQUEST, "Request line parse failure.")
+    ];
   }
   my $proto = $3 || "HTTP/0.9";
 
@@ -144,9 +148,11 @@ sub get {
       if (/^([\w\-~]+)\s*:\s*(.*)/) {
         $r->push_header($key, $val) if $key;
         ($key, $val) = ($1, $2);
-      } elsif (/^\s+(.*)/) {
+      }
+      elsif (/^\s+(.*)/) {
         $val .= " $1";
-      } else {
+      }
+      else {
         last HEADER;
       }
     }
@@ -161,6 +167,8 @@ sub get {
   my $method = $r->method();
   if ($method eq 'GET' or $method eq 'HEAD') {
     $self->{finish}++;
+    # We are sending this back, so won't need it anymore.
+    delete $self->{header};
     return [$r];
   }
 
@@ -176,21 +184,37 @@ sub get {
 
     my $cl = $r->content_length();
     unless(defined $cl) {
-        if($self->{'httpd_client_proto'} == 9) {
-            return [ $self->build_error(RC_BAD_REQUEST,  "POST request detected in an HTTP 0.9 transaction. POST is not a valid HTTP 0.9 transaction type. Please verify your HTTP version and transaction content.") ];
-
-        } else { 
-            return [ $self->build_error(RC_LENGTH_REQUIRED, 
-                        "No content length found.") ];
-        }
+      if($self->{'httpd_client_proto'} == 9) {
+        return [
+          $self->build_error(
+            RC_BAD_REQUEST,
+            "POST request detected in an HTTP 0.9 transaction. " .
+            "POST is not a valid HTTP 0.9 transaction type. " .
+            "Please verify your HTTP version and transaction content."
+          )
+        ];
+      }
+      else {
+        return [
+          $self->build_error(RC_LENGTH_REQUIRED, "No content length found.")
+        ];
+      }
     }
-        
-    return [ $self->build_error(RC_BAD_REQUEST, "Content length contains non-digits.") ] 
-        unless $cl =~ /^\d+$/;
+
+    unless ($cl =~ /^\d+$/) {
+      return [
+        $self->build_error(
+          RC_BAD_REQUEST,
+          "Content length contains non-digits."
+        )
+      ]
+    }
 
     if (length($buf) >= $cl) {
       $r->content($buf);
       $self->{finish}++;
+      # We are sending this back, so won't need it anymore.
+      delete $self->{header};
       return [$r];
     }
   }
@@ -229,6 +253,9 @@ sub put {
 
     push @raw, join("\x0D\x0A", @headers, "") . $_->content;
   }
+
+  # Allow next request after we're done sending the response.
+  $self->{finish}--;
 
   \@raw;
 }
@@ -281,21 +308,20 @@ sub build_error {
   $details ||= '';
   my $message = status_message($status) || "Unknown Error";
 
-  return
-    $self->build_basic_response
-      ( ( "<html>" .
-          "<head>" .
-          "<title>Error $status: $message</title>" .
-          "</head>" .
-          "<body>" .
-          "<h1>Error $status: $message</h1>" .
-          "<p>$details</p>" .
-          "</body>" .
-          "</html>"
-        ),
-        "text/html",
-        $status
-      );
+  return $self->build_basic_response(
+    ( "<html>" .
+      "<head>" .
+      "<title>Error $status: $message</title>" .
+      "</head>" .
+      "<body>" .
+      "<h1>Error $status: $message</h1>" .
+      "<p>$details</p>" .
+      "</body>" .
+      "</html>"
+    ),
+    "text/html",
+    $status
+  );
 }
 
 ###############################################################################
@@ -357,20 +383,20 @@ example, the following code (taken almost verbatim from the
 HTTP::Request::Common documentation) will cause an error in a Filter::HTTPD
 daemon:
 
-    use HTTP::Request::Common;
-    use LWP::UserAgent;
+  use HTTP::Request::Common;
+  use LWP::UserAgent;
 
-    my $ua = LWP::UserAgent->new();
-    $ua->request(POST 'http://some/poe/driven/site', [ foo => 'bar' ]);
+  my $ua = LWP::UserAgent->new();
+  $ua->request(POST 'http://some/poe/driven/site', [ foo => 'bar' ]);
 
 By default, HTTP::Request is HTTP version agnostic. It makes no attempt to add
 an HTTP version header unless you specifically declare a protocol using
-C<< $request->protocol('HTTP/1.0') >>. 
+C<< $request->protocol('HTTP/1.0') >>.
 
 According to the HTTP 1.0 RFC (1945), when faced with no HTTP version header,
 the parser is to default to HTTP/0.9. Filter::HTTPD follows this convention. In
 the transaction detailed above, the Filter::HTTPD based daemon will return a 400
-error since POST is not a valid HTTP/0.9 request type.  
+error since POST is not a valid HTTP/0.9 request type.
 
 =head1 Streaming Media
 
