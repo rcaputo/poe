@@ -87,11 +87,10 @@ Test Results
 ------------
 
 Note on test results: Some of the tests, like Tk's and Gtk's, are
-interactive, if only to place a window.  Some of the tests have delays
-in them to make sure signals are caught.  These delays can cause the
-test times to vary widely, so times aren't included in the results.
+interactive, if only to place a window.  Times aren't included because
+some tests delay for robustness and X window toolkits.
 
-** POE 0.12 on OS/2
+** POE 0.1201 on OS/2
 
 Hardware: Cyrix P166+; 64MB RAM
 System  : OS/2 4.0, Fix 13
@@ -101,9 +100,9 @@ Tk      : (not installed)
 Event   : (not installed)
 
   All tests successful, 4 tests skipped.
-  Files=22, Tests=398
+  Files=22, Tests=388
 
-** POE 0.12 on FreeBSD
+** POE 0.1201 on FreeBSD
 
 Hardware: AMD 486-40; 16MB RAM
 System  : FreeBSD 4.0-STABLE
@@ -113,9 +112,9 @@ Tk      : 800.021
 Event   : 0.79
 
   All tests successful.
-  Files=22, Tests=423
+  Files=22, Tests=413
 
-** POE 0.12 on Linux
+** POE 0.1201 on Linux
 
 Hardware: dual Celeron 500; 265MB RAM
 System  : Linux 2.2.15 SMP
@@ -125,7 +124,7 @@ Tk      : (not installed)
 Event   : 0.79
 
   All tests successful, 2 tests skipped.
-  Files=22, Tests=407
+  Files=22, Tests=397
 
 These coverage results are for POE 0.1111 on the FreeBSD machine.
 This machine more thoroughly tests different POE options, so the
