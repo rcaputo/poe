@@ -108,34 +108,35 @@ sub new {
     croak "Water mark errors" if $mark_errors;
   }
 
-  my $self = bless
-    [ $in_handle,                       # HANDLE_INPUT
-      $out_handle,                      # HANDLE_OUTPUT
-      $in_filter,                       # FILTER_INPUT
-      $out_filter,                      # FILTER_OUTPUT
-      $driver,                          # DRIVER_BOTH
-      delete $params{InputEvent},       # EVENT_INPUT
-      delete $params{ErrorEvent},       # EVENT_ERROR
-      delete $params{FlushedEvent},     # EVENT_FLUSHED
-      # Water marks.
-      delete $params{HighMark},         # WATERMARK_WRITE_MARK_HIGH
-      delete $params{LowMark},          # WATERMARK_WRITE_MARK_LOW
-      delete $params{HighEvent},        # WATERMARK_WRITE_EVENT_HIGH
-      delete $params{LowEvent},         # WATERMARK_WRITE_EVENT_LOW
-      0,                                # WATERMARK_WRITE_STATE
-      # Driver statistics.
-      0,                                # DRIVER_BUFFERED_OUT_OCTETS
-      # Dynamic state names.
-      undef,                            # STATE_WRITE
-      undef,                            # STATE_READ
-      # Unique ID.
-      &POE::Wheel::allocate_wheel_id(), # UNIQUE_ID
-    ], $type;
+  my $self = bless [
+    $in_handle,                       # HANDLE_INPUT
+    $out_handle,                      # HANDLE_OUTPUT
+    $in_filter,                       # FILTER_INPUT
+    $out_filter,                      # FILTER_OUTPUT
+    $driver,                          # DRIVER_BOTH
+    delete $params{InputEvent},       # EVENT_INPUT
+    delete $params{ErrorEvent},       # EVENT_ERROR
+    delete $params{FlushedEvent},     # EVENT_FLUSHED
+    # Water marks.
+    delete $params{HighMark},         # WATERMARK_WRITE_MARK_HIGH
+    delete $params{LowMark},          # WATERMARK_WRITE_MARK_LOW
+    delete $params{HighEvent},        # WATERMARK_WRITE_EVENT_HIGH
+    delete $params{LowEvent},         # WATERMARK_WRITE_EVENT_LOW
+    0,                                # WATERMARK_WRITE_STATE
+    # Driver statistics.
+    0,                                # DRIVER_BUFFERED_OUT_OCTETS
+    # Dynamic state names.
+    undef,                            # STATE_WRITE
+    undef,                            # STATE_READ
+    # Unique ID.
+    &POE::Wheel::allocate_wheel_id(), # UNIQUE_ID
+  ], $type;
 
   if (scalar keys %params) {
-    carp( "unknown parameters in $type constructor call: ",
-          join(', ', keys %params)
-        );
+    carp(
+      "unknown parameters in $type constructor call: ",
+      join(', ', keys %params)
+    );
   }
 
   $self->_define_read_state();
@@ -170,61 +171,62 @@ sub _define_write_state {
 
   # Register the select-write handler.
 
-  $poe_kernel->state
-    ( $self->[STATE_WRITE] = ref($self) . "($unique_id) -> select write",
-      sub {                             # prevents SEGV
-        0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
-        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+  $poe_kernel->state(
+    $self->[STATE_WRITE] = ref($self) . "($unique_id) -> select write",
+    sub {                             # prevents SEGV
+      0 && CRIMSON_SCOPE_HACK('<');
+                                      # subroutine starts here
+      my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-        $$driver_buffered_out_octets = $driver->flush($handle);
+      $$driver_buffered_out_octets = $driver->flush($handle);
 
-        # When you can't write, nothing else matters.
-        if ($!) {
-          $$event_error && $k->call( $me, $$event_error,
-                                     'write', ($!+0), $!, $unique_id
-                                   );
-          $k->select_write($handle);
-        }
+      # When you can't write, nothing else matters.
+      if ($!) {
+        $$event_error && $k->call(
+          $me, $$event_error, 'write', ($!+0), $!, $unique_id
+        );
+        $k->select_write($handle);
+      }
 
-        # Could write, or perhaps couldn't but only because the
-        # filehandle's buffer is choked.
-        else {
+      # Could write, or perhaps couldn't but only because the
+      # filehandle's buffer is choked.
+      else {
 
-          # In high water state?  Check for low water.  High water
-          # state will never be set if $event_low is undef, so don't
-          # bother checking its definedness here.
-          if ($$is_in_high_water_state) {
-            if ( $$driver_buffered_out_octets <= $low_mark ) {
-              $$is_in_high_water_state = 0;
-              $k->call( $me, $$event_low, $unique_id ) if defined $$event_low;
-            }
-          }
-
-          # Not in high water state.  Check for high water.  Needs to
-          # also check definedness of $$driver_buffered_out_octets.
-          # Although we know this ahead of time and could probably
-          # optimize it away with a second state definition, it would
-          # be best to wait until ReadWrite stabilizes.  That way
-          # there will be only half as much code to maintain.
-          elsif ( $high_mark and
-                  ( $$driver_buffered_out_octets >= $high_mark )
-                ) {
-            $$is_in_high_water_state = 1;
-            $k->call( $me, $$event_high, $unique_id ) if defined $$event_high;
+        # In high water state?  Check for low water.  High water
+        # state will never be set if $event_low is undef, so don't
+        # bother checking its definedness here.
+        if ($$is_in_high_water_state) {
+          if ( $$driver_buffered_out_octets <= $low_mark ) {
+            $$is_in_high_water_state = 0;
+            $k->call( $me, $$event_low, $unique_id ) if defined $$event_low;
           }
         }
 
-        # All chunks written; fire off a "flushed" event.  This
-        # occurs independently, so it's possible to get a low-water
-        # call and a flushed call at the same time (if the low mark
-        # is 1).
-        unless ($$driver_buffered_out_octets) {
-          $k->select_pause_write($handle);
-          $$event_flushed && $k->call($me, $$event_flushed, $unique_id);
+        # Not in high water state.  Check for high water.  Needs to
+        # also check definedness of $$driver_buffered_out_octets.
+        # Although we know this ahead of time and could probably
+        # optimize it away with a second state definition, it would
+        # be best to wait until ReadWrite stabilizes.  That way
+        # there will be only half as much code to maintain.
+        elsif (
+          $high_mark and
+          ( $$driver_buffered_out_octets >= $high_mark )
+        ) {
+          $$is_in_high_water_state = 1;
+          $k->call( $me, $$event_high, $unique_id ) if defined $$event_high;
         }
       }
-   );
+
+      # All chunks written; fire off a "flushed" event.  This
+      # occurs independently, so it's possible to get a low-water
+      # call and a flushed call at the same time (if the low mark
+      # is 1).
+      unless ($$driver_buffered_out_octets) {
+        $k->select_pause_write($handle);
+        $$event_flushed && $k->call($me, $$event_flushed, $unique_id);
+      }
+    }
+ );
 
   $poe_kernel->select_write($self->[HANDLE_OUTPUT], $self->[STATE_WRITE]);
 
@@ -256,62 +258,65 @@ sub _define_read_state {
     # If the filter can get_one, then define the input state in terms
     # of get_one_start() and get_one().
 
-    if ( $$input_filter->can('get_one') and
-         $$input_filter->can('get_one_start')
-       ) {
-      $poe_kernel->state
-        ( $self->[STATE_READ] = ref($self) . "($unique_id) -> select read",
-          sub {
+    if (
+      $$input_filter->can('get_one') and
+      $$input_filter->can('get_one_start')
+    ) {
+      $poe_kernel->state(
+        $self->[STATE_READ] = ref($self) . "($unique_id) -> select read",
+        sub {
 
-            # Protects against coredump on older perls.
-            0 && CRIMSON_SCOPE_HACK('<');
+          # Protects against coredump on older perls.
+          0 && CRIMSON_SCOPE_HACK('<');
 
-            # The actual code starts here.
-            my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-            if (defined(my $raw_input = $driver->get($handle))) {
-              $$input_filter->get_one_start($raw_input);
-              while (1) {
-                my $next_rec = $$input_filter->get_one();
-                last unless @$next_rec;
-                foreach my $cooked_input (@$next_rec) {
-                  $k->call($me, $$event_input, $cooked_input, $unique_id);
-                }
+          # The actual code starts here.
+          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+          if (defined(my $raw_input = $driver->get($handle))) {
+            $$input_filter->get_one_start($raw_input);
+            while (1) {
+              my $next_rec = $$input_filter->get_one();
+              last unless @$next_rec;
+              foreach my $cooked_input (@$next_rec) {
+                $k->call($me, $$event_input, $cooked_input, $unique_id);
               }
             }
-            else {
-              $$event_error and
-                $k->call( $me, $$event_error, 'read', ($!+0), $!, $unique_id );
-              $k->select_read($handle);
-            }
           }
-        );
+          else {
+            $$event_error and $k->call(
+              $me, $$event_error, 'read', ($!+0), $!, $unique_id
+            );
+            $k->select_read($handle);
+          }
+        }
+      );
     }
 
     # Otherwise define the input state in terms of the older, less
     # robust, yet faster get().
 
     else {
-      $poe_kernel->state
-        ( $self->[STATE_READ] = ref($self) . "($unique_id) -> select read",
-          sub {
+      $poe_kernel->state(
+        $self->[STATE_READ] = ref($self) . "($unique_id) -> select read",
+        sub {
 
-            # Protects against coredump on older perls.
-            0 && CRIMSON_SCOPE_HACK('<');
+          # Protects against coredump on older perls.
+          0 && CRIMSON_SCOPE_HACK('<');
 
-            # The actual code starts here.
-            my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-            if (defined(my $raw_input = $driver->get($handle))) {
-              foreach my $cooked_input (@{$$input_filter->get($raw_input)}) {
-                $k->call($me, $$event_input, $cooked_input, $unique_id);
-              }
-            }
-            else {
-              $$event_error and
-                $k->call( $me, $$event_error, 'read', ($!+0), $!, $unique_id );
-              $k->select_read($handle);
+          # The actual code starts here.
+          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+          if (defined(my $raw_input = $driver->get($handle))) {
+            foreach my $cooked_input (@{$$input_filter->get($raw_input)}) {
+              $k->call($me, $$event_input, $cooked_input, $unique_id);
             }
           }
-        );
+          else {
+            $$event_error and $k->call(
+              $me, $$event_error, 'read', ($!+0), $!, $unique_id
+            );
+            $k->select_read($handle);
+          }
+        }
+      );
     }
                                         # register the state's select
     $poe_kernel->select_read($self->[HANDLE_INPUT], $self->[STATE_READ]);
@@ -439,19 +444,21 @@ sub _transfer_input_buffer {
   my $old_input_filter = $self->[FILTER_INPUT];
 
   # If the new filter implements "get_one", use that.
-  if ( $old_input_filter->can('get_one') and
-       $old_input_filter->can('get_one_start')
-     ) {
+  if (
+    $old_input_filter->can('get_one') and
+    $old_input_filter->can('get_one_start')
+  ) {
     if (defined $buf) {
       $self->[FILTER_INPUT]->get_one_start($buf);
       while ($self->[FILTER_INPUT] == $old_input_filter) {
         my $next_rec = $self->[FILTER_INPUT]->get_one();
         last unless @$next_rec;
         foreach my $cooked_input (@$next_rec) {
-          $poe_kernel->call( $poe_kernel->get_active_session(),
-                             $self->[EVENT_INPUT],
-                             $cooked_input, $self->[UNIQUE_ID]
-                           );
+          $poe_kernel->call(
+            $poe_kernel->get_active_session(),
+            $self->[EVENT_INPUT],
+            $cooked_input, $self->[UNIQUE_ID]
+          );
         }
       }
     }
@@ -461,10 +468,11 @@ sub _transfer_input_buffer {
   else {
     if (defined $buf) {
       foreach my $cooked_input (@{$self->[FILTER_INPUT]->get($buf)}) {
-        $poe_kernel->call( $poe_kernel->get_active_session(),
-                           $self->[EVENT_INPUT],
-                           $cooked_input, $self->[UNIQUE_ID]
-                         );
+        $poe_kernel->call(
+          $poe_kernel->get_active_session(),
+          $self->[EVENT_INPUT],
+          $cooked_input, $self->[UNIQUE_ID]
+        );
       }
     }
   }
@@ -516,49 +524,51 @@ sub get_output_filter {
 
 sub set_high_mark {
   my ($self, $new_high_mark) = @_;
-  if (defined $self->[WATERMARK_WRITE_MARK_HIGH]) {
-    if (defined $new_high_mark) {
-      if ($new_high_mark > $self->[WATERMARK_WRITE_MARK_LOW]) {
-        $self->[WATERMARK_WRITE_MARK_HIGH] = $new_high_mark;
-        $self->_define_write_state();
-      }
-      else {
-        carp "New high mark would not be greater than low mark.  Ignored";
-      }
-    }
-    else {
-      carp "New high mark is undefined.  Ignored";
-    }
-  }
-  else {
+
+  unless (defined $self->[WATERMARK_WRITE_MARK_HIGH]) {
     carp "Ignoring high mark (must be initialized in constructor first)";
+    return;
   }
+
+  unless (defined $new_high_mark) {
+    carp "New high mark is undefined.  Ignored";
+    return;
+  }
+
+  unless ($new_high_mark > $self->[WATERMARK_WRITE_MARK_LOW]) {
+    carp "New high mark would not be greater than low mark.  Ignored";
+    return;
+  }
+
+  $self->[WATERMARK_WRITE_MARK_HIGH] = $new_high_mark;
+  $self->_define_write_state();
 }
 
 sub set_low_mark {
   my ($self, $new_low_mark) = @_;
-  if (defined $self->[WATERMARK_WRITE_MARK_LOW]) {
-    if (defined $new_low_mark) {
-      if ($new_low_mark > 0) {
-        if ($new_low_mark < $self->[WATERMARK_WRITE_MARK_HIGH]) {
-          $self->[WATERMARK_WRITE_MARK_LOW] = $new_low_mark;
-          $self->_define_write_state();
-        }
-        else {
-          carp "New low mark would not be less than high high mark.  Ignored";
-        }
-      }
-      else {
-        carp "New low mark would be less than one.  Ignored";
-      }
-    }
-    else {
-      carp "New low mark is undefined.  Ignored";
-    }
-  }
-  else {
+
+  unless (defined $self->[WATERMARK_WRITE_MARK_LOW]) {
     carp "Ignoring low mark (must be initialized in constructor first)";
+    return;
   }
+
+  unless (defined $new_low_mark) {
+    carp "New low mark is undefined.  Ignored";
+    return;
+  }
+
+  unless ($new_low_mark > 0) {
+    carp "New low mark would be less than one.  Ignored";
+    return;
+  }
+
+  unless ($new_low_mark < $self->[WATERMARK_WRITE_MARK_HIGH]) {
+    carp "New low mark would not be less than high high mark.  Ignored";
+    return;
+  }
+
+  $self->[WATERMARK_WRITE_MARK_LOW] = $new_low_mark;
+  $self->_define_write_state();
 }
 
 # Return driver statistics.
