@@ -1010,10 +1010,11 @@ sub _dispatch_event {
   } # include
 
   # Post-dispatch processing.  This is a user event (but not a call),
-  # so garbage collect it.
+  # so garbage collect it.  Also garbage collect the sender.
 
   if ($type & ET_USER) {
     {% collect_garbage $session %}
+    {% collect_garbage $source_session %}
   }
 
   # A new session has started.  Tell its parent.  Incidental _start
@@ -3054,8 +3055,9 @@ sub refcount_decrement {
               $kr_sessions{$session}->[SS_REFCOUNT]
             );
       } # include
-
     }
+
+    {% collect_garbage $session %}
 
     return $refcount;
   }
