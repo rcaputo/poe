@@ -10,7 +10,6 @@ $VERSION = (qw($Revision$ ))[1];
 use Carp;
 use Symbol;
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END);
-use Fcntl qw(:mode);
 use POE qw(Wheel Driver::SysRW Filter::Line);
 use IO::Handle;
 
