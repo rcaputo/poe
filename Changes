@@ -2,29 +2,39 @@ $Id$
 
 Revision history for Perl extension POE.
 
-0.01  1998.08.15
+*** 0.03  1998.11.23
 
-  - Initial release.  Implemented Kernel, Session, Wheel, Driver,
-  Filter.
+- Added new constructor syntax to POE::Session.  It's now possible to
+say: new POE::Session($kernel, $object, \@methods).  See
+tests/objsession.perl for an example.
 
-0.02  1998.11.22
+- Rearranged Changes so the most recent ones come first.
 
-  - Rewrote signals.  Signals now propagate from parent to child
-  sessions.  "Terminal" signals now only kill sessions that don't
-  otherwise handle them.
 
-  - Allowed subsecond resolution in Kernel.pm if Time::HiRes is
-  available.  See the docs for POE::Kernel::alarm().
+*** 0.02  1998.11.22
 
-  - Added POE::Kernel::delay() for "time() + $seconds" alarms.  Uses
-  Kernel's time(), which may be from Time::HiRes.
+- Rewrote signals.  Signals now propagate from parent to child
+sessions.  "Terminal" signals now only kill sessions that don't
+otherwise handle them.
 
-  - Parent sessions will now wait around until all child sessions
-  finish, unless they're explicitly killed off.
+- Allowed subsecond resolution in Kernel.pm if Time::HiRes is
+available.  See the docs for POE::Kernel::alarm().
 
-  - Fixed a blessing bleed that caused implicitly returned objects to
-  die in the wrong scope (confounding resource management).
+- Added POE::Kernel::delay() for "time() + $seconds" alarms.  Uses
+Kernel's time(), which may be from Time::HiRes.
 
-  - Added tests/proxy.perl, a simple line-based proxy example.
+- Parent sessions will now wait around until all child sessions
+finish, unless they're explicitly killed off.
+
+- Fixed a blessing bleed that caused implicitly returned objects to
+die in the wrong scope (confounding resource management).
+
+- Added tests/proxy.perl, a simple line-based proxy example.
+
+
+*** 0.01  1998.08.15
+
+- Initial release.  Implemented Kernel, Session, Wheel, Driver,
+Filter.
 
 -EOF-
