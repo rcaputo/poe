@@ -116,7 +116,7 @@ sub server_start {
 # consider it a destructor.  Or and about-to-be-destructed thing.
 
 sub server_stop {
-  
+
   # Log the server's stopping...
 
   print "SERVER: stopped.\n";
@@ -309,7 +309,7 @@ sub chat_stop {
     print "CLIENT: $connected_sessions{$session}->[1] disconnected.\n";
 
     # And say goodbye to everyone else.
-      
+
     &say($kernel, $session, '[has left chat]');
     delete $connected_sessions{$session};
   }

@@ -95,7 +95,7 @@ sub attribute_store {
 }
 
 #------------------------------------------------------------------------------
-# Compile an attribute.
+# Compile an attribute.  This is a no-op if the attribute is a coderef.
 #
 # ($status, $retval) = $repository->attribute_compile($id, $att_name, $code);
 #
@@ -109,20 +109,29 @@ sub attribute_compile {
   my ($self, $id, $attribute, $code) = @_;
   my @errors;
 
-  # -><- code cache here
-
-  $code =~ s/\s+\n/\n/gs;
-  $code =~ s/(^|\n)\s+/ /sg;
-
-  my $full_method = $method_preamble . $code . $method_postamble;
-  my $coderef = eval($full_method);
-
-  if ($@) {
-    push @errors, $@;
-    return (ENOEXEC, \@errors);
+  # The code is a coderef; there's nothing to compile.
+  if (ref($code) eq 'CODE') {
+    return (0, $code);
   }
 
-  return (0, $coderef);
+  # On the other hand, it could be almost anything.  Pretend we expect
+  # it to be text, and treat it as some code.
+  else {
+    # -><- code cache here
+
+    $code =~ s/\s+\n/\n/gs;
+    $code =~ s/(^|\n)\s+/ /sg;
+
+    my $full_method = $method_preamble . $code . $method_postamble;
+    my $coderef = eval($full_method);
+
+    if ($@) {
+      push @errors, $@;
+      return (ENOEXEC, \@errors);
+    }
+
+    return (0, $coderef);
+  }
 }
 
 #------------------------------------------------------------------------------

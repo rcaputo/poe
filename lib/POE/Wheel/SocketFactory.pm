@@ -74,6 +74,11 @@ sub condition_unix_address {
 sub _define_accept_state {
   my $self = shift;
 
+  my $domain = $map_family_to_domain{ $self->{socket_domain} };
+  $domain = '(undef)' unless defined $domain;
+  my $success_state = $self->{state_success};
+  my $failure_state = $self->{state_failure};
+
   $poe_kernel->state
     ( $self->{state_accept} = $self . ' -> select accept',
       sub {
@@ -88,26 +93,20 @@ sub _define_accept_state {
 
         if ($peer) {
           my ($peer_addr, $peer_port);
-          if ( ($self->{socket_domain} == AF_UNIX) ||
-               ($self->{socket_domain} == PF_UNIX)
-          ) {
+          if ( $domain eq DOM_UNIX ) {
             $peer_addr = $peer_port = undef;
           }
-          elsif ( ($self->{socket_domain} == AF_INET) ||
-                  ($self->{socket_domain} == PF_INET)
-          ) {
+          elsif ( $domain eq DOM_INET ) {
             ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
           }
           else {
-            die "sanity failure: socket domain == $self->{socket_domain}";
+            die "sanity failure: socket domain == $domain";
           }
-          $k->call($me, $self->{state_success},
-                   $new_socket, $peer_addr, $peer_port
-                  );
+          $k->call( $me, $success_state, $new_socket, $peer_addr, $peer_port );
         }
         elsif ($! != EWOULDBLOCK) {
-          $self->{state_failure} &&
-            $k->call($me, $self->{state_failure}, 'accept', ($!+0), $!);
+          $failure_state &&
+            $k->call($me, $failure_state, 'accept', ($!+0), $!);
         }
       }
     );
@@ -121,6 +120,11 @@ sub _define_accept_state {
 
 sub _define_connect_state {
   my $self = shift;
+
+  my $domain = $map_family_to_domain{ $self->{socket_domain} };
+  $domain = '(undef)' unless defined $domain;
+  my $success_state = $self->{state_success};
+  my $failure_state = $self->{state_failure};
 
   $poe_kernel->state
     ( $self->{state_connect} = $self . ' -> select connect',
@@ -137,8 +141,8 @@ sub _define_connect_state {
 
         # There is an error.
         if ($!) {
-          (defined $self->{state_failure}) and
-            $k->call($me, $self->{state_failure}, 'connect', ($!+0), $!);
+          (defined $failure_state) and
+            $k->call($me, $failure_state, 'connect', ($!+0), $!);
         }
 
         # No error; this is a successful connection.
@@ -146,23 +150,17 @@ sub _define_connect_state {
           my $peer = getpeername($handle);
           my ($peer_addr, $peer_port);
 
-          if ( ($self->{socket_domain} == AF_UNIX) ||
-               ($self->{socket_domain} == PF_UNIX)
-             ) {
+          if ($domain eq DOM_UNIX) {
             $peer_addr = unpack_sockaddr_un($peer);
             $peer_port = undef;
           }
-          elsif ( ($self->{socket_domain} == AF_INET) ||
-                  ($self->{socket_domain} == PF_INET)
-                ) {
+          elsif ($domain eq DOM_INET) {
             ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
           }
           else {
-            die "sanity failure: socket domain == $self->{socket_domain}";
+            die "sanity failure: socket domain == $domain";
           }
-          $k->call( $me, $self->{state_success},
-                    $handle, $peer_addr, $peer_port
-                  );
+          $k->call( $me, $success_state, $handle, $peer_addr, $peer_port );
         }
       }
     );
