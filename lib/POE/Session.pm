@@ -397,6 +397,11 @@ of their creation, sessions register themselves with the process'
 Kernel instance.  The kernel will keep track of their resources, and
 perform garbage collection at appropriate times.
 
+=head1 EXPORTED CONSTANTS
+
+POE::Session exports constants for states' parameters.  The constants
+are discussed down in the STATE PARAMETERS section.
+
 =head1 PUBLIC METHODS
 
 =over 4

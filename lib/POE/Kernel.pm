@@ -1265,6 +1265,16 @@ and it's created automatically the first time POE::Kernel is used.
 This simplifies signal delivery in the present and threads support in
 the future.
 
+=head1 EXPORTED SYMBOLS
+
+POE::Kernel exports $poe_kernel, a reference to the program's single
+kernel instance.  This mainly is used in the main package, so that
+$poe_kernel->run() may be called cleanly.
+
+Sessions' states should endeavor to use $_[KERNEL], since $poe_kernel
+may not be available, or it may be different than the kernel actually
+invoking the object.
+
 =head1 PUBLIC KERNEL METHODS
 
 POE::Kernel contains methods to manage the kernel itself, sessions,
