@@ -68,7 +68,7 @@ sub get {
       $hexdump =~ s/(..)/$1 /g;
 
       $line =~ tr[ -~][.]c;
-      push @dump, sprintf( "%x %s- %s\n", $offset, $hexdump, $line );
+      push @dump, sprintf( "%04x %s- %s\n", $offset, $hexdump, $line );
       $offset += 16;
     }
 
