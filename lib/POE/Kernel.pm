@@ -38,21 +38,21 @@ macro ses_leak_hash (<field>) {
 
 macro kernel_leak_hash (<field>) {
   if (my $leaked = keys %{$self->[<field>]}) {
-    warn "*** KERNEL LEAK: <field> = $leaked\a\n";
+    warn "*** KERNEL HASH LEAK: <field> = $leaked\a\n";
   }
 }
 
 macro kernel_leak_vec (<field>) {
   { my $bits = unpack('b*', $self->[KR_VECTORS]->[<field>]);
     if (index($bits, '1') >= 0) {
-      warn "*** KERNEL LEAK: KR_VECTORS/<field> = $bits\a\n";
+      warn "*** KERNEL VECTOR LEAK: <field> = $bits\a\n";
     }
   }
 }
 
 macro kernel_leak_array (<field>) {
   if (my $leaked = @{$self->[<field>]}) {
-    warn "*** KERNEL LEAK: <field> = $leaked\a\n";
+    warn "*** KERNEL ARRAY LEAK: <field> = $leaked\a\n";
   }
 }
 
@@ -464,10 +464,10 @@ const FIFO_DISPATCH_TIME 0.01
 #     $evcnt,       # event count
 #     $parent,      # parent session
 #     { $child => $child, ... },
-#     { $handle =>
-#       [ $hdl,
-#         $rcnt,
-#         [ $r,$w,$e ]
+#     { $fileno =>
+#       [ $handle,
+#         $refcount,
+#         [ $r, $w, $e ]
 #       ],
 #       ...
 #     },
@@ -2377,19 +2377,19 @@ sub _internal_select {
     # If the session hasn't already been watching the filehandle, then
     # register the filehandle in the session's structure.
 
-    unless (exists $kr_session->[SS_HANDLES]->{$handle}) {
-      $kr_session->[SS_HANDLES]->{$handle} = [ $handle, 0, [ 0, 0, 0 ] ];
+    unless (exists $kr_session->[SS_HANDLES]->{$fileno}) {
+      $kr_session->[SS_HANDLES]->{$fileno} = [ $handle, 0, [ 0, 0, 0 ] ];
       {% ses_refcount_inc $session %}
     }
 
     # Modify the session's handle structure's reference counts, so the
     # session knows it has a reason to live.
 
-    my $ss_handle = $kr_session->[SS_HANDLES]->{$handle};
-    unless ($ss_handle->[SH_VECCOUNT]->[$select_index]) {
-      $ss_handle->[SH_VECCOUNT]->[$select_index] = 1;
+    my $ss_handle = $kr_session->[SS_HANDLES]->{$fileno};
+#-    unless ($ss_handle->[SH_VECCOUNT]->[$select_index]) {
+      $ss_handle->[SH_VECCOUNT]->[$select_index]++;
       $ss_handle->[SH_REFCOUNT]++;
-    }
+#-    }
   }
 
   # Remove a select from the kernel, and possibly trigger the
@@ -2486,11 +2486,11 @@ sub _internal_select {
     # is a session to remove it from.
 
     my $kr_session = $self->[KR_SESSIONS]->{$session};
-    if (exists $kr_session->[SS_HANDLES]->{$handle}) {
+    if (exists $kr_session->[SS_HANDLES]->{$fileno}) {
 
       # Remove it from the session's read, write or expedite vector.
 
-      my $ss_handle = $kr_session->[SS_HANDLES]->{$handle};
+      my $ss_handle = $kr_session->[SS_HANDLES]->{$fileno};
       if ($ss_handle->[SH_VECCOUNT]->[$select_index]) {
 
         # Hmm... what is this?  Was POE going to support multiple selects?
@@ -2504,7 +2504,7 @@ sub _internal_select {
           die if ($ss_handle->[SH_REFCOUNT] < 0);
         };
         unless ($ss_handle->[SH_REFCOUNT]) {
-          delete $kr_session->[SS_HANDLES]->{$handle};
+          delete $kr_session->[SS_HANDLES]->{$fileno};
           {% ses_refcount_dec $session %}
         }
       }

@@ -6,7 +6,7 @@ use strict;
 use Symbol qw(gensym);
 use IO::Socket;
 
-sub DEBUG () { 0 }
+sub DEBUG () { 1 }
 
 sub new {
   my $type = shift;
@@ -18,36 +18,7 @@ sub new {
   my $b_read  = gensym();
   my $b_write = gensym();
 
-  # The order of ways we try to make pipes is dictated by testing need
-  # rather than any sort of efficiency.  My OS/2 machine supports
-  # pipes but not socketpair; my FreeBSD machine supports both.
-
-  # Try socketpair in the UNIX domain.
-  eval {
-    die "socketpair failed" unless 
-      socketpair($a_read, $b_read, AF_UNIX, SOCK_STREAM, PF_UNSPEC);
-    open($a_write, "+<&=" . fileno($a_read)) or die "dup failed";
-    open($b_write, "+<&=" . fileno($b_read)) or die "dup failed";
-  };
-
-  unless (length $@) {
-    DEBUG and warn "using UNIX socketpair\n";
-    return($a_read, $a_write, $b_read, $b_write);
-  }
-
-  # Try socketpair in the INET domain.
-  eval {
-    my $tcp_proto = getprotobyname('tcp') or die "getprotobyname failed";
-    die "socketpair failed" unless
-      socketpair($a_read, $b_read, AF_INET, SOCK_STREAM, $tcp_proto);
-    open($a_write, "+<&=" . fileno($a_read)) or die "dup failed";
-    open($b_write, "+<&=" . fileno($b_read)) or die "dup failed";
-  };
-
-  unless (length $@) {
-    DEBUG and warn "using INET socketpair\n";
-    return($a_read, $a_write, $b_read, $b_write);
-  }
+goto SKIP_PIPE;
 
   # Try a pair of pipes.  Avoid doing this on systems that don't
   # support non-blocking pipes.
@@ -58,10 +29,15 @@ sub new {
     };
 
     unless (length $@) {
-      DEBUG and warn "using a pair of pipes\n";
+      DEBUG and do {
+        warn "using a pair of pipes\n";
+        warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+      };
       return($a_read, $a_write, $b_read, $b_write);
     }
   }
+
+SKIP_PIPE:
 
   # Try traditional INET domain sockets.
   my $old_sig_alarm = $SIG{ALRM};
@@ -91,12 +67,17 @@ sub new {
   $SIG{ALRM} = $old_sig_alarm;
 
   unless (length $@) {
-    DEBUG and warn "using a plain INET socket";
+    DEBUG and do {
+      warn "using a plain INET socket\n";
+      warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+    };
     return($a_read, $a_write, $b_read, $b_write);
   }
 
   # There's nothing left to try.
+  DEBUG and warn "nothing worked\n";
   return(undef, undef, undef, undef);
 }
 
 1;
+

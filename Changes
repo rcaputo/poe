@@ -26,6 +26,11 @@ Version numbers have four fields: X.YYZZAA
 
 ,----- To Do -----
 |
+| Filehandles are bad.  Check t/04_selects.t and lines in
+| POE::Kernel beginning with /^#-/.  Must allow 2+ selects for
+| the same fileno/handle, even if it's meaningless, so that
+| handles can be passed between wheels, etc.
+|
 | How about Gtk support?
 |
 | Better alarms API.  Roderick has threatened to do something.

@@ -66,6 +66,10 @@ sub io_start {
   # A pipe.
 
   my ($a_read, $a_write, $b_read, $b_write) = TestPipe->new();
+
+  # Keep a copy of the unused handles so the pipes remain whole.
+  $heap->{unused_pipe_1} = $b_read;
+  $heap->{unused_pipe_2} = $a_write;
   unless (defined $a_read) {
     print "skip 2 # $@\n";
   }
