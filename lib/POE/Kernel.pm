@@ -2609,7 +2609,7 @@ call() returns whatever EVENT_NAME's handler does.  The call() call's
 status is returned in $!, which is 0 for success or a nonzero reason
 for failure.
 
-  $return_value = $kernel->call( 'do_this_now' );
+  $return_value = $kernel->call( $session, 'do_this_now' );
   die "could not do_this_now: $!" if $!;
 
 POE uses call() to dispatch some resource events without FIFO latency.
