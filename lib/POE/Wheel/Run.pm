@@ -275,6 +275,7 @@ sub new {
     elsif (ref($program) eq 'CODE') {
       $program->();
       eval { POSIX::_exit(0); };
+      eval { kill KILL => $$; };
       exit(0);
     }
     else {
