@@ -23,14 +23,14 @@ sub new {
 #------------------------------------------------------------------------------
 
 sub put {
-  my $self = shift;
-  my $unit = join('', @_);
-  my $queue_length = push @{$self->{'out queue'}}, $unit;
-  if ($queue_length == 1) {
-    $self->{'bytes left'} = length($unit);
+  my ($self, $chunks) = @_;
+  my $old_queue_length = @{$self->{'out queue'}};
+  my $new_queue_length = push @{$self->{'out queue'}}, @$chunks;
+  if ($new_queue_length && (!$old_queue_length)) {
+    $self->{'bytes left'} = length($self->{'out queue'}->[0]);
     $self->{'bytes done'} = 0;
   }
-  $queue_length;
+  $new_queue_length;
 }
 
 #------------------------------------------------------------------------------
