@@ -440,11 +440,17 @@ to FollowTail's filehandle.  It encapsulates the low-level I/O
 operations needed to access a file so in theory FollowTail never needs
 to know about them.
 
+POE::Wheel::FollowTail uses POE::Driver::SysRW if one is not
+specified.
+
 =item Filter
 
 Filter is a POE::Filter subclass that is used to parse input from the
 tailed file.  It encapsulates the lowest level of a protocol so that
 in theory FollowTail never needs to know about file formats.
+
+POE::Wheel::FollowTail uses POE::Filter::Line if one is not
+specified.
 
 =item PollInterval
 
