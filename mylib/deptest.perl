@@ -1,6 +1,8 @@
 #!/usr/bin/perl -w
 # $Id$
 
+###############################################################################
+
 use strict;
 use Config qw(%Config);
 use ExtUtils::Manifest qw(maniread);
@@ -9,18 +11,22 @@ use Text::Wrap;
 
 use lib qw(blib blib/lib);
 
-# Enable verbose testing if this is running on solaris, because
-# solaris' CPAN tester's machine has trouble finding some modules
-# which do exist.
-BEGIN {
-  if ($^O eq 'solaris') {
-    eval 'sub TRACE_GATHER () { 1 }';
-  }
-  else {
-    eval 'sub TRACE_GATHER () { 0 }';
-  }
-};
+## Enable verbose testing if this is running on solaris, because
+## solaris' CPAN tester's machine has trouble finding some modules
+## which do exist.
+#BEGIN {
+#  if ($^O eq 'solaris') {
+#    eval 'sub TRACE_GATHER () { 1 }';
+#  }
+#  else {
+#    eval 'sub TRACE_GATHER () { 0 }';
+#  }
+#};
+
+sub TRACE_GATHER  () { 0 }  # traces the dependency gathering process
 sub TRACE_SECTION () { 1 }  # lets the installer know what's going on
+
+# Save a copy of STDOUT and STDERR so they may be redirected.
 
 open STDERR_HOLD, '>&STDERR' or die "cannot save STDERR: $!";
 open STDERR_HOLD, '>&STDERR' or die "cannot save STDERR: $!";
