@@ -8,7 +8,7 @@ use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(carp croak);
-use Socket qw(INADDR_ANY inet_ntoa);
+use Socket qw(INADDR_ANY inet_ntoa AF_UNIX PF_UNIX);
 use POSIX qw(ECONNABORTED ECONNRESET);
 
 # Explicit use to import the parameter constants.
@@ -67,11 +67,13 @@ sub new {
     }
   }
 
-  my @client_filter_args;
+  my (@client_filter_args, @client_infilter_args, @client_outfilter_args);
   my $client_connected    = delete $param{ClientConnected};
   my $client_disconnected = delete $param{ClientDisconnected};
   my $client_error        = delete $param{ClientError};
   my $client_filter       = delete $param{ClientFilter};
+  my $client_infilter     = delete $param{ClientInputFilter};
+  my $client_outfilter    = delete $param{ClientOutputFilter};
   my $client_flushed      = delete $param{ClientFlushed};
   my $args                = delete $param{Args};
   my $session_type        = delete $param{SessionType};
@@ -87,19 +89,57 @@ sub new {
   if (defined($session_params) && ref($session_params)) {
     if (ref($session_params) ne 'ARRAY') {
       croak "SessionParams must be an array reference";
-    }   
+    }
   } else {
     $session_params = [ ];
   }
 
   if (defined $client_input) {
-    unless (defined $client_filter) {
-      $client_filter      = "POE::Filter::Line";
-      @client_filter_args = ();
-    }
-    elsif (ref($client_filter) eq 'ARRAY') {
-      @client_filter_args = @$client_filter;
-      $client_filter      = shift @client_filter_args;
+    if (defined $client_infilter and defined $client_outfilter) {
+
+      @client_infilter_args  = ();
+      @client_outfilter_args = ();
+
+      if (ref($client_infilter) eq 'ARRAY') {
+         @client_infilter_args = @$client_infilter;
+	 $client_infilter      = shift @client_infilter_args;
+      }
+
+      if (ref($client_outfilter) eq 'ARRAY') {
+         @client_outfilter_args = @$client_outfilter;
+	 $client_outfilter      = shift @client_outfilter_args;
+      }
+
+      my $eval = eval {
+	 (my $inmod  = $client_infilter)  =~ s!::!/!g;
+	 (my $outmod = $client_outfilter) =~ s!::!/!g;
+         require "$inmod.pm";
+         require "$outmod.pm";
+	 1;
+      };
+
+      if (!$eval and $@) {
+        carp "Failed to load [$client_infilter] and [$client_outfilter]\n"
+           . "Reason $@\nUsing defualts ";
+
+        undef($client_infilter);
+        undef($client_outfilter);
+        $client_filter      = "POE::Filter::Line";
+        @client_filter_args = ();
+      }
+
+    } else {
+       undef($client_infilter);  # just to be safe in case one was defined
+       undef($client_outfilter); # and the other wasn't
+
+       unless (defined $client_filter) {
+         $client_filter      = "POE::Filter::Line";
+         @client_filter_args = ();
+       }
+       elsif (ref($client_filter) eq 'ARRAY') {
+         @client_filter_args = @$client_filter;
+         $client_filter      = shift @client_filter_args;
+       }
     }
 
     $client_error  = \&_default_client_error unless defined $client_error;
@@ -150,7 +190,20 @@ sub new {
                 $heap->{shutdown} = 0;
                 $heap->{shutdown_on_error} = $shutdown_on_error;
 
-                if (length($remote_addr) == 4) {
+                # Unofficial UNIX support, suggested by Damir Dzeko.
+                # Real UNIX socket support should go into a separate
+                # module, but if that module only differs by four
+                # lines of code it would be bad to maintain two
+                # modules for the price of one.  One solution would be
+                # to pull most of this into a base class and derive
+                # TCP and UNIX versions from that.
+                if (
+                  defined $domain and
+                  ($domain == AF_UNIX or $domain == PF_UNIX)
+                ) {
+                  $heap->{remote_ip} = "LOCAL";
+                }
+                elsif (length($remote_addr) == 4) {
                   $heap->{remote_ip} = inet_ntoa($remote_addr);
                 }
                 else {
@@ -160,14 +213,35 @@ sub new {
 
                 $heap->{remote_port} = $remote_port;
 
-                $heap->{client} = POE::Wheel::ReadWrite->new
-                  ( Handle      => $socket,
-                    Driver      => POE::Driver::SysRW->new(),
-                    Filter      => $client_filter->new(@client_filter_args),
-                    InputEvent  => 'tcp_server_got_input',
-                    ErrorEvent  => 'tcp_server_got_error',
-                    FlushedEvent => 'tcp_server_got_flush',
+                # Alter the filters depending whether they are
+                # discrete input/output ones, or whether they are the
+                # same.  It's useful to note that the input/output
+                # filters may be changed at runtime.
+                my @filters;
+                if ($client_infilter) {
+                  @filters = (
+                    InputFilter  => $client_infilter->new(
+                      @client_infilter_args
+                    ),
+                    OutputFilter => $client_outfilter->new(
+                      @client_outfilter_args
+                    ),
                   );
+                }
+                else {
+                  @filters = (
+                    Filter       => $client_filter->new(@client_filter_args),
+                  );
+                }
+
+                $heap->{client} = POE::Wheel::ReadWrite->new(
+                  Handle       => $socket,
+                  Driver       => POE::Driver::SysRW->new(),
+                  @filters,
+                  InputEvent   => 'tcp_server_got_input',
+                  ErrorEvent   => 'tcp_server_got_error',
+                  FlushedEvent => 'tcp_server_got_flush',
+                );
 
                 $kernel->yield(tcp_server_client_connected => @_[ARG0 .. $#_]);
               },
@@ -347,6 +421,8 @@ POE::Component::Server::TCP - a simplified TCP server
       ClientError        => \&handle_client_error,      # Optional.
       ClientFlushed      => \&handle_client_flush,      # Optional.
       ClientFilter       => "POE::Filter::Xyz",         # Optional.
+      ClientInputFilter  => "POE::Filter::Xyz",         # Optional.
+      ClientOutputFilter => "POE::Filter::Xyz",         # Optional.
       ClientShutdownOnError => 0,                       # Optional.
 
       # Optionally define other states for the client session.
@@ -518,6 +594,24 @@ ClientFilter is optional.  The component will supply a
 "POE::Filter::Line" instance if none is specified.  If you supply a
 different value for Filter, then you must also C<use> that filter
 class.
+
+=item ClientInputFilter
+
+=item ClientOutputFilter
+
+ClientInputFilter and ClientOutputFilter are provided to allow for
+using different filters on the input from and output to each client.
+Usage is the same as the ClientFilter option above, allowing either
+a scalar or a list reference. Both must be defined in order to be 
+used, and these options override the ClientFilter option if its 
+defined as well.
+
+Filter modules are required at runtime, and if either fails to be
+loaded, it will fall back to the defaults as if no ClientFilter
+option was defined.
+
+  ClientInputFilter  => [ "POE::Filter::Line", InputLiteral => "|" ],
+  ClientOutputFilter => "POE::Filter::Stream",
 
 =item ClientInput
 
