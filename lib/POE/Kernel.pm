@@ -2449,11 +2449,8 @@ sub _dispatch_event {
   # processing, which includes POE's garbage collection.  The scope
   # bleed was known to break determinism in surprising ways.
 
-  if (defined $return) {
-    $return = "$return" if substr(ref($return), 0, 5) eq 'POE::';
-  }
-  else {
-    $return = '';
+  if (defined $return and substr(ref($return), 0, 5) eq 'POE::') {
+    $return = "$return";
   }
 
   # Pop the active session, now that it's not active anymore.
