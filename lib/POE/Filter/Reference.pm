@@ -250,7 +250,11 @@ have a thaw() function as well as etither an nfreeze() or a freeze()
 function.
 
   # Use Storable explicitly, specified by package name.
-  my $filter = POE::Filter::Reference->new('Storable');
+  my $filter = POE::Filter::Reference->new("Storable");
+
+  # Use YAML, perhaps to pass data to programs not written with POE or
+  # even in Perl at all.
+  my $filter = POE::Filter::Reference->new("YAML");
 
 If SERIALIZER is an object reference, it's assumed to have a thaw()
 method as well as either an nfreeze() or freeze() method.
