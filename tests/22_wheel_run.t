@@ -268,6 +268,7 @@ my $coderef_flush_count = 0;
 
         # Dummy _stop to prevent runtime errors.
         _stop => sub { },
+        _signal => sub { 0 },
 
         # Count every line that's flushed to the child.
         stdin  => sub { $coderef_flush_count++; },
