@@ -32,11 +32,15 @@ BEGIN {
     eval 'sub CIBAUD () { undef; }';
   }
 
-  if (eval '&IO::Tty::Constant::TIOCSWINSZ') {
+  if ( eval '&IO::Tty::Constant::TIOCSWINSZ' and
+       eval '&IO::Tty::Constant::TIOCGWINSZ'
+     ) {
     *TIOCSWINSZ = *IO::Tty::Constant::TIOCSWINSZ;
+    *TIOCGWINSZ = *IO::Tty::Constant::TIOCGWINSZ;
   }
   else {
     eval 'sub TIOCSWINSZ () { undef; }';
+    eval 'sub TIOCGWINSZ () { undef; }';
   }
 };
 
@@ -205,8 +209,8 @@ sub new {
         ioctl( $stdin_read, TIOCSCTTY, 0 );
       }
 
-      # Put the pty conduit into "raw" or "cbreak" mode, per APITUE
-      # 19.4 and 11.10.
+      # Put the pty conduit (slave side) into "raw" or "cbreak" mode,
+      # per APITUE 19.4 and 11.10.
       my $tio = POSIX::Termios->new();
       $tio->getattr(fileno($stdin_read));
       my $lflag = $tio->getlflag;
@@ -222,6 +226,19 @@ sub new {
       $oflag &= ~(OPOST);
       $tio->setoflag($oflag);
       $tio->setattr(fileno($stdin_read), TCSANOW);
+
+      # Set the pty conduit (slave side) window size to our window
+      # size.  APITUE 19.4 and 19.5.
+      if (defined TIOCGWINSZ) {
+        if (-t STDIN) {
+          my $window_size = '';
+          ioctl( STDIN, TIOCGWINSZ, $window_size ) or die $!;
+          ioctl( $stdin_read, TIOCSWINSZ, $window_size ) or die $!;
+        }
+        else {
+          carp "STDIN is not a terminal.  Can't set slave pty's window size";
+        }
+      }
     }
 
     # -><- How to pass events to the parent process?  Maybe over a
