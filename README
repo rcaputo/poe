@@ -10,7 +10,8 @@ Distribution Details
 This distribution comes with several sample and tutorial programs in
 its samples/ directory.  These programs are NOT installed because they
 have limited use and take up about 400 kilobytes (around half of the
-total distribution).
+total distribution).  They will be split into a separate distribution
+in the near future.
 
 The lib/ directory includes a few useful utilities, including a
 relatively portable pipe creator.  It uses pipe() or falls back to

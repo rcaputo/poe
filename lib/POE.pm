@@ -429,10 +429,12 @@ The POE contains 28 sample programs as of this writing.  Please be
 advised that some of them date from the early days of POE's
 development and may not exhibit the best coding practices.
 
-The samples reside in the archive's ./samples directory.  The author
-is considering moving them to a separate distribution to cut back on
-the archive's size, but please contact him anyway if you'd like to see
-something that isn't there.
+The samples reside in the archive's ./samples directory.  They will be
+moved to a separate distribution shortly.  This is partly because a
+lot of people miss the samples, but mainly it's because they take up
+nearly half the distribution's considerable size.
+
+Contact the author if you'd like to see new samples.
 
 =head2 Tutorials
 
