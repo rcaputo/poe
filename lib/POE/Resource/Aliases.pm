@@ -28,8 +28,10 @@ my %kr_ses_to_alias;
 #    ...,
 #  );
 
-sub initialize { $poe_kernel->[KR_ALIASES] = \%kr_aliases; }
-use POE::API::ResLoader \&initialize;
+sub _data_ses_initialize {
+  $poe_kernel->[KR_ALIASES] = \%kr_aliases;
+}
+use POE::API::ResLoader \&_data_ses_initialize;
 
 ### End-run leak checking.  Returns true if finazilation was ok, or
 ### false if it failed.
