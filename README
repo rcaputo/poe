@@ -7,13 +7,80 @@ Detailed Information
 POE is bigger than this README.  Please see its web site at
 http://poe.perl.org/ for more information.
 
+---------------------
+Documentation Roadmap
+---------------------
+
+POE includes a lot of documentation.  The main POE man page includes
+references to everything else.
+
+The CHANGES file lists all the changes in the past year.  POE's web
+site (http://poe.perl.org/) includes a complete change history,
+separated by version number, going back to its first public release.
+
+--------------
+Installing POE
+--------------
+
+See http://poe.perl.org/?Where_to_Get_POE for download sites, Windows
+tips, and anonymous CVS instructions.
+
+POE may be installed through the CPAN shell in the usual CPAN shell
+manner.
+
+  % perl -MCPAN -e shell
+  cpan> install POE
+
+To install on a Win32 machine using ActiveState's PPM.  If PPM fails,
+try PPM3:
+
+  > ppm install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
+
+or
+
+  > ppm3 install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
+
+------------
+Test Results
+------------
+
+POE is tested before each release, and afterwards by at least two
+groups of people.  Each group posts its results on the web:
+
+  http://eekeek.org/poe-tests/
+    -- Automated test reports by users like you.
+
+  http://testers.cpan.org/search?request=dist&dist=POE
+    -- CPAN testers' reports.
+
+POE's ongoing improvement relies on your feedback.  The easiest way to
+let us know how we're doing is to "make reportupload" after building
+POE.
+
+  % make reportupload
+
+That will generate poe_report.xml and upload it to eekeek.org.  If it
+fails, you can upload it manually from the form at
+http://eekeek.org/poe-tests/ .
+
+-------------
+Test Coverage
+-------------
+
+POE's tests cover a significant portion of the distribution.  A
+thumbnail sketch of POE's test coverage is available, but do not use
+it as an accurate gauge of quality.
+
+  http://poe.perl.org/?POE%27s_test_coverage_report
+
 -----------
 What POE Is
 -----------
 
-POE is a networking and multitasking framework for Perl.  It has been
-in active development since 1996, with its first open release in 1998.
-The Perl Conference (now OSCON) named POE "Best New Module" in 1999.
+POE is a networking and multitasking (some say cooperative threading)
+framework for Perl.  It has been in active development since 1996,
+with its first open release in 1998.  O'Reilly's Perl Conference (now
+OSCON) named POE "Best New Module" in 1999.
 
 POE has been used in mission-critical systems such as internetworked
 financial markets, file systems, commerce and application servers.  It
@@ -31,80 +98,10 @@ POE includes components and libraries for making quick work of network
 clients, servers, and peers.  A simple stand-alone web application
 takes about 30 lines of code, most of which is your own custom logic.
 
----------------------
-Documentation Roadmap
----------------------
-
-POE includes so much documentation that the main man page includes an
-index to the rest.  See the "SEE ALSO" section in "man POE", or your
-system's equivalent.
-
-The CHANGES file lists all the changes in the past year.  POE's web
-site includes a complete change history, separated by version number,
-going back to its first public release.
-
---------------
-Installing POE
---------------
-
-See http://poe.perl.org/?Where_to_Get_POE for download sites, Windows
-tips, and anonymous CVS instructions.
-
-POE may be installed through the CPAN shell in the usual CPAN shell
-manner.
-
-  perl -MCPAN -e shell
-  cpan> install POE
-
-To install on a Win32 machine using ActiveState's PPM.  If PPM fails,
-try PPM3:
-
-  ppm install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
-  ppm3 install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
-
-------------
-Test Results
-------------
-
-POE's test results are large and constantly changing, so it makes more
-sense that they are on the web.
-
-  http://eekeek.org/poe-tests/
-    -- Automated test reports by users like you.
-
-  http://testers.cpan.org/search?request=dist&dist=POE
-    -- CPAN testers' reports.
-
-POE's ongoing improvement relies on your feedback.  The easiest way to
-do that is included in the POE distribution itself.
-
-To generate "poe_report.xml" with a summary of POE's test results:
-
-  make testreport
-
-To upload that summary so we can tell if there are problems:
-
-  make reportupload
-
-If 'make reportupload' fails, you can upload poe_report.xml from the
-form at http://eekeek.org/poe-tests/ .
-
-Uploaded test results can be viewed at http://eekeek.org/poe-tests/ .
-
--------------
-Test Coverage
--------------
-
-POE's test coverage report has also moved onto the 'web.  It gives a
-very rough idea of the amount of POE that's been at least cursorily
-tested, but it should not be used as an accurate gauge of quality.
-
-  http://poe.perl.org/?POE%27s_test_coverage_report
-
 ----
 Bye!
 ----
 
 Thanks for reading!
 
--- Rocco Caputo / rcaputo@cpan.org / poe.perl.org / poe.sourceforge.net
+-- Rocco Caputo / rcaputo@cpan.org / poe.perl.org
