@@ -87,6 +87,10 @@ sub new {
         $_[KERNEL]->alias_remove( $_[HEAP]->{alias} )
           if defined $_[HEAP]->{alias};
       },
+
+      # Dummy states to prevent warnings.
+      _signal => sub { return 0 },
+      _stop   => sub { return 0 },
     );
 
   # Return undef so nobody can use the POE::Session reference.  This
