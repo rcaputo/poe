@@ -182,16 +182,6 @@ sub _data_ses_free {
   # Remove the session itself.
 
   delete $kr_sessions{$session};
-
-  # GC the parent, if there is one.
-  if (defined $parent) {
-    $self->_data_ses_collect_garbage($parent);
-  }
-
-  # Stop the main loop if everything is gone.
-  unless (keys %kr_sessions) {
-    $self->loop_halt();
-  }
 }
 
 ### Move a session to a new parent.
@@ -513,8 +503,18 @@ sub _data_ses_stop {
     __FILE__, __LINE__, time(), -__LINE__
   );
 
-  # Finally, deallocate the session.
+  # Deallocate the session.
   $self->_data_ses_free($session);
+
+  # GC the parent, if there is one.
+  if (defined $parent) {
+    $self->_data_ses_collect_garbage($parent);
+  }
+
+  # Stop the main loop if everything is gone.
+  unless (keys %kr_sessions) {
+    $self->loop_halt();
+  }
 }
 
 1;
