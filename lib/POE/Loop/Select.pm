@@ -19,22 +19,6 @@ package POE::Kernel;
 use strict;
 use Errno qw(EINPROGRESS EWOULDBLOCK EINTR);
 
-# Linux has a bug on "polled" select() calls.  If select() is called
-# with a zero-second timeout, and a signal manages to interrupt it
-# anyway (it's happened), the select() function is restarted and will
-# block indefinitely.  Set the minimum select() timeout to 1us on
-# Linux systems.
-
-# sungo: this appears no longer necessary and speeds up events per second
-# on linux. basically, the smallest timeout possible on linux is 20ms. 
-# With no timeout, the select loop is not limited to this incredibly large
-# default timeout.
-BEGIN {
-#  my $timeout = ($^O eq 'linux') ? 0.001 : 0;
-  my $timeout = 0;
-  eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
-};
-
 # select() vectors.  They're stored in an array so that the MODE_*
 # offsets can refer to them.  This saves some code at the expense of
 # clock cycles.
@@ -168,7 +152,7 @@ sub loop_do_timeslice {
   my $now = time();
   if (defined $timeout) {
     $timeout -= $now;
-    $timeout = MINIMUM_SELECT_TIMEOUT if $timeout < MINIMUM_SELECT_TIMEOUT;
+    $timeout = 0 if $timeout < 0;
   }
   else {
     $timeout = 3600;
