@@ -39,18 +39,32 @@ Version numbers have four fields: X.YYZZAA
 | code.  Migrate SocketFactory's code to ListenAccept, and write
 | a test based on IO::Socket::INET sockets.
 |
-| Add new newlines to Filter::Line.
-|
 | Split the samples out into a separate distribution.
 |
 | Revise the POE web pages.
 |
 | Move the POE mailing list, which seems to have fallen on hard times.
 |
+| Benchmark index vs. rindex vs. regexp for finding line terminators.
+|
 `-----------------
 
 
-0.1101 2000.??.??
+0.1102 2000.07.27
+-----------------
+
+Dennis Taylor supplied a Filter::Line patch that allows new newline
+regexps.  Bits of his patch relied on perl 5.005 or newer, so I wrote
+around them.  I also added the ability to specify incoming newlines as
+literal strings, and it's now also possible to change the outbound
+line terminator.
+
+Added t/18_filter_line.t to test the now multi-faceted Filter::Line.
+
+Tweaked the way t/06_tk.t skips so it doesn't look like my problem.
+
+
+0.1101 2000.07.26
 -----------------
 
 This public release also contains the changes found in private testing

@@ -7,7 +7,7 @@ use strict;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.1101';
+$VERSION = '0.1102';
 
 sub import {
   my $self = shift;
@@ -1017,9 +1017,20 @@ problem relating to anonymous subs, scope and @{} processing.
 
 =item *
 
+Dennis Taylor
+
+Dennis Taylor is <dennis@funkplanet.com>.  Dennis has been testing,
+debugging and patching bits here and there, such as Filter::Line which
+he improved by leaps in 0.1102.  He's also the author of
+POE::Component::IRC, which isn't included here but may be found at
+either <http://www.infobot.org/dev/POE/> or
+<http://www.funkplanet.com/POE/>.
+
+=item *
+
 Others?
 
-Anyone who has been forgotten, please contact me.
+Anyone who has been forgotten, please contact the author.
 
 =back
 

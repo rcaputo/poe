@@ -81,3 +81,4 @@ t/14_wheels_ft.t
 t/15_filter_block.t
 t/16_filter_stream.t
 t/17_filter_ref.t
+t/18_filter_line.t

@@ -23,7 +23,7 @@ BEGIN {
     &test_setup(0, 'no DISPLAY is set');
   }
   eval 'use Tk';
-  &test_setup(0, "Tk could not be used: $@") if length $@;
+  &test_setup(0, "use Tk failed (Tk probably isn't installed)") if length $@;
   unless (exists $INC{'Tk.pm'}) {
     &test_setup(0, 'the Tk module is not installed');
   }
