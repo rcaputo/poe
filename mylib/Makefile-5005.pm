@@ -44,12 +44,10 @@ ExtUtils::AutoInstall->import(
   ],
   "Optional modules to speed up large-scale clients/servers." => [
       -default   => 0,
-      -tests     => [ qw(t/27_poll.t) ],
       'IO::Poll' => 0.05,
   ],
   "Optional modules for IPv6 support." => [
       -default  => 0,
-      -tests    => [ qw(t/29_sockfact6.t) ],
       'Socket6' => 0.11,
   ],
   "Optional modules for controlling full-screen programs (e.g. vi)." => [
@@ -63,7 +61,6 @@ ExtUtils::AutoInstall->import(
   ],
   "Optional modules for web applications (client & server)." => [
       -default => 0,
-      -tests => [ qw(t/30_filter_httpd.t) ],
       'HTTP::Status'   => '1.28',
       'HTTP::Request'  => '1.34',
       'HTTP::Date'     => '1.46',
@@ -81,17 +78,14 @@ ExtUtils::AutoInstall->import(
   ],
   "Optional modules for Gtk+ graphical interfaces." => [
       -default => 0,
-      -tests   => [ qw(t/21_gtk.t) ],
       'Gtk'    => '',
   ],
   "Optional modules for Tk graphical interfaces." => [
       -default => 0,
-      -tests   => [ qw(t/06_tk.t) ],
       'Tk'     => '800.021',
   ],
   "Optional modules for Event.pm support." => [
       -default => 0,
-      -tests   => [ qw(t/07_event.t t/12_signals_ev.t) ],
       'Event'  => '',
   ],
 );
@@ -153,7 +147,7 @@ WriteMakefile(
     ($^O eq 'MacOS')
     ? ()
     : ( AUTHOR   => 'Rocco Caputo <rcaputo@cpan.org>',
-        ABSTRACT => 'A portable networking/multitasking framework for Perl.',
+        ABSTRACT => 'A highly portable networking and multitasking framework.',
       )
   ),
 
