@@ -77,10 +77,23 @@ sub text_trie_as_regexp {
     $regexp .= '|' if $num++;
     if (ref $_ eq 'ARRAY') {
       $regexp .= $_->[0] . '(?:';
-      if ($#$_ > 1) {
-        $regexp .= text_trie_as_regexp( @{$_}[1 .. $#$_] );
+
+      # If the first tail is empty, make the whole group optional.
+      my ($tail, $first);
+      if (length $_->[1]) {
+        $tail  = ')';
+        $first = 1;
       }
-      $regexp .= ')';
+      else {
+        $tail  = ')?';
+        $first = 2;
+      }
+
+      # Recurse into the group of tails.
+      if ($#$_ > 1) {
+        $regexp .= text_trie_as_regexp( @{$_}[$first .. $#$_] );
+      }
+      $regexp .= $tail;
     }
     else {
       $regexp .= $_;

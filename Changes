@@ -71,7 +71,7 @@ If it all goes as planned, this will give people at least 1/4 year to
 update their programs.
 
 
-0.1206 2001.??.??
+0.1206 2001.03.01
 -----------------
 
 Enhance POE::Preprocessor to track macros and constants per package.
@@ -106,6 +106,9 @@ cooperates with POE.  Now how do I test it non-interactively?
 
 Remove documentation in POE::Filter::Line and ::Block saying their
 put() methods can be used with single logical records.  They can't.
+
+POE::Preprocessor would make regular expressions like /(|a|b)/ when a
+sub-expression was optional.  Tweaked it to generate /(a|b)?/ instead.
 
 
 0.1205 2001.02.12
