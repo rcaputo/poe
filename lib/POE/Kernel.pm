@@ -12,10 +12,10 @@ use strict;
 use POSIX qw(errno_h fcntl_h);
 use Carp;
 use Exporter;
-use vars qw($kernel);
+use vars qw($poe_kernel);
 
 @POE::Kernel::ISA = qw(Exporter);
-@POE::Kernel::EXPORT = qw($kernel);
+@POE::Kernel::EXPORT = qw($poe_kernel);
                                         # allow subsecond alarms, if available
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
@@ -26,6 +26,12 @@ BEGIN {
 }
 
 #------------------------------------------------------------------------------
+
+# BEGIN {
+#   open(STDERR, '>&STDOUT') or die $!;
+#   select(STDERR); $| = 1;
+#   select(STDOUT); $| = 1;
+# }
 
 # BEGIN {
 #   package DB;
@@ -68,7 +74,7 @@ BEGIN {
 #------------------------------------------------------------------------------
 # globals
 
-$kernel = undef;                        # only one active kernel; sorry
+$poe_kernel = undef;                    # only one active kernel; sorry
 
 #------------------------------------------------------------------------------
                                         # debugging flags for subsystems
@@ -170,8 +176,8 @@ my %_terminal_signals = ( QUIT => 1, INT => 1, KILL => 1, TERM => 1, HUP => 1);
                                         # static signal handlers
 sub _signal_handler_generic {
   if (defined(my $signal = $_[0])) {
-    $kernel->_enqueue_state
-      ( $kernel, $kernel, EN_SIGNAL, time(), [ $signal ] );
+    $poe_kernel->_enqueue_state
+      ( $poe_kernel, $poe_kernel, EN_SIGNAL, time(), [ $signal ] );
     $SIG{$_[0]} = \&_signal_handler_generic;
   }
   else {
@@ -181,8 +187,8 @@ sub _signal_handler_generic {
 
 sub _signal_handler_pipe {
   if (defined(my $signal = $_[0])) {
-    $kernel->_enqueue_state
-      ( $kernel->[KR_ACTIVE_SESSION], $kernel,
+    $poe_kernel->_enqueue_state
+      ( $poe_kernel->[KR_ACTIVE_SESSION], $poe_kernel,
         EN_SIGNAL, time(), [ $signal ]
       );
     $SIG{$_[0]} = \&_signal_handler_pipe;
@@ -196,8 +202,8 @@ sub _signal_handler_child {
   if (defined(my $signal = $_[0])) {
     my $pid = wait();
     if ($pid >= 0) {
-      $kernel->_enqueue_state
-        ( $kernel, $kernel, EN_SIGNAL, time(), [ 'CHLD', $pid, $? ] );
+      $poe_kernel->_enqueue_state
+        ( $poe_kernel, $poe_kernel, EN_SIGNAL, time(), [ 'CHLD', $pid, $? ] );
     }
     $SIG{$_[0]} = \&_signal_handler_child;
   }
@@ -228,10 +234,11 @@ sub sig {
 
 sub signal {
   my ($self, $session, $signal) = @_;
-  $session = $self->alias_resolve($session);
-  $self->_enqueue_state($session, $self->[KR_ACTIVE_SESSION],
-                        EN_SIGNAL, time(), [ $signal ]
-                       );
+  if (defined($session = $self->alias_resolve($session))) {
+    $self->_enqueue_state($session, $self->[KR_ACTIVE_SESSION],
+                          EN_SIGNAL, time(), [ $signal ]
+                         );
+  }
 }
 
 #==============================================================================
@@ -241,8 +248,8 @@ sub signal {
 sub new {
   my $type = shift;
                                         # prevent multiple instances
-  unless (defined $kernel) {
-    my $self = $kernel = bless [ ], $type;
+  unless (defined $poe_kernel) {
+    my $self = $poe_kernel = bless [ ], $type;
                                         # the long way to ensure correctness
     $self->[KR_SESSIONS] = { };
     $self->[KR_VECTORS ] = [ '', '', '' ];
@@ -288,7 +295,7 @@ sub new {
     $kernel_session->[SS_ALIASES ] = { };
   }
                                         # return the global instance
-  $kernel;
+  $poe_kernel;
 }
 
 #------------------------------------------------------------------------------
@@ -312,10 +319,10 @@ sub _dispatch_state {
     $new_session->[SS_ALIASES ] = { };
                                         # add to parent's children
     if (DEB_RELATION) {
-      die "$session is its own parent" if ($session eq $source_session);
+      die "$session is its own parent\a" if ($session eq $source_session);
     }
     if (DEB_RELATION) {
-      die "!!! $session already is a child of $source_session"
+      die "!!! $session already is a child of $source_session\a"
         if (exists $sessions->{$source_session}->[SS_CHILDREN]->{$session});
     }
     $sessions->{$source_session}->[SS_CHILDREN]->{$session} = $session;
@@ -339,15 +346,15 @@ sub _dispatch_state {
     my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
     foreach my $child (@children) {
       $self->_dispatch_state($parent, $self, EN_CHILD, [ 'gain', $child ] );
-      $self->_dispatch_state($child, $self, EN_PARENT, [ $parent,
-                                                         $child->[SS_PARENT]
-                                                       ]
+      $self->_dispatch_state($child, $self, EN_PARENT,
+                             [ $sessions->{$child}->[SS_PARENT],
+                               $parent,
+                             ]
                             );
     }
                                         # tell the parent its child is gone
     if (defined $parent) {
       $self->_dispatch_state($parent, $self, EN_CHILD, [ 'lose', $session ]);
-      $self->_collect_garbage($parent);
     }
   }
                                         # signal preprocessing
@@ -363,29 +370,51 @@ sub _dispatch_state {
       $local_state = $self->[KR_SIGNALS]->{$signal}->{$session};
     }
   }
-
+                                        # the session may have been GC'd
+  unless (exists $self->[KR_SESSIONS]->{$session}) {
+    if (DEB_EVENTS) {
+      warn ">>> discarding $state to $session (session was GC'd)\n";
+    }
+    return;
+  }
+  
   if (DEB_EVENTS) {
     warn ">>> dispatching $state to $session\n";
   }
                                         # dispatch this object's state
   my $hold_active_session = $self->[KR_ACTIVE_SESSION];
   $self->[KR_ACTIVE_SESSION] = $session;
-  my $handled = $session->_invoke_state($source_session, $local_state, $etc);
-                                        # stringify to remove possible blessing
-  defined($handled) ? ($handled = "$handled") : ($handled = '');
+
+  my $return = $session->_invoke_state($source_session, $local_state, $etc);
+
+  if (defined $return) {
+    if (substr(ref($return), 0, 5) eq 'POE::') {
+      $return = "$return";
+    }
+  }
+  else {
+    $return = '';
+  }
+
   $self->[KR_ACTIVE_SESSION] = $hold_active_session;
 
   if (DEB_EVENTS) {
-    warn "<<< $session -> $state returns ($handled)\n";
+    warn "<<< $session -> $state returns ($return)\n";
+  }
+                                        # if _start, notify parent
+  if ($state eq EN_START) {
+    $self->_dispatch_state($sessions->{$session}->[SS_PARENT], $self,
+                           EN_CHILD, [ 'create', $session, $return ]
+                          );
   }
                                         # if _stop, fix up tables
-  if ($state eq EN_STOP) {
+  elsif ($state eq EN_STOP) {
                                         # remove us from our parent
     my $parent = $sessions->{$session}->[SS_PARENT];
     if (defined $parent) {
       if (DEB_RELATION) {
-        die "$session is its own parent" if ($session eq $parent);
-        die "$session is not a child of $parent"
+        die "$session is its own parent\a" if ($session eq $parent);
+        die "$session is not a child of $parent\a"
           unless (($session eq $parent) ||
                   exists($sessions->{$parent}->[SS_CHILDREN]->{$session})
                  );
@@ -396,14 +425,14 @@ sub _dispatch_state {
         warn("--- parent $parent loses child $session: ", 
              $sessions->{$parent}->[SS_REFCOUNT], "\n"
             );
-        die if ($sessions->{$parent}->[SS_REFCOUNT] < 0);
+        die "\a" if ($sessions->{$parent}->[SS_REFCOUNT] < 0);
       }
     }
                                         # give our children to our parent
     my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
     foreach (@children) {
       if (DEB_RELATION) {
-        die "$_ is already a child of $parent"
+        die "$_ is already a child of $parent\a"
           if (exists $sessions->{$parent}->[SS_CHILDREN]->{$_});
       }
       $sessions->{$_}->[SS_PARENT] = $parent;
@@ -422,7 +451,7 @@ sub _dispatch_state {
         warn("--- session $session loses child: ",
              $sessions->{$session}->[SS_REFCOUNT], "\n"
             );
-        die if ($sessions->{$session}->[SS_REFCOUNT] < 0);
+        die "\a" if ($sessions->{$session}->[SS_REFCOUNT] < 0);
       }
     }
                                         # free lingering signals
@@ -437,14 +466,14 @@ sub _dispatch_state {
       if ($states->[$index]->[ST_SESSION] eq $session) {
         $sessions->{$session}->[SS_EVCOUNT]--;
         if (DEB_REFCOUNT) {
-          die if ($sessions->{$session}->[SS_EVCOUNT] < 0);
+          die "\a" if ($sessions->{$session}->[SS_EVCOUNT] < 0);
         }
         $sessions->{$session}->[SS_REFCOUNT]--;
         if (DEB_REFCOUNT) {
           warn("--- discarding event for $session: ",
                $sessions->{$session}->[SS_REFCOUNT], "\n"
               );
-          die if ($sessions->{$session}->[SS_REFCOUNT] < 0);
+          die "\a" if ($sessions->{$session}->[SS_REFCOUNT] < 0);
         }
         splice(@$states, $index, 1);
       }
@@ -484,17 +513,21 @@ sub _dispatch_state {
         warn "*** LEAK: aliases  = $leaked ($session)\a\n";
         $errors++;
       }
-      die if ($errors);
+      die "\a" if ($errors);
     }
                                         # remove this session (should be empty)
     delete $sessions->{$session};
+                                        # qarbage collect the parent
+    if (defined $parent) {
+      $self->_collect_garbage($parent);
+    }
   }
                                         # check for death by signal
   elsif ($state eq EN_SIGNAL) {
     my $signal = $etc->[0];
                                         # stop whoever doesn't handle terminals
     if (($signal eq 'ZOMBIE') ||
-        (!$handled && exists($_terminal_signals{$signal}))
+        (!$return && exists($_terminal_signals{$signal}))
     ) {
       $self->session_free($session);
     }
@@ -503,9 +536,8 @@ sub _dispatch_state {
       $self->_collect_garbage($session);
     }
   }
-
                                         # return what the state handler did
-  $handled;
+  $return;
 }
 
 #------------------------------------------------------------------------------
@@ -566,7 +598,7 @@ sub run {
       }
       else {
         warn "select error = $!\n";
-        die "... and that's fatal.\n"
+        die "... and that's fatal.\a\n"
           unless (($! == EINPROGRESS) || ($! == EINTR));
       }
       warn ",----- SELECT BITS OUT -----\n";
@@ -597,7 +629,7 @@ sub run {
           warn "found pending selects: @selects\n";
         }
         else {
-          die "found no selects, with $hits hits from select???\n";
+          die "found no selects, with $hits hits from select???\a\n";
         }
       }
                                         # dispatch the selects
@@ -627,7 +659,7 @@ sub run {
 
       $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_EVCOUNT]--;
       if (DEB_REFCOUNT) {
-        die if
+        die "\a" if
           ($self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_EVCOUNT] < 0);
       }
       $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT]--;
@@ -636,7 +668,7 @@ sub run {
              $self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT],
              "\n"
             );
-        die if
+        die "\a" if
           ($self->[KR_SESSIONS]->{$event->[ST_SESSION]}->[SS_REFCOUNT] < 0);
       }
       $self->_dispatch_state(@$event);
@@ -697,15 +729,15 @@ sub _invoke_state {
 #==============================================================================
 
 sub session_alloc {
-  my ($self, $session) = @_;
+  my ($self, $session, @args) = @_;
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
   if (DEB_RELATION) {
-    die "session $session already exists"
+    die "session $session already exists\a"
       if (exists $self->[KR_SESSIONS]->{$session});
   }
 
-  $self->_dispatch_state($session, $kr_active_session, EN_START, []);
+  $self->_dispatch_state($session, $kr_active_session, EN_START, \@args);
   $self->_enqueue_state($session, $kr_active_session, EN_GC, time(), []);
 }
 
@@ -713,7 +745,7 @@ sub session_free {
   my ($self, $session) = @_;
 
   if (DEB_RELATION) {
-    die "session $session doesn't exist"
+    die "session $session doesn't exist\a"
       unless (exists $self->[KR_SESSIONS]->{$session});
   }
 
@@ -805,7 +837,7 @@ sub _enqueue_state {
   }
   else {
     warn ">>>>> ", join('; ', keys(%{$self->[KR_SESSIONS]})), " <<<<<\n";
-    die "can't enqueue state for nonexistent session\n";
+    die "can't enqueue state for nonexistent session\a\n";
   }
 }
 
@@ -814,12 +846,11 @@ sub _enqueue_state {
 
 sub post {
   my ($self, $destination, $state_name, @etc) = @_;
-
-  $destination = $self->alias_resolve($destination);
-
-  $self->_enqueue_state($destination, $self->[KR_ACTIVE_SESSION],
-                        $state_name, time(), \@etc
-                       );
+  if (defined($destination = $self->alias_resolve($destination))) {
+    $self->_enqueue_state($destination, $self->[KR_ACTIVE_SESSION],
+                          $state_name, time(), \@etc
+                         );
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -838,11 +869,12 @@ sub yield {
 
 sub call {
   my ($self, $destination, $state_name, @etc) = @_;
-  $destination = $self->alias_resolve($destination);
-
-  $self->_dispatch_state($destination, $self->[KR_ACTIVE_SESSION],
-                         $state_name, \@etc
-                        );
+  if (defined($destination = $self->alias_resolve($destination))) {
+    return $self->_dispatch_state($destination, $self->[KR_ACTIVE_SESSION],
+                                  $state_name, \@etc
+                                 );
+  }
+  return undef;
 }
 
 #==============================================================================
@@ -913,7 +945,7 @@ sub _internal_select {
         or croak "Can't set flags for the socket: $!\n";
 
 #      setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
-#        or die "Couldn't disable Nagle's algorithm: $!\n";
+#        or die "Couldn't disable Nagle's algorithm: $!\a\n";
 
                                         # turn off buffering
       select((select($handle), $| = 1)[0]);
