@@ -56,8 +56,8 @@ sub loop_finalize {
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(),
       $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
       __FILE__, __LINE__
@@ -65,8 +65,8 @@ sub _loop_signal_handler_generic {
 }
 
 sub _loop_signal_handler_pipe {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(),
       $poe_kernel->get_active_session(), $poe_kernel,
       EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
@@ -75,8 +75,8 @@ sub _loop_signal_handler_pipe {
 }
 
 sub _loop_signal_handler_child {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(),
       $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
       __FILE__, __LINE__
@@ -95,7 +95,7 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $self->_enqueue_event
+    $self->_data_ev_enqueue
       ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
@@ -197,7 +197,7 @@ sub loop_resume_filehandle_watcher {
 sub _loop_event_callback {
   my $self = $poe_kernel;
 
-  $self->_data_dispatch_due_events();
+  $self->_data_ev_dispatch_due();
 
   # Register the next timed callback if there are events left.
 
@@ -212,7 +212,7 @@ sub _loop_event_callback {
     # vs. kernel events, and GC the kernel when the user events drop
     # to 0.
 
-    if ($self->get_session_count() == 1) {
+    if ($self->_data_ses_count() == 1) {
       $self->_data_test_for_idle_poe_kernel();
     }
   }

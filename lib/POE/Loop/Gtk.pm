@@ -49,8 +49,8 @@ sub loop_finalize {
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__
     );
@@ -58,8 +58,8 @@ sub _loop_signal_handler_generic {
 }
 
 sub _loop_signal_handler_pipe {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__
     );
@@ -69,9 +69,9 @@ sub _loop_signal_handler_pipe {
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
 sub _loop_signal_handler_child {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
+  TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
-  $poe_kernel->_enqueue_event
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
       __FILE__, __LINE__
     );
@@ -92,7 +92,7 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $self->_enqueue_event
+    $self->_data_ev_enqueue
       ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
@@ -132,7 +132,7 @@ sub loop_attach_uidestroy {
   $window->signal_connect
     ( delete_event =>
       sub {
-        if ($self->get_session_count()) {
+        if ($self->_data_ses_count()) {
           $self->_dispatch_event
             ( $self, $self,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
@@ -255,7 +255,7 @@ sub loop_resume_filehandle_watcher {
 sub _loop_event_callback {
   my $self = $poe_kernel;
 
-  $self->_data_dispatch_due_events();
+  $self->_data_ev_dispatch_due();
   $self->_data_test_for_idle_poe_kernel();
 
   Gtk->timeout_remove($_watcher_timer);

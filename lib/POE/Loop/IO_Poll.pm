@@ -51,8 +51,8 @@ sub loop_finalize {
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__
     );
@@ -60,8 +60,8 @@ sub _loop_signal_handler_generic {
 }
 
 sub _loop_signal_handler_pipe {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__
     );
@@ -71,9 +71,9 @@ sub _loop_signal_handler_pipe {
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
 sub _loop_signal_handler_child {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
+  TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
-  $poe_kernel->_enqueue_event
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
       __FILE__, __LINE__
     );
@@ -91,7 +91,7 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $self->_enqueue_event
+    $self->_data_ev_enqueue
       ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
@@ -160,7 +160,7 @@ sub loop_watch_filehandle {
   my $new = $current | $type;
 
   TRACE_SELECT and
-    warn( sprintf( "Watch $fileno: " .
+    warn( sprintf( "<sl> Watch $fileno: " .
                    "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
@@ -178,7 +178,7 @@ sub loop_ignore_filehandle {
   my $new = $current & ~$type;
 
   TRACE_SELECT and
-    warn( sprintf( "Ignore $fileno: " .
+    warn( sprintf( "<sl> Ignore $fileno: " .
                    ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
@@ -201,7 +201,7 @@ sub loop_pause_filehandle_watcher {
   my $new = $current & ~$type;
 
   TRACE_SELECT and
-    warn( sprintf( "Pause $fileno: " .
+    warn( sprintf( "<sl> Pause $fileno: " .
                    ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
@@ -224,7 +224,7 @@ sub loop_resume_filehandle_watcher {
   my $new = $current | $type;
 
   TRACE_SELECT and
-    warn( sprintf( "Resume $fileno: " .
+    warn( sprintf( "<sl> Resume $fileno: " .
                    "Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
@@ -260,7 +260,7 @@ sub loop_do_timeslice {
   }
 
   if (TRACE_QUEUE) {
-    warn( '*** Kernel::run() iterating.  ' .
+    warn( '<qu> Kernel::run() iterating.  ' .
           sprintf("now(%.4f) timeout(%.4f) then(%.4f)\n",
                   $now-$^T, $timeout, ($now-$^T)+$timeout
                  )
@@ -285,7 +285,7 @@ sub loop_do_timeslice {
       push @modes, 'r' if $flags & (POLLIN | POLLHUP | POLLERR);
       push @modes, 'w' if $flags & (POLLOUT | POLLHUP | POLLERR);
       push @modes, 'x' if $flags & (POLLRDBAND | POLLHUP | POLLERR);
-      warn( "file descriptor $_ = modes(@modes) types(@types)\n" );
+      warn( "<sl> file descriptor $_ = modes(@modes) types(@types)\n" );
     }
   }
 
@@ -313,10 +313,10 @@ sub loop_do_timeslice {
 
       if (TRACE_SELECT) {
         if ($hits > 0) {
-          warn "poll hits = $hits\n";
+          warn "<sl> poll hits = $hits\n";
         }
         elsif ($hits == 0) {
-          warn "poll timed out...\n";
+          warn "<sl> poll timed out...\n";
         }
       }
 
@@ -336,21 +336,21 @@ sub loop_do_timeslice {
           if ( $watch_mask & POLLIN and
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
-            TRACE_SELECT and warn "enqueuing read for fileno $fd\n";
+            TRACE_SELECT and warn "<sl> enqueuing read for fileno $fd\n";
             $self->_data_handle_enqueue_ready(VEC_RD, $fd);
           }
 
           if ( $watch_mask & POLLOUT and
                $got_mask & (POLLOUT | POLLHUP | POLLERR)
              ) {
-            TRACE_SELECT and warn "enqueuing write for fileno $fd\n";
+            TRACE_SELECT and warn "<sl> enqueuing write for fileno $fd\n";
             $self->_data_handle_enqueue_ready(VEC_WR, $fd);
           }
 
           if ( $watch_mask & POLLRDBAND and
                $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
              ) {
-            TRACE_SELECT and warn "enqueuing expedite for fileno $fd\n";
+            TRACE_SELECT and warn "<sl> enqueuing expedite for fileno $fd\n";
             $self->_data_handle_enqueue_ready(VEC_EX, $fd);
           }
         }
@@ -372,14 +372,14 @@ sub loop_do_timeslice {
   }
 
   # Dispatch whatever events are due.
-  $self->_data_dispatch_due_events();
+  $self->_data_ev_dispatch_due();
 }
 
 ### Run for as long as there are sessions to service.
 
 sub loop_run {
   my $self = shift;
-  while ($self->get_session_count()) {
+  while ($self->_data_ses_count()) {
     $self->loop_do_timeslice();
   }
 }

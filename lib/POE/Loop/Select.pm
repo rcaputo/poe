@@ -14,6 +14,7 @@ $VERSION = (qw($Revision$ ))[1];
 package POE::Kernel;
 
 use strict;
+use Carp qw(confess);
 
 # Delcare which event loop bridge is being used, but first ensure that
 # no other bridge has been loaded.
@@ -76,7 +77,7 @@ sub loop_finalize {
   while (my ($vec_name, $vec_offset) = each(%kernel_vectors)) {
     my $bits = unpack('b*', $loop_vectors[$vec_offset]);
     if (index($bits, '1') >= 0) {
-      warn "*** LOOP VECTOR LEAK: $vec_name = $bits\a\n";
+      warn "<rc> LOOP VECTOR LEAK: $vec_name = $bits\a\n";
     }
   }
 }
@@ -85,8 +86,8 @@ sub loop_finalize {
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__
     );
@@ -94,8 +95,8 @@ sub _loop_signal_handler_generic {
 }
 
 sub _loop_signal_handler_pipe {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
-  $poe_kernel->_enqueue_event
+  TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
       __FILE__, __LINE__
     );
@@ -105,9 +106,9 @@ sub _loop_signal_handler_pipe {
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
 sub _loop_signal_handler_child {
-  TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
+  TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
-  $poe_kernel->_enqueue_event
+  $poe_kernel->_data_ev_enqueue
     ( time(), $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
       __FILE__, __LINE__
     );
@@ -125,7 +126,7 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $self->_enqueue_event
+    $self->_data_ev_enqueue
       ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
@@ -235,7 +236,7 @@ sub loop_do_timeslice {
   }
 
   if (TRACE_QUEUE) {
-    warn( '*** Kernel::run() iterating.  ' .
+    warn( '<qu> Kernel::run() iterating.  ' .
           sprintf("now(%.4f) timeout(%.4f) then(%.4f)\n",
                   $now-$^T, $timeout, ($now-$^T)+$timeout
                  )
@@ -249,11 +250,12 @@ sub loop_do_timeslice {
   }
 
   if (TRACE_SELECT) {
-    warn ",----- SELECT BITS IN -----\n";
-    warn "| READ    : ", unpack('b*', $loop_vectors[VEC_RD]), "\n";
-    warn "| WRITE   : ", unpack('b*', $loop_vectors[VEC_WR]), "\n";
-    warn "| EXPEDITE: ", unpack('b*', $loop_vectors[VEC_EX]), "\n";
-    warn "`--------------------------\n";
+    warn( "<sl> ,----- SELECT BITS IN -----\n",
+          "<sl> | READ    : ", unpack('b*', $loop_vectors[VEC_RD]), "\n",
+          "<sl> | WRITE   : ", unpack('b*', $loop_vectors[VEC_WR]), "\n",
+          "<sl> | EXPEDITE: ", unpack('b*', $loop_vectors[VEC_EX]), "\n",
+          "<sl> `--------------------------\n"
+        );
   }
 
   # Avoid looking at filehandles if we don't need to.  -><- The added
@@ -274,7 +276,7 @@ sub loop_do_timeslice {
 
       if (ASSERT_SELECT) {
         if ($hits < 0) {
-          confess "select error: $!"
+          confess "<sl> select error: $!"
             unless ( ($! == EINPROGRESS) or
                      ($! == EWOULDBLOCK) or
                      ($! == EINTR)
@@ -284,16 +286,17 @@ sub loop_do_timeslice {
 
       if (TRACE_SELECT) {
         if ($hits > 0) {
-          warn "select hits = $hits\n";
+          warn "<sl> select hits = $hits\n";
         }
         elsif ($hits == 0) {
-          warn "select timed out...\n";
+          warn "<sl> select timed out...\n";
         }
-        warn ",----- SELECT BITS OUT -----\n";
-        warn "| READ    : ", unpack('b*', $rout), "\n";
-        warn "| WRITE   : ", unpack('b*', $wout), "\n";
-        warn "| EXPEDITE: ", unpack('b*', $eout), "\n";
-        warn "`---------------------------\n";
+        warn( "<sl> ,----- SELECT BITS OUT -----\n",
+              "<sl> | READ    : ", unpack('b*', $rout), "\n",
+              "<sl> | WRITE   : ", unpack('b*', $wout), "\n",
+              "<sl> | EXPEDITE: ", unpack('b*', $eout), "\n",
+              "<sl> `---------------------------\n"
+            );
       }
 
       # If select has seen filehandle activity, then gather up the
@@ -314,19 +317,19 @@ sub loop_do_timeslice {
 
         if (TRACE_SELECT) {
           if (@rd_selects) {
-            warn( "found pending rd selects: ",
+            warn( "<sl> found pending rd selects: ",
                   join( ', ', sort { $a <=> $b } @rd_selects ),
                   "\n"
                 );
           }
           if (@wr_selects) {
-            warn( "found pending wr selects: ",
+            warn( "<sl> found pending wr selects: ",
                   join( ', ', sort { $a <=> $b } @wr_selects ),
                   "\n"
                 );
           }
           if (@ex_selects) {
-            warn( "found pending ex selects: ",
+            warn( "<sl> found pending ex selects: ",
                   join( ', ', sort { $a <=> $b } @ex_selects ),
                   "\n"
                 );
@@ -335,7 +338,7 @@ sub loop_do_timeslice {
 
         if (ASSERT_SELECT) {
           unless (@rd_selects or @wr_selects or @ex_selects) {
-            die "found no selects, with $hits hits from select???\a\n";
+            confess "<sl> found no selects, with $hits hits from select???\n";
           }
         }
 
@@ -365,14 +368,14 @@ sub loop_do_timeslice {
   }
 
   # Dispatch whatever events are due.
-  $self->_data_dispatch_due_events();
+  $self->_data_ev_dispatch_due();
 }
 
 sub loop_run {
   my $self = shift;
 
   # Run for as long as there are sessions to service.
-  while ($self->get_session_count()) {
+  while ($self->_data_ses_count()) {
     $self->loop_do_timeslice();
   }
 }
