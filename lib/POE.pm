@@ -444,23 +444,23 @@ No known problems.  POE has no OS/2 tester starting with version
 
 =item Windows
 
-Windows support lapsed between version 0.0806 and 0.0903 when Sean
-Puckett ran out of time to pursue it and Douglas Couch found time for
-it.  Douglas now maintains POE's Windows code, as well as the
-ActiveState PPM and HTML documentation at http://poe.sourceforge.net/
+POE seems to work very nicely with Perl compiled for CygWin.  If you
+must use ActiveState Perl, please use build 631 or newer.
 
-Windows support is still flaky as of POE 0.1702, partly because of a
-bug in ActivePerl 5.6.1.630.  Build 631 (unreleased at the time of
-this writing) should help considerably.
+Currently there is nobody maintaining POE for Windows.  Rocco will be
+fixing things as he's able, but he has only limited access to Windows
+machines for testing and development.  If you would like to accelerate
+POE's Windows support, please contact Rocco or the mailing list.
+
+Thanks to Sean Puckett, Douglas Couch, Hachi, and Dynweb for their
+help in bringing POE's Windows support so far.
 
 =item MacOS
 
-POE generally works with MacOS/X, but it fails some tests.  Resolving
-these failures depends on SourceForge bringing their MacOS/X machines
-back online.
+POE 0.18 passes all tests on MacOS/X.
 
-MacOS pre-X seems like a lost cause unless someone steps forward as a
-tester and/or porter to that platform.
+Its pre-X support seems like a lost cause unless someone steps forward
+to make it happen.
 
 =back
 
@@ -468,6 +468,8 @@ tester and/or porter to that platform.
 
 POE requires Filter::Util::Call version 1.18 or newer.  All the other
 modules are optional.
+
+Time::HiRes is recommended.
 
 Some of POE's sample programs use fork().  They won't work wherever
 fork() isn't available; sorry.
