@@ -1381,6 +1381,30 @@ ID.
 
 =back
 
+=head1 TIPS AND TRICKS
+
+One common task is scrubbing a child process' environment.  This
+amounts to clearing the contents of %ENV and setting it up with some
+known, secure values.
+
+Environment scrubbing is easy when the child process is running a
+subroutine, but it's not so easy---or at least not as intuitive---when
+executing external programs.
+
+The way we do it is to run a small subroutine in the child process
+that performs the exec() call for us.
+
+  Program => \&exec_with_scrubbed_env,
+
+  sub exec_with_scrubbed_env {
+    delete @ENV{keys @ENV};
+    $ENV{PATH} = "/bin";
+    exec(@program_and_args);
+  }
+
+That deletes everything from the environment, sets a simple, secure
+PATH, and executes a program with its arguments.
+
 =head1 SEE ALSO
 
 POE::Wheel.
