@@ -12,7 +12,7 @@ use TestSetup;
 BEGIN {
   eval 'use Event';
   unless (exists $INC{'Event.pm'}) {
-    test_setup(0, 'the Event module is not installed');
+    test_setup(0, 'the optional Event module is not installed');
   }
   test_setup(0, "Windows doesn't support signals") if $^O eq 'MSWin32';
   test_setup(0, "MacOS doesn't support fork") if $^O eq 'MacOS';
