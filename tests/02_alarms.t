@@ -10,6 +10,7 @@ use TestSetup qw(ok not_ok ok_if ok_unless results test_setup);
 &test_setup(30);
 
 # Turn on all asserts.
+#sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
 
@@ -95,7 +96,7 @@ sub test_start {
 
   # Fill the alarm queue to engage the "big queue" binary insert.
   my @eleven_fill;
-  for (my $count=0; $count<100; $count++) {
+  for (my $count=0; $count<600; $count++) {
     push @eleven_fill, int(rand(300));
     $kernel->alarm( "path_eleven_fill_$count", $eleven_fill[-1] );
   }
@@ -128,7 +129,7 @@ sub test_start {
   $kernel->alarm_adjust( $id_206 =>  0.01 );  # positive
 
   # Now clear the filler states.
-  for (my $count=0; $count<100; $count++) {
+  for (my $count=0; $count<600; $count++) {
     if ($count & 1) {
       $kernel->alarm( "path_eleven_fill_$count" );
     }
@@ -456,6 +457,7 @@ POE::Session->create
           ( inline_states =>
             { _start      => \&test_start,
               _stop       => \&test_stop,
+              _default => sub { },
               path_one    => \&test_path_one,
               path_two    => \&test_path_two,
               path_three  => \&test_path_three,
