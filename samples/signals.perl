@@ -50,8 +50,8 @@ new POE::Session
     'signal handler' => sub
     { my ($kernel, $signal_name) = @_[KERNEL, ARG0];
       print "First session caught SIG$signal_name\n";
-      print( "First session's pending states: ",
-             join(':', map { "\"$_\"" } $kernel->states_peek()), "\n"
+      print( "First session's pending alarms: ",
+             join(':', map { "\"$_\"" } $kernel->queue_peek_alarms()), "\n"
            );
                                         # stop pending alarm on SIGINT
       if ($signal_name eq 'INT') {
@@ -97,8 +97,8 @@ new POE::Session
     'signal handler' => sub
     { my ($kernel, $signal_name) = @_[KERNEL, ARG0];
       print "Second session caught SIG$signal_name\n";
-      print( "Second session's pending states: ",
-             join(':', $kernel->states_peek()), "\n"
+      print( "Second session's pending alarms: ",
+             join(':', $kernel->queue_peek_alarms()), "\n"
            );
                                         # stop pending alarm on SIGINT
       if ($signal_name eq 'INT') {
