@@ -215,7 +215,7 @@ while (my ($tag, $time) = each %last_tag_times) {
 
 sub format_time {
   my $time = shift;
-  my ($sc, $mn, $hr, $mm, $dd, $yy) = gmtime($time);
+  my ($sc, $mn, $hr, $dd, $mm, $yy) = gmtime($time);
   sprintf("%04d-%02d-%02d %02d:%02d:%02d",
           $yy+1900, $mm+1, $dd, $hr, $mn, $sc,
          );
