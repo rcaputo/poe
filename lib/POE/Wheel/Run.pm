@@ -432,6 +432,7 @@ sub _define_stdout_reader {
   # Register the select-read handler for STDOUT.
   else {
     $poe_kernel->select_read($self->[HANDLE_STDOUT])
+      if defined $self->[HANDLE_STDOUT];
   }
 }
 
@@ -480,6 +481,7 @@ sub _define_stderr_reader {
   # Register the select-read handler for STDERR.
   else {
     $poe_kernel->select_read($self->[HANDLE_STDERR])
+      if defined $self->[HANDLE_STDERR];
   }
 }
 
