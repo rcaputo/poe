@@ -111,7 +111,8 @@ sub new {
   POE::Session->create
     ( inline_states =>
       { _start => sub {
-          my $kernel = $_[KERNEL];
+          my ($kernel, $heap) = @_[KERNEL, HEAP];
+          $heap->{shutdown_on_error} = 1;
           $kernel->alias_set( $alias ) if defined $alias;
           $kernel->yield( 'reconnect' );
         },
@@ -171,12 +172,7 @@ sub new {
 
         got_server_error => sub {
           $error_callback->(@_);
-          if ($_[ARG0] eq 'read') {
-            $_[KERNEL]->yield("shutdown");
-          }
-          else {
-            delete $_[HEAP]->{server};
-          }
+          $_[KERNEL]->yield("shutdown") if $_[HEAP]->{shutdown_on_error};
         },
 
         got_server_input => sub {
@@ -309,9 +305,10 @@ POE::Component::Client::TCP - a simplified TCP client
 
   # Reserved HEAP variables:
 
-  $heap->{server}   = ReadWrite wheel representing the server
-  $heap->{shutdown} = shutdown flag (check to see if shutting down)
-  $heap->{connected} = connected flag (check to see if session is connected)
+  $heap->{server}    = ReadWrite wheel representing the server.
+  $heap->{shutdown}  = Shutdown flag (check to see if shutting down).
+  $heap->{connected} = Connected flag (check to see if session is connected).
+  $heap->{shutdown_on_error} = Automatically disconnect on error.
 
   # Accepted public events.
 

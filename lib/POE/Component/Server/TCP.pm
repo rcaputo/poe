@@ -124,7 +124,8 @@ sub new {
             { _start => sub {
                 my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
 
-                $heap->{shutdown}    = 0;
+                $heap->{shutdown} = 0;
+                $heap->{shutdown_on_error} = 1;
 
                 if (length($remote_addr) == 4) {
                   $heap->{remote_ip} = inet_ntoa($remote_addr);
@@ -158,12 +159,7 @@ sub new {
               },
               tcp_server_got_error => sub {
                 $client_error->(@_);
-                if ($_[ARG0] eq 'read') {
-                  $_[KERNEL]->yield("shutdown");
-                }
-                else {
-                  delete $_[HEAP]->{client};
-                }
+                $_[KERNEL]->yield("shutdown") if $_[HEAP]->{shutdown_on_error};
               },
               tcp_server_got_flush => sub {
                 my $heap = $_[HEAP];
@@ -346,6 +342,7 @@ POE::Component::Server::TCP - a simplified TCP server
   $heap->{remote_port} = remote port
   $heap->{remote_addr} = packed remote address and port
   $heap->{shutdown}    = shutdown flag (check to see if shutting down)
+  $heap->{shutdown_on_error} = Automatically disconnect on error.
 
   # Accepted public events.
 
