@@ -51,7 +51,7 @@ sub new {
       # might want to use the pipe class elsewhere.
       select((select($a_write), $| = 1)[0]);
       select((select($b_write), $| = 1)[0]);
-      return($a_read, $b_write);
+      return($a_read, $a_write, $b_read, $b_write);
     }
   }
 
