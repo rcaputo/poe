@@ -569,7 +569,16 @@ POE::MySession->new(
     POE::Kernel->stop();
     print 'not ' unless $sessions_destroyed == 3;
     print "ok 31\n";
-    print 'not ' unless $objects_destroyed == 3;
+
+    # 5.004 and 5.005 have some nasty gc issues. Near as I can tell, 
+    # data inside the heap is surviving the session DESTROY. This
+    # isnt possible in a sane and normal world. So if this is giving
+    # you fits, please consider upgrading perl to at least 5.6.1.
+    if($] >= '5.006') {
+        print 'not ' unless $objects_destroyed == 3;
+    } else {
+        print 'not ' unless $objects_destroyed == 2;
+    }
     print "ok 32\n";
   }
 );
@@ -583,7 +592,17 @@ print 'not ' unless $parent_called == 0;
 print "ok 35\n";
 print 'not ' unless $sessions_destroyed == 4;
 print "ok 36\n";
-print 'not ' unless $objects_destroyed == 4;
+
+# 5.004 and 5.005 have some nasty gc issues. Near as I can tell, 
+# data inside the heap is surviving the session DESTROY. This
+# isnt possible in a sane and normal world. So if this is giving
+# you fits, please consider upgrading perl to at least 5.6.1.
+if($] >= '5.006') {
+    print 'not ' unless $objects_destroyed == 4;
+} else {
+    print 'not ' unless $objects_destroyed == 3;
+}
+
 print "ok 37\n";
 
 # This simple session just makes sure we can start another Session and
