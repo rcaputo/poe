@@ -28,12 +28,10 @@ sub _stop {
   print "Session $self->{'name'} stopped after $self->{'counter'} loops.\n";
 }
 
-sub _default {
-  my ($self, $k, $me, $from, $state, @etc) = @_;
-  print( "$self->{'name'} _default got state ($state) ",
-         "from ($from) parameters (", join(', ', @etc), ")\n"
-       );
-                                        # did not handle it (for signals)
+sub sigint {
+  my ($self, $k, $me, $from, $signal_name) = @_;
+  print "$self->{'name'} caught SIG$signal_name from $from\n";
+                                        # did not handle the signal
   return 0;
 }
 
@@ -60,7 +58,7 @@ foreach my $session_name (
 ) {
   new POE::Session( $kernel,
                     new Counter($session_name),
-                    [ qw(_start _stop _default increment) ]
+                    [ qw(_start _stop increment sigint) ]
                   );
 }
 
