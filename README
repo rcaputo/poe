@@ -163,6 +163,19 @@ IO::Pty : 0.01
 All tests successful.
 Files=26, Tests=559, 84 wallclock secs ( 7.65 cusr +  0.78 csys =  8.43 CPU)
 
+** POE 0.1501 on Mac OS X (Jotham)
+
+Hardware: G4-400
+System  : Mac OS X 10.0.4
+Perl    : 5.6.1
+Gtk     : (not installed)
+Tk      : (not installed)
+Event   : (not installed)
+IO::Pty : (not installed)
+
+(unknown test status)
+Files=26, Tests=444, 74 wallclock secs (20.47 cusr +  3.22 csys = 23.69 CPU)
+
 ** POE 0.15 on Solaris 8 (dynweb)
 
 Hardware: Ultra-80; 2x UltraSparc II-450; 1GB RAM
@@ -176,7 +189,7 @@ IO::Pty : 0.01
 All tests successful, 1 test skipped.
 Files=26, Tests=551, 85 wallclock secs (14.32 cusr + 1.47 csys = 15.79 CPU)
 
-** POE 0.15 on Windows 4.10.2222
+** POE 0.15 on Windows 4.10.2222 (also dynweb)
 
 Hardware: (unknown)
 System  : Windows 98 2nd Edition
