@@ -153,7 +153,10 @@ sub new {
               delete $heap->{client} if $heap->{shutdown};
             },
             shutdown => sub {
-              $_[HEAP]->{shutdown} = 1;
+              my $heap = shift;
+              $heap->{shutdown} = 1;
+              delete $heap->{client}
+                unless $heap->{client}->get_driver_out_octets();
             },
             _stop => $client_disconnected,
 
@@ -320,15 +323,16 @@ POE::Component::Server::TCP - a simplified TCP server
   # Reserved HEAP variables:
 
   $heap->{listener}    = SocketFactory (only Acceptor and Error callbacks)
-  $heap->{client}      = ReadWrite (only in ClientXyz callbacks)
+  $heap->{client}      = ReadWrite     (only in ClientXyz callbacks)
   $heap->{remote_ip}   = remote IP address in dotted form
   $heap->{remote_port} = remote port
   $heap->{remote_addr} = packed remote address and port
-  $heap->{shutdown}    = shutdown flag (set true to close a connection)
+  $heap->{shutdown}    = shutdown flag (check to see if shutting down)
 
   # Accepted public events.
 
-  $kernel->yield( "shutdown" )   initiate shutdown (sets $heap->{shutdown})
+  $kernel->yield( "shutdown" )           # initiate shutdown in a connection
+  $kernel->post( server => "shutdown" )  # stop listening for connections
 
 =head1 DESCRIPTION
 

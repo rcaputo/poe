@@ -169,6 +169,10 @@ sub new {
 
         shutdown => sub {
           $_[HEAP]->{shutdown} = 1;
+          my $heap = shift;
+          $heap->{shutdown} = 1;
+          delete $heap->{server}
+            unless $heap->{server}->get_driver_out_octets();
         },
 
         # User supplied states.
@@ -262,13 +266,13 @@ POE::Component::Client::TCP - a simplified TCP client
 
   # Reserved HEAP variables:
 
-  $heap->{shutdown} = shutdown flag (set true to close a connection)
   $heap->{server}   = ReadWrite wheel representing the server
+  $heap->{shutdown} = shutdown flag (check to see if shutting down)
 
   # Accepted public events.
 
-  $kernel->yield( "shutdown" )   initiate shutdown (sets $heap->{shutdown})
-  $kernel->yield( "reconnect" )  attempts to reconnect to the server
+  $kernel->yield( "shutdown" )   # shut down a connection
+  $kernel->yield( "reconnect" )  # reconnect to a server
 
 =head1 DESCRIPTION
 
