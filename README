@@ -129,7 +129,7 @@ place a window.  Unfortunately, the time it takes to acknowledge these
 interactive tests skews test results.  Any results that include
 interactive tests will not include times.
 
-** POE 0.1203 on OS/2
+** POE 0.1204 on OS/2
 
 (OS/2 doesn't grok system vs. user time.)
 
@@ -141,7 +141,7 @@ Tk      : (not installed)
 Event   : (not installed)
 
 All tests successful, 4 tests and 5 subtests skipped.
-Files=23, Tests=406, 182 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+Files=23, Tests=409, 141 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
 ** POE 0.1203 on FreeBSD
 

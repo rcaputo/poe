@@ -166,8 +166,9 @@ sub new {
     # doing the necessary bits to become our own [unix] session.
     if ($conduit eq 'pty') {
 
-      # Become a new unix session.  Program 19.3, APITUE.
-      setsid();
+      # Become a new unix session.  Program 19.3, APITUE.  W. Richard
+      # Stevens built my hot rod.
+      eval 'setsid()';
 
       # Open the slave side of the pty.
       $stdin_read = $stdout_write = $stderr_write = $stdin_write->slave();
@@ -623,6 +624,13 @@ new() accepts lots of stuff.  Each parameter is name/value pair.
 
 =over 2
 
+=item Conduit
+
+C<Conduit> describes how Wheel::Run should talk with the child
+process.  It may either be 'pipe' (the default), or 'pty'.
+
+Pty conduits require the IO::Pty module.
+
 =item ErrorEvent
 =item StdinEvent
 =item StdoutEvent
@@ -809,7 +817,15 @@ Wheel::ReadWrite.
 Wheel::Run generates SIGCHLD.  This may eventually cause Perl to
 segfault.  Bleah.
 
-MS Windows is going to have a fit about this.
+Priority is a delta; there's no way to set it directly to some value.
+
+User must be specified by UID.  It would be nice to support login
+names.
+
+Group must be specified by GID.  It would be nice to support group
+names.
+
+ActiveState Perl is not going to like this module one bit.
 
 =head1 AUTHORS & COPYRIGHTS
 

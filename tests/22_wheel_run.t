@@ -192,7 +192,8 @@ my $program =
 
 my $pty_flush_count = 0;
 
-{ POE::Session->create
+if (Wheel::Run::PTY_AVAILABLE) {
+  POE::Session->create
     ( inline_states =>
       { _start => sub {
           my ($kernel, $heap) = @_[KERNEL, HEAP];
@@ -239,6 +240,9 @@ my $pty_flush_count = 0;
       },
     );
 }
+else {
+  &many_ok( 19, 21, 'skipped: IO::Pty not installed' );
+}
 
 ### Run the main loop.
 
@@ -246,7 +250,7 @@ $poe_kernel->run();
 
 ### Post-run tests.
 &ok_if( 16, $tty_flush_count == 3 );
-&ok_if( 19, $pty_flush_count == 3 );
+&ok_if( 19, $pty_flush_count == 3 ) if Wheel::Run::PTY_AVAILABLE;
 
 &results();
 

@@ -23,6 +23,45 @@ Version numbers have four fields: X.YYZZAA
 | cvs tag -Rc v0_1009 .
 `------------------------------------------------------------------------------
 
+FUTURE ????.??.?? (!!!)
+-----------------------
+
+POE is due for a round of breakage to make things more consistent.
+
+  1. In the wheels, rename /.*State/ to /.*Event/.  Wheels don't
+     define states, they emit events.  Calling the parameters
+     /.*State/ is just confusing.
+
+  2. ARG0..ARG9 in built-in events are silly.  The whole concept of
+     using array slices and constant offsets is to avoid positional
+     dependencies.  Using ARG0..ARG9 defeats most of this technique's
+     benefits.  D'oh!
+
+  3. Whatever else I can break.  May as well get as much of it over at
+     once as I can.
+
+I've come up with this depreciation schedule in the hopes it'll
+minimize people's grief.
+
+  0.13 - Release POE as/is with this depreciation schedule.  This is
+         the RFC phase, and people can step up and tell me I'm a bad
+         man for thinking about breaking their programs.
+
+  0.14 - Release POE with new the new parameters/behaviors/etc. and
+         the depreciated ones side-by-side.  The documentation only
+         covers the new things; the depreciated ones are gone.
+
+  0.15 - Turn the depreciated things into warnings.
+
+  0.16 - Remove the depreciated things.
+
+
+0.1204 2000.??.??
+-----------------
+
+Added IO::Pty support to Wheel::Run.  Skip the Pty tests if IO::Pty
+isn't available, so's not to break testing for people without it.
+
 
 0.1203 2000.12.29
 -----------------
