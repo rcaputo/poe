@@ -61,8 +61,7 @@ sub _substrate_signal_handler_child {
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
-      EN_SCPOLL, ET_SCPOLL,
-      [ ],
+      EN_SCPOLL, ET_SCPOLL, [ ],
       time(), __FILE__, __LINE__
     );
 }
@@ -73,9 +72,6 @@ sub _substrate_signal_handler_child {
 macro substrate_watch_signal {
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
-
-    # For SIGCHLD triggered polling loop.
-    # $SIG{$signal} = \&_substrate_signal_handler_child;
 
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
@@ -107,17 +103,11 @@ macro substrate_watch_signal {
 }
 
 macro substrate_resume_watching_child_signals {
-  # For SIGCHLD triggered polling loop.
-  # $SIG{CHLD} = \&_substrate_signal_handler_child if exists $SIG{CHLD};
-  # $SIG{CLD}  = \&_substrate_signal_handler_child if exists $SIG{CLD};
-
-  # For constant polling loop.
   $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
   $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
-      EN_SCPOLL, ET_SCPOLL,
-      [ ],
+      EN_SCPOLL, ET_SCPOLL, [ ],
       time() + 1, __FILE__, __LINE__
     ) if keys(%kr_sessions) > 1;
 }
