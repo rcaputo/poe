@@ -107,27 +107,19 @@ eval { $termcap->Trequire($tc_left) };
 if ($@) {
   $tc_left = "le";
   eval { $termcap->Trequire($tc_left) };
-  die "POE::Wheel::ReadLine requires a termcap that supports LE or le";
+  die "POE::Wheel::ReadLine requires a termcap that supports LE or le" if $@;
 }
 
-my $tc_right = "RI";
-eval { $termcap->Trequire($tc_right) };
-if ($@) {
-  $tc_right = "ri";
-  eval { $termcap->Trequire($tc_right) };
-  die "POE::Wheel::ReadLine requires a termcap that supports RI or ri";
-}
+sub curs_left {
+  my $amount = shift;
 
-sub curs_move {
-  my ($dir, $amount) = @_;
-
-  if ($dir eq uc($dir)) {
-    $termcap->Tgoto($dir, 1, $amount, $stdout);
+  if ($tc_left eq "LE") {
+    $termcap->Tgoto($tc_left, 1, $amount, $stdout);
     return;
   }
 
   for (1..$amount) {
-    $termcap->Tgoto($dir, 1, 1, $stdout);
+    $termcap->Tgoto($tc_left, 1, 1, $stdout);
   }
 }
 
@@ -182,25 +174,24 @@ $meta_prefix{chr(27)} = 1;
 
 # Wipe the current input line.
 sub wipe_input_line {
-    my %args   = @_;
-    my $stdout = $args{stdout};
+  my %args   = @_;
+  my $stdout = $args{stdout};
 
-    # Clear the current prompt and input, and home the cursor.
-    curs_move( $tc_left,
-               ( $ { $args{self_cursor_display} } +
-                 length( ${ $args{self_prompt} } )
-               )
-             );
-    if ( $args{tc_has_ke} ) {
-        print $stdout $args{termcap}->Tputs( 'kE', 1 );
-    }
-    else {
-      $args{wipe_length} =
-        length( $ { $args{self_prompt} } ) +
-          display_width( $ { $args{self_input} } );
-      print $stdout ( ' ' x $args{wipe_length} );
-      curs_move($tc_left, $args{wipe_length});
-    }
+  # Clear the current prompt and input, and home the cursor.
+  curs_left( $ { $args{self_cursor_display} } +
+             length( $ { $args{self_prompt} })
+           );
+
+  if ( $args{tc_has_ke} ) {
+    print $stdout $args{termcap}->Tputs( 'kE', 1 );
+  }
+  else {
+    $args{wipe_length} =
+      length( $ { $args{self_prompt} } ) +
+        display_width( $ { $args{self_input} } );
+    print $stdout ( ' ' x $args{wipe_length} );
+    curs_left($args{wipe_length});
+  }
 }
 
 # Helper to flush any buffered output.  
@@ -228,10 +219,8 @@ sub repaint_input_line {
     if ( $ { $args{self_cursor_input} } !=
          length( $ { $args{self_input} } )
        ) {
-      curs_move( $tc_left,
-                 ( display_width( $ { $args{self_input} } ) -
-                   $ { $args{self_cursor_display} }
-                 )
+      curs_left( display_width( $ { $args{self_input} } ) -
+                 $ { $args{self_cursor_display} }
                );
     }
 }
@@ -495,7 +484,7 @@ sub _define_read_state {
               # Beginning of line.
               if ( $key eq '^A' or $key eq $tck_home ) {
                 if ($$cursor_input) {
-                  curs_move($tc_left, $$cursor_display);
+                  curs_left($$cursor_display);
                   $$cursor_display = $$cursor_input = 0;
                 }
                 else {
@@ -509,7 +498,7 @@ sub _define_read_state {
                 if ($$cursor_input) {
                   $$cursor_input--;
                   my $left = display_width(substr($$input, $$cursor_input, 1));
-                  curs_move($tc_left, $left);
+                  curs_left($left);
                   $$cursor_display -= $left;
                 }
                 else {
@@ -550,7 +539,7 @@ sub _define_read_state {
                       (' ' x $kill_width)
                     );
                   print $stdout $normal;
-                  curs_move($tc_left, length($normal));
+                  curs_left(length($normal));
                 }
                 else {
                   print $stdout $tc_bell;
@@ -561,8 +550,9 @@ sub _define_read_state {
               # End of line.
               if ( $key eq '^E' or $key eq $tck_end ) {
                 if ($$cursor_input < length($$input)) {
-                  my $right = display_width(substr($$input, $$cursor_input));
-                  curs_move($tc_right, $right);
+                  my $right_string = substr($$input, $$cursor_input);
+                  print normalize($right_string);
+                  my $right = display_width($right_string);
                   $$cursor_display += $right;
                   $$cursor_input = length($$input);
                 }
@@ -615,13 +605,13 @@ sub _define_read_state {
                   my $kill_width =
                     display_width(substr($$input, $$cursor_input, 1));
                   substr($$input, $$cursor_input, 1) = '';
-                  curs_move($tc_left, $left);
+                  curs_left($left);
                   my $normal =
                     ( normalize(substr($$input, $$cursor_input)) .
                       (' ' x $kill_width)
                     );
                   print $stdout $normal;
-                  curs_move($tc_left, length($normal));
+                  curs_left(length($normal));
                   $$cursor_display -= $kill_width;
                 }
                 else {
@@ -658,7 +648,7 @@ sub _define_read_state {
                   print( $stdout
                          (" " x $kill_width)
                        );
-                  curs_move($tc_left, $kill_width);
+                  curs_left($kill_width);
                 }
                 else {
                   print $stdout $tc_bell;
@@ -671,7 +661,7 @@ sub _define_read_state {
                 my $left = display_width(substr($$input, $$cursor_input));
                 $termcap->Tputs( 'cl', 1, $stdout );
                 print $stdout $$prompt, normalize($$input);
-                curs_move($tc_left, $left) if $left;
+                curs_left($left) if $left;
                 next;
               }
 
@@ -704,9 +694,9 @@ sub _define_read_state {
                     reverse substr($$input, $$cursor_input - 1, 2);
                   substr($$input, $$cursor_input - 1, 2) = $transposition;
 
-                  curs_move($tc_left, $width_left);
+                  curs_left($width_left);
                   print $stdout normalize($transposition);
-                  curs_move($tc_left, $width_left);
+                  curs_left($width_left);
                 }
                 else {
                   print $stdout $tc_bell;
@@ -720,7 +710,7 @@ sub _define_read_state {
 
                   # Back up to the beginning of the line.
                   if ($$cursor_input) {
-                    curs_move($tc_left, $$cursor_display);
+                    curs_left($$cursor_display);
                     $$cursor_display = $$cursor_input = 0;
                   }
 
@@ -731,7 +721,7 @@ sub _define_read_state {
                   else {
                     my $display_width = display_width($$input);
                     print $stdout ' ' x $display_width;
-                    curs_move($tc_left, $display_width);
+                    curs_left($display_width);
                   }
 
                   # Clear the input buffer.
@@ -753,7 +743,7 @@ sub _define_read_state {
 
                   # Back up the screen cursor; show the line's tail.
                   my $delete_width = display_width($1);
-                  curs_move($tc_left, $delete_width);
+                  curs_left($delete_width);
                   print $stdout normalize(substr( $$input, $$cursor_input ));
 
                   # Clear to the end of the line.
@@ -762,14 +752,14 @@ sub _define_read_state {
                   }
                   else {
                     print $stdout ' ' x $delete_width;
-                    curs_move($tc_left, $delete_width);
+                    curs_left($delete_width);
                   }
 
                   # Back up the screen cursor to match the edit one.
                   if (length($$input) != $$cursor_input) {
                     my $display_width =
                       display_width( substr($$input, $$cursor_input) );
-                    curs_move($tc_left, $display_width);
+                    curs_left($display_width);
                   }
                 }
                 else {
@@ -790,7 +780,7 @@ sub _define_read_state {
 
                   # Move cursor to start of input.
                   if ($$cursor_input) {
-                    curs_move($tc_left, $$cursor_display);
+                    curs_left($$cursor_display);
                   }
 
                   # Clear to end of line.
@@ -801,7 +791,7 @@ sub _define_read_state {
                     else {
                       my $display_width = display_width($$input);
                       print $stdout ' ' x $display_width;
-                      curs_move($tc_left, $display_width);
+                      curs_left($display_width);
                     }
                   }
 
@@ -827,7 +817,7 @@ sub _define_read_state {
 
                   # Move cursor to start of input.
                   if ($$cursor_input) {
-                    curs_move($tc_left, $$cursor_display);
+                    curs_left($$cursor_display);
                   }
 
                   # Clear to end of line.
@@ -838,7 +828,7 @@ sub _define_read_state {
                     else {
                       my $display_width = display_width($$input);
                       print $stdout ' ' x $display_width;
-                      curs_move($tc_left, $display_width);
+                      curs_left($display_width);
                     }
                   }
 
@@ -876,7 +866,7 @@ sub _define_read_state {
 
                   # Move cursor to start of input.
                   if ($$cursor_input) {
-                    curs_move($tc_left, $$cursor_display);
+                    curs_left($$cursor_display);
                   }
 
                   # Clear to end of line.
@@ -887,7 +877,7 @@ sub _define_read_state {
                     else {
                       my $display_width = display_width($$input);
                       print $stdout ' ' x $display_width;
-                      curs_move($tc_left, $display_width);
+                      curs_left($display_width);
                     }
                   }
 
@@ -918,7 +908,7 @@ sub _define_read_state {
 
                   # Move cursor to start of input.
                   if ($$cursor_input) {
-                    curs_move($tc_left, $$cursor_display);
+                    curs_left($$cursor_display);
                   }
 
                   # Clear to end of line.
@@ -929,7 +919,7 @@ sub _define_read_state {
                     else {
                       my $display_width = display_width($$input);
                       print $stdout ' ' x $display_width;
-                      curs_move($tc_left, $display_width);
+                      curs_left($display_width);
                     }
                   }
 
@@ -1016,7 +1006,7 @@ sub _define_read_state {
                 if (substr($$input, $$cursor_input) =~ /^(\s*\S+)/) {
                   $$cursor_input += length($1);
                   my $right = display_width($1);
-                  curs_move($tc_right, $right);
+                  print normalize($1);
                   $$cursor_display += $right;
                 }
                 else {
@@ -1044,7 +1034,7 @@ sub _define_read_state {
                     $normal_remaining_length += $killed_width;
                   }
 
-                  curs_move($tc_left, $normal_remaining_length)
+                  curs_left($normal_remaining_length)
                     if $normal_remaining_length;
                 }
                 else {
@@ -1058,7 +1048,7 @@ sub _define_read_state {
                 if (substr($$input, 0, $$cursor_input) =~ /(\S+\s*)$/) {
                   $$cursor_input -= length($1);
                   my $kill_width = display_width($1);
-                  curs_move($tc_left, $kill_width);
+                  curs_left($kill_width);
                   $$cursor_display -= $kill_width;
                 }
                 else {
@@ -1117,9 +1107,7 @@ sub _define_read_state {
                 $$input = $previous . $right . $space . $left . $rest;
 
                 if ($$cursor_display - display_width($previous)) {
-                  curs_move( $tc_left,
-                             $$cursor_display - display_width($previous)
-                           );
+                  curs_left($$cursor_display - display_width($previous));
                 }
                 print $stdout normalize($right . $space . $left);
                 $$cursor_input = length($previous. $left . $space . $right);
@@ -1146,7 +1134,7 @@ sub _define_read_state {
                      "term_columns($trk_cols)\x0D\x0A",
                      $$prompt, normalize($$input)
                    );
-              curs_move($tc_left, $left) if $left;
+              curs_left($left) if $left;
               next;
             }
 
@@ -1170,7 +1158,7 @@ sub _define_read_state {
                 print $stdout $key, $normal;
                 $$cursor_input += length($raw_key);
                 $$cursor_display += length($key);
-                curs_move($tc_left, length($normal));
+                curs_left(length($normal));
               }
               else {
                 # Overstrike.
@@ -1192,7 +1180,7 @@ sub _define_read_state {
                     $rest .= ' ' x ($replaced_width - length($key));
                   }
                   print $stdout $rest;
-                  curs_move($tc_left, length($rest));
+                  curs_left(length($rest));
                 }
               }
             }
