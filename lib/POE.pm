@@ -24,8 +24,10 @@ sub import {
 
   my @failed;
   foreach my $module (@modules) {
-    eval("require POE::$module")
-      or push(@failed, $module);
+    unless (eval("require POE::$module")) {
+      warn $@;
+      push(@failed, $module);
+    }
   }
 
   @failed and croak "could not import qw(" . join(' ', @failed) . ")";
