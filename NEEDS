@@ -12,9 +12,9 @@
 #
 #   module-mask (wants|needs) dependent-mask
 #
-# Core modules must be able to load all their "needed" dependencies.
+# Core modules must be able to load all their "needs" dependencies.
 # The program exits with a failure code (designed to stop a makefile)
-# if any of the distribution's core modules requires a dependent that
+# if any of the distribution's core modules needss a dependent that
 # can't be loaded.
 #
 # Data modules are ignored.
@@ -43,7 +43,7 @@ MANIFEST          is data
 NEEDS             is data
 
 # Test 8 uses a module which it knows doesn't exist.  Skip dependency
-# checking for this test.
+# checking for that file.
 
 t/08_errors.t     is data
 

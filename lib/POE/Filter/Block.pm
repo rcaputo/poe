@@ -140,8 +140,10 @@ Please see POE::Filter.
 
 =head1 SEE ALSO
 
-POE::Filter; POE::Filter::HTTPD; POE::Filter::Reference;
-POE::Filter::Stream; POE::Filter::Line
+POE::Filter.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -152,7 +154,6 @@ None known.
 The Block filter was contributed by Dieter Pearcey, with changes by
 Rocco Caputo.
 
-Please see the POE manpage for more information about authors and
-contributors.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

@@ -779,10 +779,11 @@ invoking the C<call_state>'s RETURN_EVENT, possibly with RETURN_ARGS.
 
 =head1 SEE ALSO
 
-The POE manpage contains holistic POE information, including an up to
-date list of the modules comprising it.  The POE::Session manpage is a
-"must read", says the New York Times, and it covers many concepts
-which this manpage casually glosses over.
+Many of POE::NFA's features are taken directly from POE::Session.
+Please see L<POE::Session> for more information.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -796,6 +797,6 @@ The documentation is slapped together hastily, too.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage for authors and licenses.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

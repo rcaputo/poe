@@ -232,8 +232,10 @@ Please see POE::Filter.
 
 =head1 SEE ALSO
 
-POE::Filter; POE::Filter::Line; POE::Filter::Reference;
-POE::Filter::Stream; HTTP::Request; HTTP::Response
+POE::Filter.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -243,7 +245,6 @@ Keep-alive is not supported.
 
 The HTTPD filter was contributed by Artur Bergman.
 
-Please see the POE manpage for more information about authors and
-contributors.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

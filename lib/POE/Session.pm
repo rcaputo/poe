@@ -1509,8 +1509,10 @@ using the first form.
 
 =head1 SEE ALSO
 
-The POE manpage contains holstic POE information, including an up to
-date list of the modules comprising it.
+POE::Kernel.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -1521,6 +1523,6 @@ If you find another, tell the author!
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage for authors and licenses.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

@@ -33,6 +33,11 @@ The POE::Component namespace was started to provide a place for others
 publish their POE modules without requiring coordination with the main
 POE distribution.
 
+=head1 SEE ALSO
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
+
 =head1 BUGS
 
 The POE::Component namespace should probably be coordinated, but who
@@ -40,6 +45,6 @@ has time for that?
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage or manpages for specific components.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

@@ -253,6 +253,7 @@ POE::Wheel - POE FollowTail Protocol Logic
     PollInterval => 1,                  # How often to check it
     InputState   => $input_event_name,  # State to call upon input
     ErrorState   => $error_event_name,  # State to call upon error
+    SeekBack     => $offset,            # How far from EOF to start
   );
 
 =head1 DESCRIPTION
@@ -339,19 +340,30 @@ A sample ErrorState state:
     warn "$operation error $errnum: $errstr\n";
   }
 
+=item *
+
+SeekBack
+
+The SeekBack parameter tells FollowTail how far from EOF to start
+following the file.  Its value is specified in bytes, and seeking
+before the beginning of a file will quietly cause FollowTail to start
+from the file's beginning.
+
 =back
 
 =head1 SEE ALSO
 
-POE::Wheel; POE::Wheel::ListenAccept; POE::Wheel::ReadWrite;
-POE::Wheel::SocketFactory
+POE::Wheel.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
-This wheel can't tail pipes and consoles.  Blargh.
+This wheel can't tail pipes and consoles.  This may have been fixed.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

@@ -248,8 +248,10 @@ streamable representations.
 
 =head1 SEE ALSO
 
-POE::Filter; POE::Filter::HTTPD; POE::Filter::Line;
-POE::Filter::Stream
+POE::Filter.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -260,7 +262,6 @@ Oh, probably some.
 The Reference filter was contributed by Arturn Bergman, with changes
 by Philip Gwyn.
 
-Please see the POE manpage for more information about authors and
-contributors.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

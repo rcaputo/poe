@@ -3544,10 +3544,9 @@ Rather than waste the window, POE exports it as $poe_main_window.
 
 =head1 PRIVATE KERNEL METHODS
 
-The private kernel methods are private.  All the usual "here there be
-private methods" caveats apply.  As such, they won't be documented
-here.  The terminally curious, however, will note that POE::Kernel
-contains a lot of comments.
+All the usual "here there be private methods" caveats apply, so
+they're not documented here.  The terminally curious, however, will
+note that POE::Kernel contains a lot of comments.
 
 =head1 PUBLIC KERNEL METHODS
 
@@ -4306,7 +4305,8 @@ reference to the Kernel.
 
 =head1 SEE ALSO
 
-The POE manpages contains holistic POE information.
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -4314,6 +4314,6 @@ There are no currently known bugs.  If you find one, tell the author!
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage for authors and licenses.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

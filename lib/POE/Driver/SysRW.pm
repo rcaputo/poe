@@ -160,7 +160,10 @@ If omitted, $block_size defaults to 512.
 
 =head1 SEE ALSO
 
-POE::Driver
+POE::Driver.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -168,6 +171,6 @@ Oh, probably some.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

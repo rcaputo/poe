@@ -51,12 +51,14 @@ POE::Filter::Stream - POE Stream (Null) Protocol Abstraction
 
 =head1 DESCRIPTION
 
-This filter passes data through unchanged.  It is a "null" filter.
+This filter passes data through unchanged.
 
 =head1 SEE ALSO
 
-POE::Filter; POE::Filter::HTTPD; POE::Filter::Line;
-POE::Filter::Reference; POE::Filter::Stream
+POE::Filter.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -64,6 +66,6 @@ Oh, probably some.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

@@ -98,14 +98,15 @@ top message is partially flushed, it is still counted as a full one.
 
 =head1 SEE ALSO
 
-POE::Driver::SysRW
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
-There is no POE::Driver::SendRecv
+There is no POE::Driver::SendRecv, but nobody has needed one so far.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage.
+Please see L<POE> for more information about authors and contributors.
 
 =cut

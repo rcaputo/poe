@@ -225,8 +225,10 @@ A sample ErrorState state:
 
 =head1 SEE ALSO
 
-POE::Wheel; POE::Wheel::FollowTail; POE::Wheel::ReadWrite;
-POE::Wheel::SocketFactory
+POE::Wheel.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
 
 =head1 BUGS
 
@@ -234,6 +236,6 @@ Oh, probably some.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage.
+Please see L<POE> for more information about authors and contributors.
 
 =cut
