@@ -7,7 +7,7 @@ use strict;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.110002';
+$VERSION = '0.1101';
 
 sub import {
   my $self = shift;
@@ -43,7 +43,7 @@ __END__
 
 =head1 NAME
 
-POE - a persistent object environment
+POE - persistent object environment / perl operating environment / perl object  events / peace on earth / part of everything
 
 =head1 SYNOPSIS
 

@@ -1238,8 +1238,10 @@ sub run {
 
   else {
 
-    # Cache some deferences.  Adds about 15 events/second to a trivial
-    # benchmark.
+    # Cache some references.  Adds about 15 events/second to a trivial
+    # benchmark.  -><- It probably would be even faster if I flattened
+    # POE::Kernel's data structure and made them all lexicals instead
+    # of members of $self.
     my $kr_states   = $self->[KR_STATES];
     my $kr_handles  = $self->[KR_HANDLES];
     my $kr_sessions = $self->[KR_SESSIONS];
@@ -1673,8 +1675,10 @@ sub DESTROY {
 sub _invoke_state {
   my ($self, $source_session, $state, $etc) = @_;
 
-  # POE::Kernel::fork was used, and an event loop was set up to reap
-  # children.  It's time to check for children waiting.
+  # A SIGCHLD was caught.  This is an event loop to poll for children
+  # without catching extra child signals.  This reduces the number of
+  # CHLD signals caught, which increases the process' chance for
+  # survival.
 
   if ($state eq EN_SCPOLL) {
 
@@ -1886,6 +1890,8 @@ sub assert_gc_refcount {
 
 my $queue_seqnum = 0;
 
+# Internal function to enqueue a state transition event.
+
 sub _enqueue_state {
   my ( $self, $session, $source_session, $state, $type, $etc, $time,
        $file, $line
@@ -1963,8 +1969,8 @@ sub _enqueue_alarm {
 
     # Small queue.  Perform a reverse linear search on the assumption
     # that (a) a linear search is fast enough on small queues; and (b)
-    # most events will be posted for "now" which tends to be towards
-    # the end of the queue.
+    # most events will be posted for "now" or some future time, which
+    # tends to be towards the end of the queue.
     elsif (@$kr_alarms < 32) {
       my $index = @$kr_alarms;
       while ($index--) {
@@ -1979,7 +1985,9 @@ sub _enqueue_alarm {
     }
 
     # And finally, we have this large queue, and the program has
-    # already wasted enough time.
+    # already wasted enough time.  -><- It would be neat for POE to
+    # determine the break-even point between "large" and "small" alarm
+    # queues at start-up and tune itself accordingly.
     else {
       my $upper = @$kr_alarms - 1;
       my $lower = 0;
@@ -2190,7 +2198,7 @@ sub alarm {
   return 0;
 }
 
-# Add an alarm without clobbenig previous alarms of the same name.
+# Add an alarm without clobbering previous alarms of the same name.
 sub alarm_add {
   my ($self, $state, $time, @etc) = @_;
 
@@ -2649,7 +2657,7 @@ sub ID {
 
 # Resolve an ID to a session reference.  This function is virtually
 # moot now that alias_resolve does it too.  This explicit call will be
-# faster, though.
+# faster, though, so it's kept for things that can benefit from it.
 
 sub ID_id_to_session {
   my ($self, $id) = @_;
@@ -2788,7 +2796,9 @@ sub state {
 
 ###############################################################################
 # Bootstrap the kernel.  This is inherited from a time when multiple
-# kernels could be present in the same Perl process.
+# kernels could be present in the same Perl process. -><- I think
+# multiple kernels will never again be supported; revising things to
+# be more static may improve performance.
 
 new POE::Kernel();
 

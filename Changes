@@ -26,6 +26,8 @@ Version numbers have four fields: X.YYZZAA
 
 ,----- To Do -----
 |
+| Warn people that the Tk tests will pop up windows.
+|
 | Why does samples/tk.perl leak memory, and how can I fix it?
 |
 | caller() calls in POE::Kernel report POE::Kernel lines.  They
