@@ -247,8 +247,7 @@ sub _define_connect_state {
 
         # Grab some values and stop watching the socket.
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-        undef $$socket_selected;
-        $k->select($handle);
+        $self->_shutdown();
 
         # Throw a failure if the connection failed.
         $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
@@ -312,7 +311,7 @@ sub _define_connect_state {
           die "sanity failure: socket domain == $domain";
         }
 
-        # Tell the session it went okay.
+        # Tell the session it went okay.  Also let go of the socket.
         $k->call( $me, $$success_event,
                   $handle, $peer_addr, $peer_port, $unique_id
                 );
@@ -332,8 +331,7 @@ sub _define_connect_state {
 
           # Grab some values and stop watching the socket.
           my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          undef $$socket_selected;
-          $k->select($handle);
+          $self->_shutdown();
 
           # Throw a failure if the connection failed.
           $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
@@ -1021,6 +1019,12 @@ sub resume_accept {
 
 sub DESTROY {
   my $self = shift;
+  $self->_shutdown();
+  &POE::Wheel::free_wheel_id($self->[MY_UNIQUE_ID]);
+}
+
+sub _shutdown {
+  my $self = shift;
 
   if (defined $self->[MY_SOCKET_SELECTED]) {
     undef $self->[MY_SOCKET_SELECTED];
@@ -1046,8 +1050,6 @@ sub DESTROY {
     $poe_kernel->state($self->[MY_EVENT_FAILURE]);
     undef $self->[MY_EVENT_FAILURE];
   }
-
-  &POE::Wheel::free_wheel_id($self->[MY_UNIQUE_ID]);
 }
 
 ###############################################################################
