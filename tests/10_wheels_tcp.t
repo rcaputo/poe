@@ -176,6 +176,7 @@ sub client_tcp_got_flush {
 
 POE::Component::Server::TCP->new
   ( Port     => $tcp_server_port,
+    Address  => '127.0.0.1',
     Acceptor => sub { &sss_new(@_[ARG0..ARG2]);
                       # This next badness is just for testing.
                       my $sockname = $_[HEAP]->{listener}->getsockname();
@@ -184,7 +185,7 @@ POE::Component::Server::TCP->new
                       my ($port, $addr) = sockaddr_in($sockname);
                       $addr = inet_ntoa($addr);
                       &ok_if( 10,
-                              ($addr eq '0.0.0.0') &&
+                              ($addr eq '127.0.0.1') &&
                               ($port == $tcp_server_port)
                             )
                     },
