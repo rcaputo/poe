@@ -14,6 +14,11 @@ Made BindAddress optional for UNIX client sockets.  It's still
 required for server sockets.  Updated the documentation for the
 change, fixed some typos, and included PF_INET and PF_UNIX.
 
+Changed POE::Kernel::_enqueue_state from a linear search to a binary
+search, but only if there are 32+ events in the queue.  Smaller queues
+are still searched linearly, on assumption that it's quicker because
+there's less overhead.
+
 
 0.0701 1999.07.01
 -----------------

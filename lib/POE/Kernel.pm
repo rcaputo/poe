@@ -85,6 +85,7 @@ sub DEB_SELECT   () { 0 }
 sub DEB_REFCOUNT () { 0 }
 sub DEB_QUEUE    () { 0 }
 sub DEB_STRICT   () { 0 }
+sub DEB_INSERT   () { 0 }
                                         # handles & vectors structures
 sub VEC_RD      () { 0 }
 sub VEC_WR      () { 1 }
@@ -819,6 +820,31 @@ sub _collect_garbage {
 
 my $queue_seqnum = 0;
 
+sub debug_insert {
+  my ($states, $index, $time) = @_;
+
+  if ($index==0) {
+    warn( "<<<<< inserting time($time) at $index, before ",
+          $states->[$index]->[ST_TIME],
+          " >>>>>\n"
+        );
+  }
+  elsif ($index == @$states) {
+    warn( "<<<<< inserting time($time) at $index, after ",
+          $states->[$index-1]->[ST_TIME],
+          " >>>>>\n"
+        );
+  }
+  else {
+    warn( "<<<<< inserting time($time) at $index, between low(",
+          $states->[$index-1]->[ST_TIME],
+          ") and high(", 
+          $states->[$index]->[ST_TIME],
+          ") >>>>>\n"
+        );
+  }
+}
+
 sub _enqueue_state {
   my ($self, $session, $source_session, $state, $time, $etc) = @_;
 
@@ -835,14 +861,55 @@ sub _enqueue_state {
   if (exists $self->[KR_SESSIONS]->{$session}) {
     my $kr_states = $self->[KR_STATES];
     if (@$kr_states) {
-      my $index = @$kr_states;
-      while ($index--) {
-        if ($time >= $kr_states->[$index]->[ST_TIME]) {
-          splice(@$kr_states, $index+1, 0, $state_to_queue);
-          last;
+                                        # small queue; linear search
+      if (@$kr_states < 32) {
+        my $index = @$kr_states;
+        while ($index--) {
+          if ($time >= $kr_states->[$index]->[ST_TIME]) {
+            splice(@$kr_states, $index+1, 0, $state_to_queue);
+            last;
+          }
+          elsif ($index == 0) {
+            unshift @$kr_states, $state_to_queue;
+          }
         }
-        elsif ($index == 0) {
-          unshift @$kr_states, $state_to_queue;
+      }
+                                        # larger queue; binary search
+      else {
+        my $upper = @$kr_states - 1;
+        my $lower = 0;
+        while ('true') {
+          my $midpoint = ($upper + $lower) >> 1;
+
+          DEB_INSERT &&
+            warn "<<<<< lo($lower)  mid($midpoint)  hi($upper) >>>>>\n";
+
+          if ($upper < $lower) {
+            DEB_INSERT && &debug_insert($kr_states, $lower, $time);
+            splice(@$kr_states, $lower, 0, $state_to_queue);
+            last;
+          }
+                                        # too high
+          if ($time < $kr_states->[$midpoint]->[ST_TIME]) {
+            $upper = $midpoint - 1;
+            next;
+          }
+                                        # too low
+          if ($time > $kr_states->[$midpoint]->[ST_TIME]) {
+            $lower = $midpoint + 1;
+            next;
+          }
+                                        # just right
+          if ($time == $kr_states->[$midpoint]->[ST_TIME]) {
+            while ( ($midpoint < @$kr_states) &&
+                    ($time == $kr_states->[$midpoint]->[ST_TIME])
+            ) {
+              $midpoint++;
+            }
+            DEB_INSERT && &debug_insert($kr_states, $midpoint, $time);
+            splice(@$kr_states, $midpoint, 0, $state_to_queue);
+            last;
+          }
         }
       }
     }
