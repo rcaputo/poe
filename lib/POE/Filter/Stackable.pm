@@ -1,5 +1,11 @@
 # 2001/01/25 shizukesa@pobox.com
 
+# This implements a filter stack, which turns ReadWrite into something
+# very, very interesting.
+
+# 2001-07-26 RCC: I have no idea how to make this support get_one, so
+# I'm not going to right now.
+
 package POE::Filter::Stackable;
 
 use strict;
