@@ -122,7 +122,7 @@ sub get {
   # Parse the request line.
 
   if ($buf !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
-    return [ $self->build_error(RC_BAD_REQUEST) ];
+    return [ $self->build_error(RC_BAD_REQUEST, "Request line parse failure.") ];
   }
   my $proto = $3 || "HTTP/0.9";
 
@@ -175,8 +175,12 @@ sub get {
 #    print length($buf)."-".$r->content_length()."\n";
 
     my $cl = $r->content_length();
-    return [ $self->build_error(RC_LENGTH_REQUIRED) ] unless defined $cl;
-    return [ $self->build_error(RC_BAD_REQUEST    ) ] unless $cl =~ /^\d+$/;
+    return [ $self->build_error(RC_LENGTH_REQUIRED, "No content length found.") ] 
+        unless defined $cl;
+        
+    return [ $self->build_error(RC_BAD_REQUEST, "Content length contains non-digits.") ] 
+        unless $cl =~ /^\d+$/;
+
     if (length($buf) >= $cl) {
       $r->content($buf);
       $self->{finish}++;
