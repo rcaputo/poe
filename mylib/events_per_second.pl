@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 
-use warnings;
 use strict;
 use vars qw($NUM_OF_EVENTS $USE_EVENT $USE_IO_POLL);
 

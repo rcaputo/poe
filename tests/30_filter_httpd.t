@@ -4,7 +4,6 @@
 # Test Filter::HTTPD by itself
 # See other (forthcoming) for more complex interactions
 
-use warnings;
 use strict;
 
 use lib qw(./mylib ../mylib ../lib ./lib);

@@ -23,7 +23,6 @@ This program was written by Matt Cashner.
 =cut
 
 use IO::Socket::INET;
-use warnings;
 use strict;
 local $/;
 

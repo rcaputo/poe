@@ -3,7 +3,6 @@
 
 # Fetch and test all the /^POE::/ distributions on CPAN.
 
-use warnings;
 use strict;
 
 use CPANPLUS::Configure;

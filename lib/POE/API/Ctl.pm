@@ -2,7 +2,6 @@
 
 package POE::API::Ctl;
 
-use warnings;
 use strict;
 
 use vars qw($VERSION);

@@ -8,7 +8,6 @@
 # Generate a nice looking change log from the CVS logs for a Perl
 # project.
 
-use warnings;
 use strict;
 
 use Text::Wrap qw(wrap fill $columns $huge);

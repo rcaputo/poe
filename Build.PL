@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 # $Id$
 
-use warnings;
 use strict;
 use Module::Build;
 
