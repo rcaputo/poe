@@ -13,6 +13,9 @@ use POSIX qw(errno_h);
 use Carp;
 
 use POE::Object;
+#use POE::Attribute::Scalar;
+use POE::Attribute::Hash;
+use POE::Attribute::Array;
 
 #==============================================================================
 # Private helpers.
@@ -125,6 +128,18 @@ sub attribute_fetch {
     $self->attribute_execute( $heap, $actor, $id, $attribute . DIDFETCH,
                               [ $old_value, $att_value ]
                             );
+
+  if (ref($att_value) eq 'HASH') {
+    my %return_att;
+    tie %return_att, 'POE::Attribute::Hash', $repository, $attribute, $id, $att_owner;
+    return (0, \%return_att);
+  }
+
+  if (ref($att_value) eq 'ARRAY') {
+    my @return_att;
+    tie @return_att, 'POE::Attribute::Array', $repository, $attribute, $id, $att_owner;
+    return (0, \@return_att);
+  }
 
   return (0, $att_value);
 }

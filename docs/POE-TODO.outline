@@ -560,6 +560,439 @@ This seems to be more evolved than just chaining filters.  He suggests
 reading up on "SysV pushed drivers" and "Unix streams".  Eventually I
 will.
 
+*** General STREAMS Notes
+
+Streams may be symmetric.  That is, put in both directions and no
+service routines.  This is because the stream head is event driven,
+instead of blocking and synchronous.
+
+POE::Wheel::ReadWrite is a stream head.
+
+POE::Filter is a stream module.
+
+POE::Driver is a stream end.  In some stream implementations, more
+modules can be stacked onto the stream after the end.  That's how they
+support multiplexing.  I'm not sure this is good.
+
+User calls into the Wheel (stream head) start a chain of calls down
+the stream towards the driver.
+
+Select events start a chain of calls up the stream towards the user.
+
+General usage:
+        SocketFactory to create the socket.
+        Or open() or whatever to create the file.
+        Create a Stream, and give it the file handle.
+
+*** Notes From DIGITAL's Network Programmer's Guide
+
+The URL is:
+<http://www.partner.digital.com/www-swdev/pages/Home/TECH/documents/Digital_UNIX/V4.0/AA-PS2WD-TET1_html/netprog6.html>
+
+**** Module Data Structures
+
+queue init structure
+        put routine (takes outgoing data)
+        service routine (handles incoming data)
+        open routine (called on each open)
+        close routine (called on last close)
+        information structure
+        statistics structure
+
+module info structure
+        module id number
+        modlue name
+        minimum packet size (developer use)
+        maximum packet size (developer use)
+        high-water mark (flow control)
+        low-water mark (flow control)
+
+streamtab structure
+        read queue init structure
+        write queue init structure
+        mux read queue init structure (for mux drivers)
+        mux write queue init structure (for mux drivers)
+
+**** Message Data Structures
+
+Data Buffer, containing the message's binary data.
+
+message block:
+        data block
+        message priority (band)
+        message flags
+
+**** Processing Routines for Drivers and modules
+
+Open - Similar to Filter::new
+Close - Similar to Filter::DESTROY
+
+Configuration
+
+Read side put
+        Stream ends don't have this, since they receive data from the
+        kernel.
+
+        Downstream modules call putnext() to send to this.
+        Takes pointer to read queue and message pointer.
+
+Write side put
+        Called when the upstream module calls putnext().
+        Takes pointer to write queue and message pointer.
+
+Read side service
+Write side service
+        Service routines pull messages off the read/write queues and
+        try to process them.  I'm still unclear on this concept.
+
+**** Queue Synchronization
+
+Queue level.  One thread can access any instance of the module or
+driver's write queue at the same time another thread is accessing a
+module's read queue.  Read and write queues don't share common data
+and don't need to be synchronized.
+
+Queue pair.  Read and write queues share data.  Only one thread at a
+time can access them together.
+
+Module level synchronization.  All code within the module or driver is
+single-threaded.
+
+Elsewhere.  Something else is synchronizing things.
+
+Global.  All drivers and modules in this synchronization level run in
+the same therad.  No concurrency at all.
+
+*** DMR's Streams Paper
+
+A Stream Input-Output System, by Dennis M. Ritchie:
+<http://cm.bell-labs.com/cm/cs/who/dmr/st.html>
+
+**** Overview
+
+Streams overview.
+
+***** Streams
+
+Streams are full-duplex connections between a user's process and a
+device or pseudo device.  It consists of a strand of modules, similar
+to a shell pipeline, but with data going in both directions.  Flow
+control is something exceptional.
+
+On the process end there is a stream head.  It provides a programming
+interface to the stream.  On the device end is a device driver
+module-- it's not a driver, it's a "driver module".  Okay!  On the
+driver module end, data is sent to the device.  In the receiving
+direction, data and state transitions are composed into messages and
+set towards the user's program.
+
+On open, you get two modules: a head module and a driver module.
+Intermediate modules are attached and dropped dynamically.
+
+***** Queues
+
+Each stream module has a pair of queues, read and write.  A stream
+queue is a queue, plus two routines and some status information.  One
+routine is the "put procedure" which is called by the neighboring
+module to send data along.  The other is the "service procedure" which
+is scheduled to execute whenever there is work to do.
+
+  So, put() doesn't immediately cause anything to happen.  It merely
+  signals the next module in the line to process something when it
+  can.
+
+The status information includes a pointer to the next module, some
+flags, and some ntate information.  Both queues know about each-other,
+so they can implement "echo" and stuff.
+
+***** Message Blocks
+
+Message blocks are passed between queues.  They are obtained from an
+allocator.  Each contains a read pointer, a write pointer, and a limit
+pointer.  Respectively, they are the beginning, end and growth limit
+of the block's data.
+
+The block header specifies its type.  The most common type is data.
+There are also control blocks of various kinds: data delimiters, I/O
+control requests, and special conditions (line break, or carrier
+loss).
+
+Data blocks arrive one at a time.  Boundaries between them are
+insignificant.  Data blocks may be coalesced; control blocks always
+remain separate.
+
+***** Scheduling
+
+Each queue module behaves like a separate process, but they're not
+real processes.  The system saves no state information for a
+non-running queue module.  Queue modules don't block when they can't
+continue; they must return control.  When queues are enabled, the
+system will (as soon as convenient) call its service procedure.  The
+service procedure removes successive blocks from the data queue,
+processes them, and places them on the next queue by calling its put
+procedure.  Wher there are no more blocks to process, or when the next
+queue becomes full ,the service procedure returns to the system.
+
+Queue enabling is mostly automatic.  Like, when a block is put on the
+queue, it enables like magic.
+
+***** Flow Control
+
+Each queue has a pair of numbers for flow control.  A high-water mark
+limits the amount of data that may be outstanding in the queue.  By
+convertions, modules don't place data on a queue above the high-water
+limit.  A low-water mark is used for scheduling: When a queue has
+exceeded its high-water mark, a flag is set.  Then, when the routine
+that takes blocks from a data queue notices this flag is set and that
+the queue has dropped below the low-water mark, the upstream queue is
+enabled.
+
+***** Examples
+
+A newly-opened stream device:
+
+  user write ---> | stream device | ---> device out
+  user read  <--- |               | <--- device in
+
+The top-level routines are invoked by users' read and write calls.
+The writer routine sends messages to the device driver on th eright.
+Data arriving from the device is composed of messages sent to the
+top-level reader, which returns the data to the user process when it
+executes read.
+
+Configuration after the device is open:
+
+  user wr ---> tty out ---> device out
+  user rd <--- tty in  <--- device in
+
+An ordinary terminal connected by RS-232.  Here a processing module
+(in the middle) is interposed.  It performs the services necessary to
+make terminals usable; for example echoing, character-erase and
+line-kill, tab expansion as required, translation between CR and \n.
+It's possible to use one of several terminal handling modules.  The
+standard one provides services like those of the Seventh Edition
+system.  Another resembles the Berkeley "new tty" driver.
+
+The processing modules in a stream are thought of as a stack whose top
+(shown on the left) is next to the user program.  To install the
+terminal processing module after opening a terminal device, the
+program that makes such connections executes a "push" I/O control call
+naming the stream and the desired module.  Other primitives pop a
+module and determine the topmost module's name.
+
+Here is a case where terminal processing is staked on a network
+protocol (a network terminal):
+
+  user wr --> tty out --> proto out --> device out
+  user rd <-- tty in  <-- proto in  <-- device in
+
+Then there is a common configuration (not illustrated) that's used
+when the network is used for file transfers or other purposes.  It
+simply omits the "tty" module and uses only the protocol module.
+
+**** Messages
+
+Most of the messages between modules contain data.  The allocator that
+dispenses message blocks takes an argument specifying the smallest
+block its caller is willing to accept.  The current allocator
+maintains an inventroy of blocks that are 4, 16, 64 and 1024
+characters long.  Modules allocate blocks using a best guess of the
+needed size-- for example, the top level write routine requests 64- or
+1024-character blocks.  The network input routine allocates 16-byte
+blocks because that's the data packet size.  The smallest blocks are
+used only to carry arguments to control messages.
+
+Besides data blocks, there are also several kinds of control messages.
+
+***** Synchronous Messages
+
+Synchronous messages are queued in the stream, so they occur at the
+appropriate time in the stream.
+
+****** BREAK
+
+Break is generated by a terminal vice on detection of a line break
+signal.  The standard terminal input processor turns this message into
+an interrupt request.  It may also be sent to a terminal device driver
+to cause it to generate a break on the output line.
+
+****** HANGUP
+
+Generated by a device when its remote connection drops.  It also marks
+the stream so further use causes an error.
+
+****** DELIM
+
+This is a data delimiter.  Most of the stream I/O is prepared to
+provide true streams, in which record boundaries are insignificant,
+but there are various situations in which it is desirable to delimit
+the data.  For example, terminal input is read a line at a time; is
+generated by the terminal input processor to demarcate lines.
+
+****** DELAY
+
+Tells terminal drivers to generate a real-time delay on output.  It
+allows time for slow terminals to react to characters previously sent.
+
+****** IOCTL
+
+These are generated by users' ioctl() calls.  The parameters are
+gathered at the top level, and if the request is not understood there,
+it and the parameters are passed down the stream as a message.  The
+first module that understands a particular request acts on it and
+returns a positive ACK.  Intermediate modules that don't recognize a
+particular request pass it on; stream-end modules return a negative
+NAK.  The top-level routine blocks until acknowledgement, and passes
+the info to the user.
+
+***** Asynchronous Messages
+
+These are expedited up or down the stream, bypassing the queue.
+
+****** IOCACK and IOCNAK
+
+Acknowledgement messages for IOCTL.  The stream head may time out if
+one of these isn't returned quickly enough.
+
+****** SIGNAL
+
+Signals are generated by the terminal processing module and cause the
+top level to generate process signals such as SIGQUIT and SIGINT.
+
+****** FLUSH
+
+Flush messages throw away data from input and output queues after a
+signal or on user request.
+
+****** STOP and START
+
+These messages are used by the terminal processor to halt and restart
+output by a device.  For example, to implement the traditional
+XON/XOFF flow control mechanism.
+
+**** Queue Mechanisms and Interfaces
+
+queue structure
+        flags
+        put procedure
+        service procedure
+        link to next downstream module
+        pointer to the first block on the queue
+        pointer to the last block on the queue
+        hi-water value
+        lo-water value
+        count of characters now on the queue
+        pointer to private storage
+
+The flags contain several bits used by low-level routines to control
+scheduling.  They show whether the downstream module wishes to read
+data, or the upstream module wishes to write, or the queue is already
+enabled.  One bit is examined by the upstream module; it tells whether
+this queue is full.
+
+The first and last block pointers point to a singly-linked list of
+data that implements something of a ring buffer.  Hi-water and
+lo-water are initialized when the queue is created, and they are
+compared against the character count to decide how to control flow.
+
+The private storage is used to keep characteristics governed by the
+queue module.  For example, all the stty(1) things for a terminal.
+
+Stream processing modules are written in one of two flavors.  In the
+simpler flavor, the queue module acts almost like a classical
+coroutine.  When it's instantiated, it sets its put procedure to a
+system-supplied default routine, and supplies a service procedure.
+Its upstream module disposes of blocks by calling this module's put
+procedure, which moves a block downstream.  The standard put procedure
+also enables the current module; a short time later, the current
+module's service procedure is called by the scheduler.  In
+pseudo-code, a typical service routine is:
+
+  while (my queue is not empty and the next queue is not full) {
+    get a message block from my queue
+    process the message block
+    call the next queue's put() procedure to move the block along
+  }
+
+That's appropriate in cases where messages can be processed
+independently of each-other.  For example, it's used by the terminal
+output module.  All the scheduling details are taken care of by
+standard routines.
+
+More complicated modules need finer control over scheduling.  A good
+example is terminal input.  Here the device module upstream produces
+characters, usually one at a time, that must be gathered into a line
+to allow for character erase and kill processing.  Therefore the
+stream input module provides a put procedure to be called by the
+device driver or other module downstream from it; here is an outline
+of this routine and its accompanying service procedure:
+
+  put procedure(queue, block):
+    put block on my queue
+    if (block contains new-line or carriage return) {
+      enable my queue
+    }
+
+  service procedure(queue):
+
+    take data from queue until new-line or carriage return, processing
+    erase and kill characters
+
+    call the next queue's put() procedure to move the line along
+    call the next queue's put() procedure with DELIM to signify a line
+
+The put procedure generates the echo characters as promptly as
+possible; when the terminal module is attached to a device handler,
+they are created during the input interrupt from the device because
+the put procedure is called as a subroutine of the handler.  On the
+other hand, line-gathering, erase and kill processing, which can be
+lengthy, are done during the service procedure at a lower priority.
+
+**** Other Stuff
+
+Pseudo-terminals act like pipe drivers.  Messages that they receive
+from a master or slave PTY are passed unchanged to the other end.
+This means that streams on both sides are kept in synch.
+
+  device process <--> message module <--> pty slave  <--> \\
+  user process <----> tty module <------> pty master <--> //
+
+The "message" module translates between messages and data, so the pty
+drivers can pass them around.  In one direction, the message processor
+takes control and data messages and transforms them into data blocks.
+Data blocks start with a header giving the message type and contain
+data with the message (or data) innit.  In the other direction, it
+parses the structured data messages and creates the corresponding
+control blocks.  The "device process" simulates a device driver.
+
+**** Evaluation
+
+Design decisions:
+
+1. Messages hold references to data blocks, to minimize data copying.
+Modules must be prepared to coalesce and break up data.
+
+2. Modules are not proper processes (sessions) because there can be
+thousands of them.  Coroutines or threads would rock.
+
+3. Put and service were necessary because of asynchrony, flow control,
+etc.
+
+Other notes:
+
+No multiplexing, fan-in or fan-out, are provided by the original
+streams interface.
+
+Streams are good for controlling opened channels, but it lacks a
+general way to establish channels between processes.
+
+*** Unread Sources
+
+SUN's STREAMS Programming Guide:
+<http://docs.sun.com/ab2/coll.156.1/STREAMS/@Ab2TocView?>
+
+Mentat Performance Networking: <http://www.mentat.com/>
+
 ** New Modules
 
 *** New Filters

@@ -116,8 +116,18 @@ sub _define_connect_state {
         $k->select($handle);
                                         # acquire and dispatch connect error
         if (defined $failure_event) {
-          sysread($handle, my $buf = '', 1);
-          $k->call($me, $failure_event, 'connect', ($!+0), $!);
+          $! = 0;
+          my $error = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
+          $error && ($! = $error);
+
+          # Old style ignored the fact that sometimes connect states
+          # are ready for read on purpose.
+          # sysread($handle, my $buf = '', 1);
+          # $k->call($me, $failure_event, 'connect', ($!+0), $!);
+
+          if ($!) {
+            $k->call($me, $failure_event, 'connect', ($!+0), $!);
+          }
         }
       }
     );

@@ -210,6 +210,11 @@ my $repository =
       parent => 0,
       owner => 3,
 
+      hash => { one => 'this is one', two => 'this is two' },
+      hash_can_fetch => 1,
+      list => [ 'this is zero', 'this is one', 'this is two' ],
+      list_can_fetch => 1,
+
       test => <<'      End Of Method',
         print ">>> Now $_[ME]->{name} value: $_[ME]->{description}\n";
         $_[ME]->{description} = 'This tests attribute storing.';
@@ -219,6 +224,10 @@ my $repository =
         print ">>> Now $object->{name} description: $object->{description}\n";
         $object->{description} = 'New description here!';
         print ">>> New $object->{name} description: $object->{description}\n";
+
+        $object = object('storetest');
+        print ">>> Now $object->{name} hash: $object->{hash}->{one}\n";
+        print ">>> Now $object->{name} list: $object->{list}->[0]\n";
       End Of Method
     },
   ];

@@ -7,6 +7,16 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.07_01 1999.??.??
+------------------
+
+Fixed a race or TCP/IP stack problem in SocketFactory.  SocketFactory
+was firing a "connect error 0" if the server side sent data
+immediately.  The problem was tested on four systems: Linux (broke);
+Solaris (broke); FreeBSD (worked); OS/2 (worked).  Go figure.  It
+should work on all four now.
+
+
 0.07 1999.06.18 (!!!)
 ---------------------
 

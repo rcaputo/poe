@@ -11,12 +11,12 @@ package POE::TiedObject;
 use strict;
 use POSIX qw(errno_h);
 
-sub DEB_TIE    () { 0 }
+sub DEB_TIED_OBJ () { 0 }
 
-sub TO_ID      () { 0 }
-sub TO_CURATOR () { 1 }
+sub TO_ID        () { 0 }
+sub TO_CURATOR   () { 1 }
 
-sub CS_ID      () { 0 } # -><- same as POE::Curator::CS_ID
+sub CS_ID        () { 0 } # -><- same as POE::Curator::CS_ID
 
 #------------------------------------------------------------------------------
 # Helper.  Snatch the error code from the trap frame.
@@ -57,7 +57,7 @@ sub STORE {
 
   my ($heap, $caller) = _fetch_other_parameters();
 
-  DEB_TIE &&
+  DEB_TIED_OBJ &&
     print( "%%% STORE: heap($heap) caller($caller) id($self->[TO_ID]) ",
            "key($key) val($value) ref(", ref($value), ")\n"
          );
@@ -65,7 +65,7 @@ sub STORE {
   ($!, $value) = $self->[TO_CURATOR]->attribute_store
     ($heap, $caller, $self->[TO_ID], $key, $value);
 
-  DEB_TIE && $! &&
+  DEB_TIED_OBJ && $! &&
     print "%%% STORE: failed: $!\n";
 
   $value;
@@ -85,7 +85,7 @@ sub FETCH {
   my ($status, $value) = $self->[TO_CURATOR]->attribute_fetch
     ($heap, $caller, $self->[TO_ID], $key);
 
-  DEB_TIE &&
+  DEB_TIED_OBJ &&
     print( "%%% FETCH: heap($heap) caller($caller) id($self->[TO_ID]) ",
            "key($key) status($status) value(",
            ((defined $value) ? $value : '<<undef>>'), ") ref(",
@@ -99,7 +99,7 @@ sub FETCH {
 
   $! = $status;
 
-  DEB_TIE && $! &&
+  DEB_TIED_OBJ && $! &&
     print "%%% FETCH: failed: $!\n";
 
   return $value;
@@ -134,7 +134,7 @@ sub EXISTS {
   die "-><- not implemented";
 
   # my $exists = POE::Curator::exists($caller, $$self, $key);
-  # DEB_TIE && print "%%% EXISTS: key($key) = $exists\n";
+  # DEB_TIED_OBJ && print "%%% EXISTS: key($key) = $exists\n";
   # $exists;
 }
 
