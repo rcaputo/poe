@@ -889,6 +889,72 @@ This is bad:
   use Carp;     # Not seen and OMITTED FROM the expanded version.
   use POE::Preprocessor;
 
+=head1 PERLAPP AND PERL2EXE SUPPORT
+
+Thanks to Zoltan Kandi for assistance in testing and documenting this.
+This example uses a POE program, but POE::Preprocessor may be used
+without the rest of POE.  The general ideas are the same, but the
+examples will be different.
+
+POE::Preprocessor supports PerlApp (from the ActiveState PDK) and
+probably perl2exe as well.  These perl "compilers" may require POE
+programs to be altered slightly to work.
+
+Most notably, PerlApp cannot find modules imported using the POE
+module.  That is, this will not work:
+
+  use POE qw(A B C);
+
+Modules must instead be used explicitly for PerlApp to include them.
+Remember that POE.pm includes POE::Kernel and POE::Session, so those
+two modules must be added wherever C<use POE;> is found.
+
+This is equivalent to C<use POE qw(A B C);>
+
+  use POE::Kernel;  # Because POE.pm includes it.
+  use POE::Session; # Because POE.pm includes it.
+  use POE::A;
+  use POE::B;
+  use POE::C;
+
+Next a set of preprocessed sources must be created.  PerlApp does not
+support source filters such as POE::Preprocessor, so it is necessary
+to pre-process modules before they are compiled.  This can be done by
+setting the POE_PREPROC_DUMP environment variable.
+
+  set POE_PREPROC_DUMP=c:\rocco\preproc
+
+Run the program.  As the program is run, its preprocessed files will
+be placed in subdirectories under POE_PREPROC_DUMP.
+
+  perl MyPoeApp.perl
+
+The preprocessed files must now be found, and their parent directory
+must be placed in the PERL5LIB environment variable.
+
+  C:\rocco\POE-0.20>dir /b /a:d /s c:\rocco\preproc
+
+Shows these directories:
+
+  C:\rocco\preproc\POE
+  C:\rocco\preproc\POE\Kernel
+
+Here the POE modules have been dumped into "C:\rocco\preproc\POE" and
+its subdirectories.  In order for C<use POE::Foo> to find POE/Foo.pm,
+the PERL5LIB environment variable must be set to "c:\rocco\preproc".
+
+  set PERL5LIB=c:\rocco\preproc
+
+It often will not be this trivial to find the value for PERL5LIB, but
+it will not be much harder.
+
+PerlApp can finally build an EXE version of the program.
+
+  perlapp --exe MyPoeApp.exe --clean MyPoeApp.perl
+
+MyPoeApp.exe should now be a stand-alone executable version of your
+Perl program.
+
 =head1 BUGS
 
 Source filters are line-based, and so is the macro language.  The only
