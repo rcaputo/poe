@@ -297,7 +297,9 @@ POE::Component::Client::TCP - a simplified TCP client
       BindPort       => 8192,
       Domain         => AF_INET,  # Optional.
       ConnectTimeout => 5,        # Seconds; optional.
-      Args           => [ "arg0", "arg1" ],  # Optional.
+
+      Started        => \&handle_starting,   # Optional.
+      Args           => [ "arg0", "arg1" ],  # Optional.  Started args.
 
       Connected      => \&handle_connect,
       ConnectError   => \&handle_connect_error,
