@@ -8,15 +8,12 @@ package POE::Session;
 
 use strict;
 use Carp;
-use Exporter;
 
+use Exporter;
 @POE::Session::ISA = qw(Exporter);
 @POE::Session::EXPORT = qw(OBJECT SESSION KERNEL HEAP SENDER
                            ARG0 ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9
                           );
-
-#------------------------------------------------------------------------------
-# Exported Constants
 
 sub OBJECT  () {  0 }
 sub SESSION () {  1 }
@@ -58,8 +55,8 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $POE::Kernel::poe_kernel);
 
-  my $self = bless { 'namespace'   => { },
-                     'debug_flags' => { },
+  my $self = bless { 'namespace' => { },
+                     'options'   => { },
                    }, $type;
 
   while (@states) {
@@ -107,6 +104,9 @@ sub new {
         $self->register_state($method, $state);
       }
     }
+    else {
+      last;
+    }
   }
 
   if (@states) {
@@ -137,7 +137,7 @@ sub DESTROY {
 sub _invoke_state {
   my ($self, $source_session, $state, $etc) = @_;
 
-  if (exists($self->{'debug_flags'}->{'trace'})) {
+  if (exists($self->{'options'}->{'trace'})) {
     warn "$self -> $state\n";
   }
 
@@ -169,7 +169,7 @@ sub _invoke_state {
     return $self->_invoke_state($source_session, '_default', [ $state, $etc ]);
   }
                                         # whoops!  no _default?
-  elsif (exists $self->{'debug_flags'}->{'default'}) {
+  elsif (exists $self->{'options'}->{'default'}) {
     warn "\t$self -> $state does not exist (and no _default)\n";
   }
 
@@ -184,17 +184,21 @@ sub register_state {
   if ($handler) {
     if (ref($handler) eq 'CODE') {
       carp "redefining state($state) for session($self)"
-        if (exists $self->{'states'}->{$state});
+        if ( (exists $self->{'options'}->{'debug'}) &&
+             (exists $self->{'states'}->{$state})
+           );
       $self->{'states'}->{$state} = $handler;
     }
     elsif ($handler->can($state)) {
       carp "redefining state($state) for session($self)"
-        if (exists $self->{'states'}->{$state});
+        if ( (exists $self->{'options'}->{'debug'}) &&
+             (exists $self->{'states'}->{$state})
+           );
       $self->{'states'}->{$state} = $handler;
     }
     else {
       if (ref($handler) eq 'CODE' &&
-          exists($self->{'debug_flags'}->{'trace'})
+          exists($self->{'options'}->{'trace'})
       ) {
         carp "$self : state($state) is not a proper ref - not registered"
       }
@@ -213,19 +217,19 @@ sub register_state {
 
 sub option {
   my $self = shift;
-  push(@_, 0) if (@_ % 1);
+  push(@_, 0) if (scalar(@_) & 1);
   my %parameters = @_;
 
   while (my ($flag, $value) = each(%parameters)) {
                                         # booleanize some handy aliases
     ($value = 1) if ($value =~ /^(on|yes)$/i);
     ($value = 0) if ($value =~ /^(no|off)$/i);
-                                        # set or clear the debug flag
+                                        # set or clear the option
     if ($value) {
-      $self->{'debug_flags'}->{lc($flag)} = $value;
+      $self->{'options'}->{lc($flag)} = $value;
     }
     else {
-      delete $self->{'debug_flags'}->{lc($flag)};
+      delete $self->{'options'}->{lc($flag)};
     }
   }
 }
