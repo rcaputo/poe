@@ -107,8 +107,14 @@ POE::Session->create
       sub {
         if ($_[HEAP]->{kills_to_go}--) {
           $_[KERNEL]->delay( fire_signals => 0.5 );
-          kill ALRM => $$;
-          kill PIPE => $$;
+          if ($^O eq 'MSWin32') {
+            $_[KERNEL]->signal( $_[KERNEL], 'ALRM' );
+            $_[KERNEL]->signal( $_[KERNEL], 'PIPE' );
+          }
+          else {
+            kill ALRM => $$;
+            kill PIPE => $$;
+          }
         }
         # One last timer so the session lingers long enough to catch
         # the final signal.
@@ -393,11 +399,17 @@ for (my $i=0; $i<$machine_count; $i++) {
 }
 
 # Were all the signals caught?
-print 'not ' unless $sigalrm_caught == $event_count;
-print "ok 11\n";
+if ($^O eq 'MSWin32') {
+  print "ok 11 # skipped: Windows doesn't seem to do signals\n";
+  print "ok 12 # skipped: Windows doesn't seem to do signals\n";
+}
+else {
+  print 'not ' unless $sigalrm_caught == $event_count;
+  print "ok 11\n";
 
-print 'not ' unless $sigpipe_caught == $event_count;
-print "ok 12\n";
+  print 'not ' unless $sigpipe_caught == $event_count;
+  print "ok 12\n";
+}
 
 # Did the postbacks work?
 print 'not ' unless $postback_test;
