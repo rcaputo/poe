@@ -181,7 +181,7 @@ sub _signal_handler_generic {
     $SIG{$_[0]} = \&_signal_handler_generic;
   }
   else {
-    warn "POE::Kernel::_signal_handler detected an undefined signal";
+    warn "POE::Kernel::_signal_handler_generic detected an undefined signal";
   }
 }
 
@@ -194,7 +194,7 @@ sub _signal_handler_pipe {
     $SIG{$_[0]} = \&_signal_handler_pipe;
   }
   else {
-    warn "POE::Kernel::_signal_handler detected an undefined signal";
+    warn "POE::Kernel::_signal_handler_pipe detected an undefined signal";
   }
 }
 
@@ -208,7 +208,7 @@ sub _signal_handler_child {
     $SIG{$_[0]} = \&_signal_handler_child;
   }
   else {
-    warn "POE::Kernel::_signal_handler detected an undefined signal";
+    warn "POE::Kernel::_signal_handler_child detected an undefined signal";
   }
 }
 
@@ -263,11 +263,13 @@ sub new {
     vec($self->[KR_VECTORS]->[VEC_EX], 0, 1) = 0;
                                         # register signal handlers
     foreach my $signal (keys(%SIG)) {
-                                        # skip fake and nonexistent signals
+                                        # skip fake, nonexistent, and
+                                        # troublesome signals
       next if ($signal =~ /^(NUM\d+
                              |__[A-Z0-9]+__
                              |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
                              |RTMIN|RTMAX|SETS
+                             |SEGV
                              |
                             )$/x
               );
@@ -939,10 +941,19 @@ sub _internal_select {
                                         # for DOSISH systems like OS/2
       binmode($handle);
                                         # set the handle non-blocking
-      my $flags = fcntl($handle, F_GETFL, 0)
-        or croak "Can't get flags for the socket: $!\n";
-      $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
-        or croak "Can't set flags for the socket: $!\n";
+                                        # do it the Win32 way
+      if ($^O eq '"MSWin32') {
+        my $set_it = "1";
+        ioctl($handle, 126, $set_it)
+          or croak "Can't set the handle non-blocking: $!\n";
+      }
+                                        # do it the way everyone else does
+      else {
+        my $flags = fcntl($handle, F_GETFL, 0)
+          or croak "Can't get flags for the socket: $!\n";
+        $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
+          or croak "Can't set flags for the socket: $!\n";
+      }
 
 #      setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
 #        or die "Couldn't disable Nagle's algorithm: $!\a\n";
