@@ -7,7 +7,7 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
-0.0609 1999.06.?? (!!!)
+0.0609 1999.06.15 (!!!)
 -----------------------
 
 Updated samples/*sessions.perl to test $kernel->state(...) and
