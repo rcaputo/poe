@@ -311,6 +311,13 @@ sub _data_ses_refcount_inc {
   $kr_sessions{$session}->[SS_REFCOUNT]++;
 }
 
+# Query a session's reference count.  Added for testing purposes.
+
+sub _data_ses_refcount {
+  my ($self, $session) = @_;
+  return $kr_sessions{$session}->[SS_REFCOUNT];
+}
+
 ### Determine whether a session is ready to be garbage collected.
 ### Free the session if it is.
 
