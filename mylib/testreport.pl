@@ -82,13 +82,18 @@ foreach my $file (<../t/*.t>) {
     print $leader;
     my %result = $s->analyze_file($file);
     delete $result{details};
-    $file =~ s#^t/##;
+    $file =~ s#^\.\./t/##;
     $test_results{$file} = \%result;
     $s->_display($result{passing} ? 'ok' : 'FAILED');
     print "\n";
 }
 
+my $username = (getpwent())[0];
+my $hostname = (gethostent())[0];
+my $time = scalar gmtime(time());
+
 my $xml = "<poe_test_report>\n";
+$xml .= "<generatedby username=\"$username\" hostname=\"$hostname\" time=\"$time\" />\n";
 $xml .= "<tests>\n";
 foreach my $test_file (sort keys %test_results) {
     $xml .= "\t<test filename=\"$test_file\">\n";
