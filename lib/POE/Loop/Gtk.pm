@@ -278,21 +278,11 @@ sub loop_do_timeslice {
 }
 
 sub loop_run {
-  if (exists $INC{'Gnome.pm'}) {
-    Gnome->main();
-  }
-  else {
-    Gtk->main;
-  }
+  Gtk->main;
 }
 
 sub loop_halt {
-  if (exists $INC{'Gnome.pm'}) {
-    Gnome->main_quit();
-  }
-  else {
-    Gtk->main_quit();
-  }
+  Gtk->main_quit();
 }
 
 1;
