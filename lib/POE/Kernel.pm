@@ -94,6 +94,12 @@ my @kr_vectors = ( '', '', '' );
 # }
 my %kr_signals;
 
+# Bookkeeping per dispatched signal.
+
+my @kr_signaled_sessions;
+my $kr_signal_handled;
+my $kr_signal_type;
+
 # The table of session aliases, and the sessions they refer to.
 #
 # { $alias => $session_reference,
@@ -274,6 +280,12 @@ sub ET_SCPOLL () { 0x0100 }  # _sigchild_poll
 sub ET_ALARM  () { 0x0200 }  # Alarm events.
 sub ET_SELECT () { 0x0400 }  # File activity events.
 
+# Temporary signal subtypes, used during signal dispatch semantics
+# deprecation and reformation.
+
+sub ET_SIGNAL_EXPLICIT   () { 0x0800 }  # Explicitly requested signal.
+sub ET_SIGNAL_COMPATIBLE () { 0x1000 }  # Backward-compatible semantics.
+
 # A hash of reserved names.  It's used to test whether someone is
 # trying to use an internal event directoly.
 
@@ -369,8 +381,22 @@ macro ses_leak_hash (<field>) {
 }
 
 macro kernel_leak_hash (<field>) {
-  if (my $leaked = keys <field>) {
-    warn "*** KERNEL HASH   LEAK: \<field> = $leaked\a\n";
+  if (my $leaked = keys %<field>) {
+    warn "*** KERNEL HASH   LEAK: \%<field> = $leaked items\a\n";
+    foreach my $key (keys %<field>) {
+      my $warning = "\t$key";
+      my $value = $<field>{$key};
+      if (ref($value) eq 'HASH') {
+        $warning .= ": (" . join("; ", keys %$value) . ")";
+      }
+      elsif (ref($value) eq 'ARRAY') {
+        $warning .= ": (" . join("; ", @$value) . ")";
+      }
+      else {
+        $warning .= ": $value";
+      }
+      warn $warning, "\n";
+    }
   }
 }
 
@@ -384,7 +410,8 @@ macro kernel_leak_vec (<field>) {
 
 macro kernel_leak_array (<field>) {
   if (my $leaked = <field>) {
-    warn "*** KERNEL ARRAY  LEAK: \<field> = $leaked\a\n";
+    warn "*** KERNEL ARRAY  LEAK: \<field> = $leaked items\a\n";
+    warn "\t(<field>)\n";
   }
 }
 
@@ -625,7 +652,7 @@ BEGIN {
     require POE::Kernel::Select;
     POE::Kernel::Select->import();
   }
-};
+}
 
 # Bring some things from the substrate into this file.  This lets the
 # substrate's things have direct access to our package-lexical Kernel
@@ -636,12 +663,25 @@ BEGIN {
 # SIGNALS
 #==============================================================================
 
-# A list of signals that must be handled lest they terminate sessions.
-# "Terminal" signals are the ones that UNIX defaults to killing
-# processes with.  Thus STOP is not terminal.
+# A list of special signal types.  Signals that aren't listed here are
+# benign (they do not kill sessions at all).  "Terminal" signals are
+# the ones that UNIX defaults to killing processes with.  Thus STOP is
+# not terminal.
 
-my %_terminal_signals =
-  ( QUIT => 1, INT => 1, KILL => 1, TERM => 1, HUP => 1, IDLE => 1 );
+sub SIGTYPE_BENIGN      () { 0x00 }
+sub SIGTYPE_TERMINAL    () { 0x01 }
+sub SIGTYPE_NONMASKABLE () { 0x02 }
+
+my %_signal_types =
+  ( QUIT => SIGTYPE_TERMINAL,
+    INT  => SIGTYPE_TERMINAL,
+    KILL => SIGTYPE_TERMINAL,
+    TERM => SIGTYPE_TERMINAL,
+    HUP  => SIGTYPE_TERMINAL,
+    IDLE => SIGTYPE_TERMINAL,
+    ZOMBIE    => SIGTYPE_NONMASKABLE,
+    UIDESTROY => SIGTYPE_NONMASKABLE,
+  );
 
 # As of version 0.1206, signal handlers and the functions that watch
 # them have been moved into substrate modules.
@@ -804,7 +844,6 @@ sub _dispatch_event {
        $file, $line, $seq
      ) = @_;
 
-  # A copy of the event name, in case we have to change it.
   my $local_event = $event;
 
   if (TRACE_PROFILE) { # include
@@ -961,29 +1000,67 @@ sub _dispatch_event {
     elsif ($type & ET_SIGNAL) {
       my $signal = $etc->[0];
 
-      # Propagate the signal to this session's children.  This happens
-      # first, making the signal's traversal through the parent/child
-      # tree depth first.  It ensures that signals posted to the
-      # Kernel are delivered to the Kernel last.
+      TRACE_SIGNALS and
+        warn( "!!! dispatching ET_SIGNAL ($signal) to session",
+              $session->ID, "\n"
+            );
 
+      # Step 0: Reset per-signal structures.
+
+      undef $kr_signal_handled;
+      $kr_signal_type = $_signal_types{$signal} || SIGTYPE_BENIGN;
+      undef @kr_signaled_sessions;
+
+      # Step 1: Propagate the signal to sessions that are watching it.
+
+      if (exists $kr_signals{$signal}) {
+        while (my ($session, $event) = each(%{$kr_signals{$signal}})) {
+          my $session_ref = $kr_sessions{$session}->[SS_SESSION];
+
+          TRACE_SIGNALS and
+            warn( "!!! propagating explicit signal $event ($signal) ",
+                  "to session ", $session_ref->ID, "\n"
+                );
+
+          $self->_dispatch_event
+            ( $session_ref, $self,
+              $event, ET_SIGNAL_EXPLICIT, $etc,
+              time(), $file, $line, undef
+            );
+        }
+      }
+    }
+
+    # Step 2: Propagate the signal to this session's children.  This
+    # happens first, making the signal's traversal through the
+    # parent/child tree depth first.  It ensures that signals posted
+    # to the Kernel are delivered to the Kernel last.
+
+    if ($type & (ET_SIGNAL | ET_SIGNAL_COMPATIBLE)) {
+      my $signal = $etc->[0];
       my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
       foreach (@children) {
+
+        TRACE_SIGNALS and
+          warn( "!!! propagating compatible signal ($signal) to session ",
+                $_->ID, "\n"
+              );
+
         $self->_dispatch_event
           ( $_, $self,
-            $event, ET_SIGNAL, $etc,
+            $event, ET_SIGNAL_COMPATIBLE, $etc,
             time(), $file, $line, undef
           );
       }
 
-      # Translate the '_signal' event to its handler's name.  This is
-      # a two-tier exists to prevent the second one from autovivifying
-      # elements in %kr_signals.
-
-      if ( exists $kr_signals{$signal} and
-           exists $kr_signals{$signal}->{$session}
-         ) {
-        $local_event = $kr_signals{$signal}->{$session};
-      }
+      # If this session already received a signal in step 1, then
+      # ignore dispatching it again in this step.  This uses a
+      # two-step exists so that the longer one does not autovivify
+      # keys in the shorter one.
+      return if ( ($type & ET_SIGNAL_COMPATIBLE) and
+                  exists($kr_signals{$signal}) and
+                  exists($kr_signals{$signal}->{$session})
+                );
     }
   }
 
@@ -1013,7 +1090,7 @@ sub _dispatch_event {
 
   # Dispatch the event, at long last.
   my $return =
-    $session->_invoke_state($source_session, $local_event, $etc, $file, $line);
+    $session->_invoke_state($source_session, $event, $etc, $file, $line);
 
   # Stringify the handler's return value if it belongs in the POE
   # namespace.  $return's scope exists beyond the post-dispatch
@@ -1201,22 +1278,29 @@ sub _dispatch_event {
     }
   }
 
-  # Check for death by terminal signal.
+  # Step 3: Check for death by terminal signal.
 
-  elsif ($type & ET_SIGNAL) {
-    my $signal = $etc->[0];
+  elsif ($type & (ET_SIGNAL | ET_SIGNAL_EXPLICIT | ET_SIGNAL_COMPATIBLE)) {
+    push @kr_signaled_sessions, $session;
+    $kr_signal_handled += !!$return;
 
-    # Determine if the signal is fatal and some junk.
-    if ( ($signal eq 'ZOMBIE') or
-         ($signal eq 'UIDESTROY') or
-         (!$return && exists($_terminal_signals{$signal}))
-       ) {
-      $self->session_free($session);
-    }
-
-    # It's not fatal.  Collect garbage.
-    else {
-      {% collect_garbage $session %}
+    if ($type & ET_SIGNAL) {
+      if ( ($kr_signal_type & SIGTYPE_NONMASKABLE) or
+           ($kr_signal_type & SIGTYPE_TERMINAL and !$kr_signal_handled)
+         ) {
+        foreach my $dead_session (@kr_signaled_sessions) {
+          TRACE_SIGNALS and
+            warn( "!!! freeing signaled session ", $dead_session->ID, "\n" );
+          $self->session_free($dead_session);
+        }
+      }
+      else {
+        foreach my $dead_session (@kr_signaled_sessions) {
+          TRACE_SIGNALS and
+            warn( "!!! garbage testing signaled ", $dead_session->ID, "\n" );
+          {% collect_garbage $dead_session %}
+        }
+      }
     }
   }
 
@@ -1253,21 +1337,21 @@ macro finalize_kernel {
   # Let's make sure POE isn't leaking things.
 
   if (ASSERT_GARBAGE) {
-    {% kernel_leak_hash  %kr_sessions    %}
-    {% kernel_leak_vec   VEC_RD          %}
-    {% kernel_leak_vec   VEC_WR          %}
-    {% kernel_leak_vec   VEC_EX          %}
-    {% kernel_leak_hash  %kr_signals     %}
-    {% kernel_leak_hash  %kr_aliases     %}
-    {% kernel_leak_array @kr_events      %}
-    {% kernel_leak_hash  %kr_session_ids %}
-    {% kernel_leak_hash  %kr_event_ids   %}
+    {% kernel_leak_hash  kr_sessions    %}
+    {% kernel_leak_vec   VEC_RD         %}
+    {% kernel_leak_vec   VEC_WR         %}
+    {% kernel_leak_vec   VEC_EX         %}
+    {% kernel_leak_hash  kr_signals     %}
+    {% kernel_leak_hash  kr_aliases     %}
+    {% kernel_leak_array @kr_events     %}
+    {% kernel_leak_hash  kr_session_ids %}
+    {% kernel_leak_hash  kr_event_ids   %}
 
     # Because undef values are okay here.  Destructive is okay too
     # because we're not going to use these afterwards.
 
     @kr_filenos = grep {defined} @kr_filenos;
-    {% kernel_leak_array @kr_filenos     %}
+    {% kernel_leak_array @kr_filenos    %}
   }
 
   if (TRACE_PROFILE) {
@@ -1412,7 +1496,7 @@ sub _invoke_state {
     }
   }
 
-  return 1;
+  return 0;
 }
 
 #==============================================================================
