@@ -11,6 +11,8 @@ use Carp;
 use POSIX qw(EAGAIN);
 use POE;
 
+sub CRIMSON_SCOPE_HACK ($) { 0 }
+
 #------------------------------------------------------------------------------
 
 sub new {
@@ -32,6 +34,9 @@ sub new {
   $poe_kernel->state
     ( $self->{'state read'} = $self . ' -> select read',
       sub {
+                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         my $new_socket = $handle->accept();
