@@ -1659,11 +1659,6 @@ sub alarm {
     }
   }
 
-  # The alarm queue has become empty?  Stop the alarm watcher.
-  unless (@kr_alarms) {
-    {% substrate_pause_alarm_watcher %}
-  }
-
   # Add the new alarm if it includes a time.
   if (defined $time) {
     $self->_enqueue_alarm
@@ -1671,6 +1666,12 @@ sub alarm {
         $state, ET_ALARM, [ @etc ],
         $time, (caller)[1,2]
       );
+  }
+  else {
+    # The alarm queue has become empty?  Stop the alarm watcher.
+    unless (@kr_alarms) {
+      {% substrate_pause_alarm_watcher %}
+    }
   }
 
   return 0;
