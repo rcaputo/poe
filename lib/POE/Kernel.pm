@@ -3380,6 +3380,41 @@ trigger depends on the graphical toolkit currently being used.
 
 =back
 
+=head2 Session Management Methods
+
+These methods manage sessions.
+
+=over 2
+
+=item detach_child SESSION
+
+Detaches SESSION from the current session.  SESSION must be a child of
+the current session, or this call will fail.  detach_child() returns 1
+on success.  If it fails, it returns false and sets $! to one of the
+following values:
+
+ESRCH indicates that SESSION is not a valid session.
+
+EPERM indicates that SESSION is not a child of the current session.
+
+This call may generate corresponding _parent and/or _child events.
+See PREDEFINED EVENT NAMES in POE::Session's manpage for more
+information about _parent and _child events.
+
+=item detach_myself
+
+Detaches the current session from it parent.  The parent session stops
+owning the current one.  The current session is instead made a child
+of POE::Kernel.  detach_child() returns 1 on success.  If it fails, it
+returns 0 and sets $! to EPERM to indicate that the currest session
+already is a child of POE::Kernel and cannot be detached from it.
+
+This call may generate corresponding _parent and/or _child events.
+See PREDEFINED EVENT NAMES in POE::Session's manpage for more
+information about _parent and _child events.
+
+=back
+
 =head2 State Management Methods
 
 State management methods let sessions hot swap their event handlers.
