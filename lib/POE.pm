@@ -115,16 +115,15 @@ exercise the C<POE::Kernel> event queue.
 
 One session that prints out a dot every second and recognizes SIGINT.
 
+=item * F<tests/curator.perl>
+
+Lame attempt to exercise C<POE::Curator>.
+
 =back
 
 =head1 BUGS
 
-C<POE::Kernel> will exit on some signals, even if they are caught by sessions.
-This behavior can be evil for things that don't especially want to go away, so
-don't depend on it, okay?  Thanks!
-
-Signals just go to sessions in willy-nilly order.  This may not be desirable,
-but it was quick to implement.
+None known.
 
 =head1 CONTACT AND COPYRIGHT
 
