@@ -223,14 +223,27 @@ sub new {
       $tio->setattr(fileno($stdin_read), TCSANOW);
     }
 
-    # Fix the priority delta.  -><- Hardcoded constants mean this
-    # process, at least here.  [crosses fingers] -><- Also must add
-    # failure events for this.  -><- Also must wrap it in eval for
-    # systems where it's not supported.  -><- Warn if new priority is
-    # <0 and not superuser.
-    my $priority = getpriority(0, $$);
-    if (defined $priority) {
-      setpriority(0, $$, $priority + $priority_delta);
+    # -><- How to pass events to the parent process?  Maybe over a
+    # expedited (OOB) filehandle.
+
+    # Fix the child process' priority.  Don't bother doing this if it
+    # wasn't requested.  Can't emit events on failure because we're in
+    # a separate process, so just fail quietly.
+
+    if ($priority_delta) {
+      eval {
+        if (defined(my $priority = getpriority(0, $$))) {
+          unless (setpriority(0, $$, $priority + $priority_delta)) {
+            # -><- can't set child priority
+          }
+        }
+        else {
+          # -><- can't get child priority
+        }
+      };
+      if ($@) {
+        # -><- can't get child priority
+      }
     }
 
     # Fix the user ID.  -><- Add getpwnam so user IDs can be specified
@@ -520,7 +533,7 @@ sub event {
       $redefine_stdin = $redefine_stdout = $redefine_stderr = 1;
     }
     else {
-      carp "ignoring unknown ReadWrite parameter '$name'";
+      carp "ignoring unknown Run parameter '$name'";
     }
   }
 
