@@ -156,6 +156,7 @@ sub KR_SIZE           () { 13 } #   XXX UNUSED ???
 
 sub KR_RUN_CALLED  () { 0x01 }  # $kernel->run() called
 sub KR_RUN_SESSION () { 0x02 }  # sessions created
+sub KR_RUN_DONE    () { 0x04 }  # run returned
 my $kr_run_warning = 0;
 
 #------------------------------------------------------------------------------
@@ -813,53 +814,9 @@ sub new {
       ( $hostname . '-' .  unpack 'H*', pack 'N*', time, $$ );
     $kr_session_ids{$self->[KR_ID]} = $self;
 
-    # Some personalities allow us to set up static watchers and
-    # start/stop them as necessary.  This initializes those static
-    # watchers.  This also starts main windows where applicable.
-    {% substrate_init_main_loop %}
-
-    # The kernel is a session, sort of.
-    $kr_active_session = $self;
-    $kr_sessions{$self} =
-      [ $self,                          # SS_SESSION
-        0,                              # SS_REFCOUNT
-        0,                              # SS_EVCOUNT
-        undef,                          # SS_PARENT
-        { },                            # SS_CHILDREN
-        { },                            # SS_HANDLES
-        { },                            # SS_SIGNALS
-        { },                            # SS_ALIASES
-        { },                            # SS_PROCESSES
-        $self->[KR_ID],                 # SS_ID
-        { },                            # SS_EXTRA_REFS
-        0,                              # SS_POST_COUNT
-      ];
-
-    # Register all known signal handlers, except the troublesome ones.
-    foreach my $signal (keys(%SIG)) {
-
-      # Some signals aren't real, and the act of setting handlers for
-      # them can have strange, even fatal side effects.
-      next if ($signal =~ /^( NUM\d+
-                            |__[A-Z0-9]+__
-                            |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
-                            |RTMIN|RTMAX|SETS
-                            |SEGV
-                            |
-                            )$/x
-              );
-
-      # Windows doesn't have a SIGBUS, but the debugger causes SIGBUS
-      # to be entered into %SIG.  It's fatal to register its handler.
-      next if $signal eq 'BUS' and RUNNING_IN_HELL;
-
-      # Don't watch CHLD or CLD if we're in Apache.
-      next if $signal =~ /^CH?LD$/ and exists $INC{'Apache.pm'};
-
-      # Pass a signal to the substrate module, which may or may not
-      # watch it depending on its own criteria.
-      {% substrate_watch_signal %}
-    }
+    # Start the Kernel's session.
+    _initialize_kernel_session();
+    _initialize_kernel_signals();
   }
 
   # Return the global instance.
@@ -1038,7 +995,7 @@ sub _dispatch_event {
       my $signal = $etc->[0];
 
       TRACE_SIGNALS and
-        warn( "!!! dispatching ET_SIGNAL ($signal) to session",
+        warn( "!!! dispatching ET_SIGNAL ($signal) to session ",
               $session->ID, "\n"
             );
 
@@ -1374,6 +1331,59 @@ sub _dispatch_event {
 #------------------------------------------------------------------------------
 # POE's main loop!  Now with Tk and Event support!
 
+# Do pre-run startup.
+
+sub _initialize_kernel_session {
+  # Some personalities allow us to set up static watchers and
+  # start/stop them as necessary.  This initializes those static
+  # watchers.  This also starts main windows where applicable.
+  {% substrate_init_main_loop %}
+
+  # The kernel is a session, sort of.
+  $kr_active_session = $poe_kernel;
+  $kr_sessions{$poe_kernel} =
+    [ $poe_kernel,                    # SS_SESSION
+      0,                              # SS_REFCOUNT
+      0,                              # SS_EVCOUNT
+      undef,                          # SS_PARENT
+      { },                            # SS_CHILDREN
+      { },                            # SS_HANDLES
+      { },                            # SS_SIGNALS
+      { },                            # SS_ALIASES
+      { },                            # SS_PROCESSES
+      $poe_kernel->[KR_ID],           # SS_ID
+      { },                            # SS_EXTRA_REFS
+      0,                              # SS_POST_COUNT
+    ];
+}
+
+sub _initialize_kernel_signals {
+  # Register all known signal handlers, except the troublesome ones.
+  foreach my $signal (keys(%SIG)) {
+    # Some signals aren't real, and the act of setting handlers for
+    # them can have strange, even fatal side effects.
+    next if ($signal =~ /^( NUM\d+
+                            |__[A-Z0-9]+__
+                            |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
+                            |RTMIN|RTMAX|SETS
+                            |SEGV
+                            |
+                          )$/x
+            );
+
+    # Windows doesn't have a SIGBUS, but the debugger causes SIGBUS to
+    # be entered into %SIG.  It's fatal to register its handler.
+    next if $signal eq 'BUS' and RUNNING_IN_HELL;
+
+    # Don't watch CHLD or CLD if we're in Apache.
+    next if $signal =~ /^CH?LD$/ and exists $INC{'Apache.pm'};
+
+    # Pass a signal to the substrate module, which may or may not
+    # watch it depending on its own criteria.
+    {% substrate_watch_signal %}
+  }
+}
+
 # Do post-run cleanup.
 
 macro finalize_kernel {
@@ -1405,6 +1415,12 @@ macro finalize_kernel {
     }
     print STDERR '`', ('-' x 73), "'\n";
   }
+
+  # And at the very end, rebuild the Kernel session JUST IN CASE
+  # someone wants to re-enter run() after it's returned.  It must be
+  # done here because otherwise new sessions won't have a Kernel lying
+  # around to be their parent.
+  _initialize_kernel_session();
 }
 
 sub run_one_timeslice {
@@ -1413,12 +1429,20 @@ sub run_one_timeslice {
   {% substrate_do_timeslice %}
   unless (%kr_sessions) {
     {% finalize_kernel %}
+    $kr_run_warning |= KR_RUN_DONE;
   }
 }
 
 sub run {
   # So run() can be called as a class method.
   my $self = $poe_kernel;
+
+  # If we already returned, then we must reinitialize.  This is so
+  # $poe_kernel->run() will work correctly more than once.
+  if ($kr_run_warning & KR_RUN_DONE) {
+    $kr_run_warning &= ~KR_RUN_DONE;
+    _initialize_kernel_signals();
+  }
 
   # Flag that run() was called.
   $kr_run_warning |= KR_RUN_CALLED;
@@ -1427,6 +1451,7 @@ sub run {
 
   # Clean up afterwards.
   {% finalize_kernel %}
+  $kr_run_warning |= KR_RUN_DONE;
 }
 
 #------------------------------------------------------------------------------

@@ -82,7 +82,6 @@ $POE::Kernel::poe_kernel->run();
 &load_optional_module(14, 'POE::Wheel::Curses');
 &load_optional_module(15, 'POE::Filter::Block');
 
-
 # Seriously optional modules.
 
 &load_optional_module(16, 'POE::Component');

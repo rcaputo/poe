@@ -19,7 +19,7 @@ BEGIN {
        );
 };
 
-&test_setup(6);
+&test_setup(8);
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
@@ -151,12 +151,32 @@ POE::Session->create
     },
   );
 
-# Main loop.
-
+# First main loop.
 $poe_kernel->run();
-
-# Congratulate ourselves on a job completed, regardless of how well it
-# was done.
 print "ok 6\n";
 
+# Try a re-entrant version.
+POE::Session->create
+  ( inline_states =>
+    { _start => sub {
+        $_[HEAP]->{count} = 0;
+        $_[KERNEL]->yield("increment");
+      },
+      increment => sub {
+        my ($kernel, $heap) = @_[KERNEL, HEAP];
+        if ($heap->{count} < 10) {
+          $kernel->yield("increment");
+          $heap->{count}++;
+        }
+      },
+      _stop => sub {
+        print "not " unless $_[HEAP]->{count} == 10;
+        print "ok 7\n";
+      },
+    }
+  );
+
+# Verify that the main loop can run yet again.
+$poe_kernel->run();
+print "ok 8\n";
 exit;

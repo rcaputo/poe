@@ -237,7 +237,7 @@ macro substrate_do_timeslice {
 
 # Initialize static watchers.
 macro substrate_init_main_loop {
-  $self->[KR_WATCHER_TIMER] =
+  $poe_kernel->[KR_WATCHER_TIMER] =
     Event->timer
       ( cb     => \&_substrate_event_callback,
         after  => 0,

@@ -7,7 +7,7 @@ use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
 
-&test_setup(14);
+&test_setup(16);
 
 # Turn on all asserts.
 #sub POE::Kernel::TRACE_EVENTS () { 1 }
@@ -258,7 +258,32 @@ for (my $index = 0; $index < $pair_count << 1; $index++) {
   print "ok ", $index + 4, "\n";
 }
 
-# And one to grow on.
 print "ok 14\n";
+
+# Try a re-entrant version.
+POE::Session->create
+  ( inline_states =>
+    { _start => sub {
+        $_[HEAP]->{count} = 0;
+        $_[KERNEL]->yield("increment");
+      },
+      increment => sub {
+        my ($kernel, $heap) = @_[KERNEL, HEAP];
+        if ($heap->{count} < 10) {
+          $kernel->yield("increment");
+          $heap->{count}++;
+        }
+      },
+      _stop => sub {
+        print "not " unless $_[HEAP]->{count} == 10;
+        print "ok 15\n";
+      },
+    }
+  );
+
+# Verify that the main loop can run yet again.
+$poe_kernel->run();
+
+print "ok 16\n";
 
 exit;

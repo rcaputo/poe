@@ -37,11 +37,11 @@ BEGIN {
   &test_setup( 0, "Tk requires Perl 5.005_03 or newer." ) if $] < 5.005_03;
 };
 
-&test_setup(9);
+&test_setup(11);
 
 warn( "\n",
       "***\n",
-      "*** Please note: This test will pop up a window.\n",
+      "*** Please note: This test will pop up a window or two.\n",
       "***\n",
     );
 
@@ -324,12 +324,32 @@ POE::Session->create
     }
   );
 
-# Main loop.
-
+# First main loop.
 $poe_kernel->run();
-
-# Congratulate ourselves on a job completed, regardless of how well it
-# was done.
 print "ok 9\n";
 
+# Try re-running the main loop.
+POE::Session->create
+  ( inline_states =>
+    { _start => sub {
+        $_[HEAP]->{count} = 0;
+        $_[KERNEL]->yield("increment");
+      },
+      increment => sub {
+        my ($kernel, $heap) = @_[KERNEL, HEAP];
+        if ($heap->{count} < 10) {
+          $kernel->yield("increment");
+          $heap->{count}++;
+        }
+      },
+      _stop => sub {
+        print "not " unless $_[HEAP]->{count} == 10;
+        print "ok 10\n";
+      },
+    }
+  );
+
+# Verify that the main loop can run yet again.
+$poe_kernel->run();
+print "ok 11\n";
 exit;
