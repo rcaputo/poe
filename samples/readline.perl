@@ -22,9 +22,9 @@ POE::Session->create
         $_[HEAP]->{rl} = POE::Wheel::ReadLine->new( InputEvent => 'input' ),
 
         # Tell the user what to do.
-        print( "\nEnter some text.\n",
-               "Press C-c to exit, or type exit or quit or stop.\n",
-               "Try some of the shell editing keys.\n\n",
+        print( "\x0D\x0AEnter some text.\x0D\x0A",
+               "Press C-c to exit, or type exit or quit or stop.\x0D\x0A",
+               "Try some of the shell editing keys.\x0D\x0A\x0A",
              );
 
         # ReadLine ignores input until you tell it to get a line.
