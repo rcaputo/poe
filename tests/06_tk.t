@@ -6,6 +6,10 @@
 
 use strict;
 use lib qw(./lib ../lib);
+use lib '/usr/mysrc/Tk800.021/blib';
+use lib '/usr/mysrc/Tk800.021/blib/lib';
+use lib '/usr/mysrc/Tk800.021/blib/arch';
+
 use TestSetup qw(99);
 
 # Turn on all asserts.
@@ -25,6 +29,16 @@ use POE;
 
 # Congratulate ourselves for getting this far.
 print "ok 1\n";
+
+# Attempt to set the window position.  This was borrowed from one of
+# Tk's own tests.
+eval { $poe_tk_main_window->geometry('+10+10') };
+
+# Set up the main window.
+
+sub server_start {
+}
+
 
 $poe_kernel->run();
 
