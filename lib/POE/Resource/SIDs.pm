@@ -71,7 +71,7 @@ sub _data_sid_clear {
   my ($self, $session) = @_;
   my $sid = delete $kr_session_to_id{$session};
   if (ASSERT_DATA) {
-    _trap() unless defined $sid;
+    _trap("SID not defined") unless defined $sid;
   }
   delete $kr_session_ids{$sid};
 }

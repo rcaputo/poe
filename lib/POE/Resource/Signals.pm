@@ -253,9 +253,10 @@ sub _data_sig_clear_handled_flags {
 sub _data_sig_free_terminated_sessions {
   my $self = shift;
 
-  if ( ($kr_signal_type & SIGTYPE_NONMASKABLE) or
-       ( $kr_signal_type & SIGTYPE_TERMINAL and !$kr_signal_total_handled )
-     ) {
+  if (
+    ($kr_signal_type & SIGTYPE_NONMASKABLE) or
+    ($kr_signal_type & SIGTYPE_TERMINAL and !$kr_signal_total_handled)
+  ) {
     foreach my $dead_session (@kr_signaled_sessions) {
       next unless $self->_data_ses_exists($dead_session);
       if (TRACE_SIGNALS) {
