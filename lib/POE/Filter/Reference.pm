@@ -54,10 +54,13 @@ sub _include_zlib {
 sub new {
   my($type, $freezer, $compression) = @_;
   $freezer ||= _default_freezer();
-                                        # not a reference... maybe a package?
+
+  # not a reference... maybe a package?
   unless(ref $freezer) {
     my $symtable=$::{"main::"};
-    my $loaded=1;                       # find out of the package was loaded
+
+    # find out of the package was loaded
+    my $loaded=1;
     foreach my $p (split /::/, $freezer) {
       unless(exists $symtable->{"$p\::"}) {
         $loaded=0;
@@ -88,7 +91,8 @@ sub new {
     $tf=sub {$freeze->($freezer, @_)};
     $tt=sub {$thaw->($freezer, @_)};
   }
-                                        # Compression
+
+  # Compression
   $compression ||= 0;
   if ($compression) {
     my $zlib_status = &_include_zlib();
@@ -135,6 +139,37 @@ sub get {
 }
 
 #------------------------------------------------------------------------------
+# 2001-07-27 RCC: The get_one() variant of get() allows Wheel::Xyz to
+# retrieve one filtered block at a time.  This is necessary for filter
+# changing and proper input flow control.
+
+sub get_one_start {
+  my ($self, $stream) = @_;
+  $self->{buffer} .= join('', @$stream);
+}
+
+sub get_one {
+  my $self = shift;
+
+  while ( defined($self->{expecting}) ||
+          ( ($self->{buffer} =~ s/^(\d+)\0//s) &&
+            ($self->{expecting} = $1)
+          )
+  ) {
+    return [ ] if length($self->{buffer}) < $self->{expecting};
+
+    my $chunk = substr($self->{buffer}, 0, $self->{expecting});
+    substr($self->{buffer}, 0, $self->{expecting}) = '';
+    undef $self->{expecting};
+
+    $chunk = uncompress($chunk) if $self->{compress};
+    return [ $self->{thaw}->( $chunk ) ];
+  }
+
+  return [ ];
+}
+
+#------------------------------------------------------------------------------
 # freeze one or more references, and return a string representing them
 
 sub put {
@@ -149,14 +184,13 @@ sub put {
 }
 
 #------------------------------------------------------------------------------
-# We are about to be destroyed!  Hand all we have left over to our Wheel
+# Return everything we have outstanding.  Do not destroy our framing
+# buffer, though.
 
 sub get_pending {
-  my($self)=@_;
-  return unless $self->{'framing buffer'};
-  my $ret=[$self->{'framing buffer'}];
-  $self->{'framing buffer'}='';
-  return $ret;
+  my $self = shift;
+  return undef unless length $self->{buffer};
+  return [ $self->{buffer} ];
 }
 
 ###############################################################################

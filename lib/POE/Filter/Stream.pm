@@ -8,8 +8,8 @@ use strict;
 
 sub new {
   my $type = shift;
-  my $t='';
-  my $self = bless \$t, $type;
+  my $buffer = '';
+  my $self = bless \$buffer, $type;
   $self;
 }
 
@@ -22,6 +22,25 @@ sub get {
 }
 
 #------------------------------------------------------------------------------
+# 2001-07-27 RCC: The get_one() variant of get() allows Wheel::Xyz to
+# retrieve one filtered block at a time.  This is necessary for filter
+# changing and proper input flow control.  Although it's kind of
+# pointless for Stream, but it has to follow the proper interface.
+
+sub get_one_start {
+  my ($self, $stream) = @_;
+  $$self .= join '', @$stream;
+}
+
+sub get_one {
+  my $self = shift;
+  return [ ] unless length $$self;
+  my $chunk = $$self;
+  $$self = '';
+  return [ $chunk ];
+}
+
+#------------------------------------------------------------------------------
 
 sub put {
   my ($self, $chunks) = @_;
@@ -30,7 +49,11 @@ sub put {
 
 #------------------------------------------------------------------------------
 
-sub get_pending {} #we don't keep any state
+sub get_pending {
+  my $self = shift;
+  return [ $$self ] if length $$self;
+  return undef;
+}
 
 ###############################################################################
 1;

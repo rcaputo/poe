@@ -70,6 +70,49 @@ sub get {
 }
 
 #------------------------------------------------------------------------------
+# 2001-07-27 RCC: The get_one() variant of get() allows Wheel::Xyz to
+# retrieve one filtered block at a time.  This is necessary for filter
+# changing and proper input flow control.
+
+sub get_one_start {
+  my ($self, $stream) = @_;
+  $self->[FRAMING_BUFFER] .= join '', @$stream;
+}
+
+sub get_one {
+  my $self = shift;
+
+  # If a block size is specified, then pull off a block of that many
+  # bytes and/or characters, depending upon what length() does.
+
+  if (defined $self->[BLOCK_SIZE]) {
+    return [ ] unless length($self->[FRAMING_BUFFER]) >= $self->[BLOCK_SIZE];
+    my $block = substr($self->[FRAMING_BUFFER], 0, $self->[BLOCK_SIZE]);
+    substr($self->[FRAMING_BUFFER], 0, $self->[BLOCK_SIZE]) = '';
+    return [ $block ];
+  }
+
+  # Otherwise we're doing the variable-length block thing.  Look for a
+  # length marker, and then pull off a chunk of that length.  Repeat.
+
+  if ( defined($self->[EXPECTED_SIZE]) ||
+       ( ($self->[FRAMING_BUFFER] =~ s/^(\d+)\0//s) &&
+         ($self->[EXPECTED_SIZE] = $1)
+       )
+     ) {
+    return [ ] if length($self->[FRAMING_BUFFER]) < $self->[EXPECTED_SIZE];
+
+    my $block = substr($self->[FRAMING_BUFFER], 0, $self->[EXPECTED_SIZE]);
+    substr($self->[FRAMING_BUFFER], 0, $self->[EXPECTED_SIZE]) = '';
+    undef $self->[EXPECTED_SIZE];
+
+    return [ $block ];
+  }
+
+  return [ ];
+}
+
+#------------------------------------------------------------------------------
 
 sub put {
   my ($self, $blocks) = @_;
@@ -98,7 +141,7 @@ sub put {
 
 sub get_pending {
   my $self = shift;
-  return unless $self->[FRAMING_BUFFER];
+  return undef unless length $self->[FRAMING_BUFFER];
   [ $self->[FRAMING_BUFFER] ];
 }
 

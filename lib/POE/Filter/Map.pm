@@ -8,6 +8,7 @@ use Carp qw(croak);
 sub CODEBOTH () { 0 }
 sub CODEGET  () { 1 }
 sub CODEPUT  () { 2 }
+sub BUFFER   () { 3 }
 
 #------------------------------------------------------------------------------
 
@@ -16,11 +17,23 @@ sub new {
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
 
-   croak "$type requires a Code or both Get and Put parameters" unless
-  (defined($params{Code}) ||
-   (defined($params{Get}) && defined($params{Put})));
+  # -><- It might be better here for Code to set Get and Put first,
+  # and then have Get and/or Put override that.  During the filter's
+  # normal running (in the hotter code path), you won't need to keep
+  # checking CODEBOTH or (CODEGET OR CODEPUT).  Rather, you'll just
+  # check CODEGET or CODEPUT (depending on the direction data is
+  # headed).
 
-  my $self = bless [ @params{qw(Code Get Put)} ], $type;
+  croak "$type requires a Code or both Get and Put parameters" unless
+    (defined($params{Code}) ||
+     (defined($params{Get}) && defined($params{Put})));
+
+  my $self = bless
+    [ $params{Code}, # CODEBOTH
+      $params{Get},  # CODEGET
+      $params{Put},  # CODEPUT
+      [ ],           # BUFFER
+    ], $type;
 }
 
 #------------------------------------------------------------------------------
@@ -38,8 +51,33 @@ sub put {
 }
 
 #------------------------------------------------------------------------------
+# 2001-07-26 RCC: The get_one variant of get() allows Wheel::Xyz to
+# retrieve one filtered record at a time.  This is necessary for
+# filter changing and proper input flow control, even though it's kind
+# of slow.
 
-sub get_pending {} # we don't track state
+sub get_one_start {
+  my ($self, $stream) = @_;
+  push(@{$self->[BUFFER]}, @$stream) if defined $stream;
+}
+
+sub get_one {
+  my $self = shift;
+
+  return [ ] unless @{$self->[BUFFER]};
+  my $next_record = shift @{$self->[BUFFER]};
+  return [ map &{$self->[CODEGET] || $self->[CODEBOTH]}, $next_record ];
+}
+
+#------------------------------------------------------------------------------
+# 2001-07-27 RCC: This filter now tracks state, so get_pending has
+# become useful.
+
+sub get_pending {
+  my $self = shift;
+  return undef unless @{$self->[BUFFER]};
+  [ @{$self->[BUFFER]} ];
+}
 
 #------------------------------------------------------------------------------
 
@@ -47,9 +85,11 @@ sub modify {
   my ($self, %params) = @_;
   for (keys %params) {
     next unless ($_ eq 'Put') || ($_ eq 'Get') || ($_ eq 'Code');
-    $self->[{Put  => CODEPUT,
-             Get  => CODEGET,
-             Code => CODEBOTH}->{$_}] = $params{$_};
+    $self->[ {Put  => CODEPUT,
+              Get  => CODEGET,
+              Code => CODEBOTH
+             }->{$_}
+           ] = $params{$_};
   }
 }
 

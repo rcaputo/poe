@@ -190,6 +190,107 @@ LINE:
 }
 
 #------------------------------------------------------------------------------
+# 2001-07-27 RCC: Add get_one_start() and get_one() to correct filter
+# changing and make input flow control possible.
+
+sub get_one_start {
+  my ($self, $stream) = @_;
+
+  DEBUG and do {
+    my $temp = join '', @$stream;
+    $temp = unpack 'H*', $temp;
+    warn "got some raw data: $temp\n";
+  };
+
+  $self->[FRAMING_BUFFER] .= join '', @$stream;
+}
+
+# -><- There is a lot of code duplicated here.  What can be done?
+
+sub get_one {
+  my $self = shift;
+
+  # Process as many newlines an we can find.
+LINE:
+  while (1) {
+
+    # Autodetect is done, or it never started.  Parse some buffer!
+    unless ($self->[AUTODETECT_STATE]) {
+      DEBUG and warn unpack 'H*', $self->[INPUT_REGEXP];
+      last LINE
+        unless $self->[FRAMING_BUFFER] =~ s/^(.*?)$self->[INPUT_REGEXP]//s;
+      DEBUG and warn "got line: <<", unpack('H*', $1), ">>\n";
+
+      return [ $1 ];
+    }
+
+    # Waiting for the first line ending.  Look for a generic newline.
+    if ($self->[AUTODETECT_STATE] & AUTO_STATE_FIRST) {
+      last LINE
+        unless $self->[FRAMING_BUFFER] =~ s/^(.*?)(\x0D\x0A?|\x0A\x0D?)//;
+
+      my $line = $1;
+
+      # The newline can be complete under two conditions.  First: If
+      # it's two characters.  Second: If there's more data in the
+      # framing buffer.  Loop around in case there are more lines.
+      if ( (length($2) == 2) or
+           (length $self->[FRAMING_BUFFER])
+         ) {
+        DEBUG and warn "detected complete newline after line: <<$1>>\n";
+        $self->[INPUT_REGEXP] = $2;
+        $self->[AUTODETECT_STATE] = AUTO_STATE_DONE;
+      }
+
+      # The regexp has matched a potential partial newline.  Save it,
+      # and move to the next state.  There is no more data in the
+      # framing buffer, so we're done.
+      else {
+        DEBUG and warn "detected suspicious newline after line: <<$1>>\n";
+        $self->[INPUT_REGEXP] = $2;
+        $self->[AUTODETECT_STATE] = AUTO_STATE_SECOND;
+      }
+
+      return [ $line ];
+    }
+
+    # Waiting for the second line beginning.  Bail out if we don't
+    # have anything in the framing buffer.
+    if ($self->[AUTODETECT_STATE] & AUTO_STATE_SECOND) {
+      return [ ] unless length $self->[FRAMING_BUFFER];
+
+      # Test the first character to see if it completes the previous
+      # potentially partial newline.
+      if ( substr($self->[FRAMING_BUFFER], 0, 1) eq
+           ( $self->[INPUT_REGEXP] eq "\x0D" ? "\x0A" : "\x0D" )
+         ) {
+
+        # Combine the first character with the previous newline, and
+        # discard the newline from the buffer.  This is two statements
+        # for backward compatibility.
+        DEBUG and warn "completed newline after line: <<$1>>\n";
+        $self->[INPUT_REGEXP] .= substr($self->[FRAMING_BUFFER], 0, 1);
+        substr($self->[FRAMING_BUFFER], 0, 1) = '';
+      }
+      elsif (DEBUG) {
+        warn "decided prior suspicious newline is okay\n";
+      }
+
+      # Regardless, whatever is in INPUT_REGEXP is now a complete
+      # newline.  End autodetection, post-process the found newline,
+      # and loop to see if there are other lines in the buffer.
+      $self->[INPUT_REGEXP] = $self->[INPUT_REGEXP];
+      $self->[AUTODETECT_STATE] = AUTO_STATE_DONE;
+      next LINE;
+    }
+
+    die "consistency error: AUTODETECT_STATE = $self->[AUTODETECT_STATE]";
+  }
+
+  return [ ];
+}
+
+#------------------------------------------------------------------------------
 # New behavior.  First translate system newlines ("\n") into whichever
 # newlines are supposed to be sent.  Second, add a trailing newline if
 # one doesn't already exist.  Since the referenced output list is
@@ -211,9 +312,7 @@ sub put {
 
 sub get_pending {
   my $self = shift;
-  my $framing_buffer = $self->[FRAMING_BUFFER];
-  $self->[FRAMING_BUFFER] = '';
-  return [ $framing_buffer ] if length $framing_buffer;
+  return [ $self->[FRAMING_BUFFER] ] if length $self->[FRAMING_BUFFER];
   return undef;
 }
 

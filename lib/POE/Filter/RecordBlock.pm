@@ -37,6 +37,22 @@ sub get {
 }
 
 #------------------------------------------------------------------------------
+# 2001-07-27 RCC: Add get_one_start() and get_one() to correct filter
+# changing and make input flow control possible.
+
+sub get_one_start {
+  my ($self, $data) = @_;
+  push @{$self->[GETBUFFER]}, @$data;
+}
+
+sub get_one {
+  my $self = shift;
+
+  return [ ] unless @{$self->[GETBUFFER]} >= $self->[BLOCKSIZE];
+  return [ splice @{$self->[GETBUFFER]}, 0, $self->[BLOCKSIZE] ];
+}
+
+#------------------------------------------------------------------------------
 
 sub put {
   my ($self, $data) = @_;
@@ -62,8 +78,9 @@ sub put {
 #------------------------------------------------------------------------------
 
 sub get_pending {
-  my ($self) = @_;
-  [ splice @{$self->[GETBUFFER]}, 0, scalar @{$self->[GETBUFFER]} ];
+  my $self = shift;
+  return undef unless @{$self->[GETBUFFER]};
+  return [ @{$self->[GETBUFFER]} ];
 }
 
 #------------------------------------------------------------------------------
@@ -71,7 +88,8 @@ sub get_pending {
 sub put_pending {
   my ($self) = @_;
   return undef unless $self->[CHECKPUT];
-  [ splice @{$self->[PUTBUFFER]}, 0, scalar @{$self->[PUTBUFFER]} ];
+  return undef unless @{$self->[PUTBUFFER]};
+  return [ @{$self->[PUTBUFFER]} ];
 }
 
 #------------------------------------------------------------------------------
