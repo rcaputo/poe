@@ -8,6 +8,23 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
+0.0804 1999.12.31
+-----------------
+
+Reinstated the closure optimizations in the wheels.  They were removed
+in version 0.0703.  It turns out that the closures are necessary to
+prevent wheels from holding extra copies of their $self references.
+The extra $self references kept them from self-destructing (Har!) in
+Flushed states.  These closures work better than 0.0702's.
+
+Wheel::FollowTail now wraps its seek() calls in eval blocks, in case
+the tail being followed belongs to a pipe or otherwise unseekable
+file.
+
+Cleaned up some ugly style in the places where things changed.  Made
+some other style ugly.
+
+
 0.0803 1999.12.28
 -----------------
 

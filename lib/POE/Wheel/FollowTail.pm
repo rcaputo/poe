@@ -26,24 +26,61 @@ sub new {
   croak "Filter required"     unless (exists $params{'Filter'});
   croak "InputState required" unless (exists $params{'InputState'});
 
-  my ($handle, $driver, $filter, $state_in, $state_error) =
-    @params{ qw(Handle Driver Filter InputState ErrorState) };
+  my ($handle, $driver, $filter) = @params{ qw(Handle Driver Filter) };
 
   my $poll_interval = ( (exists $params{'PollInterval'})
                         ? $params{'PollInterval'}
                         : 1
                       );
 
-  my $self = bless { 'handle'   => $handle,
-                     'driver'   => $driver,
-                     'filter'   => $filter,
-                     'interval' => $poll_interval,
-                     'event input' => $params{'InputState'},
-                     'event error' => $params{'ErrorEvent'},
+  my $self = bless { handle      => $handle,
+                     driver      => $driver,
+                     filter      => $filter,
+                     interval    => $poll_interval,
+                     event_input => $params{'InputState'},
+                     event_error => $params{'ErrorEvent'},
                    }, $type;
-                                        # register the input state
+
+  $self->_define_states();
+
+  # Try to position the file pointer before the end of the file.  This
+  # is so we can "tail -f" an existing file.
+
+  eval { seek($handle, -4096, SEEK_END); };
+                                        # discard partial input chunks
+  while (defined(my $raw_input = $driver->get($handle))) {
+    $filter->get($raw_input);
+  }
+                                        # nudge the wheel into action
+  $poe_kernel->select($handle, $self->{state_read});
+
+  $self;
+}
+
+#------------------------------------------------------------------------------
+# This relies on stupid closure tricks to keep references to $self out
+# of anonymous coderefs.  Otherwise, the wheel won't disappear when a
+# state deletes it.
+
+sub _define_states {
+  my $self = shift;
+
+  # If any of these change, then the states are invalidated and must
+  # be redefined.
+
+  my $filter        = $self->{filter};
+  my $driver        = $self->{driver};
+  my $event_input   = $self->{event_input};
+  my $event_error   = $self->{event_error};
+  my $state_wake    = $self->{state_wake} = $self . ' -> alarm';
+  my $state_read    = $self->{state_read} = $self . ' -> select read';
+  my $poll_interval = $self->{interval};
+  my $handle        = $self->{handle};
+
+  # Define the read state.
+
   $poe_kernel->state
-    ( $self->{'state read'} = $self . ' -> select read',
+    ( $state_read,
       sub {
                                         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
@@ -52,43 +89,34 @@ sub new {
 
         while (defined(my $raw_input = $driver->get($hdl))) {
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            $k->call($ses, $self->{'event input'}, $cooked_input)
+            $k->call($ses, $event_input, $cooked_input)
           }
         }
 
         $k->select_read($hdl);
 
         if ($!) {
-          defined($self->{'event error'})
-            && $k->call($ses, $self->{'event error'}, 'read', ($!+0), $!);
+          $event_error && $k->call($ses, $event_error, 'read', ($!+0), $!);
         }
         else {
-          $k->delay($self->{'state wake'}, $poll_interval);
+          $k->delay($state_wake, $poll_interval);
         }
       }
     );
-                                        # set the file position to the end
-  seek($handle, 0, SEEK_END);
-  seek($handle, -4096, SEEK_CUR);
-                                        # discard partial input chunks
-  while (defined(my $raw_input = $driver->get($handle))) {
-    $filter->get($raw_input);
-  }
-                                        # register the alarm state
+
+  # Define the alarm state that periodically wakes the wheel and
+  # retries to read from the file.
+
   $poe_kernel->state
-    ( $self->{'state wake'} = $self . ' -> alarm',
+    ( $state_wake,
       sub {
                                         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
         my $k = $_[KERNEL];
-        $k->select_read($handle, $self->{'state read'});
+        $k->select_read($handle, $state_read);
       }
     );
-                                        # nudge the wheel into action
-  $poe_kernel->select($handle, $self->{'state read'});
-
-  $self;
 }
 
 #------------------------------------------------------------------------------
@@ -102,19 +130,21 @@ sub event {
 
     if ($name eq 'InputState') {
       if (defined $event) {
-        $self->{'event input'} = $event;
+        $self->{event_input} = $event;
       }
       else {
         carp "InputState requires an event name.  ignoring undef";
       }
     }
     elsif ($name eq 'ErrorState') {
-      $self->{'event error'} = $event;
+      $self->{event_error} = $event;
     }
     else {
       carp "ignoring unknown ReadWrite parameter '$name'";
     }
   }
+
+  $self->_define_states();
 }
 
 #------------------------------------------------------------------------------
@@ -122,16 +152,16 @@ sub event {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $poe_kernel->select($self->{'handle'});
+  $poe_kernel->select($self->{handle});
 
-  if ($self->{'state read'}) {
-    $poe_kernel->state($self->{'state read'});
-    delete $self->{'state read'};
+  if ($self->{state_read}) {
+    $poe_kernel->state($self->{state_read});
+    delete $self->{state_read};
   }
 
-  if ($self->{'state wake'}) {
-    $poe_kernel->state($self->{'state wake'});
-    delete $self->{'state wake'};
+  if ($self->{state_wake}) {
+    $poe_kernel->state($self->{state_wake});
+    delete $self->{state_wake};
   }
 }
 
