@@ -372,7 +372,9 @@ sub import {
               $macro{$package_name}->[MAC_CODE] =~ s/^\s*//;
               $macro{$package_name}->[MAC_CODE] =~ s/\s*$//;
 
-              if (WARN_DEFINE && exists $macros{$package_name}->{$macro_name}) {
+              if ( WARN_DEFINE &&
+                   exists $macros{$package_name}->{$macro_name}
+                 ) {
                 warn( "macro $macro_name redefined at ",
                       "$file_name line $line_number\n"
                     )
@@ -528,9 +530,9 @@ sub import {
               $substitutions++;
             }
             else {
-              warn( "macro $name has not been defined ",
-                    "at $file_name line $line_number\n"
-                  );
+              die( "macro $name has not been defined ",
+                   "at $file_name line $line_number\n"
+                 );
               last;
             }
           }
