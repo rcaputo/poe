@@ -85,3 +85,4 @@ t/17_filter_ref.t
 t/18_filter_line.t
 t/19_filterchange.t
 t/20_accept.t
+t/21_gtk.t

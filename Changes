@@ -30,8 +30,6 @@ Version numbers have four fields: X.YYZZAA
 | in the alarm queue by the time it gets to the small and large queue
 | code.  Does it need to compare against the whole list?
 |
-| How about Gtk support?
-|
 | Better alarms API.  Roderick has threatened to do something.
 |
 | Why does samples/tk.perl leak memory, and, if it's my fault, how
@@ -52,6 +50,20 @@ Version numbers have four fields: X.YYZZAA
 | Benchmark index vs. rindex vs. regexp for finding line terminators.
 |
 `-----------------
+
+
+0.1108 2000.??.??
+-----------------
+
+Added Gtk support.  Added t/21_gtk.t to test it.
+
+(!!!) Broke Tk backward compatibility.  Renamed $poe_tk_main_window to
+$poe_main_window so that it can be used sanely by different user
+interfaces.
+
+(!!!) Broke Tk backward compatibility.  Renamed the TKDESTROY signal
+to UIDESTROY so that it can be used sanely by different user
+interfaces.
 
 
 0.1107 2000.10.04

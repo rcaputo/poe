@@ -5,11 +5,11 @@ package POE::Kernel;
 use strict;
 use POSIX qw(errno_h fcntl_h sys_wait_h uname signal_h);
 use Carp;
-use vars qw( $poe_kernel $poe_tk_main_window );
+use vars qw( $poe_kernel $poe_main_window );
 
 use Exporter;
 @POE::Kernel::ISA = qw(Exporter);
-@POE::Kernel::EXPORT = qw( $poe_kernel $poe_tk_main_window );
+@POE::Kernel::EXPORT = qw( $poe_kernel $poe_main_window );
 
 #------------------------------------------------------------------------------
 # Macro definitions.
@@ -254,10 +254,10 @@ BEGIN {
   # Set a constant to indicate the presence of Time::HiRes.  This
   # enables some runtime optimization.
   if ($@) {
-    eval 'sub POE_HAS_TIME_HIRES () { 0 }';
+    eval 'sub POE_USES_TIME_HIRES () { 0 }';
   }
   else {
-    eval 'sub POE_HAS_TIME_HIRES () { 1 }';
+    eval 'sub POE_USES_TIME_HIRES () { 1 }';
   }
 
   # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
@@ -309,45 +309,53 @@ BEGIN {
   {% define_assert SESSIONS    %}
 }
 
-# Determine whether Tk or Event is loaded.  If either is, set a
+# Determine whether Gtk, Tk, or Event is loaded.  If one is, set a
 # constant that enables its specific behaviors throughout POE::Kernel.
 # Replace the unused ones' methods with dummies; these won't ever be
 # called, but they need to be present so that POE::Kernel compiles.
 
 BEGIN {
-  # Can't use Tk and Event at the same time.
-  if (exists $INC{'Tk.pm'} and exists $INC{'Event.pm'}) {
-    croak "POE: Tk and Event have incompatible event loops.  Can't use both";
+  # Check for multiple event loops, and enable behaviors for whichever
+  # is loaded.
+
+  if (exists $INC{'Gtk.pm'}) {
+    croak "POE can't use Tk and Gtk at once" if exists $INC{'Tk.pm'};
+    croak "POE can't use Event and Gtk at once" if exists $INC{'Event.pm'};
+    eval 'sub POE_USES_GTK () { 1 }';
   }
 
-  # Check for Tk.
-  if (exists $INC{'Tk.pm'}) {
-    eval <<'    EOE';
-      sub POE_HAS_TK () { 1 }
-    EOE
-  }
-  else {
-    eval <<'    EOE';
-      sub POE_HAS_TK          () { 0 }
-      sub Tk::MainLoop        () { 0 }
-      sub Tk::MainWindow::new () { undef }
-    EOE
+  elsif (exists $INC{'Tk.pm'}) {
+    croak "POE: Can't use Tk and Event at once" if exists $INC{'Event.pm'};
+    eval 'sub POE_USES_TK () { 1 }';
   }
 
-  # Check for Event.
-  if (exists $INC{'Event.pm'}) {
-    eval <<'    EOE';
-      sub POE_HAS_EVENT () { 1 }
-    EOE
+  elsif (exists $INC{'Event.pm'}) {
+    eval 'sub POE_USES_EVENT () { 1 }';
   }
-  else {
-    eval <<'    EOE';
-      sub POE_HAS_EVENT     ()  { 0 }
-      sub Event::loop       ()  { 0 }
-      sub Event::unloop_all ($) { 0 }
-      sub Event::idle       ()  { 0 }
-      sub Event::timer      ()  { 0 }
-    EOE
+
+  # Disable behaviors for event loops which aren't loaded.
+  unless (exists $INC{'Gtk.pm'}) {
+    eval( 'sub POE_USES_GTK () { 0 }
+          '
+        );
+  }
+
+  unless (exists $INC{'Tk.pm'}) {
+    eval( 'sub POE_USES_TK         () { 0 }
+           sub Tk::MainLoop        () { 0 }
+           sub Tk::MainWindow::new () { undef }
+          '
+        );
+  }
+
+  unless (exists $INC{'Event.pm'}) {
+    eval( 'sub POE_USES_EVENT    ()  { 0 }
+           sub Event::loop       ()  { 0 }
+           sub Event::unloop_all ($) { 0 }
+           sub Event::idle       ()  { 0 }
+           sub Event::timer      ()  { 0 }
+          '
+        );
   }
 }
 
@@ -612,6 +620,23 @@ sub POE::Kernel::signal {
 # KERNEL
 #==============================================================================
 
+# This is a UI callback.  It maps UI destruction to a non-maskable
+# virtual UIDESTROY signal.  Don't bother broadcasting UIDESTROY if
+# there are no sessions remaining.  This is the case when POE exits
+# before its main window.
+sub signal_ui_destroy {
+  if (keys %{$poe_kernel->[KR_SESSIONS]}) {
+    $poe_kernel->_dispatch_state
+      ( $poe_kernel, $poe_kernel,
+        EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
+        time(), __FILE__, __LINE__, undef
+      );
+  }
+
+  # Undef allows Gtk to destroy the window.
+  return undef;
+}
+
 sub new {
   my $type = shift;
 
@@ -620,27 +645,20 @@ sub new {
   # have used versions prior to 0.06.
   unless (defined $poe_kernel) {
 
-    $poe_tk_main_window = Tk::MainWindow->new();
+    if (POE_USES_GTK) {
+      Gtk->init;
 
-    # If we have a Tk main window, then register an onDestroy handler
-    # for it.  This handler broadcasts a terminal TKDESTROY signal to
-    # every session.
+      $poe_main_window = Gtk::Window->new('toplevel');
+      die "could not create a main Gk window" unless defined $poe_main_window;
 
-    if (defined $poe_tk_main_window) {
-      $poe_tk_main_window->OnDestroy
-        ( sub {
-            # Don't bother broadcasting TKDESTROY if there are no
-            # sessions remaining.  This is the case when POE exits
-            # before its main window.
-            if (keys %{$poe_kernel->[KR_SESSIONS]}) {
-              $poe_kernel->_dispatch_state
-                ( $poe_kernel, $poe_kernel,
-                  EN_SIGNAL, ET_SIGNAL, [ 'TKDESTROY' ],
-                  time(), __FILE__, __LINE__, undef
-                );
-            }
-          }
-        );
+      $poe_main_window->signal_connect( delete_event => \&signal_ui_destroy );
+    }
+
+    if (POE_USES_TK) {
+      $poe_main_window = Tk::MainWindow->new();
+      die "could not create a main Tk window" unless defined $poe_main_window;
+
+      $poe_main_window->OnDestroy( \&signal_ui_destroy );
     }
 
     my $self = $poe_kernel = bless
@@ -664,7 +682,7 @@ sub new {
     # If POE uses Event to drive its queues, then one-time initialize
     # watchers for idle and timed events.
 
-    if ( POE_HAS_EVENT ) {
+    if ( POE_USES_EVENT ) {
 
       $self->[KR_WATCHER_TIMER] = Event->timer
         ( cb     => \&_event_alarm_callback,
@@ -722,7 +740,7 @@ sub new {
         # kill Perl.  Use an Event->signal watcher if Event is
         # available.
 
-        if (POE_HAS_EVENT) {
+        if (POE_USES_EVENT) {
           Event->signal( signal => $signal,
                          cb     => \&_event_signal_handler_generic
                        );
@@ -750,7 +768,7 @@ sub new {
 
           # Register an Event signal watcher on it.  Rename the signal
           # 'CHLD' regardless whether it's CHLD or CLD.
-          if (POE_HAS_EVENT) {
+          if (POE_USES_EVENT) {
             Event->signal( signal => $signal,
                            cb     => \&_event_signal_handler_child
                          );
@@ -765,7 +783,7 @@ sub new {
       elsif ($signal eq 'PIPE') {
 
         # Register an Event signal watcher.
-        if (POE_HAS_EVENT) {
+        if (POE_USES_EVENT) {
           Event->signal( signal => $signal,
                          cb     => \&_event_signal_handler_pipe
                        );
@@ -781,7 +799,7 @@ sub new {
         # If Event is available, register a signal watcher with it.
         # Don't register a SIGKILL handler, though, because Event
         # doesn't like that.
-        if (POE_HAS_EVENT and $signal ne 'KILL' and $signal ne 'STOP') {
+        if (POE_USES_EVENT and $signal ne 'KILL' and $signal ne 'STOP') {
           Event->signal( signal => $signal,
                          cb     => \&_event_signal_handler_generic
                        );
@@ -1170,15 +1188,22 @@ sub _dispatch_state {
 
     # Finally, if there are no more sessions, stop the main loop.
     unless (keys %$sessions) {
+
+      # Stop Gtk's loop.  ->gtk<- I'm working on voodoo here.
+      if (POE_USES_GTK) {
+        $poe_main_window->destroy();
+        Gtk->main_quit();
+      }
+
       # Stop Tk's loop.
-      if (POE_HAS_TK) {
+      if (POE_USES_TK) {
         $self->[KR_WATCHER_IDLE]  = undef;
         $self->[KR_WATCHER_TIMER] = undef;
-        $poe_tk_main_window->destroy();
+        $poe_main_window->destroy();
       }
 
       # Stop Event's loop.
-      if (POE_HAS_EVENT) {
+      if (POE_USES_EVENT) {
         $self->[KR_WATCHER_IDLE]->stop();
         $self->[KR_WATCHER_TIMER]->stop();
         Event::unloop_all(0);
@@ -1195,7 +1220,7 @@ sub _dispatch_state {
 
     # Determine if the signal is fatal and some junk.
     if ( ($signal eq 'ZOMBIE') or
-         ($signal eq 'TKDESTROY') or
+         ($signal eq 'UIDESTROY') or
          (!$return && exists($_terminal_signals{$signal}))
        ) {
       $self->session_free($session);
@@ -1228,15 +1253,20 @@ sub _dispatch_state {
 sub run {
   my $self = shift;
 
+  # Use Gtk's main loop, if Gtk is loaded.
+  if (POE_USES_GTK) {
+    Gtk->main;
+  }
+
   # Use Tk's main loop, if Tk is loaded.
 
-  if (POE_HAS_TK) {
+  elsif (POE_USES_TK) {
     Tk::MainLoop;
   }
 
   # Use Event's main loop, if Event is loaded.
 
-  if (POE_HAS_EVENT) {
+  elsif (POE_USES_EVENT) {
     Event::loop();
   }
 
@@ -1451,7 +1481,7 @@ sub run {
 
         # If Time::HiRes isn't available, then the fairest thing to do
         # is loop immediately.
-        last unless POE_HAS_TIME_HIRES;
+        last unless POE_USES_TIME_HIRES;
 
         # Otherwise, dispatch more FIFO events until $stop_time is
         # reached.
@@ -1490,6 +1520,72 @@ sub run {
 }
 
 #------------------------------------------------------------------------------
+# Gtk support.
+
+# Gtk idle callback to dispatch FIFO states.  This steals a big chunk
+# of code from POE::Kernel::run().  Make this function's guts a macro
+# later, and use it wherever possible.
+
+sub _gtk_fifo_callback {
+  my $self = $poe_kernel;
+
+  {% dispatch_one_from_fifo %}
+
+  # Perpetuate the idle callback if there still are transitions in the
+  # Kernel's FIFO queue.
+  return 1 if @{$self->[KR_STATES]};
+
+  # Make sure the kernel can still run, and return undef to stop the
+  # idle callback.
+  {% test_for_idle_poe_kernel %}
+  return undef;
+}
+
+# Gtk timeout callback to dispatch pending alarm states.  Same caveats
+# about macro-izing this code.
+
+sub _gtk_timeout_callback {
+  my $self = $poe_kernel;
+
+  {% dispatch_due_alarms %}
+
+  # Register the next timeout if there are alarms left.
+  if (@{$self->[KR_ALARMS]}) {
+    my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
+    $next_time = 0 if $next_time < 0;
+    Gtk->timeout_add( $next_time, \&_gtk_timeout_callback );
+  }
+
+  # Make sure the kernel can still run.
+  else {
+    {% test_for_idle_poe_kernel %}
+  }
+
+  # Return false to not perpetuate this.
+  return undef;
+}
+
+# Gtk filehandle callback to dispatch selects.
+
+sub _gtk_select_callback {
+  my $self = $poe_kernel;
+  my ($fileno, $direction, $handle) = @_;
+
+  warn $fileno;
+  warn $direction;
+  warn $handle;
+
+  $handle  = ''; # $self->[KR_HANDLE]->{$handle}->[HND_SESSIONS]->[$vector]
+  my $vector  = ''; # VEC_RD, etc.
+
+  {% dispatch_ready_selects %}
+  {% test_for_idle_poe_kernel %}
+
+  # Return false to not perpetuate this.
+  return undef;
+}
+
+#------------------------------------------------------------------------------
 # Tk support.  Tk's alarm callbacks seem to have the highest priority.
 # That is, if $widget->after is constantly scheduled for a period
 # smaller than the overhead of dispatching it, then no other events
@@ -1518,11 +1614,11 @@ sub _tk_fifo_callback {
   # trash yoru desktop! Wanna try it?) :)
 
   if (@{$self->[KR_STATES]}) {
-    $poe_tk_main_window->after
+    $poe_main_window->after
       ( 0,
         sub {
           $self->[KR_WATCHER_IDLE] =
-            $poe_tk_main_window->afterIdle( \&_tk_fifo_callback )
+            $poe_main_window->afterIdle( \&_tk_fifo_callback )
           unless defined $self->[KR_WATCHER_IDLE];
         }
       );
@@ -1561,7 +1657,7 @@ sub _tk_alarm_callback {
     # Replace it with an idle event that will reset the alarm.
 
     $self->[KR_WATCHER_TIMER] =
-      $poe_tk_main_window->afterIdle
+      $poe_main_window->afterIdle
         ( sub {
             $self->[KR_WATCHER_TIMER]->cancel();
             $self->[KR_WATCHER_TIMER] = undef;
@@ -1571,7 +1667,7 @@ sub _tk_alarm_callback {
               $next_time = 0 if $next_time < 0;
 
               $self->[KR_WATCHER_TIMER] =
-                $poe_tk_main_window->after( $next_time * 1000,
+                $poe_main_window->after( $next_time * 1000,
                                             \&_tk_alarm_callback
                                           );
             }
@@ -1752,7 +1848,7 @@ sub _invoke_state {
       # loop.  Warn if it's something unexpected.
 
       else {
-        unless (POE_HAS_EVENT) {
+        unless (POE_USES_EVENT) {
           $SIG{CHLD} = \&_poe_signal_handler_child if exists $SIG{CHLD};
           $SIG{CLD}  = \&_poe_signal_handler_child if exists $SIG{CLD};
         }
@@ -1763,7 +1859,7 @@ sub _invoke_state {
     # Nothing is left to wait for.  Stop the wait loop.
 
     else {
-      unless (POE_HAS_EVENT) {
+      unless (POE_USES_EVENT) {
         $SIG{CHLD} = \&_poe_signal_handler_child if exists $SIG{CHLD};
         $SIG{CLD}  = \&_poe_signal_handler_child if exists $SIG{CLD};
       }
@@ -1915,18 +2011,25 @@ sub _enqueue_state {
     push @{$self->[KR_STATES]}, {% state_to_enqueue %};
     {% ses_refcount_inc2 $session, SS_EVCOUNT %}
 
+    # If using Gtk and the FIFO queue now has only one event, then
+    # register a Gtk idle callback to resume the dispatch loop.
+
+    if ( POE_USES_GTK ) {
+      Gtk->idle_add( \&_gtk_fifo_callback );
+    }
+
     # If using Tk and the FIFO queue now has only one event, then
     # register a Tk idle callback to resume the dispatch loop.
 
-    if ( POE_HAS_TK ) {
+    if ( POE_USES_TK ) {
       $self->[KR_WATCHER_IDLE] =
-        $poe_tk_main_window->afterIdle( \&_tk_fifo_callback );
+        $poe_main_window->afterIdle( \&_tk_fifo_callback );
     }
 
     # If using Event and the FIFO queue now has only one event, then
     # start the Event idle watcher to resume the dispatch loop.
 
-    if ( POE_HAS_EVENT ) {
+    if ( POE_USES_EVENT ) {
       $self->[KR_WATCHER_IDLE]->again();
     }
 
@@ -2034,9 +2137,17 @@ sub _enqueue_alarm {
       }
     }
 
+    # If using Gtk and the alarm queue now has only one event, then
+    # register a timeout callback to dispatch it when it becomes due.
+    if ( POE_USES_GTK and @{$self->[KR_ALARMS]} == 1 ) {
+      my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
+      $next_time = 0 if $next_time < 0;
+      Gtk->timeout_add( $next_time, \&_gtk_timeout_callback );
+    }
+
     # If using Tk and the alarm queue now has only one event, then
     # register a Tk timed callback to dispatch it when it becomes due.
-    if ( POE_HAS_TK and @{$self->[KR_ALARMS]} == 1 ) {
+    if ( POE_USES_TK and @{$self->[KR_ALARMS]} == 1 ) {
       if (defined $self->[KR_WATCHER_TIMER]) {
         $self->[KR_WATCHER_TIMER]->cancel();
         $self->[KR_WATCHER_TIMER] = undef;
@@ -2045,14 +2156,14 @@ sub _enqueue_alarm {
       my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
       $next_time = 0 if $next_time < 0;
       $self->[KR_WATCHER_TIMER] =
-        $poe_tk_main_window->after( $next_time * 1000,
+        $poe_main_window->after( $next_time * 1000,
                                     \&_tk_alarm_callback
                                   );
     }
 
     # If using Event and the alarm queue now has only one event, then
     # start the Event timer to dispatch it when it becomes due.
-    if ( POE_HAS_EVENT and @{$self->[KR_ALARMS]} == 1 ) {
+    if ( POE_USES_EVENT and @{$self->[KR_ALARMS]} == 1 ) {
       $self->[KR_WATCHER_TIMER]->at( $self->[KR_ALARMS]->[0]->[ST_TIME] );
       $self->[KR_WATCHER_TIMER]->start();
     }
@@ -2181,15 +2292,21 @@ sub alarm {
     }
   }
 
+  # If using Gtk and the alarm queue is empty, then discard the Gtk
+  # alarm callback.
+  if (POE_USES_GTK and @{$self->[KR_ALARMS]} == 0) {
+    # -><- Remove the alarm handler.  Is this necessary?
+  }
+
   # If using Tk and the alarm queue is empty, then discard the Tk
   # alarm callback.
-  if (POE_HAS_TK and @{$self->[KR_ALARMS]} == 0) {
+  if (POE_USES_TK and @{$self->[KR_ALARMS]} == 0) {
     # -><- Remove the alarm handler.  Is this necessary?
   }
 
   # If using Event and the alarm queue is empty, then ensure that the
   # timer has stopped.
-  if (POE_HAS_EVENT and @{$self->[KR_ALARMS]} == 0) {
+  if (POE_USES_EVENT and @{$self->[KR_ALARMS]} == 0) {
     $self->[KR_WATCHER_TIMER]->stop();
   }
 
@@ -2321,10 +2438,33 @@ sub _internal_select {
       if ($kr_handle->[HND_VECCOUNT]->[$select_index] == 1) {
         vec($self->[KR_VECTORS]->[$select_index], fileno($handle), 1) = 1;
 
+        # If we're using Gtk, then we tell it to watch this filehandle
+        # for us.  This is in lieu of our own select code.
+        if (POE_USES_GTK) {
+
+          # The Gtk documentation implies by omission that expedited
+          # filehandles aren't, uh, handled.  This is part 1 of 2.
+
+          confess "Gtk does not support expedited filehandles"
+            if $select_index == VEC_EX;
+
+          $kr_handle->[HND_WATCHERS]->[$select_index] =
+            Gtk::Gdk->input_add( $fileno,
+                                 ( ( $select_index == VEC_RD )
+                                   ? 'read'
+                                   : ( ($select_index == VEC_WR)
+                                       ? 'write'
+                                       : 'expedite'
+                                     )
+                                 ),
+                                 \&_gtk_select_callback
+                               );
+        }
+
         # If we're using Tk, then we tell it to watch this filehandle
         # for us.  This is in lieu of our own select code.
 
-        if (POE_HAS_TK) {
+        if (POE_USES_TK) {
 
           # The Tk documentation implies by omission that expedited
           # filehandles aren't, uh, handled.  This is part 1 of 2.
@@ -2332,7 +2472,7 @@ sub _internal_select {
           confess "Tk does not support expedited filehandles"
             if $select_index == VEC_EX;
 
-          $poe_tk_main_window->fileevent
+          $poe_main_window->fileevent
             ( $handle,
 
               # It can only be VEC_RD or VEC_WR here (VEC_EX is
@@ -2346,7 +2486,7 @@ sub _internal_select {
         # If we're using Event, then we tell it to watch this
         # filehandle for us.  This is in lieu of our own select code.
 
-        if (POE_HAS_EVENT) {
+        if (POE_USES_EVENT) {
 
           $kr_handle->[HND_WATCHERS]->[$select_index] =
             Event->io
@@ -2430,11 +2570,27 @@ sub _internal_select {
         unless ($kr_handle->[HND_VECCOUNT]->[$select_index]) {
           vec($self->[KR_VECTORS]->[$select_index], fileno($handle), 1) = 0;
 
+          # If we're using Gtk, then we tell it to stop watching this
+          # filehandle for us.  This is in lieu of our own select
+          # code.
+          if (POE_USES_GTK) {
+
+            # The Gtk documentation implies by omission that expedited
+            # filehandles aren't, uh, handled.  This is part 2 of 2.
+
+            confess "Gtk does not support expedited filehandles"
+              if $select_index == VEC_EX;
+
+            Gtk::Gdk->input_remove
+              ( $kr_handle->[HND_WATCHERS]->[$select_index] );
+            $kr_handle->[HND_WATCHERS]->[$select_index] = undef;
+          }
+
           # If we're using Tk, then we tell it to stop watching this
           # filehandle for us.  This is is lieu of our own select
           # code.
 
-          if (POE_HAS_TK) {
+          if (POE_USES_TK) {
 
             # The Tk documentation implies by omission that expedited
             # filehandles aren't, uh, handled.  This is part 2 of 2.
@@ -2442,7 +2598,7 @@ sub _internal_select {
             confess "Tk does not support expedited filehandles"
               if $select_index == VEC_EX;
 
-            $poe_tk_main_window->fileevent
+            $poe_main_window->fileevent
               ( $handle,
 
                 # It can only be VEC_RD or VEC_WR here (VEC_EX is
@@ -2459,7 +2615,7 @@ sub _internal_select {
           # this filehandle for us.  This is in lieu of our own select
           # code.
 
-          if (POE_HAS_EVENT) {
+          if (POE_USES_EVENT) {
             $kr_handle->[HND_WATCHERS]->[$select_index]->cancel();
             $kr_handle->[HND_WATCHERS]->[$select_index] = undef;
           }
@@ -2563,15 +2719,21 @@ sub select_pause_write {
 
   vec($self->[KR_VECTORS]->[VEC_WR], fileno($handle), 1) = 0;
 
-  if (POE_HAS_TK) {
-    $poe_tk_main_window->fileevent
+  if (POE_USES_GTK) {
+    Gtk::Gdk->input_remove
+      ( $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR] );
+    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR] = undef;
+  }
+
+  if (POE_USES_TK) {
+    $poe_main_window->fileevent
       ( $handle,
         'writable',
         ''
       );
   }
 
-  if (POE_HAS_EVENT) {
+  if (POE_USES_EVENT) {
     $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
   }
 
@@ -2591,15 +2753,20 @@ sub select_resume_write {
 
   vec($self->[KR_VECTORS]->[VEC_WR], fileno($handle), 1) = 1;
 
-  if (POE_HAS_TK) {
-    $poe_tk_main_window->fileevent
+  if (POE_USES_GTK) {
+    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR] =
+      Gtk::Gdk->input_add( fileno($handle), 'write', \&_gtk_select_callback );
+  }
+
+  if (POE_USES_TK) {
+    $poe_main_window->fileevent
       ( $handle,
         'writable',
         [ \&_tk_select_callback, $handle, VEC_WR ],
       );
   }
 
-  if (POE_HAS_EVENT) {
+  if (POE_USES_EVENT) {
     $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
   }
 
@@ -2973,7 +3140,7 @@ Exported symbols:
 
   # This is the Tk widget POE uses to access Tk's event loop.  It's
   # only meaningful when Tk is used; otherwise it's undef.
-  $poe_tk_main_window
+  $poe_main_window
 
 =head1 DESCRIPTION
 
@@ -3122,7 +3289,7 @@ default select loop's select parameters and return values.
 =head1 POE::Kernel Exports
 
 POE::Kernel exports two symbols for your coding enjoyment: $poe_kernel
-and $poe_tk_main_window.  POE::Kernel is implicitly used by POE
+and $poe_main_window.  POE::Kernel is implicitly used by POE
 itself, so using POE gets you POE::Kernel (and its exports) for free.
 
 =over 2
@@ -3137,10 +3304,10 @@ loop.
 States rarely need to use $poe_kernel directly since they receive a
 copy of it in $_[KERNEL].
 
-=item $poe_tk_main_window
+=item $poe_main_window
 
 POE creates a MainWindow to use Tk's event loop.  Rather than waste a
-window, it exports a reference to it as $poe_tk_main_window.  Programs
+window, it exports a reference to it as $poe_main_window.  Programs
 can use this like a plain Tk MainWindow, which is exactly what it is.
 
 =back
@@ -3698,7 +3865,7 @@ below), INT, KILL, QUIT, TERM.
 
 A nonmaskable signal always stops a session, even if the session says
 it's been handled.  There are only two nonmaskable signals, and they
-both are fictitious and explained shortly: ZOMBIE and TKDESTROY.
+both are fictitious and explained shortly: ZOMBIE and UIDESTROY.
 
 A signal handling state's return value tells POE whether it handled
 the signal.  A true return value means that the state handled the
@@ -3708,16 +3875,17 @@ relationship tree.
 
 As was previously mentioned, POE generates three fictitious signals.
 These notify sessions when extraordinary circumstances occur.  They
-are IDLE, TKDESTROY and ZOMBIE.
+are IDLE, UIDESTROY and ZOMBIE.
 
 The terminal IDLE signal is posted when the only sessions remaning are
 alive by virtue of having aliases.  This situation occurs when daemon
 sessions exist without any clients to interact with.  POE posts IDLE
 to them, giving them an opportunity to prove they're not yet dead.
 
-The TKDESTROY signal is, regrettably nonmaskable.  It indicates that
-the program's Tk::MainWindow is being destroyed, and everything must
-go.
+The UIDESTROY signal is, regrettably nonmaskable.  It indicates that
+the program's UI has signaled its destruction.  In Gtk and Tk, it
+means that the main or top-level window is being closed, and
+everything must go.
 
 ZOMBIE is a nonmaskable signal as well.  It's posted if IDLE hasn't
 been effective in waking any lingering daemon sessions.  It tells the

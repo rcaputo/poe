@@ -1,26 +1,23 @@
 #!/usr/bin/perl -w
 # $Id$
 
-# Tests FIFO, alarm, select and Tk postback events using Tk's event
+# Tests FIFO, alarm, select and Gtk postback events using Gk's event
 # loop.
 
 use strict;
 use lib qw(./lib ../lib);
-use lib '/usr/mysrc/Tk800.021/blib';
-use lib '/usr/mysrc/Tk800.021/blib/lib';
-use lib '/usr/mysrc/Tk800.021/blib/arch';
 
 use Symbol;
 
 use TestSetup;
 use TestPipe;
 
-# Skip if Tk isn't here.
+# Skip if Gtk isn't here.
 BEGIN {
-  eval 'use Tk';
-  &test_setup(0, 'need the Tk module installed to run this test')
+  eval 'use Gtk';
+  &test_setup(0, 'need the Gtk module installed to run this test')
     if ( length($@) or
-         not exists($INC{'Tk.pm'})
+         not exists($INC{'Gtk.pm'})
        );
   # MSWin32 doesn't need DISPLAY set.
   if ($^O ne 'MSWin32') {
@@ -28,7 +25,7 @@ BEGIN {
              defined $ENV{'DISPLAY'} and
              length $ENV{'DISPLAY'}
            ) {
-      &test_setup(0, "can't test Tk without a DISPLAY (set one today, ok?)");
+      &test_setup(0, "can't test Gtk without a DISPLAY (set one today, ok?)");
     }
   }
 };
@@ -37,7 +34,7 @@ BEGIN {
 
 warn( "\n",
       "***\n",
-      "*** Please note: This test will pop up a Tk window.\n",
+      "*** Please note: This test will pop up a Gtk window.\n",
       "***\n",
     );
 
@@ -55,11 +52,11 @@ my @after_alarms;
 # Congratulate ourselves for getting this far.
 print "ok 1\n";
 
-# Attempt to set the window position.  This was borrowed from one of
-# Tk's own tests.  It glues the window into place so the program can
-# continue.  This may be unfriendly, but it minimizes the amount of
-# user interaction needed to perform this test.
-eval { $poe_main_window->geometry('+10+10') };
+# # Attempt to set the window position.  This was borrowed from one of
+# # Tk's own tests.  It glues the window into place so the program can
+# # continue.  This may be unfriendly, but it minimizes the amount of
+# # user interaction needed to perform this test.
+# eval { $poe_main_window->geometry('+10+10') };
 
 # I/O session
 
@@ -96,20 +93,23 @@ sub io_start {
 
   my $write_count = 0;
   $heap->{write_count} = \$write_count;
-  $poe_main_window->Label( -text => 'Write Count' )->pack;
-  $poe_main_window->Label( -textvariable => $heap->{write_count} )->pack;
+  Gtk::Label->new( 'Write Count' );
+#  $poe_main_window->Label( -text => 'Write Count' )->pack;
+#  $poe_main_window->Label( -textvariable => $heap->{write_count} )->pack;
 
   my $read_count  = 0;
   $heap->{read_count} = \$read_count;
-  $poe_main_window->Label( -text => 'Read Count' )->pack;
-  $poe_main_window->Label( -textvariable => $heap->{read_count} )->pack;
+  Gtk::Label->new( 'Read Count' );
+#  $poe_main_window->Label( -text => 'Read Count' )->pack;
+#  $poe_main_window->Label( -textvariable => $heap->{read_count} )->pack;
 
   # And an idle loop.
 
   my $idle_count  = 0;
   $heap->{idle_count} = \$idle_count;
-  $poe_main_window->Label( -text => 'Idle Count' )->pack;
-  $poe_main_window->Label( -textvariable => $heap->{idle_count} )->pack;
+  Gtk::Label->new( 'Idle Count' );
+#  $poe_main_window->Label( -text => 'Idle Count' )->pack;
+#  $poe_main_window->Label( -textvariable => $heap->{idle_count} )->pack;
   $kernel->yield( 'ev_idle_increment' );
 
   # And an independent timer loop to test it separately from pipe
@@ -117,8 +117,9 @@ sub io_start {
 
   my $timer_count = 0;
   $heap->{timer_count} = \$timer_count;
-  $poe_main_window->Label( -text => 'Timer Count' )->pack;
-  $poe_main_window->Label( -textvariable => $heap->{timer_count} )->pack;
+  Gtk::Label->new( 'Timer Count' );
+#  $poe_main_window->Label( -text => 'Timer Count' )->pack;
+#  $poe_main_window->Label( -textvariable => $heap->{timer_count} )->pack;
   $kernel->delay( ev_timer_increment => 0.5 );
 
   # Add default postback test results.  They fail if they aren't
@@ -138,10 +139,7 @@ sub io_pipe_write {
     $kernel->delay( ev_pipe_write => 1 );
   }
   else {
-    $after_alarms[5] =
-      Tk::After->new( $poe_main_window, 1000, 'once',
-                      $_[SESSION]->postback( ev_postback => 5 )
-                    );
+    Gtk->timeout_add( 1000, $_[SESSION]->postback( ev_postback => 5 ) );
     undef;
   }
 }
@@ -161,10 +159,7 @@ sub io_idle_increment {
     $_[KERNEL]->yield( 'ev_idle_increment' );
   }
   else {
-    $after_alarms[6] =
-      Tk::After->new( $poe_main_window, 1000, 'once',
-                      $_[SESSION]->postback( ev_postback => 6 )
-                    );
+    Gtk->timeout_add( 1000, $_[SESSION]->postback( ev_postback => 6 ) );
     undef;
   }
 }
@@ -180,10 +175,7 @@ sub io_timer_increment {
   # given at creation time.
 
   else {
-    $after_alarms[7] =
-      Tk::After->new( $poe_main_window, 1000, 'once',
-                      $_[SESSION]->postback( ev_postback => 7 )
-                    );
+    Gtk->timeout_add( 1000, $_[SESSION]->postback( ev_postback => 7 ) );
     undef;
   }
 }
@@ -214,14 +206,6 @@ sub io_postback {
   my $test_number = $postback_given->[0];
 
   if ($test_number =~ /^\d+$/) {
-
-    # This is so incredibly horribly bad that I'm ashamed to be doing
-    # it.  First we violate the Tk::After object to get at the
-    # Tk::Callback object within it.  Then we violate THAT to remove
-    # the POE::Session::Postback so that it's destroyed and our
-    # reference count decrements.
-    $after_alarms[$test_number]->[4]->[0] = undef;
-
     $_[HEAP]->{postback_tests}->{$test_number} = "ok $test_number\n";
   }
 }
