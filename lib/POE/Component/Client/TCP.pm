@@ -39,10 +39,12 @@ sub new {
     unless exists $param{RemotePort};
 
   # Extract parameters.
-  my $alias   = delete $param{Alias};
-  my $address = delete $param{RemoteAddress};
-  my $port    = delete $param{RemotePort};
-  my $domain  = delete $param{Domain};
+  my $alias        = delete $param{Alias};
+  my $address      = delete $param{RemoteAddress};
+  my $port         = delete $param{RemotePort};
+  my $domain       = delete $param{Domain};
+  my $bind_address = delete $param{BindAddress};
+  my $bind_port    = delete $param{BindPort};
 
   foreach ( qw( Connected ConnectError Disconnected ServerInput
                 ServerError ServerFlushed
@@ -129,6 +131,8 @@ sub new {
             ( RemoteAddress => $address,
               RemotePort    => $port,
               SocketDomain  => $domain,
+              BindAddress   => $bind_address,
+              BindPort      => $bind_port,
               SuccessEvent  => 'got_connect_success',
               FailureEvent  => 'got_connect_error',
             );
@@ -258,6 +262,8 @@ POE::Component::Client::TCP - a simplified TCP client
   POE::Component::Client::TCP->new
     ( RemoteAddress => "127.0.0.1",
       RemotePort    => "chargen",
+      BindAddress   => "127.0.0.1",
+      BindPort      => 8192,
       Domain        => AF_INET,     # Optional.
 
       Connected     => \&handle_connect,
@@ -336,6 +342,14 @@ Alias is an optional component alias.  It's used to post events to the
 TCP client component from other sessions.  The most common use of
 Alias is to allow a client component to receive "shutdown" and
 "reconnect" events from a user interface session.
+
+=item BindAddress
+
+=item BindPort
+
+Specifies the local interface address and/or port to bind to before
+connecting.  This allows the client's connection to come from specific
+addresses on a multi-host system.
 
 =item ConnectError
 
