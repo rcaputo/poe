@@ -269,6 +269,16 @@ sub new {
   # Fork!  Woo-hoo!
   my $pid = fork;
 
+  # Stdio should not be tied.  Resolves rt.cpan.org ticket 1648.
+  if (tied *STDOUT) {
+    carp "Cannot redirect into tied STDOUT.  Untying it";
+    untie *STDOUT;
+  }
+  if (tied *STDERR) {
+    carp "Cannot redirect into tied STDERR.  Untying it";
+    untie *STDERR;
+  }
+
   # Child.  Parent side continues after this block.
   unless ($pid) {
     croak "couldn't fork: $!" unless defined $pid;
