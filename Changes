@@ -16,11 +16,7 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 ,----- To Do -----
 |
-| Before 0.1005
-|
-| (nothing)
-|
-| After 0.1005
+| Next
 |
 | Clean up the mess made while adding Event and Tk support.
 | Event doesn't seem very fast; am I using it incorrectly?
@@ -38,7 +34,7 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 `-----------------
 
 
-0.1005 2000.??.??
+0.1005 2000.05.23
 -----------------
 
 I forgot to document POE::Session's constructors.  Oops!  Now thery
