@@ -14,18 +14,18 @@ use strict;
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
   eval {
-    require FreezeThaw;
-    import FreezeThaw qw(freeze thaw);
+    require Storable;
+    import Storable qw(nfreeze thaw);
+    *freeze = *nfreeze;
   };
   if ($@ ne '') {
     eval {
-      require Storable;
-      import Storable qw(freeze thaw);
-      warn "Storable isn't endian-safe.  Try FreezeThaw";
+      require FreezeThaw;
+      import FreezeThaw qw(freeze thaw);
     };
   }
   if ($@ ne '') {
-    die "Filter::Reference requires FreezeThaw or Storable";
+    die "Filter::Reference requires Storable or FreezeThaw";
   }
 }
 
