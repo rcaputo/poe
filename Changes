@@ -7,8 +7,8 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
-0.07_01 1999.07.01
-------------------
+0.0701 1999.07.01
+-----------------
 
 Fixed a race or TCP/IP stack problem in SocketFactory.  SocketFactory
 was firing a "connect error 0" if the server side sent data
