@@ -7,6 +7,8 @@ use ExtUtils::Manifest qw(maniread);
 use File::Spec;
 use Text::Wrap;
 
+use lib qw(blib blib/lib);
+
 # Enable verbose testing if this is running on solaris, because
 # solaris' CPAN tester's machine has trouble finding some modules
 # which do exist.
