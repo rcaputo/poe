@@ -295,7 +295,7 @@ my %kr_extra_refs;
 
 ### End-run leak checking.
 
-END {
+sub _data_extref_finalize {
   foreach my $session (keys %kr_extra_refs) {
     warn "!!! Leaked extref: $session\n";
     foreach my $tag (keys %{$kr_extra_refs{$session}}) {
@@ -395,7 +395,7 @@ my $kr_sid_seq = 1;
 
 ### End-run leak checking.
 
-END {
+sub _data_sid_finalize {
   # Don't bother if run() was never called.
   return unless $kr_run_warning & KR_RUN_CALLED;
 
@@ -496,7 +496,7 @@ my %_signal_types =
 
 ### End-run leak checking.
 
-END {
+sub _data_sig_finalize {
   while (my ($sig, $sig_rec) = each(%kr_signals)) {
     warn "!!! Leaked signal $sig\n";
     while (my ($ses, $event) = each(%{$kr_signals{$sig}})) {
@@ -666,7 +666,7 @@ my %kr_ses_to_alias;
 
 ### End-run leak checking.
 
-END {
+sub _data_alias_finalize {
   while (my ($alias, $ses) = each(%kr_aliases)) {
     warn "!!! Leaked alias: $alias = $ses\n";
   }
@@ -806,7 +806,7 @@ sub SH_MODECOUNT  () {  2 } #        [ $read_reference_count,     (MODE_RD)
 
 ### End-run leak checking.
 
-END {
+sub _data_handle_finalize {
   while (my ($fd, $fd_rec) = each(%kr_filenos)) {
     my ($rd, $wr, $ex, $tot) = @$fd_rec;
     warn "!!! Leaked fileno: $fd (total refcnt=$tot)\n";
@@ -1354,7 +1354,7 @@ my %post_count;
 
 ### End-run leak checking.
 
-END {
+sub _data_ev_finalize {
   # Don't bother if run() was never called.
   return unless $kr_run_warning & KR_RUN_CALLED;
 
@@ -1579,7 +1579,7 @@ sub SS_ID         () { 5 }
 
 ### End-run leak checking.
 
-END {
+sub _data_ses_finalize {
   # Don't bother if run() was never called.
   return unless $kr_run_warning & KR_RUN_CALLED;
 
@@ -2437,6 +2437,13 @@ sub finalize_kernel {
 
   # The main loop is done, no matter which event library ran it.
   $self->loop_finalize();
+  $self->_data_extref_finalize();
+  $self->_data_sid_finalize();
+  $self->_data_sig_finalize();
+  $self->_data_alias_finalize();
+  $self->_data_handle_finalize();
+  $self->_data_ev_finalize();
+  $self->_data_ses_finalize();
 
   if (TRACE_PROFILE) {
     print STDERR ',----- Event Profile ' , ('-' x 53), ",\n";
