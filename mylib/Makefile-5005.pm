@@ -5,6 +5,8 @@ use strict;
 
 use lib qw(./mylib);
 use ExtUtils::MakeMaker;
+use File::Find;
+use File::Spec;
 
 # Switch to default behavior if STDIN isn't a tty.
 unless (-t STDIN) {
@@ -46,7 +48,7 @@ unless (grep /^--default$/, @ARGV) {
     "If the prompts are annoying, they can be bypassed by running\n",
     "\t$^X $0 --default\n",
      "\n",
-    "Only the necessary modules will be installed by default.\n",
+    "Only necessary modules are installed by default.\n",
     "\n",
     "=================================================================\n",
     "\n",
@@ -123,6 +125,24 @@ ExtUtils::AutoInstall->import(
   ],
 );
 
+# Generate dynamic test files.
+
+system($^X, "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
+
+# Build a list of all the tests to run.
+
+my @tests;
+
+find(
+  sub {
+    return unless /\.t$/;
+    push @tests, File::Spec->catfile($File::Find::dir,$_);
+  },
+  't/',
+);
+
+my $test_str = join " ", sort @tests;
+
 # Touch generated files so they exist.
 open(TOUCH, ">>CHANGES") and close TOUCH;
 open(TOUCH, ">>META.yml") and close TOUCH;
@@ -131,22 +151,27 @@ sub MY::postamble {
   return ExtUtils::AutoInstall::postamble() .
     <<EOF;
 reportupload: poe_report.xml
-	$^X mylib/reportupload.pl
+\cI$^X mylib/reportupload.pl
 
 uploadreport: poe_report.xml
-	$^X mylib/reportupload.pl
+\cI$^X mylib/reportupload.pl
 
 testreport: poe_report.xml
 
 poe_report.xml: Makefile
-	$^X mylib/testreport.pl
+\cI$^X mylib/testreport.pl
 
 ppmdist: pm_to_blib
-	\$(TAR) --exclude '*/man[13]*' -cvf \\
-		\$(DISTVNAME)-win32ppd.tar blib
-	\$(COMPRESS) \$(DISTVNAME)-win32ppd.tar
+\cI\$(TAR) --exclude '*/man[13]*' -cvf \\
+\cI\cI\$(DISTVNAME)-win32ppd.tar blib
+\cI\$(COMPRESS) \$(DISTVNAME)-win32ppd.tar
 
 ppddist: ppmdist
+
+coverage: Makefile
+\cI$^X mylib/coverage.perl
+
+cover: coverage
 EOF
 }
 
@@ -174,10 +199,22 @@ WriteMakefile(
     ),
   },
 
-  test           => { TESTS => 't/*/*.t t/*.t' },
+  test           => { TESTS => $test_str },
 
   clean          => {
-      FILES => 'poe_report.xml test-output.err coverage.report run_network_tests',
+    FILES => (
+      "coverage.report " .
+      "poe_report.xml " .
+      "run_network_tests " .
+      "t/20_resources/10_perl/* " .
+      "t/20_resources/20_xs/* " .
+      "t/30_loops/10_select/* " .
+      "t/30_loops/20_poll/* " .
+      "t/30_loops/30_event/* " .
+      "t/30_loops/40_gtk/* " .
+      "t/30_loops/50_tk/* " .
+      "test-output.err "
+    ),
   },
 
   # More for META.yml than anything.

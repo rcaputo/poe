@@ -15,24 +15,35 @@ sub MY::test {
 sub MY::postamble {
     return <<EOF;
 reportupload: poe_report.xml
-	perl mylib/reportupload.pl
+\cIperl mylib/reportupload.pl
 
 uploadreport: poe_report.xml
-	perl mylib/reportupload.pl
+\cIperl mylib/reportupload.pl
 
 testreport: poe_report.xml
 
 poe_report.xml: Makefile
-	perl mylib/testreport.pl
+\cIperl mylib/testreport.pl
+
+coverage: Makefile
+\cIperl mylib/coverage.perl
+
+cover: coverage
 EOF
 }
+
+# Generate dynamic test files.
+
+system("perl", "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
+
+# Build a list of all the tests to run.
 
 my @tests;
 
 find(
   sub {
-    /\.t$/ &&
-    push @tests, File::Spec->catfile($File::Find::dir,$_)
+    return unless /\.t$/;
+    push @tests, File::Spec->catfile($File::Find::dir,$_);
   },
   't/',
 );
@@ -68,7 +79,19 @@ WriteMakefile(
   },
   PL_FILES    => { },
   clean => {
-    FILES => 'poe_report.xml test-output.err coverage.report run_network_tests',
+    FILES => (
+      "coverage.report " .
+      "poe_report.xml " .
+      "run_network_tests " .
+      "t/20_resources/10_perl/* " .
+      "t/20_resources/20_xs/* " .
+      "t/30_loops/10_select/* " .
+      "t/30_loops/20_poll/* " .
+      "t/30_loops/30_event/* " .
+      "t/30_loops/40_gtk/* " .
+      "t/30_loops/50_tk/* " .
+      "test-output.err "
+    ),
   }
 );
 

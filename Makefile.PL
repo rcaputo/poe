@@ -9,11 +9,19 @@ POE's test suite requires a functional network.
 However, we can skip those tests requiring network
 access if you would like.
 
-Would you like to skip this network tests?
+Would you like to skip the network tests?
 
 |;
 
-my $ret = prompt($prompt."(Any other text than Y or y will be taken as a no)","n");
+$prompt .= "(Any other text than Y or y will be taken as a no)";
+
+my $ret = "n";
+if (grep /^--default$/, @ARGV) {
+  print $prompt, " [n] n\n\n";
+}
+else {
+  $ret = prompt($prompt, "n");
+}
 
 my $marker = 'run_network_tests';
 
@@ -25,16 +33,17 @@ if($ret =~ /^Y$/i) {
 
 eval "use 5.005_03";
 if ($@) {
-  warn( "\n",
-        "===============================================================\n",
-        "\n",
-        "Perl 5.005_03 or later is preferred, and versions before it are\n",
-        "deprecated.  Try installing POE with a newer version of Perl to\n",
-        "see what you're missing. :)\n",
-        "\n",
-        "===============================================================\n",
-        "\n",
-      );
+  warn(
+    "\n",
+    "===============================================================\n",
+    "\n",
+    "Perl 5.005_03 or later is preferred, and versions before it are\n",
+    "deprecated.  Try installing POE with a newer version of Perl to\n",
+    "see what you're missing. :)\n",
+    "\n",
+    "===============================================================\n",
+    "\n",
+  );
 
   require "./mylib/Makefile-5004.pm";
 }
