@@ -109,6 +109,8 @@ sub register_state {
       $self->{'states'}->{$state} = $handler;
     }
     elsif (ref($handler) ne '') {
+      croak "object '" . ref($handler) .
+        "' does not have a '$state' method" unless ($handler->can($state));
       carp "redefining state($state) for session($self)"
         if (exists $self->{'states'}->{$state});
       $self->{'states'}->{$state} = $handler;
