@@ -355,12 +355,12 @@ BEGIN {
     # version.  If that fails, we're up a creek.
     my $mod = "POE::XS::Loop::$module";
     eval "require $mod";
-    if ($@ =~ /Can't locate/) {
+    if ($@ =~ /^Can't locate/) {
       $mod = "POE::Loop::$module";
       eval "require $mod";
     }
 
-    next if $@ =~ /Can't locate/;
+    next if $@ =~ /^Can't locate/;
     die if $@ and $@ !~ /not really dying/;
 
     if (defined $used_first) {
@@ -376,9 +376,20 @@ BEGIN {
   }
 
   unless (defined $used_first) {
-    require POE::Loop::Select;
-    POE::Loop::Select->import();
-    $used_first = "POE::Loop::Select";
+    $used_first = "POE::XS::Loop::Select";
+    eval "require $used_first";
+    if ($@ and $@ =~ /^Can't locate/) {
+      $used_first =~ s/XS:://;
+      eval "require $used_first";
+    }
+    if ($@) {
+      die(
+        "*\n",
+        "* POE can't use $used_first:\n",
+        "* $@\n",
+        "*\n",
+      );
+    }
   }
 }
 
@@ -902,7 +913,7 @@ sub _dispatch_event {
 sub _initialize_kernel_session {
   my $self = shift;
 
-  $self->loop_initialize($self);
+  $self->loop_initialize();
 
   $kr_active_session = $self;
   $self->_data_ses_allocate($self, $self->[KR_ID], undef);
