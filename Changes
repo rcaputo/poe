@@ -7,8 +7,8 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
-0.06_09 1999.06.?? (!!!)
-------------------------
+0.0609 1999.06.?? (!!!)
+-----------------------
 
 Updated samples/*sessions.perl to test $kernel->state(...) and
 discovered that the documentation was wrong about this function.
@@ -41,6 +41,10 @@ manpages' format.
 (!!!) Minor interface change.  &POE::Session::option can now fetch
 session option values without changing or deleting them in the
 process.
+
+Changed $VERSION in POE.pm to not preserve the version's underscore.
+This changes the archive name format, so I'll start referring to
+versions without the underscore.  Joy.
 
 
 0.06_08 1999.05.30
