@@ -484,24 +484,24 @@ sub _data_ses_stop {
     );
   }
 
+  # Referential integrity has been dealt with.  Now notify the session
+  # that it has been stopped.
+  my $stop_return = $self->_dispatch_event(
+    $session, $self->get_active_session(),
+    EN_STOP, ET_STOP, [],
+    __FILE__, __LINE__, time(), -__LINE__
+  );
+
   # If the departing session has a parent, notify it that the session
   # is being lost.
 
   if (defined $parent) {
     $self->_dispatch_event(
       $parent, $self,
-      EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
+      EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session, $stop_return ],
       __FILE__, __LINE__, time(), -__LINE__
     );
   }
-
-  # Referential integrity has been dealt with.  Now notify the session
-  # that it has been stopped.
-  $self->_dispatch_event(
-    $session, $self->get_active_session(),
-    EN_STOP, ET_STOP, [],
-    __FILE__, __LINE__, time(), -__LINE__
-  );
 
   # Deallocate the session.
   $self->_data_ses_free($session);

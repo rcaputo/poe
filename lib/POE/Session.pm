@@ -39,7 +39,7 @@ sub EN_SIGNAL       () { '_signal' }
 sub define_assert {
   no strict 'refs';
   foreach my $name (@_) {
-    
+
     BEGIN { $^W = 0 };
 
     next if defined *{"ASSERT_$name"}{CODE};
@@ -61,7 +61,7 @@ sub define_assert {
 # Shorthand for defining a trace constant.
 sub define_trace {
   no strict 'refs';
- 
+
   BEGIN { $^W = 0 };
 
   foreach my $name (@_) {
@@ -1648,9 +1648,10 @@ even if the child is in its death throes, but it won't last long
 enough to receive posted events.  If the parent must interact with
 this child, it should do so with C<call()> or some other means.
 
-C<ARG2> is only valid when a new session has been created.  When
-C<ARG0> is 'create', this holds the new session's C<_start> state's
-return value.
+C<ARG2> is only valid when a new session has been created or an old
+one destroyed.  It holds the return value from the child session's
+C<_start> or C<_stop> state when C<ARG0> is 'create' or 'lose',
+respectively.
 
 =item _default
 

@@ -1330,7 +1330,7 @@ sub detach_myself {
   # Tell the old parent session that the child is departing.
   $self->_dispatch_event(
     $old_parent, $self,
-    EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session ],
+    EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session, undef ],
     (caller)[1,2], time(), -__LINE__
   );
 
@@ -1382,7 +1382,7 @@ sub detach_child {
   # Tell the current session that the child is departing.
   $self->_dispatch_event(
     $kr_active_session, $self,
-    EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session ],
+    EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session, undef ],
     (caller)[1,2], time(), -__LINE__
   );
 
