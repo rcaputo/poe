@@ -140,3 +140,4 @@ t/res/events.t
 t/res/extrefs.t
 t/res/sessions.t
 t/res/sids.t
+t/res/signals.t
