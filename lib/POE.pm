@@ -7,7 +7,7 @@ use strict;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.1202';
+$VERSION = '0.1203';
 
 sub import {
   my $self = shift;

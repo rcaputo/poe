@@ -24,6 +24,13 @@ Version numbers have four fields: X.YYZZAA
 `------------------------------------------------------------------------------
 
 
+0.1203 2000.??.??
+-----------------
+
+Very minor optimization to Gtk read/write resuming.  Replace Gtk's
+noisy warning about resuming unpaused handles with quiet acceptance.
+
+
 0.1202 2000.12.26
 -----------------
 

@@ -2869,19 +2869,15 @@ sub select_resume_write {
 
   {% validate_handle $handle, VEC_WR %}
 
-  # Turn the select vector's write bit back on.  Resume whatever
-  # watcher whichever event loop needs.
-
+  # Turn the select vector's write bit back on.
   vec($kr_vectors[VEC_WR], fileno($handle), 1) = 1;
+
+  # Quietly ignore requests to resume unpaused handles.
+  return 1 if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR];
 
   if (POE_USES_GTK) { # include
 
-    my $kr_handle = $kr_handles{$handle};
-
-    confess "resuming write on unpaused handle"
-      if defined $kr_handle->[HND_WATCHERS]->[VEC_WR];
-
-    $kr_handle->[HND_WATCHERS]->[VEC_WR] =
+    $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR] =
       Gtk::Gdk->input_add( fileno($handle), 'write',
                            \&_gtk_select_write_callback, $handle
                          );
@@ -2947,13 +2943,11 @@ sub select_resume_read {
 
   {% validate_handle $handle, VEC_RD %}
 
+  # Turn the select vector's read bit back on.
+  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 1;
+
   # Quietly ignore requests to resume unpaused handles.
   return 1 if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD];
-
-  # Turn the select vector's read bit back on.  Resume whatever
-  # watcher whichever event loop needs.
-
-  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 1;
 
   if (POE_USES_GTK) { # include
 
