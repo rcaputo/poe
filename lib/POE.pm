@@ -7,7 +7,7 @@ use strict;
 use Carp;
 
 use vars qw($VERSION $REVISION);
-$VERSION = '0.2701';
+$VERSION = '0.28';
 $REVISION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 sub import {
