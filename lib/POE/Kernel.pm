@@ -1189,9 +1189,8 @@ sub _data_handle_remove {
 
       foreach ($kr_queue->remove_items($my_select)) {
         my ($time, $id, $event) = @$_;
-        $self->_data_ev_refcount_dec( $event->[EV_SESSION],
-                                      $event->[EV_SOURCE]
-                                    );
+        $self->_data_ev_refcount_dec( @$event[EV_SESSION, EV_SOURCE] );
+
         TRACE_EVENTS and
           warn "<ev> removing select event $id ``$event->[EV_NAME]''";
 
@@ -1463,12 +1462,8 @@ sub _data_ev_clear_session {
       ($post_count{$session} || 0)
     );
 
-  my @removed = $kr_queue->remove_items($my_event, $total_event_count);
-  foreach (@removed) {
-    $self->_data_ev_refcount_dec( $_->[ITEM_PAYLOAD]->[EV_SOURCE],
-                                  $_->[ITEM_PAYLOAD]->[EV_SESSION]
-                                );
-  }
+  $self->_data_ev_refcount_dec( @{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION] )
+      foreach $kr_queue->remove_items($my_event, $total_event_count);
 }
 
 ### Remove a specific alarm by its name.  This is in the events
@@ -1485,11 +1480,8 @@ sub _data_ev_clear_alarm_by_name {
     return 1;
   };
 
-  foreach ($kr_queue->remove_items($my_alarm)) {
-    $self->_data_ev_refcount_dec( $_->[ITEM_PAYLOAD]->[EV_SOURCE],
-                                  $_->[ITEM_PAYLOAD]->[EV_SESSION]
-                                );
-  }
+  $self->_data_ev_refcount_dec( @{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION] )
+      foreach $kr_queue->remove_items($my_alarm);
 }
 
 ### Remove a specific alarm by its ID.  This is in the events section
@@ -1506,7 +1498,7 @@ sub _data_ev_clear_alarm_by_id {
   my ($time, $id, $event) = $kr_queue->remove_item($alarm_id, $my_alarm);
   return unless defined $time;
 
-  $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
+  $self->_data_ev_refcount_dec( @$event[EV_SOURCE, EV_SESSION] );
   return ($time, $event);
 }
 
@@ -1523,10 +1515,8 @@ sub _data_ev_clear_alarm_by_session {
 
   my @removed;
   foreach ($kr_queue->remove_items($my_alarm)) {
-    $self->_data_ev_refcount_dec( $_->[ITEM_PAYLOAD]->[EV_SOURCE],
-                                  $_->[ITEM_PAYLOAD]->[EV_SESSION]
-                                );
-    my ($time, $id, $event) = @$_;
+    my ($time, $event) = @$_[ITEM_PRIORITY, ITEM_PAYLOAD];
+    $self->_data_ev_refcount_dec( @$event[EV_SOURCE, EV_SESSION] );
     push @removed, [ $event->[EV_NAME], $time, @{$event->[EV_ARGS]} ];
   }
 
