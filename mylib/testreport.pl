@@ -31,6 +31,9 @@ $VERSION = (qw($Revision$))[1];
 
 local $| = 1;
 
+# Makefile.PL does it.  Why don't we?
+$ENV{PERL_DL_NONLAZY} = 1;
+
 my $s = My::Strap->new;
 
 my %handlers = (
