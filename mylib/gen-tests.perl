@@ -14,7 +14,8 @@ my $test_base = "tests";
 
   my %derived_conf = (
     "10_perl" => { implementation => "perl" },
-    "20_xs"   => { implementation => "xs"   },
+# TODO - Enable when an XS implementation arrives.
+#    "20_xs"   => { implementation => "xs"   },
   );
 
   my $source = (
