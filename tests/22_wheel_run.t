@@ -192,7 +192,7 @@ my $program =
 
 my $pty_flush_count = 0;
 
-if (Wheel::Run::PTY_AVAILABLE) {
+if (&Wheel::Run::PTY_AVAILABLE) {
   POE::Session->create
     ( inline_states =>
       { _start => sub {
