@@ -918,6 +918,7 @@ progress report:
   POE::Driver                  queued
   POE::Driver::SysRW           queued
   POE::Filter                  queued
+  POE::Filter::Block           queued
   POE::Filter::HTTPD           queued
   POE::Filter::Line            queued
   POE::Filter::Reference       queued
