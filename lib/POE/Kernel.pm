@@ -79,32 +79,6 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
-# Checks the resources for a session.  If it has no queued states, and it
-# has no registered selects, then the session will never again be called.
-# These "zombie" sessions are culled.  New in 0.02: Sessions will linger
-# until their children all exit.  (also new in 0.02, it appears this is only
-# called from one place now; if still only one caller in 0.03+, inline it)
-
-sub _check_session_resources {
-  my ($self, $session) = @_;
-
-  if ($session ne $self) {
-
-#     warn "***** $session  states(" . $self->{'sessions'}->{$session}->[2] .
-#       ")  selects(" . $self->{'sessions'}->{$session}->[3] .
-#       ")  children(" . scalar(@{$self->{'sessions'}->{$session}->[1]}) .
-#       ")\n";
-
-    unless ($self->{'sessions'}->{$session}->[2] || # queued states
-            $self->{'sessions'}->{$session}->[3] || # pending selects
-            @{$self->{'sessions'}->{$session}->[1]} # children
-    ) {
-      $self->session_free($session);
-    }
-  }
-}
-
-#------------------------------------------------------------------------------
 # Send a state to a session right now.  Used by _disp_select to expedite
 # select() states, and used by run() to deliver posted states from the queue.
 
@@ -216,8 +190,20 @@ sub _dispatch_state {
     }
   }
                                         # check for death by starvation
-  elsif (exists $self->{'sessions'}->{$session}) {
-    $self->_check_session_resources($session);
+  elsif (($session ne $self) && (exists $self->{'sessions'}->{$session})) {
+
+#     warn( "***** $session  states(" . $self->{'sessions'}->{$session}->[2] .
+#           ")  selects(" . $self->{'sessions'}->{$session}->[3] .
+#           ")  children(" . scalar(@{$self->{'sessions'}->{$session}->[1]}) .
+#           ")\n"
+#         );
+
+    unless ($self->{'sessions'}->{$session}->[2] || # queued states
+            $self->{'sessions'}->{$session}->[3] || # pending selects
+            @{$self->{'sessions'}->{$session}->[1]} # children
+    ) {
+      $self->session_free($session);
+    }
   }
 }
 
