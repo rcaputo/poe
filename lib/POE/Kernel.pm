@@ -1464,8 +1464,9 @@ sub _data_ev_clear_session {
       ($post_count{$session} || 0)
     );
 
-  $self->_data_ev_refcount_dec( @{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION] )
-      foreach $kr_queue->remove_items($my_event, $total_event_count);
+  foreach ($kr_queue->remove_items($my_event, $total_event_count)) {
+    $self->_data_ev_refcount_dec(@{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION]);
+  }
 }
 
 ### Remove a specific alarm by its name.  This is in the events
@@ -1482,8 +1483,9 @@ sub _data_ev_clear_alarm_by_name {
     return 1;
   };
 
-  $self->_data_ev_refcount_dec( @{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION] )
-      foreach $kr_queue->remove_items($my_alarm);
+  foreach ($kr_queue->remove_items($my_alarm)) {
+    $self->_data_ev_refcount_dec(@{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION]);
+  }
 }
 
 ### Remove a specific alarm by its ID.  This is in the events section
