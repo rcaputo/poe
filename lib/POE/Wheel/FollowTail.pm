@@ -226,7 +226,7 @@ sub _define_select_states {
               $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
             $k->select($handle);
           }
-          eval { $handle->clearerr() }; # could be a globref
+          eval { IO::Handle::clearerr($handle) }; # could be a globref
         }
       }
     );
@@ -343,7 +343,7 @@ sub _define_timer_states {
             $k->select($handle);
           }
           $k->delay($state_read, $poll_interval);
-          $handle->clearerr();
+          IO::Handle::clearerr($handle);
         }
       }
     );
