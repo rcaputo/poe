@@ -122,7 +122,6 @@ sub new {
         # To quiet ASSERT_STATES.
         _stop   => sub { },
         _child  => sub { },
-        _signal => sub { 0 },
 
         reconnect => sub {
           my $heap = $_[HEAP];

@@ -179,7 +179,6 @@ sub spawn_server {
       do_thing => sub {
         $_[KERNEL]->post($_[SENDER], thing_done => $_[ARG0]);
       },
-      _signal => sub { 0 },
       _child  => sub { 0 },
       _stop   => sub { 0 },
     );
@@ -191,7 +190,6 @@ POE::Session->new
       $_[KERNEL]->post(server => do_thing => 1);
     },
     thing_done => sub { 0 },
-    _signal => sub { 0 },
     _child  => sub { 0 },
     _stop   => sub { 0 },
   );

@@ -21,6 +21,9 @@ sub machine_start {
   my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
   my $resolved_session;
 
+  $kernel->sig(IDLE => "sigidle");
+  $kernel->sig(ZOMBIE => "sigzombie");
+
   $heap->{idle_count} = $heap->{zombie_count} = 0;
 
   # Set an alias.
@@ -89,26 +92,18 @@ sub machine_start {
   print "ok 15\n";
 }
 
-# Catch SIGIDLE and SIGZOMBIE.
+# Catch SIGIDLE and SIGZOMBIE and count them.
 
-sub machine_signal {
-  my ($kernel, $heap, $signal) = @_[KERNEL, HEAP, ARG0];
+sub machine_sig_idle {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+  $heap->{idle_count}++;
+  return $kernel->sig_handled();
+}
 
-  # Count and handle SIGIDLE and SIGZOMBIE.  The latter is
-  # nonmaskable, however, so the program continues to run.
-
-  if ($signal eq 'IDLE') {
-    $heap->{idle_count}++;
-    return $kernel->sig_handled();
-  }
-  elsif ($signal eq 'ZOMBIE') {
-    $heap->{zombie_count}++;
-    return $kernel->sig_handled();
-  }
-
-  # We must still return 0 until significant return values are fully
-  # removed.
-  return 0;
+sub machine_sig_zombie {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+  $heap->{zombie_count}++;
+  return $kernel->sig_handled();
 }
 
 # Make sure we got one SIGIDLE and one SIGZOMBIE.
@@ -131,9 +126,10 @@ print "ok 1\n";
 
 POE::Session->create
   ( inline_states =>
-    { _start  => \&machine_start,
-      _signal => \&machine_signal,
-      _stop   => \&machine_stop
+    { _start    => \&machine_start,
+      sigidle   => \&machine_sig_idle,
+      sigzombie => \&machine_sig_zombie,
+      _stop     => \&machine_stop
     },
   );
 
@@ -146,16 +142,20 @@ my $sigzombie_test = 1;
 
 POE::Session->create
   ( inline_states =>
-    { _start =>
-      sub {
-        $_[KERNEL]->alias_set( 'a_sample_alias' );
+    { _start => sub {
+        my $kernel = $_[KERNEL];
+        $kernel->alias_set( 'a_sample_alias' );
         print "not " if $_[KERNEL]->alias_remove( 'a_sample_alias' );
         print "ok 17\n";
+
+        $kernel->sig(IDLE => "sigidle");
+        $kernel->sig(ZOMBIE => "sigzombie");
       },
-      _signal =>
-      sub {
-        $sigidle_test   = 0 if $_[0] eq 'IDLE';
-        $sigzombie_test = 0 if $_[0] eq 'ZOMBIE';
+      sigidle => sub {
+        $sigidle_test = 0;
+      },
+      sigzombie => sub {
+        $sigzombie_test = 0;
       },
       _stop => sub { },
     }

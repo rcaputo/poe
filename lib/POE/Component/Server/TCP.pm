@@ -156,7 +156,6 @@ sub new {
 
               # To quiet ASSERT_STATES.
               _child  => sub { },
-              _signal => sub { 0 },
 
               tcp_server_got_input => sub {
                 return if $_[HEAP]->{shutdown};
@@ -239,10 +238,8 @@ sub new {
         },
 
         # Dummy states to prevent warnings.
-        _signal => sub { return 0 },
         _stop   => sub { return 0 },
         _child  => sub { },
-        _signal => sub { 0 },
       },
     );
 

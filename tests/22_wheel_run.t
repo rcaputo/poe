@@ -267,7 +267,6 @@ my $coderef_flush_count = 0;
 
         # Dummy _stop to prevent runtime errors.
         _stop => sub { },
-        _signal => sub { 0 },
 
         # Count every line that's flushed to the child.
         stdin  => sub { $coderef_flush_count++; },
@@ -296,6 +295,9 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
       { _start => sub {
           my ($kernel, $heap) = @_[KERNEL, HEAP];
 
+          # Handle SIGCHLD.
+          $kernel->sig(CHLD => "sigchild");
+
           # Run a child process.
           $heap->{wheel} = POE::Wheel::Run->new
             ( Program      => $program,
@@ -320,21 +322,19 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
         error => sub { },
 
         # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
-        _signal => sub {
+        sigchild => sub {
           my $signame = $_[ARG0];
 
           DEBUG and
             warn "session ", $_[SESSION]->ID, " caught signal $signame\n";
 
-          if ($signame eq 'CHLD') {
-            my ($heap, $child_pid) = @_[HEAP, ARG1];
+          my ($heap, $child_pid) = @_[HEAP, ARG1];
 
-            DEBUG and warn "\tthe child process ID is $child_pid\n";
+          DEBUG and warn "\tthe child process ID is $child_pid\n";
 
-            if ($child_pid == $heap->{wheel}->PID()) {
-              DEBUG and warn "\tthe child process is ours\n";
-              delete $heap->{wheel};
-            }
+          if ($child_pid == $heap->{wheel}->PID()) {
+            DEBUG and warn "\tthe child process is ours\n";
+            delete $heap->{wheel};
           }
           return 0;
         },

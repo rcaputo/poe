@@ -27,6 +27,7 @@ sub OPT_DEFAULT     () { 'default' }
 
 sub EN_START        () { '_start' }
 sub EN_DEFAULT      () { '_default' }
+sub EN_SIGNAL       () { '_signal' }
 
 #------------------------------------------------------------------------------
 # Debugging flags for subsystems.  They're done as double evals here
@@ -567,7 +568,7 @@ sub _invoke_state {
 
     unless (exists $self->[SE_STATES]->{+EN_DEFAULT}) {
       $! = ENOSYS;
-      if ($self->[SE_OPTIONS]->{+OPT_DEFAULT}) {
+      if ($self->[SE_OPTIONS]->{+OPT_DEFAULT} and $state ne EN_SIGNAL) {
         warn( "a '$state' state was sent from $file at $line to session ",
               $POE::Kernel::poe_kernel->ID_session_to_id($self),
               ", but session ",
@@ -637,6 +638,21 @@ sub _invoke_state {
 sub register_state {
   my ($self, $name, $handler, $method) = @_;
   $method = $name unless defined $method;
+
+  if ($name eq EN_SIGNAL) {
+
+    # Report the problem outside POE.
+    my $caller_level = 0;
+    local $Carp::CarpLevel = 1;
+    while ( (caller $caller_level)[0] =~ /^POE::/ ) {
+      $caller_level++;
+      $Carp::CarpLevel++;
+    }
+
+    carp( "The _signal event is deprecated.  ",
+          "Please use sig() to register a signal handler"
+        );
+  }
 
   # There is a handler, so try to define the state.  This replaces an
   # existing state.

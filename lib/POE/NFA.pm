@@ -19,6 +19,7 @@ sub OPT_DEFAULT         () { 'default' }
 sub EN_DEFAULT          () { '_default' }
 sub EN_START            () { '_start' }
 sub EN_STOP             () { '_stop' }
+sub EN_SIGNAL           () { '_signal' }
 
 sub NFA_EN_GOTO_STATE   () { 'poe_nfa_goto_state' }
 sub NFA_EN_POP_STATE    () { 'poe_nfa_pop_state' }
@@ -332,7 +333,7 @@ sub _invoke_state {
   # No external event handler, no internal event handler, and no
   # external _default handler.  This is a grievous error, and now we
   # must die.
-  else {
+  elsif ($event ne EN_SIGNAL) {
     die( "a '$event' event was sent from $file at $line to session ",
          $POE::Kernel::poe_kernel->ID_session_to_id($self),
          ", but session ", $POE::Kernel::poe_kernel->ID_session_to_id($self),
