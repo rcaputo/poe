@@ -168,6 +168,13 @@ sub CHILD_GAIN   () { 'gain'   }  # The session was inherited from another.
 sub CHILD_LOSE   () { 'lose'   }  # The session is no longer this one's child.
 sub CHILD_CREATE () { 'create' }  # The session was created as a child of this.
 
+# Argument offsets for different types of internally generated events.
+# -><- Exporting (EXPORT_OK) these would let people stop depending on
+# positions for them.
+
+sub EA_SEL_HANDLE () { 0 }
+sub EA_SEL_MODE   () { 1 }
+
 # Queues with this many events (or more) are considered to be "large",
 # and different strategies are used to find events within them.
 
@@ -388,6 +395,9 @@ my $kr_sid_seq = 1;
 ### End-run leak checking.
 
 END {
+  # Don't bother if run() was never called.
+  return unless $kr_run_warning & KR_RUN_CALLED;
+
   while (my ($sid, $ses) = each(%kr_session_ids)) {
     warn "!!! Leaked session ID: $sid = $ses\n";
   }
@@ -873,7 +883,8 @@ sub _data_handle_resume_requested_state {
   }
 
   # If all events for the fileno/mode pair have been delivered, then
-  # resume the filehandle's watcher.
+  # resume the filehandle's watcher.  This decrements FVC_EV_COUNT
+  # because the event has just been dispatched.  This makes sense.
 
   unless (--$kr_fno_vec->[FVC_EV_COUNT]) {
     if ($kr_fno_vec->[FVC_ST_REQUEST] & HS_PAUSED) {
@@ -911,13 +922,16 @@ sub _data_handle_enqueue_ready {
 
     foreach my $select (@selects) {
       $self->_data_ev_enqueue
-        ( time(),
-          $select->[HSS_SESSION], $select->[HSS_SESSION],
-          $select->[HSS_STATE], ET_SELECT, [ $select->[HSS_HANDLE], $mode ],
-          __FILE__, __LINE__,
+        ( $select->[HSS_SESSION], $select->[HSS_SESSION],
+          $select->[HSS_STATE], ET_SELECT,
+          [ $select->[HSS_HANDLE],  # EA_SEL_HANDLE
+            $mode,                  # EA_SEL_MODE
+          ],
+          __FILE__, __LINE__, time(),
         );
 
-      # Count the enqueued event.
+      # Count the enqueued event.  This increments FVC_EV_COUNT
+      # because an event has just been enqueued.  This makes sense.
 
       unless ($kr_fno_vec->[FVC_EV_COUNT]++) {
         my $handle = $select->[HSS_HANDLE];
@@ -1122,24 +1136,37 @@ sub _data_handle_remove {
       my $kill_session = $handle_rec->[HSS_SESSION];
       my $kill_event   = $handle_rec->[HSS_STATE];
 
-      # Remove any events destined for that handle.
+      # Remove any events destined for that handle.  Decrement
+      # FVC_EV_COUNT for each, because we've removed them.  This makes
+      # sense.
 
       my $my_select = sub {
+        return 0 unless $_[0]->[EV_TYPE]    &  ET_SELECT;
         return 0 unless $_[0]->[EV_SESSION] == $kill_session;
         return 0 unless $_[0]->[EV_NAME]    eq $kill_event;
-        return 0 unless $_[0]->[EV_TYPE]    &  ET_SELECT;
+        return 0 unless $_[0]->[EV_ARGS]->[EA_SEL_HANDLE] == $handle;
+        return 0 unless $_[0]->[EV_ARGS]->[EA_SEL_MODE]   == $mode;
         return 1;
       };
 
       foreach ($kr_queue->remove_items($my_select)) {
-        my ($priority, $time, $event) = @$_;
+        my ($time, $id, $event) = @$_;
         $self->_data_ev_refcount_dec( $event->[EV_SESSION],
                                       $event->[EV_SOURCE]
                                     );
+        TRACE_EVENTS and
+          warn "<ev> removing select event $id ``$event->[EV_NAME]''";
+
         $kr_fno_vec->[FVC_EV_COUNT]--;
 
+        if (TRACE_SELECT) {
+          confess( "<fd> fileno $fd mode $mode event count went to ",
+                   $kr_fno_vec->[FVC_EV_COUNT]
+                 );
+        }
+
         if (ASSERT_REFCOUNT) {
-          confess "<fd> fileno mode event count went below zero"
+          confess "<fd> fileno $fd mode $mode event count went below zero"
             if $kr_fno_vec->[FVC_EV_COUNT] < 0;
         }
       }
@@ -1313,8 +1340,6 @@ sub _data_handle_clear_session {
 
 { # In its own scope for debugging.  This makes the data members private.
 
-my $queue_seqnum = 0;
-
 my %event_count;
 #  ( $session => $count,
 #    ...,
@@ -1328,6 +1353,9 @@ my %post_count;
 ### End-run leak checking.
 
 END {
+  # Don't bother if run() was never called.
+  return unless $kr_run_warning & KR_RUN_CALLED;
+
   while (my ($ses, $cnt) = each(%event_count)) {
     warn "!!! Leaked event-to count: $ses = $cnt\n";
   }
@@ -1340,28 +1368,28 @@ END {
 ### Enqueue an event.
 
 sub _data_ev_enqueue {
-  my ( $self, $time,
-       $session, $source_session, $event, $type, $etc,
-       $file, $line,
+  my ( $self,
+       $session, $source_session, $event, $type, $etc, $file, $line,
+       $time
      ) = @_;
-
-  if (TRACE_EVENTS) {
-    warn( "<ev> enqueuing event '$event' from session ", $source_session->ID,
-          " to ", $self->_data_alias_loggable($session), " at $time"
-        );
-  }
 
   unless ($self->_data_ses_exists($session)) {
     confess
-      "can't enqueue event($event) for nonexistent session($session)\a\n";
+      "<ev> can't enqueue event ``$event'' for nonexistent session $session\n";
   }
 
-  # This is awkward, but faster than enumerating the fields
-  # individually.
-  my $event_to_enqueue = [ @_[2..8], ++$queue_seqnum ];
+  # This is awkward, but faster than using the fields individually.
+  my $event_to_enqueue = [ @_[1..7] ];
 
   my $old_head_priority = $kr_queue->get_next_priority();
   my $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
+
+  if (TRACE_EVENTS) {
+    warn( "<ev> enqueued event $new_id ``$event'' from session ",
+          $source_session->ID, " to ", $self->_data_alias_loggable($session),
+          " at $time"
+        );
+  }
 
   if ($kr_queue->get_item_count() == 1) {
     $self->loop_resume_time_watcher($time);
@@ -1498,9 +1526,10 @@ sub _data_ev_dispatch_due {
   my $now = time();
   while (defined(my $next_time = $kr_queue->get_next_priority())) {
     last if $next_time > $now;
-    my ($priority, $id, $event) = $kr_queue->dequeue_next();
+    my ($time, $id, $event) = $kr_queue->dequeue_next();
+    TRACE_EVENTS and warn "<ev> dispatching event $id";
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
-    $self->_dispatch_event(@$event, $priority, $id);
+    $self->_dispatch_event(@$event, $time, $id);
   }
 }
 
@@ -1540,6 +1569,9 @@ sub SS_ID         () { 5 }
 ### End-run leak checking.
 
 END {
+  # Don't bother if run() was never called.
+  return unless $kr_run_warning & KR_RUN_CALLED;
+
   while (my ($ses, $ses_rec) = each(%kr_sessions)) {
     warn( "!!! Leaked session: $ses\n",
           "!!!\trefcnt = $ses_rec->[SS_REFCOUNT]\n",
@@ -1836,7 +1868,7 @@ sub _data_ses_stop {
   $self->_dispatch_event
     ( $session, $kr_active_session,
       EN_STOP, ET_STOP, [],
-      time(), __FILE__, __LINE__, undef
+      __FILE__, __LINE__, time(), undef
     );
 }
 
@@ -1899,9 +1931,8 @@ sub _data_test_for_idle_poe_kernel {
          ) {
 
     $self->_data_ev_enqueue
-      ( time(),
-        $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
-        __FILE__, __LINE__
+      ( $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
+        __FILE__, __LINE__, time(),
       ) if $self->_data_ses_count();
   }
 }
@@ -1987,9 +2018,9 @@ sub signal {
   }
 
   $self->_data_ev_enqueue
-    ( time(), $session, $kr_active_session,
+    ( $session, $kr_active_session,
       EN_SIGNAL, ET_SIGNAL, [ $signal, @etc ],
-      (caller)[1,2]
+      (caller)[1,2], time(),
     );
 }
 
@@ -2073,8 +2104,9 @@ my %profile;
 # Dispatch an event to its session.  A lot of work goes on here.
 
 sub _dispatch_event {
-  my ( $self, $session, $source_session, $event, $type, $etc, $time,
-       $file, $line, $seq
+  my ( $self,
+       $session, $source_session, $event, $type, $etc, $file, $line,
+       $time, $seq
      ) = @_;
 
   ASSERT_ADHOC and do {
@@ -2083,8 +2115,8 @@ sub _dispatch_event {
   };
 
   TRACE_ADHOC and
-    warn( "<ev> Dispatching event ``$event'' (@$etc) ",
-          "from $source_session to $session\n"
+    warn( "<ev> Dispatching event $seq ``$event'' (@$etc) ",
+          "from $source_session to $session"
         );
 
   my $local_event = $event;
@@ -2140,13 +2172,13 @@ sub _dispatch_event {
         $self->_dispatch_event
           ( $parent, $self,
             EN_CHILD, ET_CHILD, [ CHILD_GAIN, $child ],
-            time(), $file, $line, undef
+            $file, $line, time(), undef
           );
         $self->_dispatch_event
           ( $child, $self,
             EN_PARENT, ET_PARENT,
             [ $self->_data_ses_get_parent($child), $parent, ],
-            time(), $file, $line, undef
+            $file, $line, time(), undef
           );
       }
 
@@ -2157,7 +2189,7 @@ sub _dispatch_event {
         $self->_dispatch_event
           ( $parent, $self,
             EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
-            time(), $file, $line, undef
+            $file, $line, time(), undef
           );
       }
     }
@@ -2191,7 +2223,7 @@ sub _dispatch_event {
           $self->_dispatch_event
             ( $session_ref, $self,
               $event, ET_SIGNAL_EXPLICIT, $etc,
-              time(), $file, $line, undef
+              $file, $line, time(), undef
             );
         }
       }
@@ -2214,7 +2246,7 @@ sub _dispatch_event {
         $self->_dispatch_event
           ( $_, $self,
             $event, ET_SIGNAL_COMPATIBLE, $etc,
-            time(), $file, $line, undef
+            $file, $line, time(), undef
           );
 
         TRACE_SIGNALS and warn "<sg> propagated to $_ (", $_->ID, ")";
@@ -2232,15 +2264,15 @@ sub _dispatch_event {
   # programming, possibly within POE::Kernel.
 
   unless ($self->_data_ses_exists($session)) {
-    warn( "<ev> discarding $event to nonexistent ",
+    warn( "<ev> discarding event $seq ``$event'' to nonexistent ",
           $self->_data_alias_loggable($session), "\n"
         ) if TRACE_EVENTS;
     return;
   }
 
   if (TRACE_EVENTS) {
-    warn( "<ev> dispatching $event to $session ",
-          $self->_data_alias_loggable($session), "\n"
+    warn( "<ev> dispatching event $seq ``$event'' to $session ",
+          $self->_data_alias_loggable($session)
         );
     if ($event eq EN_SIGNAL) {
       warn "<ev>     signal($etc->[0])\n";
@@ -2278,8 +2310,7 @@ sub _dispatch_event {
   $kr_active_session = $hold_active_session;
 
   if (TRACE_EVENTS) {
-    warn( "<ev> ", $self->_data_alias_loggable($session),
-          " -> $event returns ($return)\n"
+    warn( "<ev> event $seq ``$event'' returns ($return)\n"
         );
   }
 
@@ -2299,7 +2330,7 @@ sub _dispatch_event {
     $self->_dispatch_event
       ( $self->_data_ses_get_parent($session), $self,
         EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
-        time(), $file, $line, undef
+        $file, $line, time(), undef
       );
   }
 
@@ -2431,15 +2462,15 @@ sub run {
 #------------------------------------------------------------------------------
 
 sub DESTROY {
-  # Destroy all sessions.  This will cascade destruction to all
-  # resources.  It's taken care of by Perl's own garbage collection.
-  # For completeness, I suppose a copy of POE::Kernel->run's leak
-  # detection could be included here.
+  my $self = shift;
 
-  warn "POE::Kernel's run() method was never called.\n"
-    if ( ($kr_run_warning & KR_RUN_SESSION) and not
-         ($kr_run_warning & KR_RUN_CALLED)
-       );
+  # Warn that a session never had the opportunity to run if one was
+  # created but run() was never called.
+
+  unless ($kr_run_warning & KR_RUN_CALLED) {
+    warn "POE::Kernel's run() method was never called.\n"
+      if $kr_run_warning & KR_RUN_SESSION;
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -2476,8 +2507,8 @@ sub _invoke_state {
             warn "POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)\n";
 
           $self->_data_ev_enqueue
-            ( time(), $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
-              __FILE__, __LINE__
+            ( $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
+              __FILE__, __LINE__, time(),
             );
         }
         else {
@@ -2530,8 +2561,8 @@ sub _invoke_state {
     TRACE_SIGNALS and warn "POE::Kernel will poll again after a delay.\n";
 
     $self->_data_ev_enqueue
-      ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-        __FILE__, __LINE__
+      ( $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+        __FILE__, __LINE__, time() + 1
       ) if $self->_data_ses_count() > 1;
   }
 
@@ -2543,8 +2574,8 @@ sub _invoke_state {
     if ($etc->[0] eq 'IDLE') {
       unless ($kr_queue->get_item_count() > 1 or $self->_data_handle_count()) {
         $self->_data_ev_enqueue
-          ( time(), $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'ZOMBIE' ],
-            __FILE__, __LINE__
+          ( $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'ZOMBIE' ],
+            __FILE__, __LINE__, time(),
           );
       }
     }
@@ -2580,11 +2611,11 @@ sub session_alloc {
   $self->_dispatch_event
     ( $session, $kr_active_session,
       EN_START, ET_START, \@args,
-      time(), __FILE__, __LINE__, undef
+      __FILE__, __LINE__, time(), undef
     );
   $self->_data_ev_enqueue
-    ( time(), $session, $kr_active_session, EN_GC, ET_GC, [],
-      __FILE__, __LINE__
+    ( $session, $kr_active_session, EN_GC, ET_GC, [],
+      __FILE__, __LINE__, time(),
     );
 }
 
@@ -2608,7 +2639,7 @@ sub detach_myself {
   $self->_dispatch_event
     ( $old_parent, $self,
       EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session ],
-      time(), (caller)[1,2], undef
+      (caller)[1,2], time(), undef
     );
 
   # Tell the new parent (kernel) that it's gaining a child.
@@ -2619,7 +2650,7 @@ sub detach_myself {
   $self->_dispatch_event
     ( $kr_active_session, $self,
       EN_PARENT, ET_PARENT, [ $old_parent, $self ],
-      time(), (caller)[1,2], undef
+      (caller)[1,2], time(), undef
     );
 
   $self->_data_ses_move_child($kr_active_session, $self);
@@ -2657,7 +2688,7 @@ sub detach_child {
   $self->_dispatch_event
     ( $kr_active_session, $self,
       EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session ],
-      time(), (caller)[1,2], undef
+      (caller)[1,2], time(), undef
     );
 
   # Tell the new parent (kernel) that it's gaining a child.
@@ -2668,7 +2699,7 @@ sub detach_child {
   $self->_dispatch_event
     ( $child_session, $self,
       EN_PARENT, ET_PARENT, [ $kr_active_session, $self ],
-      time(), (caller)[1,2], undef
+      (caller)[1,2], time(), undef
     );
 
   $self->_data_ses_move_child($child_session, $self);
@@ -2722,8 +2753,8 @@ sub post {
   # time-ordered queue.
 
   $self->_data_ev_enqueue
-    ( time(), $session, $kr_active_session, $event_name, ET_USER, \@etc,
-      (caller)[1,2]
+    ( $session, $kr_active_session, $event_name, ET_USER, \@etc,
+      (caller)[1,2], time(),
     );
   return 1;
 }
@@ -2742,9 +2773,8 @@ sub yield {
   };
 
   $self->_data_ev_enqueue
-    ( time(), $kr_active_session, $kr_active_session,
-      $event_name, ET_USER, \@etc,
-      (caller)[1,2]
+    ( $kr_active_session, $kr_active_session, $event_name, ET_USER, \@etc,
+      (caller)[1,2], time(),
     );
 
   undef;
@@ -2787,7 +2817,7 @@ sub call {
     $self->_dispatch_event
       ( $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
-        time(), (caller)[1,2], undef
+        (caller)[1,2], time(), undef
       );
   $! = 0;
   return $return_value;
@@ -2851,9 +2881,9 @@ sub alarm {
   # directly is faster than calling alarm_set to enqueue it.
   if (defined $time) {
     $self->_data_ev_enqueue
-      ( $time, $kr_active_session, $kr_active_session,
+      ( $kr_active_session, $kr_active_session,
         $event_name, ET_ALARM, [ @etc ],
-        (caller)[1,2]
+        (caller)[1,2], $time,
       );
   }
   else {
@@ -2882,9 +2912,9 @@ sub alarm_add {
   }
 
   $self->_data_ev_enqueue
-    ( $time, $kr_active_session, $kr_active_session,
+    ( $kr_active_session, $kr_active_session,
       $event_name, ET_ALARM, [ @etc ],
-      (caller)[1,2]
+      (caller)[1,2], $time,
     );
 
   return 0;
@@ -2967,9 +2997,8 @@ sub alarm_set {
   }
 
   return $self->_data_ev_enqueue
-    ( $time, $kr_active_session, $kr_active_session,
-      $event_name, ET_ALARM, [ @etc ],
-      (caller)[1,2]
+    ( $kr_active_session, $kr_active_session, $event_name, ET_ALARM, [ @etc ],
+      (caller)[1,2], $time,
     );
 }
 
@@ -3050,9 +3079,8 @@ sub delay_set {
   }
 
   return $self->_data_ev_enqueue
-    ( time() + $seconds, $kr_active_session, $kr_active_session,
-      $event_name, ET_ALARM, [ @etc ],
-      (caller)[1,2]
+    ( $kr_active_session, $kr_active_session, $event_name, ET_ALARM, [ @etc ],
+      (caller)[1,2], time() + $seconds,
     );
 }
 

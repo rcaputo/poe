@@ -54,8 +54,8 @@ sub loop_finalize {
 sub _loop_signal_handler_generic {
   TRACE_SIGNALS and warn "<sg> Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_data_ev_enqueue
-    ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
-      __FILE__, __LINE__
+    ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
+      __FILE__, __LINE__, time(),
     );
   $SIG{$_[0]} = \&_loop_signal_handler_generic;
 }
@@ -63,8 +63,8 @@ sub _loop_signal_handler_generic {
 sub _loop_signal_handler_pipe {
   TRACE_SIGNALS and warn "<sg> Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_data_ev_enqueue
-    ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
-      __FILE__, __LINE__
+    ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
+      __FILE__, __LINE__, time(),
     );
     $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
@@ -75,8 +75,8 @@ sub _loop_signal_handler_child {
   TRACE_SIGNALS and warn "<sg> Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_data_ev_enqueue
-    ( time(), $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
-      __FILE__, __LINE__
+    ( $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+      __FILE__, __LINE__, time(),
     );
 }
 
@@ -93,8 +93,8 @@ sub loop_watch_signal {
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
     $self->_data_ev_enqueue
-      ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-        __FILE__, __LINE__
+      ( $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+        __FILE__, __LINE__, time() + 1,
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
     return;
@@ -130,7 +130,7 @@ sub loop_attach_uidestroy {
           $self->_dispatch_event
             ( $self, $self,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-              time(), __FILE__, __LINE__, undef
+              __FILE__, __LINE__, time(), undef,
             );
         }
       }
@@ -370,7 +370,7 @@ sub Tk::Error {
     $poe_kernel->_dispatch_event
       ( $poe_kernel, $poe_kernel,
         EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-        time(), __FILE__, __LINE__, undef
+        __FILE__, __LINE__, time(), undef
       );
   }
 }
