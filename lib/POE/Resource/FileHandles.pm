@@ -406,26 +406,24 @@ sub _data_handle_add {
           values %{$kr_fno_rec->[FMO_SESSIONS]->{$watch_session}}
         ) {
           my $other_handle = $hdl_rec->[HSS_HANDLE];
+
+          my $why;
           unless (defined(fileno $other_handle)) {
-            _trap(
-              $self->_data_alias_loggable($session),
-              " can't watch $handle in mode $mode: ",
-              $self->_data_alias_loggable(
-                $kr_fno_rec->[FMO_SESSIONS]->{$watch_session}->[HSS_SESSION]
-              ),
-              " is already watching it as $other_handle (closed)"
-            );
+            $why = "closed";
           }
-          if (fileno($handle) == fileno($other_handle)) {
-            _trap(
-              $self->_data_alias_loggable($session),
-              " can't watch $handle in mode $mode: ",
-              $self->_data_alias_loggable(
-                $kr_fno_rec->[FMO_SESSIONS]->{$watch_session}->[HSS_SESSION]
-              ),
-              " is already watching it as $other_handle (still open)"
-            );
+          elsif (fileno($handle) == fileno($other_handle)) {
+            $why = "still open";
           }
+          else {
+            $why = "open as different fd";
+          }
+
+          _trap(
+            $self->_data_alias_loggable($session),
+            " can't watch $handle in mode $mode: ",
+            $self->_data_alias_loggable($hdl_rec->[HSS_SESSION]),
+            " is already watching it as $other_handle ($why)"
+          );
         }
       }
       _trap "internal inconsistency";
