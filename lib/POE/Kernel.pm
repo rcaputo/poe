@@ -1930,7 +1930,7 @@ sub refcount_increment {
   }
 
   my $refcount = $self->_data_extref_inc($session, $tag);
-  # trace it here
+  # -><- trace it here
   return $refcount;
 }
 

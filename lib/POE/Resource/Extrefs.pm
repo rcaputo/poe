@@ -48,6 +48,7 @@ sub _data_extref_finalize {
 sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
   my $refcount = ++$kr_extra_refs{$session}->{$tag};
+
   $self->_data_ses_refcount_inc($session) if $refcount == 1;
 
   if (TRACE_REFCNT) {
@@ -138,7 +139,8 @@ sub _data_extref_count {
 
 sub _data_extref_count_ses {
   my ($self, $session) = @_;
-  return exists $kr_extra_refs{$session};
+  return 0 unless exists $kr_extra_refs{$session};
+  return scalar keys %{$kr_extra_refs{$session}};
 }
 
 1;
