@@ -321,38 +321,40 @@ sub _define_connect_state {
 
   # Cygwin expects an error state registered to expedite.  This code
   # is nearly identical the stuff above.
-  $poe_kernel->state
-    ( $self->[MY_STATE_ERROR] = ( ref($self) .
-                                  "($unique_id) -> connect error"
-                                ),
-      sub {
-        # This prevents SEGV in older versions of Perl.
-        0 && CRIMSON_SCOPE_HACK('<');
+  if ($^O eq "cygwin") {
+    $poe_kernel->state
+      ( $self->[MY_STATE_ERROR] = ( ref($self) .
+                                    "($unique_id) -> connect error"
+                                  ),
+        sub {
+          # This prevents SEGV in older versions of Perl.
+          0 && CRIMSON_SCOPE_HACK('<');
 
-        # Grab some values and stop watching the socket.
-        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-        undef $$socket_selected;
-        $k->select($handle);
+          # Grab some values and stop watching the socket.
+          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+          undef $$socket_selected;
+          $k->select($handle);
 
-        # Throw a failure if the connection failed.
-        $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
-        if ($!) {
-          (defined $$failure_event) and
-            $k->call( $me, $$failure_event,
-                      'connect', ($!+0), $!, $unique_id
-                    );
-          return;
+          # Throw a failure if the connection failed.
+          $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
+          if ($!) {
+            (defined $$failure_event) and
+              $k->call( $me, $$failure_event,
+                        'connect', ($!+0), $!, $unique_id
+                      );
+            return;
+          }
         }
-      }
-    );
+      );
+    $poe_kernel->select_expedite( $self->[MY_SOCKET_HANDLE],
+                                  $self->[MY_STATE_ERROR]
+                                );
+  }
 
   $self->[MY_SOCKET_SELECTED] = 'yes';
   $poe_kernel->select_write( $self->[MY_SOCKET_HANDLE],
                              $self->[MY_STATE_CONNECT]
                            );
-  $poe_kernel->select_expedite( $self->[MY_SOCKET_HANDLE],
-                                $self->[MY_STATE_ERROR]
-                              );
 }
 
 #------------------------------------------------------------------------------
@@ -408,9 +410,11 @@ sub event {
     $poe_kernel->select_write( $self->[MY_SOCKET_HANDLE],
                                $self->[MY_STATE_CONNECT]
                              );
-    $poe_kernel->select_expedite( $self->[MY_SOCKET_HANDLE],
-                                  $self->[MY_STATE_ERROR]
-                                );
+    if ($^O eq "cygwin") {
+      $poe_kernel->select_expedite( $self->[MY_SOCKET_HANDLE],
+                                    $self->[MY_STATE_ERROR]
+                                  );
+    }
   }
   else {
     die "POE developer error - no state defined";
