@@ -163,7 +163,7 @@ IO::Pty : 0.01
 All tests successful.
 Files=26, Tests=494, 83 wallclock secs ( 7.78 cusr +  0.55 csys =  8.33 CPU)
 
-** POE 0.1401 on Solaris/SunOS 5.8 (dynweb)
+** POE 0.15 on Solaris 8 (dynweb)
 
 Hardware: Ultra-80; 2x UltraSparc II-450; 1GB RAM
 System  : SunOS 5.8
@@ -173,8 +173,8 @@ Tk      : 800.023
 Event   : 0.81
 IO::Pty : 0.01
 
-All tests successful, 1 test skipped.
-Files=26, Tests=468, 85 wallclock secs (13.07 cusr +  1.35 csys = 14.42 CPU)
+All tests successful, 2 tests skipped.
+Files=26, Tests=477, 75 wallclock secs (13.09 cusr +  1.28 csys = 14.37 CPU)
 
 ** POE 0.1401 on Linux (titanic)
 
