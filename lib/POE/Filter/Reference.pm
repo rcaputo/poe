@@ -15,18 +15,26 @@ use Carp qw(carp croak);
 
 #------------------------------------------------------------------------------
 # Try to require one of the default freeze/thaw packages.
-
-sub _default_freezer {
+use vars qw( $DEF_FREEZER $DEF_FREEZE $DEF_THAW );
+BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
-  my $ret;
 
   foreach my $p (qw(Storable FreezeThaw YAML)) {
     eval { require "$p.pm"; import $p (); };
-    warn $@ if $@;
-    return $p if $@ eq '';
+    if ( $@ ) {
+    	warn $@;
+    	next;
+    } else {
+    	# Found a good freezer!
+    	$DEF_FREEZER = $p;
+    	last;
+    }    	
   }
-  die "Filter::Reference requires Storable, FreezeThaw, or YAML";
+  die "Filter::Reference requires Storable, FreezeThaw, or YAML" if ! defined $DEF_FREEZER;
 }
+
+# Some processing here
+( $DEF_FREEZE, $DEF_THAW ) = _get_methods( $DEF_FREEZER );
 
 #------------------------------------------------------------------------------
 # Try to acquire Compress::Zlib at runtime.
@@ -66,25 +74,33 @@ sub _get_methods
 
 sub new {
   my($type, $freezer, $compression) = @_;
-  $freezer ||= _default_freezer();
+  
+	my( $freeze, $thaw );
+	if ( ! defined $freezer ) {
+	  	# Okay, load the default one!
+		$freezer = $DEF_FREEZER;
+		$freeze = $DEF_FREEZE;
+		$thaw = $DEF_THAW;
+	} else {
+		# What did we get?
+		if ( ref $freezer ) {
+			# It's an object, create an closure
+			my( $freezetmp, $thawtmp ) = _get_methods( $freezer );
+    			$freeze = sub { $freezetmp->( $freezer, @_ ) };
+    			$thaw = sub { $thawtmp->( $freezer, @_ ) };
+  		} else {
+  			# A package name?
+  			my $package = $freezer;
 
-  my($freeze, $thaw)=_get_methods($freezer);
+			$package =~ s(::)(\/)g;
+			delete $INC{$package . ".pm"};
 
-  # not a reference... maybe a package?
-  # and if it's a package, does it have the methods we want?
-  # if not, we are going to try to load it
+			eval {local $^W=0; require "$package.pm"; import $freezer ();};
+			carp $@ if $@;
 
-  unless(ref $freezer and $freeze and $thaw) {
-    my $package = $freezer;
-
-    $package =~ s(::)(\/)g;
-    delete $INC{$package . ".pm"};
-
-    eval {local $^W=0; require "$package.pm"; import $freezer ();};
-    carp $@ if $@;
-
-    ($freeze, $thaw)=_get_methods($freezer);
-  }
+			( $freeze, $thaw )= _get_methods( $freezer );
+		}
+	}
 
   # Now get the methods we want
   carp "$freezer doesn't have a freeze or nfreeze method" unless $freeze;
@@ -92,14 +108,6 @@ sub new {
   # Rocco, shouldn't ->new() return undef() it if fails to find the methods
   # it wants?
   return unless $freeze and $thaw;
-
-  # If it's an object, we use closures to create a $self->method()
-  my $truefreeze=$freeze;
-  my $truethaw=$thaw;
-  if(ref $freezer) {
-    $truefreeze=sub {$freeze->($freezer, @_)};
-    $truethaw=sub {$thaw->($freezer, @_)};
-  }
 
   # Compression
   $compression ||= 0;
@@ -114,8 +122,8 @@ sub new {
 
   my $self = bless { buffer    => '',
                      expecting => undef,
-                     thaw      => $truethaw,
-                     freeze    => $truefreeze,
+                     thaw      => $thaw,
+                     freeze    => $freeze,
                      compress  => $compression,
                    }, $type;
   $self;
