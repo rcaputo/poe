@@ -548,12 +548,13 @@ sub DESTROY {
   # session before the destruction finishes.
 
   TRACE_DESTROY and do {
-    print "----- Session $self Leak Check -----\n";
-    print "-- Namespace (HEAP):\n";
-    foreach (sort keys (%{$self->[SE_NAMESPACE]})) {
-      print "   $_ = ", $self->[SE_NAMESPACE]->{$_}, "\n";
-    }
-    print "-- Options:\n";
+    require Data::Dumper;
+    print(
+      "----- Session $self Leak Check -----\n",
+      "-- Namespace (HEAP):\n",
+      Data::Dumper::Dumper($self->[SE_NAMESPACE]),
+      "-- Options:\n",
+    );
     foreach (sort keys (%{$self->[SE_OPTIONS]})) {
       print "   $_ = ", $self->[SE_OPTIONS]->{$_}, "\n";
     }
