@@ -85,22 +85,22 @@ Finally you can install it:
 Test Results and Coverage
 -------------------------
 
-These are the `make test' results for POE 0.1110 on OS/2:
+These are the `make test' results for POE 0.1111 on OS/2:
 
 Hardware: Cyrix P166+; 64MB RAM.
 Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no Event; no Gtk.
 
   All tests successful, 4 tests skipped.
-  Files=22, Tests=374, 173 wallclock secs ( [line shortened] )
+  Files=22, Tests=384, [line shortened]
 
-These are the `make test' results for POE 0.1110 or FreeBSD:
+These are the `make test' results for POE 0.1111 or FreeBSD:
 
 Hardware: AMD 486-40; 16MB RAM.
 Software: FreeBSD 4.0-STABLE; perl 5.6.0; Perl/Tk 800.021; Event 0.79;
           Gtk/Perl 0.7000.
 
   All tests successful.
-  Files=22, Tests=399, 620 wallclock secs ( [line shortened] )
+  Files=22, Tests=409, [line shortened]
 
 These are the `make test' results for POE 0.1109 on Dave Paris' Linux
 system:
@@ -110,15 +110,9 @@ Software: Linux (unknown); perl 5.005_03; Perl/Tk (unknown); Event (unknown);
           Gtk/Perl (unknown).
 
   All tests successful.
-  Files=22, Tests=399, 124 wallclock secs (20.75 cusr + 1.29 csys = 22.04 CPU)
+  Files=22, Tests=399, [line shortened]
 
-  <a-mused> that's really odd, I just had it spawn 80 children without
-            incident or hiccup
-  <a-mused> (using Linux & 5.005_03)
-  <a-mused> last test.. letting it run 120 forked children.
-  <a-mused> not even a hiccup using 120 forked children in test 11.
-
-These coverage results are for POE 0.1109 on the FreeBSD machine.
+These coverage results are for POE 0.1111 on the FreeBSD machine.
 This machine more thoroughly tests different POE options, so the
 coverage results are more meaningful.  The results are misleading,
 however, even at their best.
@@ -132,17 +126,16 @@ however, even at their best.
   POE/Filter/Line.pm                  =    77 /    82 =  93.90%
   POE/Filter/Reference.pm             =    60 /    66 =  90.91%
   POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-  POE/Kernel.pm                       =   643 /   815 =  78.90%
+  POE/Kernel.pm                       =   623 /   839 =  74.26%
   POE/NFA.pm                          =     9 /   144 =   6.25%
   POE/Preprocessor.pm                 =   146 /   166 =  87.95%
-  POE/Session.pm                      =    82 /   178 =  46.07%
+  POE/Session.pm                      =   102 /   181 =  56.35%
   POE/Wheel.pm                        =     9 /    11 =  81.82%
-  POE/Wheel/FollowTail.pm             =    69 /    87 =  79.31%
+  POE/Wheel/FollowTail.pm             =    66 /    87 =  75.86%
   POE/Wheel/ListenAccept.pm           =    33 /    47 =  70.21%
   POE/Wheel/ReadWrite.pm              =   111 /   184 =  60.33%
-  POE/Wheel/SocketFactory.pm          =   181 /   216 =  83.80%
-  All Told                            =  1567 /  2233 =  70.17%
-
+  POE/Wheel/SocketFactory.pm          =   179 /   216 =  82.87%
+  All Told                            =  1562 /  2260 =  69.12%
 
 Thanks for reading!
 
