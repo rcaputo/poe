@@ -2347,7 +2347,7 @@ June 2001 alarm and delay methods:
   $kernel->alarm_remove( $alarm_id );
 
   # Remove all alarms for the current session.
-  #kernel->alarm_remove_all( );
+  $kernel->alarm_remove_all( );
 
 Symbolic name, or session alias methods:
 
