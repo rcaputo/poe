@@ -111,6 +111,10 @@ my %kr_aliases;
 # The count of all extra references used in the system.
 my $kr_extra_refs = 0;
 
+# A flag determining whether there are child processes.  Starts true
+# so our waitpid() loop can run at least once.
+my $kr_child_procs = 1;
+
 # The session ID index.  It increases as each new session is
 # allocated.
 my $kr_id_index = 1;
@@ -547,6 +551,7 @@ macro test_for_idle_poe_kernel {
           "| Files  : ", scalar(@filenos), "\n",
           "|   `--> : ", join(', ', sort { $a <=> $b } @filenos), "\n",
           "| Extra  : $kr_extra_refs\n",
+          "| Procs  : $kr_child_procs\n",
           "`---------------------------\n",
           " ..."
          );
@@ -554,7 +559,8 @@ macro test_for_idle_poe_kernel {
 
   unless ( @kr_events > 1    or  # > 1 for signal poll loop
            @filenos          or
-           $kr_extra_refs
+           $kr_extra_refs    or
+           $kr_child_procs
          ) {
     $poe_kernel->_enqueue_event
       ( $poe_kernel, $poe_kernel,
@@ -1459,7 +1465,8 @@ sub _invoke_state {
     # interesting has happened.  -><- This has a strong possibility of
     # an infinite loop.
 
-    while (my $pid = waitpid(-1, WNOHANG)) {
+    my $pid;
+    while ($pid = waitpid(-1, WNOHANG)) {
 
       # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
       # event and loop around again.
@@ -1515,6 +1522,10 @@ sub _invoke_state {
       TRACE_SIGNALS and warn "POE::Kernel's waitpid(2) got error: $!\n";
       last;
     }
+
+    # If waitpid() returned 0, then we have child processes.
+
+    $kr_child_procs = !$pid;
 
     # The poll loop is over.  Resume slowly polling for signals.
 
