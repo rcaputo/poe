@@ -6,7 +6,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(25);
+&test_setup(29);
 
 # Turn on all asserts.
 #sub POE::Kernel::TRACE_DEFAULT  () { 1 }
@@ -388,33 +388,33 @@ $get_active_session_after = $poe_kernel->get_active_session() == $poe_kernel;
 # Now make sure they've run.
 for (my $i=0; $i<$machine_count; $i++) {
   print 'not ' unless $completions[$i] == $event_count;
-  print 'ok ', $i+5, "\n";
+  print 'ok ', $i+1, "\n";
 }
 
 # Were all the signals caught?
 print 'not ' unless $sigalrm_caught == $event_count;
-print "ok 15\n";
+print "ok 11\n";
 
 print 'not ' unless $sigpipe_caught == $event_count;
-print "ok 16\n";
+print "ok 12\n";
 
 # Did the postbacks work?
 print 'not ' unless $postback_test;
-print "ok 17\n";
+print "ok 13\n";
 
 # Were the various get_active_session() calls correct?
 print 'not ' unless $get_active_session_within;
-print "ok 18\n";
+print "ok 14\n";
 
 print 'not ' unless $get_active_session_before;
-print "ok 19\n";
+print "ok 15\n";
 
 print 'not ' unless $get_active_session_after;
-print "ok 20\n";
+print "ok 16\n";
 
 # Was the get_heap() call correct?
 print 'not ' unless $get_active_session_heap;
-print "ok 21\n";
+print "ok 17\n";
 
 # Gratuitous tests to appease the coverage gods.
 print 'not ' unless
@@ -422,21 +422,21 @@ print 'not ' unless
     ARG4 == ARG3+1 and ARG5 == ARG4+1 and ARG6 == ARG5+1 and
     ARG7 == ARG6+1 and ARG8 == ARG7+1 and ARG9 == ARG8+1
   );
-print "ok 22\n";
+print "ok 18\n";
 
 print 'not ' unless $sender_count == $machine_count * $event_count;
-print "ok 23\n";
+print "ok 19\n";
 
 print 'not ' unless $default_count == ($machine_count * $event_count) / 2;
-print "ok 24\n";
+print "ok 20\n";
 
 print 'not ' unless $got_heap_count == $machine_count / 2;
-print "ok 25\n";
+print "ok 21\n";
 
 # Object/package sessions.
 for (0..7) {
   print 'not ' unless $objpack[$_] == $event_count;
-  print 'ok ', $_ + 26, "\n";
+  print 'ok ', $_ + 22, "\n";
 }
 
 exit;
