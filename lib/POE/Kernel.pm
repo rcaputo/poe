@@ -181,7 +181,8 @@ sub define_trace {
   no strict 'refs';
   foreach my $name (@_) {
     unless (defined *{"TRACE_$name"}{CODE}) {
-      eval "sub TRACE_$name () { TRACE_DEFAULT }";
+      my $trace_value = $ENV{"POE_TRACE_$name"} || &TRACE_DEFAULT;
+      eval "sub TRACE_$name () { $trace_value }";
     }
   }
 }
@@ -191,7 +192,8 @@ sub define_assert {
   no strict 'refs';
   foreach my $name (@_) {
     unless (defined *{"ASSERT_$name"}{CODE}) {
-      eval "sub ASSERT_$name () { ASSERT_DEFAULT }";
+      my $assert_value = $ENV{"POE_ASSERT_$name"} || &ASSERT_DEFAULT;
+      eval "sub ASSERT_$name () { $assert_value }";
     }
   }
 }
@@ -300,8 +302,8 @@ END {
 
 sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
-  $self->_data_ses_refcount_inc($session);
   my $refcount = ++$kr_extra_refs{$session}->{$tag};
+  $self->_data_ses_refcount_inc($session) if $refcount == 1;
   TRACE_ADHOC and
     warn "<er> incremented extref ``$tag'' (now $refcount) for $session";
   return $refcount;
@@ -315,7 +317,6 @@ sub _data_extref_dec {
   my ($self, $session, $tag) = @_;
   confess "internal inconsistency"
     unless exists $kr_extra_refs{$session}->{$tag};
-  $self->_data_ses_refcount_dec($session);
   my $refcount = --$kr_extra_refs{$session}->{$tag};
   TRACE_ADHOC and
     warn "<er> decremented extref ``$tag'' (now $refcount) for $session";
@@ -330,6 +331,7 @@ sub _data_extref_remove {
   confess "internal inconsistency"
     unless exists $kr_extra_refs{$session}->{$tag};
   delete $kr_extra_refs{$session}->{$tag};
+  $self->_data_ses_refcount_dec($session);
   unless (keys %{$kr_extra_refs{$session}}) {
     delete $kr_extra_refs{$session};
     $self->_data_ses_collect_garbage($session);
@@ -870,8 +872,8 @@ sub _data_handle_resume_requested_state {
         );
   }
 
-  # Select events are one-shot, so reset the filehandle watcher after
-  # this event was dispatched.
+  # If all events for the fileno/mode pair have been delivered, then
+  # resume the filehandle's watcher.
 
   unless (--$kr_fno_vec->[FVC_EV_COUNT]) {
     if ($kr_fno_vec->[FVC_ST_REQUEST] & HS_PAUSED) {
@@ -914,6 +916,8 @@ sub _data_handle_enqueue_ready {
           $select->[HSS_STATE], ET_SELECT, [ $select->[HSS_HANDLE], $mode ],
           __FILE__, __LINE__,
         );
+
+      # Count the enqueued event.
 
       unless ($kr_fno_vec->[FVC_EV_COUNT]++) {
         my $handle = $select->[HSS_HANDLE];
@@ -1024,7 +1028,7 @@ sub _data_handle_add {
 
     if (exists $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle}) {
       if (TRACE_SELECT) {
-        warn( "=== fileno(" . $fd . ") mode($mode) " .
+        warn( "<fd> fileno(" . $fd . ") mode($mode) " .
               "count($kr_fno_vec->[FVC_EV_COUNT])"
             );
       }
@@ -1122,7 +1126,8 @@ sub _data_handle_remove {
 
       my $my_select = sub {
         return 0 unless $_[0]->[EV_SESSION] == $kill_session;
-        return 0 unless $_[0]->[EV_NAME] eq $kill_event;
+        return 0 unless $_[0]->[EV_NAME]    eq $kill_event;
+        return 0 unless $_[0]->[EV_TYPE]    &  ET_SELECT;
         return 1;
       };
 
@@ -1134,7 +1139,7 @@ sub _data_handle_remove {
         $kr_fno_vec->[FVC_EV_COUNT]--;
 
         if (ASSERT_REFCOUNT) {
-          confess "fileno mode event count went below zero"
+          confess "<fd> fileno mode event count went below zero"
             if $kr_fno_vec->[FVC_EV_COUNT] < 0;
         }
       }
@@ -1228,7 +1233,7 @@ sub _data_handle_resume {
   my $kr_fno_vec = $kr_fileno->[$mode];
 
   if (TRACE_SELECT) {
-    warn( "=== resume test: fileno(" . fileno($handle) . ") mode($mode) " .
+    warn( "<fd> resume test: fileno(" . fileno($handle) . ") mode($mode) " .
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
@@ -1253,7 +1258,7 @@ sub _data_handle_pause {
   my $kr_fno_vec = $kr_fileno->[$mode];
 
   if (TRACE_SELECT) {
-    warn( "=== pause test: fileno(" . fileno($handle) . ") mode($mode) " .
+    warn( "<fd> pause test: fileno(" . fileno($handle) . ") mode($mode) " .
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
