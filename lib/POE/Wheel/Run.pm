@@ -311,10 +311,12 @@ sub new {
       # Set the pty conduit (slave side) window size to our window
       # size.  APITUE 19.4 and 19.5.
       if (defined TIOCGWINSZ) {
-        if (-t STDIN) {
-          my $window_size = '!' x 25;
+        my $window_size = '!' x 25;
+        if (-t STDIN and !$winsize) {
           ioctl( STDIN, TIOCGWINSZ, $window_size ) or die $!;
-          $window_size = pack('SSSS', @$winsize) if ref($winsize);
+        }
+        $window_size = pack('SSSS', @$winsize) if ref($winsize);
+        if ($window_size ne '!' x 25) {
           ioctl( $stdin_read, TIOCSWINSZ, $window_size ) or die $!;
         }
         else {
