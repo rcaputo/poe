@@ -85,9 +85,15 @@ sub new {
 
   # Defaults.
 
+  my @filter_args;
   $address = '127.0.0.1' unless defined $address;
-  $filter  = POE::Filter::Line->new() unless defined $filter;
-  $filter  = $filter->new() unless ref($filter);
+  unless (defined $filter) {
+    $filter = "POE::Filter::Line";
+  }
+  elsif (ref($filter) eq 'ARRAY') {
+    @filter_args = @$filter;
+    $filter      = shift @filter_args;
+  }
 
   $conn_error_callback = \&_default_error unless defined $conn_error_callback;
   $error_callback      = \&_default_error unless defined $error_callback;
@@ -133,7 +139,7 @@ sub new {
           $_[HEAP]->{server} = POE::Wheel::ReadWrite->new
             ( Handle       => $socket,
               Driver       => POE::Driver::SysRW->new( BlockSize => 4096 ),
-              Filter       => $filter,
+              Filter       => $filter->new(@filter_args),
               InputEvent   => 'got_server_input',
               ErrorEvent   => 'got_server_error',
               FlushedEvent => 'got_server_flush',
@@ -250,7 +256,7 @@ POE::Component::Client::TCP - a simplified TCP client
       ServerError   => \&handle_server_error,
       ServerFlushed => \&handle_server_flush,
 
-      Filter        => POE::Filter::Something->new(),
+      Filter        => "POE::Filter::Something",
 
       InlineStates  => { ... },
       PackageStates => [ ... ],
@@ -367,10 +373,15 @@ requested.
 
 =item Filter
 
-Filter may contain either a POE::Filter class name, such as
-C<"POE::Filter::Stream"> or a POE::Filter instance, such as C<new
-POE::Filter::Reference>.  It is optional, and the component will
-default to "POE::Filter::Line" if a Filter is omitted.
+Filter specifies the type of filter that will parse input from a
+server.  It may either be a scalar or a list reference.  If it is a
+scalar, it will contain a POE::Filter class name.  If it is a list
+reference, the first item in the list will be a POE::Filter class
+name, and the remaining items will be constructor parameters for the
+filter.
+
+Filter is optional.  The component will supply a "POE::Filter::Line"
+instance none is specified.
 
 =item InlineStates
 

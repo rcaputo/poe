@@ -65,6 +65,7 @@ sub new {
     }
   }
 
+  my @client_filter_args;
   my $client_connected    = delete $param{ClientConnected};
   my $client_disconnected = delete $param{ClientDisconnected};
   my $client_error        = delete $param{ClientError};
@@ -78,8 +79,15 @@ sub new {
   $error_callback = \&_default_server_error unless defined $error_callback;
 
   if (defined $client_input) {
-    $client_filter = "POE::Filter::Line" unless defined $client_filter;
-    $client_filter = $client_filter->new() unless ref($client_filter);
+    unless (defined $client_filter) {
+      $client_filter      = "POE::Filter::Line";
+      @client_filter_args = ();
+    }
+    elsif (ref($client_filter) eq 'ARRAY') {
+      @client_filter_args = @$client_filter;
+      $client_filter      = shift @client_filter_args;
+    }
+
     $client_error  = \&_default_client_error  unless defined $client_error;
     $client_connected    = sub {} unless defined $client_connected;
     $client_disconnected = sub {} unless defined $client_disconnected;
@@ -121,7 +129,7 @@ sub new {
               $heap->{client} = POE::Wheel::ReadWrite->new
                 ( Handle       => $socket,
                   Driver       => POE::Driver::SysRW->new( BlockSize => 4096 ),
-                  Filter       => $client_filter,
+                  Filter       => $client_filter->new(@client_filter_args),
                   InputEvent   => 'tcp_server_got_input',
                   ErrorEvent   => 'tcp_server_got_error',
                   FlushedEvent => 'tcp_server_got_flush',
@@ -419,14 +427,15 @@ connection.
 
 =item ClientFilter
 
-ClientFilter may contain either a POE::Filter class name, such as
-C<"POE::Filter::Block"> or a POE::Filter instance, such as C<new
-POE::Filter::HTTPD>.  ClientFilter is optional;
-POE::Component::Server::TCP will provide a generic Line filter by
-default.
+ClientFilter specifies the type of filter that will parse input from
+each client.  It may either be a scalar or a list reference.  If it is
+a scalar, it will contain a POE::Filter class name.  If it is a list
+reference, the first item in the list will be a POE::Filter class
+name, and the remaining items will be constructor parameters for the
+filter.
 
-If a ClientFilter class is specified, it's up to the programmer to use
-or define that class.
+ClientFilter is optional.  The component will supply a
+"POE::Filter::Line" instance none is specified.
 
 =item ClientInput
 
