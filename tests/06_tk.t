@@ -143,12 +143,13 @@ sub io_pipe_write {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
   $heap->{a_pipe_wheel}->put( scalar localtime );
   $heap->{b_pipe_wheel}->put( scalar localtime );
+  $kernel->delay( ev_timeout => 1 );
   if (++${$heap->{write_count}} < $write_max) {
     $kernel->delay( ev_pipe_write => 0.25 );
   }
   else {
     $after_alarms[6] =
-      Tk::After->new( $poe_main_window, 1000, 'once',
+      Tk::After->new( $poe_main_window, 500, 'once',
                       $_[SESSION]->postback( ev_postback => 6 )
                     );
     undef;
@@ -171,22 +172,25 @@ sub shut_down_if_done {
 sub io_a_read {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
   ${$heap->{a_read_count}}++;
+  $kernel->delay( ev_timeout => 1 );
   shut_down_if_done($heap);
 }
 
 sub io_b_read {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
   ${$heap->{b_read_count}}++;
+  $kernel->delay( ev_timeout => 1 );
   &shut_down_if_done($heap);
 }
 
 sub io_idle_increment {
+  $_[KERNEL]->delay( ev_timeout => 1 );
   if (++${$_[HEAP]->{idle_count}} < 10) {
     $_[KERNEL]->yield( 'ev_idle_increment' );
   }
   else {
     $after_alarms[7] =
-      Tk::After->new( $poe_main_window, 1000, 'once',
+      Tk::After->new( $poe_main_window, 500, 'once',
                       $_[SESSION]->postback( ev_postback => 7 )
                     );
     undef;
@@ -194,6 +198,8 @@ sub io_idle_increment {
 }
 
 sub io_timer_increment {
+  $_[KERNEL]->delay( ev_timeout => 1 );
+
   if (++${$_[HEAP]->{timer_count}} < 10) {
     $_[KERNEL]->delay( ev_timer_increment => 0.5 );
   }
@@ -205,7 +211,7 @@ sub io_timer_increment {
 
   else {
     $after_alarms[8] =
-      Tk::After->new( $poe_main_window, 1000, 'once',
+      Tk::After->new( $poe_main_window, 500, 'once',
                       $_[SESSION]->postback( ev_postback => 8 )
                     );
     undef;
@@ -237,6 +243,8 @@ sub io_stop {
 sub io_postback {
   my ($session, $postback_given) = @_[SESSION, ARG0];
   my $test_number = $postback_given->[0];
+
+  $_[KERNEL]->delay( ev_timeout => 1 );
 
   if ($test_number =~ /^\d+$/) {
 
