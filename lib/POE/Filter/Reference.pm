@@ -74,14 +74,18 @@ sub new {
 
   # not a reference... maybe a package?
   # and if it's a package, does it have the methods we want?
+  # if not, we are going to try to load it
+
   unless(ref $freezer and $freeze and $thaw) {
-        # if not, we are going to try to load it
-    my $q=$freezer;
-    $q=~s(::)(/)g;
-    delete $INC{$q . ".pm"};
-    eval {require "$q.pm"; import $freezer ();};
+    my $package = $freezer;
+
+    $package =~ s(::)(\/)g;
+    delete $INC{$package . ".pm"};
+
+    eval {local $^W=0; require "$package.pm"; import $freezer ();};
     carp $@ if $@;
-    ($freeze, $thaw)=_get_methods($freezer);  
+
+    ($freeze, $thaw)=_get_methods($freezer);
   }
 
   # Now get the methodes we want
