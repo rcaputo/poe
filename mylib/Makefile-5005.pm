@@ -96,17 +96,18 @@ system($^X, "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
 
 # Build a list of all the tests to run.
 
-my @tests;
+my %test_dirs;
 
 find(
   sub {
+    return unless -f;
     return unless /\.t$/;
-    push @tests, File::Spec->catfile($File::Find::dir,$_);
+    $test_dirs{$File::Find::dir} = 1;
   },
   't/',
 );
 
-my $test_str = join " ", sort @tests;
+my $test_str = join " ", map { "$_/*.t" } sort keys %test_dirs;
 
 # Touch generated files so they exist.
 open(TOUCH, ">>CHANGES") and close TOUCH;
