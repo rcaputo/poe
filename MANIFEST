@@ -40,7 +40,6 @@ samples/objmaps.perl
 samples/objsessions.perl
 samples/olayer.perl
 samples/packagesessions.perl
-samples/poing.perl
 samples/preforkedserver.perl
 samples/proxy.perl
 samples/ref-type.perl

@@ -43,6 +43,10 @@ statements.
 Set ASSERT_DEFAULT to true in t/*.t so that the tests are more
 thorough.
 
+Removed poing.perl, which has evolved into a separate program in its
+own right.  It's now available from the author's page at
+<http://www.newts.org/~troc/poe-grams.html>.
+
 
 0.10 2000.03.23 (!!!)
 ---------------------
