@@ -11,8 +11,11 @@ use Config;
 use TestSetup;
 &test_setup(24);
 
+# Turn on extra debugging output within this test program.
+sub DEBUG () { 0 }
+
 # Turn on all asserts, and use POE and other modules.
-# sub POE::Kernel::TRACE_DEFAULT () { 1 }
+#sub POE::Kernel::TRACE_GARBAGE () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
 
@@ -252,9 +255,19 @@ my $coderef_flush_count = 0;
         # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
         _signal => sub {
           my $signame = $_[ARG0];
+
+          DEBUG and
+            warn "session ", $_[SESSION]->ID, " caught signal $signame\n";
+
           if ($signame eq 'CHLD') {
             my ($heap, $child_pid) = @_[HEAP, ARG1];
-            delete $heap->{wheel} if $child_pid == $heap->{wheel}->PID();
+
+            DEBUG and warn "\tthe child process ID is $child_pid\n";
+
+            if ($child_pid == $heap->{wheel}->PID()) {
+              DEBUG and warn "\tthe child process is ours\n";
+              delete $heap->{wheel};
+            }
           }
           return 0;
         },
@@ -315,9 +328,19 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
         # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
         _signal => sub {
           my $signame = $_[ARG0];
+
+          DEBUG and
+            warn "session ", $_[SESSION]->ID, " caught signal $signame\n";
+
           if ($signame eq 'CHLD') {
             my ($heap, $child_pid) = @_[HEAP, ARG1];
-            delete $heap->{wheel} if $child_pid == $heap->{wheel}->PID();
+
+            DEBUG and warn "\tthe child process ID is $child_pid\n";
+
+            if ($child_pid == $heap->{wheel}->PID()) {
+              DEBUG and warn "\tthe child process is ours\n";
+              delete $heap->{wheel};
+            }
           }
           return 0;
         },
