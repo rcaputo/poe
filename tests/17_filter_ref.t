@@ -50,7 +50,7 @@ sub MyFreezer::thaw {
 }
 
 # Start our engines.
-&test_setup(80);
+&test_setup(89);
 
 # Run some tests under a certain set of conditions.
 sub test_freeze_and_thaw {
@@ -123,6 +123,25 @@ my $freezer = MyOtherFreezer->new();
 
 &test_freeze_and_thaw( 61, $freezer,         undef );
 &test_freeze_and_thaw( 71, $freezer,         9     );
+
+# Test get_pending.
+
+my $pending_filter = POE::Filter::Reference->new();
+my $frozen_thing   = $pending_filter->put( [ [ 2, 4, 6 ] ] );
+$pending_filter->get_one_start($frozen_thing);
+my $pending_thing  = $pending_filter->get($pending_filter->get_pending());
+
+&ok_if( 81, @$pending_thing          == 2 );
+&ok_if( 82, @{$pending_thing->[0]}   == 3 );
+&ok_if( 83, @{$pending_thing->[1]}   == 3 );
+
+&ok_if( 84, $pending_thing->[0]->[0] == 2 );
+&ok_if( 85, $pending_thing->[0]->[1] == 4 );
+&ok_if( 86, $pending_thing->[0]->[2] == 6 );
+
+&ok_if( 87, $pending_thing->[1]->[0] == 2 );
+&ok_if( 88, $pending_thing->[1]->[1] == 4 );
+&ok_if( 89, $pending_thing->[1]->[2] == 6 );
 
 &results();
 
