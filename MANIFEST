@@ -49,6 +49,7 @@ samples/socketfactory.perl
 samples/thrash.perl
 samples/tutorial-chat.perl
 samples/udp.perl
+samples/watermarks.perl
 samples/wheels.perl
 samples/wheels2.perl
 t/test.t
