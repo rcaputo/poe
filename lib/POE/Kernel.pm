@@ -30,7 +30,7 @@ BEGIN {
   # available.  Life goes on without it.
   eval {
     require Time::HiRes;
-    import  Time::HiRes qw(time);
+    import  Time::HiRes qw(time sleep);
   };
 
   # Set a constant to indicate the presence of Time::HiRes.  This
@@ -339,7 +339,7 @@ macro kernel_leak_array (<field>) {
 
 macro assert_session_refcount (<session>,<count>) {
   if (ASSERT_REFCOUNT) { # include
-    die {% sid <session> %}, " reference count <count> went below zero\n"
+    die {% sid <session> %}, " reference count <count> went below zero"
       if $kr_sessions{<session>}->[<count>] < 0;
   } # include
 }
@@ -664,7 +664,7 @@ sub new {
     $hostname = hostname() unless defined $hostname;
 
     $self->[KR_ID] =
-      ( hostname . '-' .  unpack 'H*', pack 'N*', time, $$ );
+      ( $hostname . '-' .  unpack 'H*', pack 'N*', time, $$ );
     $kr_session_ids{$self->[KR_ID]} = $self;
 
     # Some personalities allow us to set up static watchers and
@@ -1329,6 +1329,112 @@ sub session_free {
       EN_STOP, ET_STOP, [],
       time(), __FILE__, __LINE__, undef
     );
+}
+
+# Detach a session from its parent.  This breaks the parent/child
+# relationship between the current session and its parent.  Basically,
+# the current session is given to the Kernel session.  Unlike with
+# _stop, the current session's children follow their parent.
+
+sub detach_myself {
+  my $self = shift;
+
+  # Can't detach from the kernel.
+  if ($kr_sessions{$kr_active_session}->[SS_PARENT] == $poe_kernel) {
+    $! = EPERM;
+    return undef;
+  }
+
+  my $old_parent = $kr_sessions{$kr_active_session}->[SS_PARENT];
+
+  # Tell the old parent session that the child is departing.
+  $self->_dispatch_state
+    ( $old_parent, $self,
+      EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session ],
+      time(), (caller)[1,2], undef
+    );
+
+  # Tell the new parent (kernel) that it's gaining a child.
+  # (Actually it doesn't care, so we don't do that here, but this is
+  # where the code would go if it ever does in the future.)
+
+  # Tell the current session that its parentage is changing.
+  $self->_dispatch_state
+    ( $kr_active_session, $self,
+      EN_PARENT, ET_PARENT, [ $old_parent, $poe_kernel ],
+      time(), (caller)[1,2], undef
+    );
+
+  # Remove the current session from its old parent.
+  delete $kr_sessions{$old_parent}->[SS_CHILDREN]->{$kr_active_session};
+  {% ses_refcount_dec $old_parent %}
+
+  # Change the current session's parent to the kernel.
+  $kr_sessions{$kr_active_session}->[SS_PARENT] = $poe_kernel;
+
+  # Add the current session to the kernel's children.
+  $kr_sessions{$poe_kernel}->[SS_CHILDREN]->{$kr_active_session} =
+    $kr_active_session;
+  {% ses_refcount_inc $poe_kernel %}
+
+  # Success!
+  return 1;
+}
+
+# Detach a child from this, the parent.  The session being detached
+# must be a child of the current session.
+
+sub detach_child {
+  my ($self, $child) = @_;
+
+  my $child_session = {% alias_resolve $child %};
+  {% test_resolve $child, $child_session %}
+
+  # Can't detach if it belongs to the kernel.
+  if ($kr_active_session == $poe_kernel) {
+    $! = EPERM;
+    return undef;
+  }
+
+  # Can't detach if it's not a child of the current session.
+  unless
+    (exists $kr_sessions{$kr_active_session}->[SS_CHILDREN]->{$child_session})
+    {
+      $! = EPERM;
+      return undef;
+    }
+
+  # Tell the current session that the child is departing.
+  $self->_dispatch_state
+    ( $kr_active_session, $self,
+      EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session ],
+      time(), (caller)[1,2], undef
+    );
+
+  # Tell the new parent (kernel) that it's gaining a child.
+  # (Actually it doesn't care, so we don't do that here, but this is
+  # where the code would go if it ever does in the future.)
+
+  # Tell the child session that its parentage is changing.
+  $self->_dispatch_state
+    ( $child_session, $self,
+      EN_PARENT, ET_PARENT, [ $kr_active_session, $poe_kernel ],
+      time(), (caller)[1,2], undef
+    );
+
+  # Remove the child session from its old parent (the current one).
+  delete $kr_sessions{$kr_active_session}->[SS_CHILDREN]->{$child_session};
+  {% ses_refcount_dec $kr_active_session %}
+
+  # Change the child session's parent to the kernel.
+  $kr_sessions{$child_session}->[SS_PARENT] = $poe_kernel;
+
+  # Add the child session to the kernel's children.
+  $kr_sessions{$poe_kernel}->[SS_CHILDREN]->{$child_session} = $child_session;
+  {% ses_refcount_inc $poe_kernel %}
+
+  # Success!
+  return 1;
 }
 
 # Debugging subs for reference count checks.
