@@ -254,6 +254,12 @@ sub _data_ses_move_child {
   }
 
   $self->_data_ses_refcount_inc($new_parent);
+
+  # We do not call _data_ses_collect_garbage() here.  This function is
+  # called in batch for a departing session, to move its children to
+  # its parent.  The GC test would be superfluous here.  Rather, it's
+  # up to the caller to do the proper GC test after moving things
+  # around.
 }
 
 ### Get a session's parent.
@@ -261,7 +267,8 @@ sub _data_ses_move_child {
 sub _data_ses_get_parent {
   my ($self, $session) = @_;
   if (ASSERT_DATA) {
-    _trap() unless exists $kr_sessions{$session};
+    _trap("retrieving parent of a nonexistent session")
+      unless exists $kr_sessions{$session};
   }
   return $kr_sessions{$session}->[SS_PARENT];
 }
@@ -271,7 +278,8 @@ sub _data_ses_get_parent {
 sub _data_ses_get_children {
   my ($self, $session) = @_;
   if (ASSERT_DATA) {
-    _trap() unless exists $kr_sessions{$session};
+    _trap("retrieving children of a nonexistent session")
+      unless exists $kr_sessions{$session};
   }
   return values %{$kr_sessions{$session}->[SS_CHILDREN]};
 }
@@ -281,7 +289,8 @@ sub _data_ses_get_children {
 sub _data_ses_is_child {
   my ($self, $parent, $child) = @_;
   if (ASSERT_DATA) {
-    _trap() unless exists $kr_sessions{$parent};
+    _trap("testing is-child of a nonexistent parent session")
+      unless exists $kr_sessions{$parent};
   }
   return exists $kr_sessions{$parent}->[SS_CHILDREN]->{$child};
 }
