@@ -143,13 +143,15 @@ sub HSS_HANDLE  () { 0 }
 sub HSS_SESSION () { 1 }
 sub HSS_STATE   () { 2 }
                                         # states / events
-sub ST_SESSION () { 0 }
-sub ST_SOURCE  () { 1 }
-sub ST_NAME    () { 2 }
-sub ST_TYPE    () { 3 }
-sub ST_ARGS    () { 4 }
-sub ST_TIME    () { 5 }
-sub ST_DEB_SEQ () { 6 }
+sub ST_SESSION    () { 0 }
+sub ST_SOURCE     () { 1 }
+sub ST_NAME       () { 2 }
+sub ST_TYPE       () { 3 }
+sub ST_ARGS       () { 4 }
+sub ST_TIME       () { 5 } # goes towards end
+sub ST_OWNER_FILE () { 6 } # goes towards end
+sub ST_OWNER_LINE () { 7 } # goes towards end
+sub ST_DEB_SEQ    () { 8 } # goes very last
 
 # These are names of internal events.
 
@@ -228,7 +230,9 @@ my %_terminal_signals =
 sub _signal_handler_generic {
   if (defined(my $signal = $_[0])) {
     $poe_kernel->_enqueue_state
-      ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, time(), [ $signal ] );
+      ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL,
+        [ $signal ], time(), __FILE__, __LINE__
+      );
     $SIG{$_[0]} = \&_signal_handler_generic;
   }
   else {
@@ -239,8 +243,8 @@ sub _signal_handler_generic {
 sub _signal_handler_pipe {
   if (defined(my $signal = $_[0])) {
     $poe_kernel->_enqueue_state
-      ( $poe_kernel->[KR_ACTIVE_SESSION], $poe_kernel,
-        EN_SIGNAL, ET_SIGNAL, time(), [ $signal ]
+      ( $poe_kernel->[KR_ACTIVE_SESSION], $poe_kernel, EN_SIGNAL, ET_SIGNAL,
+        [ $signal ], time(), __FILE__, __LINE__
       );
     $SIG{$_[0]} = \&_signal_handler_pipe;
   }
@@ -255,7 +259,7 @@ sub _signal_handler_child {
     if ($pid >= 0) {
       $poe_kernel->_enqueue_state
         ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL,
-          time(), [ 'CHLD', $pid, $? ]
+          [ 'CHLD', $pid, $? ], time(), __FILE__, __LINE__
         );
     }
     $SIG{$_[0]} = \&_signal_handler_child;
@@ -287,9 +291,12 @@ sub sig {
 
 sub signal {
   my ($self, $session, $signal) = @_;
+  my ($file, $line) = (caller)[1,2];
+
   if (defined($session = $self->alias_resolve($session))) {
     $self->_enqueue_state( $session, $self->[KR_ACTIVE_SESSION],
-                           EN_SIGNAL, ET_SIGNAL, time(), [ $signal ]
+                           EN_SIGNAL, ET_SIGNAL, [ $signal ], time(),
+                           $file, $line
                          );
   }
 }
@@ -389,7 +396,9 @@ sub new {
 my %profile;
 
 sub _dispatch_state {
-  my ($self, $session, $source_session, $state, $type, $etc) = @_;
+  my ( $self, $session, $source_session, $state, $type, $etc, $time,
+       $file, $line, $seq
+     ) = @_;
 
   my $local_state = $state;
   my $sessions = $self->[KR_SESSIONS];
@@ -444,18 +453,19 @@ sub _dispatch_state {
       my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
       foreach my $child (@children) {
         $self->_dispatch_state( $parent, $self, EN_CHILD, ET_CHILD,
-                                [ 'gain', $child ]
+                                [ 'gain', $child ], time(), $file, $line,
+                                undef
                               );
         $self->_dispatch_state( $child, $self, EN_PARENT, ET_PARENT,
-                                [ $sessions->{$child}->[SS_PARENT],
-                                  $parent,
-                                ]
+                                [ $sessions->{$child}->[SS_PARENT], $parent, ],
+                                time(), $file, $line, undef
                               );
       }
                                         # tell the parent its child is gone
       if (defined $parent) {
         $self->_dispatch_state( $parent, $self, EN_CHILD, ET_CHILD,
-                                [ 'lose', $session ]
+                                [ 'lose', $session ],
+                                time(), $file, $line, undef
                               );
       }
     }
@@ -465,7 +475,9 @@ sub _dispatch_state {
                                         # propagate to children
       my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
       foreach (@children) {
-        $self->_dispatch_state($_, $self, $state, ET_SIGNAL, $etc);
+        $self->_dispatch_state( $_, $self, $state, ET_SIGNAL, $etc,
+                                time(), $file, $line, undef
+                              );
       }
                                         # translate signal to local event
       if (exists $self->[KR_SIGNALS]->{$signal}->{$session}) {
@@ -490,7 +502,8 @@ sub _dispatch_state {
   my $hold_active_session = $self->[KR_ACTIVE_SESSION];
   $self->[KR_ACTIVE_SESSION] = $session;
 
-  my $return = $session->_invoke_state($source_session, $local_state, $etc);
+  my $return =
+    $session->_invoke_state($source_session, $local_state, $etc, $file, $line);
 
   if (defined $return) {
     if (substr(ref($return), 0, 5) eq 'POE::') {
@@ -509,9 +522,10 @@ sub _dispatch_state {
                                         # if _start, notify parent
   if ($type) {
     if ($type & ET_START) {
-      $self->_dispatch_state($sessions->{$session}->[SS_PARENT], $self,
-                             EN_CHILD, ET_CHILD,
-                             [ 'create', $session, $return ]
+      $self->_dispatch_state( $sessions->{$session}->[SS_PARENT], $self,
+                              EN_CHILD, ET_CHILD,
+                              [ 'create', $session, $return ],
+                              time(), $file, $line, undef
                             );
     }
                                         # if _stop, fix up tables
@@ -667,7 +681,7 @@ sub run {
                                         # send SIGIDLE if queue empty
     unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_HANDLES]})) {
       $self->_enqueue_state( $self, $self, EN_SIGNAL, ET_SIGNAL,
-                             time(), [ 'IDLE' ]
+                             [ 'IDLE' ], time(), __FILE__, __LINE__
                            );
     }
                                         # select, if necessary
@@ -756,7 +770,8 @@ sub run {
       foreach my $select (@selects) {
         $self->_dispatch_state( $select->[HSS_SESSION], $select->[HSS_SESSION],
                                 $select->[HSS_STATE], ET_SELECT,
-                                [ $select->[HSS_HANDLE] ]
+                                [ $select->[HSS_HANDLE] ],
+                                time(), __FILE__, __LINE__, undef
                               );
         $self->_collect_garbage($select->[HSS_SESSION]);
       }
@@ -866,8 +881,9 @@ sub _invoke_state {
         $parent_session = $self
           unless exists $self->[KR_SESSIONS]->{$parent_session};
         $self->_enqueue_state( $parent_session, $self,
-                               EN_SIGNAL, ET_SIGNAL, time(),
-                               [ 'CHLD', $child_pid, $? ]
+                               EN_SIGNAL, ET_SIGNAL,
+                               [ 'CHLD', $child_pid, $? ], time(),
+                               __FILE__, __LINE__
                              );
       }
       else {
@@ -876,7 +892,9 @@ sub _invoke_state {
     }
 
     if (keys %{$self->[KR_PROCESSES]}) {
-      $self->_enqueue_state($self, $self, EN_SCPOLL, ET_SCPOLL, time() + 1);
+      $self->_enqueue_state( $self, $self, EN_SCPOLL, ET_SCPOLL,
+                             [], time() + 1, __FILE__, __LINE__
+                           );
     }
   }
 
@@ -884,7 +902,7 @@ sub _invoke_state {
     if ($etc->[0] eq 'IDLE') {
       unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_HANDLES]})) {
         $self->_enqueue_state( $self, $self, EN_SIGNAL, ET_SIGNAL,
-                               time(), [ 'ZOMBIE' ]
+                               [ 'ZOMBIE' ], time(), __FILE__, __LINE__
                              );
       }
     }
@@ -913,10 +931,11 @@ sub session_alloc {
   };
 
   $self->_dispatch_state( $session, $kr_active_session,
-                          EN_START, ET_START, \@args
+                          EN_START, ET_START, \@args,
+                          time(), __FILE__, __LINE__, undef
                         );
   $self->_enqueue_state( $session, $kr_active_session, EN_GC, ET_GC,
-                         time(), []
+                         [], time(), __FILE__, __LINE__
                        );
 }
 
@@ -929,7 +948,8 @@ sub session_free {
   };
 
   $self->_dispatch_state( $session, $self->[KR_ACTIVE_SESSION],
-                          EN_STOP, ET_STOP, []
+                          EN_STOP, ET_STOP, [],
+                          time(), __FILE__, __LINE__, undef
                         );
   $self->_collect_garbage($session);
 }
@@ -1004,14 +1024,15 @@ sub debug_insert {
 }
 
 sub _enqueue_state {
-  my ($self, $session, $source_session, $state, $type, $time, $etc) = @_;
+  my ( $self, $session, $source_session, $state, $type, $etc, $time,
+       $file, $line
+     ) = @_;
 
   my $state_to_queue =
-    [ $session, $source_session, $state, $type, $etc, $time ];
-
-  DEB_QUEUE and do {
-    $state_to_queue->[ST_DEB_SEQ]  = ++$queue_seqnum;
-  };
+    [ $session, $source_session,
+      $state, $type, $etc, $time,
+      $file, $line, ++$queue_seqnum,
+    ];
 
   DEB_EVENTS and do {
     warn "}}} enqueuing $state for session ", $session->ID, "\n";
@@ -1133,9 +1154,12 @@ sub _enqueue_state {
 
 sub post {
   my ($self, $destination, $state_name, @etc) = @_;
+  my ($file, $line) = (caller)[1,2];
+
   if (defined($destination = $self->alias_resolve($destination))) {
     $self->_enqueue_state( $destination, $self->[KR_ACTIVE_SESSION],
-                           $state_name, ET_USER, time(), \@etc
+                           $state_name, ET_USER, \@etc, time(),
+                           $file, $line
                          );
     return 1;
   }
@@ -1151,10 +1175,12 @@ sub post {
 
 sub yield {
   my ($self, $state_name, @etc) = @_;
+  my ($file, $line) = (caller)[1,2];
 
   $self->_enqueue_state( $self->[KR_ACTIVE_SESSION],
                          $self->[KR_ACTIVE_SESSION],
-                         $state_name, ET_USER, time(), \@etc
+                         $state_name, ET_USER, \@etc, time(),
+                         $file, $line
                        );
 }
 
@@ -1163,11 +1189,14 @@ sub yield {
 
 sub call {
   my ($self, $destination, $state_name, @etc) = @_;
+  my ($file, $line) = (caller)[1,2];
+
   if (defined($destination = $self->alias_resolve($destination))) {
     $! = 0;
     return $self->_dispatch_state( $destination,
                                    $self->[KR_ACTIVE_SESSION],
-                                   $state_name, ET_USER, \@etc
+                                   $state_name, ET_USER, \@etc,
+                                   time(), $file, $line, undef
                                  );
   }
   DEB_STRICT and do {
@@ -1205,6 +1234,7 @@ sub queue_peek_alarms {
 sub alarm {
   my ($self, $state, $time, @etc) = @_;
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
+  my ($file, $line) = (caller)[1,2];
                                         # remove alarm (all instances)
   my $index = scalar(@{$self->[KR_STATES]});
   while ($index--) {
@@ -1232,7 +1262,8 @@ sub alarm {
       $time = $now;
     }
     $self->_enqueue_state( $kr_active_session, $kr_active_session,
-                           $state, ET_ALARM, $time, [ @etc ]
+                           $state, ET_ALARM, [ @etc ], $time,
+                           $file, $line
                          );
   }
 }
@@ -1241,12 +1272,14 @@ sub alarm {
 sub alarm_add {
   my ($self, $state, $time, @etc) = @_;
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
+  my ($file, $line) = (caller)[1,2];
 
   if ($time < (my $now = time())) {
     $time = $now;
   }
   $self->_enqueue_state( $kr_active_session, $kr_active_session,
-                         $state, ET_ALARM, $time, [ @etc ]
+                         $state, ET_ALARM, [ @etc ], $time,
+                         $file, $line
                        );
 }
 
@@ -1557,6 +1590,7 @@ sub ID_session_to_id {
 
 sub fork {
   my ($self) = @_;
+  my ($file, $line) = (caller)[1,2];
 
   # Disable the real signal handler.  How to warn?
   $SIG{CHLD} = 'IGNORE' if (exists $SIG{CHLD});
@@ -1579,7 +1613,9 @@ sub fork {
     # Went from 0 to 1 child processes; start a poll loop.  This uses
     # a very raw, basic form of POE::Kernel::delay.
     if (keys(%{$self->[KR_PROCESSES]}) == 1) {
-      $self->_enqueue_state($self, $self, EN_SCPOLL, ET_SCPOLL, time() + 1);
+      $self->_enqueue_state( $self, $self, EN_SCPOLL, ET_SCPOLL,
+                             [], time() + 1, $file, $line
+                           );
     }
 
     return( $new_pid, 0, 0 ) if wantarray;

@@ -8,6 +8,14 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
+0.0910 2000.??.??
+-----------------
+
+POE now keeps track of the file and line number where an event was
+generated.  $session->option( default => 1 ) will report the line and
+file, so you know where strange events came from.
+
+
 0.0909 2000.03.10
 -----------------
 

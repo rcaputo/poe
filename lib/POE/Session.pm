@@ -298,7 +298,7 @@ sub DESTROY {
 #------------------------------------------------------------------------------
 
 sub _invoke_state {
-  my ($self, $source_session, $state, $etc) = @_;
+  my ($self, $source_session, $state, $etc, $file, $line) = @_;
 
   if (exists($self->[SE_OPTIONS]->{'trace'})) {
     warn $self->ID, " -> $state\n";
@@ -341,8 +341,9 @@ sub _invoke_state {
   else {
     $! = ENOSYS;
     if (exists $self->[SE_OPTIONS]->{'default'}) {
-      warn "\t", $self->ID, " -> $state does not exist (and no _default)\n";
-      confess;
+      warn( "Someone posted a '$state' state to session ", $self->ID,
+            " from $file line $line\n"
+          );
     }
     return undef;
   }
