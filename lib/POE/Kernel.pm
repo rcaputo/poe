@@ -3644,26 +3644,34 @@ never dreamt of.
 
 =head2 Kernel's Debugging Features
 
-POE::Kernel contains a number of debugging assertions and traces.
+POE::Kernel contains a number of assertion and tracing flags.  They
+were originally created to debug POE::Kernel itself, but they are also
+useful for tracking down other problems.
 
-Assertions remain quiet until something wrong has been detected; then
-they die right away with an error.  They're mainly used for sanity
-checking in POE's test suite and to make the developers' lives easier.
-Traces, on the other hand, are never fatal, but they're terribly
-noisy.
+Assertions are the quiet ones.  They only create output when something
+catastrophic has happened.  That output is almost always fatal.  They
+are mainly used to check the sanity of POE's internal data structures.
 
-Both assertions and traces incur performance penalties, so they should
-be used sparingly, if at all.  They all are off by default.  POE's
-test suite runs slower than normal because assertions are enabled
-during all the tests.
+Traces are assertions' annoying cousins.  They noisily report on the
+status of a running POE::Kernel instance, but they are never fatal.
 
-Assertion and tracing constants can be redefined before POE::Kernel is
-first used.
+Assertions and traces incur performance penalties when enabled.  It's
+probably a bad idea to enable them in live systems.  They are all
+disabled by default.
+
+Assertion and tracing flags can be defined before POE::Kernel is first
+used.
 
   # Turn on everything.
   sub POE::Kernel::ASSERT_DEFAULT () { 1 }
   sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-  use POE;
+  use POE;  # Includes POE::Kernel
+
+It is also possible to enable them using shell environment variables.
+The environment variables follow the same names as the constants in
+this section, but "POE_" is prepended to them.
+
+  POE_ASSERT_DEFAULT=1 POE_TRACE_DEFAULT=1 ./my_poe_program
 
 Assertions will be discussed first.
 
