@@ -838,16 +838,17 @@ sub POE::Session::Postback::DESTROY {
   $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'postback' );
 }
 
-# This next bit of code tunes the postback return value depending on
-# what each toolkit expects callbacks to return.  Tk wants 0.  Gtk
-# seems to want 0 or 1 in different places, but the tests want 0.
+# Tune postbacks depending on variations in toolkit behavior.
 
 BEGIN {
-  if (exists $INC{'Gtk.pm'}) {
-    eval 'sub POSTBACK_RETVAL () { 0 }';
+  # Tk blesses its callbacks internally, so we need to wrap our
+  # blessed callbacks in unblessed ones.  Otherwise our postback's
+  # DESTROY method probably won't be called.
+  if (exists $INC{'Tk.pm'}) {
+    eval 'sub USING_TK () { 1 }';
   }
   else {
-    eval 'sub POSTBACK_RETVAL () { 0 }';
+    eval 'sub USING_TK () { 0 }';
   }
 };
 
@@ -861,13 +862,18 @@ sub postback {
 
   my $postback = bless sub {
     $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
-    return POSTBACK_RETVAL;
+    return 0;
   }, 'POE::Session::Postback';
 
   $postback_parent_id{$postback} = $id;
   $POE::Kernel::poe_kernel->refcount_increment( $id, 'postback' );
 
-  $postback;
+  # Tk blesses its callbacks, so we must present one that isn't
+  # blessed.  Otherwise Tk's blessing would divert our DESTROY call to
+  # its own, and that's not right.
+
+  return sub { $postback->(@_) } if USING_TK;
+  return $postback;
 }
 
 # Create a synchronous callback closure.  The return value will be

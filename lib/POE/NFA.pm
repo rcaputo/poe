@@ -609,6 +609,20 @@ sub POE::NFA::Postback::DESTROY {
   $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'postback' );
 }
 
+# Tune postbacks depending on variations in toolkit behavior.
+
+BEGIN {
+  # Tk blesses its callbacks internally, so we need to wrap our
+  # blessed callbacks in unblessed ones.  Otherwise our postback's
+  # DESTROY method probably won't be called.
+  if (exists $INC{'Tk.pm'}) {
+    eval 'sub USING_TK () { 1 }';
+  }
+  else {
+    eval 'sub USING_TK () { 0 }';
+  }
+};
+
 # Create a postback closure, maintaining referential integrity in the
 # process.  The next step is to give it to something that expects to
 # be handed a callback.
@@ -619,13 +633,18 @@ sub postback {
 
   my $postback = bless sub {
     $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
-    0;
+    return 0;
   }, 'POE::NFA::Postback';
 
   $postback_parent_id{$postback} = $id;
   $POE::Kernel::poe_kernel->refcount_increment( $id, 'postback' );
 
-  $postback;
+  # Tk blesses its callbacks, so we must present one that isn't
+  # blessed.  Otherwise Tk's blessing would divert our DESTROY call to
+  # its own, and that's not right.
+
+  return sub { $postback->(@_) } if USING_TK;
+  return $postback;
 }
 
 # Create a synchronous callback closure.  The return value will be
