@@ -175,8 +175,16 @@ sub get {
 #    print length($buf)."-".$r->content_length()."\n";
 
     my $cl = $r->content_length();
-    return [ $self->build_error(RC_LENGTH_REQUIRED, "No content length found.") ] 
-        unless defined $cl;
+    warn $self->{'httpd_client_proto'};
+    unless(defined $cl) {
+        if($self->{'httpd_client_proto'} == 9) {
+            return [ $self->build_error(RC_BAD_REQUEST,  "POST request detected in an HTTP 0.9 transaction. POST is not a valid HTTP 0.9 transaction type. Please verify your HTTP version and transaction content.") ];
+
+        } else { 
+            return [ $self->build_error(RC_LENGTH_REQUIRED, 
+                        "No content length found.") ];
+        }
+    }
         
     return [ $self->build_error(RC_BAD_REQUEST, "Content length contains non-digits.") ] 
         unless $cl =~ /^\d+$/;
