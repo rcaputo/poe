@@ -309,7 +309,7 @@ sub new {
   }
 
   # Internet sockets use protocols.  Default the INET protocol to tcp,
-  # and try to resolve it.  to TCP.
+  # and try to resolve it.
   elsif ($abstract_domain eq DOM_INET) {
     my $socket_protocol =
       (exists $params{SocketProtocol}) ? $params{SocketProtocol} : 'tcp';
@@ -323,7 +323,7 @@ sub new {
 
     # Get the protocol's name regardless of what was provided.  If the
     # protocol isn't supported, croak now instead of making the
-    # programmer wonder why things fail.
+    # programmer wonder why things fail later.
     $protocol_name = lc(getprotobynumber($socket_protocol));
     unless ($protocol_name) {
       $poe_kernel->yield($state_failure, 'getprotobynumber', $!+0, $!);
@@ -358,7 +358,6 @@ sub new {
                 )
   ) {
     $poe_kernel->yield($state_failure, 'socket', $!+0, $!);
-warn "######### $self->{socket_type} $!";
     return undef;
   }
 
@@ -922,7 +921,8 @@ POE::Wheel::ReadWrite; POE::Wheel::SocketFactory
 
 =head1 BUGS
 
-No connectionless sockets yet.
+Many (if not all) of the croak/carp/warn/die statements should fire
+back $state_failure instead.
 
 =head1 AUTHORS & COPYRIGHTS
 

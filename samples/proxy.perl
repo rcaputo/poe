@@ -86,7 +86,7 @@ sub session_start {
       InputState => 'client_input',
       ErrorState => 'client_error',
     );
-  
+
   $heap->{wheel_server} = new POE::Wheel::SocketFactory
     ( RemoteAddress  => $remote_addr,
       RemotePort     => $remote_port,
