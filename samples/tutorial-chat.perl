@@ -6,11 +6,11 @@
 Okay... how to write a program using POE.  First we need a program to
 write.  How about a simple chat server?  Ok!
 
-First perform some preliminary setup.  Turn on strict, and import the
-things we need.  That will be Socket, for the socket constants and
+First do some preliminary setup things.  Turn on strict, and import
+stuff we need.  That will be Socket, for the socket constants and
 address manipulation; and some POE classes.  All the POE classes get
-POE:: prepended to them when used along with POE.pm itself.  So, the
-classes we use here:
+POE:: prepended to them when used along with POE.pm itself.  Here are
+the ones we need:
 
 POE::Wheel::SocketFactory, to create the sockets.
 
@@ -31,16 +31,16 @@ use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);
 =pod //////////////////////////////////////////////////////////////////////////
 
 Now we need to create the listening server and wait for connections.
-First we define the subroutines that will handle the events, and then
-we create the POE::Session that maps events to subroutines.
+First we define the subroutines that will handle events, and then we
+create the POE::Session that maps the event names to the handlers.
 
-But first a quick note about event handler parameters.  Every event
-handler gets its parameters in some strange order.  Actually, they all
-get parameters in the same order, but the order changes from time to
-time (usually between versions).  So Rocco and Artur benchmarked a
-bunch of different ways to pass parameters where the order makes no
-difference.  The least slowest way to do this-- which still is slower
-than plain list assignment-- was to use an array slice.
+But first a quick note about event handler parameters.  Every handler
+gets its parameters in some strange order.  Actually, they all get
+them in the same order, but the order changes from time to time
+(usually between versions).  So Rocco and Artur benchmarked a bunch of
+different ways to pass parameters where the order makes no difference.
+The least slowest way to do this-- which still is slower than plain
+list assignment-- was to use an array slice.
 
 So we came up with some constants for parameter indices into @_, and
 exported them from POE::Session (which is automatically included when
@@ -54,7 +54,7 @@ So anyway, some of the important parameter offsets and what they do:
   KERNEL is a reference to the POE kernel (event loop and services
   object).
 
-  SESSION is a reference to the current session.
+  SESSION is a reference to the current POE::Session object.
 
   HEAP is an anonymous hashref that a session can use to hold its own
   "global" variables.
@@ -62,16 +62,17 @@ So anyway, some of the important parameter offsets and what they do:
   FROM is the session that sent the event.
 
   ARG0..ARG9 are the first ten event parameters.  If you need more
-  than that, you can either use ARG9+1.. or consider passing
-  parameters as an arrayref.  Array references would be faster anyway.
+  than that, you can either use ARG9+1..ARG9+$whatever; or you can
+  pass parameters as an array reference.  Array references would be
+  faster than slinging a bunch of parameters all over the place.
 
 Now about the SocketFactory.  A SocketFactory is a factory that
 creates... sockets.  See?  Anyway, the socket factory creates sockets,
-but it does not return them.  Instead, it waits until the sockets are
-ready, and then it sends a "this socket is ready" sort of success
-event.  The socket itself is sent as a parameter (ARG0) of the success
-event.  And because this is non-blocking (event during connect), the
-program can keep working on other things while it waits.
+but it does not return them right away.  Instead, it waits until the
+sockets are ready, and then it sends a "this socket is ready" sort of
+success event.  The socket itself is sent as a parameter (ARG0) of the
+success event.  And because this is non-blocking (even during
+connect), the program can keep working on other things while it waits.
 
 There is more magic.  For listening sockets, it sends the "this socket
 is ready" event whenever a connection is successfully accepted.  And
@@ -252,11 +253,11 @@ sub say {
 Now we need to handle the accepted client connections.
 
 A quick recap of where the accepted socket currently is.  It was
-accepted by the SocketFactory, and passed to server_accept with the
-"we got a connection" event.  Then server_accept handed it off to a
+accepted by the SocketFactory, and passed to &server_accept with the
+"we got a connection" event.  Then &server_accept handed it off to a
 new POE::Session as a parameter to its _start event.  The _start event
-(and the handle, and the peer address and port) will then be delivered
-to chat_start as ARG0, ARG1 and ARG2.
+handler (&chat_start) will then get the handle (and the peer address
+and port) as ARG0, ARG1 and ARG2.
 
 So anyway, read input from the client connection, process it somehow,
 and generate responses.  Here we are at chat_start...
@@ -426,6 +427,9 @@ And finally, start the server and run the event queue.
 
 =cut \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
+# Create a session, mapping event names to the &server_* functions.
+# &server_start gets called when the session is ready to go.
+
 new POE::Session( _start        => \&server_start,  # server _start handler
                   _stop         => \&server_stop,   # server _stop handler
                   event_success => \&server_accept, # server connection handler
@@ -443,3 +447,11 @@ $poe_kernel->run();
 # can exit now.
 
 exit;
+
+# Epilogue.  All the custom code in this tutorial is plain Perl
+# subroutines.  While POE itself is highly OO, you don't need to know
+# much more than four things to use it: How to use a module, how to
+# use Perl references, how to create a new object, and how to invoke
+# an object method.
+
+# Thanks for reading!
