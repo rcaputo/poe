@@ -7,8 +7,10 @@ use strict;
 use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];
 
-use Carp;
-use POSIX;  # termios stuff
+use Carp qw(carp croak);
+use POSIX qw( sysconf _SC_OPEN_MAX ECHO ICANON IEXTEN ISIG BRKINT ICRNL
+              INPCK ISTRIP IXON CSIZE PARENB OPOST TCSANOW
+            );
 
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 
