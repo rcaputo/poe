@@ -612,7 +612,7 @@ sub new {
     # Some personalities allow us to set up static watchers and
     # start/stop them as necessary.  This initializes those static
     # watchers.  This also starts main windows where applicable.
-    _init_main_loop();
+    _init_main_loop($self);
 
     # Kernel ID, based on Philip Gwyn's code.  I hope he still can
     # recognize it.  KR_SESSION_IDS is a hash because it will almost

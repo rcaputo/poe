@@ -102,8 +102,8 @@ sub _resume_filehandle_read_watcher  ($)   { undef }
 
 #------------------------------------------------------------------------------
 
-sub _init_main_loop  () { undef }
-sub _start_main_loop () { undef }
-sub _stop_main_loop  () { undef }
+sub _init_main_loop  ($) { undef }
+sub _start_main_loop ()  { undef }
+sub _stop_main_loop  ()  { undef }
 
 1;

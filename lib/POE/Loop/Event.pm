@@ -76,7 +76,7 @@ sub _watch_signal {
   return if $signal eq 'KILL' or $signal eq 'STOP';
 
   # Everything else.
-  Event->signal( signal => $_[0],
+  Event->signal( signal => $signal,
                  cb     => \&_signal_handler_generic
                );
 }
@@ -208,19 +208,19 @@ sub _select_callback {
 # The event loop itself.
 
 # Initialize static watchers.
-sub _init_main_loop {
+sub _init_main_loop ($) {
   my $self = shift;
 
   $self->[KR_WATCHER_TIMER] =
     Event->timer
-      ( cb     => \&_callback_alarm,
+      ( cb     => \&_alarm_callback,
         after  => 0,
         parked => 1,
       );
 
   $self->[KR_WATCHER_IDLE] =
     Event->idle
-      ( cb     => \&_callback_fifo,
+      ( cb     => \&_fifo_callback,
         repeat => 1,
         min    => 0,
         max    => 0,

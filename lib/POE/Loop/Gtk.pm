@@ -102,9 +102,7 @@ sub _resume_alarm_watcher {
     Gtk->timeout_add( $next_time, \&_alarm_callback );
 }
 
-sub _pause_alarm_watcher {
-  $poe_kernel->[KR_WATCHER_TIMER]->stop();
-}
+sub _pause_alarm_watcher () { }
 
 sub _watch_filehandle {
   my ($kr_handle, $handle, $select_index) = @_;
@@ -219,7 +217,7 @@ sub _alarm_callback {
     my $next_time = ($self->[KR_ALARMS]->[0]->[ST_TIME] - time()) * 1000;
     $next_time = 0 if $next_time < 0;
     $self->[KR_WATCHER_TIMER] =
-      Gtk->timeout_add( $next_time, \&_gtk_timeout_callback );
+      Gtk->timeout_add( $next_time, \&_alarm_callback );
   }
 
   # Return false to stop.
@@ -273,13 +271,13 @@ sub _stop_main_loop {
   Gtk->main_quit();
 }
 
-sub _init_main_loop {
+sub _init_main_loop ($) {
   Gtk->init;
 
   $poe_main_window = Gtk::Window->new('toplevel');
   die "could not create a main Gk window" unless defined $poe_main_window;
 
-  $poe_main_window->signal_connect(delete_event => \&signal_ui_destroy );
+  $poe_main_window->signal_connect( delete_event => \&signal_ui_destroy );
 }
 
 1;

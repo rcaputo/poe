@@ -108,7 +108,8 @@ sub _resume_alarm_watcher {
 }
 
 sub _pause_alarm_watcher {
-  $poe_kernel->[KR_WATCHER_TIMER]->stop();
+  $poe_kernel->[KR_WATCHER_TIMER]->stop()
+    if defined $poe_kernel->[KR_WATCHER_TIMER];
 }
 
 sub _watch_filehandle {
@@ -327,7 +328,7 @@ sub _stop_main_loop {
   $poe_main_window->destroy();
 }
 
-sub _init_main_loop {
+sub _init_main_loop ($) {
   $poe_main_window = Tk::MainWindow->new();
   die "could not create a main Tk window" unless defined $poe_main_window;
 
