@@ -78,12 +78,12 @@ sub accept_and_start {
               InputState => 'server',
               ErrorState => 'server_error',
             );
+          print "> proxy session $me started\n";
         }
         else {
-          $me->{'wheel_client'}->put("Couldn't connect to server");
+          print "! Couldn't connect to server: $!\n";
           delete $me->{'wheel_client'};
         }
-        print "> proxy session $me started\n";
       },
       _stop => sub {
         my ($k, $me) = @_;
