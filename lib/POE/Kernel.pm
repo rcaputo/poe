@@ -3,7 +3,7 @@
 package POE::Kernel;
 
 use strict;
-use POSIX qw(errno_h fcntl_h);
+use POSIX qw(errno_h fcntl_h sys_wait_h);
 use Carp;
 use vars qw($poe_kernel);
 
@@ -91,14 +91,15 @@ sub VEC_RD      () { 0 }
 sub VEC_WR      () { 1 }
 sub VEC_EX      () { 2 }
                                         # sessions structure
-sub SS_SESSION  () { 0 }
-sub SS_REFCOUNT () { 1 }
-sub SS_EVCOUNT  () { 2 }
-sub SS_PARENT   () { 3 }
-sub SS_CHILDREN () { 4 }
-sub SS_HANDLES  () { 5 }
-sub SS_SIGNALS  () { 6 }
-sub SS_ALIASES  () { 7 }
+sub SS_SESSION   () { 0 }
+sub SS_REFCOUNT  () { 1 }
+sub SS_EVCOUNT   () { 2 }
+sub SS_PARENT    () { 3 }
+sub SS_CHILDREN  () { 4 }
+sub SS_HANDLES   () { 5 }
+sub SS_SIGNALS   () { 6 }
+sub SS_ALIASES   () { 7 }
+sub SS_PROCESSES () { 8 }
                                         # session handle structure
 sub SH_HANDLE   () { 0 }
 sub SH_REFCOUNT () { 1 }
@@ -111,6 +112,7 @@ sub KR_STATES         () { 3 }
 sub KR_SIGNALS        () { 4 }
 sub KR_ALIASES        () { 5 }
 sub KR_ACTIVE_SESSION () { 6 }
+sub KR_PROCESSES      () { 7 }
                                         # handle structure
 sub HND_HANDLE   () { 0 }
 sub HND_REFCOUNT () { 1 }
@@ -134,12 +136,15 @@ sub EN_SIGNAL () { '_signal'          }
 sub EN_GC     () { '_garbage_collect' }
 sub EN_PARENT () { '_parent'          }
 sub EN_CHILD  () { '_child'           }
+sub EN_SCPOLL () { '_sigchld_poll'    }
 
 #------------------------------------------------------------------------------
 #
 # states: [ [ $session, $source_session, $state, \@etc, $time ],
 #           ...
 #         ];
+#
+# processes: { $pid => $parent_session }
 #
 # handles: { $handle => [ $handle, $refcount, [$ref_r, $ref_w, $ref_x ],
 #                         [ { $session => [ $handle, $session, $state ], .. },
@@ -161,6 +166,7 @@ sub EN_CHILD  () { '_child'           }
 #                           { $handle => [ $hdl, $rcnt, [ $r,$w,$e ] ], ... },
 #                           { $signal => $state, ... },
 #                           { $name => 1, ... },
+#                           { $pid => 1, ... },   # child processes
 #                         ]
 #           };
 #
@@ -252,12 +258,13 @@ sub new {
   unless (defined $poe_kernel) {
     my $self = $poe_kernel = bless [ ], $type;
                                         # the long way to ensure correctness
-    $self->[KR_SESSIONS] = { };
-    $self->[KR_VECTORS ] = [ '', '', '' ];
-    $self->[KR_HANDLES ] = { };
-    $self->[KR_STATES  ] = [ ];
-    $self->[KR_SIGNALS ] = { };
-    $self->[KR_ALIASES ] = { };
+    $self->[KR_SESSIONS ] = { };
+    $self->[KR_VECTORS  ] = [ '', '', '' ];
+    $self->[KR_HANDLES  ] = { };
+    $self->[KR_STATES   ] = [ ];
+    $self->[KR_SIGNALS  ] = { };
+    $self->[KR_ALIASES  ] = { };
+    $self->[KR_PROCESSES] = { };
                                         # initialize the vectors *as* vectors
     vec($self->[KR_VECTORS]->[VEC_RD], 0, 1) = 0;
     vec($self->[KR_VECTORS]->[VEC_WR], 0, 1) = 0;
@@ -738,6 +745,32 @@ sub DESTROY {
 
 sub _invoke_state {
   my ($self, $source_session, $state, $etc) = @_;
+
+  if ($state eq EN_SCPOLL) {
+    while (my $child_pid = waitpid(-1, WNOHANG)) {
+      if (exists $self->[KR_PROCESSES]->{$child_pid}) {
+
+        my $parent_session = delete $self->[KR_PROCESSES]->{$child_pid};
+
+        $parent_session = $self
+          unless exists $self->[KR_SESSIONS]->{$parent_session};
+
+        $poe_kernel->_enqueue_state
+          ( $parent_session, $poe_kernel, EN_SIGNAL,
+            time(), [ 'CHLD', $child_pid, $? ]
+          );
+      }
+      else {
+        last;
+      }
+    }
+
+    if (keys %{$self->[KR_PROCESSES]}) {
+      $self->_enqueue_state($self, $self, EN_SCPOLL, time() + 1);
+    }
+
+  }
+
   return 1;
 }
 
@@ -926,7 +959,7 @@ sub _enqueue_state {
   }
   else {
     warn ">>>>> ", join('; ', keys(%{$self->[KR_SESSIONS]})), " <<<<<\n";
-    die "can't enqueue state for nonexistent session\a\n";
+    croak "can't enqueue state($state) for nonexistent session($session)\a\n";
   }
 }
 
@@ -1247,6 +1280,63 @@ sub alias_resolve {
 }
 
 #==============================================================================
+# Safe fork and SIGCHLD.
+#==============================================================================
+
+sub fork {
+  my ($self) = @_;
+
+  # Disable the real signal handler.  How to warn?
+  $SIG{CHLD} = 'IGNORE' if (exists $SIG{CHLD});
+  $SIG{CLD}  = 'IGNORE' if (exists $SIG{CLD});
+
+  my $new_pid = fork();
+
+  # Error.
+  unless (defined $new_pid) {
+    return( undef, $!+0, $! ) if wantarray;
+    return undef;
+  }
+
+  # Parent.
+  if ($new_pid) {
+    $self->[KR_PROCESSES]->{$new_pid} = $self->[KR_ACTIVE_SESSION];
+    $self->[KR_SESSIONS]->{ $self->[KR_ACTIVE_SESSION]
+                          }->[SS_PROCESSES]->{$new_pid} = 1;
+
+    # Went from 0 to 1 child processes; start a poll loop.  This uses
+    # a very raw, basic form of POE::Kernel::delay.
+    if (keys(%{$self->[KR_PROCESSES]}) == 1) {
+      $self->_enqueue_state($self, $self, EN_SCPOLL, time() + 1);
+    }
+
+    return( $new_pid, 0, 0 ) if wantarray;
+    return $new_pid;
+  }
+
+  # Child.
+  else {
+
+    # Build a list of unique sessions with children.
+    my %sessions;
+    foreach (keys %{$self->[KR_PROCESSES]}) {
+      $sessions{$_}++;
+    }
+
+    # Clean out the children for these sessions.
+    foreach my $session (keys %sessions) {
+      $self->[KR_SESSIONS]->{$session}->[SS_PROCESSES] = { };
+    }
+
+    # Clean out POE's child process table.
+    $self->[KR_PROCESSES] = { };
+
+    return( 0, 0, 0 ) if wantarray;
+    return 0;
+  }
+}
+
+#==============================================================================
 # HANDLERS
 #==============================================================================
 
@@ -1318,6 +1408,9 @@ POE::Kernel - POE Event Queue and Resource Manager
   # Signals:
   $kernel->sig( $signal_name, $state_name ); # Registers a handler.
   $kernel->signal( $session, $signal_name ); # Posts a signal.
+
+  # Processes.
+  $kernel->fork();   # "Safe" fork that polls for SIGCHLD.
 
   # States:
   $kernel->state( $state_name, $code_reference );    # Inline state
@@ -1613,10 +1706,14 @@ select.  It leaves the other two unchanged.
 The POE::Session documentation has more information about B<_signal>
 events.
 
-POE does not make Perl's signals safe.  Using signals is okay in
-short-lived programs, but long-running servers may eventually dump
-core if they receive a lot of signals.  This includes SIGCHLD from
-forked children.  Mileage varies considerably.
+POE currently does not make Perl's signals safe.  Using signals is
+okay in short-lived programs, but long-uptime servers may eventually
+dump core if they receive a lot of signals.  POE provides a "safe"
+fork() function that periodically reaps children without using
+signals; it emulates the system's SIGCHLD signal for each process in
+reaps.
+
+Mileage varies considerably.
 
 The kernel generates B<_signal> events when it receives signals from
 the operating system.  Sessions may also send signals between
@@ -1664,6 +1761,38 @@ name is not limited to what the OS allows.  For example, the kernel
 does something similar to post a fictitious ZOMBIE signal.
 
   $kernel->signal($session, 'BOGUS'); # Not as bogus as it sounds.
+
+=back
+
+=head2 Process Management Methods
+
+POE's signal handling is Perl's signal handling, which means that POE
+won't safely handle signals as long as Perl has a problem with them.
+
+However, POE works around this in at least SIGCHLD's case by providing
+a "safe" fork() function.  &POE::Kernel::fork() blocks
+$SIG{'CHLD','CLD'} and starts an event loop to poll for expired child
+processes.  It emulates the system's SIGCHLD behavior by sending a
+"soft" CHLD signal to the appropriate session.
+
+Because POE knows which session called its version of fork(), it can
+signal just that session that its forked child process has completed.
+
+=over 4
+
+=item *
+
+POE::Kernel::fork( )
+
+The fork() method tries to fork a process in the usual Unix way.  In
+addition, it blocks SIGCHLD and/or SIGCLD and starts an event loop to
+poll for completed child processes.
+
+POE's fork() will return different things in scalar and list contexts.
+In scalar context, it returns the child PID, 0, or undef, just as
+Perl's fork() does.  In a list context, it returns three items: the
+child PID (or 0 or undef), the numeric version of $!, and the string
+version of $!.
 
 =back
 

@@ -184,17 +184,17 @@ sub fork {
                                         # children should not honor this event
   return if ($heap->{'is a child'});
                                         # try to fork
-  my $pid = fork();
+  my ($pid, $errno, $errstr) = $kernel->fork();
                                         # did the fork fail?
   unless (defined($pid)) {
                                         # try again later, if a temporary error
-    if (($! == EAGAIN) || ($! == ECHILD)) {
+    if (($errno == EAGAIN) || ($errno == ECHILD)) {
       $heap->{'failed forks'}++;
       $kernel->delay('retry', 1);
     }
                                         # fail permanently, if fatal
     else {
-      warn "Can't fork: $!\n";
+      warn "Can't fork: $errstr\n";
       $kernel->yield('_stop');
     }
     return;

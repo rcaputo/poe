@@ -8,6 +8,18 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
+0.0801 1999.12.23
+-----------------
+
+Added &POE::Kernel::fork() to provide safe child reaping.  This fork()
+uses an event loop to poll for reapable children.  It fires a CHLD
+signal at the session that called &POE::Kernel::fork(), using POE's
+soft signals to avoid potential problems with Perl's signal handling.
+
+Changed the preforkedserver.perl example to use &POE::Kernel::fork(),
+but the sample program seems to be hideously broken as designed.
+
+
 0.08 1999.11.26
 ---------------
 
