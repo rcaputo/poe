@@ -55,46 +55,48 @@ sub _include_zlib {
 }
 
 #------------------------------------------------------------------------------
+sub _get_methods
+{
+    my($freezer)=@_;
+    my $freeze=$freezer->can('nfreeze') || $freezer->can('freeze');
+    my $thaw=$freezer->can('thaw');
+    return unless $freeze and $thaw;
+    return ($freeze, $thaw);
+}
+
+#------------------------------------------------------------------------------
 
 sub new {
   my($type, $freezer, $compression) = @_;
   $freezer ||= _default_freezer();
 
+  my($freeze, $thaw)=_get_methods($freezer);
+
   # not a reference... maybe a package?
-  unless(ref $freezer) {
-    my $symtable=$::{"main::"};
-
-    # find out of the package was loaded
-    my $loaded=1;
-    foreach my $p (split /::/, $freezer) {
-      unless(exists $symtable->{"$p\::"}) {
-        $loaded=0;
-        last;
-      }
-      $symtable=$symtable->{"$p\::"};
-    }
-
-    unless($loaded) {
-      my $q=$freezer;
-      $q=~s(::)(/)g;
-      eval {require "$q.pm"; import $freezer ();};
-      croak $@ if $@;
-    }
+  # and if it's a package, does it have the methods we want?
+  unless(ref $freezer and $freeze and $thaw) {
+        # if not, we are going to try to load it
+    my $q=$freezer;
+    $q=~s(::)(/)g;
+    delete $INC{$q . ".pm"};
+    eval {require "$q.pm"; import $freezer ();};
+    carp $@ if $@;
+    ($freeze, $thaw)=_get_methods($freezer);  
   }
 
   # Now get the methodes we want
-  my $freeze=$freezer->can('nfreeze') || $freezer->can('freeze');
   carp "$freezer doesn't have a freeze or nfreeze method" unless $freeze;
-  my $thaw=$freezer->can('thaw');
   carp "$freezer doesn't have a thaw method" unless $thaw;
-
+  # Rocco, shouldn't ->new() return undef() it if fails to find the methods
+  # it wants?
+  return unless $freeze and $thaw;
 
   # If it's an object, we use closures to create a $self->method()
-  my $tf=$freeze;
-  my $tt=$thaw;
+  my $truefreeze=$freeze;
+  my $truethaw=$thaw;
   if(ref $freezer) {
-    $tf=sub {$freeze->($freezer, @_)};
-    $tt=sub {$thaw->($freezer, @_)};
+    $truefreeze=sub {$freeze->($freezer, @_)};
+    $truethaw=sub {$thaw->($freezer, @_)};
   }
 
   # Compression
@@ -110,8 +112,8 @@ sub new {
 
   my $self = bless { buffer    => '',
                      expecting => undef,
-                     thaw      => $tt,
-                     freeze    => $tf,
+                     thaw      => $truethaw,
+                     freeze    => $truefreeze,
                      compress  => $compression,
                    }, $type;
   $self;

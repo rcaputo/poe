@@ -11,6 +11,7 @@ sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use POE::Filter::Reference;
+use Symbol qw(delete_package);
 
 use TestSetup;
 
@@ -18,10 +19,10 @@ use TestSetup;
 { local $SIG{__WARN__} = sub { };
   my $reference = eval { POE::Filter::Reference->new(); };
   if (length $@) {
-    &test_setup( 0,
-                 "Storable, FreezeThaw, or YAML is required for these tests."
-               )
-      if $@ =~ /requires Storable/;
+    &test_setup(
+      0,
+      "Storable, FreezeThaw, or YAML is required for these tests."
+    ) if $@ =~ /requires Storable/;
     $@ =~ s/ at .*$//s;
     &test_setup(0, $@);
     exit;
@@ -55,7 +56,7 @@ sub MyFreezer::thaw {
 }
 
 # Start our engines.
-&test_setup(89);
+&test_setup(109);
 
 # Run some tests under a certain set of conditions.
 sub test_freeze_and_thaw {
@@ -70,6 +71,7 @@ sub test_freeze_and_thaw {
     # Hide warnings.
     local $SIG{__WARN__} = sub { };
     $filter = POE::Filter::Reference->new( $freezer, $compression );
+    die "filter not created with freezer=$freezer" unless $filter;
   };
 
   if (length $@) {
@@ -147,6 +149,15 @@ my $pending_thing  = $pending_filter->get($pending_filter->get_pending());
 &ok_if( 87, $pending_thing->[1]->[0] == 2 );
 &ok_if( 88, $pending_thing->[1]->[1] == 4 );
 &ok_if( 89, $pending_thing->[1]->[2] == 6 );
+
+# Throw away MyOtherFrezere's methods to make it look like it's only
+# partly loaded.  This will should fool POE::Filter::Reference::new().
+
+delete_package("MyOtherFreezer");
+
+# Test each combination of things.
+&test_freeze_and_thaw( 90,  'MyOtherFreezer',            undef );
+&test_freeze_and_thaw( 100, 'MyOtherFreezer',            9     );
 
 &results();
 
