@@ -496,7 +496,7 @@ B<Important Filter::Reference note:> If you're using Filter::Reference
 to pass data to another machine, make sure every machine has the same
 versions of the same libraries.  Subtle differences, even in different
 versions of modules like Storable, can cause mysterious errors when
-data is reconstituted at the receiving end.  Whe all else fails,
+data is reconstituted at the receiving end.  When all else fails,
 upgrade to the latest versions.
 
 Filter::HTTPD uses a small world of modules including HTTP::Status;
