@@ -49,6 +49,10 @@ sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
   my $refcount = ++$kr_extra_refs{$session}->{$tag};
 
+  # -><- We could probably get away with only incrementing the
+  # session's master refcount once, as long as any extra refcount is
+  # positive.  Then the session reference count would be a flag
+  # instead of a counter.
   $self->_data_ses_refcount_inc($session) if $refcount == 1;
 
   if (TRACE_REFCNT) {
@@ -72,6 +76,10 @@ sub _data_extref_dec {
   my ($self, $session, $tag) = @_;
 
   if (ASSERT_DATA) {
+    # Prevents autoviv.
+    _trap("<dt> decrementing extref for session without any")
+      unless exists $kr_extra_refs{$session};
+
     unless (exists $kr_extra_refs{$session}->{$tag}) {
       _trap(
         "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
@@ -99,9 +107,12 @@ sub _data_extref_remove {
   my ($self, $session, $tag) = @_;
 
   if (ASSERT_DATA) {
+    # Prevents autoviv.
+    _trap("<dt> removing extref from session without any")
+      unless exists $kr_extra_refs{$session};
     unless (exists $kr_extra_refs{$session}->{$tag}) {
       _trap(
-        "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
+        "<dt> removing extref for nonexistent tag ``$tag'' in ",
         $self->_data_alias_loggable($session)
       );
     }
@@ -117,13 +128,16 @@ sub _data_extref_remove {
 
 sub _data_extref_clear_session {
   my ($self, $session) = @_;
+
+  # TODO - Should there be a _trap here if the session doesn't exist?
+
   return unless exists $kr_extra_refs{$session}; # avoid autoviv
   foreach (keys %{$kr_extra_refs{$session}}) {
     $self->_data_extref_remove($session, $_);
   }
 
   if (ASSERT_DATA) {
-    if (keys %{$kr_extra_refs{$session}}) {
+    if (exists $kr_extra_refs{$session}) {
       _trap(
         "<dt> extref clear did not remove session ",
         $self->_data_alias_loggable($session)
