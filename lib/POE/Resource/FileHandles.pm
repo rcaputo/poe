@@ -410,7 +410,9 @@ sub _data_handle_add {
             _trap(
               $self->_data_alias_loggable($session),
               " can't watch $handle in mode $mode: ",
-              $self->_data_alias_loggable($watch_session),
+              $self->_data_alias_loggable(
+                $kr_fno_rec->[FMO_SESSIONS]->{$watch_session}->[HSS_SESSION]
+              ),
               " is already watching it as $other_handle (closed)"
             );
           }
@@ -418,7 +420,9 @@ sub _data_handle_add {
             _trap(
               $self->_data_alias_loggable($session),
               " can't watch $handle in mode $mode: ",
-              $self->_data_alias_loggable($watch_session),
+              $self->_data_alias_loggable(
+                $kr_fno_rec->[FMO_SESSIONS]->{$watch_session}->[HSS_SESSION]
+              ),
               " is already watching it as $other_handle (still open)"
             );
           }
