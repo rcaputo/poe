@@ -81,10 +81,16 @@ sub io_start {
     $kernel->delay( ev_pipe_write => 1 );
   }
 
+  # Start a main window.  POE stopped doing this for you in version
+  # 0.1207.
+
+  $heap->{main_window} = Gtk::Window->new('toplevel');
+  $kernel->signal_ui_destroy( $heap->{main_window} );
+
   # And counters to monitor read/write progress.
 
   my $box = Gtk::VBox->new(0, 0);
-  $poe_main_window->add($box);
+  $heap->{main_window}->add($box);
   $box->show();
 
   { my $label = Gtk::Label->new( 'Write Count' );
@@ -145,7 +151,7 @@ sub io_start {
     7 => "not ok 7\n",
   };
 
-  $poe_main_window->show();
+  $heap->{main_window}->show();
 }
 
 sub io_pipe_write {
