@@ -28,6 +28,7 @@ sub BOGUS_SESSION () { 31415 }
       [],           # etc
       __FILE__,     # file
       __LINE__,     # line
+	  "called_from",# caller state
       0,            # time (beginning thereof)
     );
 
@@ -97,6 +98,7 @@ for (1..4) {
       [],                    # etc
       __FILE__,              # file
       __LINE__,              # line
+	  undef,                 # called from state
       $_,                    # time
     )
   );
@@ -203,6 +205,7 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
       [],                     # etc
       __FILE__,               # file
       __LINE__,               # line
+	  undef,                  # called from state
       1,                      # due time
     );
   };
@@ -225,6 +228,7 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
     [],                     # etc
     __FILE__,               # file
     __LINE__,               # line
+	undef,                  # called from state
     1,                      # due time
   );
 
@@ -236,6 +240,7 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
     [],                     # etc
     __FILE__,               # file
     __LINE__,               # line
+	undef,                  # called from state
     2,                      # due time
   );
 
