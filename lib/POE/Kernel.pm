@@ -104,6 +104,7 @@ sub KR_SID_SEQ        () {  8 } #   \$kr_sid_seq,
 sub KR_EXTRA_REFS     () {  9 } #   \$kr_extra_refs,
 sub KR_SIZE           () { 10 } #   XXX UNUSED ???
 sub KR_RUN            () { 11 } #   \$kr_run_warning
+sub KR_ACTIVE_EVENT   () { 12 } #   \$kr_active_event
                                 # ]
 
 # This flag indicates that POE::Kernel's run() method was called.
@@ -637,6 +638,7 @@ sub new {
         undef,               # KR_EXTRA_REFS
         undef,               # KR_SIZE
         \$kr_run_warning,    # KR_RUN 
+        \$kr_active_event,   # KR_ACTIVE_EVENT
 
       ], $type;
 
