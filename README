@@ -66,7 +66,23 @@ everything.  To further this effort, the author wrote a test coverage
 reporting program; then he discovered Devel::Coverage.  Oh well!
 Anyway, here's the test coverage summary for this version:
 
-... don't forget to put them here ...
+  Source File                         =   Ran / Total = Covered
+  POE.pm                              =    19 /    19 = 100.00%
+  POE/Component/Server/TCP.pm         =    23 /    23 = 100.00%
+  POE/Driver/SysRW.pm                 =    36 /    54 =  66.67%
+  POE/Filter/HTTPD.pm                 =    11 /    85 =  12.94%
+  POE/Filter/Line.pm                  =    15 /    20 =  75.00%
+  POE/Filter/Reference.pm             =     4 /    66 =   6.06%
+  POE/Filter/Stream.pm                =     2 /    11 =  18.18%
+  POE/Kernel.pm                       =   616 /   908 =  67.84%
+  POE/Preprocessor.pm                 =   119 /   134 =  88.81%
+  POE/Session.pm                      =    88 /   194 =  45.36%
+  POE/Wheel/FollowTail.pm             =     5 /    65 =   7.69%
+  POE/Wheel/ListenAccept.pm           =     5 /    43 =  11.63%
+  POE/Wheel/ReadWrite.pm              =    99 /   183 =  54.10%
+  POE/Wheel/SocketFactory.pm          =   187 /   267 =  70.04%
+  All Told                            =  1229 /  2072 =  59.31%
+
 
 Good luck, and thank you for reading!
 

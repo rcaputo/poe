@@ -11,7 +11,7 @@ WriteMakefile
     AUTHOR       => 'Rocco Caputo <troc+poe@netrus.net>',
     ABSTRACT     => 'Event driven state machines and I/O abstractions.',
     VERSION_FROM => 'POE.pm',
-    dist         => { 'COMPRESS' => 'gzip -9',
+    dist         => { 'COMPRESS' => 'gzip -9f',
                       'SUFFIX'   => 'gz',
                     },
     PREREQ_PM    => { Carp               => 0,

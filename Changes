@@ -36,6 +36,22 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 0.1006 2000.??.?? (!!!)
 -----------------------
 
+Increased the time that t/11_signals_poe.t waits to reap children.  On
+memory- and cpu-challenged systems, swap times could delay process
+exits, causing false failures when the test program timed out.
+
+Fimmtiu discovered why it's bad to post _start yourself, and I decided
+it would be best for everyone to document it.
+
+Philip Gwyn patched POE::Kernel to unwind SIGCHLD reaping loops.  This
+greatly reduces the amount of work done in POE's stock $SIG{CHLD}
+handlers which in turn reduces the probability that SIGCHLD will
+segfault Perl.  Note, however, that the chance of this occurring will
+remain nonzero as long as Perl is not signal safe.  (Also, the patch
+wouldn't apply and I sort of redid the code as I spliced the idea into
+the Kernel.  It's probably busted, and I should compare it against
+Philip's original patch to make sure it works the way he intended.)
+
 Tweaked postbacks.  Older Perl versions were not doing the right
 things with \@_ in POE::Session's postback() method.  Replaced it
 with [ @_ ] instead.

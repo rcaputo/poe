@@ -1119,6 +1119,14 @@ convention.  It's therefore recommended not to use a single leading
 underscore in custom state names, since there's a small but positive
 probability of colliding with future standard events.
 
+Predefined states generally have serious side effects.  The _start
+state, for example, performs much of the task of setting up a session.
+Posting a redundant _start state transition will dutifully attempt to
+allocate a session that already exists, which will in turn do
+terrible, horrible things to the Kernel's internal data.  Such things
+would normally be outlawed outright, but the extra overhead to check
+for them hasn't yet been deemed worthwhile.  Please be careful!
+
 Here now are the predefined standard states, why they're invoked, and
 what their parameters mean.
 

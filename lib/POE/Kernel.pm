@@ -528,17 +528,23 @@ sub _poe_signal_handler_pipe {
 }
 
 # SIGCH?LD are normalized to SIGCHLD and include the child process'
-# PID and return code.
+# PID and return code.  Philip Gwyn rewrote most of the SIGCH?LD code
+# for version 0.1006; it got rewritten again while the patches were
+# manually applied.  I expect it to be rewritten a few more times to
+# fix Philip's code back the way it ought to be.
 
 sub _poe_signal_handler_child {
   if (defined $_[0]) {
 
-    # Reap until there are no more children.
-    while ( ( my $pid = waitpid(-1, WNOHANG) ) > 0 ) {
-      {% post_child_signal $poe_kernel, $pid, $? %}
-    }
-
-    $SIG{$_[0]} = \&_poe_signal_handler_child;
+    # The default SIGCH?LD action is "discard".  We set it here to
+    # prevent Perl from catching more SIGCHLD signals while the Kernel
+    # polls for child processes.
+    $SIG{$_[0]} = 'DEFAULT';
+    $poe_kernel->_enqueue_state( $poe_kernel, $poe_kernel,
+                                 EN_SCPOLL, ET_SCPOLL,
+                                 [ ],
+                                 time(), __FILE__, __LINE__
+                               );
   }
   else {
     warn "POE::Kernel::_signal_handler_child detected an undefined signal";
@@ -1289,7 +1295,6 @@ sub run {
       if ($timeout || keys(%$kr_handles)) {
 
         # Check filehandles, or wait for a period of time to elapse.
-
         my $hits = select( my $rout = $kr_vectors->[VEC_RD],
                            my $wout = $kr_vectors->[VEC_WR],
                            my $eout = $kr_vectors->[VEC_EX],
@@ -1651,11 +1656,15 @@ sub _invoke_state {
     # Non-blocking wait for a child process.  If one was reaped,
     # dispatch a SIGCHLD to the session who called fork.
 
-    while ( ( my $pid = waitpid(-1, WNOHANG) ) > 0 ) {
+    my $pid = waitpid(-1, WNOHANG);
+
+    # A child stopped, or something.
+
+    if ($pid > 0) {
 
       # Determine if the child process is really exiting and not just
       # stopping for some other reason.  This is perl Perl Cookbook
-      # recipe 16.19.
+      # recipe 16.19 and the waitpid(2) manpage.
 
       if (WIFEXITED($?)) {
 
@@ -1669,7 +1678,7 @@ sub _invoke_state {
                    exists $self->[KR_SESSIONS]->{$parent_session}
                  );
 
-        # Enqueue the signal.
+        # Enqueue the signal event.
 
         $self->_enqueue_state( $parent_session, $self,
                                EN_SIGNAL, ET_SIGNAL,
@@ -1677,20 +1686,47 @@ sub _invoke_state {
                                time(), __FILE__, __LINE__
                              );
       }
+
+      # Enqueue an immediate subsequent wait in case another child
+      # process is waiting.
+
+      $self->_enqueue_state( $poe_kernel, $poe_kernel,
+                             EN_SCPOLL, ET_SCPOLL,
+                             [ ],
+                             time(), __FILE__, __LINE__
+                           );
+
+    }
+
+    # An error occurred.
+
+    elsif ($pid == -1) {
+
+      # waitpid(2) was interrupted.  Retry immediately.
+
+      if ($! == EINTR) {
+        $self->_enqueue_state( $poe_kernel, $poe_kernel,
+                               EN_SCPOLL, ET_SCPOLL,
+                               [ ],
+                               time(), __FILE__, __LINE__
+                             );
+      }
+
+      # Some other error occurred.  Assume we're stopping the wait
+      # loop.  Warn if it's something unexpected.
+
       else {
-        last;
+        $SIG{CHLD} = \&_poe_signal_handler_child if exists $SIG{CHLD};
+        $SIG{CLD}  = \&_poe_signal_handler_child if exists $SIG{CLD};
+        warn $! if $! and $! != ECHILD;
       }
     }
 
-    # If there still are processes waiting, post another EN_SCPOLL for
-    # later.
+    # Nothing is left to wait for.  Stop the wait loop.
 
-    if (scalar keys %{$self->[KR_PROCESSES]}) {
-      $self->_enqueue_state( $self, $self,
-                             EN_SCPOLL, ET_SCPOLL,
-                             [],
-                             time() + 1, __FILE__, __LINE__
-                           );
+    else {
+      $SIG{CHLD} = \&_poe_signal_handler_child if exists $SIG{CHLD};
+      $SIG{CLD}  = \&_poe_signal_handler_child if exists $SIG{CLD};
     }
   }
 

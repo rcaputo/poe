@@ -59,7 +59,7 @@ POE::Session->create
           print "not ok 1 # forked $_[HEAP]->{forked} out of $fork_count\n";
         }
 
-        $_[KERNEL]->delay( time_is_up => 60 );
+        $_[KERNEL]->delay( time_is_up => 120 );
       },
 
       _stop =>
@@ -76,7 +76,7 @@ POE::Session->create
       catch_sigchld =>
       sub {
         $_[HEAP]->{reaped}++;
-        $_[KERNEL]->delay( time_is_up => 5 );
+        $_[KERNEL]->delay( time_is_up => 15 );
       },
 
       time_is_up =>
