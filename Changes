@@ -7,11 +7,21 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
-0.06_05 ????.??.??
+0.06_06 1999.04.28
 ------------------
 
 Added some defaults to SocketFactory: SocketDomain => AF_INET,
 SocketType => SOCK_STREAM, SocketProtocol => 'tcp' (for INET sockets).
+
+Changed SocketFactory semantics.  On Artur's insistence, SocketFactory
+now uses RemoteAddress to determine the difference between connecting
+and listening sockets.  ListenQueue now defaults to SOMAXCONN.  This
+should not break existing programs.
+
+The tests/*.perl programs have been updated to use SocketFactory in
+recommended ways.
+
+Added STATE to state (event handler) parameters.
 
 
 0.06_05 1999.03.23
