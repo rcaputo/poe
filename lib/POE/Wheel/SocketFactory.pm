@@ -162,18 +162,42 @@ sub event {
 
     if ($name eq 'SuccessState') {
       if (defined $event) {
-        $self->{'event success'} = $event;
+        if (ref($event) eq 'CODE') {
+          $poe_kernel->state
+            ( $self->{'event success'} =
+                $self->{state_success} = $self . ' -> success',
+              $event
+            );
+        }
+        else {
+          if (ref($event) ne '') {
+            carp "Strange reference used as SuccessState event";
+          }
+          $self->{'event success'} = $event;
+        }
       }
       else {
-        carp "SuccessState requires an event name.  ignoring undef";
+        carp "SuccessState requires an event name or coderef.  ignoring undef";
       }
     }
     elsif ($name eq 'FailureState') {
       if (defined $event) {
-        $self->{'event failure'} = $event;
+        if (ref($event) eq 'CODE') {
+          $poe_kernel->state
+            ( $self->{'event failure'} =
+                $self->{state_failure} = $self . ' -> failure',
+              $event
+            );
+        }
+        else {
+          if (ref($event) ne '') {
+            carp "Strange reference used as FailureState event (ignored)"
+          }
+          $self->{'event failure'} = $event;
+        }
       }
       else {
-        carp "FailureState requires an event name.  ignoring undef";
+        carp "FailureState requires an event name or coderef.  ignoring undef";
       }
     }
     else {
