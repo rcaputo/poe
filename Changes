@@ -28,8 +28,8 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 |
 `-----------------
 
-0.1012 2000.??.??
------------------
+0.11 2000.07.12
+---------------
 
 A-mused found samples/thrash.perl failing on Redhat 6.0.  The chain of
 events goes something like this: (1) select says a non-blocking
