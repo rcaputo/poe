@@ -36,13 +36,13 @@ ExtUtils::AutoInstall->import(
     "POSIX"              => 1.02,
     "Socket"             => 1.7,
     "Filter::Util::Call" => 1.06,
-    "Test::More"         => 0.50,
-    "File::Spec"         => 3.01,
+    "Test::More"         => 0.47,
+    "File::Spec"         => 0.87,
     "Errno"              => 1.09,
   ],
   "Recommended modules to increase timer/alarm/delay accuracy." => [
       -default      => 0,
-      'Time::HiRes' => '1.65',
+      'Time::HiRes' => '1.59',
   ],
   "Optional modules to speed up large-scale clients/servers." => [
       -default   => 0,
@@ -50,7 +50,7 @@ ExtUtils::AutoInstall->import(
   ],
   "Optional modules for IPv6 support." => [
       -default  => 0,
-      'Socket6' => 0.17,
+      'Socket6' => 0.14,
   ],
   "Optional modules for controlling full-screen programs (e.g. vi)." => [
       -default  => 0,
@@ -58,13 +58,13 @@ ExtUtils::AutoInstall->import(
   ],
   "Optional modules for marshaling/serializing data." => [
       -default         => 0,
-      'Storable'       => '2.13',
+      'Storable'       => '2.12',
       'Compress::Zlib' => '1.33',
   ],
   "Optional modules for web applications (client & server)." => [
       -default => 0,
-      'LWP'            => '5.801',
-      'URI'            => '1.35',
+      'LWP'            => '5.79',
+      'URI'            => '1.30',
   ],
   "Optional modules for Curses text interfaces." => [
       -default => 0,
