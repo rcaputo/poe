@@ -15,7 +15,7 @@ BEGIN {
     eval 'sub TRACE_GATHER () { 1 }';
   }
   else {
-    eval 'sub TRACE_GATHER () { 1 }';
+    eval 'sub TRACE_GATHER () { 0 }';
   }
 };
 sub TRACE_SECTION () { 1 }  # lets the installer know what's going on
