@@ -3,7 +3,7 @@
 # Tk-Perl event loop bridge for POE::Kernel.
 
 # Empty package to appease perl.
-package POE::Kernel::Tk;
+package POE::Loop::Tk;
 
 use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];

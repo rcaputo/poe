@@ -74,8 +74,8 @@ BEGIN {
   my @files_to_unuse =
     qw( POE/Kernel.pm
 
-        POE/Kernel/Event.pm POE/Kernel/Gtk.pm
-        POE/Kernel/Select.pm POE/Kernel/Tk.pm
+        POE/Loop/Event.pm POE/Loop/Gtk.pm
+        POE/Loop/Select.pm POE/Loop/Tk.pm
 
         Event.pm Gtk.pm Tk.pm
       );

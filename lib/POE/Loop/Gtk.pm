@@ -3,7 +3,7 @@
 # Gtk-Perl event loop bridge for POE::Kernel.
 
 # Empty package to appease perl.
-package POE::Kernel::Gtk;
+package POE::Loop::Gtk;
 
 use strict;
 

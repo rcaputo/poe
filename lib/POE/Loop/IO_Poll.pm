@@ -5,7 +5,7 @@
 # contributed by Matt Sergeant (baud).
 
 # Empty package to appease perl.
-package POE::Kernel::Poll;
+package POE::Loop::Poll;
 
 use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];

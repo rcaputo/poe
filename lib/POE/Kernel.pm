@@ -353,18 +353,18 @@ sub LOOP_TK     () { 'Tk.pm'    }
 
 BEGIN {
   if (exists $INC{'Gtk.pm'}) {
-    require POE::Kernel::Gtk;
-    POE::Kernel::Gtk->import();
+    require POE::Loop::Gtk;
+    POE::Loop::Gtk->import();
   }
 
   if (exists $INC{'Tk.pm'}) {
-    require POE::Kernel::Tk;
-    POE::Kernel::Tk->import();
+    require POE::Loop::Tk;
+    POE::Loop::Tk->import();
   }
 
   if (exists $INC{'Event.pm'}) {
-    require POE::Kernel::Event;
-    POE::Kernel::Event->import();
+    require POE::Loop::Event;
+    POE::Loop::Event->import();
   }
 
   if (exists $INC{'IO/Poll.pm'}) {
@@ -372,14 +372,14 @@ BEGIN {
       warn "IO::Poll has issues on $^O.  Using select() instead for now.\n";
     }
     else {
-      require POE::Kernel::Poll;
-      POE::Kernel::Poll->import();
+      require POE::Loop::Poll;
+      POE::Loop::Poll->import();
     }
   }
 
   unless (defined &POE_LOOP) {
-    require POE::Kernel::Select;
-    POE::Kernel::Select->import();
+    require POE::Loop::Select;
+    POE::Loop::Select->import();
   }
 }
 

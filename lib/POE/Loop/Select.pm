@@ -3,7 +3,7 @@
 # Select loop bridge for POE::Kernel.
 
 # Empty package to appease perl.
-package POE::Kernel::Select;
+package POE::Loop::Select;
 
 use strict;
 

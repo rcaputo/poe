@@ -3,7 +3,7 @@
 # Event.pm event loop bridge for POE::Kernel.
 
 # Empty package to appease perl.
-package POE::Kernel::Event;
+package POE::Loop::Event;
 
 use strict;
 

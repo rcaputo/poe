@@ -20,11 +20,11 @@ POE/Filter/Reference.pm
 POE/Filter/Stackable.pm
 POE/Filter/Stream.pm
 POE/Kernel.pm
-POE/Kernel/Event.pm
-POE/Kernel/Gtk.pm
-POE/Kernel/Poll.pm
-POE/Kernel/Select.pm
-POE/Kernel/Tk.pm
+POE/Loop/Event.pm
+POE/Loop/Gtk.pm
+POE/Loop/Poll.pm
+POE/Loop/Select.pm
+POE/Loop/Tk.pm
 POE/Macro/UseBytes.pm
 POE/NFA.pm
 POE/Pipe.pm
