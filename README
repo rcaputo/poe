@@ -4,8 +4,8 @@ $Id$
 Detailed Information
 --------------------
 
-POE is bigger than this README.  Please see http://poe.perl.org/ for
-much more information.
+POE is bigger than this README.  Please see its web site at
+http://poe.perl.org/ for more information.
 
 -----------
 What POE Is
@@ -20,7 +20,7 @@ financial markets, file systems, commerce and application servers.  It
 has been used in projects ranging from a few lines of code to tens of
 thousands.
 
-POE is compatible with perl 5.005_03 and up.
+POE is compatible with perl versions as old as 5.005_03.
 
 POE includes an evolving component framework.  Components are
 high-level, modular, reusable pieces of programs.  Several components
@@ -40,7 +40,8 @@ index to the rest.  See the "SEE ALSO" section in "man POE", or your
 system's equivalent.
 
 The CHANGES file lists all the changes in the past year.  POE's web
-site includes a complete change history, broken down by release.
+site includes a complete change history, separated by version number,
+going back to its first public release.
 
 --------------
 Installing POE
