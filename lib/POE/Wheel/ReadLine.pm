@@ -1082,9 +1082,6 @@ sub _flush_output_buffer {
 sub _repaint_input_line {
   my $self = shift;
 
-  my ($p, $f, $l) = caller;
-  print "Called from line $l\x0D\x0A";
-
   print( $self->[SELF_PROMPT], normalize($self->[SELF_INPUT]) );
   if ($self->[SELF_CURSOR_INPUT] != length($self->[SELF_INPUT])) {
     $termcap->Tgoto( 'LE', 1,
