@@ -647,7 +647,7 @@ sub sig {
     croak "undefined signal in sig()" unless defined $signal;
     carp( "The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved assigning it to a signal"
-        ) if exists $poes_own_events{$event_name};
+        ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
   if (defined $event_name) {
@@ -2682,7 +2682,7 @@ sub select_read {
     croak "invalid filehandle in select_read()" unless defined fileno($handle);
     carp( "The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a file watcher to it"
-        ) if exists $poes_own_events{$event_name};
+        ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
   $self->_internal_select($kr_active_session, $handle, $event_name, VEC_RD);
@@ -2699,7 +2699,7 @@ sub select_write {
       unless defined fileno($handle);
     carp( "The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a file watcher to it"
-        ) if exists $poes_own_events{$event_name};
+        ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
   $self->_internal_select($kr_active_session, $handle, $event_name, VEC_WR);
@@ -2716,7 +2716,7 @@ sub select_expedite {
       unless defined fileno($handle);
     carp( "The '$event_name' event is one of POE's own.  Its " .
           "effect cannot be achieved by setting a file watcher to it"
-        ) if exists $poes_own_events{$event_name};
+        ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
   $self->_internal_select($kr_active_session, $handle, $event_name, VEC_EX);
