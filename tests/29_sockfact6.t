@@ -69,7 +69,10 @@ sub server_got_disconnect {
 }
 
 sub server_got_error {
-  # Shush a warning.
+  my ($syscall, $errno, $error) = @_[ARG0..ARG2];
+  unless ($syscall eq 'read' or $syscall eq 'write') {
+    ok(2, "# skipped: AF_INET6 probably not supported");
+  }
 }
 
 ###############################################################################
@@ -84,6 +87,7 @@ POE::Component::Client::TCP->new
     ServerInput   => \&client_got_input,
     ServerFlushed => \&client_got_flush,
     Disconnected  => \&client_got_disconnect,
+    ConnectError  => \&client_got_connect_error,
   );
 
 sub client_got_connect {
@@ -114,6 +118,13 @@ sub client_got_flush {
 sub client_got_disconnect {
   my $heap = $_[HEAP];
   ok_if(4, $heap->{put_count} == $heap->{flush_count});
+}
+
+sub client_got_connect_error {
+  my ($syscall, $errno, $error) = @_[ARG0..ARG2];
+  ok(3, "# skipped: AF_INET6 probably not supported");
+  ok(4, "# skipped: AF_INET6 probably not supported");
+  warn "$syscall error $errno: $error\n";
 }
 
 ### main loop
