@@ -11,10 +11,12 @@ much more information.
 What POE Is
 -----------
 
-POE is a mature framework for creating multitasking programs in Perl.
-It has been in active development since 1998.  It has been used in
-mission-critical systems such as internetworked financial markets,
-file systems, commerce and application servers.
+POE is a mature framework for creating networking or multitasking
+programs in Perl.  It has been in active, open development since
+August 1998.  It has been used in mission-critical systems such as
+internetworked financial markets, file systems, commerce and
+application servers.  It has been used in projects ranging from a few
+lines to nearly 20,000.
 
 POE is compatible with perl 5.005_03 through 5.6.1 and beyond.
 
@@ -23,36 +25,19 @@ are modular, reusable pieces of programs.  Several components have
 been published on the CPAN, and more are listed on POE's web site.
 
 POE includes components and libraries for making quick work of network
-clients, servers, and peers.  A "hello, world" web application takes
-fewer than 50 lines of code, most of which is configuration.
+clients, servers, and peers.  A simple stand-alone web application
+takes about 30 lines of code, most of which is your own custom logic.
 
 ---------------------
 Documentation Roadmap
 ---------------------
 
 POE includes so much documentation that the main man page includes an
-index to the others.  See the "SEE ALSO" section in "man POE", or your
+index to the rest.  See the "SEE ALSO" section in "man POE", or your
 system's equivalent.
 
-The CHANGES file lists all the changes in the past year.  A complete
-change history, back to August 1998, is available on POE's web site.
-
---------------------
-Distribution Details
---------------------
-
-This distribution includes a samples directory that contains several
-well commented example programs.  These programs are NOT installed.
-Better examples are being written all the time and are available
-online in the POE Cookbook.
-
-POE's test programs may also be interesting examples, but they're more
-for exercising POE than illustrating good coding practices.  The tests
-also aren't installed, in case you were wondering.
-
-All in all, the actual installed bits of POE are probably around a
-third of the total distribution, and about a quarter of POE's
-installed footprint is documentation.
+The CHANGES file lists all the changes in the past year.  POE's web
+site includes a complete change history, broken down by release.
 
 --------------
 Installing POE
@@ -71,12 +56,11 @@ It involves a little more work if you have an older CPAN shell:
   perl -MCPAN -e shell
   cpan> install POE
 
-To install on a Win32 machine using ActiveState's PPM:
+To install on a Win32 machine using ActiveState's PPM.  If PPM fails,
+try PPM3:
 
-  ppm install http://poe.sourceforge.net/packages/POE.ppd
-
-POE can also be installed manually, and the latest versions of things
-are available in CVS.
+  ppm install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
+  ppm3 install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
 
 ------------
 Test Results
