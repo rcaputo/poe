@@ -132,6 +132,13 @@ sub new {
             );
         },
 
+        connect => sub {
+          my ($new_address, $new_port) = @_[ARG0, ARG1];
+          $address = $new_address if defined $new_address;
+          $port    = $new_port    if defined $new_port;
+          $_[KERNEL]->yield("reconnect");
+        },
+
         got_connect_success => sub {
           my ($kernel, $heap, $socket) = @_[KERNEL, HEAP, ARG0];
 
