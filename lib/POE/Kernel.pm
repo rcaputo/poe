@@ -1331,7 +1331,7 @@ sub _invoke_state {
 
       # The only negative value waitpid(2) should return is -1.
 
-      die "internal consistency error" if $pid != -1;
+      die "internal consistency error: waitpid returned $pid" if $pid != -1;
 
       # If the error is an interrupted syscall, poll again right away.
 
