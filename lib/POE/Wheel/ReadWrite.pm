@@ -15,11 +15,11 @@ sub DRIVER_BOTH                () {  4 }
 sub EVENT_INPUT                () {  5 }
 sub EVENT_ERROR                () {  6 }
 sub EVENT_FLUSHED              () {  7 }
-sub WATERMARK_MARK_HIGH        () {  8 }
-sub WATERMARK_MARK_LOW         () {  9 }
-sub WATERMARK_EVENT_HIGH       () { 10 }
-sub WATERMARK_EVENT_LOW        () { 11 }
-sub WATERMARK_STATE            () { 12 }
+sub WATERMARK_WRITE_MARK_HIGH  () {  8 }
+sub WATERMARK_WRITE_MARK_LOW   () {  9 }
+sub WATERMARK_WRITE_EVENT_HIGH () { 10 }
+sub WATERMARK_WRITE_EVENT_LOW  () { 11 }
+sub WATERMARK_WRITE_STATE      () { 12 }
 sub DRIVER_BUFFERED_OUT_OCTETS () { 13 }
 sub STATE_WRITE                () { 14 }
 sub STATE_READ                 () { 15 }
@@ -171,11 +171,11 @@ sub new {
       delete $params{ErrorEvent},       # EVENT_ERROR
       delete $params{FlushedEvent},     # EVENT_FLUSHED
       # Water marks.
-      delete $params{HighMark},         # WATERMARK_MARK_HIGH
-      delete $params{LowMark},          # WATERMARK_MARK_LOW
-      delete $params{HighEvent},        # WATERMARK_EVENT_HIGH
-      delete $params{LowEvent},         # WATERMARK_EVENT_LOW
-      0,                                # WATERMARK_STATE
+      delete $params{HighMark},         # WATERMARK_WRITE_MARK_HIGH
+      delete $params{LowMark},          # WATERMARK_WRITE_MARK_LOW
+      delete $params{HighEvent},        # WATERMARK_WRITE_EVENT_HIGH
+      delete $params{LowEvent},         # WATERMARK_WRITE_EVENT_LOW
+      0,                                # WATERMARK_WRITE_STATE
       # Driver statistics.
       0,                                # DRIVER_BUFFERED_OUT_OCTETS
       # Dynamic state names.
@@ -209,16 +209,16 @@ sub _define_write_state {
   my $driver        = $self->[DRIVER_BOTH];
   my $event_error   = \$self->[EVENT_ERROR];
   my $event_flushed = \$self->[EVENT_FLUSHED];
-  my $high_mark     = $self->[WATERMARK_MARK_HIGH];
-  my $low_mark      = $self->[WATERMARK_MARK_LOW];
-  my $event_high    = \$self->[WATERMARK_EVENT_HIGH];
-  my $event_low     = \$self->[WATERMARK_EVENT_LOW];
+  my $high_mark     = $self->[WATERMARK_WRITE_MARK_HIGH];
+  my $low_mark      = $self->[WATERMARK_WRITE_MARK_LOW];
+  my $event_high    = \$self->[WATERMARK_WRITE_EVENT_HIGH];
+  my $event_low     = \$self->[WATERMARK_WRITE_EVENT_LOW];
   my $unique_id     = $self->[UNIQUE_ID];
 
   # Read/write members.  These are done by reference, to avoid pushing
   # $self into the anonymous sub.  Extra copies of $self are bad and
   # can prevent wheels from destructing properly.
-  my $is_in_high_water_state     = \$self->[WATERMARK_STATE];
+  my $is_in_high_water_state     = \$self->[WATERMARK_WRITE_STATE];
   my $driver_buffered_out_octets = \$self->[DRIVER_BUFFERED_OUT_OCTETS];
 
   # Register the select-write handler.
@@ -255,7 +255,7 @@ sub _define_write_state {
           }
 
           # Not in high water state.  Check for high water.  Needs to
-          # also check definedness of $$river_buffered_out_octets.
+          # also check definedness of $$driver_buffered_out_octets.
           # Although we know this ahead of time and could probably
           # optimize it away with a second state definition, it would
           # be best to wait until ReadWrite stabilizes.  That way
@@ -364,8 +364,8 @@ sub event {
       $redefine_write = 1;
     }
     elsif ($name eq 'HighEvent') {
-      if (defined $self->[WATERMARK_MARK_HIGH]) {
-        $self->[WATERMARK_EVENT_HIGH] = $event;
+      if (defined $self->[WATERMARK_WRITE_MARK_HIGH]) {
+        $self->[WATERMARK_WRITE_EVENT_HIGH] = $event;
         $redefine_write = 1;
       }
       else {
@@ -373,8 +373,8 @@ sub event {
       }
     }
     elsif ($name eq 'LowEvent') {
-      if (defined $self->[WATERMARK_MARK_LOW]) {
-        $self->[WATERMARK_EVENT_LOW] = $event;
+      if (defined $self->[WATERMARK_WRITE_MARK_LOW]) {
+        $self->[WATERMARK_WRITE_EVENT_LOW] = $event;
         $redefine_write = 1;
       }
       else {
@@ -425,8 +425,8 @@ sub put {
   }
 
   # Return true if the high watermark has been reached.
-  ( $self->[WATERMARK_MARK_HIGH] &&
-    $self->[DRIVER_BUFFERED_OUT_OCTETS] >= $self->[WATERMARK_MARK_HIGH]
+  ( $self->[WATERMARK_WRITE_MARK_HIGH] &&
+    $self->[DRIVER_BUFFERED_OUT_OCTETS] >= $self->[WATERMARK_WRITE_MARK_HIGH]
   );
 }
 
@@ -496,10 +496,10 @@ sub get_output_filter {
 
 sub set_high_mark {
   my ($self, $new_high_mark) = @_;
-  if (defined $self->[WATERMARK_MARK_HIGH]) {
+  if (defined $self->[WATERMARK_WRITE_MARK_HIGH]) {
     if (defined $new_high_mark) {
-      if ($new_high_mark > $self->[WATERMARK_MARK_LOW]) {
-        $self->[WATERMARK_MARK_HIGH] = $new_high_mark;
+      if ($new_high_mark > $self->[WATERMARK_WRITE_MARK_LOW]) {
+        $self->[WATERMARK_WRITE_MARK_HIGH] = $new_high_mark;
         $self->_define_write_state();
       }
       else {
@@ -517,11 +517,11 @@ sub set_high_mark {
 
 sub set_low_mark {
   my ($self, $new_low_mark) = @_;
-  if (defined $self->[WATERMARK_MARK_LOW]) {
+  if (defined $self->[WATERMARK_WRITE_MARK_LOW]) {
     if (defined $new_low_mark) {
       if ($new_low_mark > 0) {
-        if ($new_low_mark < $self->[WATERMARK_MARK_HIGH]) {
-          $self->[WATERMARK_MARK_LOW] = $new_low_mark;
+        if ($new_low_mark < $self->[WATERMARK_WRITE_MARK_HIGH]) {
+          $self->[WATERMARK_WRITE_MARK_LOW] = $new_low_mark;
           $self->_define_write_state();
         }
         else {
