@@ -1,8 +1,8 @@
 # $File: //member/autrijus/ExtUtils-AutoInstall/AutoInstall.pm $ 
-# $Revision$ $Change: 4058 $ $DateTime: 2002/04/30 16:34:09 $
+# $Revision$ $Change: 1 $ $DateTime: 2002/06/11 08:35:12 $
 
 package ExtUtils::AutoInstall;
-$ExtUtils::AutoInstall::VERSION = '0.32';
+$ExtUtils::AutoInstall::VERSION = '0.33';
 
 use strict;
 
@@ -15,8 +15,8 @@ ExtUtils::AutoInstall - Automatic install of dependencies via CPAN
 
 =head1 VERSION
 
-This document describes version 0.32 of B<ExtUtils::AutoInstall>,
-released May 20, 2002.
+This document describes version 0.33 of B<ExtUtils::AutoInstall>,
+released June 20, 2002.
 
 =head1 SYNOPSIS
 
@@ -30,6 +30,7 @@ In F<Makefile.PL>:
     ."Install it from CPAN? [Y/n] "and<STDIN>!~/^n/i and print"***"
     ." Fetching $p\n"and do{eval{require CPANPLUS;CPANPLUS::install
     $p};eval"use $p $v;1"or eval{require CPAN;CPAN::install$p};eval
+    "use $p $v;1"or die"Please install $p $v manually first...\n"}}
 
     use ExtUtils::AutoInstall (
 	-version	=> '0.30',	# required AutoInstall version
@@ -95,14 +96,14 @@ choice.
 
 The B<Core Features> marked by the name C<-core> will double-check
 with the user, if the user chooses not to install the modules that
-belongs to it. This differs with the pre-0.26 'silent install'
+belongs to it.  This differs with the pre-0.26 'silent install'
 behaviour.
 
 Starting from version 0.27, if C<-core> is set to the string C<all>
 (case-insensitive), every features will be considered mandatory.
 
 The dependencies are expressed as pairs of C<Module> => C<version>
-inside an a array reference. If the order does not matter, and there
+inside an a array reference.  If the order does not matter, and there
 are no C<-default>, C<-tests> or C<-skiptests> directives for that
 feature, you may also use a hash reference.
 
@@ -115,12 +116,12 @@ additional checks, as well as skips tests associated with
 disabled features by the C<-tests> option.
 
 The actual installation happens at the end of the C<make config>
-target; i.e. both C<make test> and C<make install> will trigger the
+target; both C<make test> and C<make install> will trigger the
 installation of required modules.
 
 If it's not running under B<CPAN>, the installer will probe for
 an active connection by trying to resolve the domain C<cpan.org>,
-and check for the user's permission to use B<CPAN>. If all went
+and check for the user's permission to use B<CPAN>.  If all went
 well, a separate B<CPAN> instance is created to install the required
 modules.
 
@@ -141,43 +142,43 @@ command has an equivalent effect.
 B<ExtUtils::AutoInstall> will add C<UNINST=1> to your B<make install>
 flags if your effective uid is 0 (root), unless you explicitly disable
 it by setting B<CPAN>'s C<make_install_arg> configuration option (or
-the C<makeflags> option of B<CPANPLUS>) to include C<UNINST=0>. This
+the C<makeflags> option of B<CPANPLUS>) to include C<UNINST=0>.  This
 I<may> cause dependency problems if you are using a fine-tuned directory
-structure for your site. Please consult L<CPAN/FAQ> for an explanation
+structure for your site.  Please consult L<CPAN/FAQ> for an explanation
 in detail.
 
 If B<Sort::Versions> is available, it will be used to compare the
 required version with the existing module's version and the CPAN
-module's.  Otherwise it silently falls back to use I<cmp>. This may
+module's.  Otherwise it silently falls back to use I<cmp>.  This may
 cause inconsistent behaviours in pathetic situations.
 
 B<Inline::MakeMaker> is not happy with this module, since it prohibits
-competing C<MY::postamble> functions. Patches welcome.
+competing C<MY::postamble> functions.  Patches welcome.
 
 =head1 NOTES
 
 Since this module is needed before writing F<Makefile>, it makes
 little use as a CPAN module; hence each distribution must include
-it in full. The only alternative I'm aware of, namely prompting
-in F<Makefile.PL> to force user install it (cf. the B<Template>
+it in full.  The only alternative I'm aware of, namely prompting
+in F<Makefile.PL> to force user install it (cf.  the B<Template>
 Toolkit's dependency on B<AppConfig>) is not very desirable either.
 
 The current compromise is to add the bootstrap code listed in the
 L</SYNOPSIS> before every script, but that ain't pretty, and won't
-work without internet connection.
+work without an internet connection.
 
 Since we do not want all future options of B<ExtUtils::AutoInstall>
 to be painfully detected manually like above, this module provides
-a I<bootstrapping> mechanism via the C<-version> flag. If a newer
+a I<bootstrapping> mechanism via the C<-version> flag.  If a newer
 version is needed by the F<Makefile.PL>, it will go ahead to fetch
 a new version, reload it into memory, and pass the arguments forward.
 
-If you have any suggestions, please let me know. Thanks.
+If you have any suggestions, please let me know.  Thanks.
 
 =head1 ENVIRONMENT
 
 B<ExtUtils::AutoInstall> uses a single environment variable,
-C<PERL_EXTUTILS_AUTOINSTALL>. It's taken as the command line argument
+C<PERL_EXTUTILS_AUTOINSTALL>.  It's taken as the command line argument
 passed to F<Makefile.PL>; you could set it to either C<--defaultdeps>
 or C<--skipdeps> to avoid interactive behaviour.
 
@@ -686,7 +687,7 @@ L<CPANPLUS>
 
 The test script included in the B<ExtUtils::AutoInstall> distribution
 contains code adapted from Michael Schwern's B<Test::More> under the
-I<Artistic License>. Please refer to F<t/AutoInstall.t> for details.
+I<Artistic License>.  Please refer to F<t/AutoInstall.t> for details.
 
 Thanks also to Jesse Vincent for suggesting the semantics of various
 F<make> targets, and Jos IBoumans for introducing me to his B<CPANPLUS>
