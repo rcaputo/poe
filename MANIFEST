@@ -10,9 +10,13 @@ POE/Driver.pm
 POE/Driver/SysRW.pm
 POE/Filter.pm
 POE/Filter/Block.pm
+POE/Filter/Grep.pm
 POE/Filter/HTTPD.pm
 POE/Filter/Line.pm
+POE/Filter/Map.pm
+POE/Filter/RecordBlock.pm
 POE/Filter/Reference.pm
+POE/Filter/Stackable.pm
 POE/Filter/Stream.pm
 POE/Kernel.pm
 POE/Kernel/Event.pm
@@ -91,3 +95,4 @@ t/20_accept.t
 t/21_gtk.t
 t/22_wheel_run.t
 t/23_nfa.t
+t/24_filter_stack.t

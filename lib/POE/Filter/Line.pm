@@ -194,7 +194,7 @@ LINE:
 # newlines are supposed to be sent.  Second, add a trailing newline if
 # one doesn't already exist.  Since the referenced output list is
 # supposed to contain one line per element, we also do a split and
-# join.  Bleah.
+# join.  Bleah. ... why isn't the code doing what the comment says?
 
 sub put {
   my ($self, $lines) = @_;

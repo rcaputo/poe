@@ -140,7 +140,7 @@ Event   : 0.81
 IO::Pty : 0.01
 
 All tests successful.
-Files=24,  Tests=455, 82 wallclock secs ( 8.34 cusr +  0.71 csys =  9.05 CPU)
+Files=24,  Tests=459, 87 wallclock secs ( 8.88 cusr +  0.68 csys =  9.55 CPU)
 
 ** POE 0.1206 on Linux (titanic)
 

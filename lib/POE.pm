@@ -618,6 +618,13 @@ The POE::Filter manpage covers filters in general and their common
 interface.  It discusses the pitfalls involved in switching filters
 on a running wheel.
 
+=item POE::Filter::Grep
+
+Grep is part of the family of filters that includes Stackable, Map,
+and RecordBlock.  It applies a regexp filter on data passing through
+it, before it reaches a Session.  It's mainly used in filter stacks
+(see POE::Filter::Stackable).
+
 =item POE::Filter::HTTPD
 
 The HTTPD filter's manpage covers using POE as a web server.
@@ -628,11 +635,40 @@ The Line filter's manpage discusses how to read and write data by
 lines; how to change the newline literal or regular expression; and
 how to enable newline autodetection when working with strange peers.
 
+=item POE::Filter::Map
+
+Map is part of the family of filters that includes Stackable, Grep,
+and RecordBlock.  It transforms data passing through it, before it
+reaches a Session.
+
+The Map filter is designed primarily to act as an interface between
+filters that deal with different data formats, but it can be used
+stand-alone to perform unique functions that no other filter does.  In
+this case it's something of a wildcard filter.
+
+If you find yourself reusing the same custom Map filter, you may want
+to turn it into a full-fledged filter.
+
+=item POE::Filter::RecordBlock
+
+RecordBlock combines records into groups by count and flattens groups
+of records back into a record stream.  For example, RecordBlock might
+combine log records into pairs.
+
 =item POE::Filter::Reference
 
 The Reference filter's manpage talks about marshalling data and
 passing it between POE programs; and customizing the way data is
 frozen, thawed and optionally compressed.
+
+=item POE::Filter::Stackable
+
+Stackable is a meta-filter designed to stack other filters.  Stackable
+manages the filters it contains and passes data between them.  In
+essence, the inner filters are combined into one super filter.
+
+The Map filter can also be used to perform quick and dirty functions
+that aren't implemented in any single existing filter.
 
 =item POE::Filter::Stream
 
@@ -779,8 +815,8 @@ often fixes them.  The man's scarily good.
 
 Dieter Pearcey is <dieter@bullfrog.perlhacker.org>.  He goes by
 several Japanese nicknames.  Dieter patched Wheel::FollowTail to be
-more useful and has contributed the basic Filter::Block and its
-documentation.
+more useful.  His Filter contributions include the basic Block filter,
+as well as Stackable, RecordBlock, Grep and Map.
 
 =item Robert Seifer
 
@@ -817,7 +853,7 @@ Please contact the author if you've been forgotten.
 
 Rocco Caputo is <troc+poe@netrus.net>.  POE is his brainchild.
 
-Except where otherwise noted, POE is Copyright 1998-2000 Rocco Caputo.
+Except where otherwise noted, POE is Copyright 1998-2001 Rocco Caputo.
 All rights reserved.  POE is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 

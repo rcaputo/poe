@@ -95,6 +95,16 @@ update their programs.
 0.1207 2001.??.??
 -----------------
 
+Add Dieter Pearcey's Stackable filter, allowing ReadWrite (and other
+wheels) to pass data through two or more filters.  Stackable comes
+with other helpful filters: Map and Grep to transform data while it's
+still in a filter stack, and RecordBlock to group several records into
+a block of them.
+
+Add t/24_filter_stack.t as a start for testing stackable filters.
+This so far is the only sample code for using these filters, and it's
+not very friendly in that regard.
+
 Add ASSERT_USAGE.  Setting this POE::Kernel debugging constant causes
 it to check the values passed to its parameters and croak if they're
 bad.
