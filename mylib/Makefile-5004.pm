@@ -20,7 +20,7 @@ uploadreport: poe_report.xml
 
 testreport: poe_report.xml
 
-poe_report.xml:
+poe_report.xml: Makefile
 	lib/testreport.pl
 EOF
 
