@@ -44,11 +44,12 @@ sub loop_initialize {
 }
 
 sub loop_finalize {
-  my $self = shift;
-
-  for (0..$#fileno_watcher) {
-    warn "Watcher for fileno $_ is allocated during loop finalize"
-      if defined $fileno_watcher[$_];
+  foreach my $fd (0..$#fileno_watcher) {
+    next unless defined $fileno_watcher[$fd];
+    foreach my $mode (MODE_RD, MODE_WR, MODE_EX) {
+      warn "Mode $mode watcher for fileno $fd is defined during loop finalize"
+        if defined $fileno_watcher[$fd]->[$mode];
+    }
   }
 }
 
@@ -154,15 +155,21 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  $fileno_watcher[$fileno] =
+  # Overwriting a pre-existing watcher?
+  if (defined $fileno_watcher[$fileno]->[$mode]) {
+    $fileno_watcher[$fileno]->[$mode]->cancel();
+    undef $fileno_watcher[$fileno]->[$mode];
+  }
+
+  $fileno_watcher[$fileno]->[$mode] =
     Event->io
       ( fd => $fileno,
-        poll => ( ( $vector == VEC_RD )
+        poll => ( ( $mode == MODE_RD )
                   ? 'r'
-                  : ( ( $vector == VEC_WR )
+                  : ( ( $mode == MODE_WR )
                       ? 'w'
                       : 'e'
                     )
@@ -172,22 +179,26 @@ sub loop_watch_filehandle {
 }
 
 sub loop_ignore_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
-  $fileno_watcher[$fileno]->cancel();
-  $fileno_watcher[$fileno] = undef;
+
+  # Don't bother removing a select if none was registered.
+  if (defined $fileno_watcher[$fileno]->[$mode]) {
+    $fileno_watcher[$fileno]->[$mode]->cancel();
+    undef $fileno_watcher[$fileno]->[$mode];
+  }
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
-  $fileno_watcher[$fileno]->stop();
+  $fileno_watcher[$fileno]->[$mode]->stop();
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
-  $fileno_watcher[$fileno]->start();
+  $fileno_watcher[$fileno]->[$mode]->start();
 }
 
 # Timer callback to dispatch events.
@@ -227,18 +238,18 @@ sub _loop_select_callback {
   my $event = shift;
   my $watcher = $event->w;
   my $fileno = $watcher->fd;
-  my $vector = ( ( $event->got eq 'r' )
-                 ? VEC_RD
-                 : ( ( $event->got eq 'w' )
-                     ? VEC_WR
-                     : ( ( $event->got eq 'e' )
-                         ? VEC_EX
-                         : return
-                       )
-                   )
-               );
+  my $mode = ( ( $event->got eq 'r' )
+               ? MODE_RD
+               : ( ( $event->got eq 'w' )
+                   ? MODE_WR
+                   : ( ( $event->got eq 'e' )
+                       ? MODE_EX
+                       : return
+                     )
+                 )
+             );
 
-  $self->_data_handle_enqueue_ready($vector, $fileno);
+  $self->_data_handle_enqueue_ready($mode, $fileno);
   $self->_data_test_for_idle_poe_kernel();
 }
 

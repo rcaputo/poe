@@ -39,9 +39,12 @@ sub loop_initialize {
 }
 
 sub loop_finalize {
-  for (0..$#fileno_watcher) {
-    warn "Watcher for fileno $_ is allocated during loop finalize"
-      if defined $fileno_watcher[$_];
+  foreach my $fd (0..$#fileno_watcher) {
+    next unless defined $fileno_watcher[$fd];
+    foreach my $mode (MODE_RD, MODE_WR, MODE_EX) {
+      warn "Mode $mode watcher for fileno $fd is defined during loop finalize"
+        if defined $fileno_watcher[$fd]->[$mode];
+    }
   }
 }
 
@@ -136,7 +139,7 @@ sub loop_attach_uidestroy {
           $self->_dispatch_event
             ( $self, $self,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-              __FILE__, __LINE__, time(), undef
+              __FILE__, __LINE__, time(), -__LINE__
             );
         }
         return undef;
@@ -176,23 +179,25 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
   # Overwriting a pre-existing watcher?
-  if (defined $fileno_watcher[$fileno]) {
-    Gtk::Gdk->input_remove($fileno_watcher[$fileno]);
-    undef $fileno_watcher[$fileno];
+  if (defined $fileno_watcher[$fileno]->[$mode]) {
+    Gtk::Gdk->input_remove($fileno_watcher[$fileno]->[$mode]);
+    undef $fileno_watcher[$fileno]->[$mode];
   }
 
+  TRACE_SELECT and warn "<sl> watching $handle in mode $mode";
+
   # Register the new watcher.
-  $fileno_watcher[$fileno] =
+  $fileno_watcher[$fileno]->[$mode] =
     Gtk::Gdk->input_add( $fileno,
-                         ( ($vector == VEC_RD)
+                         ( ($mode == MODE_RD)
                            ? ( 'read',
                                \&_loop_select_read_callback
                              )
-                           : ( ($vector == VEC_WR)
+                           : ( ($mode == MODE_WR)
                                ? ( 'write',
                                    \&_loop_select_write_callback
                                  )
@@ -206,37 +211,44 @@ sub loop_watch_filehandle {
 }
 
 sub loop_ignore_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
+  TRACE_SELECT and warn "<sl> ignoring $handle in mode $mode";
+
   # Don't bother removing a select if none was registered.
-  if (defined $fileno_watcher[$fileno]) {
-    Gtk::Gdk->input_remove($fileno_watcher[$fileno]);
-    undef $fileno_watcher[$fileno];
+  if (defined $fileno_watcher[$fileno]->[$mode]) {
+    Gtk::Gdk->input_remove($fileno_watcher[$fileno]->[$mode]);
+    undef $fileno_watcher[$fileno]->[$mode];
   }
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
-  Gtk::Gdk->input_remove($fileno_watcher[$fileno]);
-  undef $fileno_watcher[$fileno];
+
+  TRACE_SELECT and warn "<sl> pausing $handle in mode $mode";
+
+  Gtk::Gdk->input_remove($fileno_watcher[$fileno]->[$mode]);
+  undef $fileno_watcher[$fileno]->[$mode];
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
   # Quietly ignore requests to resume unpaused handles.
-  return 1 if defined $fileno_watcher[$fileno];
+  return 1 if defined $fileno_watcher[$fileno]->[$mode];
 
-  $fileno_watcher[$fileno] =
+  TRACE_SELECT and warn "<sl> resuming $handle in mode $mode";
+
+  $fileno_watcher[$fileno]->[$mode] =
     Gtk::Gdk->input_add( $fileno,
-                         ( ($vector == VEC_RD)
+                         ( ($mode == MODE_RD)
                            ? ( 'read',
                                \&_loop_select_read_callback
                              )
-                           : ( ($vector == VEC_WR)
+                           : ( ($mode == MODE_WR)
                                ? ( 'write',
                                    \&_loop_select_write_callback
                                  )
@@ -275,7 +287,9 @@ sub _loop_select_read_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  $self->_data_handle_enqueue_ready(VEC_RD, $fileno);
+  TRACE_SELECT and warn "<sl> got read callback for $handle";
+
+  $self->_data_handle_enqueue_ready(MODE_RD, $fileno);
   $self->_data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
@@ -286,7 +300,9 @@ sub _loop_select_write_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  $self->_data_handle_enqueue_ready(VEC_WR, $fileno);
+  TRACE_SELECT and warn "<sl> got write callback for $handle";
+
+  $self->_data_handle_enqueue_ready(MODE_WR, $fileno);
   $self->_data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
@@ -297,7 +313,9 @@ sub _loop_select_expedite_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  $self->_data_handle_enqueue_ready(VEC_EX, $fileno);
+  TRACE_SELECT and warn "<sl> got expedite callback for $handle";
+
+  $self->_data_handle_enqueue_ready(MODE_EX, $fileno);
   $self->_data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
