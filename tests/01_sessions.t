@@ -388,7 +388,7 @@ POE::Session->new
 # Main loop.
 
 $get_active_session_before = $poe_kernel->get_active_session() == $poe_kernel;
-$poe_kernel->run();
+POE::Kernel->run();
 $get_active_session_after = $poe_kernel->get_active_session() == $poe_kernel;
 
 #------------------------------------------------------------------------------

@@ -162,6 +162,7 @@ print "ok 17\n";
 
 # Now run the kernel until there's nothing left to do.
 
+my $poe_kernel = POE::Kernel->new();
 $poe_kernel->run();
 
 print "ok 20\n";

@@ -1421,7 +1421,8 @@ sub run_one_timeslice {
 }
 
 sub run {
-  my $self = shift;
+  # So run() can be called as a class method.
+  my $self = $poe_kernel;
 
   # Flag that run() was called.
   $kr_run_was_called++;
@@ -3364,8 +3365,9 @@ Methods to manage the process' global Kernel instance:
   $kernel_id = $kernel->ID;
 
   # Run the event loop, only returning when it has no more sessions to
-  # dispatche events to.
+  # dispatch events to.  Supports two forms.
   $poe_kernel->run();
+  POE::Kernel->run();
 
 FIFO event methods:
 
@@ -3585,6 +3587,15 @@ started.
 
   $poe_kernel->run();
   exit;
+
+The run() method may be called on an instance of POE::Kernel.
+
+  my $kernel = POE::Kernel->new();
+  $kernel->run();
+
+It may also be called as class method.
+
+  POE::Kernel->run();
 
 The run() method does not return a meaningful value.
 
