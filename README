@@ -22,11 +22,11 @@ POE is an acronym for Perl Object Environment.
 
 POE is a programming framework for event-driven state machines.
 
-POE is a component architecture.
-
-POE is a cooperative multithreading model, written only in Perl.
-
 POE is a high-level, functional interface to select, alarm and IPC.
+
+POE is a cooperative multi-threading model, written only in Perl.
+
+POE is a component architecture.
 
 POE does many things.  The sample programs in the tests directory only
 begin to scratch the surface.
@@ -39,33 +39,59 @@ just different ways of looking at it.
 COMPATIBILITY
 =============
 
-POE has been tested in-house with Perl 5.004_04, 5.005_53 and 5.005_54
-on recent versions of Linux, FreeBSD, and OS/2.  For more detailed
-compatibility information, please see
+POE has been tested with Perl 5.004_04, 5.005_02, 5.005_53 and
+5.005_54 on Linux, FreeBSD, HP-UX, Solaris7, and OS/2.  For more
+detailed compatibility information, please see
 <http://www.connect.net/gbarr/cpan-test/by-dist/POE.html>.
 
-POE's core requires POSIX.  Shipping frozen data requires Storable or
-FreezeThaw.  Running as a non-blocking HTTP daemon requires
-HTTP::Request and HTTP::Response.  The pre-forked server test requires
-fork.
-
-POE will take advantage of Time::HiRes, if it's available, to provide
-subsecond resolution for events.
-
-Windows' select() supports sockets but not regular files, so POE is
-really handy for client/server work, but it fails for non-blocking
-filesystems programming.  And fork() doesn't work.
+POE currently does not work on Windows platforms, due to differences
+between Windows' and the rest of the world's ioctl and select calls.
 
 POE is suspected to work on MacOS.  If someone could confirm or deny
 this, it would be greatly appreciated.
+
+Non-requirements:
+
+POE is compatible with fork(), but it doesn't require it.
+
+If Time::HiRes is available, POE will use it to support
+high-resolution event timing.  Nothing untoward happens if it's not.
+
+Requirements:
+
+POE uses POSIX for portability.
+
+Some of POE's tests require a recent IO bundle, but you get that for
+free with recent versions of Perl.
+
+If you plan on using Filter::Reference, you'll also need either
+Storable or FreezeThaw so it can freeze and thaw data between systems.
+Storable tends to be faster.
+
+If you plan on using Filter::HTTPD, you'll need a small world of
+modules to go with it: HTTP::Status; HTTP::Request; HTTP::Date; and
+URI::URL.
+
+tests/httpd.perl uses Filter::HTTPD, which uses all that other stuff.
+
+tests/preforkedserver.perl uses fork(), which may not be available on
+your planet.
 
 
 AVAILABILITY
 ============
 
-The latest version of POE is in /authors/id/R/RC/RCAPUTO/ on your
-favorite CPAN mirror.  If you don't have a favorite CPAN mirror,
-<http://www.cpan.org/authors/id/R/RC/RCAPUTO/> will do.
+The latest stable release of POE is available three ways:
+
+  perl -MCPAN -e 'install POE'
+
+  In the /authors/id/R/RC/RCAPUTO/ on your favorite CPAN mirror.
+
+  Or at <http://www.cpan.org/authors/id/R/RC/RCAPUTO/>, if you don't
+  have a favorite CPAN mirror.
+
+Beta versions of the next release are available from the author.  They
+tend to be mostly stable.
 
 
 CREDITS
@@ -75,26 +101,32 @@ Thanks to Artur Bergman <artur@vogon-solutions.com> (sky) for many
 useful suggestions and contributions.  He has had a hand in the design
 and/or implementation of most of POE's improvements.
 
-Thanks to Dave Paris <dparis@fordprefect.w3works.com> (a-mused) for
-benchmark results, testing, feedback and suggestions.  Version 0.06
-runs much better under high loads thanks to his efforts.
+Thanks to Dave Paris <dparis@w3works.com> (a-mused) for benchmark
+results, testing, feedback and suggestions.  Version 0.06 runs much
+better under high loads thanks to his efforts.
+
+Thanks to Robert Seifer (Crimson) for extreme debugging beyond the
+call of duty.  And sanity.
 
 
 GETTING STARTED
 ===============
 
-Read the Changes file.  Many things have broken since version 0.05.
+If you've been using POE since before 0.06, please, PLEASE read the
+Changes file before installing.  Many things have been broken between
+versions 0.05 and 0.06.
 
 To build and test this distribution, type:
 
   perl Makefile.PL
+  make
   make test
 
 Actually, 'make test' doesn't do anything important.  The real tests
 exist within the tests directory, and just happen to be examples of
 how to use different parts of POE.
 
-Once everything looks, good, it can be installed by typing:
+Once everything looks good, POE can be installed by typing:
 
   make install
 
