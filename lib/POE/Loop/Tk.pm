@@ -11,6 +11,8 @@ $VERSION = (qw($Revision$ ))[1];
 BEGIN {
   die "POE's Tk support requires version Tk 800.021 or higher.\n"
     unless defined($Tk::VERSION) and $Tk::VERSION >= 800.021;
+  die "POE's Tk support requires Perl 5.005_03 or later.\n"
+    if $] < 5.00503;
 };
 
 # Everything plugs into POE::Kernel.

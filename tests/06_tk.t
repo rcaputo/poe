@@ -11,13 +11,14 @@ use lib qw(./lib ../lib);
 use Symbol;
 use TestSetup;
 
-# Skip if Tk isn't here.
+# Skip if Tk isn't here or if environmental requirements don't apply.
 BEGIN {
   eval 'use Tk';
   &test_setup(0, 'need the Tk module installed to run this test')
     if ( length($@) or
          not exists($INC{'Tk.pm'})
        );
+
   # MSWin32 doesn't need DISPLAY set.
   if ($^O ne 'MSWin32') {
     unless ( exists $ENV{'DISPLAY'} and
@@ -27,11 +28,15 @@ BEGIN {
       &test_setup(0, "can't test Tk without a DISPLAY (set one today, ok?)");
     }
   }
+
   # Tk support relies on an interface change that occurred in 800.021.
   &test_setup( 0,
                "need Tk 800.021 or newer installed but only have $Tk::VERSION"
              )
     if $Tk::VERSION < 800.021;
+
+  # Tk and Perl before 5.005_03 don't mix.
+  &test_setup( 0, "Tk requires Perl 5.005_03 or newer" ) if $] < 5.005_03;
 };
 
 &test_setup(9);
