@@ -100,7 +100,7 @@ macro alias_resolve (<name>) {
         : ( (exists $self->[KR_ALIASES]->{<name>})
             ? $self->[KR_ALIASES]->{<name>}
             # Resolve against self.
-            : ( (<name> eq $self)
+            : ( (<name> == $self)
                 ? $self
                 # Game over!
                 : undef
@@ -111,7 +111,7 @@ macro alias_resolve (<name>) {
 }
 
 macro collect_garbage (<session>) {
-  if ( (<session> ne $self)
+  if ( (<session> != $self)
        and (exists $self->[KR_SESSIONS]->{<session>})
        and (!$self->[KR_SESSIONS]->{<session>}->[SS_REFCOUNT])
      ) {
@@ -614,7 +614,7 @@ sub _dispatch_state {
       # Ensure sanity.
       ASSERT_RELATIONS and do {
         die {% ssid %}, " is its own parent\a"
-          if ($session eq $source_session);
+          if ($session == $source_session);
 
         die( {% ssid %},
              " already is a child of ", {% sid $source_session %}, "\a"
@@ -774,9 +774,9 @@ sub _dispatch_state {
       if (defined $parent) {
 
         ASSERT_RELATIONS and do {
-          die {% ssid %}, " is its own parent\a" if ($session eq $parent);
+          die {% ssid %}, " is its own parent\a" if ($session == $parent);
           die {% ssid %}, " is not a child of ", {% sid $parent %}, "\a"
-            unless ( ($session eq $parent) or
+            unless ( ($session == $parent) or
                      exists($sessions->{$parent}->[SS_CHILDREN]->{$session})
                    );
         };
@@ -816,7 +816,7 @@ sub _dispatch_state {
       my $states = $self->[KR_STATES];
       my $index = @$states;
       while ($index-- && $sessions->{$session}->[SS_EVCOUNT]) {
-        if ($states->[$index]->[ST_SESSION] eq $session) {
+        if ($states->[$index]->[ST_SESSION] == $session) {
 
           {% ses_refcount_dec2 $session, SS_EVCOUNT %}
 
@@ -1479,7 +1479,7 @@ sub queue_peek_alarms {
 
   foreach my $state (@{$self->[KR_STATES]}) {
     last unless $state_count;
-    next unless $state->[ST_SESSION] eq $kr_active_session;
+    next unless $state->[ST_SESSION] == $kr_active_session;
     next unless $state->[ST_TYPE] & ET_ALARM;
     push @pending_alarms, $state->[ST_NAME];
     $state_count--;
@@ -1500,7 +1500,7 @@ sub alarm {
   my $index = scalar(@{$self->[KR_STATES]});
   while ($index--) {
     if ( ($self->[KR_STATES]->[$index]->[ST_TYPE] & ET_ALARM) &&
-         ($self->[KR_STATES]->[$index]->[ST_SESSION] eq $kr_active_session) &&
+         ($self->[KR_STATES]->[$index]->[ST_SESSION] == $kr_active_session) &&
          ($self->[KR_STATES]->[$index]->[ST_NAME] eq $state)
     ) {
       {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
@@ -1813,7 +1813,7 @@ sub alias_set {
 
   # Don't overwrite another session's alias.
   if (exists $self->[KR_ALIASES]->{$name}) {
-    if ($self->[KR_ALIASES]->{$name} ne $kr_active_session) {
+    if ($self->[KR_ALIASES]->{$name} != $kr_active_session) {
       $! = EEXIST;
       return 0;
     }
@@ -1838,7 +1838,7 @@ sub alias_remove {
     return 0;
   }
 
-  if ($self->[KR_ALIASES]->{$name} ne $kr_active_session) {
+  if ($self->[KR_ALIASES]->{$name} != $kr_active_session) {
     $! = EPERM;
     return 0;
   }

@@ -22,6 +22,11 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 0.1001 2000.??.?? (!!!)
 -----------------------
 
+MJD pointed out (heh) that references have string/number magic like
+$!.  That is, they return just a number in numeric context, and in
+fact they're are stored as numbers internally, so string context
+wastes time making them look pretty in the first place.
+
 Added POE::Preprocessor, a source filter for macro preprocessing,
 constants, and enumerations.
 
