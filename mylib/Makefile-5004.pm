@@ -47,6 +47,7 @@ WriteMakefile
                         POSIX              => 0,
                         Socket             => 0,
                         Filter::Util::Call => 1.04,
+                        Test::More         => 0,
                       },
 
     # Remove 'lib', which should have been named 'privlib'.  The 'lib'

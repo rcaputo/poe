@@ -59,6 +59,7 @@ ExtUtils::AutoInstall->import
         IO                   => '',
         POSIX                => '',
         Socket               => '',
+        'Test::More'         => '',
         'Filter::Util::Call' => 1.04,
     ],
     "Recommended modules to increase timer/alarm/delay accuracy." => [
@@ -86,6 +87,7 @@ ExtUtils::AutoInstall->import
     ],
     "Optional modules for web applications (client & server)." => [
         -default => 0,
+        -tests => [ qw(t/30_filter_httpd.t) ],
         'HTTP::Status'   => '',
         'HTTP::Request'  => '',
         'HTTP::Date'     => '',
