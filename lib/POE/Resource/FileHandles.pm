@@ -327,21 +327,12 @@ sub _data_handle_add {
     # Turn off blocking unless it's tied or a plain file.
     unless (tied *$handle or -f $handle) {
 
-      # RCC 2002-12-19: ActiveState Perl 5.8.0 disliked the Win32 code
-      # to make a socket non-blocking, so we're trying IO::Handle's
-      # blocking(0) method.  Bonus: It does "the right thing" just
-      # about everywhere, so I don't need to add checks for AS Perl
-      # 5.8.0, AS Perl 5.6.1, and Everybody else.
-
-      # RCC 2003-01-20: Perl 5.005_03 doesn't like blocking(), so
-      # we'll only call it in Perl 5.8.0 and beyond.
-
-      if ($] >= 5.008) {
-        $handle->blocking(0);
-      }
-      else {
-        # Make the handle stop blocking, the POSIX way.
-        unless (RUNNING_IN_HELL) {
+      unless (RUNNING_IN_HELL) {
+        if ($] >= 5.008) {
+          $handle->blocking(0);
+        }
+        else {
+          # Long, drawn out, POSIX way.
           my $flags = fcntl($handle, F_GETFL, 0)
             or _trap "fcntl($handle, F_GETFL, etc.) fails: $!\n";
           until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
@@ -349,17 +340,17 @@ sub _data_handle_add {
               unless $! == EAGAIN or $! == EWOULDBLOCK;
           }
         }
-        else {
-          # Do it the Win32 way.
-          my $set_it = "1";
+      }
+      else {
+        # Do it the Win32 way.
+        my $set_it = "1";
 
-          # 126 is FIONBIO (some docs say 0x7F << 16)
-          ioctl( $handle,
-                 0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-                 $set_it
-               )
-            or _trap "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
-        }
+        # 126 is FIONBIO (some docs say 0x7F << 16)
+        ioctl( $handle,
+               0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+               $set_it
+             )
+          or _trap "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
       }
     }
 
