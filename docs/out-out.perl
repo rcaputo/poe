@@ -57,10 +57,10 @@ sub flush_text {
   if ($plain_buffer ne '') {
     if ($flush_state ne ST_BQUOTE) {
       $plain_buffer =~ s/\s+/ /g;
+      $plain_buffer =~ s/^\s+//s;
     }
 
     $plain_buffer =~ s/\s+$//s;
-    $plain_buffer =~ s/^\s+//s;
 
     print &filter_text($plain_buffer), "\n";
     $plain_buffer = '';
