@@ -1947,7 +1947,7 @@ sub _event_find {
       # we'll have to search back and forth for one with the ID we're
       # looking for.  Unfortunately.
       my $linear_point = $midpoint;
-      while ( $linear_point and
+      while ( $linear_point >= 0 and
               $time == $kr_events[$linear_point]->[ST_TIME]
             ) {
         return $linear_point if $kr_events[$linear_point]->[ST_SEQ] == $id;
