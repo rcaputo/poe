@@ -2526,11 +2526,12 @@ sub _dispatch_event {
   }
 
   # Post-dispatch processing.  This is a user event (but not a call),
-  # so garbage collect it.  Also garbage collect the sender.
+  # so garbage collect it.  Also garbage collect the sender, if needed.
 
   if ($type & ET_USER) {
     $self->_data_ses_collect_garbage($session);
-    #$self->_data_ses_collect_garbage($source_session);
+    $self->_data_ses_collect_garbage($source_session)
+      unless $session == $source_session;
   }
 
   # A new session has started.  Tell its parent.  Incidental _start
