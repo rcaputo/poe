@@ -1813,8 +1813,7 @@ sub call {
   {% test_resolve $destination, $session %}
 
   # Dispatch the event right now, bypassing the queue altogether.
-  # This tends to be a Bad Thing to Do, but it's useful for
-  # synchronous events like selects'.
+  # This tends to be a Bad Thing to Do.
 
   # -><- The difference between synchronous and asynchronous events
   # should be made more clear in the documentation, so that people
@@ -2532,7 +2531,7 @@ sub _internal_select {
         my $index = @kr_events;
         while ( $kr_fno_vec->[FVC_EV_COUNT] and
                 $index-- and
-                $kr_sessions{$kr_active_session}->[SS_EVCOUNT] and
+                $kr_sessions{$kr_active_session}->[SS_EVCOUNT]
               ) {
           next unless ( $kr_events[$index]->[ST_SESSION] == $kill_session and
                         $kr_events[$index]->[ST_NAME]    eq $kill_event
@@ -3504,7 +3503,7 @@ may set a new alarm for EVENT_NAME if EPOCH_TIME is included,
 optionally including values from a PARAMETER_LIST.
 
 It is possible to post an alarm with an EPOCH_TIME in the past; in
-that case, it will be dispached immediately.
+that case, it will be placed towards the front of the event queue.
 
 To clear existing timed events for 'do_this' and set a new alarm with
 parameters:
@@ -3563,7 +3562,7 @@ Regardless, delay() will do the right thing without sessions testing
 for Time::HiRes themselves.
 
 It's possible to post delays with negative SECONDS; in those cases,
-they will be dispatched immediately.
+they will be placed towards the front of the event queue.
 
 To clear existing timed events for 'do_this' and set a new delay with
 parameters:
@@ -3886,13 +3885,19 @@ running.
 
 =head2 Filehandle Watcher Methods (Selects)
 
-Selects emit synchronous events when filehandles become ready.
-Synchronous events bypass the FIFO queue so that time-critical
-handlers may run right away.
+Filehandle watchers emit events when files become available to be read
+from or written to.  As of POE 0.1702 these events are queued along
+with all the rest.  They are no longer "synchronous" or "immediate".
 
-Select handlers are expected to deal with filehandles so that they
-stop being ready.  For example, a select_read() handler should try to
-read as much data from a filehandle as it can.
+Filehandle watchers are often called "selects" in POE because they
+were originally implemented with the select(2) I/O multiplexing
+function.
+
+File I/O event handlers are expected to interact with filehandles in a
+way that causes them to stop being ready.  For example, a
+select_read() event handler should try to read as much data from a
+filehandle as it can.  The filehandle will stop being ready for
+reading only when all its data has been read out.
 
 Select events include two parameters.
 
@@ -3915,13 +3920,13 @@ least one filehandle.
 =item select_read FILE_HANDLE
 
 select_read() starts or stops the kernel from watching to see if a
-filehandle can be read.  The Kernel will call the handler for
-EVENT_NAME whenever the filehandle has data to be read.
+filehandle can be read from.  An EVENT_NAME event will be enqueued
+whenever the filehandle has data to be read.
 
-  # Emit 'do_a_read' whenever $filehandle has data to be read.
+  # Emit 'do_a_read' event whenever $filehandle has data to be read.
   $kernel->select_read( $filehandle, 'do_a_read' );
 
-  # Stop watching for $filehandle to be readable.
+  # Stop watching for data to be read from $filehandle.
   $kernel->select_read( $filehandle );
 
 select_read() does not return a meaningful value.
@@ -3931,14 +3936,13 @@ select_read() does not return a meaningful value.
 =item select_write FILE_HANDLE
 
 select_write() starts or stops the kernel from watching to see if a
-filehandle can be written to.  The Kernel will call the handler for
-EVENT_NAME whenever the filehandle has room for new data to be
-written.
+filehandle can be written to.  An EVENT_NAME event will be enqueued
+whenever it is possible to write data to the filehandle.
 
-  # Emit 'flush_data' whenever $filehandle can be written.
+  # Emit 'flush_data' whenever $filehandle can be written to.
   $kernel->select_writ( $filehandle, 'flush_data' );
 
-  # Stop watching for $filehandle to be writable.
+  # Stop watching for opportunities to write to $filehandle.
   $kernel->select_write( $filehandle );
 
 select_write() does not return a meaningful value.
@@ -3948,14 +3952,19 @@ select_write() does not return a meaningful value.
 =item select_expedite FILE_HANDLE
 
 select_expedite() starts or stops the kernel from watching to see if a
-filehandle can be read out-of-band.  The Kernel will call the handler
-for EVENT_NAME whenever the filehandle has out-of-band data to be
-read.
+filehandle can be read from "out-of-band".  This is most useful for
+datagram sockets where an out-of-band condition is meaningful.  In
+most cases it can be ignored.  An EVENT_NAME event will be enqueued
+whetever the filehandle can be read from out-of-band.
 
-  # Emit 'do_an_oob_read' whenever $filehandle has data to be read.
+Out of band data is called "expedited" because it's often available
+ahead of a file or socket's normal data.  It's also used in socket
+operations such as connect() to signal an exception.
+
+  # Emit 'do_an_oob_read' whenever $filehandle has OOB data to be read.
   $kernel->select_expedite( $filehandle, 'do_an_oob_read' );
 
-  # Stop watching for expedited data on the $filehandle.
+  # Stop watching for OOB data on the $filehandle.
   $kernel->select_expedite( $filehandle );
 
 select_expedite() does not return a meaningful value.
