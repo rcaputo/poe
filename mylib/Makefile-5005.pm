@@ -152,7 +152,7 @@ WriteMakefile
 
     PMLIBDIRS      => [ 'POE' ],
     clean => {
-        FILES => 'poe_report.xml',
+        FILES => 'poe_report.xml test-output.err coverage.report',
     }
   );
 
