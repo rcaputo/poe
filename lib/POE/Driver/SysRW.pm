@@ -74,7 +74,6 @@ sub put {
 sub get {
   my ($self, $handle) = @_;
 
-$! = 1;
   my $result = sysread($handle, my $buffer = '', $self->[BLOCK_SIZE]);
 
   # sysread() was sucessful.  Return whatever was read.
