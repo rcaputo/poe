@@ -4,8 +4,6 @@
 # look at how much work their POE server is performing.
 # None of this stuff will activate unless TRACE_PERFORMANCE or
 # TRACE_PROFILE are enabled.
-#
-# Most of this is 
 
 package POE::Resources::Performance;
 
@@ -44,6 +42,7 @@ sub _data_perf_initialize {
 
 sub _data_perf_finalize {
     my ($self) = @_;
+    $self->_data_perf_tick();
 
     if (TRACE_PERFORMANCE) {
       POE::Kernel::_warn('<pr> ,----- Performance Data ' , ('-' x 50), ",\n");
@@ -61,25 +60,25 @@ sub _data_perf_finalize {
 
       # Division by zero sucks.
       $average{blocked}     ||= 0;
-      $average{user_events} ||=1;
+      $average{user_events} ||= 1;
 
       POE::Kernel::_warn(
         '<pr> +----- Derived Performance Metrics ', ('-' x 39), "+\n",
         sprintf(
           "<pr> | %60.60s %9.1f%% |\n",
-          'idle', 100 * $average{idle_seconds} / $average{interval}
+          'idle', 100 * $average{avg_idle_seconds} / $average{interval}
         ),
         sprintf(
           "<pr> | %60.60s %9.1f%% |\n",
-          'user', 100 * $average{user_seconds} / $average{interval}
+          'user', 100 * $average{avg_user_seconds} / $average{interval}
         ),
         sprintf(
           "<pr> | %60.60s %9.1f%% |\n",
-          'blocked', 100 * $average{blocked} / $average{user_events}
+          'blocked', 100 * $average{avg_blocked} / $average{user_events}
         ),
         sprintf(
           "<pr> | %60.60s %9.1f  |\n",
-          'user load', $average{user_events} / $average{interval}
+          'user load', $average{avg_user_events} / $average{interval}
         ),
         '<pr> `', ('-' x 73), "'\n"
       );
@@ -107,7 +106,9 @@ sub _data_perf_tick {
 
     my $count = 0;
     %average = ();
+    my $epoch = 0;
     while ($count < $_perf_window_size && $_perf_metrics->[$pos]->{epoch}) {
+ 	$epoch = $_perf_metrics->[$pos]->{epoch} unless $epoch;
 	while (my ($k,$v) = each %{$_perf_metrics->[$pos]}) {
 	    next if $k eq 'epoch';
 	    $average{$k} += $v;
@@ -117,8 +118,10 @@ sub _data_perf_tick {
     }
 
     if ($count) {
-	map { $average{$_} /= $count } keys %average;
-	$average{interval} = $_perf_interval;
+        my $now = time();
+ 	map { $average{"avg_$_"} = $average{$_} / $count } keys %average;
+ 	$average{total_duration} = $now - $epoch;
+ 	$average{interval}       = ($now - $epoch) / $count;
     }
 
     $self->_data_perf_reset;
@@ -134,6 +137,7 @@ sub _data_perf_reset {
       idle_seconds => 0,
       user_seconds => 0,
       kern_seconds => 0,
+      blocked_seconds => 0,
     };
 }
 
@@ -161,3 +165,110 @@ sub perf_show_profile {
 }
 
 1;
+__END__
+
+=head1 NAME
+
+POE::Resource::Performance -- Performance metrics for POE::Kernel
+
+=head1 SYNOPSIS
+
+  my %stats = $poe_kernel->perf_getdata;
+  printf "Idle = %3.2f\n", 100*$stats{avg_idle_seconds}/$stats{interval};
+
+=head1 DESCRIPTION
+
+This module encapsulates and provides accessors for POE::Kernel's data
+structures that track performance metrics. To enable this monitoring,
+the TRACE_PERFORMANCE flag must be true.
+
+The performance counters are totalled every 30 seconds and a rolling
+average is maintained for the last two minutes worth of data. At any
+time the data can be retrieved using the perf_getdata() method of the
+POE::Kernel. On conclusion of the program, the statistics will be
+printed out by the POE::Kernel.
+
+The resolution of the performance metrics is not particularly high -
+unless Time::HiRes is being used then it will only be 1 second
+granularity, which can cause various rounding errors to occur in the
+metrics.
+
+=head1 METRICS
+
+The following fields are members of the hash returned by perf_getdata.
+
+=over 4
+
+=item B<blocked>
+
+The number of events (both user and kernel) which were delayed due to
+a user event running for too long. On conclusion of the program, POE
+will display a %blocked, by comparing this value with B<user_events>.
+This value should be as low as possible to ensure minimal latency.
+
+=item B<idle_seconds>
+
+The number of seconds which were spent doing nothing at all (typically
+waiting for a select/poll event or a timeout to trigger).
+
+=item B<interval>
+
+The average interval over which the counters are recorded. This will
+typically be 30 seconds, however it can be more if there are
+long-running user events which prevent the performance monitoring from
+running on time, and it may be less if the program finishes in under
+30 seconds. Often the very last measurement taken before the program
+exits will use a duration less than 30 seconds and this will cause the
+average to be lower.
+
+=item B<total_duration>
+
+The counters are averaged over a 2 minute duration, but for the same
+reasons as described in the B<interval> section, this time may vary.
+This value contains the total time over which the average was
+calculated.
+
+=item B<user_events>
+
+The number of events which are performed for the user code. I.e. this
+does not include POE's own internal events such as polling for child
+processes. At program termination, a user_load value is computed
+showing the average number of user events which are running per
+second. A very active web server would have a high load value. The
+higher the user load, the more important it is that you have a small
+B<blocked> value.
+
+=item B<user_seconds>
+
+The time which was spent running user events. The user_seconds +
+idle_seconds will typically add up to total_duration. Any difference
+comes down to time spent in the POE kernel (which should be minimal)
+and rounding errors.
+
+=item B<blocked_seconds>
+
+The amount of time event handlers waited for other events (or POE)
+before they could be dispatched.  This figure is not as useful as its
+average, avg_blocked_seconds, which gives the average latency between
+an event's due time and its dispatch time.
+
+=back
+
+For each of the counters, there will a corresponding entry prefixed
+'avg_' which is the rolling average of that counter.
+
+=head1 SEE ALSO
+
+See L<POE::Kernel>.
+
+=head1 BUGS
+
+Probably.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Contributed to POE by Nick Williams <Nick.Williams@morganstanley.com>.
+
+Please see L<POE> for more information about authors and contributors.
+
+=cut

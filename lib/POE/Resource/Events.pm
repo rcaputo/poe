@@ -237,6 +237,11 @@ sub _data_ev_dispatch_due {
       _warn("<ev> dispatching event $id ($event->[EV_NAME])");
     }
 
+    if ($time < $now) {
+        $self->_data_perf_add('blocked', 1);
+        $self->_data_perf_add('blocked_seconds', $now - $time);
+    }
+
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
     $self->_dispatch_event(@$event, $time, $id);
   }
