@@ -280,6 +280,10 @@ sub build_dependency_tree {
       my $inc_key = $file_key . '.pm';
       $inc_key = File::Spec->catdir( split /\:\:/, $inc_key );
 
+      # Flip the slashes around in case File::Spec->catdir() disagrees
+      # with %INC about the nature of path separators.
+      $inc_key =~ tr[\\\/][\/\\] unless exists $INC{$inc_key};
+
       if (exists $INC{$inc_key}) {
 
         my $inc_file = $INC{$inc_key};
