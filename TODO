@@ -1,29 +1,35 @@
 $Id$
 
-This is a list of things to do to POE.  Many of them may break
-existing programs if they come to pass.  The overwhelming majority of
-them are changes still being considered, and there is no guarantee
-that they'll happen, let alone in the way that's described here.
+===============================================================================
+                             Introduction
+===============================================================================
 
-This document is divided into two sections: Stuff that's happening
-now, and stuff that's maybe going to happen after it's thought through
-sufficiently.
+------------
+What This Is
+------------
 
-Everything here is subject to comment and discussion.  If you have a
-comment or concern, even if it's not present here, please post it to
-POE's mailing list.  Subscription information is in the main POE
-manpage.
+This file is part roadmap and part wishlist.
 
-As with the CHANGES file, things which may break existing programs
-will be marked with "(!!!)".  I have scheduled such breakage so that
-there is at least a month of documentation changes followed by a month
-of warnings before programs are broken outright.  This ensures at
-least 56 days of advance notice before programs up and die.
+The roadmap section is relatively small and lists confirmed changes.
+Most of these changes will break existing code, which is why they're
+listed here.  The changes which don't break programs usually don't
+need to be documented this far ahead of time. :)
 
-If you follow this TODO file or the development releases, the actual
-depreciation time is several weeks longer than the official one.
+The larger wishlist section is composed of changes being considered
+but which may never come to pass.
 
-Typographical conventions:
+Everything is open to discussion, even the confirmed changes.  If you
+spot something you'd like to comment on, please feel free to mail me
+directly.  The POE mailing list might be a better place to discuss
+changes since several people can discuss what you're commenting on.
+
+Hopefully issues can be worked out before changes are implemented.
+
+-------------------------
+Typographical Conventions
+-------------------------
+
+Sections marked with "(!!!)" may break existing programs.
 
 Various forms of "Xyz" are used throughout to mean "for every".  For
 example, "POE::Filter::Xyz" means "for every POE::Filter subclass".
@@ -40,11 +46,9 @@ blank, then you're doubly safe, and so on.
                  Depreciations & Changes IN PROGRESS
 ===============================================================================
 
-These changes have begun, or will begin shortly.  Their remaining
-steps are open to discussion, and I invite you to post your comments
-to the POE mailing list.  The end results will probably happen in one
-form or another.  If they plan to break existing programs, there will
-be at least a month (usually two) of depreciation before then.
+These changes have begun or will begin shortly.  If they plan to break
+existing programs, there will be at least a month (usually two) of
+advance warning.
 
 --------------------------
 XyzState to XyzEvent (!!!)
@@ -55,30 +59,22 @@ define states, they emit events.  Callivg Wheels' parameters XyzState
 has been inconsistent and confusing.  It's bitten a lot of people.
 Call them what they are instead.
 
-To do:
+Schedule:
 
-* Release version 0.15, and announce the depreciation.
+1. Release a version with XyzEvent and XyzState working side by side.
+   XyzState becomes undocumented in favor of XyzEvent.
 
-* Wait at least 28 days after the formal announcement (until
-  ????.??.??) before continuing this change schedule.  This gives
-  people time to adapt their production code to the new parameters
-  before warnings start.
+   Done: 2001.07.15.
 
-* Add depreciation warnings when XyzState is used.  This will prompt
-  late developers to adapt their code.
+2. Wait at least 28 days after the release.  The next stage of
+   breakage will fall on or after 2001.08.12.
 
-* Release version ?.??, and announce the next phase of XyzState
-  depreciation.
+3. Release a version that generates warnings when XyzState is used.
 
-* Wait at least 28 days after the next phase announcement (until
-  ????.??.??) before continuing this change schedule.  This gives
-  people time to adapt their production code to avoid the depreciation
-  warnings and subsequent breakage.
+4. Wait at least 28 days after the warning release.  The next stage of
+   breakage will fall on or after 2001.09.09.
 
-* Remove XyzState warnings and support altogether.
-
-* Release version ?.??, and announce that the XyzState to XyzEvent
-  depreciation has been completed.
+5. Release a version that does not support XyzState at all.
 
 -----------------------
 Improve Alarm Interface
@@ -86,13 +82,15 @@ Improve Alarm Interface
 
 This change adds new features without breaking the way old ones work.
 
-To do:
+Schedule:
 
-* Release version 0.15, and announce the new interface.
+1. Release a version with the new functions in place.
 
-* Optimize new functions.  Currently there are chunks of common code
-  which have been copied, pasted, and altered for their new
-  environments.  Some of this can be made into macros.
+   Done: 2001.07.15.
+
+2. Optimize the new functions.  Currently there are chunks of common
+   code which have been copied, pasted, and altered for their new
+   environments.  Some of this can become macros.
 
 Notes:
 
@@ -110,42 +108,33 @@ Depreciate queue_peek_alarms (!!!)
 The new alarm functions let programs track their alarms by ID, so they
 no longer need to peek into POE's alarm queue.
 
-To do:
+Schedule:
 
-* Release version 0.15, and announce the depreciation.
+1. Release a version with queue_peek_alarms() depreciated and
+   undocumented.
 
-* Wait at least 28 days after the formal announcement (until
-  ????.??.??) before continuing this change schedule.  This gives
-  people time to adapt their production code to the new parameters
-  before warnings start.
+   Done: 2001.07.15.
 
-* Add depreciation warnings to queue_peek_alarms().  This will prompt
-  late developers to adapt their code.
+2. Wait at least 28 days after the release.  The next stage of
+   breakage will fall on or after 2001.08.12.
 
-* Release ?.??, and announce the next phase of depreciation.
+3. Release a version with a depreciation warning in
+   queue_peek_alarms().
 
-* Wait at least 28 days after announcing the next phase (until
-  ????.??.??) before continuing this change schedule.  This gives
-  people time to adapt their production code to avoid the depreciation
-  warnings and subsequent breakage.
+4. Wait at least 28 days after the release.  The next stage of
+   breakage will fall on or after 2001.09.09.
 
-* Remove queue_peek_alarms() altogether.
-
-* Release version ?.??, and announce that the depreciation schedule is
-  complete.
-
+5. Release a version with queue_peek_alarms() removed altogether.
 
 ===============================================================================
                Depreciations & Changes BEING CONSIDERED
 ===============================================================================
 
-These changes have not begun.  They are still under heavy
-consideration, and it may be decided that they should never occur.
-Even if there is a depreciation schedule, it's still not planned to
-start yet.  Don't be scared.
-
-Please send comments and additions to the POE mailing list.  I will
-try to incorporate them into this document.
+These changes are not confirmed yet.  They are still under heavy
+consideration, and they may never actually happen.  Even if they
+include depreciation schedules, they are only tentative.  I can't
+overly stress that this is the wishlist section of the TODO file, but
+I'll certainly try. :)
 
 ----------------------------------------
 Signal Handling Flawed As Designed (!!!)
@@ -773,7 +762,6 @@ filters may not be available elsewhere, so it would be useful to let
 developers statically preprocess applications into stand-alone files.
 
 Let Ilya Melamed know when this is done.  It's his request.
-
 
 ===
 EOT
