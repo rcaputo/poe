@@ -1668,11 +1668,8 @@ timeslicing, which makes up the heart of POE's threading.
 
 Some resources must be serviced right away, or they'll faithfully
 continue reporting their readiness.  These reports would appear as a
-stream of duplicate events, which would be bad.  Filehandles are like
-this: They remain ready as long as they're not serviced.  For this
-reason, some events (namely filehandle readiness events) invoke their
-handlers immediately.  These are "synchronous" events because they're
-handled right away.
+stream of duplicate events, which would be bad.  These are
+"synchronous" events because they're handled right away.
 
 The other kind of event is called "asynchronous" because they're
 posted and dispatched through a queue.  There's no telling just when
