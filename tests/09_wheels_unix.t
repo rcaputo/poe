@@ -9,8 +9,8 @@ use TestSetup;
 use Socket;
 
 BEGIN {
-  &test_setup(0, "Windows doesn't support UNIX sockets")
-    if $^O eq 'MSWin32';
+  &test_setup(0, "$^O doesn't support UNIX sockets")
+    if $^O eq 'MSWin32' or $^O eq 'MacOS';
 };
 
 # Turn on all asserts.

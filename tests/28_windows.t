@@ -8,7 +8,12 @@ use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
 
-&test_setup(1);
+BEGIN {
+  test_setup(0, "Windows tests aren't necessary or $^O")
+    if $^O eq 'MacOS';
+};
+
+test_setup(1);
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

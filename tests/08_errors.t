@@ -507,7 +507,7 @@ if ($^O ne 'MSWin32' and $^O ne 'MacOS') {
 }
 else {
   for (53..59) {
-    print "ok $_ # skipped: Wheel::Run not working on Win32 today\n";
+    print "ok $_ # skipped: Wheel::Run currently unsupported on $^O\n";
   }
 }
 

@@ -29,6 +29,9 @@ sub load_optional_module {
   elsif ($reason =~ /Can\'t find a valid termcap file/) {
     $reason = "Term::Cap can't find a valid termcap file";
   }
+  elsif ($reason =~ /^[^\/]*does not support[^\/]*/) {
+    $reason =~ s/\s*\/.+$//g;
+  }
 
   print( "ok $test_number",
          ( (length $reason) ? " # skipped: $reason" : '' ),
