@@ -35,6 +35,13 @@ POE/Pipe/TwoWay.pm
 POE/Preprocessor.pm
 POE/Queue.pm
 POE/Queue/Array.pm
+POE/Resource/Aliases.pm
+POE/Resource/Events.pm
+POE/Resource/Extrefs.pm
+POE/Resource/FileHandles.pm
+POE/Resource/Sessions.pm
+POE/Resource/SIDs.pm
+POE/Resource/Signals.pm
 POE/Session.pm
 POE/Wheel.pm
 POE/Wheel/Curses.pm
