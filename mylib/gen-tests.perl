@@ -4,11 +4,13 @@ use strict;
 use File::Spec::Functions;
 use File::Path;
 
+my $test_base = "t";
+
 ### Resources, and their perl and XS implementations.
 
 {
-  my $base_dir = catfile("t", "20_resources");
-  my $base_lib = catfile($base_dir, "00_base");
+  my $base_dir = catfile($test_base, "20_resources");
+  my $base_lib = catfile($base_dir,  "00_base");
 
   my %derived_conf = (
     "10_perl" => { implementation => "perl" },
@@ -40,8 +42,8 @@ use File::Path;
 ### Event loops and the tests that love them.
 
 {
-  my $base_dir = catfile("t", "30_loops");
-  my $base_lib = catfile($base_dir, "00_base");
+  my $base_dir = catfile($test_base, "30_loops");
+  my $base_lib = catfile($base_dir,  "00_base");
 
   my %derived_conf = (
     "10_select" => { module => "",         display => "" },
@@ -58,16 +60,21 @@ use File::Path;
   foreach my $variables (values %derived_conf) {
     my $module = $variables->{module};
 
-    if ($variables->{display} and $^O ne "MSWin32") {
-      $variables->{display} = (
-        "\n" .
-        "BEGIN {\n" .
-        "  unless (\$ENV{DISPLAY}) {\n" .
-        "    print qq(1..0 # SKIP $module needs a DISPLAY (set one today, okay?)\\n);\n" .
-        "    exit 0;\n" .
-        "  }\n" .
-        "}\n"
-      );
+    if ($variables->{display}) {
+      if ($^O eq "MSWin32") {
+        $variables->{display} = "";
+      }
+      else {
+        $variables->{display} = (
+          "\n" .
+          "BEGIN {\n" .
+          "  unless (\$ENV{DISPLAY}) {\n" .
+          "    print qq(1..0 # SKIP $module needs a DISPLAY (set one today, okay?)\\n);\n" .
+          "    exit 0;\n" .
+          "  }\n" .
+          "}\n"
+        );
+      }
     }
 
     # If a module must be loaded, load it.  Skip the tests if it can't
