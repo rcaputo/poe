@@ -12,6 +12,7 @@ sub initialize {
     use POE::Resource::Events;      # Events.
     use POE::Resource::Sessions;    # Sessions.
     |;
+    die if $@;
 }
 
 1;
