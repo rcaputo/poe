@@ -2549,8 +2549,13 @@ sub _dispatch_event {
   # at once.  No, probably not, since GC triggers _stop, which may
   # trigger other GC. -><-
 
+  # Need to test $session for existence because POE::NFA->stop() may
+  # have discarded it already.  -><- This is rapidly becoming a
+  # mess, and some sort of mark/sweep may clean it up.
+
   if ($type & ET_USER) {
-    $self->_data_ses_collect_garbage($session);
+    $self->_data_ses_collect_garbage($session)
+      if $self->_data_ses_exists($session);
     $self->_data_ses_collect_garbage($source_session)
       if ( $session != $source_session and
            $self->_data_ses_exists($source_session)

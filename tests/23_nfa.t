@@ -56,6 +56,18 @@ POE::NFA->spawn
     },
   )->goto_state( initial => 'start' );  # enter the initial state
 
+### This NFA uses the stop() method.  Gabriel Kihlman discovered that
+### POE::NFA lags behind POE::Kernel after 0.24, and stop() wasn't
+### fixed to use the new _data_ses_free() method of POE::Kernel.
+
+POE::NFA->spawn
+  ( inline_states =>
+    { initial =>
+      { start => sub { $_[MACHINE]->stop() }
+      }
+    }
+  )->goto_state(initial => 'start');
+
 ### A plain session to interact with the switch.  It's in its own
 ### package to avoid conflicting constants.  This simulates a causal
 ### observer who pushes the light's button over and over, watching it
