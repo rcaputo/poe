@@ -862,14 +862,10 @@ sub shutdown_stdin {
   my $self = shift;
   return unless defined $self->[HANDLE_STDIN];
 
-  if ($self->[STDIO_TYPE] eq "pipe" or $self->[STDIO_TYPE] eq "pty") {
-    close $self->[HANDLE_STDIN];
-  }
-  else {
-    eval { local $^W = 0; shutdown($self->[HANDLE_STDIN], 1) };
-  }
-
   $poe_kernel->select_write($self->[HANDLE_STDIN], undef);
+
+  eval { local $^W = 0; shutdown($self->[HANDLE_STDIN], 1) };
+  close $self->[HANDLE_STDIN] if $@;
 }
 
 #------------------------------------------------------------------------------

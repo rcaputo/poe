@@ -16,7 +16,7 @@ BEGIN {
     if $^O eq 'MSWin32';
 }
 
-test_setup(24);
+test_setup(27);
 
 # Turn on extra debugging output within this test program.
 sub DEBUG () { 0 }
@@ -370,6 +370,31 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
 }
 else {
   &many_ok( 19, 21, "skipped: IO::Pty is needed for this test.");
+}
+
+# Test shutdown_stdin.
+
+my $test = 25;
+foreach my $conduit (qw(pipe socketpair inet)) {
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[HEAP]->{wheel} = POE::Wheel::Run->new(
+          Program     => sub { 1 while (<STDIN>); print "thanks\n"; },
+          StdoutEvent => "got_input",
+          Conduit     => $conduit,
+        );
+        $_[KERNEL]->delay(got_timeout => 0.1);
+      },
+      got_input => sub {
+        ok($test++);
+        delete $_[HEAP]->{wheel};
+      },
+      got_timeout => sub {
+        $_[HEAP]->{wheel}->shutdown_stdin();
+      },
+    },
+  );
 }
 
 ### Run the main loop.
