@@ -44,11 +44,7 @@ new POE::Session
                   'increment' => sub
                   {
                     my ($k, $me, $from, $session_name, $counter) = @_;
-                                        # post the message first, so it's there
                     $counter++;
-                    if ($counter < 5) {
-                      $k->post($me, 'increment', $session_name, $counter);
-                    }
                     my $ret = $k->call($me, 'display one',
                                        $session_name, $counter
                                       );
@@ -57,6 +53,11 @@ new POE::Session
                                     $session_name, $counter
                                    );
                     print "(display two returns: $ret)\n";
+                                        # post the session last, to test that
+                                        # call() doesn't GC
+                    if ($counter < 5) {
+                      $k->post($me, 'increment', $session_name, $counter);
+                    }
                   },
                   'display one' => sub 
                   {
