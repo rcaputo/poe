@@ -25,7 +25,7 @@ sub initialize {
     if ($@) {
       # Retry the resource, removing XS:: if it couldn't be loaded.
       # If there's no XS:: to be removed, fall through and die.
-      redo if $@ =~ /^Can't locate/ and $resource =~ s/::XS::/::/;
+      redo if $@ =~ /Can't locate.*?in \@INC/ and $resource =~ s/::XS::/::/;
       die;
     }
   }

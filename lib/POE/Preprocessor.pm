@@ -826,13 +826,13 @@ they are.
 
     use POE::Preprocessor ( isa => 'POE::SomeModule' );
 
-This method of calling Preprocessor causes the macros and constants of 
-C<POE::SomeModule> to be imported for use in the current namespace. 
-These macros and constants can be overriden simply by defining items 
+This method of calling Preprocessor causes the macros and constants of
+C<POE::SomeModule> to be imported for use in the current namespace.
+These macros and constants can be overriden simply by defining items
 in the current namespace of the same name.
 
-Note: if the macros in C<POE::SomeModule> require additional perl 
-modules, any code which imports these macros will need to C<use> 
+Note: if the macros in C<POE::SomeModule> require additional perl
+modules, any code which imports these macros will need to C<use>
 those modules as well.
 
 =head1 DEBUGGING
@@ -889,43 +889,56 @@ This is bad:
   use Carp;     # Not seen and OMITTED FROM the expanded version.
   use POE::Preprocessor;
 
-=head1 PERLAPP AND PERL2EXE SUPPORT
+=head1 PERLAPP, PERL2EXE, AND PAR SUPPORT
 
-Thanks to Zoltan Kandi for assistance in testing and documenting this.
-This example uses a POE program, but POE::Preprocessor may be used
-without the rest of POE.  The general ideas are the same, but the
-examples will be different.
+PerlApp, perl2exe, and PAR are program archivers, similar to Java's
+JAR.  These utilities bundle your program with its dependencies and
+perhaps a perl executable.  The result is a single, large file that
+may be more easily deployable than the usual Perl program.
 
-POE::Preprocessor supports PerlApp (from the ActiveState PDK) and
-probably perl2exe as well.  These perl "compilers" may require POE
-programs to be altered slightly to work.
+The archivers find dependencies by looking for C<use> statements.  POE
+does a lot of dynamic loading at startup, so its C<use> statements are
+not always detectable.
 
-Most notably, PerlApp cannot find modules imported using the POE
-module.  That is, this will not work:
+To work around the issue, add C<use> statements for modules that are
+missing from your bundled distribution.
+
+Things to look for:
+
+PerlApp cannot find modules imported using the L<POE> module.  That
+is, this will not work:
 
   use POE qw(A B C);
 
-Modules must instead be used explicitly for PerlApp to include them.
-Remember that POE.pm includes POE::Kernel and POE::Session, so those
-two modules must be added wherever C<use POE;> is found.
+This is the working equivalent:
 
-This is equivalent to C<use POE qw(A B C);>
+  # Dynamically required by POE::Kernel.
+  use POE::Resource::Aliases;
+  use POE::Resource::Events;
+  use POE::Resource::Extrefs;
+  use POE::Resource::FileHandles;
+  use POE::Resource::SIDs;
+  use POE::Resource::Sessions;
+  use POE::Resource::Signals;
+  use POE::Resource::Statistics;
 
-  use POE::Kernel;  # Because POE.pm includes it.
-  use POE::Session; # Because POE.pm includes it.
+  # Dynamically required by POE.pm.
+  use POE::Kernel;
+  use POE::Session;
+
   use POE::A;
   use POE::B;
   use POE::C;
 
-Next a set of preprocessed sources must be created.  PerlApp does not
-support source filters such as POE::Preprocessor, so it is necessary
-to pre-process modules before they are compiled.  This can be done by
-setting the POE_PREPROC_DUMP environment variable.
+PerlApp does not support POE::Processor or any other source filter, so
+it's necessary to generate a static version of the files to be
+included.  Setting the C<POE_PREPROC_DUMP> environment variable will
+cause POE::Preprocessor to dump a processed version of the file.
 
   set POE_PREPROC_DUMP=c:\rocco\preproc
 
 Run the program.  As the program is run, its preprocessed files will
-be placed in subdirectories under POE_PREPROC_DUMP.
+be placed in subdirectories under L<POE_PREPROC_DUMP>.
 
   perl MyPoeApp.perl
 
@@ -934,19 +947,16 @@ must be placed in the PERL5LIB environment variable.
 
   C:\rocco\POE-0.20>dir /b /a:d /s c:\rocco\preproc
 
-Shows these directories:
+Might show these directories:
 
   C:\rocco\preproc\POE
   C:\rocco\preproc\POE\Kernel
 
-Here the POE modules have been dumped into "C:\rocco\preproc\POE" and
-its subdirectories.  In order for C<use POE::Foo> to find POE/Foo.pm,
-the PERL5LIB environment variable must be set to "c:\rocco\preproc".
+The POE modules have been dumped into "C:\rocco\preproc\POE" and its
+subdirectories.  For C<use POE::Foo> to find POE/Foo.pm, the
+"c:\rocco\preproc" directory must be prepended to PERL5LIB.
 
   set PERL5LIB=c:\rocco\preproc
-
-It often will not be this trivial to find the value for PERL5LIB, but
-it will not be much harder.
 
 PerlApp can finally build an EXE version of the program.
 
@@ -954,6 +964,13 @@ PerlApp can finally build an EXE version of the program.
 
 MyPoeApp.exe should now be a stand-alone executable version of your
 Perl program.
+
+Thanks to...
+
+Zoltan Kandi for testing and documenting this.
+
+Lance Braswell for pointing out the POE::Resource classes need to be
+loaded.
 
 =head1 BUGS
 
@@ -983,9 +1000,9 @@ Text::Trie.
 
 =head1 AUTHOR & COPYRIGHT
 
-POE::Preprocessor is Copyright 2000 Rocco Caputo.  Some parts are 
-Copyright 2001 Matt Cashner. All rights reserved.  POE::Preprocessor 
-is free software; you may redistribute it and/or modify it under 
+POE::Preprocessor is Copyright 2000 Rocco Caputo.  Some parts are
+Copyright 2001 Matt Cashner. All rights reserved.  POE::Preprocessor
+is free software; you may redistribute it and/or modify it under
 the same terms as Perl itself.
 
 =cut
