@@ -65,8 +65,7 @@ sub sss_start {
 
   $heap->{test_two} = 1;
   $heap->{wheel_id} = $heap->{wheel}->ID;
-  $heap->{read_count_1} = 0;
-  $heap->{read_count_2} = 0;
+  $heap->{read_count} = 0;
 }
 
 sub sss_block {
