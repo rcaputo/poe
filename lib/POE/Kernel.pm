@@ -13,6 +13,7 @@ use Errno qw(ESRCH EINTR ECHILD EPERM EINVAL EEXIST EAGAIN EWOULDBLOCK);
 use Carp qw(carp croak confess cluck);
 use Sys::Hostname qw(hostname);
 use IO::Handle;
+use File::Spec;
 
 # People expect these to be lexical.
 
@@ -427,17 +428,17 @@ BEGIN {
     # TODO - A better convention would be to replace the path
     # separators with hyphens and rename Loop/Poll.pm to
     # Loop/IO-Poll.pm.
-    #
-    # TODO - This code uses hardcoded path separators.  A better
-    # solution would involve File::Spec.
 
-    my $pared_file = $file;
-    $pared_file =~ s/^IO[\/\\]//;
-    next if $pared_file =~ /[^\w\.]/;
+    my @split_dirs = File::Spec->splitdir($file);
+    shift @split_dirs if $split_dirs[0] eq "IO";
+    next if @split_dirs != 1;
 
-    # Remove ".pm"
-    my $module = $pared_file;
+    # Create a module name by removing ".pm"
+    my $module = $split_dirs[0];
     substr($module, -3) = "";
+
+    # Skip the module name if it isn't legal.
+    next if $module =~ /[^\w\.]/;
 
     # Modules can die with "not really dying" if they've loaded
     # something else.  This exception prevents the rest of the

@@ -43,30 +43,33 @@ my $test_str = join " ", sort @tests;
 open(TOUCH, ">>CHANGES") and close TOUCH;
 open(TOUCH, ">>META.yml") and close TOUCH;
 
-WriteMakefile
-  ( NAME           => 'POE',
-    VERSION_FROM   => 'lib/POE.pm',
+WriteMakefile(
+  NAME           => 'POE',
+  VERSION_FROM   => 'lib/POE.pm',
 
-    dist           =>
-    { COMPRESS => 'gzip -9f',
-      SUFFIX   => 'gz',
-      PREOP    => ( './mylib/cvs-log.perl | ' .
-                    'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
-                  ),
-    },
-    test           => { TESTS => $test_str },
-    PREREQ_PM      => { Carp               => 0,
-                        Exporter           => 0,
-                        IO                 => 0,
-                        POSIX              => 0,
-                        Socket             => 0,
-                        Filter::Util::Call => 1.04,
-                        Test::More         => 0,
-                      },
-    PL_FILES    => { },
-    clean => {
-        FILES => 'poe_report.xml test-output.err coverage.report',
-    }
-  );
+  dist           => {
+    COMPRESS => 'gzip -9f',
+    SUFFIX   => 'gz',
+    PREOP    => (
+      './mylib/cvs-log.perl | ' .
+      'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
+    ),
+  },
+  test           => { TESTS => $test_str },
+  PREREQ_PM      => {
+    Carp               => 0,
+    Exporter           => 0,
+    IO                 => 0,
+    POSIX              => 0,
+    Socket             => 0,
+    Filter::Util::Call => 1.04,
+    Test::More         => 0,
+    File::Spec         => 0,
+  },
+  PL_FILES    => { },
+  clean => {
+    FILES => 'poe_report.xml test-output.err coverage.report',
+  }
+);
 
 1;

@@ -23,101 +23,104 @@ unless (-t STDIN) {
 
 eval "require ExtUtils::AutoInstall";
 if ($@) {
-  warn( "\n",
-        "==================================================================\n",
-        "\n",
-        "POE's installer magic requires ExtUtils::AutoInstall.  POE comes\n",
-        "with an older version, but it will not be installed.  You should\n",
-        "install the most recent ExtUtils::AutoInstall at your convenience.\n",
-        "\n",
-        "==================================================================\n",
-        "\n",
-      );
+  warn(
+    "\n",
+    "==================================================================\n",
+    "\n",
+    "POE's installer magic requires ExtUtils::AutoInstall.  POE comes\n",
+    "with an older version, but it will not be installed.  You should\n",
+    "install the most recent ExtUtils::AutoInstall at your convenience.\n",
+    "\n",
+    "==================================================================\n",
+    "\n",
+  );
   eval "require './mylib/ExtUtils/AutoInstall.pm'";
   die if $@;
 }
 
 unless (grep /^--default$/, @ARGV) {
-  print( "\n",
-         "=================================================================\n",
-         "\n",
-         "If the prompts are annoying, they can be bypassed by running\n",
-         "\t$^X $0 --default\n",
-         "\n",
-         "Only the necessary modules will be installed by default.\n",
-         "\n",
-         "=================================================================\n",
-         "\n",
-       );
+  print(
+    "\n",
+    "=================================================================\n",
+    "\n",
+    "If the prompts are annoying, they can be bypassed by running\n",
+    "\t$^X $0 --default\n",
+     "\n",
+    "Only the necessary modules will be installed by default.\n",
+    "\n",
+    "=================================================================\n",
+    "\n",
+  );
 }
 
-ExtUtils::AutoInstall->import
-  ( -version => '0.50',
-    -core => [
-        Carp                 => '',
-        Exporter             => '',
-        IO                   => '',
-        POSIX                => '',
-        Socket               => '',
-        'Test::More'         => '',
-        'Filter::Util::Call' => 1.04,
-    ],
-    "Recommended modules to increase timer/alarm/delay accuracy." => [
-        -default      => 0,
-        'Time::HiRes' => '',
-    ],
-    "Optional modules to speed up large-scale clients/servers." => [
-        -default   => 0,
-        -tests     => [ qw(t/27_poll.t) ],
-        'IO::Poll' => 0.05,
-    ],
-    "Optional modules for IPv6 support." => [
-        -default  => 0,
-        -tests    => [ qw(t/29_sockfact6.t) ],
-        'Socket6' => 0.11,
-    ],
-    "Optional modules for controlling full-screen programs (e.g. vi)." => [
-        -default  => 0,
-        'IO::Pty' => '1.02',
-    ],
-    "Optional modules for marshaling/serializing data." => [
-        -default         => 0,
-        'Storable'       => '',
-        'Compress::Zlib' => '',
-    ],
-    "Optional modules for web applications (client & server)." => [
-        -default => 0,
-        -tests => [ qw(t/30_filter_httpd.t) ],
-        'HTTP::Status'   => '1.28',
-        'HTTP::Request'  => '1.34',
-        'HTTP::Date'     => '1.46',
-        'HTTP::Response' => '1.41',
-        'URI'            => '1.27',
-    ],
-    "Optional modules for Curses text interfaces." => [
-        -default => 0,
-        'Curses' => '',
-    ],
-    "Optional modules for console (command line) interfaces." => [
-        -default        => 0,
-        'Term::ReadKey' => '',
-        'Term::Cap'     => '',
-    ],
-    "Optional modules for Gtk+ graphical interfaces." => [
-        -default => 0,
-        -tests   => [ qw(t/21_gtk.t) ],
-        'Gtk'    => '',
-    ],
-    "Optional modules for Tk graphical interfaces." => [
-        -default => 0,
-        -tests   => [ qw(t/06_tk.t) ],
-        'Tk'     => '800.021',
-    ],
-    "Optional modules for Event.pm support." => [
-        -default => 0,
-        -tests   => [ qw(t/07_event.t t/12_signals_ev.t) ],
-        'Event'  => '',
-    ],
+ExtUtils::AutoInstall->import(
+  -version => '0.50',
+  -core => [
+      Carp                 => '',
+      Exporter             => '',
+      IO                   => '',
+      POSIX                => '',
+      Socket               => '',
+      'File::Spec'         => '',
+      'Test::More'         => '',
+      'Filter::Util::Call' => 1.04,
+  ],
+  "Recommended modules to increase timer/alarm/delay accuracy." => [
+      -default      => 0,
+      'Time::HiRes' => '',
+  ],
+  "Optional modules to speed up large-scale clients/servers." => [
+      -default   => 0,
+      -tests     => [ qw(t/27_poll.t) ],
+      'IO::Poll' => 0.05,
+  ],
+  "Optional modules for IPv6 support." => [
+      -default  => 0,
+      -tests    => [ qw(t/29_sockfact6.t) ],
+      'Socket6' => 0.11,
+  ],
+  "Optional modules for controlling full-screen programs (e.g. vi)." => [
+      -default  => 0,
+      'IO::Pty' => '1.02',
+  ],
+  "Optional modules for marshaling/serializing data." => [
+      -default         => 0,
+      'Storable'       => '',
+      'Compress::Zlib' => '',
+  ],
+  "Optional modules for web applications (client & server)." => [
+      -default => 0,
+      -tests => [ qw(t/30_filter_httpd.t) ],
+      'HTTP::Status'   => '1.28',
+      'HTTP::Request'  => '1.34',
+      'HTTP::Date'     => '1.46',
+      'HTTP::Response' => '1.41',
+      'URI'            => '1.27',
+  ],
+  "Optional modules for Curses text interfaces." => [
+      -default => 0,
+      'Curses' => '',
+  ],
+  "Optional modules for console (command line) interfaces." => [
+      -default        => 0,
+      'Term::ReadKey' => '',
+      'Term::Cap'     => '',
+  ],
+  "Optional modules for Gtk+ graphical interfaces." => [
+      -default => 0,
+      -tests   => [ qw(t/21_gtk.t) ],
+      'Gtk'    => '',
+  ],
+  "Optional modules for Tk graphical interfaces." => [
+      -default => 0,
+      -tests   => [ qw(t/06_tk.t) ],
+      'Tk'     => '800.021',
+  ],
+  "Optional modules for Event.pm support." => [
+      -default => 0,
+      -tests   => [ qw(t/07_event.t t/12_signals_ev.t) ],
+      'Event'  => '',
+  ],
 );
 
 # Touch generated files so they exist.
