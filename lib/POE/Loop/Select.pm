@@ -53,11 +53,11 @@ sub loop_finalize {
 
   # This is "clever" in that it relies on each symbol on the left to
   # be stringified by the => operator.
-  my %kernel_modes =
-    ( MODE_RD => MODE_RD,
-      MODE_WR => MODE_WR,
-      MODE_EX => MODE_EX,
-    );
+  my %kernel_modes = (
+    MODE_RD => MODE_RD,
+    MODE_WR => MODE_WR,
+    MODE_EX => MODE_EX,
+  );
 
   while (my ($mode_name, $mode_offset) = each(%kernel_modes)) {
     my $bits = unpack('b*', $loop_vectors[$mode_offset]);
@@ -198,12 +198,13 @@ sub loop_do_timeslice {
       );
 
       if (ASSERT_FILES) {
-        if ($hits < 0) {
-          POE::Kernel::_trap("<fh> select error: $!")
-            unless ( ($! == EINPROGRESS) or
-                     ($! == EWOULDBLOCK) or
-                     ($! == EINTR)
-                   );
+        if (
+          $hits < 0 and
+          $! != EINPROGRESS and
+          $! != EWOULDBLOCK and
+          $! != EINTR
+        ) {
+          POE::Kernel::_trap("<fh> select error: $!");
         }
       }
 
@@ -287,6 +288,9 @@ sub loop_do_timeslice {
     # MSWin32 with all undef bitmasks.  Use sleep() there instead.
 
     else {
+      # Not unconditionally the Time::HiRes microsleep because
+      # Time::HiRes may not be installed.  This is only an issue until
+      # we can require versions of Perl that include Time::HiRes.
       if ($^O eq 'MSWin32') {
         sleep($timeout);
       }

@@ -19,12 +19,12 @@ ok($refcnt == 1, "tag-1 incremented to 1");
 $refcnt = $poe_kernel->_data_extref_inc($poe_kernel, "tag-1");
 ok($refcnt == 2, "tag-1 incremented to 2");
 
-# Five session references: Two for sending events, two for receiving
+# Three session references: One for sending events, one for receiving
 # events, and one for tag-1.  (No matter how many times you increment
 # a single tag, it only counts as one session reference.)
 
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == 5,
+  $poe_kernel->_data_ses_refcount($poe_kernel) == 3,
   "POE::Kernel has proper number of references"
 );
 
@@ -44,7 +44,7 @@ $refcnt = $poe_kernel->_data_extref_inc($poe_kernel, "tag-1");
 ok($refcnt == 1, "tag-1 count cleared/incremented to 1");
 
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == 5,
+  $poe_kernel->_data_ses_refcount($poe_kernel) == 3,
   "POE::Kernel still has five references"
 );
 
@@ -56,16 +56,16 @@ ok($refcnt == 1, "tag-2 incremented to 1");
 # Setting a second tag increments the master reference count.
 
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == 6,
+  $poe_kernel->_data_ses_refcount($poe_kernel) == 4,
   "POE::Kernel reference count incremented with new tag"
 );
 
 # Clear all the extra references for the session, and verify that the
-# master reference count is back to 4 (two "from"; two "to").
+# master reference count is back to 2 (one "from"; one "to").
 
 $poe_kernel->_data_extref_clear_session($poe_kernel);
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == 4,
+  $poe_kernel->_data_ses_refcount($poe_kernel) == 2,
   "cleared tags reduce session refcount properly"
 );
 
@@ -127,7 +127,7 @@ ok(
   );
 
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 5,
+    $poe_kernel->_data_ses_refcount($poe_kernel) == 3,
     "POE::Kernel reference count decremented along with tag"
   );
 }
@@ -143,7 +143,7 @@ ok(
   );
 
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 5,
+    $poe_kernel->_data_ses_refcount($poe_kernel) == 3,
     "POE::Kernel reference count not decremented yet"
   );
 }
@@ -159,7 +159,7 @@ ok(
   );
 
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 4,
+    $poe_kernel->_data_ses_refcount($poe_kernel) == 2,
     "POE::Kernel reference count decremented again"
   );
 }

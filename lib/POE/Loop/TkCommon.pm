@@ -172,7 +172,7 @@ sub _loop_event_callback {
     # vs. kernel events, and GC the kernel when the user events drop
     # to 0.
 
-    if ($poe_kernel->get_event_count() == IDLE_QUEUE_SIZE) {
+    if ($poe_kernel->get_event_count() == $poe_kernel->_idle_queue_size()) {
       $poe_kernel->_test_if_kernel_is_idle();
     }
   }

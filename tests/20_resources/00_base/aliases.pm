@@ -18,11 +18,10 @@ BEGIN { use_ok("POE") }
   my $session = $poe_kernel->_data_alias_resolve("alias-1");
   ok($session == $poe_kernel, "alias resolves to original reference");
 
-  # Should be 5: One for the signal poller timer, one for the
-  # performance timer, one for the virtual POE::Kernel session, and
-  # one for the new alias.
+  # Should be 3: One for the performance timer, one for the virtual
+  # POE::Kernel session, and one for the new alias.
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 5,
+    $poe_kernel->_data_ses_refcount($poe_kernel) == 3,
     "session reference count is to be expected"
   );
 
@@ -40,9 +39,9 @@ BEGIN { use_ok("POE") }
   my $session = $poe_kernel->_data_alias_resolve("alias-1");
   ok(!defined($session), "removed alias does not resolve");
 
-  # Should be 4.  See the rationale above.
+  # Should be 2.  See the rationale above.
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 4,
+    $poe_kernel->_data_ses_refcount($poe_kernel) == 2,
     "session reference count reduced correctly"
   );
 }
@@ -60,7 +59,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
   );
 
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 7,
+    $poe_kernel->_data_ses_refcount($poe_kernel) == 5,
     "correct number of references were recorded"
   );
 
@@ -80,7 +79,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
 
   # See previous rationale for test 2.
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 4,
+    $poe_kernel->_data_ses_refcount($poe_kernel) == 2,
     "proper number of references after alias clear"
   );
 }

@@ -53,15 +53,7 @@ sub loop_watch_signal {
 
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
-
-    # Begin constant polling loop.  Only start it on CHLD or on CLD if
-    # CHLD doesn't exist.
-    $SIG{$signal} = 'DEFAULT';
-    $self->_data_ev_enqueue(
-      $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-      __FILE__, __LINE__, undef, time() + 1
-    ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
-
+    $self->_data_sig_begin_polling();
     return;
   }
 
@@ -77,6 +69,11 @@ sub loop_watch_signal {
 
 sub loop_ignore_signal {
   my ($self, $signal) = @_;
+
+  if ($signal eq 'CHLD' or $signal eq 'CLD') {
+    $self->_data_sig_cease_polling();
+  }
+
   $SIG{$signal} = "DEFAULT";
 }
 

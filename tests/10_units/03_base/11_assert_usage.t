@@ -12,6 +12,7 @@ use Test::More tests => 54;
 use Symbol qw(gensym);
 
 sub POE::Kernel::ASSERT_USAGE   () { 1 }
+sub POE::Kernel::TRACE_REFCNT   () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 BEGIN { use_ok("POE") }

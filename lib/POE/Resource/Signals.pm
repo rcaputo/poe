@@ -38,6 +38,16 @@ my @kr_signaled_sessions;           # The sessions touched by a signal.
 my $kr_signal_total_handled;        # How many sessions handled a signal.
 my $kr_signal_type;                 # The type of signal being dispatched.
 
+# A flag to tell whether we're currently polling for signals.
+my $polling_for_signals = 0;
+
+# A flag determining whether there are child processes.  Starts true
+# so our waitpid() loop can run at least once.  Starts false when
+# running in an Apache handler so our SIGCHLD hijinx don't interfere
+# with the web server.
+my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
+
+
 sub _data_sig_preload {
   $poe_kernel->[KR_SIGNALS] = \%kr_signals;
 }
@@ -52,16 +62,16 @@ sub SIGTYPE_BENIGN      () { 0x00 }
 sub SIGTYPE_TERMINAL    () { 0x01 }
 sub SIGTYPE_NONMASKABLE () { 0x02 }
 
-my %_signal_types =
-  ( QUIT => SIGTYPE_TERMINAL,
-    INT  => SIGTYPE_TERMINAL,
-    KILL => SIGTYPE_TERMINAL,
-    TERM => SIGTYPE_TERMINAL,
-    HUP  => SIGTYPE_TERMINAL,
-    IDLE => SIGTYPE_TERMINAL,
-    ZOMBIE    => SIGTYPE_NONMASKABLE,
-    UIDESTROY => SIGTYPE_NONMASKABLE,
-  );
+my %_signal_types = (
+  QUIT => SIGTYPE_TERMINAL,
+  INT  => SIGTYPE_TERMINAL,
+  KILL => SIGTYPE_TERMINAL,
+  TERM => SIGTYPE_TERMINAL,
+  HUP  => SIGTYPE_TERMINAL,
+  IDLE => SIGTYPE_TERMINAL,
+  ZOMBIE    => SIGTYPE_NONMASKABLE,
+  UIDESTROY => SIGTYPE_NONMASKABLE,
+);
 
 # Build a list of useful, real signals.  Nonexistent signals, and ones
 # which are globally unhandled, usually cause segmentation faults if
@@ -78,14 +88,15 @@ sub _data_sig_initialize {
     foreach my $signal (keys %SIG) {
 
       # Nonexistent signals, and ones which are globally unhandled.
-      next if ($signal =~ /^( NUM\d+
-                              |__[A-Z0-9]+__
-                              |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
-                              |RTMIN|RTMAX|SETS
-                              |SEGV
-                              |
-                            )$/x
-              );
+      next if (
+        $signal =~ /^( NUM\d+
+                     |__[A-Z0-9]+__
+                     |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
+                     |RTMIN|RTMAX|SETS
+                     |SEGV
+                     |
+                     )$/x
+      );
 
       # Windows doesn't have a SIGBUS, but the debugger causes SIGBUS
       # to be entered into %SIG.  It's fatal to register its handler.
@@ -97,13 +108,6 @@ sub _data_sig_initialize {
       $_safe_signals{$signal} = 1;
     }
   }
-
-  # Must always watch SIGCHLD because it fires up the event polling
-  # loop in POE::Kernel.  That loop's events are taken into
-  # consideration when looking for an "idle" system, so it must always
-  # run.
-
-  $self->loop_watch_signal("CHLD");
 }
 
 ### Return signals that are safe to manipulate.
@@ -143,13 +147,11 @@ sub _data_sig_add {
   $kr_sessions_to_signals{$session}->{$signal} = $event;
   $kr_signals{$signal}->{$session} = $event;
 
-  # First session to watch the signal.  Set the signal handler in the
-  # event loop.
+  # First session to watch the signal.
+  # Ask the event loop to watch the signal.
   if (
     (keys %{$kr_signals{$signal}} == 1) and
-    (exists $_safe_signals{$signal}) and
-    $signal ne "CHLD" and
-    $signal ne "CLD"
+    (exists $_safe_signals{$signal})
   ) {
     $self->loop_watch_signal($signal);
   }
@@ -302,6 +304,142 @@ sub _data_sig_free_terminated_sessions {
 sub _data_sig_touched_session {
   my ($self, $session) = @_;
   push @kr_signaled_sessions, $session;
+}
+
+# Signal polling mechanisms.  Teh suck.  Can't wait for safe signals.
+
+sub _data_sig_begin_polling {
+  my $self = shift;
+
+  return if $polling_for_signals;
+  $polling_for_signals = 1;
+
+  $self->_data_sig_enqueue_poll_event();
+  $self->_idle_queue_grow();
+}
+
+sub _data_sig_cease_polling {
+  $polling_for_signals = 0;
+}
+
+sub _data_sig_enqueue_poll_event {
+  my $self = shift;
+
+  return if $self->_data_ses_count() < 1;
+  return unless $polling_for_signals;
+
+  $self->_data_ev_enqueue(
+    $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+    __FILE__, __LINE__, undef, time() + 1
+  );
+}
+
+sub _data_sig_handle_poll_event {
+  my $self = shift;
+
+  if (TRACE_SIGNALS) {
+    _warn("<sg> POE::Kernel is polling for signals at " . time())
+  }
+
+  # Reap children for as long as waitpid(2) says something
+  # interesting has happened.
+  # -><- This has a possibility of an infinite loop, but so far it
+  # hasn't hasn't happened.
+
+  my $pid;
+  while ($pid = waitpid(-1, WNOHANG)) {
+
+    # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
+    # event and loop around again.
+
+    if ((RUNNING_IN_HELL and $pid < -1) or ($pid > 0)) {
+      if (RUNNING_IN_HELL or WIFEXITED($?) or WIFSIGNALED($?)) {
+
+        if (TRACE_SIGNALS) {
+          _warn("<sg> POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)");
+        }
+
+        $self->_data_ev_enqueue(
+          $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
+          __FILE__, __LINE__, undef, time(),
+        );
+      }
+      elsif (TRACE_SIGNALS) {
+        _warn("<sg> POE::Kernel detected strange exit (pid=$pid; exit=$?");
+      }
+
+      if (TRACE_SIGNALS) {
+        _warn("<sg> POE::Kernel will poll again immediately");
+      }
+
+      next;
+    }
+
+    # The only other negative value waitpid(2) should return is -1.
+    # This is highly unlikely, but it's necessary to catch
+    # portability problems.
+    #
+    # TODO - Find a way to test this.
+
+    _trap "internal consistency error: waitpid returned $pid"
+      if $pid != -1;
+
+    # If the error is an interrupted syscall, poll again right away.
+
+    if ($! == EINTR) {
+      if (TRACE_SIGNALS) {
+        _warn(
+          "<sg> POE::Kernel's waitpid(2) was interrupted.\n",
+          "POE::Kernel will poll again immediately.\n"
+        );
+      }
+      next;
+    }
+
+    # No child processes exist.  -><- This is different than
+    # children being present but running.  Maybe this condition
+    # could halt polling entirely, and some UNIVERSAL::fork wrapper
+    # could restart polling when processes are forked.
+
+    if ($! == ECHILD) {
+      if (TRACE_SIGNALS) {
+        _warn("<sg> POE::Kernel has no child processes");
+      }
+      last;
+    }
+
+    # Some other error occurred.
+
+    if (TRACE_SIGNALS) {
+      _warn("<sg> POE::Kernel's waitpid(2) got error: $!");
+    }
+    last;
+  }
+
+  # If waitpid() returned 0, then we have child processes.
+
+  $kr_child_procs = !$pid;
+
+  # The poll loop is over.  Resume slowly polling for signals.
+
+  if (TRACE_SIGNALS) {
+    _warn("<sg> POE::Kernel will poll again after a delay");
+  }
+
+  if ($polling_for_signals) {
+    $self->_data_sig_enqueue_poll_event();
+  }
+  else {
+    $self->_idle_queue_shrink();
+  }
+}
+
+# Are there child processes worth waiting for?
+# We don't really care if we're not polling for signals.
+
+sub _data_sig_child_procs {
+  return unless $polling_for_signals;
+  return $kr_child_procs;
 }
 
 1;

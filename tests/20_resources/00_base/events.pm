@@ -19,33 +19,31 @@ sub BOGUS_SESSION () { 31415 }
 
 { # Create a new event, and verify that it's good.
 
-  my $event_id =
-    $poe_kernel->_data_ev_enqueue(
-      $poe_kernel,  # session
-      $poe_kernel,  # source_session
-      "event",      # event
-      0x80000000,   # event type (hopefully unused)
-      [],           # etc
-      __FILE__,     # file
-      __LINE__,     # line
-      "called_from",# caller state
-      0,            # time (beginning thereof)
-    );
+  my $event_id = $poe_kernel->_data_ev_enqueue(
+    $poe_kernel,  # session
+    $poe_kernel,  # source_session
+    "event",      # event
+    0x80000000,   # event type (hopefully unused)
+    [],           # etc
+    __FILE__,     # file
+    __LINE__,     # line
+    "called_from",# caller state
+    0,            # time (beginning thereof)
+  );
 
-  # Event 1 is the kernel's signal poll timer.
-  # Event 2 is the kernel's performance poll timer.
-  ok($event_id == 3, "first user created event is ID 3");
+  # Event 1 is the kernel's performance poll timer.
+  ok($event_id == 2, "first user created event is ID $event_id (should be 3)");
 
-  # Kernel should have three events due.  A nonexistent session should
-  # have zero.
+  # Kernel should therefore have two events due.  A nonexistent
+  # session should have zero.
 
   ok(
-    $poe_kernel->_data_ev_get_count_from($poe_kernel) == 3,
+    $poe_kernel->_data_ev_get_count_from($poe_kernel) == 2,
     "POE::Kernel has enqueued three events"
   );
 
   ok(
-    $poe_kernel->_data_ev_get_count_to($poe_kernel) == 3,
+    $poe_kernel->_data_ev_get_count_to($poe_kernel) == 2,
     "POE::Kernel has three events enqueued for it"
   );
 
@@ -59,12 +57,12 @@ sub BOGUS_SESSION () { 31415 }
     "unknown session has no events enqueued for it"
   );
 
-  # Signal timer (x2), performance timer (x2), session, and from/to
-  # for the event we enqueued.
+  # Performance timer (x2), session, and from/to for the event we
+  # enqueued.
 
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 6,
-    "POE::Kernel's reference count is six"
+    $poe_kernel->_data_ses_refcount($poe_kernel) == 4,
+    "POE::Kernel's reference count is five"
   );
 }
 

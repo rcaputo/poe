@@ -86,12 +86,6 @@ BEGIN {
 # Globals, or at least package-scoped things.  Data structures were
 # moved into lexicals in 0.1201.
 
-# A flag determining whether there are child processes.  Starts true
-# so our waitpid() loop can run at least once.  Starts false when
-# running in an Apache handler so our SIGCHLD hijinx don't interfere
-# with the web server.
-my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
-
 # A reference to the currently active session.  Used throughout the
 # functions that act on the current session.
 my $kr_active_session;
@@ -195,12 +189,19 @@ sub ET_SIGNAL_EXPLICIT   () { 0x0800 }  # Explicitly requested signal.
 sub ET_SIGNAL_COMPATIBLE () { 0x1000 }  # Backward-compatible semantics.
 
 # A hash of reserved names.  It's used to test whether someone is
-# trying to use an internal event directly.  XXX - These are not fat
-# commas, otherwise the symbolic constants would be stringified.
+# trying to use an internal event directly.
 
 my %poes_own_events = (
-  EN_CHILD  , 1, EN_GC     , 1, EN_PARENT , 1, EN_SCPOLL , 1,
-  EN_SIGNAL , 1, EN_START  , 1, EN_STOP   , 1, EN_STAT,    1,
+  +EN_CHILD  => 1,
+  +EN_GC     => 1,
+  +EN_CHILD  => 1,
+  +EN_GC     => 1,
+  +EN_PARENT => 1,
+  +EN_SCPOLL => 1,
+  +EN_SIGNAL => 1,
+  +EN_START  => 1,
+  +EN_STOP   => 1,
+  +EN_STAT   => 1,
 );
 
 # These are ways a child may come or go.
@@ -302,19 +303,17 @@ BEGIN {
   define_assert qw(DATA EVENTS FILES RETVALS USAGE);
 }
 
-# This is a second BEGIN block so TRACE_STATISTICS may be defined
-# already.
+# An "idle" POE::Kernel may still have events enqueued.  These events
+# regulate polling for signals, profiling, and perhaps other aspecs of
+# POE::Kernel's internal workings.
+#
+# XXX - There must be a better mechanism.
+#
+my $idle_queue_size = TRACE_PROFILE ? 1 : 0;
 
-BEGIN {
-  # The Kernel's queue is "idle" if there is one or two events in it.
-  # One event is for the signal poller; a second event is for the
-  # profiler timer tick, if TRACE_PROFILE is enabled.
-
-  my $idle_queue_size = 1;
-  $idle_queue_size++ if TRACE_PROFILE;
-  eval "sub IDLE_QUEUE_SIZE () { $idle_queue_size }";
-  die if $@;
-};
+sub _idle_queue_grow   { $idle_queue_size++; }
+sub _idle_queue_shrink { $idle_queue_size--; }
+sub _idle_queue_size   { $idle_queue_size;   }
 
 #------------------------------------------------------------------------------
 # Helpers to carp, croak, confess, cluck, warn and die with whatever
@@ -558,17 +557,17 @@ sub _test_if_kernel_is_idle {
       "<rc> | Events : ", $kr_queue->get_item_count(), "\n",
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
       "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
-      "<rc> | Procs  : $kr_child_procs\n",
+      "<rc> | Procs  : ", $self->_data_sig_child_procs(), "\n",
       "<rc> `---------------------------\n",
       "<rc> ..."
      );
   }
 
   unless (
-    $kr_queue->get_item_count() > IDLE_QUEUE_SIZE or
+    $kr_queue->get_item_count() > $idle_queue_size or
     $self->_data_handle_count() or
     $self->_data_extref_count() or
-    $kr_child_procs
+    $self->_data_sig_child_procs()
   ) {
     $self->_data_ev_enqueue(
       $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
@@ -1141,100 +1140,7 @@ sub _invoke_state {
   # to catch SIGCHLD.
 
   if ($event eq EN_SCPOLL) {
-
-    if (TRACE_SIGNALS) {
-      _warn("<sg> POE::Kernel is polling for signals at " . time())
-    }
-
-    # Reap children for as long as waitpid(2) says something
-    # interesting has happened.
-    # -><- This has a strong possibility of an infinite loop, but so
-    # far it hasn't hasn't happened.
-
-    my $pid;
-    while ($pid = waitpid(-1, WNOHANG)) {
-
-      # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
-      # event and loop around again.
-
-      if ((RUNNING_IN_HELL and $pid < -1) or ($pid > 0)) {
-        if (RUNNING_IN_HELL or WIFEXITED($?) or WIFSIGNALED($?)) {
-
-          if (TRACE_SIGNALS) {
-            _warn("<sg> POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)");
-          }
-
-          $self->_data_ev_enqueue(
-            $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
-            __FILE__, __LINE__, undef, time(),
-          );
-        }
-        elsif (TRACE_SIGNALS) {
-          _warn("<sg> POE::Kernel detected strange exit (pid=$pid; exit=$?");
-        }
-
-        if (TRACE_SIGNALS) {
-          _warn("<sg> POE::Kernel will poll again immediately");
-        }
-
-        next;
-      }
-
-      # The only other negative value waitpid(2) should return is -1.
-      # This is highly unlikely, but it's necessary to catch
-      # portability problems.
-      #
-      # TODO - Find a way to test this.
-
-      _trap "internal consistency error: waitpid returned $pid"
-        if $pid != -1;
-
-      # If the error is an interrupted syscall, poll again right away.
-
-      if ($! == EINTR) {
-        if (TRACE_SIGNALS) {
-          _warn(
-            "<sg> POE::Kernel's waitpid(2) was interrupted.\n",
-            "POE::Kernel will poll again immediately.\n"
-          );
-        }
-        next;
-      }
-
-      # No child processes exist.  -><- This is different than
-      # children being present but running.  Maybe this condition
-      # could halt polling entirely, and some UNIVERSAL::fork wrapper
-      # could restart polling when processes are forked.
-
-      if ($! == ECHILD) {
-        if (TRACE_SIGNALS) {
-          _warn("<sg> POE::Kernel has no child processes");
-        }
-        last;
-      }
-
-      # Some other error occurred.
-
-      if (TRACE_SIGNALS) {
-        _warn("<sg> POE::Kernel's waitpid(2) got error: $!");
-      }
-      last;
-    }
-
-    # If waitpid() returned 0, then we have child processes.
-
-    $kr_child_procs = !$pid;
-
-    # The poll loop is over.  Resume slowly polling for signals.
-
-    if (TRACE_SIGNALS) {
-      _warn("<sg> POE::Kernel will poll again after a delay");
-    }
-
-    $self->_data_ev_enqueue(
-      $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-      __FILE__, __LINE__, undef, time() + 1
-    ) if $self->_data_ses_count() > 1;
+    $self->_data_sig_handle_poll_event();
   }
 
   # A signal was posted.  Because signals propagate depth-first, this
@@ -1244,7 +1150,7 @@ sub _invoke_state {
   elsif ($event eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
       unless (
-        $kr_queue->get_item_count() > IDLE_QUEUE_SIZE or
+        $kr_queue->get_item_count() > $idle_queue_size or
         $self->_data_handle_count()
       ) {
         $self->_data_ev_enqueue(
