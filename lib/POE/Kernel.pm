@@ -312,9 +312,9 @@ sub _data_extref_inc {
   $self->_data_ses_refcount_inc($session) if $refcount == 1;
 
   if (TRACE_REFCNT) {
-    confess( "<rc> incremented extref ``$tag'' (now $refcount) for ",
-             $self->_data_alias_loggable($session)
-           );
+    warn( "<rc> incremented extref ``$tag'' (now $refcount) for ",
+          $self->_data_alias_loggable($session)
+        );
   }
 
   return $refcount;
@@ -338,9 +338,9 @@ sub _data_extref_dec {
   my $refcount = --$kr_extra_refs{$session}->{$tag};
 
   if (TRACE_REFCNT) {
-    confess( "<rc> decremented extref ``$tag'' (now $refcount) for ",
-             $self->_data_alias_loggable($session)
-           );
+    warn( "<rc> decremented extref ``$tag'' (now $refcount) for ",
+          $self->_data_alias_loggable($session)
+        );
   }
 
   $self->_data_extref_remove($session, $tag) unless $refcount;
@@ -1199,9 +1199,9 @@ sub _data_handle_remove {
         $kr_fno_rec->[FMO_EV_COUNT]--;
 
         if (TRACE_FILES) {
-          confess( "<fh> fileno $fd mode $mode event count went to ",
-                   $kr_fno_rec->[FMO_EV_COUNT]
-                 );
+          warn( "<fh> fileno $fd mode $mode event count went to ",
+                $kr_fno_rec->[FMO_EV_COUNT]
+              );
         }
 
         if (ASSERT_DATA) {
