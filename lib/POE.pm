@@ -3,7 +3,7 @@
 
 package POE;
 
-$VERSION = "0.03";
+$VERSION = "0.031";
 
 use strict;
 use Carp;
