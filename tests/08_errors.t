@@ -443,7 +443,7 @@ print 'not ' unless defined $@ and length $@;
 print "ok 49\n";
 
 if ($^O eq 'MSWin32') {
-  for (50..51) {
+  for (50..52) {
     print "ok $_ # skipped: Windows can't set STDIN non-blocking\n";
   }
 }
@@ -458,15 +458,15 @@ else {
       );
   print 'not ' if defined $@ and length $@;
   print "ok 51\n";
-}
 
-eval( 'POE::Wheel::ReadWrite->new( Handle => \*STDIN,' .
-      '  Filter => POE::Filter::Stream->new(),' .
-      '  Driver => POE::Driver::SysRW->new(),' .
-      ')'
-    );
-print 'not ' if defined $@ and length $@;
-print "ok 52\n";
+  eval( 'POE::Wheel::ReadWrite->new( Handle => \*STDIN,' .
+        '  Filter => POE::Filter::Stream->new(),' .
+        '  Driver => POE::Driver::SysRW->new(),' .
+        ')'
+      );
+  print 'not ' if defined $@ and length $@;
+  print "ok 52\n";
+}
 
 use POE::Wheel::Run;
 
