@@ -140,13 +140,14 @@ Finally you can install it:
 Test Results
 ------------
 
-All the tests have been made to run unattended, and testing has been
-automated across the systems.
+Thanks to a-mused and dynweb for their testing time.  Someday
+SourceForge will get its compile farm together again, and I'll be able
+to add six more test systems to this list.
 
-** POE 0.14 on FreeBSD (home-bsd)
+** POE 0.1401 on FreeBSD (home-bsd)
 
 Hardware: Athlon-1000; 512MB RAM
-System  : FreeBSD 4.3-RC
+System  : FreeBSD 4.3-STABLE
 Perl    : 5.6.1
 Gtk     : 0.7005
 Tk      : 800.022
@@ -154,21 +155,22 @@ Event   : 0.81
 IO::Pty : 0.01
 
 All tests successful.
-Files=25, Tests=467, 85 wallclock secs ( 6.77 cusr +  0.62 csys =  7.39 CPU)
+Files=26, Tests=476, 86 wallclock secs ( 7.12 cusr +  0.56 csys =  7.68 CPU)
 
-** POE 0.14 on Solaris/SunOS 5.8 (dynweb)
+** POE 0.1401 on Solaris/SunOS 5.8 (dynweb)
 
-Hardware: SPARCstation-80; 2x UltraSparc II-450; 1GB RAM
-System  : SunOS 5.7
-Perl    : 5.6.0
+Hardware: Ultra-80; 2x UltraSparc II-450; 1GB RAM
+System  : SunOS 5.8
+Perl    : 5.6.1
 Gtk     : (not installed)
-Tk      : (not installed)
-Event   : 0.80
+Tk      : 800.023
+Event   : 0.81
+IO::Pty : 0.01
 
-All tests successful, 2 tests skipped.
-Files=25, Tests=450, 77 wallclock secs (10.87 cusr +  1.40 csys = 12.27 CPU)
+All tests successful, 1 test skipped.
+Files=26, Tests=468, 85 wallclock secs (13.07 cusr +  1.35 csys = 14.42 CPU)
 
-** POE 0.14 on Linux (titanic)
+** POE 0.1401 on Linux (titanic)
 
 Hardware: dual Celeron 500; 265MB RAM
 System  : Linux 2.2.15 SMP
@@ -179,20 +181,7 @@ Event   : 0.79
 IO::Pty : 0.01
 
 All tests successful, 2 tests skipped.
-Files=25, Tests=450, 80 wallclock secs (15.99 cusr +  0.85 csys = 16.84 CPU)
-
-** POE 0.1205 on Solaris/SunOS 5.7 (hfb)
-
-Hardware: SPARCstation-20; dual Sparc-75; 320MB RAM
-System  : SunOS 5.7
-Perl    : 5.005_03
-Gtk     : (not installed)
-Tk      : (not installed)
-Event   : (not installed)
-IO::Pty : 0.01
-
-All tests successful, 4 tests skipped.
-Files=24,  Tests=429, 122 wallclock secs (61.70 cusr +  5.49 csys = 67.19 CPU)
+Files=26, Tests=459, 81 wallclock secs (17.16 cusr +  0.96 csys = 18.12 CPU)
 
 ** POE 0.1203 on Linux (a-mused)
 
@@ -210,42 +199,49 @@ Files=23, Tests=415, 98 wallclock secs (14.22 cusr + 0.63 csys = 14.85 CPU)
 Test Coverage
 -------------
 
-The test coverage numbers are statistically meaningless.  Still, 100%
-coverage is a fun goal.  Increasing the coverage percents gives the
-author some small sense of accomplishment, and it assures users that
-something's being done to assure POE's quality.
+While the test coverage numbers are statistically meaningless, they
+still present a fun challenge and some measure of assurance that the
+authors care about POE's quality.
 
-These results are for POE 0.1205 on the FreeBSD test machine.  This
-machine is the slowest of the bunch, but it also has the most support
-libraries installed.
+The Ran and Total numbers are breakpoints that perl's debugger can
+step through.  The Covered number is the percentage of breakpoints
+that were actually stepped through.
+
+These results are for POE 0.1401.
 
   Source File                         =   Ran / Total = Covered
   POE.pm                              =    23 /    24 =  95.83%
   POE/Component.pm                    =     5 /     5 = 100.00%
-  POE/Component/Server/TCP.pm         =    26 /    26 = 100.00%
+  POE/Component/Server/TCP.pm         =    28 /    32 =  87.50%
   POE/Driver.pm                       =     5 /     5 = 100.00%
   POE/Driver/SysRW.pm                 =    42 /    54 =  77.78%
   POE/Filter.pm                       =     5 /     5 = 100.00%
   POE/Filter/Block.pm                 =    37 /    37 = 100.00%
-  POE/Filter/HTTPD.pm                 =    11 /    89 =  12.36%
-  POE/Filter/Line.pm                  =    79 /    84 =  94.05%
+  POE/Filter/Grep.pm                  =    11 /    19 =  57.89%
+  POE/Filter/HTTPD.pm                 =    11 /    88 =  12.50%
+  POE/Filter/Line.pm                  =    77 /    82 =  93.90%
+  POE/Filter/Map.pm                   =    11 /    19 =  57.89%
+  POE/Filter/RecordBlock.pm           =    22 /    41 =  53.66%
   POE/Filter/Reference.pm             =    60 /    66 =  90.91%
+  POE/Filter/Stackable.pm             =    17 /    40 =  42.50%
   POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-  POE/Kernel.pm                       =   664 /   867 =  76.59%
+  POE/Kernel.pm                       =   740 /   951 =  77.81%
   POE/Kernel/Event.pm                 =     1 /     9 =  11.11%
+  POE/Kernel/Gtk.pm                   =     2 /    17 =  11.76%
   POE/Kernel/Select.pm                =     6 /    12 =  50.00%
-  POE/NFA.pm                          =    76 /   160 =  47.50%
+  POE/Kernel/Tk.pm                    =     2 /    19 =  10.53%
+  POE/NFA.pm                          =    74 /   157 =  47.13%
   POE/Pipe/OneWay.pm                  =    20 /    39 =  51.28%
   POE/Pipe/TwoWay.pm                  =    23 /    43 =  53.49%
-  POE/Preprocessor.pm                 =   155 /   187 =  82.89%
-  POE/Session.pm                      =   148 /   203 =  72.91%
+  POE/Preprocessor.pm                 =   154 /   183 =  84.15%
+  POE/Session.pm                      =   143 /   198 =  72.22%
   POE/Wheel.pm                        =    11 /    11 = 100.00%
-  POE/Wheel/FollowTail.pm             =    75 /    97 =  77.32%
-  POE/Wheel/ListenAccept.pm           =    39 /    55 =  70.91%
-  POE/Wheel/ReadWrite.pm              =   113 /   194 =  58.25%
-  POE/Wheel/Run.pm                    =   142 /   243 =  58.44%
-  POE/Wheel/SocketFactory.pm          =   203 /   241 =  84.23%
-  All Told                            =  1980 /  2767 =  71.56%
+  POE/Wheel/FollowTail.pm             =    87 /   108 =  80.56%
+  POE/Wheel/ListenAccept.pm           =    51 /    65 =  78.46%
+  POE/Wheel/ReadWrite.pm              =   129 /   215 =  60.00%
+  POE/Wheel/Run.pm                    =   176 /   242 =  72.73%
+  POE/Wheel/SocketFactory.pm          =   204 /   248 =  82.26%
+  All Told                            =  2188 /  3045 =  71.86% 
 
 Thanks for reading!
 
