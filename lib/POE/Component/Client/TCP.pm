@@ -143,10 +143,16 @@ sub new {
         _child  => sub { },
 
         reconnect => sub {
-          my $heap = $_[HEAP];
+          my ($kernel, $heap) = @_[KERNEL, HEAP];
 
           $heap->{shutdown} = 0;
           $heap->{connected} = 0;
+
+          # Tentative patch to re-establish the alias upon reconnect.
+          # Necessary because otherwise the alias goes away for good.
+          # Unfortunately, there is a gap where the alias may not be
+          # set, and any events dispatched then will be dropped.
+          $kernel->alias_set( $alias ) if defined $alias;
 
           $heap->{server} = POE::Wheel::SocketFactory->new
             ( RemoteAddress => $address,
