@@ -320,7 +320,7 @@ print 'not ' unless defined $@ and length $@;
 print "ok 29\n";
 
 eval 'use POE::Filter::HTTPD';
-if (defined $@ and length $@) {
+unless (defined $@ and length $@) {
   my $pfhttpd = POE::Filter::HTTPD->new();
 
   eval '$pfhttpd->get_pending()';
@@ -427,14 +427,14 @@ print 'not ' unless defined $@ and length $@;
 print "ok 49\n";
 
 eval 'POE::Wheel::ReadWrite->new( Handle => \*STDIN )';
-print 'not ' unless defined $@ and length $@;
+print 'not ' if defined $@ and length $@;
 print "ok 50\n";
 
 eval( 'POE::Wheel::ReadWrite->new( Handle => \*STDIN,' .
       '  Filter => POE::Filter::Stream->new(),' .
       ')'
     );
-print 'not ' unless defined $@ and length $@;
+print 'not ' if defined $@ and length $@;
 print "ok 51\n";
 
 eval( 'POE::Wheel::ReadWrite->new( Handle => \*STDIN,' .
