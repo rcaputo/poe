@@ -126,15 +126,15 @@ sub _define_write_state {
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         my $writes_pending = $driver->flush($handle);
-        if (defined $writes_pending) {
+        if ($!) {
+          $event_error && $k->call($me, $event_error, 'write', ($!+0), $!);
+          $k->select_write($handle);
+        }
+        elsif (defined $writes_pending) {
           unless ($writes_pending) {
             $k->select_write($handle);
             (defined $event_flushed) && $k->call($me, $event_flushed);
           }
-        }
-        elsif ($!) {
-          $event_error && $k->call($me, $event_error, 'write', ($!+0), $!);
-          $k->select_write($handle);
         }
       }
     );
