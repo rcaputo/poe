@@ -10,7 +10,7 @@ use POE::Session;
 
 my $kernel = new POE::Kernel();
 
-foreach my $session_name 
+foreach my $session_name
   (
    qw(one two three four five six seven eight nine ten)
   )
@@ -46,7 +46,12 @@ foreach my $session_name
         my ($k, $me, $from, $session_name, $counter) = @_;
         $counter++;
         print "Session $session_name, iteration $counter.\n";
-        $k->post_state($me, 'increment', $session_name, $counter);
+        if ($counter < 5) {
+          $k->post_state($me, 'increment', $session_name, $counter);
+        }
+        else {
+          # no more states; session should stop
+        }
       },
 
     );
