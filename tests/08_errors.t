@@ -9,7 +9,7 @@ use lib qw(./lib ../lib);
 use TestSetup;
 
 BEGIN {
-  &test_setup(26);
+  &test_setup(60);
 };
 
 use POSIX qw(:errno_h);
@@ -92,8 +92,6 @@ use POE::Component::Server::TCP;
 use POE::Wheel::SocketFactory;
 
 die if $@;
-
-#use POE qw( Component::Server::TCP Wheel::SocketFactory );
 
 # Test that errors occur when nonexistent modules are used.
 stderr_pause();
@@ -231,6 +229,16 @@ print "ok 19\n";
 
   print "not " unless $warnings == 3;
   print "ok 22\n";
+
+  eval( 'POE::Wheel::SocketFactory->new ' .
+        '( SocketDomain   => AF_INET,' .
+        '  SocketProtocol => "icmp",' .
+        '  SuccessEvent   => "okay",' .
+        '  FailureEvent   => "okay",' .
+        ');'
+      );
+  print 'not ' unless defined $@ and length $@;
+  print "ok 23\n";
 }
 
 ### Main loop.
@@ -242,23 +250,195 @@ stderr_resume();
 ### Misuse of unusable modules.
 
 use POE::Wheel;
-eval 'POE::Wheel->new';
-print 'not ' unless defined $@ and length $@;
-print "ok 23\n";
 
-use POE::Component;
-eval 'POE::Component->new';
+eval 'POE::Wheel->new';
 print 'not ' unless defined $@ and length $@;
 print "ok 24\n";
 
-use POE::Driver;
-eval 'POE::Driver->new';
+use POE::Component;
+
+eval 'POE::Component->new';
 print 'not ' unless defined $@ and length $@;
 print "ok 25\n";
 
-use POE::Filter;
-eval 'POE::Filter->new';
+use POE::Driver;
+
+eval 'POE::Driver->new';
 print 'not ' unless defined $@ and length $@;
 print "ok 26\n";
+
+use POE::Filter;
+
+eval 'POE::Filter->new';
+print 'not ' unless defined $@ and length $@;
+print "ok 27\n";
+
+### Misuse of usable modules.
+
+use POE::Driver::SysRW;
+
+eval 'POE::Driver::SysRW->new( 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 28\n";
+
+eval 'POE::Driver::SysRW->new( Booga => 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 29\n";
+
+use POE::Filter::HTTPD;
+my $pfhttpd = POE::Filter::HTTPD->new();
+
+eval '$pfhttpd->get_pending()';
+print 'not ' unless defined $@ and length $@;
+print "ok 30\n";
+
+# POE::Session constructor stuff.
+
+eval 'POE::Session->create( 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 31\n";
+
+eval 'POE::Session->create( options => [] )';
+print 'not ' unless defined $@ and length $@;
+print "ok 32\n";
+
+eval 'POE::Session->create( inline_states => [] )';
+print 'not ' unless defined $@ and length $@;
+print "ok 33\n";
+
+eval 'POE::Session->create( inline_states => { _start => 1 } )';
+print 'not ' unless defined $@ and length $@;
+print "ok 34\n";
+
+eval 'POE::Session->create( package_states => {} )';
+print 'not ' unless defined $@ and length $@;
+print "ok 35\n";
+
+eval 'POE::Session->create( package_states => [ 1 ] )';
+print 'not ' unless defined $@ and length $@;
+print "ok 36\n";
+
+eval 'POE::Session->create( package_states => [ main => 1 ] )';
+print 'not ' unless defined $@ and length $@;
+print "ok 37\n";
+
+eval 'POE::Session->create( object_states => {} )';
+print 'not ' unless defined $@ and length $@;
+print "ok 38\n";
+
+eval 'POE::Session->create( object_states => [ 1 ] )';
+print 'not ' unless defined $@ and length $@;
+print "ok 39\n";
+
+eval 'POE::Session->create( package_states => [ main => 1 ] )';
+print 'not ' unless defined $@ and length $@;
+print "ok 40\n";
+
+eval 'POE::Session->new( 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 41\n";
+
+eval 'POE::Session->new( _start => 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 42\n";
+
+eval 'POE::Session->new( sub {} => 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 43\n";
+
+use POE::Wheel::FollowTail;
+use POE::Filter::Stream;
+
+eval 'POE::Wheel::FollowTail->new( )';
+print 'not ' unless defined $@ and length $@;
+print "ok 44\n";
+
+eval 'POE::Wheel::FollowTail->new( Handle => \*STDIN )';
+print 'not ' unless defined $@ and length $@;
+print "ok 45\n";
+
+eval( 'POE::Wheel::FollowTail->new( Handle => \*STDIN,' .
+      '  Driver => POE::Driver::SysRW->new(),' .
+      ')'
+    );
+print 'not ' unless defined $@ and length $@;
+print "ok 46\n";
+
+eval( 'POE::Wheel::FollowTail->new( Handle => \*STDIN,' .
+      '  Driver => POE::Driver::SysRW->new(),' .
+      '  Filter => POE::Filter::Stream->new(),' .
+      ')'
+    );
+print 'not ' unless defined $@ and length $@;
+print "ok 47\n";
+
+eval( 'POE::Wheel::FollowTail->new( Handle => \*STDIN,' .
+      '  Driver => POE::Driver::SysRW->new(),' .
+      '  Filter => POE::Filter::Stream->new(),' .
+      '  InputEvent => 1,' .
+      ')'
+    );
+print 'not ' if defined $@ and length $@;
+print "ok 48\n";
+
+use POE::Wheel::ReadWrite;
+
+eval 'POE::Wheel::ReadWrite->new()';
+print 'not ' unless defined $@ and length $@;
+print "ok 49\n";
+
+eval 'POE::Wheel::ReadWrite->new( Handle => \*STDIN )';
+print 'not ' unless defined $@ and length $@;
+print "ok 50\n";
+
+eval( 'POE::Wheel::ReadWrite->new( Handle => \*STDIN,' .
+      '  Filter => POE::Filter::Stream->new(),' .
+      ')'
+    );
+print 'not ' unless defined $@ and length $@;
+print "ok 51\n";
+
+eval( 'POE::Wheel::ReadWrite->new( Handle => \*STDIN,' .
+      '  Filter => POE::Filter::Stream->new(),' .
+      '  Driver => POE::Driver::SysRW->new(),' .
+      ')'
+    );
+print 'not ' if defined $@ and length $@;
+print "ok 52\n";
+
+use POE::Wheel::Run;
+
+eval 'POE::Wheel::Run->new( 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 53\n";
+
+eval 'POE::Wheel::Run->new( Program => 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 54\n";
+
+eval 'POE::Wheel::Run->new( Program => 1, StdinEvent => 1 )';
+print 'not ' unless defined $@ and length $@;
+print "ok 55\n";
+
+my $pwrun =
+  eval 'POE::Wheel::Run->new( Program => 1, StdinEvent => 1, Filter => 1 )';
+print 'not ' if defined $@ and length $@;
+print "ok 56\n";
+
+eval '$pwrun->set_filter()';
+print 'not ' unless defined $@ and length $@;
+print "ok 57\n";
+
+eval '$pwrun->set_stderr_filter()';
+print 'not ' unless defined $@ and length $@;
+print "ok 58\n";
+
+eval '$pwrun->set_stdin_filter()';
+print 'not ' unless defined $@ and length $@;
+print "ok 59\n";
+
+eval '$pwrun->set_stdout_filter()';
+print 'not ' unless defined $@ and length $@;
+print "ok 60\n";
 
 exit;
