@@ -8,7 +8,7 @@ use strict;
 use lib qw( . .. ../lib );
 
 sub DEBUG  () { 0 } # skip running tests to better debug this one
-sub UNLINK () { 0 } # unlink coverage files when done (disable for testing)
+sub UNLINK () { 1 } # unlink coverage files when done (disable for testing)
 
 sub SRC_COUNT () { 0 }
 sub SRC_LINE  () { 1 }

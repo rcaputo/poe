@@ -391,7 +391,6 @@ sub import {
 
           ### Define a constant.
           if (/^const\s+([A-Z_][A-Z_0-9]+)\s+(.+?)\s*$/) {
-
             &{$set_const}($1, $2);
             $_ = "# $_";
             DEBUG and warn sprintf "%4d E: %s", $line_number, $_;
