@@ -50,6 +50,7 @@ lib/MyOtherFreezer.pm
 lib/TestSetup.pm
 lib/coverage.perl
 lib/deptest.perl
+lib/testreport.pl
 samples/create.perl
 samples/fakelogin.perl
 samples/filterchange.perl
