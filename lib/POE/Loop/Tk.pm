@@ -31,18 +31,12 @@ BEGIN {
 sub POE_LOOP () { LOOP_TK }
 
 my $_watcher_timer;
-
-my ($kr_sessions, $kr_queue, $kr_filenos);
+my @_fileno_refcount;
 
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
 
 sub loop_initialize {
-  my $kernel = shift;
-  $kr_sessions = $kernel->_get_kr_sessions_ref();
-  $kr_queue    = $kernel->_get_kr_queue_ref();
-  $kr_filenos  = $kernel->_get_kr_filenos_ref();
-
   $poe_main_window = Tk::MainWindow->new();
   die "could not create a main Tk window" unless defined $poe_main_window;
   $poe_kernel->signal_ui_destroy( $poe_main_window );
@@ -129,7 +123,7 @@ sub loop_attach_uidestroy {
   my ($poe_kernel, $window) = @_;
   $window->OnDestroy
     ( sub {
-        if (keys %{$poe_kernel->[KR_SESSIONS]}) {
+        if ($poe_kernel->get_session_count()) {
           $poe_kernel->_dispatch_event
             ( $poe_kernel, $poe_kernel,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
@@ -169,7 +163,7 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # The Tk documentation implies by omission that expedited
@@ -177,7 +171,7 @@ sub loop_watch_filehandle {
   confess "Tk does not support expedited filehandles"
     if $vector == VEC_EX;
 
-  # Cheat.  $handle comes from the user's scope.
+  # Start a filehandle watcher.
 
   $poe_main_window->fileevent
     ( $handle,
@@ -193,23 +187,21 @@ sub loop_watch_filehandle {
       [ \&_loop_select_callback, $fileno, $vector ],
     );
 
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
+  $_fileno_refcount[fileno $handle]++;
 }
 
 sub loop_ignore_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
 
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 2 of 2.
   confess "Tk does not support expedited filehandles"
     if $vector == VEC_EX;
 
-  # Total handle refcount is 1.  This handle is going away for good,
-  # so we can use fileevent to close it.  This does an untie/undef
-  # within Tk, which is why it shouldn't be done for higher refcounts.
+  # The fileno refcount just dropped to 0.  Remove the handle from
+  # Tk's file watchers.
 
-  if ($kr_filenos->{fileno($handle)}->[FNO_TOT_REFCOUNT] == 1) {
+  unless (--$_fileno_refcount[fileno $handle]) {
     $poe_main_window->fileevent
       ( $handle,
 
@@ -237,13 +229,10 @@ sub loop_ignore_filehandle {
         ''
       );
   }
-
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
 
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 2 of 2.
@@ -259,11 +248,10 @@ sub loop_pause_filehandle_watcher {
                         ),
                         ''
                       );
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # The Tk documentation implies by omission that expedited
@@ -284,7 +272,6 @@ sub loop_resume_filehandle_watcher {
                           $vector,
                         ]
                       );
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 # Tk's alarm callbacks seem to have the highest priority.  That is, if
@@ -305,7 +292,7 @@ sub _loop_event_callback {
 
   # Register the next timed callback if there are events left.
 
-  if ($kr_queue->get_item_count()) {
+  if ($poe_kernel->get_event_count()) {
 
     # Cancel the Tk alarm that handles alarms.
 
@@ -322,8 +309,9 @@ sub _loop_event_callback {
               $_watcher_timer->cancel();
               undef $_watcher_timer;
 
-              if ($kr_queue->get_item_count()) {
-                my $next_time = $kr_queue->get_next_priority() - time();
+              my $next_time = $poe_kernel->get_next_event_time();
+              if (defined $next_time) {
+                $next_time -= time();
                 $next_time = 0 if $next_time < 0;
 
                 $_watcher_timer =
@@ -341,7 +329,7 @@ sub _loop_event_callback {
     # vs. kernel events, and GC the kernel when the user events drop
     # to 0.
 
-    if ($kr_queue->get_item_count() == 1) {
+    if ($poe_kernel->get_event_count() == 1) {
       test_for_idle_poe_kernel();
     }
   }
@@ -375,7 +363,7 @@ sub Tk::Error {
   chomp($error);
   warn "Tk::Error: $error\n " . join("\n ",@_)."\n";
 
-  if (keys %{$poe_kernel->[KR_SESSIONS]}) {
+  if ($poe_kernel->get_session_count()) {
     $poe_kernel->_dispatch_event
       ( $poe_kernel, $poe_kernel,
         EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],

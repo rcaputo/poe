@@ -35,8 +35,6 @@ BEGIN {
   eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
 };
 
-my ($kr_sessions, $kr_queue, $kr_filenos);
-
 # select() vectors.  They're stored in an array so that the VEC_RD,
 # VEC_WR, and VEC_EX offsets work.  This saves some code, but it makes
 # things a little slower.
@@ -47,15 +45,14 @@ my ($kr_sessions, $kr_queue, $kr_filenos);
 # ];
 my @loop_vectors = ("", "", "");
 
+# A record of the file descriptors we are actively watching.
+my %loop_filenos;
+
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
 
 sub loop_initialize {
   my $kernel = shift;
-
-  $kr_sessions  = $kernel->_get_kr_sessions_ref();
-  $kr_queue     = $kernel->_get_kr_queue_ref();
-  $kr_filenos   = $kernel->_get_kr_filenos_ref();
 
   # Initialize the vectors as vectors.
   @loop_vectors = ( '', '', '' );
@@ -178,57 +175,35 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
-  if (TRACE_SELECT) {
-    warn( "??? watching fileno ($fileno) vector ($vector) ",
-          "count($kr_fno_vec->[FVC_EV_COUNT])"
-        );
-  }
   vec($loop_vectors[$vector], $fileno, 1) = 1;
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
+  $loop_filenos{$fileno} |= (1<<$vector);
 }
 
 sub loop_ignore_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
-  if (TRACE_SELECT) {
-    warn( "??? ignoring fileno ($fileno) vector ($vector) ",
-          "count($kr_fno_vec->[FVC_EV_COUNT])"
-        );
-  }
   vec($loop_vectors[$vector], $fileno, 1) = 0;
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
+  $loop_filenos{$fileno} &= ~(1<<$vector);
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
-  if (TRACE_SELECT) {
-    warn( "??? pausing fileno ($fileno) vector ($vector) ",
-          "count($kr_fno_vec->[FVC_EV_COUNT])"
-        );
-  }
   vec($loop_vectors[$vector], $fileno, 1) = 0;
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
+  $loop_filenos{$fileno} &= ~(1<<$vector);
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
-  if (TRACE_SELECT) {
-    warn( "??? resuming fileno ($fileno) vector ($vector) ",
-          "count($kr_fno_vec->[FVC_EV_COUNT])"
-        );
-  }
   vec($loop_vectors[$vector], $fileno, 1) = 1;
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
+  $loop_filenos{$fileno} |= (1<<$vector);
 }
 
 #------------------------------------------------------------------------------
@@ -245,7 +220,7 @@ sub loop_do_timeslice {
   # for some constant number of seconds.
 
   my $now = time();
-  my $timeout = $kr_queue->get_next_priority();
+  my $timeout = $poe_kernel->get_next_event_time();
 
   if (defined $timeout) {
     $timeout -= $now;
@@ -263,17 +238,10 @@ sub loop_do_timeslice {
         );
   }
 
-  # This is heavy.  It determines whether there are any files actually
-  # being watched.  What is a better way to find a 1 bit in any of the
-  # vectors?
-
+  # Determine which files are being watched.
   my @filenos = ();
-  foreach (keys %$kr_filenos) {
-    push(@filenos, $_)
-      if ( vec($loop_vectors[VEC_RD], $_, 1) or
-           vec($loop_vectors[VEC_WR], $_, 1) or
-           vec($loop_vectors[VEC_EX], $_, 1)
-         );
+  while (my ($fd, $mask) = each(%loop_filenos)) {
+    push(@filenos, $fd) if $mask;
   }
 
   if (TRACE_SELECT) {
@@ -395,7 +363,7 @@ sub loop_do_timeslice {
 
 sub loop_run {
   # Run for as long as there are sessions to service.
-  while (keys %$kr_sessions) {
+  while ($poe_kernel->get_session_count()) {
     loop_do_timeslice();
   }
 }

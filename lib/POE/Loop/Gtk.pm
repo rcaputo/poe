@@ -29,15 +29,11 @@ sub POE_LOOP () { LOOP_GTK }
 my $_watcher_timer;
 my @fileno_watcher;
 
-my ($kr_sessions, $kr_queue);
-
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
 
 sub loop_initialize {
   my $kernel = shift;
-  $kr_sessions = $kernel->_get_kr_sessions_ref();
-  $kr_queue    = $kernel->_get_kr_queue_ref();
 
   Gtk->init;
 }
@@ -136,7 +132,7 @@ sub loop_attach_uidestroy {
   $window->signal_connect
     ( delete_event =>
       sub {
-        if (keys %{$self->[KR_SESSIONS]}) {
+        if ($poe_kernel->get_session_count()) {
           $self->_dispatch_event
             ( $self, $self,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
@@ -167,7 +163,7 @@ sub loop_reset_time_watcher {
 
 sub _loop_resume_timer {
   Gtk->idle_remove($_watcher_timer);
-  loop_resume_time_watcher($kr_queue->get_next_priority());
+  loop_resume_time_watcher($poe_kernel->get_next_event_time());
 }
 
 sub loop_pause_time_watcher {
@@ -178,7 +174,7 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # Overwriting a pre-existing watcher?
@@ -205,13 +201,10 @@ sub loop_watch_filehandle {
                          ),
                          $fileno
                        );
-
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
 sub loop_ignore_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # Don't bother removing a select if none was registered.
@@ -219,21 +212,17 @@ sub loop_ignore_filehandle {
     Gtk::Gdk->input_remove($fileno_watcher[$fileno]);
     undef $fileno_watcher[$fileno];
   }
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
-
   Gtk::Gdk->input_remove($fileno_watcher[$fileno]);
   undef $fileno_watcher[$fileno];
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # Quietly ignore requests to resume unpaused handles.
@@ -256,7 +245,6 @@ sub loop_resume_filehandle_watcher {
                          ),
                          $fileno
                        );
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 ### Callbacks.
@@ -272,7 +260,7 @@ sub _loop_event_callback {
   undef $_watcher_timer;
 
   # Register the next timeout if there are events left.
-  if ($kr_queue->get_item_count()) {
+  if ($poe_kernel->get_event_count()) {
     $_watcher_timer = Gtk->idle_add(\&_loop_resume_timer);
   }
 

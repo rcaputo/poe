@@ -617,7 +617,8 @@ sub enqueue_ready_selects {
 
       unless ($kr_fno_vec->[FVC_EV_COUNT]++) {
         my $handle = $select->[HSS_HANDLE];
-        loop_pause_filehandle_watcher($kr_fno_vec, $handle, $vector);
+        loop_pause_filehandle_watcher($handle, $vector);
+        $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
       }
 
       if (TRACE_SELECT) {
@@ -878,10 +879,12 @@ sub _dispatch_event {
 
         unless (--$kr_fno_vec->[FVC_EV_COUNT]) {
           if ($kr_fno_vec->[FVC_ST_REQUEST] & HS_PAUSED) {
-            loop_pause_filehandle_watcher($kr_fno_vec, $handle, $vector);
+            loop_pause_filehandle_watcher($handle, $vector);
+            $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
           }
           elsif ($kr_fno_vec->[FVC_ST_REQUEST] & HS_RUNNING) {
-            loop_resume_filehandle_watcher($kr_fno_vec, $handle, $vector);
+            loop_resume_filehandle_watcher($handle, $vector);
+            $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
           }
           else {
             die "internal consistency error";
@@ -1778,9 +1781,22 @@ sub assert_gc_refcount {
   }
 }
 
+### Helpful accessors.  -><- Most of these are not documented.
+
 sub get_active_session {
-  my $self = shift;
   return $kr_active_session;
+}
+
+sub get_session_count {
+  return scalar keys %kr_sessions;
+}
+
+sub get_event_count {
+  return $kr_queue->get_item_count();
+}
+
+sub get_next_event_time {
+  return $kr_queue->get_next_priority();
 }
 
 #==============================================================================
@@ -2328,7 +2344,7 @@ sub _internal_select {
               );
         }
         unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-          loop_resume_filehandle_watcher($kr_fno_vec, $handle, $select_index);
+          loop_resume_filehandle_watcher($handle, $select_index);
         }
         $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
       }
@@ -2358,7 +2374,9 @@ sub _internal_select {
       # If this is the first time a file is watched in this mode, then
       # have the event loop bridge watch it.
       if ($kr_fno_vec->[FVC_REFCOUNT] == 1) {
-        loop_watch_filehandle($kr_fno_vec, $handle, $select_index);
+        loop_watch_filehandle($handle, $select_index);
+        $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
+        $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
       }
     }
 
@@ -2437,7 +2455,9 @@ sub _internal_select {
         # handle.
 
         unless ($kr_fno_vec->[FVC_REFCOUNT]) {
-          loop_ignore_filehandle($kr_fno_vec, $handle, $select_index);
+          loop_ignore_filehandle($handle, $select_index);
+          $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
+          $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 
           # The session is not watching handles anymore.  Remove the
           # session entirely the fileno structure.
@@ -2598,7 +2618,7 @@ sub select_pause_write {
         );
   }
   unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-    loop_pause_filehandle_watcher($kr_fno_vec, $handle, VEC_WR);
+    loop_pause_filehandle_watcher($handle, VEC_WR);
   }
 
   # Set the requested handle state so it'll be correct when the actual
@@ -2635,7 +2655,7 @@ sub select_resume_write {
         );
   }
   unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-    loop_resume_filehandle_watcher($kr_fno_vec, $handle, VEC_WR);
+    loop_resume_filehandle_watcher($handle, VEC_WR);
   }
 
   # Set the requested handle state so it'll be correct when the actual
@@ -2672,7 +2692,7 @@ sub select_pause_read {
         );
   }
   unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-    loop_pause_filehandle_watcher($kr_fno_vec, $handle, VEC_RD);
+    loop_pause_filehandle_watcher($handle, VEC_RD);
   }
 
   # Correct the requested state so it matches the actual one.
@@ -2708,7 +2728,7 @@ sub select_resume_read {
         );
   }
   unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-    loop_resume_filehandle_watcher($kr_fno_vec, $handle, VEC_RD);
+    loop_resume_filehandle_watcher($handle, VEC_RD);
   }
 
   # Set the requested handle state so it'll be correct when the actual

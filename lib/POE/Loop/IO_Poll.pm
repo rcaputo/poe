@@ -33,7 +33,6 @@ use IO::Poll qw( POLLRDNORM POLLWRNORM POLLRDBAND
 
 sub MINIMUM_POLL_TIMEOUT () { 0 }
 
-my ($kr_sessions, $kr_queue);
 my %poll_fd_masks;
 
 #------------------------------------------------------------------------------
@@ -41,8 +40,6 @@ my %poll_fd_masks;
 
 sub loop_initialize {
   my $kernel = shift;
-  $kr_sessions  = $kernel->_get_kr_sessions_ref();
-  $kr_queue     = $kernel->_get_kr_queue_ref();
 
   %poll_fd_masks = ();
 }
@@ -154,7 +151,7 @@ sub vec_to_poll {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
@@ -169,13 +166,10 @@ sub loop_watch_filehandle {
         );
 
   $poll_fd_masks{$fileno} = $new;
-
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
 sub loop_ignore_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
@@ -195,13 +189,10 @@ sub loop_ignore_filehandle {
   else {
     delete $poll_fd_masks{$fileno};
   }
-
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
@@ -221,12 +212,10 @@ sub loop_pause_filehandle_watcher {
   else {
     delete $poll_fd_masks{$fileno};
   }
-
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
@@ -241,8 +230,6 @@ sub loop_resume_filehandle_watcher {
         );
 
   $poll_fd_masks{$fileno} = $new;
-
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 #------------------------------------------------------------------------------
@@ -259,10 +246,10 @@ sub loop_do_timeslice {
   # constant number of seconds.
 
   my $now = time();
-  my $timeout;
 
-  if ($kr_queue->get_item_count()) {
-    $timeout = $kr_queue->get_next_priority() - $now;
+  my $timeout = $poe_kernel->get_next_event_time();
+  if (defined $timeout) {
+    $timeout -= $now;
     $timeout = MINIMUM_POLL_TIMEOUT if $timeout < MINIMUM_POLL_TIMEOUT;
   }
   else {
@@ -387,7 +374,7 @@ sub loop_do_timeslice {
 
 sub loop_run {
   # Run for as long as there are sessions to service.
-  while (keys %$kr_sessions) {
+  while ($poe_kernel->get_session_count()) {
     loop_do_timeslice();
   }
 }

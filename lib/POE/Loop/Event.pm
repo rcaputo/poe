@@ -29,15 +29,11 @@ my $_watcher_timer;
 my @fileno_watcher;
 my %signal_watcher;
 
-my ($kr_sessions, $kr_queue);
-
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
 
 sub loop_initialize {
   my $kernel = shift;
-  $kr_sessions = $kernel->_get_kr_sessions_ref();
-  $kr_queue    = $kernel->_get_kr_queue_ref();
 
   $_watcher_timer =
     Event->timer
@@ -70,7 +66,7 @@ sub _loop_signal_handler_pipe {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( time(),
-      $poe_kernel->[KR_ACTIVE_SESSION], $poe_kernel,
+      $poe_kernel->get_active_session(), $poe_kernel,
       EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
       __FILE__, __LINE__
     );
@@ -159,7 +155,7 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   $fileno_watcher[$fileno] =
@@ -174,32 +170,26 @@ sub loop_watch_filehandle {
                 ),
         cb => \&_loop_select_callback,
       );
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
 sub loop_ignore_filehandle {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
   $fileno_watcher[$fileno]->cancel();
   $fileno_watcher[$fileno] = undef;
-  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
 
 sub loop_pause_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
   $fileno_watcher[$fileno]->stop();
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($kr_fno_vec, $handle, $vector) = @_;
+  my ($handle, $vector) = @_;
   my $fileno = fileno($handle);
   $fileno_watcher[$fileno]->start();
-  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 # Timer callback to dispatch events.
@@ -210,8 +200,9 @@ sub _loop_event_callback {
 
   # Register the next timed callback if there are events left.
 
-  if ($kr_queue->get_item_count()) {
-    $_watcher_timer->at($kr_queue->get_next_priority());
+  my $next_time = $poe_kernel->get_next_event_time();
+  if (defined $next_time) {
+    $_watcher_timer->at($next_time);
     $_watcher_timer->start();
 
     # POE::Kernel's signal polling loop always keeps oe event in the
@@ -220,7 +211,7 @@ sub _loop_event_callback {
     # vs. kernel events, and GC the kernel when the user events drop
     # to 0.
 
-    if ($kr_queue->get_item_count() == 1) {
+    if ($poe_kernel->get_session_count() == 1) {
       test_for_idle_poe_kernel();
     }
   }
