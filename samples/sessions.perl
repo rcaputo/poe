@@ -2,105 +2,93 @@
 # $Id$
 
 use strict;
+                                        # Kernel and Session always included
+use POE;
 
-use POE; # Kernel and Session are always included
+#------------------------------------------------------------------------------
+# These subs are for the ten child sessions that are created by the
+# main parent.
+                                        # stupid scope trick
+my $session_name;
+                                        # bootstrap state
+sub child_start {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+  $heap->{'name'} = $session_name;
+  $kernel->sig('INT', 'sigint');
+  print "Session $heap->{'name'} started.\n";
+}
+                                        # stop stae
+sub child_stop {
+  my $heap = $_[HEAP];
+  print "Session ", $heap->{'name'}, " stopped.\n";
+}
+                                        # increment a counter
+sub child_increment {
+  my ($kernel, $me, $heap, $name, $count) = @_[KERNEL, SELF, HEAP, ARG0, ARG1];
 
-my $kernel = new POE::Kernel();
+  $count++;
 
+  print "Session $name, iteration $count...\n";
+
+  my $ret = $kernel->call($me, 'display_one', $name, $count);
+  print "\t(display one returns: $ret)\n";
+
+  $ret = $kernel->call($me, 'display_two', $name, $count);
+  print "\t(display two returns: $ret)\n";
+
+  if ($count < 5) {
+    $kernel->post($me, 'increment', $name, $count);
+  }
+}
+                                        # test called states and return values
+sub child_display_one {
+  my ($name, $count) = @_[ARG0, ARG1];
+  print "\t(display one, $name, iteration $count)\n";
+  return $count * 2;
+}
+                                        # test called states and return values
+sub child_display_two {
+  my ($name, $count) = @_[ARG0, ARG1];
+  print "\t(display two, $name, iteration $count)\n";
+  return $count * 3;
+}
+
+#------------------------------------------------------------------------------
+# These subs are for the main parent.
+
+sub main_start {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+                                        # start ten sub-sessions
+  foreach my $name (qw(one two three four five six seven eight nine ten)) {
+    $session_name = $name;
+    my $session = new POE::Session
+      ( $kernel,
+        _start    => \&child_start,
+        _stop     => \&child_stop,
+        increment => \&child_increment,
+        display_one => \&child_display_one,
+        display_two => \&child_display_two,
+      );
+                                        # tests delayed GC
+    $kernel->post($session, 'increment', $name, 0);
+  }
+}
+
+sub main_stop {
+  print "*** Main session stopped.\n";
+}
+
+sub main_child {
+  print "*** Child of main session terminated.\n";
+}
+
+#------------------------------------------------------------------------------
+
+my $kernel = new POE::Kernel;
 new POE::Session
   ( $kernel,
-    '_start' => sub
-    { my ($k, $me) = @_;
-      new POE::Session
-        ( $kernel,
-          '_start' => sub
-          { my ($k, $me) = @_;
-
-            foreach my $session_name (
-              qw(one two three four five six seven eight nine ten)
-            ) {
-              my $session = new POE::Session
-                ( $kernel,
-                  '_start' => sub
-                  {
-                    my ($k, $me, $from) = @_;
-                    $me->{'name'} = $session_name;
-                    $k->sig('INT', 'sigint');
-                    print "Session $session_name started.\n";
-                  },
-                  '_stop' => sub
-                  {
-                    my ($k, $me, $from) = @_;
-                    print "Session ", $me->{'name'}, " stopped.\n";
-                  },
-                  '_default' => sub
-                  {
-                    my ($k, $me, $from, $state, @etc) = @_;
-                    print $me->{'name'}, " _default got state ($state) ",
-                         "from ($from) parameters (", join(', ', @etc), ")\n";
-                    return 0;
-                  },
-                  'increment' => sub
-                  {
-                    my ($k, $me, $from, $session_name, $counter) = @_;
-                    $counter++;
-                    my $ret = $k->call($me, 'display one',
-                                       $session_name, $counter
-                                      );
-                    print "(display one returns: $ret)\n";
-                    $ret = $k->call($me, 'display two',
-                                    $session_name, $counter
-                                   );
-                    print "(display two returns: $ret)\n";
-                                        # post the session last, to test that
-                                        # call() doesn't GC
-                    if ($counter < 5) {
-                      $k->post($me, 'increment', $session_name, $counter);
-                    }
-                  },
-                  'display one' => sub 
-                  {
-                    my ($k, $me, $from, $session_name, $counter) = @_;
-                    print "Session $session_name, iteration $counter (one).\n";
-                    return $counter * 2;
-                  },
-                  'display two' => sub 
-                  {
-                    my ($k, $me, $from, $session_name, $counter) = @_;
-                    print "Session $session_name, iteration $counter (two).\n";
-                    return $counter * 3;
-                  },
-                );
-                                        # tests delayed garbage-collection
-              $k->post($session, 'increment', $session_name, 0);
-            }
-          },
-          '_stop' => sub
-          { my ($k, $me) = @_;
-            print "*** Trunk session stopping (one-ten should be dead now)\n";
-          },
-          '_parent' => sub
-          { my ($k, $me, $from) = @_;
-            print "*** Parent changed to ($from) for trunk session ???!\n";
-          },
-          '_child' => sub
-          { my ($k, $me, $from) = @_;
-            print "*** Child of trunk session ($from) has stopped\n";
-          }
-        );
-    },
-    '_stop' => sub
-    { my ($k, $me) = @_;
-      print "*** Root session stopping (only kernel should be alive)\n";
-    },
-    '_parent' => sub
-    { my ($k, $me, $from) = @_;
-      print "*** Parent changed to ($from) for root session ???!\n";
-    },
-    '_child' => sub
-    { my ($k, $me, $from) = @_;
-      print "*** Child of root session ($from) has stopped\n";
-    }
+    _start => \&main_start,
+    _stop  => \&main_stop,
+    _child => \&main_child,
   );
-      
 $kernel->run();
