@@ -3,6 +3,7 @@
 
 package POE;
 
+
 use strict;
 use Carp;
 
@@ -415,10 +416,12 @@ program.
 
 =head1 OBJECT LAYER
 
-The object layer has fallen into disrepair again, and the author is
-considering splitting it out as a separate Component.  If you've been
-looking forward to it, let him know so he'll have an excuse to
-continue with it.
+The object layer has fallen into disrepair again, and it is scheduled
+to be removed from version 0.14.  It will be developed as a separate
+Component and return sometime in the future.
+
+If you're using the object layer as it currently stands, or if you'd
+like to work on it, please contact the author.
 
 =head1 SAMPLE PROGRAMS
 
@@ -657,9 +660,9 @@ caveats.
 
 =head2 Object Layer Examples
 
-As was previously said, the object layer has fallen once again into
-disrepair.  However, the olayer.perl sample program illustrates its
-current state.
+The object layer will be removed in the next version, and olayer.perl
+will go with it.  In the meantime, the program illustrates the current
+state of object development.
 
 =head2 Proofs of Concepts
 
@@ -903,7 +906,11 @@ POE::Wheel::ReadWrite; POE::Wheel::SocketFactory
 
 Object Layer
 
-These modules are in limbo at the moment.
+These modules comprise the object layer.  They will be removed from
+POE's next version and made into a separate component.  The
+component's interface will be totally different so that it doesn't
+clash with POE's root namespace.  Feel free to discuss the change on
+POE's mailing list.
 
 POE::Curator; POE::Object; POE::Repository; POE::Attribute::Array;
 POE::Runtime
@@ -925,6 +932,7 @@ POE::Preprocessor
 =head1 BUGS
 
 The Object Layer is still in early design, so it's not documented yet.
+In fact, it will be removed from POE's next version.
 
 There need to be more automated regression tests in the t/*.t
 directory.  Please suggest tests; the author is short on ideas here.

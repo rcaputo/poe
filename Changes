@@ -29,6 +29,10 @@ Version numbers have four fields: X.YYZZAA
 0.1201 2000.??.??
 -----------------
 
+Moved POE development to <http://sourceforge.net/projects/poe/>.
+
+Documented the object layer depreciation.
+
 Moved POE::Kernel's data structures out of $self and into lexicals.
 Kept references to the structures in $self so Data::Dumper can dump
 the whole shebang at once.
