@@ -90,6 +90,7 @@ sub DEB_EVENTS   () { 0 }
 sub DEB_SELECT   () { 0 }
 sub DEB_REFCOUNT () { 0 }
 sub DEB_QUEUE    () { 0 }
+sub DEB_STRICT   () { 0 }
                                         # handles & vectors structures
 sub VEC_RD      () { 0 }
 sub VEC_WR      () { 1 }
@@ -125,12 +126,12 @@ sub HSS_HANDLE  () { 0 }
 sub HSS_SESSION () { 1 }
 sub HSS_STATE   () { 2 }
                                         # states / events
-sub ST_SESSION  () { 0 }
-sub ST_SOURCE   () { 1 }
-sub ST_NAME     () { 2 }
-sub ST_ARGS     () { 3 }
-sub ST_TIME     () { 4 }
-sub ST_DEB_SEQ  () { 5 }
+sub ST_SESSION () { 0 }
+sub ST_SOURCE  () { 1 }
+sub ST_NAME    () { 2 }
+sub ST_ARGS    () { 3 }
+sub ST_TIME    () { 4 }
+sub ST_DEB_SEQ () { 5 }
                                         # event names
 sub EN_START  () { '_start'           }
 sub EN_STOP   () { '_stop'            }
@@ -398,7 +399,7 @@ sub _dispatch_state {
     }
     return;
   }
-  
+
   if (DEB_EVENTS) {
     warn ">>> dispatching $state to $session\n";
   }
@@ -443,7 +444,7 @@ sub _dispatch_state {
       delete $sessions->{$parent}->[SS_CHILDREN]->{$session};
       $sessions->{$parent}->[SS_REFCOUNT]--;
       if (DEB_REFCOUNT) {
-        warn("--- parent $parent loses child $session: ", 
+        warn("--- parent $parent loses child $session: ",
              $sessions->{$parent}->[SS_REFCOUNT], "\n"
             );
         die "\a" if ($sessions->{$parent}->[SS_REFCOUNT] < 0);
@@ -595,7 +596,7 @@ sub run {
             "\n"
           );
     }
-    
+
     if (DEB_SELECT) {
       warn ",----- SELECT BITS IN -----\n";
       warn "| READ    : ", unpack('b*', $self->[KR_VECTORS]->[VEC_RD]), "\n";
@@ -876,7 +877,13 @@ sub post {
     $self->_enqueue_state($destination, $self->[KR_ACTIVE_SESSION],
                           $state_name, time(), \@etc
                          );
+    return 1;
   }
+  if (DEB_STRICT) {
+    warn "Cannot resolve alias $destination for session\n";
+    confess;
+  }
+  return undef;
 }
 
 #------------------------------------------------------------------------------
@@ -896,9 +903,16 @@ sub yield {
 sub call {
   my ($self, $destination, $state_name, @etc) = @_;
   if (defined($destination = $self->alias_resolve($destination))) {
-    return $self->_dispatch_state($destination, $self->[KR_ACTIVE_SESSION],
-                                  $state_name, \@etc
-                                 );
+    my $retval = $self->_dispatch_state( $destination,
+                                         $self->[KR_ACTIVE_SESSION],
+                                         $state_name, \@etc
+                                       );
+    $! = 0;
+    return $retval;
+  }
+  if (DEB_STRICT) {
+    warn "Cannot resolve alias $destination for session\n";
+    confess;
   }
   return undef;
 }
