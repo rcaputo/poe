@@ -21,8 +21,10 @@ sub import {
 use POE::Preprocessor;
 
 #------------------------------------------------------------------------------
-
 # Perform some optional setup.
+
+sub RUNNING_IN_HELL () { $^O eq 'MSWin32' }
+
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
 
@@ -45,7 +47,7 @@ BEGIN {
   # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
   # defines EINPROGRESS as 10035.  We provide it here because some
   # Win32 users report POSIX::EINPROGRESS is not vendor-supported.
-  if ($^O eq 'MSWin32') {
+  if (RUNNING_IN_HELL) {
     eval '*EINPROGRESS = sub { 10036 };';  # not used here?
     eval '*EWOULDBLOCK = sub { 10035 };';
     eval '*F_GETFL     = sub {     0 };';
@@ -747,7 +749,7 @@ sub new {
 
       # Windows doesn't have a SIGBUS, but the debugger causes SIGBUS
       # to be entered into %SIG.  It's fatal to register its handler.
-      next if $signal eq 'BUS' and $^O eq 'MSWin32';
+      next if $signal eq 'BUS' and RUNNING_IN_HELL;
 
       # Don't watch CHLD or CLD if we're in Apache.
       next if $signal =~ /^CH?LD$/ and exists $INC{'Apache.pm'};
@@ -1308,8 +1310,10 @@ sub _invoke_state {
       # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
       # event and loop around again.
 
-      if ($pid > 0) {
-        if (WIFEXITED($?) or WIFSIGNALED($?)) {
+      if ( (RUNNING_IN_HELL and $pid < 0) or
+           (!RUNNING_IN_HELL and $pid > 0)
+         ) {
+        if (RUNNING_IN_HELL or WIFEXITED($?) or WIFSIGNALED($?)) {
 
           TRACE_SIGNALS and
             warn "POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)\n";
@@ -2388,7 +2392,7 @@ sub _internal_select {
       binmode($handle);
 
       # Make the handle stop blocking, the Windows way.
-      if ($^O eq 'MSWin32') {
+      if (RUNNING_IN_HELL) {
         my $set_it = "1";
 
         # 126 is FIONBIO (some docs say 0x7F << 16)
