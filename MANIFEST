@@ -21,6 +21,8 @@ POE/Filter/Stream.pm
 POE/Kernel.pm
 POE/NFA.pm
 POE/Object.pm
+POE/Pipe/Bidirectional.pm
+POE/Pipe/Unidirectional.pm
 POE/Preprocessor.pm
 POE/Repository/Array.pm
 POE/Runtime.pm
@@ -89,3 +91,4 @@ t/18_filter_line.t
 t/19_filterchange.t
 t/20_accept.t
 t/21_gtk.t
+t/22_wheel_run.t

@@ -9,6 +9,13 @@ threads.  It includes a high-level I/O library that hides most of the
 usual client/server tediosity.  It has been developed and used in
 mission-critical systems since August 1998.
 
+---------------------
+Documentation Roadmap
+---------------------
+
+The POE manpage's SEE ALSO section lists the topics covered in each
+manpage.  It's a good starting place.
+
 ------------------
 Basic Installation
 ------------------

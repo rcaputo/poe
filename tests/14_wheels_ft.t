@@ -1,4 +1,4 @@
-#!/usr/bin/perl /w
+#!/usr/bin/perl -w
 # $Id$
 
 # Exercises Wheel::FollowTail, Wheel::ReadWrite, and Filter::Block.
