@@ -312,7 +312,7 @@ sub _data_handle_add {
     }
 
     # Turn off buffering.
-    select((select($handle), $| = 1)[0]);
+    CORE::select((CORE::select($handle), $| = 1)[0]);
   }
 
   # Cache some high-level lookups.

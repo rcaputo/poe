@@ -290,14 +290,7 @@ BEGIN {
 # Include resource modules here.  Later, when we have the option of XS
 # versions, we'll adapt this to include them if they're available.
 ###############################################################################
-
-use POE::Resource::Extrefs;     # Extra reference counts.
-use POE::Resource::SIDs;        # Session IDs.
-use POE::Resource::Signals;     # Signals.
-use POE::Resource::Aliases;     # Aliases.
-use POE::Resource::FileHandles; # File handles.
-use POE::Resource::Events;      # Events.
-use POE::Resource::Sessions;    # Sessions.
+use POE::Resources;
 
 ###############################################################################
 # Helpers.
@@ -498,6 +491,8 @@ sub new {
         undef,               # KR_SESSION_IDS
         undef,               # KR_SID_SEQ
       ], $type;
+
+    POE::Resources->initialize();
 
     # Kernel ID, based on Philip Gwyn's code.  I hope he still can
     # recognize it.  KR_SESSION_IDS is a hash because it will almost
@@ -1988,9 +1983,7 @@ sub state {
 ###############################################################################
 # Bootstrap the kernel.  This is inherited from a time when multiple
 # kernels could be present in the same Perl process.
-
 POE::Kernel->new();
-
 ###############################################################################
 1;
 

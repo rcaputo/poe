@@ -11,7 +11,6 @@ $VERSION = (qw($Revision$))[1];
 package POE::Kernel;
 
 use strict;
-
 ### Session structure.
 
 my %kr_sessions;
@@ -37,6 +36,11 @@ sub SS_CHILDREN   () { 3 }
 sub SS_PROCESSES  () { 4 }
 sub SS_ID         () { 5 }
 
+sub initialize {
+   $POE::Kernel::poe_kernel->[KR_SESSIONS] = \%kr_sessions;
+}
+
+use POE::API::ResLoader \&initialize;
 ### End-run leak checking.
 
 sub _data_ses_finalize {
