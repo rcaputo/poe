@@ -64,6 +64,7 @@ sub _start {
   $kernel->alias_set('lockd');
                                         # register signal handlers
   $kernel->sig('INT', 'sighandler');
+  $kernel->sig('IDLE', 'sighandler');
   $kernel->sig('ZOMBIE', 'sighandler');
                                         # hello, world!
   print "+ lockd started.\n";

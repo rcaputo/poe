@@ -179,7 +179,8 @@ sub EN_SCPOLL () { '_sigchld_poll'    }
 #==============================================================================
 
                                         # will stop sessions unless handled
-my %_terminal_signals = ( QUIT => 1, INT => 1, KILL => 1, TERM => 1, HUP => 1);
+my %_terminal_signals =
+  ( QUIT => 1, INT => 1, KILL => 1, TERM => 1, HUP => 1, IDLE => 1 );
                                         # static signal handlers
 sub _signal_handler_generic {
   if (defined(my $signal = $_[0])) {
@@ -296,7 +297,10 @@ sub new {
       }
                                         # register signal handlers by type
       if ($signal =~ /^CH?LD$/) {
-        $SIG{$signal} = \&_signal_handler_child;
+        # Leave SIGCHLD alone if running under apache.
+        unless (exists $INC{'Apache.pm'}) {
+          $SIG{$signal} = \&_signal_handler_child;
+        }
       }
       elsif ($signal eq 'PIPE') {
         $SIG{$signal} = \&_signal_handler_pipe;
@@ -570,9 +574,9 @@ sub run {
   my $self = shift;
 
   while (keys(%{$self->[KR_SESSIONS]})) {
-                                        # send SIGZOMBIE sent if queue empty
+                                        # send SIGIDLE if queue empty
     unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_HANDLES]})) {
-      $self->_enqueue_state($self, $self, EN_SIGNAL, time(), [ 'ZOMBIE' ]);
+      $self->_enqueue_state($self, $self, EN_SIGNAL, time(), [ 'IDLE' ]);
     }
                                         # select, if necessary
     my $now = time();
@@ -747,6 +751,7 @@ sub _invoke_state {
   my ($self, $source_session, $state, $etc) = @_;
 
   if ($state eq EN_SCPOLL) {
+
     while (my $child_pid = waitpid(-1, WNOHANG)) {
       if (exists $self->[KR_PROCESSES]->{$child_pid}) {
 
@@ -769,6 +774,14 @@ sub _invoke_state {
       $self->_enqueue_state($self, $self, EN_SCPOLL, time() + 1);
     }
 
+  }
+
+  elsif ($state eq EN_SIGNAL) {
+    if ($etc->[0] eq 'IDLE') {
+      unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_HANDLES]})) {
+        $self->_enqueue_state($self, $self, EN_SIGNAL, time(), [ 'ZOMBIE' ]);
+      }
+    }
   }
 
   return 1;
@@ -1725,17 +1738,21 @@ logical true, then it means the signal was handled.  If it returns
 false, then the kernel assumes the signal wasn't handled.
 
 POE will stop sessions that don't handle some signals.  These
-"terminal" signals are QUIT, INT, KILL, TERM and HUP.
+"terminal" signals are QUIT, INT, KILL, TERM, HUP, and the fictitious
+IDLE signal.
+
+POE broadcasts SIGIDLE to all sessions when the kernel runs out of
+events to dispatch, and when there are no alarms or selects to
+generate new events.
 
 Finally, there is one fictitious signal that always stops a session:
-ZOMBIE.  When the kernel runs out of events to dispatch, and when
-there are no alarms or selects to generate new events, it sends ZOMBIE
-to any remaining sessions.  This lets these sessions (usually aliased
-"daemon" sessions) that nothing is left to do, and they're as good as
-dead anyway.
+ZOMBIE.  If the kernel remains idle after SIGIDLE is broadcast, then
+SIGZOMBIE is broadcast to force reaping of zombie sessions.  This
+tells these sessions (usually aliased "daemon" sessions) that nothing
+is left to do, and they're as good as dead anyway.
 
-It's normal for daemon sessions to receive ZOMBIE when all the
-sessions that may use them have gone away.
+It's normal for aliased sessions to receive IDLE and ZOMBIE when all
+the sessions that may use them have gone away.
 
 =over 4
 
@@ -1777,6 +1794,10 @@ processes.  It emulates the system's SIGCHLD behavior by sending a
 
 Because POE knows which session called its version of fork(), it can
 signal just that session that its forked child process has completed.
+
+B<Note:> The first &POE::Kernel::fork call disables POE's usual
+SIGCHLD handler, so that the poll loop can reap children safely.
+Mixing plain fork and &POE::Kernel::fork isn't recommended.
 
 =over 4
 

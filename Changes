@@ -19,6 +19,18 @@ soft signals to avoid potential problems with Perl's signal handling.
 Changed the preforkedserver.perl example to use &POE::Kernel::fork(),
 but the sample program seems to be hideously broken as designed.
 
+POE's SIGCHLD handler takes over Apache's when it's used in mod_perl.
+Changed POE::Kernel to not register a SIGCHLD handler if it's running
+under mod_perl.
+
+Added SIGIDLE, a kinder, gentler SIGZOMBIE.  When an entire process
+becomes idle, POE broadcasts SIGIDLE to everyone.  SIGIDLE is a plain
+terminal signal; sessions won't die if it's handled.  POE checks for
+continued idle-ness after SIGIDLE is dispatched; if the process hasn't
+awakened, then SIGZOMBIE is broadcast to reap things.
+
+Fixed names.perl to show SIGIDLE being caught.
+
 
 0.08 1999.11.26
 ---------------
