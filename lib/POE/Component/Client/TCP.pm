@@ -8,6 +8,7 @@ use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(carp croak);
+use POSIX qw(ETIMEDOUT);
 
 # Explicit use to import the parameter constants;
 use POE::Session;
@@ -45,6 +46,7 @@ sub new {
   my $domain       = delete $param{Domain};
   my $bind_address = delete $param{BindAddress};
   my $bind_port    = delete $param{BindPort};
+  my $ctimeout     = delete $param{ConnectTimeout};
 
   foreach ( qw( Connected ConnectError Disconnected ServerInput
                 ServerError ServerFlushed
@@ -137,6 +139,11 @@ sub new {
               SuccessEvent  => 'got_connect_success',
               FailureEvent  => 'got_connect_error',
             );
+          $_[KERNEL]->alarm_remove( delete $heap->{ctimeout_id} )
+            if exists $heap->{ctimeout_id};
+          $heap->{ctimeout_id} = $_[KERNEL]->alarm_set
+            ( got_connect_timeout => time + $ctimeout
+            ) if defined $ctimeout;
         },
 
         connect => sub {
@@ -148,6 +155,9 @@ sub new {
 
         got_connect_success => sub {
           my ($kernel, $heap, $socket) = @_[KERNEL, HEAP, ARG0];
+
+          $kernel->alarm_remove( delete $heap->{ctimeout_id} )
+            if exists $heap->{ctimeout_id};
 
           # Ok to overwrite like this as of 0.13.
           $_[HEAP]->{server} = POE::Wheel::ReadWrite->new
@@ -165,7 +175,20 @@ sub new {
 
         got_connect_error => sub {
           my $heap = $_[HEAP];
+          $_[KERNEL]->alarm_remove( delete $heap->{ctimeout_id} )
+            if exists $heap->{ctimeout_id};
           $heap->{connected} = 0;
+          $conn_error_callback->(@_);
+          delete $heap->{server};
+        },
+
+        got_connect_timeout => sub {
+          my $heap = $_[HEAP];
+          $heap->{connected} = 0;
+          $_[KERNEL]->alarm_remove( delete $heap->{ctimeout_id} )
+            if exists $heap->{ctimeout_id};
+          $! = ETIMEDOUT;
+          @_[ARG0,ARG1,ARG2] = ('connect', $!+0, $!);
           $conn_error_callback->(@_);
           delete $heap->{server};
         },
@@ -190,6 +213,9 @@ sub new {
         shutdown => sub {
           my $heap = $_[HEAP];
           $heap->{shutdown} = 1;
+
+          $_[KERNEL]->alarm_remove( delete $heap->{ctimeout_id} )
+            if exists $heap->{ctimeout_id};
 
           if ($heap->{connected}) {
             if (defined $heap->{server}) {
@@ -256,25 +282,26 @@ POE::Component::Client::TCP - a simplified TCP client
   # Complete usage.
 
   POE::Component::Client::TCP->new
-    ( RemoteAddress => "127.0.0.1",
-      RemotePort    => "chargen",
-      BindAddress   => "127.0.0.1",
-      BindPort      => 8192,
-      Domain        => AF_INET,     # Optional.
+    ( RemoteAddress  => "127.0.0.1",
+      RemotePort     => "chargen",
+      BindAddress    => "127.0.0.1",
+      BindPort       => 8192,
+      Domain         => AF_INET,     # Optional.
+      ConnectTimeout => 5,           # Seconds; optional.
 
-      Connected     => \&handle_connect,
-      ConnectError  => \&handle_connect_error,
-      Disconnected  => \&handle_disconnect,
+      Connected      => \&handle_connect,
+      ConnectError   => \&handle_connect_error,
+      Disconnected   => \&handle_disconnect,
 
-      ServerInput   => \&handle_server_input,
-      ServerError   => \&handle_server_error,
-      ServerFlushed => \&handle_server_flush,
+      ServerInput    => \&handle_server_input,
+      ServerError    => \&handle_server_error,
+      ServerFlushed  => \&handle_server_flush,
 
-      Filter        => "POE::Filter::Something",
+      Filter         => "POE::Filter::Something",
 
-      InlineStates  => { ... },
-      PackageStates => [ ... ],
-      ObjectStates  => [ ... ],
+      InlineStates   => { ... },
+      PackageStates  => [ ... ],
+      ObjectStates   => [ ... ],
     );
 
   # Sample callbacks.
@@ -380,6 +407,15 @@ setting up ReadWrite.
 ARG0 contains a socket handle.  It's not necessary to save this under
 most circumstances.  ARG1 and ARG2 contain the peer address and port
 as returned from getpeername().
+
+=item ConnectTimeout
+
+ConnectTimeout is the maximum time in seconds to wait for a connection
+to be established.  If it is omitted, Client::TCP relies on the
+operating system to abort stalled connect() calls.
+
+Upon a connection timeout, Client::TCP will send a ConnectError event.
+Its ARG0 will be 'connect' and ARG1 will be the POSIX ETIMEDOUT value.
 
 =item Disconnected
 
