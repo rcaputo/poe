@@ -84,10 +84,19 @@ sub test_start {
 
   # Path #11: ensure alarms are enqueued in time order.
 
+  # To test duplicates on a small queue.
+  my $id_25_3 = $kernel->alarm_set( path_eleven_025_3 => 25 );
+  my $id_25_2 = $kernel->alarm_set( path_eleven_025_2 => 25 );
+  my $id_25_1 = $kernel->alarm_set( path_eleven_025_1 => 25 );
+
+  # To test micro-updates on a small queue.
+  $kernel->alarm_adjust( $id_25_1 => -0.01 ); # negative
+  $kernel->alarm_adjust( $id_25_3 =>  0.01 ); # positive
+
   # Fill the alarm queue to engage the "big queue" binary insert.
   my @eleven_fill;
   for (my $count=0; $count<100; $count++) {
-    push @eleven_fill, int(rand(100));
+    push @eleven_fill, int(rand(300));
     $kernel->alarm( "path_eleven_fill_$count", $eleven_fill[-1] );
   }
 
@@ -110,9 +119,13 @@ sub test_start {
   $kernel->alarm( path_eleven_125 => 125 );
 
   # To test duplicates.
-  $kernel->alarm( path_eleven_201 => 200 );
-  $kernel->alarm( path_eleven_202 => 200 );
-  $kernel->alarm( path_eleven_203 => 200 );
+  my $id_206 = $kernel->alarm_set( path_eleven_206 => 205 );
+  my $id_205 = $kernel->alarm_set( path_eleven_205 => 205 );
+  my $id_204 = $kernel->alarm_set( path_eleven_204 => 205 );
+
+  # To test micro-updates on a big queue.
+  $kernel->alarm_adjust( $id_204 => -0.01 );  # negative
+  $kernel->alarm_adjust( $id_206 =>  0.01 );  # positive
 
   # Now clear the filler states.
   for (my $count=0; $count<100; $count++) {
@@ -125,7 +138,8 @@ sub test_start {
   }
 
   # Now acquire the test alarms.
-  my @alarms_eleven = grep /^path_eleven_\d+$/, $kernel->queue_peek_alarms();
+  my @alarms_eleven = grep /^path_eleven_[0-9_]+$/,
+    $kernel->queue_peek_alarms();
   $heap->{alarms_eleven} = \@alarms_eleven;
 
   # Now clear the test alarms since we're just testing the queue
@@ -158,23 +172,27 @@ sub test_stop {
 
   # And test alarm order.
   ok_if( 12,
-         ( $heap->{alarms_eleven}->[ 0] eq 'path_eleven_050' and
-           $heap->{alarms_eleven}->[ 1] eq 'path_eleven_075' and
-           $heap->{alarms_eleven}->[ 2] eq 'path_eleven_100' and
-           $heap->{alarms_eleven}->[ 3] eq 'path_eleven_125' and
-           $heap->{alarms_eleven}->[ 4] eq 'path_eleven_150' and
-           $heap->{alarms_eleven}->[ 5] eq 'path_eleven_175' and
-           $heap->{alarms_eleven}->[ 6] eq 'path_eleven_200' and
-           $heap->{alarms_eleven}->[ 7] eq 'path_eleven_201' and
-           $heap->{alarms_eleven}->[ 8] eq 'path_eleven_202' and
-           $heap->{alarms_eleven}->[ 9] eq 'path_eleven_203' and
-           $heap->{alarms_eleven}->[10] eq 'path_eleven_225' and
-           $heap->{alarms_eleven}->[11] eq 'path_eleven_250' and
-           $heap->{alarms_eleven}->[12] eq 'path_eleven_275' and
-           $heap->{alarms_eleven}->[13] eq 'path_eleven_300' and
-           $heap->{alarms_eleven}->[14] eq 'path_eleven_325' and
-           $heap->{alarms_eleven}->[15] eq 'path_eleven_350'
-         )
+         ( $heap->{alarms_eleven}->[ 0] eq 'path_eleven_025_1' and
+           $heap->{alarms_eleven}->[ 1] eq 'path_eleven_025_2' and
+           $heap->{alarms_eleven}->[ 2] eq 'path_eleven_025_3' and
+           $heap->{alarms_eleven}->[ 3] eq 'path_eleven_050' and
+           $heap->{alarms_eleven}->[ 4] eq 'path_eleven_075' and
+           $heap->{alarms_eleven}->[ 5] eq 'path_eleven_100' and
+           $heap->{alarms_eleven}->[ 6] eq 'path_eleven_125' and
+           $heap->{alarms_eleven}->[ 7] eq 'path_eleven_150' and
+           $heap->{alarms_eleven}->[ 8] eq 'path_eleven_175' and
+           $heap->{alarms_eleven}->[ 9] eq 'path_eleven_200' and
+           $heap->{alarms_eleven}->[10] eq 'path_eleven_204' and
+           $heap->{alarms_eleven}->[11] eq 'path_eleven_205' and
+           $heap->{alarms_eleven}->[12] eq 'path_eleven_206' and
+           $heap->{alarms_eleven}->[13] eq 'path_eleven_225' and
+           $heap->{alarms_eleven}->[14] eq 'path_eleven_250' and
+           $heap->{alarms_eleven}->[15] eq 'path_eleven_275' and
+           $heap->{alarms_eleven}->[16] eq 'path_eleven_300' and
+           $heap->{alarms_eleven}->[17] eq 'path_eleven_325' and
+           $heap->{alarms_eleven}->[18] eq 'path_eleven_350'
+         ),
+         "@{$heap->{alarms_eleven}}"
        );
 }
 
