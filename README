@@ -17,10 +17,19 @@ created or dispatched from the Kernel.
 Reusable boilerplace state machines (Wheels) that extend Sessions by adding
 their states when constructed and removing their states when destroyed.
 
-* Future plans include:
+* New in version 0.02:
 
-A Dictionary class to manage POE objects.
-A high-level scripting language for object behaviors.
+A tied hash that manages objects and attributes, called Curator.
+
+* To Do:
+
+Higher-level object management, such as referential integrity maintenance
+between inverse (converse?) attributes: (contains/location, owner/owns;
+parents/children); behavior (code attributes) execution; security (can the
+currently running behavior read/write attributes, destroy this object, etc.?).
+
+Input parsing, and side-effects of input that include invoking objects'
+behaviors.
 
 * To build, test and install this distribution, type:
 
