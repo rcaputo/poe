@@ -616,23 +616,6 @@ sub POE::Kernel::signal {
 # KERNEL
 #==============================================================================
 
-# This is a UI callback.  It maps UI destruction to a non-maskable
-# virtual UIDESTROY signal.  Don't bother broadcasting UIDESTROY if
-# there are no sessions remaining.  This is the case when POE exits
-# before its main window.
-sub _signal_ui_destroy {
-  if (keys %{$poe_kernel->[KR_SESSIONS]}) {
-    $poe_kernel->_dispatch_state
-      ( $poe_kernel, $poe_kernel,
-        EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-        time(), __FILE__, __LINE__, undef
-      );
-  }
-
-  # Undef allows Gtk to destroy the window.
-  return undef;
-}
-
 sub new {
   my $type = shift;
 
@@ -665,6 +648,9 @@ sub new {
     # because it sometimes spawns /bin/hostname or the equivalent,
     # generating spurious CHLD signals before the Kernel is fully
     # initialized.
+
+    my $hostname = eval { (POSIX::uname)[1] };
+    $hostname = hostname() unless defined $hostname;
 
     $self->[KR_ID] =
       ( hostname . '-' .  unpack 'H*', pack 'N*', time, $$ );
@@ -2206,8 +2192,15 @@ sub state {
     return 0;
   }
 
+  # -><- A terminal signal (such as UIDESTROY) kills a session.  The
+  # Kernel deallocates the session, which cascades destruction to its
+  # HEAP.  That triggers a Wheel's destruction, which calls
+  # $kernel->state() to remove a state from the session.  The session,
+  # though, is already gone.  If TRACE_RETURNS and/or ASSERT_RETURNS
+  # is set, this causes a warning or fatal error.
+
   TRACE_RETURNS and carp "session does not exist";
-  ASSERT_RETURNS and croak "session does not exist";
+  # ASSERT_RETURNS and croak "session does not exist";
 
   return ESRCH;
 }
@@ -2386,9 +2379,9 @@ Exported symbols:
   # A reference to the global POE::Kernel instance.
   $poe_kernel
 
-  # The Gtk or Tk top-level (or main) window widget.  POE uses it
-  # internally to attach to toolkits' event loops and to detect
-  # process closure so it can generate UIDESTROY signals.
+  # Some graphical toolkits (Tk) require at least one active widget in
+  # order to use their event loops.  POE allocates a main window so it
+  # can function when using one of these toolkits.
   $poe_main_window
 
 =head1 DESCRIPTION
@@ -3030,7 +3023,8 @@ leftover sessions that the program has run out of things to do.
 =item nonmaskable
 
 Nonmaskable signals are similar to terminal signals, but they stop a
-session regardless of its handler's return value.  There are two nonmaskable signals, both of which are fictitious:
+session regardless of its handler's return value.  There are two
+nonmaskable signals, both of which are fictitious:
 
 ZOMBIE is fired if the terminal signal IDLE did not wake anything up;
 it's used to stop the remaining "zombie" sessions so that an inactive
@@ -3118,6 +3112,16 @@ For example, this posts a fictitious signal to some session:
   $kernel->signal( $session, 'DIEDIEDIE' );
 
 POE::Kernel's signal() method doesn't return a meaningful value.
+
+=item signal_ui_destroy WIDGET
+
+This registers a widget with POE::Kernel such that the Kernel fires a
+UIDESTROY signal when the widget is closed or destroyed.  The exact
+trigger depends on the graphical toolkit currently being used.
+
+  # Fire a UIDESTROY signal when this top-level window is deleted.
+  $heap->{gtk_toplevel_window} = Gtk::Window->new('toplevel');
+  $kernel->signal_ui_destroy( $heap->{gtk_toplevel_window} );
 
 =back
 
@@ -3418,9 +3422,10 @@ select() loop.
 
 =head1 POE::Kernel Exports
 
-POE::Kernel exports two symbols for your coding enjoyment: $poe_kernel
-and C<$poe_main_window>.  POE::Kernel is implicitly used by POE
-itself, so using POE gets you POE::Kernel (and its exports) for free.
+POE::Kernel exports two symbols for your coding enjoyment:
+C<$poe_kernel> and C<$poe_main_window>.  POE::Kernel is implicitly
+used by POE itself, so using POE gets you POE::Kernel (and its
+exports) for free.
 
 =over 2
 
@@ -3441,12 +3446,19 @@ C<KERNEL> parameters and don't need to use $poe_kernel directly.
 
 =item $poe_main_window
 
-POE creates a "main" or a "top-level" window to interact with
-graphical toolkits' event loops.  Rather than squander this window, it
-passes a reference on to the main program so it may be used.  The
-reference is passed in the $poe_main_window variable.
+Some graphical toolkits (currently only Tk) require at least one
+widget be created before their event loops are usable.  POE::Kernel
+allocates a main window in these cases, and exports a reference to
+that window in C<$poe_main_window>.  For all other toolkits, this
+exported variable is undefined.
+
+Programs are free to use C<$poe_main_window> for whatever needs.  They
+may even assign a widget to it when using toolkits that don't require
+an initial widget (Gtk for now).
 
 $poe_main_window is undefined if a graphical toolkit isn't used.
+
+See: signal_ui_destroy
 
 =back
 
