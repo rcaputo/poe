@@ -31,15 +31,16 @@ my $kr_sid_seq = 1;
 ### End-run leak checking.
 
 sub _data_sid_finalize {
-  # Don't bother if run() was never called.  -><- Is this needed?
-  #return unless $kr_run_warning & KR_RUN_CALLED;
-
+  my $finalized_ok = 1;
   while (my ($sid, $ses) = each(%kr_session_ids)) {
     warn "!!! Leaked session ID: $sid = $ses\n";
+    $finalized_ok = 0;
   }
   while (my ($ses, $sid) = each(%kr_session_to_id)) {
     warn "!!! Leak sid cross-reference: $ses = $sid\n";
+    $finalized_ok = 0;
   }
+  return $finalized_ok;
 }
 
 ### Allocate a new session ID.
