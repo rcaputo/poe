@@ -59,7 +59,7 @@ sub new {
   if (defined $params{Filter}) {
     carp "Ignoring InputFilter parameter (Filter parameter takes precedence)"
       if (defined $params{InputFilter});
-    carp "Ignoring OUtputFilter parameter (Filter parameter takes precedence)"
+    carp "Ignoring OutputFilter parameter (Filter parameter takes precedence)"
       if (defined $params{OutputFilter});
     $in_filter = $out_filter = delete $params{Filter};
   }
@@ -650,7 +650,7 @@ POE::Wheel::ReadWrite - buffered non-blocking I/O
     # To read and write using different line disciplines, such as
     # stream out and line in:
     InputFilter  => POE::Filter::Something->new(),     # Read data one way
-    OUtputFilter => POE::Filter::SomethingElse->new(), # Write data another
+    OutputFilter => POE::Filter::SomethingElse->new(), # Write data another
 
     InputEvent   => $input_event_name,  # Input received event
     FlushedEvent => $flush_event_name,  # Output flushed event
