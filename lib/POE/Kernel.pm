@@ -302,31 +302,31 @@ BEGIN {
 # trace file we're using today.  _trap is reserved for internal
 # errors.
 
-{ 
-  # This block abstracts away a particular piece of voodoo, since we're about 
-  # to call it many times. This is all a big closure around the following two 
-  # variables, allowing us to swap out and replace handlers without the need 
+{
+  # This block abstracts away a particular piece of voodoo, since we're about
+  # to call it many times. This is all a big closure around the following two
+  # variables, allowing us to swap out and replace handlers without the need
   # for mucking up the namespace or the kernel itself.
   my ($orig_warn_handler, $orig_die_handler);
 
   # _trap_death replaces the current __WARN__ and __DIE__ handlers with our own.
   # We keep the defaults around so we can put them back when we're done.
-  # Specifically this is necessary, it seems, for older perls that don't 
-  # respect the C< local *STDERR = *TRACE_FILE >. 
+  # Specifically this is necessary, it seems, for older perls that don't
+  # respect the C< local *STDERR = *TRACE_FILE >.
   sub _trap_death {
     $orig_warn_handler = $SIG{__WARN__};
     $orig_die_handler = $SIG{__DIE__};
 
     $SIG{__WARN__} = sub { print TRACE_FILE $_[0] };
     $SIG{__DIE__} = sub { print TRACE_FILE $_[0]; die $@; };
- 
+
   }
 
-  # _release_death puts the original __WARN__ and __DIE__ handlers back in 
-  # place. Hopefully this is zero-impact camping. The hope is that we can 
+  # _release_death puts the original __WARN__ and __DIE__ handlers back in
+  # place. Hopefully this is zero-impact camping. The hope is that we can
   # do our trace magic without impacting anyone else.
   sub _release_death {
-    $SIG{__WARN__} = $orig_warn_handler; 
+    $SIG{__WARN__} = $orig_warn_handler;
     $SIG{__DIE__} = $orig_die_handler;
   }
 }
@@ -335,9 +335,9 @@ BEGIN {
 sub _trap {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
-  
+
   _trap_death();
-  
+
   confess(
     "Please mail the following information to bug-POE\@rt.cpan.org:\n@_"
   );
@@ -348,13 +348,13 @@ sub _trap {
 sub _croak {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
-  
+
   _trap_death();
-  
+
   croak @_;
-  
+
   _release_death();
-  
+
 }
 
 sub _confess {
@@ -368,11 +368,11 @@ sub _confess {
 sub _cluck {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
-  
+
   _trap_death();
-  
+
   cluck @_;
-  
+
   _release_death();
 }
 
@@ -391,11 +391,11 @@ sub _warn {
   my ($package, $file, $line) = caller();
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
- 
+
   _trap_death();
- 
+
   warn $message;
- 
+
   _release_death();
 }
 
@@ -404,11 +404,11 @@ sub _die {
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
   local *STDERR = *TRACE_FILE;
- 
+
   _trap_death();
- 
+
   die $message;
- 
+
   _release_death();
 }
 
@@ -417,6 +417,7 @@ sub _die {
 
 BEGIN {
   my $used_first;
+  local $SIG{__DIE__} = "DEFAULT";
 
   # First see if someone has loaded a POE::Loop or XS version
   # explicitly.  Make a note of it if they already have.  The next
@@ -694,12 +695,12 @@ sub new {
         undef,               # KR_ALIASES - loaded from POE::Resource::Aliases
         \$kr_active_session, # KR_ACTIVE_SESSION - should this be handled by POE::Resource::Sessions?
         $kr_queue,           # KR_QUEUE - should this be extracted into a Resource ?
-        undef,               # KR_ID 
+        undef,               # KR_ID
         undef,               # KR_SESSION_IDS - loaded from POE::Resource::SIDS
         undef,               # KR_SID_SEQ - loaded from POE::Resource::SIDS - is a scalar ref
         undef,               # KR_EXTRA_REFS
         undef,               # KR_SIZE
-        \$kr_run_warning,    # KR_RUN 
+        \$kr_run_warning,    # KR_RUN
         \$kr_active_event,   # KR_ACTIVE_EVENT
       ], $type;
 
