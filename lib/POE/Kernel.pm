@@ -446,11 +446,11 @@ sub load_loop {
   # handed off to takes over.
   if ($@ and $@ !~ /not really dying/) {
     die(
-	"*\n",
-	"* POE can't use $loop:\n",
-	"* $@\n",
-	"*\n",
-       );
+      "*\n",
+      "* POE can't use $loop:\n",
+      "* $@\n",
+      "*\n",
+    );
   }
 }
 sub test_loop {
@@ -906,7 +906,7 @@ sub _dispatch_event {
       _warn("<ev>     signal($etc->[0])");
     }
   }
-  
+
   # Prepare to call the appropriate handler.  Push the current active
   # session on Perl's call stack.
   my $hold_active_session = $kr_active_session;
@@ -923,22 +923,23 @@ sub _dispatch_event {
   my $return;
   if (wantarray) {
     $return = [
-      $session->_invoke_state($source_session, $event, $etc, $file, $line,
-	  	$fromstate)
+      $session->_invoke_state(
+        $source_session, $event, $etc, $file, $line, $fromstate
+      )
     ];
   }
   else {
-    $return =
-      $session->_invoke_state($source_session, $event, $etc, $file, $line,
-	  	$fromstate);
+    $return = $session->_invoke_state(
+      $source_session, $event, $etc, $file, $line, $fromstate
+    );
   }
 
   if (TRACE_STATISTICS) {
       my $after = time();
       my $elapsed = $after - $before;
       if ($type & ET_MASK_USER) {
-	  $self->_data_stat_add('user_seconds', $elapsed);
-	  $self->_data_stat_add('user_events', 1);
+        $self->_data_stat_add('user_seconds', $elapsed);
+        $self->_data_stat_add('user_events', 1);
       }
   }
 
@@ -1539,9 +1540,12 @@ sub call {
   my $return_value;
   if (wantarray) {
     $return_value = [
-      $session == $kr_active_session
-      ? $session->_invoke_state($session, $event_name, \@etc, (caller)[1,2],
-	  $kr_active_event) : $self->_dispatch_event(
+      ($session == $kr_active_session)
+      ? $session->_invoke_state(
+        $session, $event_name, \@etc, (caller)[1,2],
+        $kr_active_event
+      )
+      : $self->_dispatch_event(
         $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
         (caller)[1,2], $kr_active_event, time(), -__LINE__
@@ -1551,8 +1555,11 @@ sub call {
   else {
     $return_value = (
       $session == $kr_active_session
-      ? $session->_invoke_state($session, $event_name, \@etc, (caller)[1,2],
-	  $kr_active_event) : $self->_dispatch_event(
+      ? $session->_invoke_state(
+        $session, $event_name, \@etc, (caller)[1,2],
+        $kr_active_event
+      )
+      : $self->_dispatch_event(
         $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
         (caller)[1,2], $kr_active_event, time(), -__LINE__
@@ -2633,9 +2640,11 @@ arguments to EVENT_NAME's handler.
   $_[KERNEL]->post( $session, 'do_that', $with_this, $and_this );
   $_[KERNEL]->post( $session, 'do_that', @with_these );
 
-  POE::Session->new(
-    do_this => sub { print "do_this called with $_[ARG0] and $_[ARG1]\n" },
-    do_that => sub { print "do_that called with @_[ARG0..$#_]\n" },
+  POE::Session->create(
+    inline_states => {
+      do_this => sub { print "do_this called with $_[ARG0] and $_[ARG1]\n" },
+      do_that => sub { print "do_that called with @_[ARG0..$#_]\n" },
+    }
   );
 
 The post() method returns a boolean value indicating whether the event

@@ -908,7 +908,8 @@ POE::Session - an event driven abstract state machine
   # Import POE::Session constants.
   use POE::Session;
 
-  # The older, more DWIMmy constructor.
+  # The older, more DWIMmy constructor, which will soon be deprecated
+  # (i.e., DON'T USE THIS).
   POE::Session->new(
 
     # Inline or coderef states.
