@@ -14,10 +14,13 @@ sub CRIMSON_SCOPE_HACK ($) { 0 }
 sub DEBUG () { 0 }
 
 # Provide a dummy EINPROGRESS for systems that don't have one.  Give
-# it an improbable errno value.
+# it a documented value.
 BEGIN {
+  # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
+  # defines EINPROGRESS as 10035.  We provide it here because some
+  # Win32 users report POSIX::EINPROGRESS is not vendor-supported.
   if ($^O eq 'MSWin32') {
-    eval '*EINPROGRESS = sub { 3.141 };'
+    eval '*EINPROGRESS = sub { 10035 };'
   }
 }
 
