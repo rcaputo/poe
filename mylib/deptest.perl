@@ -556,8 +556,12 @@ if (@warnings) {
        );
 }
 
-print STDERR "\n***\n"
-  if @critical_errors or @recoverable_errors or @warnings;
+if (@critical_errors or @recoverable_errors or @warnings) {
+  print STDERR "\n***\n";
+}
+else {
+  print STDERR "\n***\n*** All dependencies found.\n***\n";
+}
 
 exit 1 if @critical_errors;
 exit 0;
