@@ -98,6 +98,42 @@ sub new {
     }
   }
 
+  # STATE-EVENT
+  if (exists $params{InputState}) {
+    if (exists $params{InputEvent}) {
+      carp "InputEvent takes precedence over depreciated InputState";
+      delete $params{InputState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{InputEvent} = delete $params{InputState};
+    }
+  }
+
+  # STATE-EVENT
+  if (exists $params{ErrorState}) {
+    if (exists $params{ErrorEvent}) {
+      carp "ErrorEvent takes precedence over depreciated ErrorState";
+      delete $params{ErrorState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{ErrorEvent} = delete $params{ErrorState};
+    }
+  }
+
+  # STATE-EVENT
+  if (exists $params{FlushedState}) {
+    if (exists $params{FlushedEvent}) {
+      carp "FlushedEvent takes precedence over depreciated FlushedState";
+      delete $params{FlushedState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{FlushedEvent} = delete $params{FlushedState};
+    }
+  }
+
   { my $mark_errors = 0;
     if (defined($params{HighMark}) xor defined($params{LowMark})) {
       carp "HighMark and LowMark parameters require each-other";

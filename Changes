@@ -32,7 +32,6 @@ POE is due for a round of breakage to make things more consistent.
      define states, they emit events.  Calling Wheels' parameters
      /.*State/ is inconsistent and confusing.
 
-     TODO: Verify that the new code passes existing tests.
      TODO: Port existing tests and samples to /.*Event/.
 
      TODO: Have the support and documentation changes on the CPAN for
@@ -95,6 +94,9 @@ Add /.*Event/ support to wheels.  Code to support /.*Event/ and
 depreciation warnings are also commented.  Changed the documentation
 to say /.*Event/ instead of /.*State/, so new users will not learn the
 depreciated ways.
+
+Verified that the depreciation from State to Event does not break
+existing tests.  The samples directory is still lagging behind here.
 
 
 0.14 2001.04.23

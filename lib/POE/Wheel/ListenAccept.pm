@@ -74,14 +74,14 @@ sub event {
   my $self = shift;
   push(@_, undef) if (scalar(@_) & 1);
 
-  # STATE-EVENT
-  if ($name =~ /^(.*?)State$/) {
-    # depreciation warning goes here
-    $name = $1 . 'Event';
-  }
-
   while (@_) {
     my ($name, $event) = splice(@_, 0, 2);
+
+    # STATE-EVENT
+    if ($name =~ /^(.*?)State$/) {
+      # depreciation warning goes here
+      $name = $1 . 'Event';
+    }
 
     if ($name eq 'AcceptEvent') {
       if (defined $event) {

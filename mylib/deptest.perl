@@ -7,7 +7,7 @@ use ExtUtils::Manifest qw(maniread);
 use File::Spec;
 use Text::Wrap;
 
-sub TRACE_GATHER  () { 1 }  # extra information about dependency gathering
+sub TRACE_GATHER  () { 0 }  # extra information about dependency gathering
 sub TRACE_SECTION () { 1 }  # lets the installer know what's going on
 
 open STDERR_HOLD, '>&STDERR' or die "cannot save STDERR: $!";
