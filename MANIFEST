@@ -97,7 +97,6 @@ samples/sessions.perl
 samples/signals.perl
 samples/tcp_watermarks.perl
 samples/thrash.perl
-samples/tk.perl
 samples/watermarks.perl
 samples/wheels.perl
 samples/wheels2.perl
