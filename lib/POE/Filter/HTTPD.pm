@@ -47,7 +47,8 @@ sub get {
   # happen.  -><- Maybe this should return [] instead of dying?
 
   if($self->{'finish'}) {
-    die "Didn't want any more data\n";
+    # BAD_REQUEST
+    return [ $self->build_error(400, "Did not want any more data") ];
   }
 
   # Accumulate data in a framing buffer.
@@ -61,12 +62,13 @@ sub get {
   if($self->{header}) {
     my $buf = $self->{buffer};
     my $r = $self->{header};
-    if(length($buf) >= $r->content_length()) {
+    my $cl = $r->content_length() || "0 (implicit)";
+    if (length($buf) >= $cl) {
       $r->content($buf);
       $self->{finish}++;
       return [$r];
     } else {
-      print $r->content_length()." wanted, got ".length($buf)."\n";
+      # print "$cl wanted, got " . length($buf) . "\n";
     }
     return [];
   }
@@ -221,7 +223,8 @@ sub build_error {
   my($self, $status, $details) = @_;
 
   $status  ||= RC_BAD_REQUEST;
-  my $message  = status_message($status) || "Unknown Error";
+  $details ||= '';
+  my $message = status_message($status) || "Unknown Error";
 
   return
     $self->build_basic_response
@@ -271,8 +274,9 @@ Here is a sample input handler:
     my ($heap, $request) = @_[HEAP, ARG0];
 
     # The Filter::HTTPD generated a response instead of a request.
-    # There must have been some kind of error.
-    if (ref($request) eq 'HTTP::Response') {
+    # There must have been some kind of error.  You could also check
+    # (ref($request) eq 'HTTP::Response').
+    if ($request->isa('HTTP::Response')) {
       $heap->{wheel}->put($request);
       return;
     }
