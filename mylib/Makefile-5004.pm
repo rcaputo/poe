@@ -57,6 +57,9 @@ WriteMakefile
     # happens, I'll rename the 'lib' driectory to 'privlib'.
 
     PMLIBDIRS      => [ 'POE' ],
+    clean => {
+        FILES => 'poe_report.xml',
+    }
   );
 
 1;

@@ -150,6 +150,9 @@ WriteMakefile
     },
 
     PMLIBDIRS      => [ 'POE' ],
+    clean => {
+        FILES => 'poe_report.xml',
+    }
   );
 
 1;
