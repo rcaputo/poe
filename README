@@ -82,27 +82,34 @@ are available in CVS.
 Test Results
 ------------
 
-POE's test results are large and constantly changing.  They have been
-moved to the web site for easier maintenance.  POE is tested severely
-before even the limited-distribution development releases.
+POE's test results are large and constantly changing, so it makes more
+sense that they are on the web.
 
   http://eekeek.org/poe-tests/
+    -- Automated test reports by users like you.
+
   http://poe.perl.org/?POE%27s_test_results
+    -- Manually maintained test reports, also by users like you.
+
   http://testers.cpan.org/search?request=dist&dist=POE
+    -- CPAN testers' reports.
 
-If you experience test failures, please report them. POE's ongoing
-improvement relies on feedback from its users. The easiest
-way to do that is included in the POE distribution itself. The 
-Makefile includes two targets: 'testreport' and 'reportupload'.
-Running 'make testreport' will run the test suite and generate
-an XML file summarizing the test results named 'poe_report.xml'.
-If you have an active non-proxied internet connection, running
-'make reportupload' will transmit your test results to the
-POE test server. If you do not have a non-proxied internet 
-connection, go to http://eekeek.org/poe-tests/ and upload the
-poe_report.xml file using the form on that page.
+POE's ongoing improvement relies on your feedback.  The easiest way to
+do that is included in the POE distribution itself.  The Makefile
+includes two targets: 'testreport' and 'reportupload'.
 
-Uploaded test results can be viewed at http://eekeek.org/poe-tests/.  
+  make testreport
+  make reportupload
+
+Running 'make testreport' will run the test suite and generate an XML
+file summarizing the test results named 'poe_report.xml'.  If you have
+an active non-proxied internet connection, running 'make reportupload'
+will transmit your test results to the POE test server.
+
+If 'make reportupload' fails, go to http://eekeek.org/poe-tests/ and
+upload the poe_report.xml file using the form on that page.
+
+Uploaded test results can be viewed at http://eekeek.org/poe-tests/.
 
 -------------
 Test Coverage
