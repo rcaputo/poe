@@ -1,6 +1,5 @@
 # $Id$
 Changes
-HISTORY
 MANIFEST
 Makefile.PL
 README
@@ -13,6 +12,7 @@ POE/Kernel.pm
 POE/Session.pm
 POE/Wheel.pm
 POE/Driver/SysRW.pm
+POE/Filter/HTTPD.pm
 POE/Filter/Line.pm
 POE/Filter/Reference.pm
 POE/Filter/Stream.pm
@@ -22,6 +22,7 @@ POE/Wheel/ReadWrite.pm
 POE/Wheel/SocketFactory.pm
 tests/followtail.perl
 tests/forkbomb.perl
+tests/httpd.perl
 tests/names.perl
 tests/objsessions.perl
 tests/packagesessions.perl
@@ -34,4 +35,5 @@ tests/sessions.perl
 tests/signals.perl
 tests/socketfactory.perl
 tests/thrash.perl
+tests/tutorial-chat.perl
 tests/wheels.perl
