@@ -117,6 +117,7 @@ t/10_units/03_base/10_wheel.t
 t/10_units/03_base/11_assert_usage.t
 t/10_units/03_base/12_assert_retval.t
 t/10_units/03_base/13_assert_data.t
+t/10_units/03_base/14_kernel.t
 t/10_units/04_drivers/01_sysrw.t
 t/10_units/05_filters/01_block.t
 t/10_units/05_filters/02_grep.t
@@ -130,6 +131,7 @@ t/10_units/05_filters/50_stackable.t
 t/10_units/05_filters/99_filterchange.t
 t/10_units/06_queues/01_array.t
 t/20_resources/00_base/aliases.pm
+t/20_resources/00_base/caller_state.pm
 t/20_resources/00_base/controls.pm
 t/20_resources/00_base/events.pm
 t/20_resources/00_base/extrefs.pm
@@ -157,3 +159,4 @@ t/30_loops/00_base/wheel_tail.pm
 t/90_regression/neyuki_detach.t
 t/90_regression/suzman_windows.t
 t/90_regression/ton-stop-corruption.t
+test.pl

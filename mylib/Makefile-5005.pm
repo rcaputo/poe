@@ -6,8 +6,6 @@ use strict;
 use lib qw(./mylib);
 
 use ExtUtils::MakeMaker;
-use File::Find;
-use File::Spec;
 
 eval "require ExtUtils::AutoInstall";
 if ($@) {
@@ -94,21 +92,6 @@ ExtUtils::AutoInstall->import(
 
 system($^X, "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
 
-# Build a list of all the tests to run.
-
-my %test_dirs;
-
-find(
-  sub {
-    return unless -f;
-    return unless /\.t$/;
-    $test_dirs{$File::Find::dir} = 1;
-  },
-  't/',
-);
-
-my $test_str = join " ", map { "$_/*.t" } sort keys %test_dirs;
-
 # Touch generated files so they exist.
 open(TOUCH, ">>CHANGES") and close TOUCH;
 open(TOUCH, ">>META.yml") and close TOUCH;
@@ -141,6 +124,8 @@ cover: coverage
 EOF
 }
 
+rename "t", "tests.tmp" or die "can't rename t -> tests.tmp";
+
 WriteMakefile(
   NAME           => 'POE',
 
@@ -164,8 +149,6 @@ WriteMakefile(
       '/bin/cp -f ./META.yml ./$(DISTNAME)-$(VERSION)/META.yml'
     ),
   },
-
-  test           => { TESTS => $test_str },
 
   clean          => {
     FILES => (
@@ -191,5 +174,7 @@ WriteMakefile(
     'Filter::Util::Call' => 1.04,
   },
 );
+
+rename "tests.tmp", "t" or die "can't rename tests.tmp -> t";
 
 1;

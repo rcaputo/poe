@@ -2,8 +2,6 @@
 # $Id$
 
 use ExtUtils::MakeMaker;
-use File::Find;
-use File::Spec;
 
 # Add a new target.
 
@@ -36,24 +34,11 @@ EOF
 
 system("perl", "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
 
-# Build a list of all the tests to run.
-
-my %test_dirs;
-
-find(
-  sub {
-    return unless -f;
-    return unless /\.t$/;
-    $test_dirs{$File::Find::dir} = 1;
-  },
-  't/',
-);
-
-my $test_str = join " ", map { "$_/*.t" } sort keys %test_dirs;
-
 # Touch generated files so they exist.
 open(TOUCH, ">>CHANGES") and close TOUCH;
 open(TOUCH, ">>META.yml") and close TOUCH;
+
+rename "t", "tests.tmp" or die "can't rename t -> tests.tmp";
 
 WriteMakefile(
   NAME           => 'POE',
@@ -67,7 +52,6 @@ WriteMakefile(
       'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
     ),
   },
-  test           => { TESTS => $test_str },
   PREREQ_PM      => {
     Carp               => 0,
     Exporter           => 0,
@@ -95,5 +79,7 @@ WriteMakefile(
     ),
   }
 );
+
+rename "tests.tmp", "t" or die "can't rename tests.tmp -> t";
 
 1;
