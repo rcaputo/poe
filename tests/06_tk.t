@@ -22,7 +22,6 @@ BEGIN {
     if ( length($@) or
          not exists($INC{'Tk.pm'})
        );
-  }
   # MSWin32 doesn't need DISPLAY set.
   if ($^O ne 'MSWin32') {
     unless ( exists $ENV{'DISPLAY'} and
