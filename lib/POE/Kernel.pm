@@ -258,8 +258,6 @@ BEGIN {
   defined &ASSERT_DEFAULT or eval "sub ASSERT_DEFAULT () { $assert_default }";
 
   define_assert qw(DATA EVENTS FILES RETVALS USAGE);
-
-  # If traces
 };
 
 #------------------------------------------------------------------------------
@@ -268,25 +266,25 @@ BEGIN {
 
 sub _croak {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local STDERR = *TRACE_FILE;
+  local *STDERR = *TRACE_FILE;
   croak @_;
 }
 
 sub _confess {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local STDERR = *TRACE_FILE;
+  local *STDERR = *TRACE_FILE;
   confess @_;
 }
 
 sub _cluck {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local STDERR = *TRACE_FILE;
+  local *STDERR = *TRACE_FILE;
   cluck @_;
 }
 
 sub _carp {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local STDERR = *TRACE_FILE;
+  local *STDERR = *TRACE_FILE;
   carp @_;
 }
 
@@ -294,7 +292,7 @@ sub _warn {
   my ($package, $file, $line) = caller();
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
-  local STDERR = *TRACE_FILE;
+  local *STDERR = *TRACE_FILE;
   warn $message;
 }
 
@@ -302,7 +300,7 @@ sub _die {
   my ($package, $file, $line) = caller();
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
-  local STDERR = *TRACE_FILE;
+  local *STDERR = *TRACE_FILE;
   die $message;
 }
 
