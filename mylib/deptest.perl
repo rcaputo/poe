@@ -18,6 +18,10 @@ sub TRACE_SECTIONS () { 1 }  # (signal or noise) section headers
 sub TRACE_BAD      () { 1 }  # (signal) show bad modules
 sub SHOW_SUMMARY   () { 1 }  # (signal) show report at the end
 
+# Twice to avoid warnings.
+open STDERR_HOLD, '>&STDERR' or die "cannot save STDERR: $!";
+open STDERR_HOLD, '>&STDERR' or die "cannot save STDERR: $!";
+
 #------------------------------------------------------------------------------
 # Read dependency hints from NEEDS.  By default, and for backward
 # compatibility, every rule is core and every dependent is needed.
@@ -238,7 +242,10 @@ foreach my $filename (sort keys %$manifest) {
       $dep_name = 'needs';
     }
 
+    close STDERR;
     eval 'package Test::' . $test_package++ . "; use $dependent";
+    open STDERR, '>&STDERR_HOLD' or print "cannot restore STDERR: $!";
+
     my $is_ok = !(defined $@ and length $@);
 
     my $inc_key = $dependent . '.pm';
@@ -436,7 +443,7 @@ if (SHOW_SUMMARY) {
     print STDERR "\n***\n";
     print STDERR wrap( '*** ', '*** ', $message );
   }
-  print STDERR "\n***\n" if @messages;
+  print STDERR "\n***\n\n" if @messages;
 }
 
 exit 1 if @core_broken;
