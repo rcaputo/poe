@@ -305,7 +305,7 @@ sub _data_handle_add {
       ];
 
     if (TRACE_FILES) {
-      _warn "<fh> adding fd (", $fd, ")";
+      _warn "<fh> adding fd ($fd) in mode ($mode)";
     }
 
     # For DOSISH systems like OS/2.  Wrapped in eval{} in case it's a
@@ -369,7 +369,7 @@ sub _data_handle_add {
     if (exists $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle}) {
       if (TRACE_FILES) {
         _warn(
-          "<fh> running fileno(" . $fd . ") mode($mode) " .
+          "<fh> running fileno($fd) mode($mode) " .
           "count($kr_fno_rec->[FMO_EV_COUNT])"
         );
       }
@@ -393,7 +393,7 @@ sub _data_handle_add {
         values %{$kr_fno_rec->[FMO_SESSIONS]->{$session}}
       ) {
         my $other_handle = $hdl_rec->[HSS_HANDLE];
-        unless (fileno $other_handle) {
+        unless (defined(fileno $other_handle)) {
           _trap(
             "can't watch $handle: $other_handle (closed) is still ",
             "registered for that file descriptor in mode $mode"
@@ -475,9 +475,13 @@ sub _data_handle_remove {
 
     # Make sure the handle was registered to the requested session.
 
-    if ( exists($kr_fno_rec->[FMO_SESSIONS]->{$session}) and
-         exists($kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle})
-       ) {
+    if (
+      exists($kr_fno_rec->[FMO_SESSIONS]->{$session}) and
+      exists($kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle})
+    ) {
+
+      TRACE_FILES and
+        _warn "<fh> removing handle ($handle) fileno ($fd) mode ($mode)";
 
       # Remove the handle from the kernel's session record.
 
@@ -558,19 +562,30 @@ sub _data_handle_remove {
 
       unless ($kr_fileno->[FNO_TOT_REFCOUNT]) {
         if (TRACE_FILES) {
-          _warn "<fh> deleting fileno (", $fd, ")";
+          _warn "<fh> deleting handle ($handle) fileno ($fd) entirely";
         }
         delete $kr_filenos{$fd};
       }
     }
+    elsif (TRACE_FILES) {
+      _warn(
+        "<fh> session doesn't own handle ($handle) fileno ($fd) mode ($mode)"
+      );
+    }
+  }
+  elsif (TRACE_FILES) {
+    _warn(
+      "<fh> handle ($handle) fileno ($fd) is not registered with POE::Kernel"
+    );
   }
 
   # SS_HANDLES - Remove the select from the session, assuming there is
   # a session to remove it from.  -><- Key it on fileno?
 
-  if ( exists($kr_ses_to_handle{$session}) and
-       exists($kr_ses_to_handle{$session}->{$handle})
-     ) {
+  if (
+    exists($kr_ses_to_handle{$session}) and
+    exists($kr_ses_to_handle{$session}->{$handle})
+  ) {
 
     # Remove it from the session's read, write or expedite mode.
 
@@ -596,6 +611,12 @@ sub _data_handle_remove {
         delete $kr_ses_to_handle{$session}
           unless keys %{$kr_ses_to_handle{$session}};
       }
+    }
+    elsif (TRACE_FILES) {
+      _warn(
+        "<fh> handle ($handle) fileno ($fd) is not registered with",
+        $self->_data_alias_loggable($session)
+      );
     }
   }
 }
