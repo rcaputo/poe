@@ -69,6 +69,7 @@ sub task_run {
 }
 
 sub task_default {
+  return 0 if $_[ARG0] eq '_signal'; # ignore signals
   $default_count++ if $_[STATE] eq '_default';
 }
 
