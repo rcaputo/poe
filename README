@@ -149,7 +149,7 @@ tests themselves.  For a more accurate determination of POE's speed,
 balance the CPU seconds against the test machine's hardware and
 operating system.
 
-** POE 0.1403 on FreeBSD (home-bsd)
+** POE 0.1404 on FreeBSD (home-bsd)
 
 Hardware: Athlon-1000; 512MB RAM
 System  : FreeBSD 4.3-STABLE
@@ -160,7 +160,7 @@ Event   : 0.81
 IO::Pty : 0.01
 
 All tests successful.
-Files=26, Tests=494, 83 wallclock secs ( 7.62 cusr +  0.61 csys =  8.23 CPU)
+Files=26, Tests=494, 85 wallclock secs ( 7.95 cusr +  0.61 csys =  8.56 CPU)
 
 ** POE 0.1401 on Solaris/SunOS 5.8 (dynweb)
 
