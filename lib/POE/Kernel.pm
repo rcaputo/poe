@@ -36,10 +36,21 @@ BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
 
   # POE runs better with Time::HiRes, but it also runs without it.
+  { no strict 'refs';
+
+    # allow users to turn off Time::HiRes usage for whatever reason
+    my $time_hires_default = 1;
+    $time_hires_default = $ENV{USE_TIME_HIRES}if defined $ENV{USE_TIME_HIRES};
+    if(defined &USE_TIME_HIRES) {
+        $time_hires_default = USE_TIME_HIRES();
+    } else {
+        eval "sub USE_TIME_HIRES () { $time_hires_default }";
+    }
+  }
   eval {
     require Time::HiRes;
     Time::HiRes->import(qw(time sleep));
-  };
+  } if USE_TIME_HIRES();
 
   # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
   # defines EINPROGRESS as 10035.  We provide it here because some
@@ -4102,6 +4113,12 @@ certain interval.
 If Time::HiRes is installed, POE::Kernel will use it to increase the
 accuracy of timed events.  The kernel will use the less accurate
 built-in time() if Time::HiRes isn't available.
+
+If the use of Time::HiRes is not desired, for whatever reason, it can
+be disabled like so:
+
+    sub POE::Kernel::USE_TIME_HIRES () { 0 }
+    use POE;
 
 =over 2
 
