@@ -23,22 +23,29 @@ Version numbers have four fields: X.YYZZAA
 | cvs tag -Rc v0_1009 .
 `------------------------------------------------------------------------------
 
-FUTURE ????.??.?? (!!!)
+Future ????.??.?? (!!!)
 -----------------------
 
 POE is due for a round of breakage to make things more consistent.
 
   1. In the wheels, rename /.*State/ to /.*Event/.  Wheels don't
-     define states, they emit events.  Calling the parameters
-     /.*State/ is just confusing.
+     define states, they emit events.  Calling Wheels' parameters
+     /.*State/ is just confusing people who expect them to define
+     states.
 
   2. ARG0..ARG9 in built-in events are silly.  The whole concept of
      using array slices and constant offsets is to avoid positional
      dependencies.  Using ARG0..ARG9 defeats most of this technique's
      benefits.  D'oh!
 
-  3. Whatever else I can break.  May as well get as much of it over at
-     once as I can.
+  3. Split some of the optionally useful bits out into a separate
+     Bundle which is included in Bundle::POE.  Let people install
+     subsets of POE as needed.  This may not happen, but it's listed
+     here for others' consideration.
+
+  4. Whatever else I can break.  May as well get as much of it over at
+     once as I can.  Has anyone been holding off on requests because
+     they'd break stuff?  Now's the time to speak up.
 
 I've come up with this depreciation schedule in the hopes it'll
 minimize people's grief.
@@ -51,9 +58,16 @@ minimize people's grief.
          the depreciated ones side-by-side.  The documentation only
          covers the new things; the depreciated ones are gone.
 
-  0.15 - Turn the depreciated things into warnings.
+  0.15 - Add warnings for depreciated things.  Try not to make them
+         too obnoxious.
 
-  0.16 - Remove the depreciated things.
+  0.16 - Remove the depreciated things altogether.
+
+The plan is to wait at least a month between each CPAN release.
+Bleeding edge interim releases will start off as maintenance on the
+previous version and then become release candidates for the next one.
+If it all goes as planned, this will give people at least 1/4 year
+notice on changes.
 
 
 0.1204 2000.??.??
@@ -73,6 +87,15 @@ Added a get_current_state() method to POE::NFA.  It returns the
 machine's current state's name.
 
 Added t/23_nfa.t to exercise bits of POE::NFA.
+
+Added code to prevent session IDs from colliding after integer
+increment wraps.
+
+Devolped a depreciation schedule for some iffy current features and to
+unify some squirrelly ideas that need to be fixed.  Read it or weep.
+
+Added TRACE_RETURNS and ASSERT_RETURNS to generate warnings and/or
+hard errors whenever a Kernel function will return an error.
 
 
 0.1203 2000.12.29

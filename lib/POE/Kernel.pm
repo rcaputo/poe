@@ -42,17 +42,19 @@ BEGIN {
   {% define_trace REFCOUNT %}
   {% define_trace SELECT   %}
   {% define_trace REFCOUNT %}
+  {% define_trace RETURNS  %}
 
   # See the notes for TRACE_DEFAULT, except read ASSERT and assert
   # where you see TRACE and trace.
 
   defined &ASSERT_DEFAULT or eval 'sub ASSERT_DEFAULT () { 0 }';
 
-  {% define_assert GARBAGE     %}
-  {% define_assert REFCOUNT    %}
-  {% define_assert RELATIONS   %}
-  {% define_assert SELECT      %}
-  {% define_assert SESSIONS    %}
+  {% define_assert GARBAGE   %}
+  {% define_assert REFCOUNT  %}
+  {% define_assert RELATIONS %}
+  {% define_assert SELECT    %}
+  {% define_assert SESSIONS  %}
+  {% define_assert RETURNS   %}
 }
 
 # Determine which event loop is loaded (or whether none is) and set
@@ -241,6 +243,8 @@ macro test_resolve (<name>,<resolved>) {
       confess "Cannot resolve <name> into a session reference\n";
     } # include
     $! = ESRCH;
+    TRACE_RETURNS  and carp  "session not resolved: $!";
+    ASSERT_RETURNS and croak "session not resolved: $!";
     return undef;
   }
 }
@@ -358,7 +362,8 @@ BEGIN {
 #------------------------------------------------------------------------------
 # globals
 
-$poe_kernel = undef;                    # only one active kernel; sorry
+# only one active kernel; sorry
+$poe_kernel = undef;
 
 #------------------------------------------------------------------------------
 
@@ -882,23 +887,33 @@ sub _dispatch_state {
     # a session.  Set up the kernel's tables for this session.
 
     if ($type & ET_START) {
+
+      # Get a new session ID.  Prevent collisions.  Prevent integer
+      # wraparound to a negative number.
+      my $next_session_id = $self->[KR_ID_INDEX];
+      while (1) {
+        $next_session_id = 0 if ++$next_session_id < 0;
+        last unless exists $kr_session_ids{$next_session_id};
+      }
+      $self->[KR_ID_INDEX] = $next_session_id;
+
       my $new_session = $kr_sessions{$session} =
-        [ $session,                     # SS_SESSION
-          0,                            # SS_REFCOUNT
-          0,                            # SS_EVCOUNT
-          $source_session,              # SS_PARENT
-          { },                          # SS_CHILDREN
-          { },                          # SS_HANDLES
-          { },                          # SS_SIGNALS
-          { },                          # SS_ALIASES
-          { },                          # SS_PROCESSES
-          $self->[KR_ID_INDEX]++,       # SS_ID
-          { },                          # SS_EXTRA_REFS
-          0,                            # SS_ALCOUNT
+        [ $session,         # SS_SESSION
+          0,                # SS_REFCOUNT
+          0,                # SS_EVCOUNT
+          $source_session,  # SS_PARENT
+          { },              # SS_CHILDREN
+          { },              # SS_HANDLES
+          { },              # SS_SIGNALS
+          { },              # SS_ALIASES
+          { },              # SS_PROCESSES
+          $next_session_id, # SS_ID
+          { },              # SS_EXTRA_REFS
+          0,                # SS_ALCOUNT
         ];
 
       # For the ID to session reference lookup.
-      $kr_session_ids{$new_session->[SS_ID]} = $session;
+      $kr_session_ids{$next_session_id} = $session;
 
       if (ASSERT_RELATIONS) { # include
         # Ensure sanity.
@@ -2367,7 +2382,11 @@ sub alarm {
   my ($self, $state, $time, @etc) = @_;
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
-  return EINVAL unless defined $state;
+  unless (defined $state) {
+    TRACE_RETURNS and carp "invalid parameter to alarm() call";
+    ASSERT_RETURNS and croak "invalid parameter to alarm() call";
+    return EINVAL;
+  }
 
   # Remove all previous instances of the alarm.
   my $index = @kr_alarms;
@@ -2424,7 +2443,11 @@ sub alarm {
 sub alarm_add {
   my ($self, $state, $time, @etc) = @_;
 
-  return EINVAL unless defined $state and defined $time;
+  unless (defined $state and defined $time) {
+    TRACE_RETURNS and carp "invalid parameter to alarm_add() call";
+    ASSERT_RETURNS and croak "invalid parameter to alarm_add() call";
+    return EINVAL;
+  }
 
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
   $self->_enqueue_alarm( $kr_active_session, $kr_active_session,
@@ -2440,7 +2463,11 @@ sub alarm_add {
 sub delay {
   my ($self, $state, $delay, @etc) = @_;
 
-  return EINVAL unless defined $state;
+  unless (defined $state) {
+    TRACE_RETURNS and carp "invalid parameter to delay() call";
+    ASSERT_RETURNS and croak "invalid parameter to delay() call";
+    return EINVAL;
+  }
 
   if (defined $delay) {
     $self->alarm($state, time() + $delay, @etc);
@@ -2456,7 +2483,11 @@ sub delay {
 sub delay_add {
   my ($self, $state, $delay, @etc) = @_;
 
-  return EINVAL unless defined $state and defined $delay;
+  unless (defined $state and defined $delay) {
+    TRACE_RETURNS and carp "invalid parameter to delay_add() call";
+    ASSERT_RETURNS and croak "invalid parameter to delay_add() call";
+    return EINVAL;
+  }
 
   $self->alarm_add($state, time() + $delay, @etc);
 
@@ -2809,21 +2840,21 @@ sub select_read {
   my ($self, $handle, $state) = @_;
   $self->_internal_select($self->[KR_ACTIVE_SESSION], $handle, $state, VEC_RD);
   return 0;
-};
+}
 
 # Only manipulate the write select.
 sub select_write {
   my ($self, $handle, $state) = @_;
   $self->_internal_select($self->[KR_ACTIVE_SESSION], $handle, $state, VEC_WR);
   return 0;
-};
+}
 
 # Only manipulate the expedite select.
 sub select_expedite {
   my ($self, $handle, $state) = @_;
   $self->_internal_select($self->[KR_ACTIVE_SESSION], $handle, $state, VEC_EX);
   return 0;
-};
+}
 
 # Turn off a handle's write vector bit without doing
 # garbage-collection things.
@@ -2983,7 +3014,11 @@ sub alias_set {
 
   # Don't overwrite another session's alias.
   if (exists $kr_aliases{$name}) {
-    return EEXIST if $kr_aliases{$name} != $kr_active_session;
+    if ($kr_aliases{$name} != $kr_active_session) {
+      TRACE_RETURNS and carp "alias is in use by another session";
+      ASSERT_RETURNS and carp "alias is in use by another session";
+      return EEXIST;
+    }
     return 0;
   }
 
@@ -3000,8 +3035,16 @@ sub alias_remove {
   my ($self, $name) = @_;
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
-  return ESRCH unless exists $kr_aliases{$name};
-  return EPERM if $kr_aliases{$name} != $kr_active_session;
+  unless (exists $kr_aliases{$name}) {
+    TRACE_RETURNS and carp "alias does not exist";
+    ASSERT_RETURNS and carp "alias does not exist";
+    return ESRCH;
+  }
+  if ($kr_aliases{$name} != $kr_active_session) {
+    TRACE_RETURNS and carp "alias does not belong to current session";
+    ASSERT_RETURNS and carp "alias does not belong to current session";
+    return EPERM;
+  }
 
   {% remove_alias $kr_active_session, $name %}
 
@@ -3011,7 +3054,11 @@ sub alias_remove {
 sub alias_resolve {
   my ($self, $name) = @_;
   my $session = {% alias_resolve $name %};
-  $! = ESRCH unless defined $session;
+  unless (defined $session) {
+    TRACE_RETURNS and carp "alias does not exist";
+    ASSERT_RETURNS and carp "alias does not exist";
+    $! = ESRCH;
+  }
   $session;
 }
 
@@ -3039,6 +3086,8 @@ sub ID_id_to_session {
     $! = 0;
     return $kr_session_ids{$id};
   }
+  TRACE_RETURNS and carp "ID does not exist";
+  ASSERT_RETURNS and carp "ID does not exist";
   $! = ESRCH;
   return undef;
 }
@@ -3051,6 +3100,8 @@ sub ID_session_to_id {
     $! = 0;
     return $kr_sessions{$session}->[SS_ID];
   }
+  TRACE_RETURNS and carp "session does not exist";
+  ASSERT_RETURNS and carp "session does not exist";
   $! = ESRCH;
   return undef;
 }
@@ -3098,6 +3149,9 @@ sub refcount_increment {
     return $refcount;
   }
 
+  TRACE_RETURNS and carp "session does not exist";
+  ASSERT_RETURNS and carp "session does not exist";
+
   $! = ESRCH;
   undef;
 }
@@ -3138,6 +3192,9 @@ sub refcount_decrement {
     return $refcount;
   }
 
+  TRACE_RETURNS and carp "session does not exist";
+  ASSERT_RETURNS and carp "session does not exist";
+
   $! = ESRCH;
   undef;
 }
@@ -3161,7 +3218,10 @@ sub state {
                                               );
     return 0;
   }
-                                        # no such session
+
+  TRACE_RETURNS and carp "session does not exist";
+  ASSERT_RETURNS and carp "session does not exist";
+
   return ESRCH;
 }
 
@@ -4296,6 +4356,12 @@ ASSERT_REFCOUNT enables checks for negative reference counts.
 
 ASSERT_RELATIONS turns on parent/child referential integrity checks.
 
+=item ASSERT_RETURNS
+
+ASSERT_RETURNS causes POE::Kernel's methods to croak instead of
+returning error codes.  See also TRACE_RETURNS if you don't want the
+Kernel to be so strict.
+
 =item ASSERT_SELECT
 
 ASSERT_SELECT enables extra error checking in the Kernel's select
@@ -4348,6 +4414,12 @@ queues have separated.
 
 TRACE_REFCOUNT enables debugging output whenever an external reference
 count changes.
+
+=item TRACE_RETURNS
+
+TRACE_RETURNS enables carping whenever a Kernel method is about to
+return an error.  See ASSERT_RETURNS if you'd like the Kernel to be
+stricter than this.
 
 =item TRACE_SELECT
 

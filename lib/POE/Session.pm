@@ -1216,6 +1216,8 @@ C<some_state> as C<@_[ARG0..ARG4]>:
 
   $_[KERNEL]->yield( some_state => qw( zero one two three four ) );
 
+Only C<ARG0> is really needed.  C<ARG1> is just C<ARG0+1>, and so on.
+
 =item HEAP
 
 C<HEAP> is a session's unique runtime storage space.  It's separate
