@@ -399,8 +399,12 @@ sub import {
 
           ### Perform macro substitutions.
           my $substitutions = 0;
-          while (/^(.*?)\{\%\s+(\S+)\s*(.*?)\s*\%\}(.*)$/s) {
-            my ($left, $name, $params, $right) = ($1, $2, $3, $4);
+          while (/(\{\%\s+(\S+)\s*(.*?)\s*\%\})/gs) {
+            my ($name, $params) = ($2, $3);
+
+            # Backtrack to the beginning of the substitution so that
+            # the newly inserted text may also be checked.
+            pos($_) -= length($1);
 
             DEBUG_INVOKE and
               warn ",-----\n| macro invocation: $name $params\n";
@@ -441,7 +445,7 @@ sub import {
                 $substitution = join "\n", @sub_lines;
               }
 
-              $_ = $left . $substitution . $right;
+              substr($_, pos($_), length($1)) = $substitution;
               $_ .= "# line " . ($line_number+1) . " \"$file_name\"\n"
                 unless $^P;
 
@@ -495,7 +499,7 @@ __END__
 
 =head1 NAME
 
-POE::Preprocessor - A Macro Preprocessor
+POE::Preprocessor - a macro/const/enum preprocessor
 
 =head1 SYNOPSIS
 
