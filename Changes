@@ -15,11 +15,47 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 
 ,----- To Do -----
 |
-| Overhaul Kernel and Session manpages' DESCRIPTIONs.
 | Create a test program for fork and sigchld.
-| Don't forget to document the Tk support.
+| Still can't get Event to compile on 5.6.0+OS/2 or 5.005+61+FreeBSD;
+|    be sure to mark Event experimental in the new documentation.
+| Make a test for Tk.
+| Make a test for Event, when it can be made to work.
+| Split the samples out into a separate distribution.
 |
 `-----------------
+
+0.1004 2000.05.21
+-----------------
+
+Rewrote the POE, POE::Kernel and POE::Session manpages.  Documented Tk
+support.  Documented Event support, but it's not in yet.
+
+t/04_select.t assumed that two-argument syswrite was legal, but it
+isn't back in 5.005_02.  Added a length() call to make it legal on
+older perls.  Thanks again, a-mused!
+
+alarm_add() would enqueue an alarm for an undefined state.  Fixed it
+to ignore such requests.
+
+The call() method did not reliably set $! to zero on success.  Now it
+does.
+
+(!!!) Added parameter checking and return values to the timed event
+functions: alarm, alarm_add, delay, and delay_add.
+
+(!!!) alarm() and alarm_add() no longer clip past times to time(2).
+Instead, events posted for the past will be entered into the
+appropriate places in POE's time-ordered alarm/delay queue.  The
+obvious results will occur.
+
+(!!!) Changed POE::Kernel::alias_* to return 0 on success or an error
+code on failure.  They no longer touch $!.
+
+(!!!) Changed POE::Kernel::state to return 0 on success or an error
+code on failure.  It no longer touches $!.
+
+(!!!) Changed POE::Kernel::refcount_(in|de)crement to return the new
+reference count on success or undef on failure.
 
 
 0.1003 2000.05.12

@@ -112,7 +112,8 @@ sub master_put_output {
   # If there is a message queued, write it.
   if (@{$heap->{queue}}) {
     my $message = shift @{$heap->{queue}};
-    die $! unless syswrite($handle, $message) == length($message);
+    die $!
+      unless syswrite($handle, $message, length($message)) == length($message);
   }
 
   # Otherwise pause the write select.
@@ -183,7 +184,8 @@ sub slave_put_output {
   # If there is a message queued, write it.
   if (@{$heap->{queue}}) {
     my $message = shift @{$heap->{queue}};
-    die $! unless syswrite($handle, $message) == length($message);
+    die $!
+      unless syswrite($handle, $message, length($message)) == length($message);
 
     # Kludge.  We requested quit, so go ahead and quit.
     $kernel->select_write($handle) if $message eq 'quit';

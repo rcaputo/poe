@@ -1,251 +1,55 @@
 $Id$
 
-TABLE OF CONTENTS
-=================
 
-Table of Contents; About POE; Compatibility (Non-Requirements and
-Requirements); Availability; Support Resources; Installing and
-Testing; The Future
+The bulk of this README's information has migrated to the POE manpage.
 
 
-ABOUT POE
-=========
+As POE moves closer towards the Common Sense axis, it sometimes
+diverges away from the Backwards Compatible axis.  If this version is
+being installed over a previous one, please check the Changes file to
+see what it might break.  Interface changes usually are documented.
 
-"POE" is an acronym for Perl Object Environment.  This may change to
-Persistent Object Environment.
 
-First and foremost, it is a programming framework for event-driven
-state machines.
+POE may be installed through the CPAN shell in the usual CPAN shell
+manner.  It typically is:
 
-POE includes high-level, functional interfaces for select, alarms,
-sockets and file I/O.  The interfaces are robust but incomplete.
+  perl -MCPAN -e 'install POE'
 
-From different vantage points, POE may look like other things:
+It involves a little more work if you have an older CPAN shell:
 
-  It may seem to be a cooperative multithreading model.
-  It may be interpreted as a portable component architecture.
+  perl -MCPAN -e shell
+  install POE
 
-Because it implements a low-level programming concept, POE can do many
-things.
 
+POE can also be installed manually.  The latest CPAN version can be
+found at <ftp://ftp.cpan.org/pub/CPAN/authors/id/R/RC/RCAPUTO/> or in
+a similarl named directory at your favorite CPAN mirror.  The most
+recent development snapshot, which only rarely contains heinous
+showstopper bugs, is available from the author's web site at
+<http://www.newts.org/~troc/poe.html>.
 
-COMPATIBILITY
-=============
-
-General
--------
-
-POE has been tested with as many Perl versions as the author (and
-testing pool) can find.  This includes Linux, FreeBSD, and OS/2, all
-of which support enough of POSIX to run POE.  It is known to work with
-older Perl versions, back to 5.004_03 (maybe earlier).  It should also
-work with the latest stable release (the latest development release
-may also work).  For the most recent compatibility results, see:
-
-http://testers.cpan.org/search?request=dist&dist=POE
-
-If you have news about breakage or success that's not documented,
-please let me know.  Thank you!
-
-
-Windows
--------
-
-The half-tested Windows support that was removed in 0.0806 turns out
-to be necessary and useful.  It was put back in version 0.0807, and at
-least one Windows user, Douglas Couch <purdue.edu!dscouch>, has found
-joy using POE.
-
-Doug reports that POE works with the latest stable ActivePerl, prior
-to (but not including) version 5.6.0 RC1.  He says that the 5.6.0
-version includes fork() and other Unix compatibilities, but it still
-definitely seems to be beta level code.
-
-As of this writing, 5.6.0 has gone through its remaining release
-candidates and is in early "golden" distribution, so mileage most
-probably will vary.
-
-He writes:
-
-  I've done some preliminary testing of the 0.0903 version and the
-  re-addition of the Win32 support seems to be a success.  I'll do
-  some more intensive testing in the next few days to make sure
-  nothing else is broken that I haven't missed.
-
-And later:
-
-  After testing out my own program and having no problems with the
-  newest version (with Win32 support), I thought I'd test out some of
-  the samples and relay my results.
-
-  filterchange.perl and preforkedserver.perl both contain fork
-  commands which are still unsupported by ActiveState's port of Perl,
-  so they were both unsuccessful.  (this was anticipated for anything
-  containing fork)
-
-  ref-type.perl, refsender.perl, thrash.perl and wheels2.perl all ran
-  up against the same unsupported POSIX macro.  According to the error
-  message, my vendor's POSIX doesn't support the macro EINPROGRESS ...q
-
-  Other than those particular problems all of the other sample scripts
-  ran fine.
-
-And later, after it was suggested to remove the EINPROGRESS code:
-
-  > ... and running something that connects to an outbound server,
-  > such as samples/proxy.perl.  The normal "connection in progress"
-  > state will become a failure, and the proxy will die in "connect"
-  > with an error number and name.
-
-  Ummmm...  would you believe I did this and couldn't get it to break?
-  I think I need to play a bit with the proxy settings in the sample,
-  I couldn't make it do an http proxy, but I also couldn't make it
-  break.
-
-... so POE includes a fake EINPROGRESS constant on MSWin32 systems.
-
-P.S.: If you've just skipped ahead to read about Windows, you should
-skip back one section, to the General compatibility information, which
-may still apply.
-
-
-MacOS
------
-
-Macintosh users have rumored that POE might work on MacOS, but none of
-them have stepped forward with actual failure or success reports.  It
-would be greatly appreciated if someone could confirm or deny
-something.  Anything?  Bueller?
-
-
-Non-requirements
-----------------
-
-POE is compatible with fork(), but it is only used upon request.  This
-distribution includes a sample server that uses a pool of forked
-children.
-
-POE will use Time::HiRes, if it's available.  Nothing untoward should
-happen if it's not, unless you use one of the sample programs that
-absolutely requires it.
-
-POE currently uses no XS in its implementation.  It should work
-wherever a sufficiently complete version of Perl does.
-
-
-Requirements
-------------
-
-As of version 0.1001, POE requires Filter::Call::Util, from the Filter
-distribution.  It uses this module in POE::Preprocessor, which is a
-source filter that preprocesses macros, constants and enumerations.
-Filter 1.17 does not compile properly for threaded builds, so you will
-need 1.18 or later.  If you can only acquire version 1.17 of the
-source filters modules, then also apply the patch posted to
-perl5-porters in this message:
-
-  Message-Id: <E12YUJG-00042g-00@mserv1a.u-net.net>
-
-For portability, POE uses POSIX system calls and constants.  There
-should be no problem running it on systems that have sufficient POSIX
-support.
-
-Some of POE's sample programs require a recent IO bundle, but you get
-that for free with recent versions of Perl.
-
-Filter::Reference requires either Storable, FreezeThaw or some other
-freeze/thaw package.  Storable tends to be fastest, and it's checked
-first.  The Reference filter can also use Compress::Zlib upon request,
-but it works without it too.
-
-Filter::HTTPD requires a small world of modules: HTTP::Status;
-HTTP::Request; HTTP::Date and URI::URL.
-
-The httpd.perl sample program uses Filter::HTTPD, which uses all that
-other stuff.
-
-The preforkedserver.perl sample program uses POE::Kernel::fork(),
-which in turn uses the fork() built-in.  This may or may not be
-available on your planet.
-
-Other sample programs may require other modules, but the required
-modules aren't required if you don't require those specific features.
-
-
-AVAILABILITY
-============
-
-The latest stable release of POE is available three ways:
-
-1:
-
-  ``perl -MCPAN -e shell'' Then type ``install POE'' at the CPAN
-  prompt.
-
-2:
-
-  In the /authors/id/R/RC/RCAPUTO/ on your favorite CPAN mirror.  This
-  is where the CPAN shell gets it.
-
-  If you don't have a favorite CPAN mirror, you really ought to pick
-  one.  You can download and manually install the latest stable POE
-  from <http://www.cpan.org/authors/id/R/RC/RCAPUTO/> until then.
-
-3:
-
-  Beta versions of the next release are available from the author.
-  They tend to be mostly stable, and other module and program authors
-  tend to use them because they're incrementally better than what's on
-  the CPAN.
-
-  Relatively stable betas are available from the POE web page, at
-  <http://www.newts.org/~troc/>.
-
-
-SUPPORT RESOURCES
-=================
-
-Places on the Internet where you can find more information about POE:
-
-
-POE has a mailing list thanks to Arturn Bergman.  You may subscribe to
-it by sending e-mail:
-
-  From: (the address to which you want your mail sent)
-  To: poe-help@vogon.se
-  Subject: (anything will do)
-
-  Anything will do for the body.
-
-All forms of feedback are welcome.
-
-
-POE has a web site thanks to Johnathan Vail.  The latest POE
-development snapshot, along with the Changes file and some other stuff
-can be found at <http://www.newts.org/~troc/>.
-
-
-INSTALLING AND TESTING
-======================
-
-If you've been using POE since before 0.06, please, PLEASE read the
-Changes file before installing.  Many things have been broken between
-versions 0.05 and 0.06.
-
-To build and test this distribution, type:
+Downloading and unpacking the distribution are left as an exercise for
+the reader.  To "build" and test it afterwards:
 
   perl Makefile.PL
-  make
   make test
 
-Actually, 'make test' doesn't do anything important.  The closest
-thing to real tests are the programs in the 'samples' directory.
-These show how to use various bits of POE, exercising each as a side
-effect.
+The POE manpage discusses system requirements and compatibility
+issues.  You can preview it with:
 
-Once everything looks good, POE can be installed by typing:
+  perldoc ./POE.pm
+
+There are several sample programs in the samples subdirectory.  The
+POE manpage briefly explains them.
+
+  ls -l samples
+
+Finally you can install it:
 
   make install
 
 
--- Rocco Caputo / troc@netrus.net / Thank you for reading.
+Good luck, and thank you for reading!
+
+
+-- Rocco Caputo / troc@netrus.net
