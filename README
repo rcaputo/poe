@@ -46,6 +46,9 @@ larger tasks.  This layer is composed of three basic types:
     For example, Filter::Line translates between raw streams and
     newline-delimited lines.
 
+    Filter::Reference translates between raw streams and object
+    references, allowing programs to share objects.
+
   Wheels.  These classes contain select(2) event handlers.  They can
   use Drivers to handle file activity and Filters to frame data.
 
@@ -99,14 +102,20 @@ Things become even fuzzier after this.
 COMPATIBILITY:
 
  POE has been tested with Perl 5.004_04 on recent versions of Linux,
- FreeBSD, and OS/2.
+ FreeBSD, and OS/2.  For more detailed compatibility information,
+ please see <http://www.connect.net/gbarr/cpan-test/by-dist/POE.html>.
 
- It is rumored to work on Windows and suspected to work on MacOS.  If
+ POE is rumored to work on Windows and suspected to work on MacOS.  If
  someone could confirm or deny this, I would appreciate it.
 
  POE requires: a recent IO bundle; POSIX.pm
+
  If available, it will take advantage of: Time::HiRes
+
  It does not require threads or other 5.004_50+ features.
+
+ When using the Reference filter, POE requires Storable.pm or
+ FreezeThaw.pm
 
 AVAILABILITY:
 
@@ -115,9 +124,9 @@ AVAILABILITY:
 
 CREDITS:
 
- Thanks to sky_GOD <artur@vogon-solutions.com> for much useful
- feedback and suggestions.  Nearly all the 0.01-0.04 changes were a
- result of his tireless work.
+ Thanks to Artur Bergman <artur@vogon-solutions.com> (sky) for much
+ useful feedback, suggestions and contributions.  Most of the changes
+ up to version 0.05 are a result of his tireless work.
 
 GETTING STARTED:
 
@@ -126,9 +135,10 @@ GETTING STARTED:
    perl Makefile.PL
    make test
 
- Real tests exist within the F<tests> directory, and just happen to be
- examples of how to use different parts of POE.  Once everything looks
- good, it can be installed by typing:
+ Actually, 'make test' doesn't do anything important.  The real tests
+ exist within the F<tests> directory, and just happen to be examples of
+ how to use different parts of POE.  Once everything looks  good, it
+ can be installed by typing:
 
    make install
 
