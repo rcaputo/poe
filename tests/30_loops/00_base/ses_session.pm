@@ -450,11 +450,11 @@ print 'not ' unless $get_active_session_heap;
 print "ok 18\n";
 
 # Gratuitous tests to appease the coverage gods.
-print 'not ' unless
-  ( ARG1 == ARG0+1 and ARG2 == ARG1+1 and ARG3 == ARG2+1 and
-    ARG4 == ARG3+1 and ARG5 == ARG4+1 and ARG6 == ARG5+1 and
-    ARG7 == ARG6+1 and ARG8 == ARG7+1 and ARG9 == ARG8+1
-  );
+print 'not ' unless (
+  ARG1 == ARG0+1 and ARG2 == ARG1+1 and ARG3 == ARG2+1 and
+  ARG4 == ARG3+1 and ARG5 == ARG4+1 and ARG6 == ARG5+1 and
+  ARG7 == ARG6+1 and ARG8 == ARG7+1 and ARG9 == ARG8+1
+);
 print "ok 19\n";
 
 print 'not ' unless $sender_count == $machine_count * $event_count;
@@ -564,7 +564,7 @@ POE::MySession->new(
     print 'not ' unless $sessions_destroyed == 3;
     print "ok 31\n";
 
-    # 5.004 and 5.005 have some nasty gc issues. Near as I can tell, 
+    # 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
     # data inside the heap is surviving the session DESTROY. This
     # isnt possible in a sane and normal world. So if this is giving
     # you fits, please consider upgrading perl to at least 5.6.1.
@@ -587,14 +587,14 @@ print "ok 35\n";
 print 'not ' unless $sessions_destroyed == 4;
 print "ok 36\n";
 
-# 5.004 and 5.005 have some nasty gc issues. Near as I can tell, 
+# 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
 # data inside the heap is surviving the session DESTROY. This
 # isnt possible in a sane and normal world. So if this is giving
 # you fits, please consider upgrading perl to at least 5.6.1.
 if($] >= '5.006') {
-    print 'not ' unless $objects_destroyed == 4;
+  print 'not ' unless $objects_destroyed == 4;
 } else {
-    print 'not ' unless $objects_destroyed == 3;
+  print 'not ' unless $objects_destroyed == 3;
 }
 
 print "ok 37\n";
@@ -602,6 +602,17 @@ print "ok 37\n";
 # This simple session just makes sure we can start another Session and
 # another Kernel.  If all goes well, it'll dispatch some events and
 # exit normally.
+
+# The sleep is a little voodoo to see if Tk stops exiting here.  I'm
+# still not sure WHY it's exiting.  The only clue I have so far is:
+#
+# tests/30_loops/50_tk/ses_session....................dubious
+#         Test returned status 0 (wstat 139, 0x8b)
+# DIED. FAILED tests 31-43
+#         Failed 13/43 tests, 69.77% okay
+#
+# ... and it doesn't even happen consistently!
+sleep 1;
 
 POE::Session->create(
   options => { trace => 1, default => 1, debug => 1 },
