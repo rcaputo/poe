@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 # $Id$
 
 use ExtUtils::MakeMaker;
