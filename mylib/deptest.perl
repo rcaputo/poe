@@ -384,9 +384,7 @@ sub build_dependency_tree {
     # Gather whatever dependents we can find in this file.  This is
     # far from ideal code.
 
-    #  (?<!\w\s)
-
-    while ($code =~ / (?: ^ | \s*)
+    while ($code =~ / (?: ^ | \s* )
                       (use|require) \s+ (\S+)
                       (?: \s* (?:qw\(|[\'\"]) \s* (.+?) \s* [\)\'\"] )?
                     /gx
