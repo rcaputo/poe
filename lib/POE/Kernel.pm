@@ -46,7 +46,7 @@ BEGIN {
   # defines EINPROGRESS as 10035.  We provide it here because some
   # Win32 users report POSIX::EINPROGRESS is not vendor-supported.
   if ($^O eq 'MSWin32') {
-    eval '*EINPROGRESS = sub { 10036 };';
+    eval '*EINPROGRESS = sub { 10036 };';  # not used here?
     eval '*EWOULDBLOCK = sub { 10035 };';
     eval '*F_GETFL     = sub {     0 };';
     eval '*F_SETFL     = sub {     0 };';
@@ -1182,7 +1182,7 @@ sub run {
   if (TRACE_PROFILE) {
     print STDERR ',----- State Profile ' , ('-' x 53), ",\n";
     foreach (sort keys %profile) {
-      printf STDERR "| %60.60ss %10d |\n", $_, $profile{$_};
+      printf STDERR "| %60.60s %10d |\n", $_, $profile{$_};
     }
     print STDERR '`', ('-' x 73), "'\n";
   }
@@ -2314,8 +2314,10 @@ sub _internal_select {
       else {
         my $flags = fcntl($handle, F_GETFL, 0)
           or croak "fcntl fails with F_GETFL: $!\n";
-        fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
-          or croak "fcntl fails with F_SETFL: $!\n";
+        until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
+          croak "fcntl fails with F_SETFL: $!"
+            unless $! == EAGAIN or $! == EWOULDBLOCK;
+        }
       }
 
       # This depends heavily on socket.ph, or somesuch.  It's
