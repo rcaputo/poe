@@ -21,7 +21,7 @@ This program was written by Matt Cashner.
 =cut
 
 package My::Strap;
-use lib qw(../mylib ../ ./mylib ./);
+use lib qw(../mylib ../ ./mylib ./ ../lib ./lib);
 use Test::Harness;
 use base qw(Test::Harness::Straps);
 use Sys::Hostname;
@@ -111,6 +111,12 @@ while (<MAKEFILE>) {
 }
 close MAKEFILE;
 
+# Require POE early, so we don't bother with the tests if something
+# catastrophic has occurred (like POE's library directory moves
+# outside C<use lib> or something).  The version number is still
+# dumped into the XML file at the appropriate time.
+require POE;
+
 my %test_results;
 my $width = Test::Harness::_leader_width(@test_files);
 foreach my $file (@test_files) {
@@ -176,13 +182,10 @@ eval {
 $xml .= "\t<perl_modules>\n";
 $xml .= "\t\t<perl version=\"$]\" />\n";
 
-eval "require POE;";
-if($@) {
-    $xml .= "\t\t<poe />\n";
-} else {
-    $xml .= "\t\t<poe version=\"$POE::VERSION\" />\n";
-}
-    
+# Dump POE's version.  POE has been required earlier, without an
+# eval() wrapper, so the version must be available by this time.
+$xml .= "\t\t<poe version=\"$POE::VERSION\" />\n";
+
 eval "use Gtk;";
 if($@) {
     $xml .= "\t\t<gtk />\n";
