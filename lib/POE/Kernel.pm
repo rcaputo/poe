@@ -2430,8 +2430,15 @@ sub _dispatch_event {
   $self->_data_sig_clear_handled_flags();
 
   # Dispatch the event, at long last.
-  my $return =
-    $session->_invoke_state($source_session, $event, $etc, $file, $line);
+  my $return;
+  if (wantarray) {
+    $return =
+      [ $session->_invoke_state($source_session, $event, $etc, $file, $line) ];
+  }
+  else {
+    $return =
+      $session->_invoke_state($source_session, $event, $etc, $file, $line);
+  }
 
   # Stringify the handler's return value if it belongs in the POE
   # namespace.  $return's scope exists beyond the post-dispatch
@@ -2505,7 +2512,8 @@ sub _dispatch_event {
   $kr_active_event = $hold_active_event;
 
   # Return what the handler did.  This is used for call().
-  $return;
+  return @$return if wantarray;
+  return $return;
 }
 
 #------------------------------------------------------------------------------
@@ -2975,13 +2983,27 @@ sub call {
   # deterministic programs, but the difficulty can be ameliorated if
   # programmers set some base rules and stick to them.
 
-  my $return_value =
-    $self->_dispatch_event
-      ( $session, $kr_active_session,
-        $event_name, ET_CALL, \@etc,
-        (caller)[1,2], time(), -__LINE__
-      );
+  my $return_value;
+  if (wantarray) {
+    $return_value =
+      [ $self->_dispatch_event
+        ( $session, $kr_active_session,
+          $event_name, ET_CALL, \@etc,
+          (caller)[1,2], time(), -__LINE__
+        )
+      ];
+  }
+  else {
+    $return_value =
+      $self->_dispatch_event
+        ( $session, $kr_active_session,
+          $event_name, ET_CALL, \@etc,
+          (caller)[1,2], time(), -__LINE__
+        );
+  }
+
   $! = 0;
+  return @$return_value if wantarray;
   return $return_value;
 }
 
