@@ -101,6 +101,14 @@ ExtUtils::AutoInstall->import
 # Touch CHANGES so it exists.
 open(CHANGES, ">>CHANGES") and close CHANGES;
 
+sub MY::postamble {
+    return <<EOF;
+testreport:
+	lib/testreport.pl
+EOF
+
+}
+
 WriteMakefile
   ( NAME           => 'POE',
 

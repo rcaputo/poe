@@ -10,6 +10,14 @@ sub MY::test {
   "\ntest ::\n\t\$(FULLPERL) ./lib/deptest.perl\n" . shift->SUPER::test(@_);
 }
 
+sub MY::postamble {
+    return <<EOF;
+testreport:
+	lib/testreport.pl
+EOF
+
+}
+
 # Touch CHANGES so it exists.
 open(CHANGES, ">>CHANGES") and close CHANGES;
 
