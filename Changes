@@ -50,6 +50,15 @@ Version numbers have four fields: X.YYZZAA
 `-----------------
 
 
+0.1103 2000.??.??
+-----------------
+
+Addi provided an algorithm for automatically detecting incoming
+newlines in Filter::Line, and we both implemented it in parallel.  The
+best bits of both implementations are in POE::Filter::Line; see the
+documentation for how to enable this nifty feature.
+
+
 0.1102 2000.07.27
 -----------------
 

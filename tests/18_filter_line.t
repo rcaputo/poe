@@ -10,7 +10,7 @@ use POE::Filter::Line;
 my ($filter, $received, $sent, $base);
 
 use TestSetup;
-&test_setup(32);
+&test_setup(47);
 
 # Self-congratulatory backpatting.
 print "ok 1\n";
@@ -149,5 +149,102 @@ else {
   }
 }
 
+# Test newline autodetection.  \x0D\x0A split between lines.
+$base   = 32;
+$filter = POE::Filter::Line->new( InputLiteral  => undef,
+                                  OutputLiteral => '!',
+                                ); # autodetect
+
+my @received;
+foreach ("a\x0d", "\x0Ab\x0D\x0A", "c\x0A\x0D", "\x0A") {
+  my $local_received = $filter->get( [ $_ ] );
+  if (defined $local_received and @$local_received) {
+    push @received, @$local_received;
+  }
+}
+
+if (@received == 3) {
+  print "ok ", $base+0, "\n";
+  $sent = $filter->put( \@received );
+
+  if (@$sent == 3) {
+    print "ok ", $base+1, "\n";
+    print 'not ' unless $sent->[0] eq "a!";     print "ok ", $base+2, "\n";
+    print 'not ' unless $sent->[1] eq "b!";     print "ok ", $base+3, "\n";
+    print 'not ' unless $sent->[2] eq "c\x0A!"; print "ok ", $base+4, "\n";
+  }
+  else {
+    for (1..4) { print "not ok ", $base+$_, "\n"; }
+  }
+}
+else {
+  for (0..4) { print "not ok ", $base+$_, "\n"; }
+}
+
+# Test newline autodetection.  \x0A\x0D on first line.
+$base   = 37;
+$filter = POE::Filter::Line->new( InputLiteral  => undef,
+                                  OutputLiteral => '!',
+                                ); # autodetect
+
+undef @received;
+foreach ("a\x0A\x0D", "\x0Db\x0A\x0D", "c\x0D", "\x0A\x0D") {
+  my $local_received = $filter->get( [ $_ ] );
+  if (defined $local_received and @$local_received) {
+    push @received, @$local_received;
+  }
+}
+
+if (@received == 3) {
+  print "ok ", $base+0, "\n";
+  $sent = $filter->put( \@received );
+
+  if (@$sent == 3) {
+    print "ok ", $base+1, "\n";
+    print 'not ' unless $sent->[0] eq "a!";     print "ok ", $base+2, "\n";
+    print 'not ' unless $sent->[1] eq "\x0Db!"; print "ok ", $base+3, "\n";
+    print 'not ' unless $sent->[2] eq "c\x0D!"; print "ok ", $base+4, "\n";
+  }
+  else {
+    for (1..4) { print "not ok ", $base+$_, "\n"; }
+  }
+}
+else {
+  for (0..4) { print "not ok ", $base+$_, "\n"; }
+}
+
+# Test newline autodetection.  \x0A by itself, with suspicion.
+$base   = 42;
+$filter = POE::Filter::Line->new( InputLiteral  => undef,
+                                  OutputLiteral => '!',
+                                ); # autodetect
+
+undef @received;
+foreach ("a\x0A", "b\x0D\x0A", "c\x0D", "\x0A") {
+  my $local_received = $filter->get( [ $_ ] );
+  if (defined $local_received and @$local_received) {
+    push @received, @$local_received;
+  }
+}
+
+if (@received == 3) {
+  print "ok ", $base+0, "\n";
+  $sent = $filter->put( \@received );
+
+  if (@$sent == 3) {
+    print "ok ", $base+1, "\n";
+    print 'not ' unless $sent->[0] eq "a!";     print "ok ", $base+2, "\n";
+    print 'not ' unless $sent->[1] eq "b\x0D!"; print "ok ", $base+3, "\n";
+    print 'not ' unless $sent->[2] eq "c\x0D!"; print "ok ", $base+4, "\n";
+  }
+  else {
+    for (1..4) { print "not ok ", $base+$_, "\n"; }
+  }
+}
+else {
+  for (0..4) { print "not ok ", $base+$_, "\n"; }
+}
+
+
 # And one to grow on!
-print "ok 32\n";
+print "ok 47\n";
