@@ -42,6 +42,7 @@ sub new {
   my $alias   = delete $param{Alias};
   my $address = delete $param{RemoteAddress};
   my $port    = delete $param{RemotePort};
+  my $domain  = delete $param{Domain};
 
   foreach ( qw( Connected ConnectError Disconnected ServerInput
                 ServerError ServerFlushed
@@ -127,6 +128,7 @@ sub new {
           $heap->{server} = POE::Wheel::SocketFactory->new
             ( RemoteAddress => $address,
               RemotePort    => $port,
+              SocketDomain  => $domain,
               SuccessEvent  => 'got_connect_success',
               FailureEvent  => 'got_connect_error',
             );
@@ -244,6 +246,7 @@ POE::Component::Client::TCP - a simplified TCP client
   POE::Component::Client::TCP->new
     ( RemoteAddress => "127.0.0.1",
       RemotePort    => "chargen",
+      Domain        => AF_INET,      # Optional.
       ServerInput   => sub {
         my $input = $_[ARG0];
         print "from server: $input\n";
@@ -255,6 +258,7 @@ POE::Component::Client::TCP - a simplified TCP client
   POE::Component::Client::TCP->new
     ( RemoteAddress => "127.0.0.1",
       RemotePort    => "chargen",
+      Domain        => AF_INET,     # Optional.
 
       Connected     => \&handle_connect,
       ConnectError  => \&handle_connect_error,
@@ -382,6 +386,17 @@ example, this reconnects after waiting a minute:
 
 The component will shut down after disconnecting if a reconnect isn't
 requested.
+
+=item Domain
+
+Specifies the domain within which communication will take place.  It
+selects the protocol family which should be used.  Currently supported
+values are AF_INET, AF_INET6, PF_INET or PF_INET6.  This parameter is
+optional and will default to AF_INET if omitted.
+
+Note: AF_INET6 and PF_INET6 are supplied by the Socket6 module, which
+is available on the CPAN.  You must have Socket6 loaded before
+POE::Component::Server::TCP will create IPv6 sockets.
 
 =item Filter
 

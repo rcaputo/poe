@@ -55,6 +55,11 @@ ExtUtils::AutoInstall->import
         -tests     => [ qw(t/27_poll.t) ],
         'IO::Poll' => 0.05,
     ],
+    "Optional modules for IPv6 support." => [
+        -default  => 0,
+        -tests    => [ qw(t/29_sockfact6.t) ],
+        'Socket6' => 0.11,
+    ],
     "Optional modules for controlling full-screen programs (e.g. vi)." => [
         -default  => 0,
         'IO::Pty' => '1.02',

@@ -48,6 +48,11 @@ BEGIN {
     eval '*F_GETFL       = sub {     0 };';
     eval '*F_SETFL       = sub {     0 };';
   }
+
+  unless (exists $INC{"Socket6.pm"}) {
+    eval "*Socket6::AF_INET6 = sub { ~0 }";
+    eval "*Socket6::PF_INET6 = sub { ~0 }";
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -55,13 +60,16 @@ BEGIN {
 # same operations, it seems, and this is a way to add new ones with a
 # minimum of additional code.
 
-sub DOM_UNIX () { 'unix' }  # UNIX domain socket
-sub DOM_INET () { 'inet' }  # INET domain socket
+sub DOM_UNIX  () { 'unix'  }  # UNIX domain socket
+sub DOM_INET  () { 'inet'  }  # INET domain socket
+sub DOM_INET6 () { 'inet6' }  # INET v6 domain socket
 
 # AF_XYZ and PF_XYZ may be different.
 my %map_family_to_domain =
-  ( AF_UNIX, DOM_UNIX, PF_UNIX, DOM_UNIX,
-    AF_INET, DOM_INET, PF_INET, DOM_INET,
+  ( AF_UNIX,  DOM_UNIX,  PF_UNIX,  DOM_UNIX,
+    AF_INET,  DOM_INET,  PF_INET,  DOM_INET,
+    &Socket6::AF_INET6, DOM_INET6,
+    &Socket6::PF_INET6, DOM_INET6,
   );
 
 sub SVROP_LISTENS () { 'listens' }  # connect/listen sockets
@@ -70,19 +78,25 @@ sub SVROP_NOTHING () { 'nothing' }  # connectionless sockets
 # Map family/protocol pairs to connection or connectionless
 # operations.
 my %supported_protocol =
-  ( DOM_UNIX, { none => SVROP_LISTENS },
-    DOM_INET, { tcp  => SVROP_LISTENS,
-                udp  => SVROP_NOTHING,
-              },
+  ( DOM_UNIX,  { none => SVROP_LISTENS },
+    DOM_INET,  { tcp  => SVROP_LISTENS,
+                 udp  => SVROP_NOTHING,
+               },
+    DOM_INET6, { tcp  => SVROP_LISTENS,
+                 udp  => SVROP_NOTHING,
+               },
   );
 
 # Sane default socket types for each supported protocol.  -><- Maybe
 # this structure can be combined with %supported_protocol?
 my %default_socket_type =
-  ( DOM_UNIX, { none => SOCK_STREAM },
-    DOM_INET, { tcp  => SOCK_STREAM,
-                udp  => SOCK_DGRAM,
-              },
+  ( DOM_UNIX,  { none => SOCK_STREAM },
+    DOM_INET,  { tcp  => SOCK_STREAM,
+                 udp  => SOCK_DGRAM,
+               },
+    DOM_INET6, { tcp  => SOCK_STREAM,
+                 udp  => SOCK_DGRAM,
+               },
   );
 
 #------------------------------------------------------------------------------
@@ -136,6 +150,10 @@ sub _define_accept_state {
           }
           elsif ( $domain eq DOM_INET ) {
             ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
+          }
+          elsif ( $domain eq DOM_INET6 ) {
+            $peer = getpeername($new_socket);
+            ($peer_port, $peer_addr) = Socket6::unpack_sockaddr_in6($peer);
           }
           else {
             die "sanity failure: socket domain == $domain";
@@ -225,6 +243,18 @@ sub _define_connect_state {
           if (defined $peer) {
             eval {
               ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
+            };
+            if (length $@) {
+              $peer_port = $peer_addr = undef;
+            }
+          }
+        }
+
+        # INET6 socket stacks tend not to.
+        elsif ($domain eq DOM_INET6) {
+          if (defined $peer) {
+            eval {
+              ($peer_port, $peer_addr) = Socket6::unpack_sockaddr_in6($peer);
             };
             if (length $@) {
               $peer_port = $peer_addr = undef;
@@ -421,10 +451,9 @@ sub new {
     );
 
   # Default to Internet sockets.
-  $self->[MY_SOCKET_DOMAIN] = ( (defined $params{SocketDomain})
-                                ? $params{SocketDomain}
-                                : AF_INET
-                              );
+  my $domain = delete $params{SocketDomain};
+  $domain = AF_INET unless defined $domain;
+  $self->[MY_SOCKET_DOMAIN] = $domain;
 
   # Abstract the socket domain into something we don't have to keep
   # testing duplicates of.
@@ -455,7 +484,9 @@ sub new {
 
   # Internet sockets use protocols.  Default the INET protocol to tcp,
   # and try to resolve it.
-  elsif ($abstract_domain eq DOM_INET) {
+  elsif ( $abstract_domain eq DOM_INET or
+          $abstract_domain eq DOM_INET6
+        ) {
     my $socket_protocol =
       (defined $params{SocketProtocol}) ? $params{SocketProtocol} : 'tcp';
 
@@ -588,7 +619,6 @@ sub new {
   # context, and translate them into parameters that bind()
   # understands.
   if ($abstract_domain eq DOM_INET) {
-
     # Don't bind if the creator doesn't specify a related parameter.
     if ((defined $params{BindAddress}) or (defined $params{BindPort})) {
 
@@ -601,12 +631,14 @@ sub new {
       {% use_bytes %}
 
       # Resolve the bind address if it's not already packed.
-      (length($bind_address) == 4)
-        or ($bind_address = inet_aton($bind_address));
+      unless (length($bind_address) == 4) {
+        $bind_address = inet_aton($bind_address);
+      }
+
       unless (defined $bind_address) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $event_failure,
-                            'inet_aton', $!+0, $!, $self->[MY_UNIQUE_ID]
+                            "inet_aton", $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -628,7 +660,59 @@ sub new {
       $bind_address = pack_sockaddr_in($bind_port, $bind_address);
       unless (defined $bind_address) {
         $poe_kernel->yield( $event_failure,
-                            'pack_sockaddr_in', $!+0, $!, $self->[MY_UNIQUE_ID]
+                            "pack_sockaddr_in", $!+0, $!, $self->[MY_UNIQUE_ID]
+                          );
+        return $self;
+      }
+    }
+  }
+
+  # Check SocketFactory /Bind.*/ parameters in an Internet socket
+  # context, and translate them into parameters that bind()
+  # understands.
+  elsif ($abstract_domain eq DOM_INET6) {
+
+    # Don't bind if the creator doesn't specify a related parameter.
+    if ((defined $params{BindAddress}) or (defined $params{BindPort})) {
+
+      # Set the bind address, or default to INADDR_ANY.
+      $bind_address = ( (defined $params{BindAddress})
+                        ? $params{BindAddress}
+                        : Socket6::inaddr6_any()
+                      );
+
+      {% use_bytes %}
+
+      # Resolve the bind address.
+      $bind_address =
+        Socket6::inet_pton($self->[MY_SOCKET_DOMAIN], $bind_address);
+      unless (defined $bind_address) {
+        $! = EADDRNOTAVAIL;
+        $poe_kernel->yield( $event_failure,
+                            "inet_pton", $!+0, $!, $self->[MY_UNIQUE_ID]
+                          );
+        return $self;
+      }
+
+      # Set the bind port, or default to 0 (any) if none specified.
+      # Resolve it to a number, if at all possible.
+      my $bind_port = (defined $params{BindPort}) ? $params{BindPort} : 0;
+      if ($bind_port =~ /[^0-9]/) {
+        $bind_port = getservbyname($bind_port, $protocol_name);
+        unless (defined $bind_port) {
+          $! = EADDRNOTAVAIL;
+          $poe_kernel->yield( $event_failure,
+                              'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
+                            );
+          return $self;
+        }
+      }
+
+      $bind_address = Socket6::pack_sockaddr_in6($bind_port, $bind_address);
+      unless (defined $bind_address) {
+        $poe_kernel->yield( $event_failure,
+                            "pack_sockaddr_in6", $!+0, $!,
+                            $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -690,7 +774,9 @@ sub new {
     # Check SocketFactory /Remote.*/ parameters in an Internet socket
     # context, and translate them into parameters that connect()
     # understands.
-    if ($abstract_domain eq DOM_INET) {
+    if ($abstract_domain eq DOM_INET or
+        $abstract_domain eq DOM_INET6
+       ) {
                                         # connecting if RemoteAddress
       croak 'RemotePort required' unless (defined $params{RemotePort});
       carp 'ListenQueue ignored' if (defined $params{ListenQueue});
@@ -706,20 +792,47 @@ sub new {
         }
       }
 
-      $connect_address = inet_aton($params{RemoteAddress});
+      my $error_tag;
+      if ($abstract_domain eq DOM_INET) {
+        $connect_address = inet_aton($params{RemoteAddress});
+        $error_tag = "inet_aton";
+      }
+      elsif ($abstract_domain eq DOM_INET6) {
+        $connect_address =
+          Socket6::inet_pton( $self->[MY_SOCKET_DOMAIN],
+                              $params{RemoteAddress}
+                            );
+        $error_tag = "inet_pton";
+      }
+      else {
+        die "unknown domain $abstract_domain";
+      }
+
       unless (defined $connect_address) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $event_failure,
-                            'inet_aton', $!+0, $!, $self->[MY_UNIQUE_ID]
+                            $error_tag, $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
 
-      $connect_address = pack_sockaddr_in($remote_port, $connect_address);
+      if ($abstract_domain eq DOM_INET) {
+        $connect_address = pack_sockaddr_in($remote_port, $connect_address);
+        $error_tag = "pack_sockaddr_in";
+      }
+      elsif ($abstract_domain eq DOM_INET6) {
+        $connect_address =
+          Socket6::pack_sockaddr_in6($remote_port, $connect_address);
+        $error_tag = "pack_sockaddr_in6";
+      }
+      else {
+        die "unknown domain $abstract_domain";
+      }
+
       unless ($connect_address) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $event_failure,
-                            'pack_sockaddr_in', $!+0, $!, $self->[MY_UNIQUE_ID]
+                            $error_tag, $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -965,8 +1078,12 @@ call.
 =item SocketDomain
 
 SocketDomain supplies socket() with its DOMAIN parameter.  Supported
-values are AF_UNIX, AF_INET, PF_UNIX and PF_INET.  If SocketDomain is
-omitted, it defaults to AF_INET.
+values are AF_UNIX, AF_INET, AF_INET6, PF_UNIX, PF_INET, and PF_INET6.
+If SocketDomain is omitted, it defaults to AF_INET.
+
+Note: AF_INET6 and PF_INET6 are supplied by the Socket6 module, which
+is available on the CPAN.  You must have Socket6 loaded before
+SocketFactory can create IPv6 sockets.
 
 =item SocketType
 
@@ -1150,7 +1267,7 @@ A sample ErrorEvent handler:
 
 =head1 SEE ALSO
 
-POE::Wheel.
+POE::Wheel, Socket6.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.

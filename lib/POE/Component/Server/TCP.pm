@@ -40,6 +40,7 @@ sub new {
   my $alias   = delete $param{Alias};
   my $address = delete $param{Address};
   my $port    = delete $param{Port};
+  my $domain  = delete $param{Domain};
 
   foreach ( qw( Acceptor Error ClientInput ClientConnected
                 ClientDisconnected ClientError ClientFlushed
@@ -124,7 +125,15 @@ sub new {
                 my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
 
                 $heap->{shutdown}    = 0;
-                $heap->{remote_ip}   = inet_ntoa($remote_addr);
+
+                if (length($remote_addr) == 4) {
+                  $heap->{remote_ip} = inet_ntoa($remote_addr);
+                }
+                else {
+                  $heap->{remote_ip} =
+                    Socket6::inet_ntop($domain, $remote_addr);
+                }
+
                 $heap->{remote_port} = $remote_port;
 
                 $heap->{client} = POE::Wheel::ReadWrite->new
@@ -203,6 +212,7 @@ sub new {
           $_[HEAP]->{listener} = POE::Wheel::SocketFactory->new
             ( BindPort     => $port,
               BindAddress  => $address,
+              SocketDomain => $domain,
               Reuse        => 'yes',
               SuccessEvent => 'tcp_server_got_connection',
               FailureEvent => 'tcp_server_got_error',
@@ -271,6 +281,7 @@ POE::Component::Server::TCP - a simplified TCP server
   POE::Component::Server::TCP->new
     ( Port     => $bind_port,
       Address  => $bind_address,    # Optional.
+      Domain   => AF_INET,          # Optional.
       Acceptor => \&accept_handler,
       Error    => \&error_handler,  # Optional.
     );
@@ -280,6 +291,7 @@ POE::Component::Server::TCP - a simplified TCP server
   POE::Component::Server::TCP->new
     ( Port     => $bind_port,
       Address  => $bind_address,    # Optional.
+      Domain   => AF_INET,          # Optional.
       Acceptor => \&accept_handler, # Optional.
       Error    => \&error_handler,  # Optional.
 
@@ -374,14 +386,16 @@ It disables the code that provides the /Client.*/ callbacks.
 =item Address
 
 Address is the optional interface address the TCP server will bind to.
-It defaults to INADDR_ANY.
+It defaults to INADDR_ANY or INADDR6_ANY when using IPv4 or IPv6,
+respectively.
 
-  Address => '127.0.0.1'
+  Address => '127.0.0.1'   # Localhost IPv4
+  Address => "::1"         # Localhost IPv6
 
 It's passed directly to SocketFactory's BindAddress parameter, so it
 can be in whatever form SocketFactory supports.  At the time of this
-writing, that's a dotted quad, a host name, or a packed Internet
-address.
+writing, that's a dotted quad, an IPv6 address, a host name, or a
+packed Internet address.
 
 =item Alias
 
@@ -441,6 +455,17 @@ ID.
 
 ClientInput and Acceptor are mutually exclusive.  Enabling one
 prohibits the other.
+
+=item Domain
+
+Specifies the domain within which communication will take place.  It
+selects the protocol family which should be used.  Currently supported
+values are AF_INET, AF_INET6, PF_INET or PF_INET6.  This parameter is
+optional and will default to AF_INET if omitted.
+
+Note: AF_INET6 and PF_INET6 are supplied by the Socket6 module, which
+is available on the CPAN.  You must have Socket6 loaded before
+POE::Component::Server::TCP will create IPv6 sockets.
 
 =item Error
 
