@@ -24,7 +24,7 @@ Version numbers have four fields: X.YYZZAA
 `------------------------------------------------------------------------------
 
 
-0.1203 2000.??.??
+0.1203 2000.12.29
 -----------------
 
 Very minor optimization to Gtk read/write resuming.  Replace Gtk's

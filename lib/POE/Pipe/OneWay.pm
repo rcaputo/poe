@@ -166,14 +166,14 @@ POE::Pipe::OneWay - portable one-way pipe creation (works without POE)
 
 POE::Pipe::OneWay makes unbuffered one-way pipes or it dies trying.
 
-Pipes are troublesome beast.  Some systems support pipe() directly.
-Other systems don't have pipe(), but they do have socketpair().  And
-still, there are other systems without pipe() or socketpair() but
-which can create plain INET domain sockets.  POE::Pipe::OneWay tries
-all these methods in its endeavor to persevere in a known area of
-unportable behavior.
+Pipes are troublesome beasts because the different pipe creation
+methods have spotty support from one system to another.  Some systems
+have C<pipe()>, others have C<socketfactory()>, and still others have
+neither.
 
-It tries them in pipe -> socketpair -> inet sockets order.
+POE::Pipe::OneWay tries different ways to make a pipe in the hope that
+one of them will succeed on any given platform.  It tries them in
+pipe() -> socketpair() -> IO::Socket::INET order.
 
 So anyway, the syntax is pretty easy:
 
