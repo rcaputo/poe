@@ -3,7 +3,7 @@
 package POE::Kernel;
 
 use strict;
-use POSIX qw(errno_h fcntl_h sys_wait_h signal_h);
+use POSIX qw(errno_h fcntl_h sys_wait_h);
 use Carp qw(carp croak confess);
 use Sys::Hostname qw(hostname);
 
@@ -644,12 +644,9 @@ sub sig {
   }
 }
 
-# Public interface for posting signal events.  5.6.0 places a
-# C<signal> symbol in our table; the BEGIN block deletes it to prevent
-# "Subroutine signal redefined" warnings.
+# Public interface for posting signal events.
 
-BEGIN { delete $POE::Kernel::{signal}; }
-sub POE::Kernel::signal {
+sub signal {
   my ($self, $destination, $signal, @etc) = @_;
 
   ASSERT_USAGE and do {
