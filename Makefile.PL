@@ -3,12 +3,12 @@
 
 use ExtUtils::MakeMaker;
 
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
+# See lib/ExtUtils/MakeMaker.pm for details of how to influence the
+# contents of the Makefile that is written.
 
 WriteMakefile
   ( NAME         => 'POE',
-    AUTHOR       => 'Rocco Caputo <troc@netrus.net>',
+    AUTHOR       => 'Rocco Caputo <troc+poe@netrus.net>',
     ABSTRACT     => 'Event driven state machines and I/O abstractions.',
     VERSION_FROM => 'POE.pm',
     dist         => { 'COMPRESS' => 'gzip -9',

@@ -26,27 +26,27 @@ sub machine_start {
   # Resolve weak, stringified session reference.
   $resolved_session = $kernel->alias_resolve( "$session" );
   print "not " unless $resolved_session eq $session;
-  print "ok 3\n";
+  print "ok 2\n";
 
   # Resolve against session ID.
   $resolved_session = $kernel->alias_resolve( $session->ID );
   print "not " unless $resolved_session eq $session;
-  print "ok 4\n";
+  print "ok 3\n";
 
   # Resolve against alias.
   $resolved_session = $kernel->alias_resolve( 'new name' );
   print "not " unless $resolved_session eq $session;
-  print "ok 5\n";
+  print "ok 4\n";
 
   # Resolve against blessed session reference.
   $resolved_session = $kernel->alias_resolve( $session );
   print "not " unless $resolved_session eq $session;
-  print "ok 6\n";
+  print "ok 5\n";
 
   # Resolve against something that doesn't exist.
   $resolved_session = $kernel->alias_resolve( 'nonexistent' );
   print "not " if defined $resolved_session;
-  print "ok 7\n";
+  print "ok 6\n";
 }
 
 # Catch SIGIDLE and SIGZOMBIE.
@@ -94,7 +94,7 @@ POE::Session->create
     },
   );
 
-print "ok 2\n";
+print "ok 7\n";
 
 # Now run the kernel until there's nothing left to do.
 

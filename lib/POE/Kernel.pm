@@ -140,11 +140,11 @@ macro state_to_enqueue {
 }
 
 macro define_trace (<const>) {
-  defined &TRACE_<const> or eval 'sub TRACE_<const> { TRACE_DEFAULT }';
+  defined &TRACE_<const> or eval 'sub TRACE_<const> () { TRACE_DEFAULT }';
 }
 
 macro define_assert (<const>) {
-  defined &ASSERT_<const> or eval 'sub ASSERT_<const> { ASSERT_DEFAULT }';
+  defined &ASSERT_<const> or eval 'sub ASSERT_<const> () { ASSERT_DEFAULT }';
 }
 
 macro test_resolve (<name>,<resolved>) {
