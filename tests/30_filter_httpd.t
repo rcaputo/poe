@@ -94,7 +94,7 @@ Connection: Keep-Alive
 
 } # }}}
 
-SKIP: { # simple post {{{ 
+{ # simple post {{{ 
 
     my $post_request = POST 'http://localhost/foo.mhtml', [ 'I' => 'like', 'tasty' => 'pie' ];
 
@@ -109,7 +109,7 @@ SKIP: { # simple post {{{
     # an HTTP version string into the post data.
 
     my $str = $post_request->as_string;
-    $str =~ s#POST (\S+)#POST \1 HTTP/1.0#s;
+    $str =~ s#POST (\S+)#POST $1 HTTP/1.0#s;
     
     my $data;
     eval { $data = $filter->get([ $str ]); };
