@@ -226,7 +226,6 @@ my $coderef_flush_count = 0;
         print(STDERR qq(err: $_)) if s/^err //;
       }
     }
-    exit 0;
   };
 
   POE::Session->create
