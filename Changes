@@ -52,18 +52,21 @@ Version numbers have four fields: X.YYZZAA
 `-----------------
 
 
-0.1108 2000.??.??
+0.1108 2000.10.06
 -----------------
 
 Added Gtk support.  Added t/21_gtk.t to test it.
 
-(!!!) Broke Tk backward compatibility.  Renamed $poe_tk_main_window to
-$poe_main_window so that it can be used sanely by different user
-interfaces.
+(!!!) Broke Tk backward compatibility.  POE supports different X
+toolkits now, so it's silly to export ${"poe_$toolkit_main_window"}
+for each.  Renamed $poe_tk_main_window to $poe_main_window.  Both Tk
+and Gtk use it for the top-level/main window.
 
-(!!!) Broke Tk backward compatibility.  Renamed the TKDESTROY signal
-to UIDESTROY so that it can be used sanely by different user
-interfaces.
+(!!!) Broke Tk backward compatibility again.  POE supports different X
+toolkits now, so it's silly to have a separate DESTROY signal for
+each.  Renamed TKDESTROY to UIDESTROY, and both Gtk and Tk use it.
+
+Updated POE::Kernel docs.
 
 
 0.1107 2000.10.04

@@ -679,7 +679,8 @@ sub postback {
 
   my $postback = bless
     sub {
-      $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] )
+      $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
+      0;
     }, 'POE::Session::Postback';
 
   $postback_parent_id{$postback} = $id;
