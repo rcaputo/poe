@@ -1,6 +1,6 @@
 # $Id$
 
-# Select loop substrate for POE::Kernel.
+# Select loop bridge for POE::Kernel.
 
 # Empty package to appease perl.
 package POE::Kernel::Select;
@@ -15,15 +15,15 @@ package POE::Kernel;
 
 use strict;
 
-# Ensure that no other substrate module has been loaded.
+# Delcare which event loop bridge is being used, but first ensure that
+# no other bridge has been loaded.
+
 BEGIN {
-  die( "POE can't use its own loop and " . &POE_SUBSTRATE_NAME . "\n" )
-    if defined &POE_SUBSTRATE;
+  die( "POE can't use its own loop and " . &POE_LOOP . "\n" )
+    if defined &POE_LOOP;
 };
 
-# Declare the substrate we're using.
-sub POE_SUBSTRATE      () { SUBSTRATE_SELECT      }
-sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_SELECT }
+sub POE_LOOP () { LOOP_SELECT }
 
 # Linux has a bug on "polled" select() calls.  If select() is called
 # with a zero-second timeout, and a signal manages to interrupt it
@@ -35,24 +35,58 @@ BEGIN {
   eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
 };
 
-my ($kr_sessions, $kr_events, $kr_event_ids, $kr_vectors, $kr_filenos);
+my ($kr_sessions, $kr_events, $kr_event_ids, $kr_filenos);
+
+# select() vectors.  They're stored in an array so that the VEC_RD,
+# VEC_WR, and VEC_EX offsets work.  This saves some code, but it makes
+# things a little slower.
+#
+# [ $select_read_bit_vector,    (VEC_RD)
+#   $select_write_bit_vector,   (VEC_WR)
+#   $select_expedite_bit_vector (VEC_EX)
+# ];
+my @loop_vectors = ("", "", "");
 
 #------------------------------------------------------------------------------
-# Substrate construction and destruction.
+# Loop construction and destruction.
 
-sub _substrate_initialize {
+sub loop_initialize {
   my $kernel = shift;
+
   $kr_sessions  = $kernel->_get_kr_sessions_ref();
   $kr_events    = $kernel->_get_kr_events_ref();
   $kr_event_ids = $kernel->_get_kr_event_ids_ref();
-  $kr_vectors   = $kernel->_get_kr_vectors_ref();
   $kr_filenos   = $kernel->_get_kr_filenos_ref();
+
+  # Initialize the vectors as vectors.
+  @loop_vectors = ( '', '', '' );
+  vec($loop_vectors[VEC_RD], 0, 1) = 0;
+  vec($loop_vectors[VEC_WR], 0, 1) = 0;
+  vec($loop_vectors[VEC_EX], 0, 1) = 0;
+}
+
+
+sub loop_finalize {
+  # This is "clever" in that it relies on each symbol on the left to
+  # be stringified by the => operator.
+  my %kernel_vectors =
+    ( VEC_RD => VEC_RD,
+      VEC_WR => VEC_WR,
+      VEC_EX => VEC_EX,
+    );
+
+  while (my ($vec_name, $vec_offset) = each(%kernel_vectors)) {
+    my $bits = unpack('b*', $loop_vectors[$vec_offset]);
+    if (index($bits, '1') >= 0) {
+      warn "*** LOOP VECTOR LEAK: $vec_name = $bits\a\n";
+    }
+  }
 }
 
 #------------------------------------------------------------------------------
-# Signal handlers.
+# Signal handlers/callbacks.
 
-sub _substrate_signal_handler_generic {
+sub _loop_signal_handler_generic {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
@@ -60,10 +94,10 @@ sub _substrate_signal_handler_generic {
       [ $_[0] ],
       time(), __FILE__, __LINE__
     );
-  $SIG{$_[0]} = \&_substrate_signal_handler_generic;
+  $SIG{$_[0]} = \&_loop_signal_handler_generic;
 }
 
-sub _substrate_signal_handler_pipe {
+sub _loop_signal_handler_pipe {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
@@ -71,12 +105,12 @@ sub _substrate_signal_handler_pipe {
       [ $_[0] ],
       time(), __FILE__, __LINE__
     );
-    $SIG{$_[0]} = \&_substrate_signal_handler_pipe;
+    $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
 
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
-sub _substrate_signal_handler_child {
+sub _loop_signal_handler_child {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_enqueue_event
@@ -87,9 +121,9 @@ sub _substrate_signal_handler_child {
 }
 
 #------------------------------------------------------------------------------
-# Signal handler maintenance macros.
+# Signal handler maintenance functions.
 
-sub substrate_watch_signal {
+sub loop_watch_signal {
   my $signal = shift;
 
   # Child process has stopped.
@@ -110,7 +144,7 @@ sub substrate_watch_signal {
 
   # Broken pipe.
   if ($signal eq 'PIPE') {
-    $SIG{$signal} = \&_substrate_signal_handler_pipe;
+    $SIG{$signal} = \&_loop_signal_handler_pipe;
     return;
   }
 
@@ -121,10 +155,10 @@ sub substrate_watch_signal {
   return if $signal eq 'WINCH';
 
   # Everything else.
-  $SIG{$signal} = \&_substrate_signal_handler_generic;
+  $SIG{$signal} = \&_loop_signal_handler_generic;
 }
 
-sub substrate_resume_watching_child_signals {
+sub loop_resume_watching_child_signals {
   $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
   $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
   $poe_kernel->_enqueue_event
@@ -134,26 +168,34 @@ sub substrate_resume_watching_child_signals {
     ) if keys(%$kr_sessions) > 1;
 }
 
+sub loop_ignore_signal {
+  my $signal = shift;
+  $SIG{$signal} = "DEFAULT";
+}
+
+sub signal_ui_destroy {
+  # does nothing
+}
+
 #------------------------------------------------------------------------------
-# Event watchers and callbacks.
+# Maintain time watchers.
 
-### Time.
-
-sub substrate_resume_time_watcher {
+sub loop_resume_time_watcher {
   # does nothing ($_[0] == next time)
 }
 
-sub substrate_reset_time_watcher {
+sub loop_reset_time_watcher {
   # does nothing ($_[0] == next time)
 }
 
-sub substrate_pause_time_watcher {
+sub loop_pause_time_watcher {
   # does nothing ($_[0] == next time)
 }
 
-### Filehandles.
+#------------------------------------------------------------------------------
+# Maintain filehandle watchers.
 
-sub substrate_watch_filehandle {
+sub loop_watch_filehandle {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
@@ -162,12 +204,12 @@ sub substrate_watch_filehandle {
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
-  vec($kr_vectors->[$vector], $fileno, 1) = 1;
+  vec($loop_vectors[$vector], $fileno, 1) = 1;
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-sub substrate_ignore_filehandle {
+sub loop_ignore_filehandle {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
@@ -176,12 +218,12 @@ sub substrate_ignore_filehandle {
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
-  vec($kr_vectors->[$vector], $fileno, 1) = 0;
+  vec($loop_vectors[$vector], $fileno, 1) = 0;
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-sub substrate_pause_filehandle_watcher {
+sub loop_pause_filehandle_watcher {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
@@ -190,11 +232,11 @@ sub substrate_pause_filehandle_watcher {
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
-  vec($kr_vectors->[$vector], $fileno, 1) = 0;
+  vec($loop_vectors[$vector], $fileno, 1) = 0;
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-sub substrate_resume_filehandle_watcher {
+sub loop_resume_filehandle_watcher {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
@@ -203,22 +245,14 @@ sub substrate_resume_filehandle_watcher {
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
-  vec($kr_vectors->[$vector], $fileno, 1) = 1;
+  vec($loop_vectors[$vector], $fileno, 1) = 1;
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 #------------------------------------------------------------------------------
-# Main loop management.
+# The event loop itself.
 
-sub substrate_init_main_loop {
-  # Initialize the vectors as vectors.
-  @$kr_vectors = ( '', '', '' );
-  vec($kr_vectors->[VEC_RD], 0, 1) = 0;
-  vec($kr_vectors->[VEC_WR], 0, 1) = 0;
-  vec($kr_vectors->[VEC_EX], 0, 1) = 0;
-}
-
-sub substrate_do_timeslice {
+sub loop_do_timeslice {
   # Check for a hung kernel.
   test_for_idle_poe_kernel();
 
@@ -273,17 +307,17 @@ sub substrate_do_timeslice {
   my @filenos = ();
   foreach (keys %$kr_filenos) {
     push(@filenos, $_)
-      if ( vec($kr_vectors->[VEC_RD], $_, 1) or
-           vec($kr_vectors->[VEC_WR], $_, 1) or
-           vec($kr_vectors->[VEC_EX], $_, 1)
+      if ( vec($loop_vectors[VEC_RD], $_, 1) or
+           vec($loop_vectors[VEC_WR], $_, 1) or
+           vec($loop_vectors[VEC_EX], $_, 1)
          );
   }
 
   if (TRACE_SELECT) {
     warn ",----- SELECT BITS IN -----\n";
-    warn "| READ    : ", unpack('b*', $kr_vectors->[VEC_RD]), "\n";
-    warn "| WRITE   : ", unpack('b*', $kr_vectors->[VEC_WR]), "\n";
-    warn "| EXPEDITE: ", unpack('b*', $kr_vectors->[VEC_EX]), "\n";
+    warn "| READ    : ", unpack('b*', $loop_vectors[VEC_RD]), "\n";
+    warn "| WRITE   : ", unpack('b*', $loop_vectors[VEC_WR]), "\n";
+    warn "| EXPEDITE: ", unpack('b*', $loop_vectors[VEC_EX]), "\n";
     warn "`--------------------------\n";
   }
 
@@ -297,9 +331,9 @@ sub substrate_do_timeslice {
 
     if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
-      my $hits = select( my $rout = $kr_vectors->[VEC_RD],
-                         my $wout = $kr_vectors->[VEC_WR],
-                         my $eout = $kr_vectors->[VEC_EX],
+      my $hits = select( my $rout = $loop_vectors[VEC_RD],
+                         my $wout = $loop_vectors[VEC_WR],
+                         my $eout = $loop_vectors[VEC_EX],
                          $timeout,
                        );
 
@@ -425,18 +459,14 @@ sub substrate_do_timeslice {
   }
 }
 
-sub substrate_main_loop {
+sub loop_run {
   # Run for as long as there are sessions to service.
   while (keys %$kr_sessions) {
-    substrate_do_timeslice();
+    loop_do_timeslice();
   }
 }
 
-sub substrate_stop_main_loop {
-  # does nothing
-}
-
-sub signal_ui_destroy {
+sub loop_halt {
   # does nothing
 }
 

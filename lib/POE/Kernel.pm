@@ -70,16 +70,6 @@ my %kr_event_ids;
 # }
 my %kr_session_ids;
 
-# select() vectors.  They're stored in an array so that the VEC_RD,
-# VEC_WR, and VEC_EX offsets work.  This saves some code, but it makes
-# things a little slower.
-#
-# [ $select_read_bit_vector,    (VEC_RD)
-#   $select_write_bit_vector,   (VEC_WR)
-#   $select_expedite_bit_vector (VEC_EX)
-# ];
-my @kr_vectors = ("", "", "");
-
 # Map a signal name to the sessions that are explicitly watching it.
 # For each explicit signal watcher, also note the event that the
 # signal will generate.
@@ -134,19 +124,17 @@ sub VEC_EX () { 2 }
 # members are described in detail further on.
 
 sub KR_SESSIONS       () {  0 } # [ \%kr_sessions,
-sub KR_VECTORS        () {  1 } #   \@kr_vectors,
-sub KR_FILENOS        () {  2 } #   \%kr_filenos,
-sub KR_SIGNALS        () {  3 } #   \%kr_signals,
-sub KR_ALIASES        () {  4 } #   \%kr_aliases,
-sub KR_ACTIVE_SESSION () {  5 } #   \$kr_active_session,
-sub KR_EVENTS         () {  6 } #   \@kr_events,
-sub KR_ID             () {  7 } #   $unique_kernel_id,
-sub KR_SESSION_IDS    () {  8 } #   \%kr_session_ids,
-sub KR_ID_INDEX       () {  9 } #   \$kr_id_index,
-sub KR_WATCHER_TIMER  () { 10 } #   $kr_watcher_timer,  (for Gtk, Tk, etc.)
-sub KR_EXTRA_REFS     () { 11 } #   \$kr_extra_refs,
-sub KR_EVENT_IDS      () { 12 } #   \%kr_event_ids,
-sub KR_SIZE           () { 13 } #   XXX UNUSED ???
+sub KR_FILENOS        () {  1 } #   \%kr_filenos,
+sub KR_SIGNALS        () {  2 } #   \%kr_signals,
+sub KR_ALIASES        () {  3 } #   \%kr_aliases,
+sub KR_ACTIVE_SESSION () {  4 } #   \$kr_active_session,
+sub KR_EVENTS         () {  5 } #   \@kr_events,
+sub KR_ID             () {  6 } #   $unique_kernel_id,
+sub KR_SESSION_IDS    () {  7 } #   \%kr_session_ids,
+sub KR_ID_INDEX       () {  8 } #   \$kr_id_index,
+sub KR_EXTRA_REFS     () {  9 } #   \$kr_extra_refs,
+sub KR_EVENT_IDS      () { 10 } #   \%kr_event_ids,
+sub KR_SIZE           () { 11 } #   XXX UNUSED ???
                                 # ]
 
 # This flag indicates that POE::Kernel's run() method was called.
@@ -206,11 +194,10 @@ my %kr_filenos;
 sub FNO_VEC_RD       () { VEC_RD }  # [ [ (fileno read mode structure)
 # --- BEGIN SUB STRUCT 1 ---        #
 sub FVC_REFCOUNT     () { 0      }  #     $fileno_total_use_count,
-sub FVC_WATCHER      () { 1      }  #     $fileno_substrate_watcher,
-sub FVC_ST_ACTUAL    () { 2      }  #     $requested_file_state (see HS_PAUSED)
-sub FVC_ST_REQUEST   () { 3      }  #     $actual_file_state (see HS_PAUSED)
-sub FVC_EV_COUNT     () { 4      }  #     $number_of_pending_events,
-sub FVC_SESSIONS     () { 5      }  #     { $session_watching_this_handle =>
+sub FVC_ST_ACTUAL    () { 1      }  #     $requested_file_state (see HS_PAUSED)
+sub FVC_ST_REQUEST   () { 2      }  #     $actual_file_state (see HS_PAUSED)
+sub FVC_EV_COUNT     () { 3      }  #     $number_of_pending_events,
+sub FVC_SESSIONS     () { 4      }  #     { $session_watching_this_handle =>
 # --- BEGIN SUB STRUCT 2 ---        #
 sub HSS_HANDLE       () { 0      }  #       [ $blessed_handle,
 sub HSS_SESSION      () { 1      }  #         $blessed_session,
@@ -363,20 +350,13 @@ BEGIN {
 };
 
 #------------------------------------------------------------------------------
-# Adapt POE::Kernel's personality to whichever event substrate is
-# present.
+# Adapt POE::Kernel's personality to whichever event loop is present.
 
-sub SUBSTRATE_NAME_EVENT  () { 'Event.pm' }
-sub SUBSTRATE_NAME_GTK    () { 'Gtk.pm'   }
-sub SUBSTRATE_NAME_POLL   () { 'Poll.pm'  }
-sub SUBSTRATE_NAME_SELECT () { 'select()' }
-sub SUBSTRATE_NAME_TK     () { 'Tk.pm'    }
-
-sub SUBSTRATE_EVENT  () { 0x01 }
-sub SUBSTRATE_GTK    () { 0x02 }
-sub SUBSTRATE_POLL   () { 0x04 }
-sub SUBSTRATE_SELECT () { 0x08 }
-sub SUBSTRATE_TK     () { 0x10 }
+sub LOOP_EVENT  () { 'Event.pm' }
+sub LOOP_GTK    () { 'Gtk.pm'   }
+sub LOOP_POLL   () { 'Poll.pm'  }
+sub LOOP_SELECT () { 'select()' }
+sub LOOP_TK     () { 'Tk.pm'    }
 
 BEGIN {
   if (exists $INC{'Gtk.pm'}) {
@@ -404,7 +384,7 @@ BEGIN {
     }
   }
 
-  unless (defined &POE_SUBSTRATE) {
+  unless (defined &POE_LOOP) {
     require POE::Kernel::Select;
     POE::Kernel::Select->import();
   }
@@ -548,7 +528,6 @@ sub remove_alias {
 
 sub explain_resolve_failure {
   my $whatever = shift;
-
   local $Carp::CarpLevel = 2;
 
   if (ASSERT_SESSIONS) {
@@ -557,6 +536,21 @@ sub explain_resolve_failure {
   $! = ESRCH;
   TRACE_RETURNS  and carp  "session not resolved: $!";
   ASSERT_RETURNS and croak "session not resolved: $!";
+}
+
+sub explain_return {
+  my $message = shift;
+  local $Carp::CarpLevel = 2;
+  ASSERT_RETURNS and croak $message;
+  TRACE_RETURNS  and carp  $message;
+}
+
+sub explain_usage {
+  my $message = shift;
+  local $Carp::CarpLevel = 2;
+  ASSERT_USAGE   and croak $message;
+  ASSERT_RETURNS and croak $message;
+  TRACE_RETURNS  and carp  $message;
 }
 
 sub test_for_idle_poe_kernel {
@@ -611,19 +605,11 @@ sub enqueue_ready_selects {
   my ($fileno, $vector) = @_;
 
   die "internal inconsistency: undefined fileno" unless defined $fileno;
-
-  my $kr_fileno = $kr_filenos{$fileno};
-  die "internal inconsistency: fileno $fileno is not known"
-    unless defined $kr_fileno;
-
-  my $kr_fno_vec = $kr_fileno->[$vector];
+  my $kr_fno_vec = $kr_filenos{$fileno}->[$vector];
 
   # Gather all the events to emit for this fileno/vector pair.
 
-  my @selects =
-    map( { values %$_ }
-         values %{ $kr_filenos{$fileno}->[$vector]-> [FVC_SESSIONS] }
-       );
+  my @selects = map { values %$_ } values %{ $kr_fno_vec->[FVC_SESSIONS] };
 
   # Emit them.
 
@@ -636,9 +622,8 @@ sub enqueue_ready_selects {
       );
 
     unless ($kr_fno_vec->[FVC_EV_COUNT]++) {
-      # Used in Tk substrate.
       my $handle = $select->[HSS_HANDLE];
-      substrate_pause_filehandle_watcher($kr_fno_vec, $handle, $vector);
+      loop_pause_filehandle_watcher($kr_fno_vec, $handle, $vector);
     }
 
     if (TRACE_SELECT) {
@@ -674,7 +659,7 @@ my %_signal_types =
   );
 
 # As of version 0.1206, signal handlers and the functions that watch
-# them have been moved into substrate modules.
+# them have been moved into loop modules.
 
 #------------------------------------------------------------------------------
 # Register or remove signals.
@@ -751,7 +736,6 @@ sub new {
 
     my $self = $poe_kernel = bless
       [ \%kr_sessions,       # KR_SESSIONS
-        \@kr_vectors,        # KR_VECTORS
         \%kr_filenos,        # KR_FILENOS
         \%kr_signals,        # KR_SIGNALS
         \%kr_aliases,        # KR_ALIASES
@@ -760,7 +744,6 @@ sub new {
         undef,               # KR_ID
         \%kr_session_ids,    # KR_SESSION_IDS
         \$kr_id_index,       # KR_ID_INDEX
-        undef,               # KR_WATCHER_TIMER
         \$kr_extra_refs,     # KR_EXTRA_REFS
         \%kr_event_ids,      # KR_EVENT_IDS
       ], $type;
@@ -782,9 +765,6 @@ sub new {
     # Start the Kernel's session.
     _initialize_kernel_session();
     _initialize_kernel_signals();
-
-    # Have the event substrate import our important variables.
-    _substrate_initialize($poe_kernel);
   }
 
   # Return the global instance.
@@ -794,7 +774,6 @@ sub new {
 sub _get_kr_sessions_ref  { \%kr_sessions }
 sub _get_kr_events_ref    { \@kr_events }
 sub _get_kr_event_ids_ref { \%kr_event_ids }
-sub _get_kr_vectors_ref   { \@kr_vectors }
 sub _get_kr_filenos_ref   { \%kr_filenos }
 
 #------------------------------------------------------------------------------
@@ -881,8 +860,7 @@ sub _dispatch_event {
       my $fileno = fileno($handle);
 
       if (exists $kr_filenos{$fileno}) {
-        my $kr_fileno  = $kr_filenos{$fileno};
-        my $kr_fno_vec = $kr_fileno->[$vector];
+        my $kr_fno_vec  = $kr_filenos{$fileno}->[$vector];
 
         if (TRACE_SELECT) {
           warn( "--- decrementing event count in vector ($vector) ",
@@ -891,19 +869,18 @@ sub _dispatch_event {
               );
         }
 
+        # Select events are one-shot, so reset the filehandle watcher
+        # after this event was dispatched.
+
         unless (--$kr_fno_vec->[FVC_EV_COUNT]) {
-          if ( $kr_fno_vec->[FVC_ST_ACTUAL] !=
-               $kr_fno_vec->[FVC_ST_REQUEST]
-             ) {
-            if ($kr_fno_vec->[FVC_ST_REQUEST] == HS_PAUSED) {
-              substrate_pause_filehandle_watcher($kr_fno_vec, $handle, $vector);
-            }
-            elsif ($kr_fno_vec->[FVC_ST_REQUEST] == HS_RUNNING) {
-              substrate_resume_filehandle_watcher($kr_fno_vec, $handle, $vector);
-            }
-            else {
-              die "internal consistency error";
-            }
+          if ($kr_fno_vec->[FVC_ST_REQUEST] & HS_PAUSED) {
+            loop_pause_filehandle_watcher($kr_fno_vec, $handle, $vector);
+          }
+          elsif ($kr_fno_vec->[FVC_ST_REQUEST] & HS_RUNNING) {
+            loop_resume_filehandle_watcher($kr_fno_vec, $handle, $vector);
+          }
+          else {
+            die "internal consistency error";
           }
         }
         elsif ($kr_fno_vec->[FVC_EV_COUNT] < 0) {
@@ -1253,7 +1230,7 @@ sub _dispatch_event {
 
     # Finally, if there are no more sessions, stop the main loop.
     unless (keys %kr_sessions) {
-      substrate_stop_main_loop();
+      loop_halt();
     }
   }
 
@@ -1316,7 +1293,7 @@ sub _initialize_kernel_session {
   # Some personalities allow us to set up static watchers and
   # start/stop them as necessary.  This initializes those static
   # watchers.  This also starts main windows where applicable.
-  substrate_init_main_loop();
+  loop_initialize($poe_kernel);
 
   # The kernel is a session, sort of.
   $kr_active_session = $poe_kernel;
@@ -1357,40 +1334,25 @@ sub _initialize_kernel_signals {
     # Don't watch CHLD or CLD if we're in Apache.
     next if $signal =~ /^CH?LD$/ and exists $INC{'Apache.pm'};
 
-    # Pass a signal to the substrate module, which may or may not
-    # watch it depending on its own criteria.
-    substrate_watch_signal($signal);
+    # Pass a signal to the loop module, which may or may not watch it
+    # depending on its own criteria.
+    loop_watch_signal($signal);
   }
 }
 
 # Do post-run cleanup.
 
 sub finalize_kernel {
-  # Disable signal watching, since there's now no place for them to
-  # go.
-  my @signals = keys %SIG;
-  @SIG{@signals} = (('DEFAULT') x @signals);
+
+  # Disable signal watching since there's now no place for them to go.
+  foreach my $signal (keys %SIG) {
+    loop_ignore_signal($signal);
+  }
 
   # The main loop is done, no matter which event library ran it.
   # Let's make sure POE isn't leaking things.
 
   if (ASSERT_GARBAGE) {
-
-    # This is "clever" in that it relies on each symbol on the left to
-    # be stringified by the => operator.
-    my %kernel_vectors =
-      ( VEC_RD => VEC_RD,
-        VEC_WR => VEC_WR,
-        VEC_EX => VEC_EX,
-      );
-
-    while (my ($vec_name, $vec_offset) = each(%kernel_vectors)) {
-      my $bits = unpack('b*', $kr_vectors[$vec_offset]);
-      if (index($bits, '1') >= 0) {
-        warn "*** KERNEL VECTOR LEAK: $vec_name = $bits\a\n";
-      }
-    }
-
     my %kernel_arrays =
       ( kr_events => \@kr_events
       );
@@ -1432,6 +1394,8 @@ sub finalize_kernel {
     }
   }
 
+  loop_finalize();
+
   if (TRACE_PROFILE) {
     print STDERR ',----- Event Profile ' , ('-' x 53), ",\n";
     foreach (sort keys %profile) {
@@ -1450,7 +1414,7 @@ sub finalize_kernel {
 sub run_one_timeslice {
   my $self = shift;
   return undef unless %kr_sessions;
-  substrate_do_timeslice();
+  loop_do_timeslice();
   unless (%kr_sessions) {
     finalize_kernel();
     $kr_run_warning |= KR_RUN_DONE;
@@ -1471,7 +1435,7 @@ sub run {
   # Flag that run() was called.
   $kr_run_warning |= KR_RUN_CALLED;
 
-  substrate_main_loop();
+  loop_run();
 
   # Clean up afterwards.
   finalize_kernel();
@@ -1578,7 +1542,7 @@ sub _invoke_state {
     # The poll loop is over.  Resume slowly polling for signals.
 
     TRACE_SIGNALS and warn "POE::Kernel will poll again after a delay.\n";
-    substrate_resume_watching_child_signals();
+    loop_resume_watching_child_signals();
   }
 
   # A signal was posted.  Because signals propagate depth-first, this
@@ -1847,32 +1811,26 @@ sub _enqueue_event {
     my $event_to_enqueue = [ @_[1..8], ++$queue_seqnum ];
 
     # Special case: No events in the queue.  Put the new event in the
-    # queue, and be done with it.
+    # queue, and resume watching time.
     unless (@kr_events) {
       $kr_events[0] = $event_to_enqueue;
-
-      # This event restarts the substrate's time watcher.
-      substrate_resume_time_watcher($kr_events[0]->[ST_TIME]);
+      loop_resume_time_watcher($kr_events[0]->[ST_TIME]);
     }
 
-    # Special case: New event belongs at the end of the queue.  Push
-    # it, and be done with it.
+    # Special case: The new event belongs at the end of the queue.
     elsif ($time >= $kr_events[-1]->[ST_TIME]) {
       push @kr_events, $event_to_enqueue;
     }
 
-    # Special case: New event comes before earliest event.  Unshift
-    # it, and be done with it.
+    # Special case: New event comes before earliest event.  Since
+    # there is an active time watcher, it must be reset.
     elsif ($time < $kr_events[0]->[ST_TIME]) {
       unshift @kr_events, $event_to_enqueue;
-
-      # This event refreshes the substrate's watcher.
-      substrate_reset_time_watcher($kr_events[0]->[ST_TIME]);
+      loop_reset_time_watcher($kr_events[0]->[ST_TIME]);
     }
 
-    # Special case: Two events in the queue.  The new event enters
-    # between them, because it's not before the first one or after the
-    # last one.
+    # Special case: If there are only two events in the queue, and we
+    # failed the last two tests, the new event goes between them.
     elsif (@kr_events == 2) {
       splice @kr_events, 1, 0, $event_to_enqueue;
     }
@@ -1937,14 +1895,11 @@ sub _enqueue_event {
     ses_refcount_inc2($session, SS_EVCOUNT);
     ses_refcount_inc2($source_session, SS_POST_COUNT);
 
-    # Track the new event's ID and time.  This is used later if we
-    # want to remove an event with a specific ID.  The ID->time lookup
-    # is used so we can seek into the time-ordered event queue and
-    # quickly find the event to fiddle with.
+    # Users know timers by their IDs; the queue knows them by their
+    # times.  Map the ID to the time so we can binary search the queue
+    # for events that will be removed or altered later.
     my $new_event_id = $event_to_enqueue->[ST_SEQ];
     $kr_event_ids{$new_event_id} = $time;
-
-    # If it's a select event, track the event count.
 
     # Return the new event ID.  Man, this rocks.  I forgot POE was
     # maintaining event sequence numbers.
@@ -2104,8 +2059,7 @@ sub alarm {
   };
 
   unless (defined $event_name) {
-    TRACE_RETURNS and carp "invalid parameter to alarm() call";
-    ASSERT_RETURNS and croak "invalid parameter to alarm() call";
+    explain_return("invalid parameter to alarm() call");
     return EINVAL;
   }
 
@@ -2134,7 +2088,7 @@ sub alarm {
   else {
     # The event queue has become empty?  Stop the time watcher.
     unless (@kr_events) {
-      substrate_pause_time_watcher();
+      loop_pause_time_watcher();
     }
   }
 
@@ -2154,8 +2108,7 @@ sub alarm_add {
   };
 
   unless (defined $event_name and defined $time) {
-    TRACE_RETURNS and carp "invalid parameter to alarm_add() call";
-    ASSERT_RETURNS and croak "invalid parameter to alarm_add() call";
+    explain_return("invalid parameter to alarm_add() call");
     return EINVAL;
   }
 
@@ -2180,8 +2133,7 @@ sub delay {
   };
 
   unless (defined $event_name) {
-    TRACE_RETURNS and carp "invalid parameter to delay() call";
-    ASSERT_RETURNS and croak "invalid parameter to delay() call";
+    explain_return("invalid parameter to delay() call");
     return EINVAL;
   }
 
@@ -2208,8 +2160,7 @@ sub delay_add {
   };
 
   unless (defined $event_name and defined $delay) {
-    TRACE_RETURNS and carp "invalid parameter to delay_add() call";
-    ASSERT_RETURNS and croak "invalid parameter to delay_add() call";
+    explain_return("invalid parameter to delay_add() call");
     return EINVAL;
   }
 
@@ -2229,17 +2180,13 @@ sub alarm_set {
   my ($self, $event_name, $time, @etc) = @_;
 
   unless (defined $event_name) {
-    ASSERT_USAGE and croak "undefined event name in alarm_set()";
-    TRACE_RETURNS and carp "undefined event name in alarm_set()";
-    ASSERT_RETURNS and carp "undefined event name in alarm_set()";
+    explain_usage("undefined event name in alarm_set()");
     $! = EINVAL;
     return;
   }
 
   unless (defined $time) {
-    ASSERT_USAGE and croak "undefined time in alarm_set()";
-    TRACE_RETURNS and carp "undefined time in alarm_set()";
-    ASSERT_RETURNS and carp "undefined time in alarm_set()";
+    explain_usage("undefined time in alarm_set()");
     $! = EINVAL;
     return;
   }
@@ -2341,15 +2288,14 @@ sub alarm_remove {
   my ($self, $alarm_id) = @_;
 
   unless (defined $alarm_id) {
-    ASSERT_USAGE and croak "undefined alarm id in alarm_remove()";
+    explain_usage("undefined alarm id in alarm_remove()");
     $! = EINVAL;
     return;
   }
 
   my $alarm_time = $kr_event_ids{$alarm_id};
   unless (defined $alarm_time) {
-    TRACE_RETURNS and carp "unknown alarm id in alarm_remove()";
-    ASSERT_RETURNS and croak "unknown alarm id in alarm_remove()";
+    explain_usage("unknown alarm id in alarm_remove()");
     $! = ESRCH;
     return;
   }
@@ -2359,8 +2305,7 @@ sub alarm_remove {
 
   # Ensure that the alarm belongs to this session, eh?
   if ($kr_events[$alarm_index]->[ST_SESSION] != $kr_active_session) {
-    TRACE_RETURNS and carp "alarm $alarm_id is not for the session";
-    ASSERT_RETURNS and croak "alarm $alarm_id is not for the session";
+    explain_usage("alarm $alarm_id is not for the session");
     $! = EPERM;
     return;
   }
@@ -2388,21 +2333,20 @@ sub alarm_adjust {
   my ($self, $alarm_id, $delta) = @_;
 
   unless (defined $alarm_id) {
-    ASSERT_USAGE and croak "undefined alarm id in alarm_adjust()";
+    explain_usage("undefined alarm id in alarm_adjust()");
     $! = EINVAL;
     return;
   }
 
   unless (defined $delta) {
-    ASSERT_USAGE and croak "undefined alarm delta in alarm_adjust()";
+    explain_usage("undefined alarm delta in alarm_adjust()");
     $! = EINVAL;
     return;
   }
 
   my $alarm_time = $kr_event_ids{$alarm_id};
   unless (defined $alarm_time) {
-    TRACE_RETURNS and carp "unknown alarm id in alarm_adjust()";
-    ASSERT_RETURNS and croak "unknown alarm id in alarm_adjust()";
+    explain_usage("unknown alarm id in alarm_adjust()");
     $! = ESRCH;
     return;
   }
@@ -2412,8 +2356,7 @@ sub alarm_adjust {
 
   # Ensure that the alarm belongs to this session, eh?
   if ($kr_events[$alarm_index]->[ST_SESSION] != $kr_active_session) {
-    TRACE_RETURNS and carp "alarm $alarm_id is not for the session";
-    ASSERT_RETURNS and croak "alarm $alarm_id is not for the session";
+    explain_usage("alarm $alarm_id is not for the session");
     $! = EPERM;
     return;
   }
@@ -2537,9 +2480,7 @@ sub delay_set {
   my ($self, $event_name, $seconds, @etc) = @_;
 
   unless (defined $event_name) {
-    ASSERT_USAGE and croak "undefined event name in delay_set()";
-    TRACE_RETURNS and carp "undefined event name in delay_set()";
-    ASSERT_RETURNS and carp "undefined event name in delay_set()";
+    explain_usage("undefined event name in delay_set()");
     $! = EINVAL;
     return;
   }
@@ -2551,9 +2492,7 @@ sub delay_set {
   }
 
   unless (defined $seconds) {
-    ASSERT_USAGE and croak "undefined seconds in delay_set()";
-    TRACE_RETURNS and carp "undefined seconds in delay_set()";
-    ASSERT_RETURNS and carp "undefined seconds in delay_set()";
+    explain_usage("undefined seconds in delay_set()");
     $! = EINVAL;
     return;
   }
@@ -2621,21 +2560,18 @@ sub _internal_select {
 
       $kr_filenos{$fileno} =
         [ [ 0,          # FVC_REFCOUNT    VEC_RD
-            undef,      # FVC_WATCHER
             HS_PAUSED,  # FVC_ST_ACTUAL
             HS_PAUSED,  # FVC_ST_REQUEST
             0,          # FVC_EV_COUNT
             { },        # FVC_SESSIONS
           ],
           [ 0,          # FVC_REFCOUNT    VEC_WR
-            undef,      # FVC_WATCHER
             HS_PAUSED,  # FVC_ST_ACTUAL
             HS_PAUSED,  # FVC_ST_REQUEST
             0,          # FVC_EV_COUNT
             { },        # FVC_SESSIONS
           ],
           [ 0,          # FVC_REFCOUNT    VEC_EX
-            undef,      # FVC_WATCHER
             HS_PAUSED,  # FVC_ST_ACTUAL
             HS_PAUSED,  # FVC_ST_REQUEST
             0,          # FVC_EV_COUNT
@@ -2694,7 +2630,7 @@ sub _internal_select {
               );
         }
         unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-          substrate_resume_filehandle_watcher($kr_fno_vec, $handle, $select_index);
+          loop_resume_filehandle_watcher($kr_fno_vec, $handle, $select_index);
         }
         $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
       }
@@ -2722,9 +2658,9 @@ sub _internal_select {
       $kr_fno_vec->[FVC_REFCOUNT]++;
 
       # If this is the first time a file is watched in this mode, then
-      # turn on the substrate watcher.
+      # have the event loop bridge watch it.
       if ($kr_fno_vec->[FVC_REFCOUNT] == 1) {
-        substrate_watch_filehandle($kr_fno_vec, $handle, $select_index);
+        loop_watch_filehandle($kr_fno_vec, $handle, $select_index);
       }
     }
 
@@ -2807,7 +2743,7 @@ sub _internal_select {
         # handle.
 
         unless ($kr_fno_vec->[FVC_REFCOUNT]) {
-          substrate_ignore_filehandle($kr_fno_vec, $handle, $select_index);
+          loop_ignore_filehandle($kr_fno_vec, $handle, $select_index);
 
           # The session is not watching handles anymore.  Remove the
           # session entirely the fileno structure.
@@ -2882,7 +2818,7 @@ sub select {
       next unless defined $_;
       carp( "The '$_' event is one of POE's own.  Its " .
             "effect cannot be achieved by setting a file watcher to it"
-          ) if exists($poes_own_events{$event_r});
+          ) if exists($poes_own_events{$_});
     }
   }
 
@@ -2968,7 +2904,7 @@ sub select_pause_write {
         );
   }
   unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-    substrate_pause_filehandle_watcher($kr_fno_vec, $handle, VEC_WR);
+    loop_pause_filehandle_watcher($kr_fno_vec, $handle, VEC_WR);
   }
 
   # Set the requested handle state so it'll be correct when the actual
@@ -3005,7 +2941,7 @@ sub select_resume_write {
         );
   }
   unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-    substrate_resume_filehandle_watcher($kr_fno_vec, $handle, VEC_WR);
+    loop_resume_filehandle_watcher($kr_fno_vec, $handle, VEC_WR);
   }
 
   # Set the requested handle state so it'll be correct when the actual
@@ -3042,11 +2978,10 @@ sub select_pause_read {
         );
   }
   unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-    substrate_pause_filehandle_watcher($kr_fno_vec, $handle, VEC_RD);
+    loop_pause_filehandle_watcher($kr_fno_vec, $handle, VEC_RD);
   }
 
-  # Set the requested handle state so it'll be correct when the actual
-  # state must be changed to reflect it.
+  # Correct the requested state so it matches the actual one.
 
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_PAUSED;
 
@@ -3079,7 +3014,7 @@ sub select_resume_read {
         );
   }
   unless ($kr_fno_vec->[FVC_EV_COUNT]) {
-    substrate_resume_filehandle_watcher($kr_fno_vec, $handle, VEC_RD);
+    loop_resume_filehandle_watcher($kr_fno_vec, $handle, VEC_RD);
   }
 
   # Set the requested handle state so it'll be correct when the actual
@@ -3104,8 +3039,7 @@ sub alias_set {
   # Don't overwrite another session's alias.
   if (exists $kr_aliases{$name}) {
     if ($kr_aliases{$name} != $kr_active_session) {
-      TRACE_RETURNS and carp "alias is in use by another session";
-      ASSERT_RETURNS and croak "alias is in use by another session";
+      explain_usage("alias is in use by another session");
       return EEXIST;
     }
     return 0;
@@ -3128,13 +3062,11 @@ sub alias_remove {
   };
 
   unless (exists $kr_aliases{$name}) {
-    TRACE_RETURNS and carp "alias does not exist";
-    ASSERT_RETURNS and croak "alias does not exist";
+    explain_usage("alias does not exist");
     return ESRCH;
   }
   if ($kr_aliases{$name} != $kr_active_session) {
-    TRACE_RETURNS and carp "alias does not belong to current session";
-    ASSERT_RETURNS and croak "alias does not belong to current session";
+    explain_usage("alias does not belong to current session");
     return EPERM;
   }
 
@@ -3214,8 +3146,8 @@ sub ID_id_to_session {
     $! = 0;
     return $kr_session_ids{$id};
   }
-  TRACE_RETURNS and carp "ID does not exist";
-  ASSERT_RETURNS and croak "ID does not exist";
+
+  explain_return("ID does not exist");
   $! = ESRCH;
   return;
 }
@@ -3233,8 +3165,8 @@ sub ID_session_to_id {
     $! = 0;
     return $kr_sessions{$session}->[SS_ID];
   }
-  TRACE_RETURNS and carp "session ($session) does not exist";
-  ASSERT_RETURNS and croak "session ($session) does not exist";
+
+  explain_return("session ($session) does not exist");
   $! = ESRCH;
   return;
 }
@@ -3290,9 +3222,7 @@ sub refcount_increment {
     return $refcount;
   }
 
-  TRACE_RETURNS and carp "session ($session) does not exist";
-  ASSERT_RETURNS and croak "session ($session) does not exist";
-
+  explain_return("session id $session_id does not exist");
   $! = ESRCH;
   return;
 }
@@ -3347,9 +3277,7 @@ sub refcount_decrement {
     return $refcount;
   }
 
-  TRACE_RETURNS and carp "session ($session) does not exist";
-  ASSERT_RETURNS and croak "session ($session) does not exist";
-
+  explain_return("session id $session_id does not exist");
   $! = ESRCH;
   return;
 }
@@ -3381,9 +3309,7 @@ sub state {
   # though, is already gone.  If TRACE_RETURNS and/or ASSERT_RETURNS
   # is set, this causes a warning or fatal error.
 
-  TRACE_RETURNS and carp "session ($kr_active_session) does not exist";
-  # ASSERT_RETURNS and croak "session ($kr_active_session) does not exist";
-
+  explain_return("session ($kr_active_session) does not exist");
   return ESRCH;
 }
 

@@ -1,8 +1,8 @@
 # $Id$
 
-# IO::Poll substrate for POE::Kernel.  The theory is that this will be
-# faster for large scale applications.  This file is contributed by
-# Matt Sergeant (baud).
+# IO::Poll event loop bridge for POE::Kernel.  The theory is that this
+# will be faster for large scale applications.  This file is
+# contributed by Matt Sergeant (baud).
 
 # Empty package to appease perl.
 package POE::Kernel::Poll;
@@ -15,17 +15,17 @@ package POE::Kernel;
 
 use strict;
 
-# Ensure that no other substrate module has been loaded.
+# Delcare which event loop bridge is being used, but first ensure that
+# no other bridge has been loaded.
+
 BEGIN {
-  die "POE can't use IO::Poll and " . &POE_SUBSTRATE_NAME . "\n"
-    if defined &POE_SUBSTRATE;
+  die "POE can't use IO::Poll and " . &POE_LOOP . "\n"
+    if defined &POE_LOOP;
   die "IO::Poll is version $IO::Poll::VERSION (POE needs 0.05 or newer)\n"
     if $IO::Poll::VERSION < 0.05;
 };
 
-# Declare the substrate we're using.
-sub POE_SUBSTRATE      () { SUBSTRATE_POLL      }
-sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_POLL }
+sub POE_LOOP () { LOOP_POLL }
 
 use IO::Poll qw( POLLRDNORM POLLWRNORM POLLRDBAND
                  POLLIN POLLOUT POLLERR POLLHUP
@@ -34,21 +34,28 @@ use IO::Poll qw( POLLRDNORM POLLWRNORM POLLRDBAND
 sub MINIMUM_POLL_TIMEOUT () { 0 }
 
 my ($kr_sessions, $kr_events, $kr_event_ids);
+my %poll_fd_masks;
 
 #------------------------------------------------------------------------------
-# Substrate construction and destruction.
+# Loop construction and destruction.
 
-sub _substrate_initialize {
+sub loop_initialize {
   my $kernel = shift;
   $kr_sessions  = $kernel->_get_kr_sessions_ref();
   $kr_events    = $kernel->_get_kr_events_ref();
   $kr_event_ids = $kernel->_get_kr_event_ids_ref();
+
+  %poll_fd_masks = ();
+}
+
+sub loop_finalize {
+  # does nothing
 }
 
 #------------------------------------------------------------------------------
-# Signal handlers.
+# Signal handlers/callbacks.
 
-sub _substrate_signal_handler_generic {
+sub _loop_signal_handler_generic {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
@@ -56,10 +63,10 @@ sub _substrate_signal_handler_generic {
       [ $_[0] ],
       time(), __FILE__, __LINE__
     );
-  $SIG{$_[0]} = \&_substrate_signal_handler_generic;
+  $SIG{$_[0]} = \&_loop_signal_handler_generic;
 }
 
-sub _substrate_signal_handler_pipe {
+sub _loop_signal_handler_pipe {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
@@ -67,12 +74,12 @@ sub _substrate_signal_handler_pipe {
       [ $_[0] ],
       time(), __FILE__, __LINE__
     );
-    $SIG{$_[0]} = \&_substrate_signal_handler_pipe;
+    $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
 
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
-sub _substrate_signal_handler_child {
+sub _loop_signal_handler_child {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_enqueue_event
@@ -85,7 +92,7 @@ sub _substrate_signal_handler_child {
 #------------------------------------------------------------------------------
 # Signal handler maintenance functions.
 
-sub substrate_watch_signal {
+sub loop_watch_signal {
   my $signal = shift;
 
   # Child process has stopped.
@@ -106,7 +113,7 @@ sub substrate_watch_signal {
 
   # Broken pipe.
   if ($signal eq 'PIPE') {
-    $SIG{$signal} = \&_substrate_signal_handler_pipe;
+    $SIG{$signal} = \&_loop_signal_handler_pipe;
     return;
   }
 
@@ -117,10 +124,10 @@ sub substrate_watch_signal {
   return if $signal eq 'WINCH';
 
   # Everything else.
-  $SIG{$signal} = \&_substrate_signal_handler_generic;
+  $SIG{$signal} = \&_loop_signal_handler_generic;
 }
 
-sub substrate_resume_watching_child_signals {
+sub loop_resume_watching_child_signals {
   $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
   $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
   $poe_kernel->_enqueue_event
@@ -130,20 +137,27 @@ sub substrate_resume_watching_child_signals {
     ) if keys(%$kr_sessions) > 1;
 }
 
+sub loop_ignore_signal {
+  my $signal = shift;
+  $SIG{$signal} = "DEFAULT";
+}
+
+sub signal_ui_destroy {
+  # does nothing
+}
+
 #------------------------------------------------------------------------------
-# Event watchers and callbacks.
+# Maintain time watchers.
 
-### Time.
-
-sub substrate_resume_time_watcher {
+sub loop_resume_time_watcher {
   # does nothing ($_[0] == next time)
 }
 
-sub substrate_reset_time_watcher {
+sub loop_reset_time_watcher {
   # does nothing ($_[0] == next time)
 }
 
-sub substrate_pause_time_watcher {
+sub loop_pause_time_watcher {
   # does nothing ($_[0] == next time)
 }
 
@@ -154,14 +168,15 @@ sub vec_to_poll {
   croak "unknown I/O vector $_[0]";
 }
 
-### Filehandles.
+#------------------------------------------------------------------------------
+# Maintain filehandle watchers.
 
-sub substrate_watch_filehandle {
+sub loop_watch_filehandle {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
-  my $current = $POE::Kernel::Poll::poll_fd_masks{$fileno} || 0;
+  my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current | $type;
 
   TRACE_SELECT and
@@ -171,18 +186,18 @@ sub substrate_watch_filehandle {
                  )
         );
 
-  $POE::Kernel::Poll::poll_fd_masks{$fileno} = $new;
+  $poll_fd_masks{$fileno} = $new;
 
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-sub substrate_ignore_filehandle {
+sub loop_ignore_filehandle {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
-  my $current = $POE::Kernel::Poll::poll_fd_masks{$fileno} || 0;
+  my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current & ~$type;
 
   TRACE_SELECT and
@@ -193,22 +208,22 @@ sub substrate_ignore_filehandle {
         );
 
   if ($new) {
-    $POE::Kernel::Poll::poll_fd_masks{$fileno} = $new;
+    $poll_fd_masks{$fileno} = $new;
   }
   else {
-    delete $POE::Kernel::Poll::poll_fd_masks{$fileno};
+    delete $poll_fd_masks{$fileno};
   }
 
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-sub substrate_pause_filehandle_watcher {
+sub loop_pause_filehandle_watcher {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
-  my $current = $POE::Kernel::Poll::poll_fd_masks{$fileno} || 0;
+  my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current & ~$type;
 
   TRACE_SELECT and
@@ -219,21 +234,21 @@ sub substrate_pause_filehandle_watcher {
         );
 
   if ($new) {
-    $POE::Kernel::Poll::poll_fd_masks{$fileno} = $new;
+    $poll_fd_masks{$fileno} = $new;
   }
   else {
-    delete $POE::Kernel::Poll::poll_fd_masks{$fileno};
+    delete $poll_fd_masks{$fileno};
   }
 
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-sub substrate_resume_filehandle_watcher {
+sub loop_resume_filehandle_watcher {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
-  my $current = $POE::Kernel::Poll::poll_fd_masks{$fileno} || 0;
+  my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current | $type;
 
   TRACE_SELECT and
@@ -243,19 +258,15 @@ sub substrate_resume_filehandle_watcher {
                  )
         );
 
-  $POE::Kernel::Poll::poll_fd_masks{$fileno} = $new;
+  $poll_fd_masks{$fileno} = $new;
 
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 #------------------------------------------------------------------------------
-# Main loop management.
+# The event loop itself.
 
-sub substrate_init_main_loop {
-  %POE::Kernel::Poll::poll_fd_masks = ();
-}
-
-sub substrate_do_timeslice {
+sub loop_do_timeslice {
   # Check for a hung kernel.
   test_for_idle_poe_kernel();
 
@@ -303,10 +314,10 @@ sub substrate_do_timeslice {
     }
   }
 
-  my @filenos = %POE::Kernel::Poll::poll_fd_masks;
+  my @filenos = %poll_fd_masks;
 
   if (TRACE_SELECT) {
-    foreach (sort { $a<=>$b} keys %POE::Kernel::Poll::poll_fd_masks) {
+    foreach (sort { $a<=>$b} keys %poll_fd_masks) {
       my @types;
       push @types, "plain-file"        if -f;
       push @types, "directory"         if -d;
@@ -317,7 +328,7 @@ sub substrate_do_timeslice {
       push @types, "character-special" if -c;
       push @types, "tty"               if -t;
       my @modes;
-      my $flags = $POE::Kernel::Poll::poll_fd_masks{$_};
+      my $flags = $poll_fd_masks{$_};
       push @modes, 'r' if $flags & (POLLIN | POLLHUP | POLLERR);
       push @modes, 'w' if $flags & (POLLOUT | POLLHUP | POLLERR);
       push @modes, 'x' if $flags & (POLLRDBAND | POLLHUP | POLLERR);
@@ -368,7 +379,7 @@ sub substrate_do_timeslice {
           my ($fd, $got_mask) = splice(@filenos, 0, 2);
           next unless $got_mask;
 
-          my $watch_mask = $POE::Kernel::Poll::poll_fd_masks{$fd};
+          my $watch_mask = $poll_fd_masks{$fd};
           if ( $watch_mask & POLLIN and
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
@@ -431,18 +442,14 @@ sub substrate_do_timeslice {
   }
 }
 
-sub substrate_main_loop {
+sub loop_run {
   # Run for as long as there are sessions to service.
   while (keys %$kr_sessions) {
-    substrate_do_timeslice();
+    loop_do_timeslice();
   }
 }
 
-sub substrate_stop_main_loop {
-  # does nothing
-}
-
-sub signal_ui_destroy {
+sub loop_halt {
   # does nothing
 }
 

@@ -1,6 +1,6 @@
 # $Id$
 
-# Tk-Perl substrate for POE::Kernel.
+# Tk-Perl event loop bridge for POE::Kernel.
 
 # Empty package to appease perl.
 package POE::Kernel::Tk;
@@ -20,32 +20,42 @@ package POE::Kernel;
 
 use strict;
 
-# Ensure that no other substrate module has been loaded.
+# Delcare which event loop bridge is being used, but first ensure that
+# no other bridge has been loaded.
+
 BEGIN {
-  die( "POE can't use Tk and " . &POE_SUBSTRATE_NAME . "\n" )
-    if defined &POE_SUBSTRATE;
+  die( "POE can't use Tk and " . &POE_LOOP_NAME . "\n" )
+    if defined &POE_LOOP;
 };
 
-# Declare the substrate we're using.
-sub POE_SUBSTRATE      () { SUBSTRATE_TK      }
-sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_TK }
+sub POE_LOOP () { LOOP_TK }
+
+my $_watcher_timer;
 
 my ($kr_sessions, $kr_events, $kr_filenos);
 
 #------------------------------------------------------------------------------
-# Substrate construction and destruction.
+# Loop construction and destruction.
 
-sub _substrate_initialize {
+sub loop_initialize {
   my $kernel = shift;
   $kr_sessions = $kernel->_get_kr_sessions_ref();
   $kr_events   = $kernel->_get_kr_events_ref();
   $kr_filenos  = $kernel->_get_kr_filenos_ref();
+
+  $poe_main_window = Tk::MainWindow->new();
+  die "could not create a main Tk window" unless defined $poe_main_window;
+  $poe_kernel->signal_ui_destroy( $poe_main_window );
+}
+
+sub loop_finalize {
+  # does nothing
 }
 
 #------------------------------------------------------------------------------
 # Signal handlers.
 
-sub _substrate_signal_handler_generic {
+sub _loop_signal_handler_generic {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
@@ -53,10 +63,10 @@ sub _substrate_signal_handler_generic {
       [ $_[0] ],
       time(), __FILE__, __LINE__
     );
-  $SIG{$_[0]} = \&_substrate_signal_handler_generic;
+  $SIG{$_[0]} = \&_loop_signal_handler_generic;
 }
 
-sub _substrate_signal_handler_pipe {
+sub _loop_signal_handler_pipe {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
@@ -64,12 +74,12 @@ sub _substrate_signal_handler_pipe {
       [ $_[0] ],
       time(), __FILE__, __LINE__
     );
-    $SIG{$_[0]} = \&_substrate_signal_handler_pipe;
+    $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
 
 # Special handler.  Stop watching for children; instead, start a loop
 # that polls for them.
-sub _substrate_signal_handler_child {
+sub _loop_signal_handler_child {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_enqueue_event
@@ -82,7 +92,7 @@ sub _substrate_signal_handler_child {
 #------------------------------------------------------------------------------
 # Signal handler maintenance functions.
 
-sub substrate_watch_signal {
+sub loop_watch_signal {
   my $signal = shift;
 
   # Child process has stopped.
@@ -102,7 +112,7 @@ sub substrate_watch_signal {
 
   # Broken pipe.
   if ($signal eq 'PIPE') {
-    $SIG{$signal} = \&_substrate_signal_handler_pipe;
+    $SIG{$signal} = \&_loop_signal_handler_pipe;
     return;
   }
 
@@ -113,10 +123,10 @@ sub substrate_watch_signal {
   return if $signal eq 'WINCH';
 
   # Everything else.
-  $SIG{$signal} = \&_substrate_signal_handler_generic;
+  $SIG{$signal} = \&_loop_signal_handler_generic;
 }
 
-sub substrate_resume_watching_child_signals () {
+sub loop_resume_watching_child_signals () {
   $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
   $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
   $poe_kernel->_enqueue_event
@@ -126,37 +136,55 @@ sub substrate_resume_watching_child_signals () {
     ) if keys(%$kr_sessions) > 1;
 }
 
+sub loop_ignore_signal {
+  my $signal = shift;
+  $SIG{$signal} = "DEFAULT";
+}
+
+sub signal_ui_destroy {
+  my ($poe_kernel, $window) = @_;
+  $window->OnDestroy
+    ( sub {
+        if (keys %{$poe_kernel->[KR_SESSIONS]}) {
+          $poe_kernel->_dispatch_event
+            ( $poe_kernel, $poe_kernel,
+              EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
+              time(), __FILE__, __LINE__, undef
+            );
+        }
+      }
+    );
+}
+
 #------------------------------------------------------------------------------
-# Watchers and callbacks.
+# Maintain time watchers.
 
-### Time.
-
-sub substrate_resume_time_watcher {
+sub loop_resume_time_watcher {
   my $next_time = shift() - time();
 
-  if (defined $poe_kernel->[KR_WATCHER_TIMER]) {
-    $poe_kernel->[KR_WATCHER_TIMER]->cancel();
-    $poe_kernel->[KR_WATCHER_TIMER] = undef;
+  if (defined $_watcher_timer) {
+    $_watcher_timer->cancel();
+    undef $_watcher_timer;
   }
 
   $next_time = 0 if $next_time < 0;
-  $poe_kernel->[KR_WATCHER_TIMER] =
-    $poe_main_window->after($next_time * 1000, [\&_substrate_event_callback]);
+  $_watcher_timer =
+    $poe_main_window->after($next_time * 1000, [\&_loop_event_callback]);
 }
 
-sub substrate_reset_time_watcher {
+sub loop_reset_time_watcher {
   my $next_time = shift;
-  substrate_resume_time_watcher($next_time);
+  loop_resume_time_watcher($next_time);
 }
 
-sub substrate_pause_time_watcher {
-  $poe_kernel->[KR_WATCHER_TIMER]->stop()
-    if defined $poe_kernel->[KR_WATCHER_TIMER];
+sub loop_pause_time_watcher {
+  $_watcher_timer->stop() if defined $_watcher_timer;
 }
 
-### Filehandles.
+#------------------------------------------------------------------------------
+# Maintain filehandle watchers.
 
-sub substrate_watch_filehandle {
+sub loop_watch_filehandle {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
@@ -178,14 +206,14 @@ sub substrate_watch_filehandle {
       # some reason, it seems to work as a filehandle anyway, and it
       # breaks reference counting.  For filehandles, then, this is
       # truly a safe (strict ok? warn ok? seems so!) weak reference.
-      [ \&_substrate_select_callback, $fileno, $vector ],
+      [ \&_loop_select_callback, $fileno, $vector ],
     );
 
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-sub substrate_ignore_filehandle {
+sub loop_ignore_filehandle {
   my ($kr_fno_vec, $handle, $vector) = @_;
 
   # The Tk documentation implies by omission that expedited
@@ -230,7 +258,7 @@ sub substrate_ignore_filehandle {
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-sub substrate_pause_filehandle_watcher {
+sub loop_pause_filehandle_watcher {
   my ($kr_fno_vec, $handle, $vector) = @_;
 
   # The Tk documentation implies by omission that expedited
@@ -250,7 +278,7 @@ sub substrate_pause_filehandle_watcher {
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-sub substrate_resume_filehandle_watcher {
+sub loop_resume_filehandle_watcher {
   my ($kr_fno_vec, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
@@ -267,7 +295,7 @@ sub substrate_resume_filehandle_watcher {
                           ? Tk::Event::IO::READABLE()
                           : Tk::Event::IO::WRITABLE()
                         ),
-                        [ \&_substrate_select_callback,
+                        [ \&_loop_select_callback,
                           $fileno,
                           $vector,
                         ]
@@ -281,7 +309,7 @@ sub substrate_resume_filehandle_watcher {
 # That includes afterIdle and even internal Tk events.
 
 # Tk timer callback to dispatch events.
-sub _substrate_event_callback {
+sub _loop_event_callback {
   my $poe_kernel = $poe_kernel;
 
   dispatch_due_events();
@@ -297,26 +325,26 @@ sub _substrate_event_callback {
 
     # Cancel the Tk alarm that handles alarms.
 
-    if (defined $poe_kernel->[KR_WATCHER_TIMER]) {
-      $poe_kernel->[KR_WATCHER_TIMER]->cancel();
-      $poe_kernel->[KR_WATCHER_TIMER] = undef;
+    if (defined $_watcher_timer) {
+      $_watcher_timer->cancel();
+      undef $_watcher_timer;
     }
 
     # Replace it with an idle event that will reset the alarm.
 
-    $poe_kernel->[KR_WATCHER_TIMER] =
+    $_watcher_timer =
       $poe_main_window->afterIdle
         ( [ sub {
-              $poe_kernel->[KR_WATCHER_TIMER]->cancel();
-              $poe_kernel->[KR_WATCHER_TIMER] = undef;
+              $_watcher_timer->cancel();
+              undef $_watcher_timer;
 
               if (@$kr_events) {
                 my $next_time = $kr_events->[0]->[ST_TIME] - time();
                 $next_time = 0 if $next_time < 0;
 
-                $poe_kernel->[KR_WATCHER_TIMER] =
+                $_watcher_timer =
                   $poe_main_window->after( $next_time * 1000,
-                                           [\&_substrate_event_callback]
+                                           [\&_loop_event_callback]
                                          );
               }
             }
@@ -341,13 +369,16 @@ sub _substrate_event_callback {
 }
 
 # Tk filehandle callback to dispatch selects.
-sub _substrate_select_callback {
+sub _loop_select_callback {
   my ($fileno, $vector) = @_;
   enqueue_ready_selects($fileno, $vector);
   test_for_idle_poe_kernel();
 }
 
-### Errors.
+#------------------------------------------------------------------------------
+# Tk traps errors in an effort to survive them.  However, since POE
+# does not, this leaves us in a strange, inconsistent state.  Here we
+# re-trap the errors and rethrow them as UIDESTROY.
 
 sub Tk::Error {
   my $window = shift;
@@ -372,39 +403,17 @@ sub Tk::Error {
 #------------------------------------------------------------------------------
 # The event loop itself.
 
-# ???
-sub substrate_do_timeslice {
-  die "doing timeslices currently not supported in the Tk substrate";
+sub loop_do_timeslice {
+  die "doing timeslices currently not supported in the Tk loop";
 }
 
-sub substrate_main_loop {
+sub loop_run {
   Tk::MainLoop();
 }
 
-sub substrate_stop_main_loop {
-  $poe_kernel->[KR_WATCHER_TIMER] = undef;
+sub loop_halt {
+  undef $_watcher_timer;
   $poe_main_window->destroy();
-}
-
-sub substrate_init_main_loop {
-  $poe_main_window = Tk::MainWindow->new();
-  die "could not create a main Tk window" unless defined $poe_main_window;
-  $poe_kernel->signal_ui_destroy( $poe_main_window );
-}
-
-sub signal_ui_destroy {
-  my ($poe_kernel, $window) = @_;
-  $window->OnDestroy
-    ( sub {
-        if (keys %{$poe_kernel->[KR_SESSIONS]}) {
-          $poe_kernel->_dispatch_event
-            ( $poe_kernel, $poe_kernel,
-              EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-              time(), __FILE__, __LINE__, undef
-            );
-        }
-      }
-    );
 }
 
 1;
