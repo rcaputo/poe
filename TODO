@@ -110,6 +110,12 @@ ready for deployment.
 Improve Alarm Interface
 -----------------------
 
+Swapped event/time in alarm_set() and event/seconds in delay_set()
+based on feedback from Kirill.
+
+Added alarm_remove_all() to clear all alarms, based on feedback from
+Kirill.  I'm not sure how useful this one will be.
+
 > From troc@netrus.net Thu Mar 18 09:20:36 1999
 > Message-Id: <199903181417.JAA09983@mail.netrus.net>
 > From: "Rocco Caputo" <troc@netrus.net>
@@ -124,15 +130,27 @@ Improve Alarm Interface
 > |
 > | That's easy to say, anyway.  How about depreciating &Kernel::alarm
 > | and &Kernel::delay, and adding these functions?
-> | 
-> |   $alarm_id = $kernel->alarm_set($time, $event, @etc);
-> |   $kernel->alarm_adjust($alarm_id, $seconds_to_adjust);
-> |   $kernel->alarm_remove($alarm_id);
-> | 
+
+      $alarm_id = $kernel->alarm_set($event, $time, @etc);
+      $status = $kernel->alarm_adjust($alarm_id, $seconds_to_adjust);
+      $status = $kernel->alarm_remove($alarm_id);
+
 > | Also the delay shortcut, which would return an ID usable by
 > | &Kernel::alarm_adjust and &Kernel::alarm_remove:
 > | 
-> |   $alarm_id = $kernel->delay_set($seconds, $event, @etc);
+> |   $alarm_id = $kernel->delay_set($event, $seconds, @etc);
+
+To remove all alarms for a given event or time.  I'm not sure how
+useful these are yet.
+
+      $status = $kernel->alarm_remove_by_event($event);
+      $status = $kernel->alarm_remove_by_time($time);
+
+To remove all alarms for the current session:
+
+      $status = $kernel->alarm_remove_all();
+
+Should alarm_remove() be alarm_remove_by_id() ?
 
 Needless to say, this didn't make it into 0.07_01 (see the CHANGES
 file for what did).  Anyway, the interface seems to have survived the
