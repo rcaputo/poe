@@ -44,8 +44,18 @@ sub STACK_EVENT         () { 1 }
 sub define_trace {
   no strict 'refs';
   foreach my $name (@_) {
-    unless (defined *{"TRACE_$name"}{CODE}) {
+    next if defined *{"TRACE_$name"}{CODE};
+    if (defined *{"POE::Kernel::TRACE_$name"}{CODE}) {
+      eval(
+        "sub TRACE_$name () { " .
+        *{"POE::Kernel::TRACE_$name"}{CODE}->() .
+        "}"
+      );
+      die if $@;
+    }
+    else {
       eval "sub TRACE_$name () { TRACE_DEFAULT }";
+      die if $@;
     }
   }
 }

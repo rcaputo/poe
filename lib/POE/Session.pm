@@ -40,7 +40,19 @@ sub define_assert {
   no strict 'refs';
   foreach my $name (@_) {
     next if defined *{"ASSERT_$name"}{CODE};
-    eval "sub ASSERT_$name () { ASSERT_DEFAULT }";
+    no warnings;
+    if (defined *{"POE::Kernel::ASSERT_$name"}{CODE}) {
+      eval(
+        "sub ASSERT_$name () { " .
+        *{"POE::Kernel::ASSERT_$name"}{CODE}->() .
+        "}"
+      );
+      die if $@;
+    }
+    else {
+      eval "sub ASSERT_$name () { ASSERT_DEFAULT }";
+      die if $@;
+    }
   }
 }
 
@@ -49,7 +61,19 @@ sub define_trace {
   no strict 'refs';
   foreach my $name (@_) {
     next if defined *{"TRACE_$name"}{CODE};
-    eval "sub TRACE_$name () { TRACE_DEFAULT }";
+    no warnings;
+    if (defined *{"POE::Kernel::TRACE_$name"}{CODE}) {
+      eval(
+        "sub TRACE_$name () { " .
+        *{"POE::Kernel::TRACE_$name"}{CODE}->() .
+        "}"
+      );
+      die if $@;
+    }
+    else {
+      eval "sub TRACE_$name () { TRACE_DEFAULT }";
+      die if $@;
+    }
   }
 }
 

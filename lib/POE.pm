@@ -18,9 +18,6 @@ sub import {
   croak "POE::Session and POE::NFA export conflicting constants"
     if grep(/^(Session|NFA)$/, @sessions) > 1;
 
-  # Add Kernel back it, whether anybody wanted it or not.
-  unshift @modules, 'Kernel';
-
   # If a session was specified, use that.  Otherwise use Session.
   if (@sessions) {
     unshift @modules, @sessions;
@@ -28,6 +25,11 @@ sub import {
   else {
     unshift @modules, 'Session';
   }
+
+  # Add Kernel back in, whether anybody wanted it or not.  Ensure that
+  # it comes before any sessions, since the sessions need to refer to
+  # constants defined in Kernel's namespace.
+  unshift @modules, 'Kernel';
 
   my $package = (caller())[0];
 
