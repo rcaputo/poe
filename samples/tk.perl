@@ -6,6 +6,9 @@
 
 use strict;
 use lib '..';
+use lib '/usr/mysrc/Tk800.021/blib';
+use lib '/usr/mysrc/Tk800.021/blib/lib';
+use lib '/usr/mysrc/Tk800.021/blib/arch';
 
 # Tk stuff fires a *lot* of events.  Don't trace unless you mean it.
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
@@ -45,9 +48,6 @@ sub ui_start {
   $heap->{pipe_write} = gensym();
   pipe($heap->{pipe_read}, $heap->{pipe_write}) or die "can't create pipe: $!";
 
-warn "read pipe: ", $heap->{pipe_read};
-warn "write pipe: ", $heap->{pipe_write};
-
   $heap->{pipe_wheel} =
     POE::Wheel::ReadWrite->new
       ( InputHandle  => $heap->{pipe_read},
@@ -73,13 +73,15 @@ warn "write pipe: ", $heap->{pipe_write};
       -command => $session->postback( 'ev_pipe_write' )
     )->pack;
 
-  # A listbox.  It contains the last 10 things fetched from the
+  # A listbox.  It contains the last 5 things fetched from the
   # readable end of the pipe.
 
   $heap->{pipe_tail_list} = $poe_tk_main_window->Listbox
     ( -height => 5, -width => 30
     );
-  $heap->{pipe_tail_list}->insert( 'end', ('') x 10 );
+  for my $i (0..4) {
+    $heap->{pipe_tail_list}->insert( 'end', "starting line $i" );
+  }
   $heap->{pipe_tail_list}->pack;
 
   # A fast timed counter.
@@ -112,6 +114,13 @@ warn "write pipe: ", $heap->{pipe_write};
   $poe_tk_main_window->Button
     ( -text => 'Stop Slow and Fast Alarm Counters',
       -command => $session->postback( 'ev_counters_cease' )
+    )->pack;
+
+  # A button to exit the program would be nice! :)
+
+  $poe_tk_main_window->Button
+    ( -text => 'Exit',
+      -command => sub { $poe_tk_main_window->destroy }
     )->pack;
 
   # Begin some callbacks.
@@ -200,6 +209,7 @@ sub ui_ev_pipe_write {
 
 sub ui_ev_pipe_read {
   my ($heap, $line) = @_[HEAP, ARG0];
+
   $heap->{pipe_tail_list}->delete(0);
   $heap->{pipe_tail_list}->insert( 'end', $line );
 }

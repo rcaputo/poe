@@ -17,9 +17,26 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 |
 | Overhaul Kernel and Session manpages' DESCRIPTIONs.
 | Create a test program for fork and sigchld.
-| Finish full Tk support.  This requires a Tk and Perl/Tk rebuild.
+| Don't forget to add the Tk support to the documentation.
 |
 `-----------------
+
+
+0.1003 2000.05.12
+-----------------
+
+I finally found a system where Perl/Tk builds.  This isn't a comment
+on Perl/Tk (which is huge to build; 77 megs!) as much as it is on
+the state of its OS/2 port.  The samples/tk.perl example program is
+working!
+
+Documentation is still lagging behind development at the moment, but
+I should have more time to focus on it now that the Tk support is in
+open beta on the 'web site.
+
+Since 0.100201 was a private beta for Win32 support testing, and maybe
+two people at most have seen it, you should give its section of the
+Changes a look.
 
 
 0.100201 2000.05.10

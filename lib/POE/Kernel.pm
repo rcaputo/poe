@@ -1383,15 +1383,10 @@ sub tk_select_callback {
   my $self = $poe_kernel;
   my ($handle, $vector) = @_;
 
-warn "called back";
-
   my @selects =
     values %{ $self->[KR_HANDLES]->{$handle}->[HND_SESSIONS]->[$vector] };
 
   foreach my $select (@selects) {
-
-warn "session($select->[HSS_SESSION]) state($select->[HSS_STATE]) handle($select->[HSS_HANDLE])";
-
     $self->_dispatch_state
       ( $select->[HSS_SESSION], $select->[HSS_SESSION],
         $select->[HSS_STATE], ET_SELECT,
@@ -1400,7 +1395,6 @@ warn "session($select->[HSS_SESSION]) state($select->[HSS_STATE]) handle($select
       );
     {% collect_garbage $select->[HSS_SESSION] %}
   }
-
 }
 
 #------------------------------------------------------------------------------
@@ -2081,8 +2075,6 @@ sub _internal_select {
             confess "Tk does not support expedited filehandles"
               if $select_index == VEC_EX;
 
-warn "closing";
-
             $poe_tk_main_window->fileevent
               ( $handle,
 
@@ -2094,9 +2086,6 @@ warn "closing";
                 ''
 
               );
-
-warn "closed";
-
           }
 
           # Shrink the bit vector by chopping zero octets from the
