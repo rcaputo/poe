@@ -2,6 +2,7 @@
 # $Id$
 
 # Exercises Wheel::FollowTail, Wheel::ReadWrite, and Filter::Block.
+# -><- Needs tests for Seek and SeekBack.
 
 use strict;
 use lib qw(./lib ../lib .. .);

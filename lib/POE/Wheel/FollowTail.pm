@@ -103,11 +103,25 @@ sub new {
     @start_stat = stat($filename);
   }
 
-  my $poll_interval = defined($params{PollInterval}) ?
-                        $params{PollInterval} : 1;
-  my $seek_back     = defined($params{SeekBack}) ?
-                        $params{SeekBack} : 4096;
-  $seek_back = 0 if $seek_back < 0;
+  my $poll_interval = (
+    defined($params{PollInterval})
+    ?  $params{PollInterval}
+    : 1
+  );
+
+  my $seek;
+  if (exists $params{SeekBack}) {
+    $seek = $params{SeekBack} * -1;
+    if (exists $params{Seek}) {
+      croak "can't use Seek and SeekBack at the same time";
+    }
+  }
+  elsif (exists $params{Seek}) {
+    $seek = $params{Seek};
+  }
+  else {
+    $seek = -4096;
+  }
 
   my $self = bless
     [ $handle,                          # SELF_HANDLE
@@ -132,15 +146,41 @@ sub new {
 
   if (-f $handle) {
     my $end = sysseek($handle, 0, SEEK_END);
-    if (defined($end) and ($end < $seek_back)) {
+
+    # Seeking back from EOF.
+    if ($seek < 0) {
+      if (defined($end) and ($end < -$seek)) {
+        sysseek($handle, 0, SEEK_SET);
+      }
+      else {
+        sysseek($handle, $seek, SEEK_END);
+      }
+    }
+
+    # Seeking forward from the beginning of the file.
+    elsif ($seek > 0) {
+      if ($seek > $end) {
+        sysseek($handle, 0, SEEK_END);
+      }
+      else {
+        sysseek($handle, $seek, SEEK_SET);
+      }
+    }
+
+    # If they set Seek to 0, we start at the beginning of the file.
+    # If it was SeekBack, we start at the end.
+    elsif (exists $params{Seek}) {
       sysseek($handle, 0, SEEK_SET);
     }
+    elsif (exists $params{SeekBack}) {
+      sysseek($handle, 0, SEEK_END);
+    }
     else {
-      sysseek($handle, -$seek_back, SEEK_END);
+      die;
     }
 
     # Discard partial input chunks unless a SeekBack was specified.
-    unless (defined $params{SeekBack}) {
+    unless (defined $params{SeekBack} or defined $params{Seek}) {
       while (defined(my $raw_input = $driver->get($handle))) {
         # Skip out if there's no more input.
         last unless @$raw_input;
@@ -445,6 +485,7 @@ POE::Wheel::FollowTail - follow the tail of an ever-growing file
     ErrorEvent   => $error_event_name,  # Event to emit upon error
     ResetEvent   => $reset_event_name,  # Event to emit on file reset
     SeekBack     => $offset,            # How far from EOF to start
+    Seek         => $offset,            # How far from BOF to start
   );
 
   $wheel = POE::Wheel::FollowTail->new(
@@ -456,6 +497,7 @@ POE::Wheel::FollowTail - follow the tail of an ever-growing file
     ErrorEvent   => $error_event_name,  # Event to emit upon error
     # No reset event available.
     SeekBack     => $offset,            # How far from EOF to start
+    Seek         => $offset,            # How far from BOF to start
   );
 
 =head1 DESCRIPTION
@@ -514,20 +556,52 @@ PollInterval is the amount of time, in seconds, the wheel will wait
 before retrying after it has reached the end of the file.  This delay
 prevents the wheel from going into a CPU-sucking loop.
 
+=item Seek
+
+The Seek parameter tells FollowTail how far from the start of the file
+to start reading.  Its value is specified in bytes, and values greater
+than the file's current size will quietly cause FollowTail to start
+from the file's end.
+
+A Seek parameter of 0 starts FollowTail at the beginning of the file.
+A negative Seek parameter emulates SeekBack: it seeks backwards from
+the end of the file.
+
+Seek and SeekBack are mutually exclusive.  If Seek and SeekBack are
+not specified, FollowTail seeks 4096 bytes back from the end of the
+file and discards everything until the end of the file.  This helps
+ensure that FollowTail returns only complete records.
+
+When either Seek or SeekBack is specified, FollowTail begins returning
+records from that position in the file.  It is possible that the first
+record returned may be incomplete.  In files with fixed-length
+records, it's possible to return entirely the wrong thing, all the
+time.  Please be careful.
+
 =item SeekBack
 
-The SeekBack parameter tells FollowTail how far before EOF to start
-reading before following the file.  Its value is specified in bytes,
-and values greater than the file's current size will quietly cause
-FollowTail to start from the file's beginning.
+The SeekBack parameter tells FollowTail how far back from the end of
+the file to start reading.  Its value is specified in bytes, and
+values greater than the file's current size will quietly cause
+FollowTail to ltart from the file's beginning.
 
-When SeekBack isn't specified, the wheel seeks 4096 bytes before the
-end of the file and discards everything it reads up until EOF.  It
-does this to frame records within the file.
+A SeekBack parameter of 0 starts FollowTail at the end of the file.
+It's recommended to omit Seek and SeekBack to start from the end of a
+file.
 
-When SeekBack is used, the wheel assumes that records have already
-been framed, and the seek position is the beginning of one.  It will
-return everything it reads up until EOF.
+A negative SeekBack parameter emulates Seek: it seeks forwards from
+the start of the file.
+
+Seek and SeekBack are mutually exclusive.  If Seek and SeekBack are
+not specified, FollowTail seeks 4096 bytes back from the end of the
+file and discards everything until the end of the file.  This helps
+ensure that FollowTail returns only complete records.
+
+When either Seek or SeekBack is specified, FollowTail begins returning
+records from that position in the file.  It is possible that the first
+record returned may be incomplete.  In files with fixed-length
+records, it's possible to return entirely the wrong thing, all the
+time.  Please be careful.
 
 =item Handle
 
