@@ -8,12 +8,21 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0910 2000.??.??
------------------
+0.0910 2000.03.09 (!!!)
+-----------------------
 
 POE now keeps track of the file and line number where an event was
 generated.  $session->option( default => 1 ) will report the line and
 file, so you know where strange events came from.
+
+(!!!) Add session ID to reference lookup from alias_resolve.
+ID_id_to_session is depreciated.  The incompatibility here is that
+session IDs take precedence over aliases, so sessions shouldn't be
+aliased to numbers.
+
+(!!!) Depreciated ID_session_to_id, since alias_resolve does the same
+thing.  No warnings have been set yet, to give developers time to
+react to the change.
 
 
 0.0909 2000.03.10

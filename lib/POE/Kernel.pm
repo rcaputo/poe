@@ -1534,13 +1534,14 @@ sub alias_remove {
 sub alias_resolve {
   my ($self, $name) = @_;
                                         # resolve against sessions
-  if (exists $self->[KR_SESSIONS]->{$name}) {
-    return $self->[KR_SESSIONS]->{$name}->[SS_SESSION];
-  }
+  return $self->[KR_SESSIONS]->{$name}->[SS_SESSION]
+    if exists $self->[KR_SESSIONS]->{$name};
+                                        # resolve against IDs
+  return $self->[KR_SESSION_IDS]->{$id}
+    if exists $self->[KR_SESSION_IDS]->{$id};
                                         # resolve against aliases
-  if (exists $self->[KR_ALIASES]->{$name}) {
-    return $self->[KR_ALIASES]->{$name};
-  }
+  return $self->[KR_ALIASES]->{$name}
+    if exists $self->[KR_ALIASES]->{$name};
                                         # resolve against current namespace
   if ($self->[KR_ACTIVE_SESSION] ne $self) {
     if ($name eq $self->[KR_ACTIVE_SESSION]->[&POE::Session::SE_NAMESPACE]) {
@@ -1739,7 +1740,7 @@ POE::Kernel - POE Event Queue and Resource Manager
 
   # IDs:
   $id = $kernel->ID();                       # Return the Kernel's unique ID.
-  $id = $kernel->ID_id_to_session($id);      # Return undef, or a session.
+  $id = $kernel->alias_resolve($id);         # Return undef, or a session.
   $id = $kernel->ID_session_to_id($session); # Return undef, or a session's ID.
 
 =head1 DESCRIPTION
@@ -2032,6 +2033,30 @@ undef and sets $! to one of:
 
   ESRCH - The alias does not exist.
 
+$kernel->alias_resolve($alias) has been overloaded to resolve several
+things into session references.  Each of these things may be used
+instead of a session reference in other kernel method calls.
+
+The things, in order, are:
+
+Session references: Yes, this is redundant, but it also means that you
+can use stringified session references as event destinations.  That
+provides a form of weak session reference, which can be handy, but
+note: Perl reuses references rather quickly, so programs should
+probably use session IDs instead.
+
+Session IDs: Every session is given a unique numeric ID, similar to an
+operating system's process ID.  There never will be two sessions with
+the same ID at the same time, and the rate of reuse is extremely low
+(the ID is a Perl integer, which tends to be really really large).
+These supply a different sort of weak reference for sessions.
+
+Aliases: These are the ones registered by alias_set.
+
+Heap references: Once upon a time $_[HEAP] was used in place of
+$_[SESSION].  This is SEVERELY depreciated now, and programs will spew
+warnings every time it's done.
+
 =back
 
 =head2 Select Management Methods
@@ -2292,6 +2317,8 @@ Returns a unique ID for this POE process.
 =item *
 
 POE::Kernel::ID_id_to_session( $id );
+
+This function is depreciated.  Please see alias_resolve.
 
 Returns a session reference for the given ID.  It returns undef if the
 ID doesn't exist.  This allows programs to uniquely identify a
