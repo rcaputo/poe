@@ -115,6 +115,8 @@ macro substrate_resume_watching_child_signals () {
 #------------------------------------------------------------------------------
 # Watchers and callbacks.
 
+### Time.
+
 macro substrate_resume_time_watcher {
   my $next_time = ($kr_events[0]->[ST_TIME] - time()) * 1000;
   $next_time = 0 if $next_time < 0;
@@ -133,76 +135,79 @@ macro substrate_pause_time_watcher {
   # does nothing
 }
 
-macro substrate_watch_filehandle {
+### Filehandles.
+
+macro substrate_watch_filehandle (<fileno>,<vector>) {
   # Overwriting a pre-existing watcher?
-  if (defined $kr_handle->[HND_WATCHERS]->[$select_index]) {
-    Gtk::Gdk->input_remove
-      ( $kr_handle->[HND_WATCHERS]->[$select_index] );
-    $kr_handle->[HND_WATCHERS]->[$select_index] = undef;
+  if (defined $kr_fno_vec->[FVC_WATCHER]) {
+    Gtk::Gdk->input_remove( $kr_fno_vec->[FVC_WATCHER] );
+    $kr_fno_vec->[FVC_WATCHER] = undef;
   }
 
   # Register the new watcher.
-  if ($select_index == VEC_RD) {
-    $kr_handle->[HND_WATCHERS]->[VEC_RD] =
-      Gtk::Gdk->input_add( fileno($handle), 'read',
-                           \&_substrate_select_read_callback, $handle
-                         );
-  }
-  elsif ($select_index == VEC_WR) {
-    $kr_handle->[HND_WATCHERS]->[VEC_WR] =
-      Gtk::Gdk->input_add( fileno($handle), 'write',
-                           \&_substrate_select_write_callback, $handle
-                         );
-  }
-  else {
-    $kr_handle->[HND_WATCHERS]->[VEC_EX] =
-      Gtk::Gdk->input_add( fileno($handle), 'exception',
-                           \&_substrate_select_expedite_callback, $handle
-                         );
-  }
+  $kr_fno_vec->[FVC_WATCHER] =
+    Gtk::Gdk->input_add( <fileno>,
+                         ( (<vector> == VEC_RD)
+                           ? ( 'read',
+                               \&_substrate_select_read_callback
+                             )
+                           : ( (<vector> == VEC_WR)
+                               ? ( 'write',
+                                   \&_substrate_select_write_callback
+                                 )
+                               : ( 'exception',
+                                   \&_substrate_select_expedite_callback
+                                 )
+                             )
+                         ),
+                         <fileno>
+                       );
+
+  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-macro substrate_ignore_filehandle {
+macro substrate_ignore_filehandle (<fileno>,<vector>) {
   # Don't bother removing a select if none was registered.
-  if (defined $kr_handle->[HND_WATCHERS]->[$select_index]) {
-    Gtk::Gdk->input_remove( $kr_handle->[HND_WATCHERS]->[$select_index] );
-    $kr_handle->[HND_WATCHERS]->[$select_index] = undef;
+  if (defined $kr_fno_vec->[FVC_WATCHER]) {
+    Gtk::Gdk->input_remove( $kr_fno_vec->[FVC_WATCHER] );
+    $kr_fno_vec->[FVC_WATCHER] = undef;
   }
+  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-macro substrate_pause_filehandle_write_watcher {
-  my $kr_handle = $kr_handles{$handle};
-  Gtk::Gdk->input_remove( $kr_handle->[HND_WATCHERS]->[VEC_WR] );
-  $kr_handle->[HND_WATCHERS]->[VEC_WR] = undef;
+macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
+  Gtk::Gdk->input_remove( $kr_fno_vec->[FVC_WATCHER] );
+  $kr_fno_vec->[FVC_WATCHER] = undef;
+  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-macro substrate_resume_filehandle_write_watcher {
+macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
   # Quietly ignore requests to resume unpaused handles.
-  return 1
-    if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR];
+  return 1 if defined $kr_fno_vec->[FVC_WATCHER];
 
-  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR] =
-    Gtk::Gdk->input_add( fileno($handle), 'write',
-                         \&_substrate_select_write_callback, $handle
+  $kr_fno_vec->[FVC_WATCHER] =
+    Gtk::Gdk->input_add( <fileno>,
+                         ( (<vector> == VEC_RD)
+                           ? ( 'read',
+                               \&_substrate_select_read_callback
+                             )
+                           : ( (<vector> == VEC_WR)
+                               ? ( 'write',
+                                   \&_substrate_select_write_callback
+                                 )
+                               : ( 'exception',
+                                   \&_substrate_select_expedite_callback
+                                 )
+                             )
+                         ),
+                         <fileno>
                        );
+  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
-macro substrate_pause_filehandle_read_watcher {
-  my $kr_handle = $kr_handles{$handle};
-  Gtk::Gdk->input_remove( $kr_handle->[HND_WATCHERS]->[VEC_RD] );
-  $kr_handle->[HND_WATCHERS]->[VEC_RD] = undef;
-}
-
-macro substrate_resume_filehandle_read_watcher {
-  # Quietly ignore requests to resume unpaused handles.
-  return 1
-    if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD];
-
-  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD] =
-    Gtk::Gdk->input_add( fileno($handle), 'read',
-                         \&_substrate_select_read_callback, $handle
-                       );
-}
+### Callbacks.
 
 macro substrate_define_callbacks {
 
@@ -232,9 +237,8 @@ macro substrate_define_callbacks {
   sub _substrate_select_read_callback {
     my $self = $poe_kernel;
     my ($handle, $fileno, $hash) = @_;
-    my $vector = VEC_RD;
 
-    {% dispatch_ready_selects %}
+    {% enqueue_ready_selects $fileno, VEC_RD %}
     {% test_for_idle_poe_kernel %}
 
     # Return false to stop... probably not with this one.
@@ -244,9 +248,8 @@ macro substrate_define_callbacks {
   sub _substrate_select_write_callback {
     my $self = $poe_kernel;
     my ($handle, $fileno, $hash) = @_;
-    my $vector = VEC_WR;
 
-    {% dispatch_ready_selects %}
+    {% enqueue_ready_selects $fileno, VEC_WR %}
     {% test_for_idle_poe_kernel %}
 
     # Return false to stop... probably not with this one.
@@ -256,9 +259,8 @@ macro substrate_define_callbacks {
   sub _substrate_select_expedite_callback {
     my $self = $poe_kernel;
     my ($handle, $fileno, $hash) = @_;
-    my $vector = VEC_EX;
 
-    {% dispatch_ready_selects %}
+    {% enqueue_ready_selects $fileno, VEC_EX %}
     {% test_for_idle_poe_kernel %}
 
     # Return false to stop... probably not with this one.

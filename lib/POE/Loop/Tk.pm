@@ -125,6 +125,8 @@ macro substrate_resume_watching_child_signals () {
 #------------------------------------------------------------------------------
 # Watchers and callbacks.
 
+### Time.
+
 macro substrate_resume_time_watcher {
   if (defined $self->[KR_WATCHER_TIMER]) {
     $self->[KR_WATCHER_TIMER]->cancel();
@@ -146,42 +148,51 @@ macro substrate_pause_time_watcher {
     if defined $self->[KR_WATCHER_TIMER];
 }
 
-macro substrate_watch_filehandle {
+### Filehandles.
+
+macro substrate_watch_filehandle (<fileno>,<vector>) {
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 1 of 2.
   confess "Tk does not support expedited filehandles"
-    if $select_index == VEC_EX;
+    if <vector> == VEC_EX;
+
+  # Cheat.  $handle comes from the user's scope.
 
   $poe_main_window->fileevent
     ( $handle,
 
       # It can only be VEC_RD or VEC_WR here (VEC_EX is checked a few
       # lines up).
-      ( $select_index == VEC_RD ) ? 'readable' : 'writable',
+      ( <vector> == VEC_RD ) ? 'readable' : 'writable',
 
       # The handle is wrapped in quotes here to stringify it.  For
       # some reason, it seems to work as a filehandle anyway, and it
       # breaks reference counting.  For filehandles, then, this is
       # truly a safe (strict ok? warn ok? seems so!) weak reference.
-      [ \&_substrate_select_callback, "$handle", $select_index ],
+      [ \&_substrate_select_callback, <fileno>, <vector> ],
     );
+
+  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-macro substrate_ignore_filehandle {
+macro substrate_ignore_filehandle (<fileno>,<vector>) {
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 2 of 2.
   confess "Tk does not support expedited filehandles"
-    if $select_index == VEC_EX;
+    if <vector> == VEC_EX;
 
-  # Handle refcount is 1; this handle is going away for good.  We can
-  # use fileevent to close it, which will do untie/undef within Tk.
-  if ($kr_handle->[HND_REFCOUNT] == 1) {
+  # Total handle refcount is 1.  This handle is going away for good,
+  # so we can use fileevent to close it.  This does an untie/undef
+  # within Tk, which is why it shouldn't be done for higher refcounts.
+
+  if ($kr_fileno->[FNO_TOT_REFCOUNT] == 1) {
     $poe_main_window->fileevent
       ( $handle,
 
         # It can only be VEC_RD or VEC_WR here (VEC_EX is checked a
         # few lines up).
-        ( ( $select_index == VEC_RD ) ? 'readable' : 'writable' ),
+        ( ( <vector> == VEC_RD ) ? 'readable' : 'writable' ),
 
         # Nothing here!  Callback all gone!
         ''
@@ -191,49 +202,61 @@ macro substrate_ignore_filehandle {
   # Otherwise we have other things watching the handle.  Go into Tk's
   # undocumented guts to disable just this watcher without hosing the
   # entire fileevent thing.
+
   else {
     my $tk_file_io = tied( *$handle );
     die "whoops; no tk file io object" unless defined $tk_file_io;
     $tk_file_io->handler
-      ( ( ( $select_index == VEC_RD )
+      ( ( ( <vector> == VEC_RD )
           ? Tk::Event::IO::READABLE()
           : Tk::Event::IO::WRITABLE()
         ),
         ''
       );
   }
+
+  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-macro substrate_pause_filehandle_write_watcher {
+macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
+  # The Tk documentation implies by omission that expedited
+  # filehandles aren't, uh, handled.  This is part 2 of 2.
+  confess "Tk does not support expedited filehandles"
+    if <vector> == VEC_EX;
+
   # Use an internal work-around to fileevent quirks.
   my $tk_file_io = tied( *$handle );
   die "whoops; no tk file io object" unless defined $tk_file_io;
-  $tk_file_io->handler( Tk::Event::IO::WRITABLE(), '' );
-}
-
-macro substrate_resume_filehandle_write_watcher {
-  # Use an internal work-around to fileevent quirks.
-  my $tk_file_io = tied( *$handle );
-  die "whoops; no tk file io object" unless defined $tk_file_io;
-  $tk_file_io->handler( Tk::Event::IO::WRITABLE(),
-                        [ \&_substrate_select_callback, $handle, VEC_WR ]
+  $tk_file_io->handler( ( ( <vector> == VEC_RD )
+                          ? Tk::Event::IO::READABLE()
+                          : Tk::Event::IO::WRITABLE()
+                        ),
+                        ''
                       );
+  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-macro substrate_pause_filehandle_read_watcher {
+macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
+  # The Tk documentation implies by omission that expedited
+  # filehandles aren't, uh, handled.  This is part 2 of 2.
+  confess "Tk does not support expedited filehandles"
+    if <vector> == VEC_EX;
+
   # Use an internal work-around to fileevent quirks.
   my $tk_file_io = tied( *$handle );
   die "whoops; no tk file io object" unless defined $tk_file_io;
-  $tk_file_io->handler( Tk::Event::IO::READABLE(), '' );
-}
 
-macro substrate_resume_filehandle_read_watcher {
-  # Use an internal work-around to fileevent quirks.
-  my $tk_file_io = tied( *$handle );
-  die "whoops; no tk file io object" unless defined $tk_file_io;
-  $tk_file_io->handler( Tk::Event::IO::READABLE(),
-                        [ \&_substrate_select_callback, $handle, VEC_RD ]
+  $tk_file_io->handler( ( ( <vector> == VEC_RD )
+                          ? Tk::Event::IO::READABLE()
+                          : Tk::Event::IO::WRITABLE()
+                        ),
+                        [ \&_substrate_select_callback,
+                          <fileno>,
+                          <vector>,
+                        ]
                       );
+  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 macro substrate_define_callbacks {
@@ -293,8 +316,8 @@ macro substrate_define_callbacks {
 
   # Tk filehandle callback to dispatch selects.
   sub _substrate_select_callback {
-    my ($handle, $vector) = @_;
-    {% dispatch_ready_selects %}
+    my ($fileno, $vector) = @_;
+    {% enqueue_ready_selects $fileno, $vector %}
     {% test_for_idle_poe_kernel %}
   }
 }

@@ -113,6 +113,8 @@ macro substrate_resume_watching_child_signals {
 #------------------------------------------------------------------------------
 # Watchers and callbacks.
 
+### Time.
+
 macro substrate_resume_time_watcher {
   $self->[KR_WATCHER_TIMER]->at($kr_events[0]->[ST_TIME]);
   $self->[KR_WATCHER_TIMER]->start();
@@ -127,40 +129,41 @@ macro substrate_pause_time_watcher {
   $self->[KR_WATCHER_TIMER]->stop();
 }
 
-macro substrate_watch_filehandle {
-  $kr_handle->[HND_WATCHERS]->[$select_index] =
+### Filehandles.
+
+macro substrate_watch_filehandle (<fileno>,<vector>) {
+  $kr_fno_vec->[FVC_WATCHER] =
     Event->io
-      ( fd => $handle,
-        poll => ( ( $select_index == VEC_RD )
+      ( fd => <fileno>,
+        poll => ( ( <vector> == VEC_RD )
                   ? 'r'
-                  : ( ( $select_index == VEC_WR )
+                  : ( ( <vector> == VEC_WR )
                       ? 'w'
                       : 'e'
                     )
                 ),
         cb => \&_substrate_select_callback,
       );
+  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-macro substrate_ignore_filehandle {
-  $kr_handle->[HND_WATCHERS]->[$select_index]->cancel();
-  $kr_handle->[HND_WATCHERS]->[$select_index] = undef;
+macro substrate_ignore_filehandle (<fileno>,<vector>) {
+  $kr_fno_vec->[FVC_WATCHER]->cancel();
+  $kr_fno_vec->[FVC_WATCHER] = undef;
+  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-macro substrate_pause_filehandle_write_watcher {
-  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
+
+macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
+  $kr_fno_vec->[FVC_WATCHER]->stop();
+  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-macro substrate_resume_filehandle_write_watcher {
-  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
-}
-
-macro substrate_pause_filehandle_read_watcher {
-  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD]->stop();
-}
-
-macro substrate_resume_filehandle_read_watcher {
-  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD]->start();
+macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
+  $kr_fno_vec->[FVC_WATCHER]->start();
+  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 macro substrate_define_callbacks {
@@ -190,7 +193,7 @@ macro substrate_define_callbacks {
 
     my $event = shift;
     my $watcher = $event->w;
-    my $handle = $watcher->fd;
+    my $fileno = $watcher->fd;
     my $vector = ( ( $event->got eq 'r' )
                    ? VEC_RD
                    : ( ( $event->got eq 'w' )
@@ -202,7 +205,7 @@ macro substrate_define_callbacks {
                      )
                  );
 
-    {% dispatch_ready_selects %}
+    {% enqueue_ready_selects $fileno, $vector %}
     {% test_for_idle_poe_kernel %}
   }
 }

@@ -125,6 +125,8 @@ macro substrate_resume_watching_child_signals {
 #------------------------------------------------------------------------------
 # Event watchers and callbacks.
 
+### Time.
+
 macro substrate_resume_time_watcher {
   # does nothing
 }
@@ -137,44 +139,48 @@ macro substrate_pause_time_watcher {
   # does nothing
 }
 
-macro substrate_watch_filehandle {
-  vec($kr_vectors[$select_index], fileno($handle), 1) = 1;
+### Filehandles.
+
+macro substrate_watch_filehandle (<fileno>,<vector>) {
+  if (TRACE_SELECT) {
+    warn( "??? watching fileno (", <fileno>, ") vector (", <vector>,
+          ") count($kr_fno_vec->[FVC_EV_COUNT])"
+        );
+  }
+  vec($kr_vectors[<vector>], <fileno>, 1) = 1;
+  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
-macro substrate_ignore_filehandle {
-  vec($kr_vectors[$select_index], fileno($handle), 1) = 0;
-
-  # Shrink the bit vector by chopping zero octets from the end.
-  # Octets because that's the minimum size of a bit vector chunk that
-  # Perl manages.  Always keep at least one octet around.
-
-  # Removed 2001-10-10, RCC.  Requires \z, but that's not available in
-  # earlier versions of Perl.
-  # $kr_vectors[$select_index] =~ s/(.)\000+$/$1/;
+macro substrate_ignore_filehandle (<fileno>,<vector>) {
+  if (TRACE_SELECT) {
+    warn( "??? ignoring fileno (", <fileno>, ") vector (", <vector>,
+          ") count($kr_fno_vec->[FVC_EV_COUNT])"
+        );
+  }
+  vec($kr_vectors[<vector>], <fileno>, 1) = 0;
+  $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
-macro substrate_pause_filehandle_write_watcher {
-  # Turn off the select vector's write bit for us.  We don't do any
-  # housekeeping since we're only pausing the handle.  It's assumed
-  # that we'll resume it again at some point.
-  vec($kr_vectors[VEC_WR], fileno($handle), 1) = 0;
+macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
+  if (TRACE_SELECT) {
+    warn( "??? pausing fileno (", <fileno>, ") vector (", <vector>,
+          ") count($kr_fno_vec->[FVC_EV_COUNT])"
+        );
+  }
+  vec($kr_vectors[<vector>], <fileno>, 1) = 0;
+  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
-macro substrate_resume_filehandle_write_watcher {
-  # Turn the select vector's write bit back on.
-  vec($kr_vectors[VEC_WR], fileno($handle), 1) = 1;
-}
-
-macro substrate_pause_filehandle_read_watcher {
-  # Turn off the select vector's read bit for us.  We don't do any
-  # housekeeping since we're only pausing the handle.  It's assumed
-  # that we'll resume it again at some point.
-  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 0;
-}
-
-macro substrate_resume_filehandle_read_watcher {
-  # Turn the select vector's read bit back on.
-  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 1;
+macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
+  if (TRACE_SELECT) {
+    warn( "??? resuming fileno (", <fileno>, ") vector (", <vector>,
+          ") count($kr_fno_vec->[FVC_EV_COUNT])"
+        );
+  }
+  vec($kr_vectors[<vector>], <fileno>, 1) = 1;
+  $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
 macro substrate_define_callbacks {
@@ -239,6 +245,13 @@ macro substrate_do_timeslice {
     }
   }
 
+  my $fileno = 0;
+  @filenos = ();
+  foreach (@kr_filenos) {
+    push(@filenos, $fileno) if defined $_;
+    $fileno++;
+  }
+
   if (TRACE_SELECT) {
     warn ",----- SELECT BITS IN -----\n";
     warn "| READ    : ", unpack('b*', $kr_vectors[VEC_RD]), "\n";
@@ -251,16 +264,16 @@ macro substrate_do_timeslice {
   # code to make this sleep is non-optimal.  There is a way to do this
   # in fewer tests.
 
-  if ($timeout || keys(%kr_handles)) {
+  if ($timeout or @filenos) {
 
     # There are filehandles to poll, so do so.
 
-    if (keys(%kr_handles)) {
+    if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
       my $hits = select( my $rout = $kr_vectors[VEC_RD],
                          my $wout = $kr_vectors[VEC_WR],
                          my $eout = $kr_vectors[VEC_EX],
-                         ($timeout < 0) ? 0 : $timeout
+                         $timeout,
                        );
 
       if (ASSERT_SELECT) {
@@ -296,65 +309,53 @@ macro substrate_do_timeslice {
         # This is where they're gathered.  It's a variant on a neat
         # hack Silmaril came up with.
 
-        # -><- This does extra work.  Some of $%kr_handles don't have
-        # all their bits set (for example; VEX_EX is rarely used).  It
-        # might be more efficient to split this into three greps, for
-        # just the vectors that need to be checked.
-
-        # -><- It has been noted that map is slower than foreach when
-        # the size of a list is grown.  The list is exploded on the
-        # stack and manipulated with stack ops, which are slower than
-        # just pushing on a list.  Evil probably ensues here.
-
-        my @selects =
-          map { ( ( vec($rout, fileno($_->[HND_HANDLE]), 1)
-                    ? values(%{$_->[HND_SESSIONS]->[VEC_RD]})
-                    : ( )
-                  ),
-                  ( vec($wout, fileno($_->[HND_HANDLE]), 1)
-                    ? values(%{$_->[HND_SESSIONS]->[VEC_WR]})
-                    : ( )
-                  ),
-                  ( vec($eout, fileno($_->[HND_HANDLE]), 1)
-                    ? values(%{$_->[HND_SESSIONS]->[VEC_EX]})
-                    : ( )
-                  )
-                )
-              } values %kr_handles;
+        my (@rd_selects, @wr_selects, @ex_selects);
+        foreach (@filenos) {
+          push(@rd_selects, $_) if vec($rout, $_, 1);
+          push(@wr_selects, $_) if vec($wout, $_, 1);
+          push(@ex_selects, $_) if vec($eout, $_, 1);
+        }
 
         if (TRACE_SELECT) {
-          if (@selects) {
-            warn( "found pending selects: ",
-                  join( ', ',
-                        sort { $a <=> $b }
-                        map { fileno($_->[HND_HANDLE]) }
-                        @selects
-                      ),
+          if (@rd_selects) {
+            warn( "found pending rd selects: ",
+                  join( ', ', sort { $a <=> $b } @rd_selects ),
+                  "\n"
+                );
+          }
+          if (@wr_selects) {
+            warn( "found pending wr selects: ",
+                  join( ', ', sort { $a <=> $b } @wr_selects ),
+                  "\n"
+                );
+          }
+          if (@ex_selects) {
+            warn( "found pending ex selects: ",
+                  join( ', ', sort { $a <=> $b } @ex_selects ),
                   "\n"
                 );
           }
         }
 
         if (ASSERT_SELECT) {
-          unless (@selects) {
+          unless (@rd_selects or @wr_selects or @ex_selects) {
             die "found no selects, with $hits hits from select???\a\n";
           }
         }
 
-        # Dispatch the gathered selects.  They're dispatched right
-        # away because files will continue to unblock select until
-        # they're taken care of.  The idea is for select handlers to
-        # do whatever is needed to shut up select, and then they post
-        # something indicating what input was got.  Nobody seems to
-        # use them this way, though, not even the author.
+        # Enqueue the gathered selects, and flag them as temporarily
+        # paused.  They'll resume after dispatch.
 
-        foreach my $select (@selects) {
-          $self->_dispatch_event
-            ( $select->[HSS_SESSION], $select->[HSS_SESSION],
-              $select->[HSS_STATE], ET_SELECT,
-              [ $select->[HSS_HANDLE] ],
-              time(), __FILE__, __LINE__, undef
-            );
+        foreach my $fileno (@rd_selects) {
+          {% enqueue_ready_selects $fileno, VEC_RD %}
+        }
+
+        foreach my $fileno (@wr_selects) {
+          {% enqueue_ready_selects $fileno, VEC_WR %}
+        }
+
+        foreach my $fileno (@ex_selects) {
+          {% enqueue_ready_selects $fileno, VEC_EX %}
         }
       }
     }
