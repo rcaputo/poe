@@ -1,0 +1,462 @@
+$Id$
+
+A brief history of POE's evolution.
+
+-------------------------------------------------------------------------------
+
+Received: from sinistar.idle.com (sinistar.idle.com [198.109.160.36])
+        by anshar.shadow.net (8.7.3/8.7.3) with ESMTP id JAA05315
+        for <troc@shadow.net>; Fri, 7 Feb 1997 09:59:05 -0500 (EST)
+Received: (from slist@localhost) by sinistar.idle.com (8.7.5/8.7.3)
+        id JAA12501; Fri, 7 Feb 1997 09:00:15 -0500 (EST)
+Resent-Date: Fri, 7 Feb 1997 09:00:15 -0500 (EST)
+Message-Id: <199702071400.JAA00295@anshar.shadow.net>
+From: "Rocco Caputo" <troc@shadow.net>
+To: "Felix Gallo" <fgallo@wellspring.us.dg.com>,
+        "perl5-porters@perl.org" <perl5-porters@perl.org>
+Date: Fri, 07 Feb 97 08:54:23 -0400
+Reply-To: "Rocco Caputo" <troc@shadow.net>
+Priority: Normal
+Subject: portable multithreading
+Resent-Message-ID: <"O2kshC.A.W5C.lTz-y"@sinistar>
+Resent-From: perl5-porters@perl.org
+X-Mailing-List: <perl5-porters@perl.org> archive/latest/135
+X-Loop: perl5-porters@perl.org
+Precedence: list
+Resent-Sender: perl5-porters-request@perl.org
+Content-Type: text
+Content-Length: 3989
+Status:   
+
+On Thu, 06 Feb 1997 12:52:56 +0000, Felix Gallo wrote:
+
+>Felix's Perl-related Metaproblems:
+>
+>1.  Perl is not event-driven, so programs which wish
+>to make objects available to the network must manually
+>interrupt their control flow to determine if a remote
+>object transaction request is pending.
+
+I'm writing a MUD in perl.  The object language faces
+some of the same issues as perl, but I think there are
+ways around them (in the MUD language and in perl).  In
+the MUD server, objects' methods must be compiled into
+perl bytecode.  They must be multitasked/multithreaded
+so that bad code won't hang the server, and object
+authors usually should not have to think about events.
+
+For example, this "bad" MUD code will be legal.  Don't
+worry, I move on to perl in just a minute.
+
+  count = 10000000
+  while count--
+    say "hello, world!  enter some text: "
+    getline some_text
+    if some_text eq 'quit'
+      last
+    endif
+  endwhile
+  say "\ngoodbye, world!\n"
+
+This needs to be compiled to perl bytecode at runtime.
+The MUD bytecode compiler first parses and syntax
+checks an object's source.  If everything passes, it
+builds a perl sub definition in a string.  This
+sub-in-a-string is treated as an assembly language for
+perl bytecode.  The server runs eval() to assemble the
+string-o-perl into bytecodes, and then the resulting sub
+can be called over and over without additional eval()
+overhead.  (Thanks, Silmaril!)
+
+Making that bad loop work in an event-driven server is
+a little harder than making bytecodes.  The MUD compiler
+will build perl assembly as event-driven state machines.
+It can do this by noting the locations of branch
+destinations and returns from blocking calls.  Each of
+these locations starts a new atomic "state", and an
+"instruction pointer" determines which state to run next.
+
+Here's the event-driven perl "assembly" for that sample
+MUD code.  It's not very efficient, but it serves for
+illustration.
+
+  sub aaaaa {
+    # assumes the existence of a tasking/event kernel
+    my $task = shift;
+    my $namespace = $task->{"namespace"};
+    my $ip = $task->{'instruction pointer'}; # state
+
+    # initial entry point
+    if ($ip == 0) {
+      $namespace->{'count'} = 10000000 ;
+      $task->{'instruction pointer'} = 1;
+    }
+    # top of while loop
+    elsif ($ip == 1) {
+      if ( $namespace->{'count'} -- ) {
+        $task->say( qq(hello, world!  enter some text: ) ) ;
+        # soft block on 'getline'
+        $task->{'blocking'} = 'getline';
+        $task->{'instruction pointer'} = 2;
+      }
+      else {
+        $task->{'instruction pointer'} = 3;
+      }
+    }
+    # "return" from getline
+    elsif ($ip == 2) {
+      $namespace->{'some_text'} = $task->getline();
+      if ( $namespace->{'some_text'} eq q(quit) ) {
+        $task->{'instruction pointer'} = 3;
+      }
+      else {
+        $task->{'instruction pointer'} = 1;
+      }
+    }
+    # after endwhile
+    elsif ($ip == 3) {
+      $task->say( qq(\ngoodbye, world!\n) ) ;
+      $task->{'instruction pointer'} = -1; # signals end
+    }
+  }
+
+The main select/event loop would have some code to run tasks
+round-robin.  Something like this, but probably including code
+to deal with priorities.
+
+  if ($next = shift(@task_queue)) {
+    if (($next->{'blocking'}) || ($next->run() != -1)) {
+      push(@task_queue, $next);
+    }
+    else {
+      undef $next;
+    }
+  }
+
+And starting a new task might look like this:
+
+  $task = new Task($tasking_kernel, "count =  ...  world!\n");
+  if ($task->has_errors()) {
+    $task->display_errors();
+    undef $task;
+  }
+  # otherwise the task has been compiled and registered
+  # with the $tasking_kernel
+
+Anyway, that's how I'm writing portable multitasking for a
+syntactically simple MUD language.  To make this work for
+perl, there would be a standard tasking package, and perl's
+bytecode compiler would need to modify its output to work
+with the package.  Sort of like how the perl debugger works.
+
+Just some ideas to ponder.
+
+Rocco
+<troc@shadow.net>
+
+-------------------------------------------------------------------------------
+
+Received: from sinistar.idle.com ([198.109.160.36])
+        by anshar.shadow.net (8.8.5/8.7.3) with ESMTP id VAA13861
+        for <troc@shadow.net>; Mon, 14 Apr 1997 21:04:07 -0400 (EDT)
+Received: (from slist@localhost) by sinistar.idle.com (8.7.5/8.7.3)
+        id UAA24149; Mon, 14 Apr 1997 20:37:16 -0400 (EDT)
+Resent-Date: Mon, 14 Apr 1997 20:37:16 -0400 (EDT)
+Message-Id: <199704150040.UAA11517@anshar.shadow.net>
+From: "Rocco Caputo" <troc@shadow.net>
+To: "Gary Howland" <gary@systemics.com>,
+        "Tom Christiansen" <tchrist@jhereg.perl.com>
+Cc: "Gary Howland" <gary@systemics.com>, "Hugo van der Sanden" <hv@iii.co.uk>,
+        "hv@tyree.iii.co.uk" <hv@tyree.iii.co.uk>,
+        "perl5-porters@perl.org" <perl5-porters@perl.org>
+Date: Mon, 14 Apr 97 20:34:01 -0500
+Reply-To: "Rocco Caputo" <troc@shadow.net>
+Priority: Normal
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: Re: Perl5.005 wish list (event loop)
+Resent-Message-ID: <"99mWD.A.PzF.i0sUz"@sinistar>
+Resent-From: perl5-porters@idle.com
+X-Mailing-List: <perl5-porters@idle.com> archive/latest/6171
+X-Loop: perl5-porters@idle.com
+Precedence: list
+Resent-Sender: perl5-porters-request@idle.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Length: 1119
+Status:   
+
+Gary, et al,
+
+Almost a year ago, I quietly announced something called "Serv + Face".
+Maybe my announcement was a little too quiet.
+
+Serv is a fork-less, select-based framework of event server classes.
+It provides a high level interface to select(), and a very high level
+interface to TCP client and server socket operations.  It does not fork.
+
+Face is the start of a curses-based UI framework that can run alone
+or use Serv as its main loop.
+
+The code and a rough draft of the documentation are available from
+<http://www.shadow.net/~troc/perlstuff.html>.  If this code is useful
+to anyone, I'd sure like to know.
+
+Rocco
+<troc@shadow.net>
+
+On Tue, 15 Apr 1997 01:36:35 +0200, Gary Howland wrote:
+>
+>Select is fine.  What we (the "event evangelists") want is a "level above" 
+>select.  When we have a chunk of data to send to x streams, we don't want to 
+>have to call select, see which stream is ready for writing, work out how
+>many bytes we can send, send those bytes, shorten our buffers by that amount
+>of bytes, and loop back to select.  We just want to send the data.  And we
+>want to do this without forking.
+
+-------------------------------------------------------------------------------
+
+Received: from sinistar.idle.com (sinistar.idle.com [198.109.160.36])
+        by anshar.shadow.net (8.7.3/8.7.3) with ESMTP id JAA04948
+        for <troc@shadow.net>; Fri, 7 Feb 1997 09:54:31 -0500 (EST)
+Received: (from slist@localhost) by sinistar.idle.com (8.7.5/8.7.3)
+        id JAA12519; Fri, 7 Feb 1997 09:00:19 -0500 (EST)
+Resent-Date: Fri, 7 Feb 1997 09:00:19 -0500 (EST)
+Message-Id: <199702071400.JAA00339@anshar.shadow.net>
+From: "Rocco Caputo" <troc@shadow.net>
+To: "Felix Gallo" <fgallo@wellspring.us.dg.com>,
+        "perl5-porters@perl.org" <perl5-porters@perl.org>
+Date: Fri, 07 Feb 97 08:54:31 -0400
+Reply-To: "Rocco Caputo" <troc@shadow.net>
+Priority: Normal
+Subject: polytheistic perl references
+Resent-Message-ID: <"1y3hHB.A.w5C.sTz-y"@sinistar>
+Resent-From: perl5-porters@perl.org
+X-Mailing-List: <perl5-porters@perl.org> archive/latest/136
+X-Loop: perl5-porters@perl.org
+Precedence: list
+Resent-Sender: perl5-porters-request@perl.org
+Content-Type: text
+Content-Length: 1502
+Status:   
+
+On Thu, 06 Feb 1997 12:52:56 +0000, Felix Gallo wrote:
+
+>Felix's Perl-related Metaproblems:
+>
+>3.  Perl references are monotheistic.  One fancies that saying
+>$x = \{ http://perl.com/myperlobject }; would do the right thing,
+>but the established structure of Perl seems to make this difficult.
+
+There are tied hash packages that implement object naming
+and message passing between named objects within the same
+process.  The packages allow invocations like:
+
+  $msg{'desktop,paint'} = 1;
+  $msg{'name entry,value'} = 'J. K. Cohen';
+  $active_flag = $msg{'active checkbox,value'};
+
+The packages also do broadcasting to subsets of the object
+dictionary.  Hash stores and fetches are sent to or taken
+from all the objects that match the supplied name.  So to
+clear the value of all objects that have 'entry' in their
+names:
+
+  $msg{'entry,value'} = '';
+
+That clears 'name entry' and 'age entry' and 'salary entry'
+and ....
+
+Anyway, the names could be extended to work across sockets
+in the presence of a standard select/event loop:
+
+  $gnats_queue = $msg{'//somewhere.com:4242/stickynote/gnat?count'};
+  print "gnat has $gnats_queue unread sticky notes.\n";
+
+  $message = 'hello, world!';
+  $msg{'//somewhere.org:4242/stickynote/merlyn?queue'} = $message;
+
+Man pages for ObjDict::Names and ObjDict::Messages are
+on-line at <http://www.nexi.com/troc>.  The code is inside
+a larger package, Serv+Face, at
+<http://www.shadow.net/~troc/perlstuff.html>.
+
+Just some ideas to ponder.
+
+Rocco
+<troc@shadow.net>
+
+-------------------------------------------------------------------------------
+
+// =========================================================================
+//  UBERSYS.H
+//   UberSys definitions and classes.
+// =========================================================================
+
+#include <io.h>
+#include <dir.h>
+#include <dos.h>
+#include <math.h>
+#include <time.h>
+#include <alloc.h>
+#include <conio.h>
+#include <ctype.h>
+#include <fcntl.h>
+#include <share.h>
+#include <stdio.h>
+#include <setjmp.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <values.h>
+#include <fstream.h>
+#include <iomanip.h>
+#include <iostream.h>
+#include <sys\stat.h>
+
+// -------------------------------------------------------------------------
+// Constants, limits, and the like.
+
+#define SIZE_UID        9                       // including NULL terminator
+#define SIZE_PWD        26                      // including NULL terminator
+#define SIZE_MAXSTR     0x1000                  // 4k string sizes (max)
+#define SIZE_MAXPATH    0x0050                  // 160 chars for max path
+#define SIZE_MAXLINE    0x00A0                  // 160 characters per line
+#define COUNT_LINES     0x0200                  // 512 editor lines
+
+#define USREV           0x0200                  // version 02.00
+
+#define DRV             "D:"                    // drive it runs on
+
+// -------------------------------------------------------------------------
+// Helper macros.
+                                        // build a 20-bit address from segoff
+#define A20(x)  (((ULI)FP_SEG(x)<<4)+(ULI)FP_OFF(x))
+                                        // make a normalized pointer from A20
+#define A32(x)  MK_FP((UINT)((x)>>4), (UINT)((x)&0x0F))
+                                        // normalize a far pointer using A20
+#define NORM(x) A32(A20(x))
+                                        // maximum of two values
+template <class T>
+T max(T x, T y)
+{
+        return((x>y)?x:y);
+};
+                                        // minimum of two values
+template <class T>
+T min(T x, T y)
+{
+        return((x<y)?x:y);
+};
+                                        // inline assembly shorthand
+#define I asm
+
+#define FATAL fatalerr(thisFile,__LINE__)
+#define FATALH(x) fatalerr(x,__LINE__)
+
+#if defined(DEBUG)
+#   define ERRS             if(errorstream)*errorstream<<setiosflags(ios::uppercase)<<hex
+#   define CRV(x)           if((x)==RV_FAILURE)FATAL
+#   define CNE(x)           if((x)==-1)FATAL
+#   define CZE(x)           if(!(x))FATAL
+#   define FLINE            ,thisFile,__LINE__
+#   define FLINC            thisFile,__LINE__
+#   define FLINP            , char *file, int line
+#   define FLINQ            char *file, int line
+#   define FLINI            ,file,line
+#   define FLINJ            file,line
+#   define FLINS            thisFile,__LINE__,
+#   define FLINT            char *file, int line,
+#   define FLI              dec<<");\t\t// f:"<<setw(12)<<file<<" @ l:"<<setw(4)<<line
+#   define BOTH(x)          A20(x)<<" ["<<A20(*(x))<<"]"
+#   define DEB(x)           x
+#   define DEB2(x,y)        x,y
+#   define NEW              ERRS<<dec<<"\nCall to new.\t\t\t\t\t// f:"<<setw(12)<<thisFile<<" @ l:"<<setw(4)<<__LINE__;
+#   define DEL              ERRS<<dec<<"\nCall to delete.\t\t\t\t\t// f:"<<setw(12)<<thisFile<<" @ l:"<<setw(4)<<__LINE__;
+#   define WHEREAMI         ERRS<<dec<<"\nInside file "<<thisFile<<" @ line "<<__LINE__;
+#   define ORPHANS          { ERRS<<dec<<"\nOrphan check in "<<thisFile<<" @ line "<<__LINE__<<". "; CRV(aOrphans(FLINC)); }
+#   define VALID(dp)        CZE(aValid(aHeader(dp)));
+#   define DUMP             aDump(FLINC);
+#else
+#   define ERRS             cerr
+#   define CRV(x)           x
+#   define CNE(x)           x
+#   define FLINE
+#   define FLINC
+#   define FLINP
+#   define FLINQ            void
+#   define FLINI
+#   define FLINJ
+#   define FLINS
+#   define FLINT
+#   define DEB(x)
+#   define DEB2(x,y)
+#   define NEW
+#   define DEL
+#   define WHEREAMI
+#   define ORPHANS
+#   define VALID(dp)
+#   define DUMP
+#endif
+
+#define FALSE 0
+#define TRUE (~FALSE)
+
+// -------------------------------------------------------------------------
+
+void fatalerr(char *file, int line);
+
+extern char *buildbuf;
+
+// -------------------------------------------------------------------------
+                                        // Paradox Engine header
+#include "pxengine.h"
+                                        // Error stream if debugging.
+DEB(extern ofstream *errorstream;)
+                                        // Message file header.
+#include "general.h"
+                                        // Type definitions.
+#include "mytypes.h"
+                                        // Database functions.
+#include "pxe.h"
+#include "users.h"
+#include "ipx.h"
+                                        // Code groups.
+#include "pcodes.h"
+#include "gsbl.h"
+#include "arena.h"
+#include "interrup.h"
+#include "port.h"
+#include "msgfile.h"
+#include "task.h"
+#include "tam.h"
+#include "qualpath.h"
+#include "xmm.h"
+#include "var.h"
+#include "safepxi.h"
+#include "template.h"
+#include "token.h"
+#include "stack.h"
+#include "objfile.h"
+#include "ofm.h"
+#include "srcfile.h"
+#include "pmachine.h"
+                                        // BBS modules.
+#include "hangup.h"
+#include "idle.h"
+#include "login.h"
+#include "editor.h"
+#include "cmdline.h"
+#include "console.h"
+#include "dirlist.h"
+#include "compiler.h"
+#include "disasm.h"
+#include "runtime.h"
+
+// -------------------------------------------------------------------------
+
+extern TAM *tam;
+
+-------------------------------------------------------------------------------
+
+Light was let be.
