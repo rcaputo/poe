@@ -53,14 +53,17 @@ ExtUtils::AutoInstall->import
         'URI'            => '',
     ],
     'Optional Gtk Support' => [
+        -default => 0,
         -tests => [ qw(t/21_gtk.t) ],
         'Gtk'  => '',
     ],
     'Optional Tk Support' => [
+        -default => 0,
         -tests => [ qw(t/06_tk.t) ],
         'Tk'   => '800.021',
     ],
     'Optional Event.pm Support' => [
+        -default => 0,
         -tests  => [ qw(t/07_event.t t/12_signals_ev.t) ],
         'Event' => '',
     ],
