@@ -18,7 +18,7 @@ __END__
 
 =head1 NAME
 
-POE::Wheel - POE Protocol Logic Abstraction
+POE::Wheel - high-level protocol logic
 
 =head1 SYNOPSIS
 
@@ -27,90 +27,81 @@ POE::Wheel - POE Protocol Logic Abstraction
 
 =head1 DESCRIPTION
 
-Wheels provide standard, reusable protocol logic.  They use filters
-and drivers to do the actual work.  They are designed to manage the
-resources and objects they are given, so programs generally should not
-bother keeping separate references to them.
+Wheels contain reusable chunks of high-level logic.  For example,
+Wheel::FollowTail contains the algorithm for reading data from the end
+of an ever growing file.  Their logic is contained in bundles of
+reusable states which they insert into and remove from their owners
+during creation and destruction.
 
-Wheels mainly work with files.  They usually add and remove states to
-handle select events in the sessions that create them.  Creating a
-wheel on behalf of another session will not do what you expect.
-Likewise, calling another wheel's methods will do Strange Things,
-because a certain level of privacy was assumed while writing them.
+Giving a wheel to another session will not transfer related states.
+As a result, the original owner will continue receiving a wheel's
+events until it's destroyed.
 
-=head1 PUBLIC WHEEL METHODS
+=head1 COMMON PUBLIC WHEEL METHODS
 
-=over 4
+These are the methods that are common to every wheel.
 
-=item *
+=over 2
 
-POE::Wheel::new( ... )
+=item new LOTS_OF_STUFF
 
-The new() method creates and initializes a new wheel.  Part of a
-wheel's initialization involves adding states to its parent session
-(the one that is calling the new() method) and registering them with
-the kernel (usually through POE::Kernel::select() calls).
-Instantiating wheels on behalf of other sessions will not work as
-expected, if at all.
+Creates a new wheel, returning its reference.  The reference holder
+should keep the wheel reference around until it's ready for the wheel
+to stop.
 
-Because wheels have wildly different purposes, they tend also to have
-wildly different constructors.
+Every wheel has a different purpose and requires different parameters,
+so LOTS_OF_STUFF will vary from one to the next.
 
-=item *
+=item DESTROY
 
-POE::Wheel::DESTROY()
+Perl calls DESTROY when the wheel's reference is relinquished.  This
+triggers the wheel's destruction, which releases whatever resources it
+was managing.
 
-The DESTROY() method removes the wheel's states from its parent
-session and cleans up the wheel's other resources.  It's called
-implicitly when the parent session lets go of the wheel's reference.
+When passing resources from one wheel to another, it's important to
+destroy the old wheel before creating the new one.  If the hand-off is
+not in this order, the old wheel's destruction will release the
+resource B<after> the new one has started watching it.  The new wheel
+will then not be watching the resource, even though it ought to be.
 
-B<Important note:> When passing a filehandle between wheels, you must
-ensure that the old wheel is destroyed before creating the new one.
-This is necessary because destruction of the old wheel will remove all
-the selects for the filehandle.  That will undo any selects set by a
-new wheel, preventing the new wheel from seeing any file activity.
+=item put LIST
 
-=item *
+Send a LIST of things through the wheel.  The LIST may only contain
+one thing, and that's ok.  Each thing in the LIST is serialized by the
+wheel's Filter, and then bufferend until the wheel's Driver can flush
+it to a filehandle.
 
-POE::Wheel::put()
+=item event TYPE => STATE_NAME, ...
 
-Wheels hide their resources behind a high-level interface.  Part of
-that interface is the put() method, which calls Filter and Driver
-put() methods as needed.
+Changes the states that are called when a wheel notices certain types
+of events occurring.
 
-=item *
+The event() method's parameters are pairs of event TYPEs and the
+STATE_NAMEs to call when they occur.  Event TYPEs differ for each
+wheel, and their manpages will discuss them in greater detail.
+STATE_NAMEs may be undef, in which case the wheel will stop invoking a
+state for that TYPE of event.
 
-POE::Wheel::event(...)
-
-Wheels emit events for different things.  The event() method lets a
-session change the events its wheels emit at runtime.
-
-The event() method's parameters are pairs of event types (defined by
-wheels' /^.*State$/ constructor parameters) and events to emit.  If
-the event to emit is undef, then the wheel won't emit an event for the
-condition.
-
-For example:
-
-  $wheel->event( InputState   => 'new_input_state',
-                 ErrorState   => undef,
-                 FlushedState => 'new_flushed_state',
-               );
+  $_[HEAP]->{wheel}->event( InputState   => 'new_input_state',
+                            ErrorState   => undef,
+                            FlushedState => 'new_flushed_state',
+                          );
 
 =back
 
 =head1 SEE ALSO
 
-POE::Wheel; POE::Wheel::FollowTail; POE::Wheel::ListenAccept;
-POE::Wheel::ReadWrite; POE::Wheel::SocketFactory
+POE::Wheel::FollowTail; POE::Wheel::ListenAccept;
+POE::Wheel::ReadWrite; POE::Wheel::SocketFactory.
 
 =head1 BUGS
 
-Wheels are fine for what they do, but they tend to be limiting when
-they're used in more interesting ways.
+Wheels really ought to be replaced with a proper stream-based I/O
+abstraction and POE::Component classes to replace FollowTail and
+SocketFactory.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see the POE manpage.
+Please see the POE manpage for authors and licenses.
 
 =cut

@@ -16,18 +16,34 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 ,----- To Do -----
 |
 | Create a test program for fork and sigchld.
-| Still can't get Event to compile on 5.6.0+OS/2 or 5.005+61+FreeBSD;
-|    be sure to mark Event experimental in the new documentation.
-| Make a test for Tk.
+| Turn SocketFactory's sample program into a test case
 | Make a test for Event, when it can be made to work.
 | Split the samples out into a separate distribution.
 |
 `-----------------
 
+
+0.1005 2000.??.??
+-----------------
+
+I forgot to document POE::Session's constructors.  Big oops there.
+Now they are, sort of.
+
+Rewrote the POE::Wheel POD.
+
+Found the Perl symbols that weren't being exported for OS/2 and AIX
+(and maybe Windows).  Fixed makedef.pl to export them, and now Event
+builds and tests ok.  Sweet!  Added initial Event support to
+POE::Kernel and removed the Event caveats throughout POE's
+documentation.  This is experimental until a proper test can be made.
+
+Added t/06_tk.t to test Tk support.
+
+
 0.1004 2000.05.21
 -----------------
 
-Rewrote the POE, POE::Kernel and POE::Session manpages.  Documented Tk
+Rewrote the POE, POE::Kernel and POE::Session PODs.  Documented Tk
 support.  Documented Event support, but it's not in yet.
 
 t/04_select.t assumed that two-argument syswrite was legal, but it

@@ -1256,13 +1256,112 @@ IDs may collide after at 4.29 billion sessions have been created.
 
 =item create LOTS_OF_STUFF
 
-POE::Session's create() constructor is preferred over the older new()
-constructor.
+Bundles some states together into a single machine, then starts it
+running.
+
+LOTS_OF_STUFF looks like a hash of parameter name/value pairs, but
+it's really just a list.  It's preferred over the older, more DWIMmy
+new() constructor because each kind of parameter is explicitly named,
+and it can therefore unambiguously figure out what it is a program is
+trying to do.
+
+=over 2
+
+=item args => LISTREF
+
+Defines the arguments to give to the machine's _start state.  They're
+passed in as @_[ARG0..$#_].
+
+  args => [ 'arg0', 'arg1', 'etc.' ],
+
+=item inline_states => HASHREF
+
+Defines inline coderefs that make up some or all of the session's
+states.
+
+  inline_states =>
+  { _start => sub { print "arg0=$_[ARG0], arg1=$_[ARG1], etc.=$_[ARG2]\n"; }
+    _stop  => \&stop_state
+  },
+
+=item object_states => LISTREF
+
+Defines object methods that make up some or all of the session's
+states.
+
+LISTREF is a list of parameter pairs.  The first member of each pair
+is an object reference.  The second member is either a list reference
+or hash reference.  When it's a list reference, the referenced list
+contains methods from the referenced object.  The methods define
+states with the same names.  When it's a hash reference, the
+referenced hash contains state/method pairs which map state names to
+methods that may have different names.
+
+Perhaps some examples are in order!  This one defines two states,
+state_one and state_two, which are implemented as $object->state_one()
+and $object->state_two().
+
+  object_states =>
+  [ $object => [ 'state_one', 'state_two' ],
+  ],
+
+This second example defines two other states, state_five and
+state_six, which are implemented as $object->do_five() and
+$object->do_six().
+
+  object_states =>
+  [ $object => { state_five => 'do_five',
+                 state_six  => 'do_six',
+               },
+  ],
+
+It's a lot simpler to do than to describe.
+
+=item options => HASHREF
+
+Sets one or more initial session options before starting it.  Please
+see the POE::Session option() method for a list of available session
+options and what they do.
+
+  option => { trace => 1, debug => 1 },
+
+=item package_states => LISTREF
+
+Defines package methods that make up some or all of the session's
+states.
+
+LISTREF is virtually identical to the one for object_states, so I'll
+just skip to the examples.  Check out object_states' description if
+you'd like more details, replacing "object" and "object reference"
+with "package" and "package name", respectively.
+
+So, here's a package_states invocation that defines two states,
+state_one and state_two, which are implemented as Package->state_one()
+and Package->state_two.
+
+  package_states =>
+  [ Package => [ 'state_one', 'state_two' ],
+  ],
+
+And here's an invocation that defines two other states, state_five and
+state_six, to Package->do_five() and Package->do_six().
+
+  package_states =>
+  [ Package => { state_five => 'do_five',
+                 state_six  => 'do_six',
+               },
+  ],
+
+Easy-peasy!
+
+=back
 
 =item new LOTS_OF_STUFF
 
 POE::Session's new() constructor is slighly depreciated in favor of
-the newer create() constructor.
+the newer create() constructor.  A detailed description of
+POE::Session->new() is not forthcoming, but POE::Session's SYNOPSIS
+briefly touches upon its use.
 
 =item option OPTION_NAME
 
@@ -1312,9 +1411,12 @@ event at a session whenever it's pressed.
       -command => $session->postback( 'ev_counters_begin' )
     )->pack;
 
-While it was originally designed for Tk compatibility, this also can
-be used to post events from Event's watchers.  Event currently isn't
-supported yet, because it doesn't seem to compile on FreeBSD or OS/2.
+It can also be used to post events from Event watchers' callbacks.
+
+  Event->flavor
+    ( cb   => $session->postback( 'ev_flavor' ),
+      desc => 'post ev_flavor when Event->flavor occurs',
+    );
 
 =back
 
