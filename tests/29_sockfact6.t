@@ -31,6 +31,7 @@ test_setup(5);
 ok(1);
 
 warn(
+  "\n",
   "***\n",
   "*** This test may hang if your firewall blocks IPv6\n",
   "*** packets across your localhost interface.\n",
