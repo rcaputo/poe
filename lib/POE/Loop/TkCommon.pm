@@ -65,7 +65,7 @@ sub loop_reset_time_watcher {
 
 sub loop_pause_time_watcher {
   my $self = shift;
-  $_watcher_timer->stop() if defined $_watcher_timer;
+  $_watcher_timer->cancel() if defined $_watcher_timer;
 }
 
 # Tk's alarm callbacks seem to have the highest priority.  That is, if
