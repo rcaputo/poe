@@ -116,7 +116,7 @@ sub new {
 
               $heap->{client} = POE::Wheel::ReadWrite->new
                 ( Handle       => $socket,
-                  Driver       => POE::Driver::SysRW->new(),
+                  Driver       => POE::Driver::SysRW->new( BlockSize => 4096 ),
                   Filter       => $client_filter,
                   InputEvent   => 'tcp_server_got_input',
                   ErrorEvent   => 'tcp_server_got_error',
