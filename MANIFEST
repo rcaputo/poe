@@ -1,10 +1,12 @@
 # $Id$
 Changes
+HISTORY
 MANIFEST
 Makefile.PL
-POE.pm
 README
-HISTORY
+t/test.t
+POE.pm
+POE/Curator.pm
 POE/Driver.pm
 POE/Driver/SysRW.pm
 POE/Filter.pm
@@ -12,13 +14,13 @@ POE/Filter/Line.pm
 POE/Kernel.pm
 POE/Session.pm
 POE/Wheel.pm
+POE/Wheel/FollowTail.pm
 POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
-POE/Wheel/FollowTail.pm
-t/test.t
+tests/curator.perl
+tests/followtail.perl
 tests/forkbomb.perl
 tests/selects.perl
 tests/sessions.perl
 tests/signals.perl
 tests/wheels.perl
-tests/followtail.perl
