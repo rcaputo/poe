@@ -49,6 +49,7 @@ BEGIN {
   if ($@ and $@ =~ /(couldn't connect to display ".*?")/) {
     test_setup(0, $1);
   }
+  die if $@;
 }
 
 test_setup(11);

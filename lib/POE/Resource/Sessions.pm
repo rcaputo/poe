@@ -172,7 +172,7 @@ sub _data_ses_free {
   $self->_data_sid_clear($session);            # Remove from SID tables.
   $self->_data_sig_clear_session($session);    # Remove all leftover signals.
 
-  # Things which dohold reference counts.
+  # Things which do hold reference counts.
 
   $self->_data_alias_clear_session($session);  # Remove all leftover aliases.
   $self->_data_extref_clear_session($session); # Remove all leftover extrefs.

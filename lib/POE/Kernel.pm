@@ -334,11 +334,34 @@ BEGIN {
 
   foreach my $file (keys %INC) {
     my $pared_file = $file;
+    # Remove IO/ so we can load POE::Loop::Poll instead of
+    # POE::Loop::IO/Poll.
+    #
+    # TODO - A better convention would be to replace the path
+    # separators with hyphens and rename Loop/Poll.pm to
+    # Loop/IO-Poll.pm.  Foresight > Hindsight.
     $pared_file =~ s/^IO\///;
-    next unless -e "$base_path/$pared_file";
+    next if $pared_file =~ /\//;
 
     my $module = $pared_file;
     substr($module, -3) = "";
+
+    # Modules can die with "not really dying" if they've loaded
+    # something else.  This exception prevents the rest of the
+    # originally used module from being parsed, so the module it's
+    # handed off to takes over.
+
+    # Try for the XS version first.  If it fails, try the plain
+    # version.  If that fails, we're up a creek.
+    my $mod = "POE::XS::Loop::$module";
+    eval "require $mod";
+    if ($@ =~ /Can't locate/) {
+      $mod = "POE::Loop::$module";
+      eval "require $mod";
+    }
+
+    next if $@ =~ /Can't locate/;
+    die if $@ and $@ !~ /not really dying/;
 
     if (defined $used_first) {
       die(
@@ -348,13 +371,6 @@ BEGIN {
         "*\n",
       );
     }
-
-    # Modules can die with "not really dying" if they've loaded
-    # something else.
-    eval "require POE::Loop::$module;";
-    die if $@ and $@ !~ /not really dying/;
-    eval "POE::Loop::$module->import();";
-    die if $@;
 
     $used_first = $module;
   }
@@ -366,10 +382,9 @@ BEGIN {
   }
 }
 
-###############################################################################
+#------------------------------------------------------------------------------
 # Include resource modules here.  Later, when we have the option of XS
 # versions, we'll adapt this to include them if they're available.
-###############################################################################
 
 use POE::Resources;
 
