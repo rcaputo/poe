@@ -40,7 +40,7 @@ BEGIN {
         ET_PARENT ET_CHILD ET_SCPOLL ET_ALARM ET_SELECT
         FIFO_DISPATCH_TIME
 
-        import
+        import signal_ui_destroy
       );
 
   @files_to_unuse =
