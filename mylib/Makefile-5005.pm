@@ -163,7 +163,10 @@ WriteMakefile(
     SUFFIX   => 'gz',
     PREOP    => (
       './mylib/cvs-log.perl | ' .
-      'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
+      '/usr/bin/tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES; ' .
+      "$^X Build.PL; " .
+      './Build distmeta; ' .
+      '/bin/cp -f ./META.yml ./$(DISTNAME)-$(VERSION)/META.yml'
     ),
   },
 
@@ -174,6 +177,8 @@ WriteMakefile(
   },
 
   # More for META.yml than anything.
+  PL_FILES       => { },
+  NO_META        => 1,
   PREREQ_PM      => {
     'Test::More'         => 0,
     'Filter::Util::Call' => 1.04,

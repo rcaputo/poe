@@ -48,6 +48,7 @@ WriteMakefile
                         Filter::Util::Call => 1.04,
                         Test::More         => 0,
                       },
+    PL_FILES    => { },
     clean => {
         FILES => 'poe_report.xml test-output.err coverage.report',
     }
