@@ -6,6 +6,21 @@ use strict;
 use lib qw(./lib);
 use ExtUtils::MakeMaker;
 
+# Switch to default behavior if STDIN isn't a tty.
+unless (-t STDIN) {
+  warn(
+    "\n",
+    "======================================================================\n",
+    "\n",
+    "Standard input is not a terminal/console.  Reverting to --default\n",
+    "behavior to avoid the prompts.\n",
+    "\n",
+    "======================================================================\n",
+    "\n",
+  );
+  push @ARGV, "--default";
+}
+
 eval "require ExtUtils::AutoInstall";
 if ($@) {
   warn( "\n",
