@@ -129,6 +129,9 @@ sub flush {
       $self->[CURRENT_OCTETS_DONE],
     );
 
+    # Errors only count if syswrite() failed.
+    $! = 0 if defined $wrote_count;
+
     unless ($wrote_count) {
       $! = 0 if $! == EAGAIN or $! == EWOULDBLOCK;
       last;
