@@ -1112,6 +1112,7 @@ sub alias_resolve {
   my ($self, $name) = @_;
                                         # resolve against current namespace
   if ($name eq $self->[KR_ACTIVE_SESSION]->{'namespace'}) {
+    carp "Using HEAP instead of SESSION is depreciated";
     return $self->[KR_ACTIVE_SESSION];
   }
                                         # resolve against itself
