@@ -45,20 +45,6 @@ sub _loop_signal_handler_pipe {
     $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
 
-# Special handler.  Stop watching for children; instead, start a loop
-# that polls for them.
-sub _loop_signal_handler_child {
-  if (TRACE_SIGNALS) {
-    POE::Kernel::_warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
-  }
-
-  $SIG{$_[0]} = 'DEFAULT';
-  $poe_kernel->_data_ev_enqueue
-    ( $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
-      __FILE__, __LINE__, time()
-    );
-}
-
 #------------------------------------------------------------------------------
 # Signal handler maintenance functions.
 
