@@ -685,11 +685,11 @@ sub new {
 
       # Resolve the bind address.
       $bind_address =
-        Socket6::inet_pton($self->[MY_SOCKET_DOMAIN], $bind_address);
+        Socket6::gethostbyname2($bind_address, $self->[MY_SOCKET_DOMAIN]);
       unless (defined $bind_address) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $event_failure,
-                            "inet_pton", $!+0, $!, $self->[MY_UNIQUE_ID]
+                            "gethostbyname2", $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
@@ -799,10 +799,10 @@ sub new {
       }
       elsif ($abstract_domain eq DOM_INET6) {
         $connect_address =
-          Socket6::inet_pton( $self->[MY_SOCKET_DOMAIN],
-                              $params{RemoteAddress}
-                            );
-        $error_tag = "inet_pton";
+          Socket6::gethostbyname2( $params{RemoteAddress},
+                                   $self->[MY_SOCKET_DOMAIN]
+                                 );
+        $error_tag = "gethostbyname2";
       }
       else {
         die "unknown domain $abstract_domain";
