@@ -20,6 +20,7 @@ POE/Filter/Reference.pm
 POE/Filter/Stackable.pm
 POE/Filter/Stream.pm
 POE/Kernel.pm
+POE/Loop.pm
 POE/Loop/Event.pm
 POE/Loop/Gtk.pm
 POE/Loop/Poll.pm

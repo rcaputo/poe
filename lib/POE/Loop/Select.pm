@@ -171,7 +171,7 @@ sub loop_reset_time_watcher {
 }
 
 sub loop_pause_time_watcher {
-  # does nothing ($_[0] == next time)
+  # does nothing
 }
 
 #------------------------------------------------------------------------------
@@ -193,7 +193,7 @@ sub loop_ignore_filehandle {
   $loop_filenos{$fileno} &= ~(1<<$mode);
 }
 
-sub loop_pause_filehandle_watcher {
+sub loop_pause_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
@@ -201,7 +201,7 @@ sub loop_pause_filehandle_watcher {
   $loop_filenos{$fileno} &= ~(1<<$mode);
 }
 
-sub loop_resume_filehandle_watcher {
+sub loop_resume_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
@@ -216,7 +216,7 @@ sub loop_do_timeslice {
   my $self = shift;
 
   # Check for a hung kernel.
-  $self->_data_test_for_idle_poe_kernel();
+  $self->_test_if_kernel_is_idle();
 
   # Set the select timeout based on current queue conditions.  If
   # there are FIFO events, then the timeout is zero to poll select and
@@ -385,3 +385,30 @@ sub loop_halt {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Loop::Event - a bridge that supports select(2) from POE
+
+=head1 SYNOPSIS
+
+See L<POE::Loop>.
+
+=head1 DESCRIPTION
+
+This class is an implementation of the abstract POE::Loop interface.
+It follows POE::Loop's public interface exactly.  Therefore, please
+see L<POE::Loop> for its documentation.
+
+=head1 SEE ALSO
+
+L<POE>, L<POE::Loop>, L<select(2)>
+
+=head1 AUTHORS & LICENSING
+
+Please see L<POE> for more information about authors, contributors,
+and POE's licensing.
+
+=cut

@@ -887,11 +887,11 @@ sub _data_handle_resume_requested_state {
 
   unless (--$kr_fno_rec->[FMO_EV_COUNT]) {
     if ($kr_fno_rec->[FMO_ST_REQUEST] & HS_PAUSED) {
-      $self->loop_pause_filehandle_watcher($handle, $mode);
+      $self->loop_pause_filehandle($handle, $mode);
       $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
     }
     elsif ($kr_fno_rec->[FMO_ST_REQUEST] & HS_RUNNING) {
-      $self->loop_resume_filehandle_watcher($handle, $mode);
+      $self->loop_resume_filehandle($handle, $mode);
       $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
     }
     else {
@@ -934,7 +934,7 @@ sub _data_handle_enqueue_ready {
 
       unless ($kr_fno_rec->[FMO_EV_COUNT]++) {
         my $handle = $select->[HSS_HANDLE];
-        $self->loop_pause_filehandle_watcher($handle, $mode);
+        $self->loop_pause_filehandle($handle, $mode);
         $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
       }
 
@@ -1046,7 +1046,7 @@ sub _data_handle_add {
             );
       }
       unless ($kr_fno_rec->[FMO_EV_COUNT]) {
-        $self->loop_resume_filehandle_watcher($handle, $mode);
+        $self->loop_resume_filehandle($handle, $mode);
         $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
       }
       $kr_fno_rec->[FMO_ST_REQUEST] = HS_RUNNING;
@@ -1267,7 +1267,7 @@ sub _data_handle_resume {
 
   # Resume the handle if there are no events for it.
   unless ($kr_fno_rec->[FMO_EV_COUNT]) {
-    $self->loop_resume_filehandle_watcher($handle, $mode);
+    $self->loop_resume_filehandle($handle, $mode);
     $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
   }
 
@@ -1292,7 +1292,7 @@ sub _data_handle_pause {
   }
 
   unless ($kr_fno_rec->[FMO_EV_COUNT]) {
-    $self->loop_pause_filehandle_watcher($handle, $mode);
+    $self->loop_pause_filehandle($handle, $mode);
     $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
   }
 
@@ -1893,16 +1893,12 @@ sub _data_ses_stop {
 } # Close scope.
 
 ###############################################################################
-###############################################################################
-###############################################################################
-
-#------------------------------------------------------------------------------
-# Accessors: Uncategorized.
+# Helpers.
 
 ### Resolve $whatever into a session reference, trying every method we
 ### can until something succeeds.
 
-sub _data_whatever_resolve {
+sub _resolve_session {
   my ($self, $whatever) = @_;
   my $session;
 
@@ -1928,7 +1924,7 @@ sub _data_whatever_resolve {
 
 ### Test whether POE has become idle.
 
-sub _data_test_for_idle_poe_kernel {
+sub _test_if_kernel_is_idle {
   my $self = shift;
 
   if (TRACE_REFCOUNT) {
@@ -1956,12 +1952,10 @@ sub _data_test_for_idle_poe_kernel {
 }
 
 
-###############################################################################
-# Helpers.
 
 ### Explain why a session could not be resolved.
 
-sub explain_resolve_failure {
+sub _explain_resolve_failure {
   my ($self, $whatever) = @_;
   local $Carp::CarpLevel = 2;
 
@@ -1975,7 +1969,7 @@ sub explain_resolve_failure {
 
 ### Explain why a function is returning unsuccessfully.
 
-sub explain_return {
+sub _explain_return {
   my $message = shift;
   local $Carp::CarpLevel = 2;
   ASSERT_RETURNS and confess $message;
@@ -1984,7 +1978,7 @@ sub explain_return {
 
 ### Explain how the user made a mistake calling a function.
 
-sub explain_usage {
+sub _explain_usage {
   my $message = shift;
   local $Carp::CarpLevel = 2;
   ASSERT_USAGE   and confess $message;
@@ -2029,9 +2023,9 @@ sub signal {
     confess "undefined signal in signal()" unless defined $signal;
   };
 
-  my $session = $self->_data_whatever_resolve($destination);
+  my $session = $self->_resolve_session($destination);
   unless (defined $session) {
-    $self->explain_resolve_failure($destination);
+    $self->_explain_resolve_failure($destination);
     return;
   }
 
@@ -2683,9 +2677,9 @@ sub detach_myself {
 sub detach_child {
   my ($self, $child) = @_;
 
-  my $child_session = $self->_data_whatever_resolve($child);
+  my $child_session = $self->_resolve_session($child);
   unless (defined $child_session) {
-    $self->explain_resolve_failure($child);
+    $self->_explain_resolve_failure($child);
     return;
   }
 
@@ -2761,9 +2755,9 @@ sub post {
   # Attempt to resolve the destination session reference against
   # various things.
 
-  my $session = $self->_data_whatever_resolve($destination);
+  my $session = $self->_resolve_session($destination);
   unless (defined $session) {
-    $self->explain_resolve_failure($destination);
+    $self->_explain_resolve_failure($destination);
     return;
   }
 
@@ -2815,9 +2809,9 @@ sub call {
   # Attempt to resolve the destination session reference against
   # various things.
 
-  my $session = $self->_data_whatever_resolve($destination);
+  my $session = $self->_resolve_session($destination);
   unless (defined $session) {
-    $self->explain_resolve_failure($destination);
+    $self->_explain_resolve_failure($destination);
     return;
   }
 
@@ -2889,7 +2883,7 @@ sub alarm {
   };
 
   unless (defined $event_name) {
-    $self->explain_return("invalid parameter to alarm() call");
+    $self->_explain_return("invalid parameter to alarm() call");
     return EINVAL;
   }
 
@@ -2925,7 +2919,7 @@ sub alarm_add {
   };
 
   unless (defined $event_name and defined $time) {
-    $self->explain_return("invalid parameter to alarm_add() call");
+    $self->_explain_return("invalid parameter to alarm_add() call");
     return EINVAL;
   }
 
@@ -2950,7 +2944,7 @@ sub delay {
   };
 
   unless (defined $event_name) {
-    $self->explain_return("invalid parameter to delay() call");
+    $self->_explain_return("invalid parameter to delay() call");
     return EINVAL;
   }
 
@@ -2977,7 +2971,7 @@ sub delay_add {
   };
 
   unless (defined $event_name and defined $delay) {
-    $self->explain_return("invalid parameter to delay_add() call");
+    $self->_explain_return("invalid parameter to delay_add() call");
     return EINVAL;
   }
 
@@ -2997,13 +2991,13 @@ sub alarm_set {
   my ($self, $event_name, $time, @etc) = @_;
 
   unless (defined $event_name) {
-    $self->explain_usage("undefined event name in alarm_set()");
+    $self->_explain_usage("undefined event name in alarm_set()");
     $! = EINVAL;
     return;
   }
 
   unless (defined $time) {
-    $self->explain_usage("undefined time in alarm_set()");
+    $self->_explain_usage("undefined time in alarm_set()");
     $! = EINVAL;
     return;
   }
@@ -3028,7 +3022,7 @@ sub alarm_remove {
   my ($self, $alarm_id) = @_;
 
   unless (defined $alarm_id) {
-    $self->explain_usage("undefined alarm id in alarm_remove()");
+    $self->_explain_usage("undefined alarm id in alarm_remove()");
     $! = EINVAL;
     return;
   }
@@ -3054,13 +3048,13 @@ sub alarm_adjust {
   my ($self, $alarm_id, $delta) = @_;
 
   unless (defined $alarm_id) {
-    $self->explain_usage("undefined alarm id in alarm_adjust()");
+    $self->_explain_usage("undefined alarm id in alarm_adjust()");
     $! = EINVAL;
     return;
   }
 
   unless (defined $delta) {
-    $self->explain_usage("undefined alarm delta in alarm_adjust()");
+    $self->_explain_usage("undefined alarm delta in alarm_adjust()");
     $! = EINVAL;
     return;
   }
@@ -3079,7 +3073,7 @@ sub delay_set {
   my ($self, $event_name, $seconds, @etc) = @_;
 
   unless (defined $event_name) {
-    $self->explain_usage("undefined event name in delay_set()");
+    $self->_explain_usage("undefined event name in delay_set()");
     $! = EINVAL;
     return;
   }
@@ -3091,7 +3085,7 @@ sub delay_set {
   }
 
   unless (defined $seconds) {
-    $self->explain_usage("undefined seconds in delay_set()");
+    $self->_explain_usage("undefined seconds in delay_set()");
     $! = EINVAL;
     return;
   }
@@ -3307,7 +3301,7 @@ sub alias_set {
   my $existing_session = $self->_data_alias_resolve($name);
   if (defined $existing_session) {
     if ($existing_session != $kr_active_session) {
-      $self->explain_usage("alias '$name' is in use by another session");
+      $self->_explain_usage("alias '$name' is in use by another session");
       return EEXIST;
     }
     return 0;
@@ -3329,12 +3323,12 @@ sub alias_remove {
   my $existing_session = $self->_data_alias_resolve($name);
 
   unless (defined $existing_session) {
-    $self->explain_usage("alias does not exist");
+    $self->_explain_usage("alias does not exist");
     return ESRCH;
   }
 
   if ($existing_session != $kr_active_session) {
-    $self->explain_usage("alias does not belong to current session");
+    $self->_explain_usage("alias does not belong to current session");
     return EPERM;
   }
 
@@ -3351,9 +3345,9 @@ sub alias_resolve {
     confess "undefined alias in alias_resolve()" unless defined $name;
   };
 
-  my $session = $self->_data_whatever_resolve($name);
+  my $session = $self->_resolve_session($name);
   unless (defined $session) {
-    $self->explain_resolve_failure($name);
+    $self->_explain_resolve_failure($name);
     return;
   }
 
@@ -3365,10 +3359,10 @@ sub alias_resolve {
 sub alias_list {
   my ($self, $search_session) = @_;
   my $session =
-    $self->_data_whatever_resolve($search_session || $kr_active_session);
+    $self->_resolve_session($search_session || $kr_active_session);
 
   unless (defined $session) {
-    $self->explain_resolve_failure($search_session);
+    $self->_explain_resolve_failure($search_session);
     return;
   }
 
@@ -3392,9 +3386,8 @@ sub ID {
 }
 
 # Resolve an ID to a session reference.  This function is virtually
-# moot now that _data_whatever_resolve does it too.  This explicit
-# call will be faster, though, so it's kept for things that can
-# benefit from it.
+# moot now that _resolve_session does it too.  This explicit call will
+# be faster, though, so it's kept for things that can benefit from it.
 
 sub ID_id_to_session {
   my ($self, $id) = @_;
@@ -3406,7 +3399,7 @@ sub ID_id_to_session {
   my $session = $self->_data_sid_resolve($id);
   return $session if defined $session;
 
-  $self->explain_return("ID does not exist");
+  $self->_explain_return("ID does not exist");
   $! = ESRCH;
   return;
 }
@@ -3426,7 +3419,7 @@ sub ID_session_to_id {
     return $id;
   }
 
-  $self->explain_return("session ($session) does not exist");
+  $self->_explain_return("session ($session) does not exist");
   $! = ESRCH;
   return;
 }
@@ -3449,7 +3442,7 @@ sub refcount_increment {
 
   my $session = $self->ID_id_to_session($session_id);
   unless (defined $session) {
-    $self->explain_return("session id $session_id does not exist");
+    $self->_explain_return("session id $session_id does not exist");
     $! = ESRCH;
     return;
   }
@@ -3471,7 +3464,7 @@ sub refcount_decrement {
 
   my $session = $self->ID_id_to_session($session_id);
   unless (defined $session) {
-    $self->explain_return("session id $session_id does not exist");
+    $self->_explain_return("session id $session_id does not exist");
     $! = ESRCH;
     return;
   }
@@ -3510,7 +3503,7 @@ sub state {
   # though, is already gone.  If TRACE_RETURNS and/or ASSERT_RETURNS
   # is set, this causes a warning or fatal error.
 
-  $self->explain_return("session ($kr_active_session) does not exist");
+  $self->_explain_return("session ($kr_active_session) does not exist");
   return ESRCH;
 }
 

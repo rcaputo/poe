@@ -192,7 +192,7 @@ sub loop_ignore_filehandle {
   }
 }
 
-sub loop_pause_filehandle_watcher {
+sub loop_pause_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
@@ -215,7 +215,7 @@ sub loop_pause_filehandle_watcher {
   }
 }
 
-sub loop_resume_filehandle_watcher {
+sub loop_resume_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
@@ -240,7 +240,7 @@ sub loop_do_timeslice {
   my $self = shift;
 
   # Check for a hung kernel.
-  $self->_data_test_for_idle_poe_kernel();
+  $self->_test_if_kernel_is_idle();
 
   # Set the poll timeout based on current queue conditions.  If there
   # are FIFO events, then the poll timeout is zero and move on.
@@ -389,3 +389,30 @@ sub loop_halt {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Loop::Event - a bridge that supports IO::Poll from POE
+
+=head1 SYNOPSIS
+
+See L<POE::Loop>.
+
+=head1 DESCRIPTION
+
+This class is an implementation of the abstract POE::Loop interface.
+It follows POE::Loop's public interface exactly.  Therefore, please
+see L<POE::Loop> for its documentation.
+
+=head1 SEE ALSO
+
+L<POE>, L<POE::Loop>, L<IO::Poll>
+
+=head1 AUTHORS & LICENSING
+
+Please see L<POE> for more information about authors, contributors,
+and POE's licensing.
+
+=cut

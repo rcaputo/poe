@@ -189,13 +189,13 @@ sub loop_ignore_filehandle {
   }
 }
 
-sub loop_pause_filehandle_watcher {
+sub loop_pause_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
   $fileno_watcher[$fileno]->[$mode]->stop();
 }
 
-sub loop_resume_filehandle_watcher {
+sub loop_resume_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
   $fileno_watcher[$fileno]->[$mode]->start();
@@ -221,13 +221,13 @@ sub _loop_event_callback {
     # to 0.
 
     if ($self->_data_ses_count() == 1) {
-      $self->_data_test_for_idle_poe_kernel();
+      $self->_test_if_kernel_is_idle();
     }
   }
 
   # Make sure the kernel can still run.
   else {
-    $self->_data_test_for_idle_poe_kernel();
+    $self->_test_if_kernel_is_idle();
   }
 }
 
@@ -250,7 +250,7 @@ sub _loop_select_callback {
              );
 
   $self->_data_handle_enqueue_ready($mode, $fileno);
-  $self->_data_test_for_idle_poe_kernel();
+  $self->_test_if_kernel_is_idle();
 }
 
 #------------------------------------------------------------------------------
@@ -270,3 +270,30 @@ sub loop_halt {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Loop::Event - a bridge that supports Event.pm from POE
+
+=head1 SYNOPSIS
+
+See L<POE::Loop>.
+
+=head1 DESCRIPTION
+
+This class is an implementation of the abstract POE::Loop interface.
+It follows POE::Loop's public interface exactly.  Therefore, please
+see L<POE::Loop> for its documentation.
+
+=head1 SEE ALSO
+
+L<POE>, L<POE::Loop>, L<Event>
+
+=head1 AUTHORS & LICENSING
+
+Please see L<POE> for more information about authors, contributors,
+and POE's licensing.
+
+=cut

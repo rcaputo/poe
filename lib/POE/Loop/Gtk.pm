@@ -223,7 +223,7 @@ sub loop_ignore_filehandle {
   }
 }
 
-sub loop_pause_filehandle_watcher {
+sub loop_pause_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
@@ -233,7 +233,7 @@ sub loop_pause_filehandle_watcher {
   undef $fileno_watcher[$fileno]->[$mode];
 }
 
-sub loop_resume_filehandle_watcher {
+sub loop_resume_filehandle {
   my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
@@ -268,7 +268,7 @@ sub _loop_event_callback {
   my $self = $poe_kernel;
 
   $self->_data_ev_dispatch_due();
-  $self->_data_test_for_idle_poe_kernel();
+  $self->_test_if_kernel_is_idle();
 
   Gtk->timeout_remove($_watcher_timer);
   undef $_watcher_timer;
@@ -290,7 +290,7 @@ sub _loop_select_read_callback {
   TRACE_SELECT and warn "<sl> got read callback for $handle";
 
   $self->_data_handle_enqueue_ready(MODE_RD, $fileno);
-  $self->_data_test_for_idle_poe_kernel();
+  $self->_test_if_kernel_is_idle();
 
   # Return false to stop... probably not with this one.
   return 0;
@@ -303,7 +303,7 @@ sub _loop_select_write_callback {
   TRACE_SELECT and warn "<sl> got write callback for $handle";
 
   $self->_data_handle_enqueue_ready(MODE_WR, $fileno);
-  $self->_data_test_for_idle_poe_kernel();
+  $self->_test_if_kernel_is_idle();
 
   # Return false to stop... probably not with this one.
   return 0;
@@ -316,7 +316,7 @@ sub _loop_select_expedite_callback {
   TRACE_SELECT and warn "<sl> got expedite callback for $handle";
 
   $self->_data_handle_enqueue_ready(MODE_EX, $fileno);
-  $self->_data_test_for_idle_poe_kernel();
+  $self->_test_if_kernel_is_idle();
 
   # Return false to stop... probably not with this one.
   return 0;
@@ -338,3 +338,30 @@ sub loop_halt {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Loop::Event - a bridge that supports Gtk's event loop from POE
+
+=head1 SYNOPSIS
+
+See L<POE::Loop>.
+
+=head1 DESCRIPTION
+
+This class is an implementation of the abstract POE::Loop interface.
+It follows POE::Loop's public interface exactly.  Therefore, please
+see L<POE::Loop> for its documentation.
+
+=head1 SEE ALSO
+
+L<POE>, L<POE::Loop>, L<Gtk>
+
+=head1 AUTHORS & LICENSING
+
+Please see L<POE> for more information about authors, contributors,
+and POE's licensing.
+
+=cut
