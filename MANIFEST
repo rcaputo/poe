@@ -38,6 +38,7 @@ samples/followtail.perl
 samples/forkbomb.perl
 samples/httpd.perl
 samples/names.perl
+samples/neural-net.perl
 samples/objmaps.perl
 samples/objsessions.perl
 samples/olayer.perl

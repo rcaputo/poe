@@ -28,6 +28,25 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 |
 `-----------------
 
+0.1101 2000.??.??
+-----------------
+
+Added samples/neural-net.perl.  Someone on IRC was lamenting over
+perl's threads, and he needed parallel computing for a neural network
+he wanted to write, so I wrote this prototype/tutorial for him.  Not
+knowing much about neural networks, it's pretty useless.  It does show
+off POE for pseudo-concurrency, though.
+
+POE::Filter::HTTPD relied on HTTP::Response's as_string() method
+returning something that could be shipped to a web browser as-is.
+This was wrong: as_string() returned the entire HTTP response okay,
+but the headers were generated with "\n" newlines instead of network
+ones ("\x0D\x0A").  The result is that pickier browsers such as MSIE
+and Lynx were displaying the HTTP headers as part of the content.
+Bleah!  Stole HTTP::Response's as_string() method, and fixed the code
+up a bit.
+
+
 0.11 2000.07.12
 ---------------
 
