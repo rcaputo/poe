@@ -32,6 +32,11 @@ sub SELF_HIST_INDEX   () {  7 }
 sub SELF_INPUT_HOLD   () {  8 }
 sub SELF_KEY_BUILD    () {  9 }
 sub SELF_INSERT_MODE  () { 10 }
+sub SELF_PUT_MODE     () { 11 }
+sub SELF_PUT_BUFFER   () { 12 }
+sub SELF_IDLE_TIME    () { 13 }
+sub SELF_STATE_IDLE   () { 14 }
+sub SELF_HAS_TIMER    () { 15 }
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -150,11 +155,19 @@ sub new {
   my $input_event = delete $params{InputEvent};
   croak "$type requires an InputEvent parameter" unless defined $input_event;
 
+  my $put_mode = delete $params{PutMode};
+  $put_mode = 'idle' unless defined $put_mode;
+  croak "$type PutMode must be either 'immediate', 'idle', or 'after'"
+    unless $put_mode =~ /^(immediate|idle|after)$/;
+
+  my $idle_time = delete $params{IdleTime};
+  $idle_time = 2 unless defined $idle_time;
+
   my $self = bless
     [ '',	    # SELF_INPUT
       0,	    # SELF_CURSOR
       $input_event, # SELF_EVENT_INPUT
-      undef,	    # SELF_READING_LINE
+      0,    	    # SELF_READING_LINE
       undef,	    # SELF_STATE_READ
       '>',	    # SELF_PROMPT
       [ ],	    # SELF_HIST_LIST
@@ -162,6 +175,11 @@ sub new {
       '',	    # SELF_INPUT_HOLD
       '',	    # SELF_KEY_BUILD
       1,	    # SELF_INSERT_MODE
+      $put_mode,    # SELF_PUT_MODE
+      [ ],          # SELF_PUT_BUFFER
+      $idle_time,   # SELF_IDLE_TIME
+      undef,        # SELF_STATE_IDLE
+      0,            # SELF_HAS_TIMER
     ], $type;
 
   if (scalar keys %params) {
@@ -176,7 +194,8 @@ sub new {
   # Set up console using Term::ReadKey.
   ReadMode('ultra-raw');
 
-  # Set up the select thing.
+  # Set up the event handlers.  Idle goes first.
+  $self->_define_idle_state();
   $self->_define_read_state();
 
   return $self;
@@ -197,8 +216,46 @@ sub DESTROY {
     $self->[SELF_STATE_READ] = undef;
   }
 
+  if ($self->[SELF_STATE_IDLE]) {
+    $poe_kernel->alarm($self->[SELF_STATE_IDLE]);
+    $poe_kernel->state($self->[SELF_STATE_IDLE]);
+    $self->[SELF_STATE_IDLE] = undef;
+  }
+
   # Restore the console.
   ReadMode('restore');
+}
+
+#------------------------------------------------------------------------------
+# Redefine the idle handler.  This also uses stupid closure tricks.
+# See the comments for &_define_read_state for more information about
+# these closure tricks.
+
+sub _define_idle_state {
+  my $self = shift;
+
+  my $has_timer   = \$self->[SELF_HAS_TIMER];
+  my $put_buffer  = $self->[SELF_PUT_BUFFER];
+
+  # This handler is called when input has become idle.
+  $poe_kernel->state
+    ( $self->[SELF_STATE_IDLE] = $self . ' input timeout',
+      sub {
+        # Prevents SEGV in older Perls.
+        0 && CRIMSON_SCOPE_HACK('<');
+
+        my ($k, $s) = @_[KERNEL, SESSION];
+
+        if (@$put_buffer) {
+          $self->_wipe_input_line();
+          $self->_flush_output_buffer();
+          $self->_repaint_input_line();
+        }
+
+        # No more timer.
+        $$has_timer = 0;
+      }
+    );
 }
 
 #------------------------------------------------------------------------------
@@ -227,6 +284,12 @@ sub _define_read_state {
     my $key_build   = \$self->[SELF_KEY_BUILD];
     my $insert_mode = \$self->[SELF_INSERT_MODE];
 
+    my $state_idle  = $self->[SELF_STATE_IDLE];
+    my $idle_time   = $self->[SELF_IDLE_TIME];
+    my $has_timer   = \$self->[SELF_HAS_TIMER];
+    my $put_buffer  = $self->[SELF_PUT_BUFFER];
+    my $put_mode    = $self->[SELF_PUT_MODE];
+
     $poe_kernel->state
       ( $self->[SELF_STATE_READ] = $self . ' select read',
 	sub {
@@ -241,6 +304,12 @@ sub _define_read_state {
 
 	    # Not reading a line; discard the input.
 	    next unless $$reading;
+
+            # Update the timer on significant input.
+            if ( $put_mode eq 'idle' ) {
+              $k->delay( $state_idle, $idle_time );
+              $$has_timer = 1;
+            }
 
 	    # Keep glomming keystrokes until they stop existing in the
 	    # hash of meta prefixes.
@@ -284,8 +353,9 @@ sub _define_read_state {
 		print $key, "\x0D\x0A";
 		$poe_kernel->select_read( *STDIN );
 		$poe_kernel->yield( $$event_input, undef, 'interrupt' );
-		$$reading = undef;
+		$$reading = 0;
 		$$hist_index = @$hist_list;
+                $self->_flush_output_buffer();
 		next;
 	      }
 
@@ -332,13 +402,14 @@ sub _define_read_state {
 		next;
 	      }
 
-	      # Abort.
+	      # Cancel.
 	      if ($key eq '^G') {
 		print $key, "\x0D\x0A";
 		$poe_kernel->select_read( *STDIN );
-		$poe_kernel->yield( $$event_input, undef, 'abort' );
-		$$reading = undef;
+		$poe_kernel->yield( $$event_input, undef, 'cancel' );
+		$$reading = 0;
 		$$hist_index = @$hist_list;
+                $self->_flush_output_buffer();
 		return;
 	      }
 
@@ -364,8 +435,9 @@ sub _define_read_state {
 		print "\x0D\x0A";
 		$poe_kernel->select_read( *STDIN );
 		$poe_kernel->yield( $$event_input, $$input );
-		$$reading = undef;
+		$$reading = 0;
 		$$hist_index = @$hist_list;
+                $self->_flush_output_buffer();
 		next;
 	      }
 
@@ -400,8 +472,9 @@ sub _define_read_state {
 		print "\x0D\x0A";
 		$poe_kernel->select_read( *STDIN );
 		$poe_kernel->yield( $$event_input, $$input );
-		$$reading = undef;
+		$$reading = 0;
 		$$hist_index = @$hist_list;
+                $self->_flush_output_buffer();
 		next;
 	      }
 
@@ -828,6 +901,91 @@ sub get {
   print $prompt;
 }
 
+# Helper to wipe the current input line.
+sub _wipe_input_line {
+  my $self = shift;
+
+  # Clear the current prompt and input, and home the cursor.
+  print $termcap->Tgoto( 'LE', 1,
+                         $self->[SELF_CURSOR] + length($self->[SELF_PROMPT])
+                       );
+  if ($tc_has_ke) {
+    print $termcap->Tputs( 'kE', 1 );
+  }
+  else {
+    my $wipe_length =
+      length($self->[SELF_PROMPT]) + length($self->[SELF_INPUT]);
+    print( (' ' x $wipe_length), $termcap->Tgoto( 'LE', 1, $wipe_length) );
+  }
+}
+
+# Helper to flush any buffered output.
+sub _flush_output_buffer {
+  my $self = shift;
+
+  # Flush anything buffered.
+  if (@{$self->[SELF_PUT_BUFFER]}) {
+    print @{$self->[SELF_PUT_BUFFER]};
+
+    # Do not change the interior listref, or the event handlers will
+    # become confused.
+    @{$self->[SELF_PUT_BUFFER]} = ( );
+  }
+}
+
+# Set up the prompt and input line like nothing happened.
+sub _repaint_input_line {
+  my $self = shift;
+  print( $self->[SELF_PROMPT], $self->[SELF_INPUT] );
+  if ($self->[SELF_CURSOR] != length($self->[SELF_INPUT])) {
+    print $termcap->Tgoto( 'LE', 1,
+                           length($self->[SELF_INPUT]) - $self->[SELF_CURSOR]
+                         );
+  }
+}
+
+# Write a line on the terminal.
+sub put {
+  my $self = shift;
+  my @lines = map { $_ . "\x0D\x0A" } @_;
+
+  # Write stuff immediately under certain conditions: (1) The wheel is
+  # in immediate mode.  (2) The wheel currently isn't reading a line.
+  # (3) The wheel is in idle mode, and there.
+
+  if ( $self->[SELF_PUT_MODE] eq 'immediate' or
+       !$self->[SELF_READING_LINE] or
+       ( $self->[SELF_PUT_MODE] eq 'idle' and !$self->[SELF_HAS_TIMER] )
+     ) {
+
+    #unshift( @lines,
+    #         "putmode($self->[SELF_PUT_MODE]) " .
+    #         "reading($self->[SELF_READING_LINE]) " .
+    #         "timer($self->[SELF_HAS_TIMER]) "
+    #       );
+
+    $self->_wipe_input_line();
+    $self->_flush_output_buffer();
+
+    # Print the new stuff.
+    print @lines;
+
+    $self->_repaint_input_line();
+
+    return;
+  }
+
+  # Otherwise buffer stuff.
+  push @{$self->[SELF_PUT_BUFFER]}, @lines;
+
+  # Set a timer, if timed.
+  if ( $self->[SELF_PUT_MODE] eq 'idle' and !$self->[SELF_HAS_TIMER] ) {
+    $poe_kernel->delay( $self->[SELF_STATE_IDLE], $self->[SELF_IDLE_TIME] );
+    $self->[SELF_HAS_TIMER] = 1;
+  }
+}    
+
+
 # Add things to the edit history.
 sub addhistory {
   my $self = shift;
@@ -856,7 +1014,7 @@ POE::Wheel::ReadLine - prompted terminal input with basic editing keys
 
   # Input handler.  If $input is defined, then it contains a line of
   # input.  Otherwise $exception contains a word describing some kind
-  # of user exception.  Currently these are 'interrupt' and 'abort'.
+  # of user exception.  Currently these are 'interrupt' and 'cancel'.
   sub got_input_handler {
     my ($heap, $input, $exception) = @_[HEAP, ARG0, ARG1];
     if (defined $input) {
@@ -931,9 +1089,9 @@ end of the line.
 
 =item C-g
 
-Abort entering text.  This stops editing the current line and emits an
+Cancle text entry.  This stops editing the current line and emits an
 InputEvent event.  The event's C<ARG0> parameter is undefined, and its
-C<ARG1> parameter contains the word "abort".
+C<ARG1> parameter contains the word "cancel".
 
 =item C-h
 
@@ -1133,8 +1291,33 @@ The 'interrupt' exception means a user pressed C-c (^C) to interrupt
 the program.  It's up to the input event's handler to decide what to
 do next.
 
-The 'abort' exception means a user pressed C-g (^G) to abort a line of
-input.
+The 'cancel' exception means a user pressed C-g (^G) to cancel a line
+of input.
+
+=item PutMode
+
+PutMode specifies how the wheel will display text when its C<put()>
+method is called.
+
+C<put()> displays text immediately when the user isn't being prompted
+for input.  It will also pre-empt the user to display text right away
+when PutMode is "immediate".
+
+When PutMode is "after", all C<put()> text is held until after the
+user enters or cancels (See C-g) her input.
+
+PutMode can also be "idle".  In this mode, text is displayed right
+away if the keyboard has been idle for a certian period (see the
+IdleTime parameter).  Otherwise it's held as in "after" mode until
+input is completed or canceled, or until the keyboard becomes idle for
+at least IdleTime seconds.  This is ReadLine's default mode.
+
+=item IdleTime
+
+IdleTime specifies how long the keyboard must be idle before C<put()>
+becomes immediate or buffered text is flushed to the display.  It is
+only meaningful when InputMode is "idle".  IdleTime defaults to two
+seconds.
 
 =back
 

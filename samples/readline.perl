@@ -19,13 +19,22 @@ POE::Session->create
 
         # Start the ReadLine wheel here.  It has a very simple
         # constructor interface so far.
-        $_[HEAP]->{rl} = POE::Wheel::ReadLine->new( InputEvent => 'input' ),
+        $_[HEAP]->{rl} =
+          POE::Wheel::ReadLine->new( InputEvent => 'input',
+                                     PutMode    => 'immediate',
+                                   );
 
         # Tell the user what to do.
         print( "\x0D\x0AEnter some text.\x0D\x0A",
                "Press C-c to exit, or type exit or quit or stop.\x0D\x0A",
+               "Enter 'immediate' for an immediate wheel.\x0D\x0A",
+               "Enter 'idle' for a two-second idle wheel.\x0D\x0A",
+               "Enter 'after' for a hold-until-done wheel.\x0D\x0A",
                "Try some of the shell editing keys.\x0D\x0A\x0A",
              );
+
+        # Start a timer loop to test put modes.
+        $_[KERNEL]->delay( ding => 1 );
 
         # ReadLine ignores input until you tell it to get a line.
         # This effectively discards everything until get() is called.
@@ -33,9 +42,17 @@ POE::Session->create
         $_[HEAP]->{rl}->get('Prompt: ');
       },
 
+      # Display the time, or something, for to show that things occur
+      # in the background.
+
+      ding => sub {
+        $_[HEAP]->{rl}->put( "\t" . scalar(localtime) );
+        $_[KERNEL]->delay( ding => 1 );
+      },
+
       # Got input, of some sort.  There are two types of input: If
       # ARG0 is defined, it's a line of input.  If it's undef, then
-      # ARG1 contains an exception code ('interrupt' or 'abort' so
+      # ARG1 contains an exception code ('interrupt' or 'cancel' so
       # far).
 
       # The wheel disables new input once it's fired off an input
@@ -44,13 +61,25 @@ POE::Session->create
       # behavior "one-shot", and it's a lot like Term::ReadLine.
 
       input => sub {
-        my ($heap, $input, $exception) = @_[HEAP, ARG0, ARG1];
+        my ($kernel, $heap, $input, $exception) = @_[KERNEL, HEAP, ARG0, ARG1];
 
         # If it's real input, show it.  Exit if something interesting
         # was typed.
         if (defined $input) {
           print "\tGot: $input\x0D\x0A";
-          return if $input eq 'exit' or $input eq 'quit' or $input eq 'stop';
+
+          if ($input =~ /^(exit|quit|stop)$/i) {
+            $kernel->delay( 'ding' );
+            return;
+          }
+
+          if ($input =~ /^(immediate|after|idle)$/) {
+            delete $_[HEAP]->{rl};
+            $_[HEAP]->{rl} =
+              POE::Wheel::ReadLine->new( InputEvent => 'input',
+                                         PutMode    => $input,
+                                       );
+          }
 
           # Manage a history list.
           $heap->{rl}->addhistory($input);
@@ -60,7 +89,10 @@ POE::Session->create
         # was an interrupt exception (C-c).
         else {
           print "  Exception: $exception\x0D\x0A";
-          return if $exception eq 'interrupt';
+          if ($exception eq 'interrupt') {
+            $kernel->delay( 'ding' );
+            return;
+          }
         }
 
         # Set up ReadLine to get another line.
