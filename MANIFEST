@@ -63,3 +63,4 @@ t/03_aliases.t
 t/04_selects.t
 t/05_macros.t
 t/06_tk.t
+t/07_event.t

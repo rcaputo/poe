@@ -450,7 +450,7 @@ sub _event_signal_handler_generic {
   my $event = shift;
   $poe_kernel->_enqueue_state( $poe_kernel, $poe_kernel,
                                EN_SIGNAL, ET_SIGNAL,
-                               [ $event->watcher->signas ],
+                               [ $event->w->signal ],
                                time(), __FILE__, __LINE__
                              );
 }
@@ -482,7 +482,7 @@ sub _event_signal_handler_pipe {
   my $event = shift;
   $poe_kernel->_enqueue_state( $poe_kernel->[KR_ACTIVE_SESSION], $poe_kernel,
                                EN_SIGNAL, ET_SIGNAL,
-                               [ $event->watcher->signas ],
+                               [ $event->w->signal ],
                                time(), __FILE__, __LINE__
                              );
 }
@@ -619,6 +619,22 @@ sub new {
         undef,                          # KR_WATCHER_IDLE
       ], $type;
 
+    if ( POE_HAS_EVENT ) {
+
+      $self->[KR_WATCHER_TIMER] = Event->timer
+        ( cb     => \&event_alarm_callback,
+          after  => 0,
+          parked => 1,
+        );
+
+      $self->[KR_WATCHER_IDLE ] = Event->idle
+        ( cb     => \&event_fifo_callback,
+          repeat => 1,
+          min    => 0,
+          max    => 0,
+          parked => 1,
+        );
+    }
 
     # Kernel ID, based on Philip Gwyn's code.  I hope he still can
     # recognize it.  KR_SESSION_IDS is a hash because it will almost
@@ -717,7 +733,9 @@ sub new {
       else {
 
         # If Event is available, register a signal watcher with it.
-        if (POE_HAS_EVENT) {
+        # Don't register a SIGKILL handler, though, because Event
+        # doesn't like that.
+        if (POE_HAS_EVENT and $signal ne 'KILL') {
           Event->signal( signal => $signal,
                          cb     => \&_event_signal_handler_generic
                        );
@@ -1609,6 +1627,7 @@ sub event_alarm_callback {
 
   if (@{$self->[KR_ALARMS]}) {
     $self->[KR_WATCHER_TIMER]->at( $self->[KR_ALARMS]->[0]->[ST_TIME] );
+    $self->[KR_WATCHER_TIMER]->start();
   }
   else {
     # Make sure the kernel can still run.
@@ -1875,7 +1894,7 @@ sub _enqueue_state {
     # start the Event idle watcher to begin the dispatch loop.
 
     if ( POE_HAS_EVENT ) {
-      $self->[KR_WATCHER_IDLE]->start();
+      $self->[KR_WATCHER_IDLE]->again();
     }
 
   }
@@ -2001,6 +2020,7 @@ sub _enqueue_alarm {
     # start the Event timer to dispatch it when it becomes due.
     if ( POE_HAS_EVENT and @{$self->[KR_ALARMS]} == 1 ) {
       $self->[KR_WATCHER_TIMER]->at( $self->[KR_ALARMS]->[0]->[ST_TIME] );
+      $self->[KR_WATCHER_TIMER]->start();
     }
 
     # Manage reference counts.
@@ -2819,16 +2839,22 @@ POE::Kernel - an event dispatcher and resource watcher
 
 The POE manpage includes and describes a sample program.
 
-To use POE's event loop:
+POE comes with its own event loop, which is based on select() and
+written exclusively in Perl.  To use it, simply:
 
   use POE;
 
-To have POE encapsulate Tk's event loop:
+POE's functions will also map to Tk's event loop if Tk is first.  No
+other actions are required to begin using POE with Tk, although the
+POE::Session postback() is interesting for making Tk callbacks post
+POE events.
 
   use Tk;
   use POE;
 
-To have POE encapsulate Event's event loop:
+POE can also encapsulate Event's event loop.  If Event is used before
+POE, then POE will use it for you.  POE::Session's postback() method
+can also be used here to have Event's watchers post POE events.
 
   use Event;
   use POE;

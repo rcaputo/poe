@@ -8,17 +8,32 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 [ Hey, Rocco, don't forget to assign a tag to the release after you
-make dist on it!  0.0910 is ``v0_0910''!  For example:
+  make dist on it!  0.0910 is ``v0_0910''!  For example:
 
-  cvs tag -Rc v0_10 .
+  cvs tag -Rc v0_11   .
+  cvs tag -Rc v0_1005 .
 ]
 
 ,----- To Do -----
 |
+| Before 0.1005
+|
+| (nothing)
+|
+| After 0.1005
+|
+| Clean up the mess made while adding Event and Tk support.
+| Event doesn't seem very fast; am I using it incorrectly?
+|
+| Before 0.11
+|
 | Create a test program for fork and sigchld.
-| Turn SocketFactory's sample program into a test case
-| Make a test for Event, when it can be made to work.
+| Turn SocketFactory's sample program into a test case.
+|
+| After 0.11
+|
 | Split the samples out into a separate distribution.
+| Revise the POE web pages.
 |
 `-----------------
 
@@ -26,8 +41,8 @@ make dist on it!  0.0910 is ``v0_0910''!  For example:
 0.1005 2000.??.??
 -----------------
 
-I forgot to document POE::Session's constructors.  Big oops there.
-Now they are, sort of.
+I forgot to document POE::Session's constructors.  Oops!  Now thery
+are documented.
 
 Rewrote the POE::Wheel POD.
 
@@ -35,9 +50,11 @@ Found the Perl symbols that weren't being exported for OS/2 and AIX
 (and maybe Windows).  Fixed makedef.pl to export them, and now Event
 builds and tests ok.  Sweet!  Added initial Event support to
 POE::Kernel and removed the Event caveats throughout POE's
-documentation.  This is experimental until a proper test can be made.
+documentation.
 
-Added t/06_tk.t to test Tk support.
+Added t/06_tk.t to test Tk support.  This tests file, idle and after
+events.  It does nothing with signals, which Tk doesn't handle, and
+nothing heavy duty.  Tk support is functional but still experimental.
 
 a-mused pointed out that samples/tk.perl wasn't stopping its alarm
 counters when it ought to.  This turned out to be a problem with
@@ -49,6 +66,15 @@ Before this, IDLE would never be posted when using Tk or Event.
 
 Enhanced TestSetup (used privately by the t/*.t tests) to skip entire
 test files when given 0 for the number of tests.
+
+The Tk version of POE::Kernel's run() method would never exit, even
+when there were no more sessions.  This has been fixed, after much
+guts wrangling.
+
+Added t/07_event.t to test Event support.  While this is a proper test
+of Event's timer, io and idle events, it doesn't cover signals or any
+heavy duty tasks.  Thus the Event support is functional but still
+experimental.
 
 
 0.1004 2000.05.21
