@@ -24,6 +24,8 @@ aliased to numbers.
 thing.  No warnings have been set yet, to give developers time to
 react to the change.
 
+Tweaked the Win32 support to eliminate some redefined sub warnings.
+
 
 0.0909 2000.03.10
 -----------------
