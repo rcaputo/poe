@@ -21,7 +21,7 @@ BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
   eval {
     require Time::HiRes;
-    import Time::HiRes qw(time sleep);
+    import Time::HiRes qw(time);
   };
 }
 
