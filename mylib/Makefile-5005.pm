@@ -136,7 +136,7 @@ WriteMakefile
     dist           =>
     { COMPRESS => 'gzip -9f',
       SUFFIX   => 'gz',
-      PREOP    => ( 'cvs-log.perl | ' .
+      PREOP    => ( './lib/cvs-log.perl | ' .
                     'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
                   ),
     },
