@@ -276,6 +276,10 @@ sub _data_handle_add {
   my ($self, $handle, $mode, $session, $event) = @_;
   my $fd = fileno($handle);
 
+  # First time watching the file descriptor.  Do some heavy setup.
+  #
+  # NB - This means we can't optimize away the delete() calls here and
+  # there, because they probably ensure that the structure exists.
   unless (exists $kr_filenos{$fd}) {
 
     $kr_filenos{$fd} =

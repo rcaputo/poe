@@ -106,14 +106,17 @@ sub _data_ev_clear_session {
   # TODO - This is probably incorrect.  The total event count will be
   # artificially inflated for events from/to the same session.  That
   # is, a yield() will count twice.
-  my $total_event_count =
-    ( ($event_count{$session} || 0) +
-      ($post_count{$session} || 0)
-    );
+  my $total_event_count = (
+    ($event_count{$session} || 0) +
+    ($post_count{$session} || 0)
+  );
 
   foreach ($kr_queue->remove_items($my_event, $total_event_count)) {
     $self->_data_ev_refcount_dec(@{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION]);
   }
+
+  croak if delete $event_count{$session};
+  croak if delete $post_count{$session};
 }
 
 # -><- Alarm maintenance functions may move out to a separate
@@ -191,14 +194,10 @@ sub _data_ev_refcount_dec {
   }
 
   $self->_data_ses_refcount_dec($dest_session);
-  unless (--$event_count{$dest_session}) {
-    delete $event_count{$dest_session};
-  }
+  $event_count{$dest_session}--;
 
   $self->_data_ses_refcount_dec($source_session);
-  unless (--$post_count{$source_session}) {
-    delete $post_count{$source_session};
-  }
+  $post_count{$source_session}--;
 }
 
 ### Fetch the number of pending events sent to a session.

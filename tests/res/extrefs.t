@@ -74,6 +74,10 @@ ok_if(13, $poe_kernel->_data_extref_count_ses("nothing") == 0);
 $poe_kernel->_data_extref_dec($poe_kernel, "tag-1");
 $poe_kernel->_data_extref_dec($poe_kernel, "tag-2");
 
+# Under normal circumstances, the subsystem will shut down after being
+# finalized.
+$poe_kernel->_data_extref_clear_session($poe_kernel);
+
 # Ensure the subsystem shuts down ok.
 ok_if(14, $poe_kernel->_data_extref_finalize());
 

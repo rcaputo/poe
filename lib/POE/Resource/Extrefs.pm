@@ -109,9 +109,6 @@ sub _data_extref_remove {
 
   delete $kr_extra_refs{$session}->{$tag};
   $self->_data_ses_refcount_dec($session);
-  unless (keys %{$kr_extra_refs{$session}}) {
-    delete $kr_extra_refs{$session};
-  }
 }
 
 ### Clear all the extra references from a session.
@@ -124,13 +121,15 @@ sub _data_extref_clear_session {
   }
 
   if (ASSERT_DATA) {
-    if (exists $kr_extra_refs{$session}) {
+    if (keys %{$kr_extra_refs{$session}}) {
       _trap(
         "<dt> extref clear did not remove session ",
         $self->_data_alias_loggable($session)
       );
     }
   }
+
+  delete $kr_extra_refs{$session};
 }
 
 # Fetch the number of sessions with extra references held in the

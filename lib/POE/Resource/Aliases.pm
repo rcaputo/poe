@@ -78,9 +78,6 @@ sub _data_alias_remove {
   my ($self, $session, $alias) = @_;
   delete $kr_aliases{$alias};
   delete $kr_ses_to_alias{$session}->{$alias};
-  unless (keys %{$kr_ses_to_alias{$session}}) {
-    delete $kr_ses_to_alias{$session};
-  }
   $self->_data_ses_refcount_dec($session);
 }
 
@@ -92,6 +89,7 @@ sub _data_alias_clear_session {
   foreach (keys %{$kr_ses_to_alias{$session}}) {
     $self->_data_alias_remove($session, $_);
   }
+  delete $kr_ses_to_alias{$session};
 }
 
 ### Resolve an alias.  Just an alias.
