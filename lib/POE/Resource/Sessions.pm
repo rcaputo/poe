@@ -67,6 +67,13 @@ sub _data_ses_finalize {
 sub _data_ses_allocate {
   my ($self, $session, $sid, $parent) = @_;
 
+  if (ASSERT_DATA and defined($parent)) {
+    _trap "parent $parent does not exist"
+      unless exists $kr_sessions{$parent};
+    _trap "session $session is already allocated"
+      if exists $kr_sessions{$session};
+  }
+
   $kr_sessions{$session} =
     [ $session,  # SS_SESSION
       0,         # SS_REFCOUNT
@@ -81,12 +88,6 @@ sub _data_ses_allocate {
 
   # Manage parent/child relationship.
   if (defined $parent) {
-    if (ASSERT_DATA) {
-      unless (exists $kr_sessions{$parent}) {
-        _trap "parent $parent does not exist";
-      }
-    }
-
     if (TRACE_SESSIONS) {
       _warn(
         "<ss> ",
@@ -125,9 +126,11 @@ sub _data_ses_free {
 
   if (defined $parent) {
     if (ASSERT_DATA) {
-      if ($parent == $session) {
-        _trap "session is its own parent";
-      }
+      _trap "session is its own parent"
+        if $parent == $session;
+      _trap "session's parent ($parent) doesn't exist"
+        unless exists $kr_sessions{$parent};
+
       unless ($self->_data_ses_is_child($parent, $session)) {
         _trap(
           $self->_data_alias_loggable($session), " isn't a child of ",
@@ -136,15 +139,13 @@ sub _data_ses_free {
           ")"
         );
       }
-      unless (exists $kr_sessions{$parent}) {
-        _trap "internal inconsistency ($parent)";
-      }
     }
 
     # Remove the departing session from its parent.
 
     _trap "internal inconsistency ($parent/$session)"
       unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
+
     undef $kr_sessions{$session}->[SS_PARENT];
 
     if (TRACE_SESSIONS) {
@@ -189,19 +190,19 @@ sub _data_ses_free {
 sub _data_ses_move_child {
   my ($self, $session, $new_parent) = @_;
 
+  if (ASSERT_DATA) {
+    _trap("moving nonexistent child to another parent")
+      unless exists $kr_sessions{$session};
+    _trap("moving child to a nonexistent parent")
+      unless exists $kr_sessions{$new_parent};
+  }
+
   if (TRACE_SESSIONS) {
     _warn(
       "<ss> moving ",
       $self->_data_alias_loggable($session), " to ",
       $self->_data_alias_loggable($new_parent)
     );
-  }
-
-  if (ASSERT_DATA) {
-    _trap("moving nonexistent child to another parent")
-      unless exists $kr_sessions{$session};
-    _trap("moving child to a nonexistent parent")
-      unless exists $kr_sessions{$new_parent};
   }
 
   my $old_parent = $self->_data_ses_get_parent($session);
