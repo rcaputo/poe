@@ -97,7 +97,10 @@ my %kr_signals;
 # Bookkeeping per dispatched signal.
 
 my @kr_signaled_sessions;
-my $kr_signal_handled;
+my $kr_signal_total_implicits;
+my $kr_signal_total_explicits;
+my $kr_signal_handled_implicitly;
+my $kr_signal_handled_explicitly;
 my $kr_signal_type;
 
 # The table of session aliases, and the sessions they refer to.
@@ -366,11 +369,19 @@ macro sig_remove (<session>,<signal>) {
 }
 
 macro sid (<session>) {
-  "session " . <session>->ID . " (<session>)"
+  "session " . <session>->ID . " (" .
+    ( (keys %{$kr_sessions{<session>}->[SS_ALIASES]})
+      ? join(", ", keys(%{$kr_sessions{<session>}->[SS_ALIASES]}) )
+      : <session>
+    ). ")"
 }
 
 macro ssid {
-  "session " . $session->ID
+  "session " . $session->ID . " (" .
+    ( (keys %{$kr_sessions{$session}->[SS_ALIASES]})
+      ? join(", ", keys(%{$kr_sessions{$session}->[SS_ALIASES]}) )
+      : $session
+    ). ")"
 }
 
 macro ses_leak_hash (<field>) {
@@ -731,6 +742,16 @@ sub signal {
     );
 }
 
+# Public interface for flagging signals as handled.  This will replace
+# the handlers' return values as an implicit flag.  Returns undef so
+# it may be used as the last function in an event handler.
+
+sub sig_handled {
+  my $self = shift;
+  $kr_signal_total_explicits = 1;
+  $kr_signal_handled_explicitly = 1;
+}
+
 #==============================================================================
 # KERNEL
 #==============================================================================
@@ -1007,7 +1028,8 @@ sub _dispatch_event {
 
       # Step 0: Reset per-signal structures.
 
-      undef $kr_signal_handled;
+      undef $kr_signal_total_implicits;
+      undef $kr_signal_total_explicits;
       $kr_signal_type = $_signal_types{$signal} || SIGTYPE_BENIGN;
       undef @kr_signaled_sessions;
 
@@ -1087,6 +1109,13 @@ sub _dispatch_event {
   # session on Perl's call stack.
   my $hold_active_session = $kr_active_session;
   $kr_active_session = $session;
+
+  # Clear the implicit/explicit signal handler flags for this event
+  # dispatch.  We'll use them afterward to carp at the user if they
+  # handled something implicitly but not explicitly.
+
+  undef $kr_signal_handled_implicitly;
+  undef $kr_signal_handled_explicitly;
 
   # Dispatch the event, at long last.
   my $return =
@@ -1198,12 +1227,12 @@ sub _dispatch_event {
 
     my $index = @kr_events;
     while ( $index-- &&
-            ( $kr_sessions{$session}->[SS_EVCOUNT] or
-              $kr_sessions{$session}->[SS_POST_COUNT]
+            ( $kr_sessions{$session}->[SS_EVCOUNT]
+              or $kr_sessions{$session}->[SS_POST_COUNT]
             )
           ) {
-      if ( $kr_events[$index]->[ST_SESSION] == $session or
-           $kr_events[$index]->[ST_SOURCE]  == $session
+      if ( $kr_events[$index]->[ST_SESSION] == $session
+           or $kr_events[$index]->[ST_SOURCE]  == $session
          ) {
         {% ses_refcount_dec2 $kr_events[$index]->[ST_SESSION], SS_EVCOUNT %}
         {% ses_refcount_dec2 $kr_events[$index]->[ST_SOURCE], SS_POST_COUNT %}
@@ -1282,11 +1311,21 @@ sub _dispatch_event {
 
   elsif ($type & (ET_SIGNAL | ET_SIGNAL_EXPLICIT | ET_SIGNAL_COMPATIBLE)) {
     push @kr_signaled_sessions, $session;
-    $kr_signal_handled += !!$return;
+    $kr_signal_total_implicits += !!$return;
+    $kr_signal_handled_implicitly += !!$return;
+
+    unless ($kr_signal_handled_explicitly) {
+      if ($kr_signal_handled_implicitly) {
+        # -><- DEPRECATION WARNING GOES HERE
+        # warn( {% ssid %} . " implicitly handled SIG$etc->[0]\n" );
+      }
+    }
 
     if ($type & ET_SIGNAL) {
       if ( ($kr_signal_type & SIGTYPE_NONMASKABLE) or
-           ($kr_signal_type & SIGTYPE_TERMINAL and !$kr_signal_handled)
+           ( $kr_signal_type & SIGTYPE_TERMINAL and
+             !($kr_signal_total_explicits || $kr_signal_total_implicits)
+           )
          ) {
         foreach my $dead_session (@kr_signaled_sessions) {
           TRACE_SIGNALS and
@@ -1729,7 +1768,9 @@ sub _enqueue_event {
      ) = @_;
 
   if (TRACE_EVENTS) { # include
-    warn "}}} enqueuing event '$event' for ", {% ssid %}, " at $time\n";
+    warn( "}}} enqueuing event '$event' from session ", $source_session->ID,
+          " to ", {% ssid %}, " at $time"
+        );
   } # include
 
   if (exists $kr_sessions{$session}) {
@@ -1864,6 +1905,7 @@ sub post {
   # various things.
 
   my $session = {% alias_resolve $destination %};
+
   {% test_resolve $destination, $session %}
 
   # Enqueue the event for "now", which simulates FIFO in our
@@ -3062,7 +3104,7 @@ sub alias_list {
   }
 
   # Return whatever can be found.
-  return grep {$kr_aliases{$_} == $search_session} keys %kr_aliases;
+  return keys %{$kr_sessions{$search_session}->[SS_ALIASES]};
 }
 
 #==============================================================================
@@ -3417,11 +3459,14 @@ Filehandle watcher methods:
 
 Signal watcher and generator methods:
 
-  # Generate an event when a particular signal arrives.
+  # Watch for a signal, and generate an event when it arrives.
   $kernel->sig( $signal_name, $event );
 
   # Stop watching for a signal.
   $kernel->sig( $signal_name );
+
+  # Handle a signal, preventing the program from terminating.
+  $kernel->sig_handled();
 
   # Post a signal through POE rather than through the underlying OS.
   # This only works within the same process.
@@ -4180,39 +4225,55 @@ This method does not return a meaningful value.
 
 =head2 Signal Watcher Methods
 
-Sessions always receive events for signals.  By default, signals are
-sent as _signal events.  Signal "watchers" just map particular signals
-to events other than _signal.
+First some general notes about signal events and handling them.
 
-The default _signal event is covered in more detail in
-L<POE::Session>, along with the other standard events.
+Signal events are dispatched to sessions that have registered interest
+in them via the C<sig()> method.  For backward compatibility, every
+other session will receive a _signal event after that, but this will
+be deprecated in the future.  The C<sig()> events and _signal events
+contain the same parameters.  L<POE::Session> covers signal events in
+more details.
 
-Signal watchers do not prevent sessions from spontaneously stopping.
-
-Perl's signal handling is not safe by itself, and while POE tries its
-best to avoid signal problems, they will occur.  The Event module
-implements safe signals, and POE will take advantage of them when
-Event is used before it.
-
-Signal events propagate from a session's children up to it.  This
-ensures that the leaves of a session's family tree are signalled
-before branches, and so on up to it.  By the time a session receives a
-signal, all its descendents already have.
+Signal events propagate to child sessions before their parents.  This
+ensures that leaves of the parent/child tree are signaled first.  By
+the time a session receives a signal, all its descendents already
+have.
 
 The Kernel acts as the ancestor of every session.  Signalling it, as
 the operating system does, propagates signal events to every session.
 
-It's possible to post fictitious signals from within POE.  These are
-injected into the queue as if they came from the underlying operating
-system, but they are not limited to the signals that the system
-recognizes.  POE uses fictitious signals to notify every session about
-certain global events.
+It is possible to post fictitious signals from within POE.  These are
+injected into the queue as if they came from the operating system, but
+they are not limited to signals that the system recognizes.  POE uses
+fictitious signals to notify every session about certain global
+events, such as when a user interface has been destroyed.
 
-Sessions that don't handle signal events may incur side effects.
-Event handlers tell the Kernel that they've handled a signal by
-returning true.  The Kernel will consider a signal unhandled if its
-event handler returns false or doesn't exist.  Either way, the signal
-will continue propagating up the ancestor tree.
+Sessions that do not handle signal events may incur side effects.  In
+particular, some signals are "terminal", in that they terminate a
+program if they are not handled.  Many of the signals that usually
+stop a program in UNIX are terminal in POE.
+
+POE also recognizes "non-maskable" signals.  These will terminate a
+program even when they are handled.  The signal that indicates user
+interface destruction is just such a non-maskable signal.
+
+Event handlers use C<sig_handled()> to tell POE when a signal has been
+handled.  Some unhandled signals will terminate a program.  Handling
+them is important if that is not desired.
+
+Event handlers can also implicitly tell POE when a signal has been
+handled, simply by returning some true value.  This is deprecated,
+however, because it has been the source of constant trouble in the
+past.  Please use C<sig_handled()> in its place.
+
+Handled signals will continue to propagate through the parent/child
+hierarchy.
+
+Signal handling in Perl is not safe by itself.  POE is written to
+avoid as many signal problems as it can, but they still may occur.
+SIGCHLD is a special exception: POE polls for child process exits
+using waitpid() instead of a signal handler.  Spawning child processes
+should be completely safe.
 
 There are three signal levels.  They are listed from least to most
 strident.
@@ -4221,29 +4282,36 @@ strident.
 
 =item benign
 
-Benign signals just notify sessions that signals have been caught.
-They have no side effects if they aren't handled.
+Benign signals just notify sessions that signals have been received.
+They have no side effects if they are not handled.
 
 =item terminal
 
-Terminal signals will stop any session that doesn't handle them.  The
-terminal system signals are: HUP, INT, KILL, QUIT and TERM.  There is
-also one terminal fictitious signal, IDLE, which is used to notify
-leftover sessions that the program has run out of things to do.
+Terminal signal may stop a program if they go unhandled.  If any event
+handler calls C<sig_handled()>, however, then the program will
+continue to live.
+
+In the past, only sessions that handled signals would survive.  All
+others would be terminated.  This led to inconsistent states when some
+programs were signaled.
+
+The terminal system signals are: HUP, INT, KILL, QUIT and TERM.  There
+is also one terminal fictitious signal, IDLE, which is used to notify
+leftover sessions when a program has run out of things to do.
 
 =item nonmaskable
 
 Nonmaskable signals are similar to terminal signals, but they stop a
-session regardless of its handler's return value.  There are two
-nonmaskable signals, both of which are fictitious:
+program regardless whether it has been handled.  POE implements two
+nonmaskable signals, both of which are fictitious.
 
-ZOMBIE is fired if the terminal signal IDLE did not wake anything up;
-it's used to stop the remaining "zombie" sessions so that an inactive
-program will exit.
+ZOMBIE is fired if the terminal signal IDLE did not wake anything up.
+It is used to stop the remaining "zombie" sessions so that an inactive
+program will exit cleanly.
 
-UIDESTROY is fired when a program's main or top-level widget has been
-destroyed.  It's used to shut down programs when their interfaces have
-been closed.
+UIDESTROY is fired when a main or top-level user interface widget has
+been destroyed.  It is used to shut down programs when their
+interfaces have been closed.
 
 =back
 
@@ -4255,32 +4323,38 @@ SIGPIPE, and SIGWINCH.
 =item SIGCHLD/SIGCLD Events
 
 POE::Kernel generates the same event when it receives either a SIGCHLD
-or SIGCLD signal from the operating system.  This is done so sessions
-don't have to worry about which one they'll receive.
+or SIGCLD signal from the operating system.  This alleviates the need
+for sessions to check both signals.
 
-Additionally, the Kernel's SIGCHLD/SIGCLD handler determines the
-exiting child's process ID and return value on behalf of sessions.
-This lets several sessions receive that information without deciding
-which will call waitpid(2).
+Additionally, the Kernel will determine the ID and return value of the
+exiting child process.  The values are broadcast to every session, so
+several sessions can check whether a departing child process is
+theirs.
 
 The SIGCHLD/SIGCHLD signal event comes with three custom parameters.
-C<ARG0> contains 'CHLD' even if SIGCLD was caught.  C<ARG1> contains
-the child's process ID.  C<ARG2> contains the child's return value
-from C<$?>.
+
+C<ARG0> contains 'CHLD', even if SIGCLD was caught.  C<ARG1> contains
+the ID of the exiting child process.  C<ARG2> contains the return
+value from C<$?>.
 
 =item SIGPIPE Events
 
 Normally, system signals are posted to the Kernel so they can
-propagate to every session.  SIGPIPE is an exception to this rule;
-it's posted to the session that's currently running.  It still will
-propagate through that session's children, but it won't go beyond that
-parent/child tree.
+propagate to every session.  SIGPIPE is an exception to this rule.  It
+is posted to the session that is currently running.  It still will
+propagate through that session's children, but it will not go beyond
+that parent/child tree.
 
 =item SIGWINCH Events
 
 Window resizes can generate a large number of signals very quickly,
 and this can easily cause perl to dump core.  Because of this, POE
-ignores SIGWINCH outright unless it's using Event's safe signals.
+usually ignores SIGWINCH outright.
+
+Signal handling in Perl 5.8.0 will be safer, and POE will take
+advantage of that to enable SIGWINCH again.
+
+POE will also handle SIGWINCH if the Event module is used.
 
 =back
 
@@ -4311,12 +4385,18 @@ generated through POE's signal() method instead of kill(2).
 
 The sig() method does not return a meaningful value.
 
+=item sig_handled
+
+sig_handled() informs POE that a signal was handled.  It is only
+meaningful within event handlers that are triggered by signals.
+
 =item signal SESSION, SIGNAL_NAME
 
-signal() posts a signal event to a session through POE::Kernel rather
-than actually signalling the process through the operating system.
-Because it injects signal events directly into POE's Kernel, its
-SIGNAL_NAME doesn't have to be one the operating system understands.
+signal() posts a signal event to a particular session (and its
+children) through POE::Kernel rather than actually signalling the
+process through the operating system.  Because it injects signal
+events directly into POE's Kernel, its SIGNAL_NAME doesn't have to be
+one the operating system understands.
 
 For example, this posts a fictitious signal to some session:
 
