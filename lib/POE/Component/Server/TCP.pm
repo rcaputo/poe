@@ -5,9 +5,10 @@ package POE::Component::Server::TCP;
 use strict;
 
 use Carp qw(carp croak);
+use Socket qw(INADDR_ANY);
 use vars qw($VERSION);
 
-$VERSION = 1.00;
+$VERSION = 1.01;
 
 # Explicit use to import the parameter constants.
 use POE::Session;
@@ -34,9 +35,13 @@ sub new {
   croak "$mi needs an Acceptor parameter" unless exists $param{Acceptor};
 
   # Extract parameters.
-  my $port = delete $param{Port};
+  my $address         = delete $param{Address};
+  my $port            = delete $param{Port};
   my $accept_callback = delete $param{Acceptor};
-  my $error_callback = delete $param{Error};
+  my $error_callback  = delete $param{Error};
+
+  # Defaults.
+  $address = INADDR_ANY unless defined $address;
 
   # Complain about strange things we're given.
   foreach (sort keys %param) {
@@ -54,6 +59,7 @@ sub new {
       sub {
         $_[HEAP]->{listener} = POE::Wheel::SocketFactory->new
           ( BindPort     => $port,
+            BindAddress  => $address,
             Reuse        => 'yes',
             SuccessState => 'got_connection',
             FailureState => 'got_error',
@@ -108,6 +114,7 @@ POE::Component::Server::TCP - a simplified TCP server
 
   POE::Component::Server::TCP->new
     ( Port     => $bind_port,
+      Address  => $bind_address,    # Optional.
       Acceptor => \&accept_handler,
       Error    => \&error_handler,  # Optional.
     );
@@ -126,6 +133,18 @@ The TCP server component takes three named arguments.  It's expected
 to accept other parameters as it evolves.
 
 =over 2
+
+=item Address
+
+Address is the optional interface address the listening socket will be
+bound to.  When omitted, it defaults to INADDR_ANY.
+
+  Address => '127.0.0.1'
+
+It's passed directly to SocketFactory's BindAddress parameter, and so
+it can be in whatever form SocketFactory supports.  At the time of
+this writing, that's a dotted quad, a host name, or a packed Internet
+address.
 
 =item Port
 
