@@ -191,19 +191,23 @@ sub put {
   # browsers like lynx get what they expect.
 
   foreach (@$responses) {
-    my @result;
     my $code           = $_->code;
     my $status_message = status_message($code) || "Unknown Error";
-    my $message        = $_->message || "";
-    my $status_line    = "$code";
-    my $proto          = $_->protocol;
-    $status_line  = "$proto $status_line" if $proto;
-    $status_line .= " ($status_message)"  if $status_message ne $message;
-    $status_line .= " $message";
-    push @result, $status_line;
-    push @result, $_->headers_as_string("\x0D\x0A"); # network newlines!
-    # network newlines!  Don't touch the content!
-    push @raw, 'HTTP/1.0 ' . join("\x0D\x0A", @result, "") . $_->content;
+    my $message        = $_->message  || "";
+    my $proto          = $_->protocol || 'HTTP/1.0';
+
+    my $status_line = "$proto $code";
+    $status_line   .= " ($status_message)"  if $status_message ne $message;
+    $status_line   .= " $message";
+
+    # Use network newlines, and be sure not to mangle newlines in the
+    # response's content.
+
+    my @headers;
+    push @headers, $status_line;
+    push @headers, $_->headers_as_string("\x0D\x0A");
+
+    push @raw, join("\x0D\x0A", @headers, "") . $_->content;
   }
 
   \@raw;
