@@ -91,6 +91,9 @@ sub new {
     $handle = gensym();
 
     # FIFOs (named pipes) are opened R/W so they don't report EOF.
+    # TODO Make this nonfatal, in case the file doesn't exist but will
+    # later.  For example, the file may be caught in the middle of a
+    # rotation.
     if (-p $filename) {
       open $handle, "+<$filename" or
         croak "can't open fifo $filename for R/W: $!";
@@ -320,18 +323,19 @@ sub _define_timer_states {
 
             if (@new_stat) {
 
-              # File shrank.  Consider it a reset.
+              # File shrank.  Consider it a reset.  Seek to the top of
+              # the file.
               if ($new_stat[7] < $last_stat->[7]) {
                 $$event_reset and $k->call($ses, $$event_reset, $unique_id);
                 $last_stat->[7] = $new_stat[7];
+                sysseek($handle, 0, SEEK_SET);
               }
 
               # Something fundamental about the file changed.  Reopen it.
               if ( $new_stat[1] != $last_stat->[1] or # inode's number
                    $new_stat[0] != $last_stat->[0] or # inode's device
                    $new_stat[6] != $last_stat->[6] or # device type
-                   $new_stat[3] != $last_stat->[3] or # number of links
-                   $new_stat[7] <  $last_stat->[7]    # file shrank
+                   $new_stat[3] != $last_stat->[3]    # number of links
                  ) {
 
                 TRACE_STAT and do {
