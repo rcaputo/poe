@@ -208,6 +208,7 @@ print "ok 19\n";
 { my $warnings = 0;
   local $SIG{__WARN__} = sub { $warnings++; };
 
+  # Odd parameters.
   stderr_pause();
   POE::Wheel::SocketFactory->new
     ( SuccessEvent => [ ],
@@ -218,18 +219,27 @@ print "ok 19\n";
   print "not " unless $warnings == 2;
   print "ok 21\n";
 
-  stderr_pause();
-  POE::Wheel::SocketFactory->new
-    ( SocketDomain   => AF_UNIX,
-      SocketProtocol => 'tcp',
-      SuccessEvent   => 'okay',
-      FailureEvent   => 'okay',
-    );
-  stderr_resume();
+  # Grar!  No UNIX sockets on Windows.
+  if ($^O eq 'MSWin32') {
+    print "ok 22 # skipped: Windows doesn't see mo to UNIX sockets\n";
+  }
+  else {
+    # Any protocol on UNIX sockets.
+    $warnings = 0;
+    stderr_pause();
+    POE::Wheel::SocketFactory->new
+      ( SocketDomain   => AF_UNIX,
+        SocketProtocol => "tcp",
+        SuccessEvent   => "okay",
+        FailureEvent   => "okay",
+      );
+    stderr_resume();
 
-  print "not " unless $warnings == 3;
-  print "ok 22\n";
+    print "not " unless $warnings == 1;
+    print "ok 22\n";
+  }
 
+  # Unsupported protocol for an address family.
   eval( 'POE::Wheel::SocketFactory->new ' .
         '( SocketDomain   => AF_INET,' .
         '  SocketProtocol => "icmp",' .
