@@ -1,12 +1,12 @@
-#!perl -w -I../lib
+#!perl -w -I..
 # Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
 # This is a pre-release version.  Redistribution and modification are
 # prohibited.
 
 package main;
 use strict;
-use POE::Kernel;
-use POE::Session;
+
+use POE; # POE::Kernel and POE::Session are included automagically
 
 open STDERR, '>&STDOUT';
 

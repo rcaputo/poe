@@ -1,12 +1,11 @@
-#!perl -w -I../lib
+#!perl -w -I..
 # Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
 # This is a pre-release version.  Redistribution and modification are
 # prohibited.
 
 use strict;
 
-use POE::Kernel;
-use POE::Session;
+use POE; # and you get Kernel and Session
 
 select(STDOUT); $|=1;
 

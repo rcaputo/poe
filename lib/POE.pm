@@ -1,12 +1,25 @@
 # $Id$
 # Documentation exists after __END__
 
-
 package POE;
 
-my $VERSION = 1.0;
+$VERSION = "1.00";
 
 use strict;
+use Carp;
+
+sub import {
+  my $self = shift;
+  my @modules = grep(!/^(Kernel|Session)$/, @_);
+  unshift @modules, qw(Kernel Session);
+
+  my @failed;
+  foreach my $module (@modules) {
+    eval("require POE::" . $module) or push(@failed, $module);
+  }
+
+  @failed and croak "could not import qw(" . join(' ', @failed) . ")";
+}
 
 #------------------------------------------------------------------------------
 
@@ -25,7 +38,14 @@ POE - the Perl Operating Environment
 
 =head1 SYNOPSIS
 
+use POE;
+
 =head1 DESCRIPTION
+
+In general, POE provides "kernel" services, including C<select(2)>, events
+signals, alarms and reusable boilerplates for common functions.
+
+In specific, POE uses C<POE::Kernel> and C<POE::Session> for you.
 
 =head1 CLASSES
 

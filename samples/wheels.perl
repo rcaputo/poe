@@ -1,4 +1,4 @@
-#!perl -w -I../lib
+#!perl -w -I..
 # $Id$
 
 # See selects.perl for a lower-level approach to accepting connections,
@@ -6,14 +6,8 @@
 # most common things in selects.perl with reusable boilerplates.
 
 use strict;
-                                        # need to combine into one happy "use"?
-use POE::Kernel;
-use POE::Session;
-use POE::Wheel::ListenAccept;
-use POE::Wheel::ReadWrite;
-use POE::Driver::SysRW;
-use POE::Filter::Line;
 
+use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line);
 use IO::Socket::INET;
 
 my $kernel = new POE::Kernel();
@@ -65,6 +59,8 @@ new POE::Session
        ( $k,
          '_start' => sub
          { my ($k, $me, $from) = @_;
+
+           $k->sig('INT', 'sigint');
                                         # sysread/syswrite/line-filter
            $me->{'wheel'} = new POE::Wheel::ReadWrite
              ( $kernel,

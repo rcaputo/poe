@@ -1,10 +1,9 @@
-#!perl -w -I../lib
+#!perl -w -I..
 # $Id$
 
 use strict;
 
-use POE::Kernel;
-use POE::Session;
+use POE; # Kernel and Session are included automagically
 use IO::Socket::INET;
 use POSIX qw(EAGAIN);
 
