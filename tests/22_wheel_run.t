@@ -170,8 +170,10 @@ $program =~ tr[\'][\"] if $^O eq "MSWin32";
           # Test event changing.
           $heap->{wheel}->event( StdoutEvent => 'stdout',
                                  StderrEvent => 'stderr',
-                                 ErrorEvent  => 'error',
                                  StdinEvent  => 'stdin',
+                               );
+          $heap->{wheel}->event( ErrorEvent  => 'error',
+                                 CloseEvent  => 'close',
                                );
 
           # Ask the child for something on stdout.
@@ -181,14 +183,9 @@ $program =~ tr[\'][\"] if $^O eq "MSWin32";
         # Error! Ow!
         error => sub { },
 
-        # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
-        _signal => sub {
-          my $signame = $_[ARG0];
-          if ($signame eq 'CHLD') {
-            my ($heap, $child_pid) = @_[HEAP, ARG1];
-            delete $heap->{wheel} if $child_pid == $heap->{wheel}->PID();
-          }
-          return 0;
+        # The child has closed.  Delete its wheel.
+        close => sub {
+          delete $_[HEAP]->{wheel};
         },
 
         # Dummy _stop to prevent runtime errors.
@@ -247,8 +244,10 @@ my $coderef_flush_count = 0;
           # Test event changing.
           $heap->{wheel}->event( StdoutEvent => 'stdout',
                                  StderrEvent => 'stderr',
-                                 ErrorEvent  => 'error',
                                  StdinEvent  => 'stdin',
+                               );
+          $heap->{wheel}->event( ErrorEvent  => 'error',
+                                 CloseEvent  => 'close',
                                );
 
           # Ask the child for something on stdout.
@@ -258,24 +257,9 @@ my $coderef_flush_count = 0;
         # Error! Ow!
         error => sub { },
 
-        # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
-        _signal => sub {
-          my $signame = $_[ARG0];
-
-          DEBUG and
-            warn "session ", $_[SESSION]->ID, " caught signal $signame\n";
-
-          if ($signame eq 'CHLD') {
-            my ($heap, $child_pid) = @_[HEAP, ARG1];
-
-            DEBUG and warn "\tthe child process ID is $child_pid\n";
-
-            if ($child_pid == $heap->{wheel}->PID()) {
-              DEBUG and warn "\tthe child process is ours\n";
-              delete $heap->{wheel};
-            }
-          }
-          return 0;
+        # The child has closed.  Delete its wheel.
+        close => sub {
+          delete $_[HEAP]->{wheel};
         },
 
         # Dummy _stop to prevent runtime errors.

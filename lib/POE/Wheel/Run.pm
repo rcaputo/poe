@@ -418,7 +418,7 @@ sub _define_stdin_flusher {
         # When you can't write, nothing else matters.
         if ($!) {
           $$error_event && $k->call( $me, $$error_event,
-                                     'write', ($!+0), $!, $unique_id
+                                     'write', ($!+0), $!, $unique_id, "STDIN"
                                    );
           $k->select_write($handle);
         }
@@ -480,7 +480,9 @@ sub _define_stdout_reader {
           }
           else {
             $$error_event and
-              $k->call( $me, $$error_event, 'read', ($!+0), $!, $unique_id );
+              $k->call( $me, $$error_event,
+                        'read', ($!+0), $!, $unique_id, 'STDOUT'
+                      );
             unless (--$$is_active) {
               $k->call( $me, $$close_event, $unique_id )
                 if defined $$close_event;
@@ -535,7 +537,9 @@ sub _define_stderr_reader {
           }
           else {
             $$error_event and
-              $k->call( $me, $$error_event, 'read', ($!+0), $!, $unique_id );
+              $k->call( $me, $$error_event,
+                        'read', ($!+0), $!, $unique_id, 'STDERR'
+                      );
             unless (--$$is_active) {
               $k->call( $me, $$close_event, $unique_id )
                 if defined $$close_event;
@@ -587,15 +591,9 @@ sub event {
     }
     elsif ($name eq 'ErrorEvent') {
       $self->[ERROR_EVENT] = $event;
-
-      # May not need to be redefined because the events are done by reference.
-      # $redefine_stdin = $redefine_stdout = $redefine_stderr = 1;
     }
     elsif ($name eq 'CloseEvent') {
       $self->[CLOSE_EVENT] = $event;
-
-      # May not need to be redefined because the events are done by reference.
-      # $redefine_stdin = $redefine_stdout = $redefine_stderr = 1;
     }
     else {
       carp "ignoring unknown Run parameter '$name'";
@@ -950,6 +948,12 @@ C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
 respectively.
 
 C<ARG3> contains the wheel's unique ID.
+
+C<ARG4> contains the name of the child filehandle that has the error.
+It may be "STDIN", "STDOUT", or "STDERR".  The sense of C<ARG0> will
+be the opposite of what you might normally expect for these handles.
+For example, Wheel::Run will report a "read" error on "STDOUT" because
+it tried to read data from that handle.
 
 A sample error event handler:
 
