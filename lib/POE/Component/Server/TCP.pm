@@ -9,6 +9,9 @@ use Socket qw(INADDR_ANY inet_ntoa);
 
 # Explicit use to import the parameter constants.
 use POE::Session;
+use POE::Driver::SysRW;
+use POE::Filter::Line;
+use POE::Wheel::ReadWrite;
 use POE::Wheel::SocketFactory;
 
 # Create the server.  This is just a handy way to encapsulate
