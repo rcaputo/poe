@@ -126,8 +126,7 @@ sub new {
   my ($type, $processes) = @_;
   my $self = bless { }, $type;
 
-  POE::Session->new( $self,
-                     [ qw(_start _stop fork retry signal connection) ],
+  POE::Session->new( $self, [ qw(_start _stop fork retry signal connection) ],
                      # ARG0
                      [ $processes ]
                    );
@@ -283,7 +282,6 @@ sub connection {
   if ($heap->{'is a child'}) {
     if (++$heap->{connections} >= 1) {
       delete $heap->{wheel};
-      $kernel->yield('_stop');
     }
   }
 }
