@@ -3614,9 +3614,12 @@ they're dispatched.
 
 =item yield EVENT_NAME
 
-yield() enqueues an event to be dispatched to EVENT_NAME in the same
-session.  If a PARAMETER_LIST is included, its values will be passed
-as argumets to EVENT_NAME's handler.
+yield() enqueues an EVENT_NAME event for the session that calls it.
+If a PARAMETER_LIST is included, its values will be passed as
+arguments to EVENT_NAME's handler.
+
+yield() is shorthand for post() where the event's destination is the
+current session.
 
 Events posted with yield() must propagate through POE's FIFO before
 they're dispatched.  This effectively yields timeslices to other
@@ -3624,6 +3627,11 @@ sessions which have events enqueued before it.
 
   $kernel->yield( 'do_this' );
   $kernel->yield( 'do_that', @with_these );
+
+The previous yield() calls are equivalent to these post() calls.
+
+  $kernel->post( $session, 'do_this' );
+  $kernel->post( $session, 'do_that', @with_these );
 
 The yield() method does not return a meaningful value.
 
