@@ -11,6 +11,7 @@ use TestSetup;
 
 use POSIX qw(:errno_h);
 use Socket;
+
 use POE qw( Component::Server::TCP Wheel::SocketFactory );
 
 # Test that errors occur when nonexistent modules are used.

@@ -8,6 +8,8 @@ use lib qw(./lib ../lib);
 use TestSetup;
 use Socket;
 
+# Turn on all asserts.
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Component::Server::TCP
             Wheel::ReadWrite
             Filter::Line Filter::Stream

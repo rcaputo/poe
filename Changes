@@ -22,7 +22,8 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 |
 | Before 0.11
 |
-| Create a test program for fork and sigchld.
+| Test $kernel->fork()
+|
 | Turn SocketFactory's sample program into a test case.
 |
 | After 0.11

@@ -7,11 +7,23 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(2);
+
+# Skip if Event isn't here.
+BEGIN {
+  eval 'use Event';
+  unless (exists $INC{'Event.pm'}) {
+    &test_setup(0, 'the Event module is not installed');
+  }
+}
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 use POE;
+
+&test_setup(2);
+
+# Everything past here should be identical to 11_signals_poe.t
 
 # Use Time::HiRes, if it's available.  This will get us super accurate
 # sleep times so all the child processes wake up close together.  The
@@ -22,7 +34,7 @@ eval {
   import Time::HiRes qw(time sleep);
 };
 
-my $fork_count = 16;
+my $fork_count = 1;
 
 # Set up a signal catching session.  This test uses plain fork(2) and
 # POE's $SIG{CHLD} handler.
@@ -46,7 +58,8 @@ POE::Session->create
             }
             else {
               sleep $wake_time - time();
-              exit;
+warn "child $$ exits";
+              dump;
             }
           }
           else {
@@ -66,6 +79,7 @@ POE::Session->create
 
       _stop =>
       sub {
+        warn "stop";
         my $heap = $_[HEAP];
         if ($heap->{reaped} == $fork_count) {
           print "ok 2\n";
@@ -77,12 +91,14 @@ POE::Session->create
 
       catch_sigchld =>
       sub {
+        warn "sigchld";
         $_[HEAP]->{reaped}++;
         $_[KERNEL]->delay( time_is_up => 15 );
       },
 
       time_is_up =>
       sub {
+        warn "time is up";
         # do nothing, really
       },
     },

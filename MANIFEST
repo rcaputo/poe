@@ -68,3 +68,4 @@ t/08_errors.t
 t/09_wheels_unix.t
 t/10_wheels_tcp.t
 t/11_signals_poe.t
+t/12_signals_ev.t

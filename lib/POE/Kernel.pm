@@ -562,16 +562,14 @@ sub _event_signal_handler_pipe {
 }
 
 sub _event_signal_handler_child {
-  my $event = shift;
-
   # Reap until there are no more children.  This uses one of Event's
   # own scripts for an example.  I only mention it because I'm scared
   # of wait(2).
-  for (my $reap=0; $reap < $event->count; $reap++) {
-    my $pid = wait;
-    last if $pid < 0;
-    {% post_child_signal $poe_kernel, $pid, $? %}
-  }
+  $poe_kernel->_enqueue_state( $poe_kernel, $poe_kernel,
+                               EN_SCPOLL, ET_SCPOLL,
+                               [ ],
+                               time(), __FILE__, __LINE__
+                             );
 }
 
 #------------------------------------------------------------------------------
@@ -1573,6 +1571,8 @@ sub _tk_select_callback {
 sub _event_fifo_callback {
   my $self = $poe_kernel;
 
+warn "fifo callback";
+
   {% dispatch_one_from_fifo %}
 
   # Stop the idle watcher if there are no more state transitions in
@@ -1652,6 +1652,8 @@ sub _invoke_state {
   # children.  It's time to check for children waiting.
 
   if ($state eq EN_SCPOLL) {
+
+warn $state;
 
     # Non-blocking wait for a child process.  If one was reaped,
     # dispatch a SIGCHLD to the session who called fork.
