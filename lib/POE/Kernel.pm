@@ -2872,10 +2872,10 @@ sub select_resume_write {
   # Turn the select vector's write bit back on.
   vec($kr_vectors[VEC_WR], fileno($handle), 1) = 1;
 
-  # Quietly ignore requests to resume unpaused handles.
-  return 1 if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR];
-
   if (POE_USES_GTK) { # include
+
+    # Quietly ignore requests to resume unpaused handles.
+    return 1 if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR];
 
     $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR] =
       Gtk::Gdk->input_add( fileno($handle), 'write',
@@ -2946,10 +2946,10 @@ sub select_resume_read {
   # Turn the select vector's read bit back on.
   vec($kr_vectors[VEC_RD], fileno($handle), 1) = 1;
 
-  # Quietly ignore requests to resume unpaused handles.
-  return 1 if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD];
-
   if (POE_USES_GTK) { # include
+
+    # Quietly ignore requests to resume unpaused handles.
+    return 1 if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD];
 
     $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD] =
       Gtk::Gdk->input_add( fileno($handle), 'read',
