@@ -404,7 +404,7 @@ macro test_resolve (<name>,<resolved>) {
   }
 }
 
-sub _test_for_idle_poe_kernel {
+macro test_for_idle_poe_kernel {
   if (TRACE_REFCOUNT) { # include
     warn( ",----- Kernel Activity -----\n",
           "| States : ", scalar(@kr_states), "\n",
@@ -445,7 +445,7 @@ macro post_plain_signal (<destination>,<signal_name>) {
 }
 
 # Pull an event off the queue, and dispatch it.
-sub _dispatch_one_from_fifo {
+macro dispatch_one_from_fifo {
   if (@kr_states) {
     my $event = shift @kr_states;
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
@@ -453,7 +453,7 @@ sub _dispatch_one_from_fifo {
   }
 }
 
-sub _dispatch_due_alarms {
+macro dispatch_due_alarms {
   # Pull due alarms off the queue, and dispatch them.
   my $now = time();
   while ( @kr_alarms and ($kr_alarms[0]->[ST_TIME] <= $now) ) {
@@ -463,9 +463,7 @@ sub _dispatch_due_alarms {
   }
 }
 
-sub _dispatch_ready_selects {
-  my ($handle, $vector) = @_;
-
+macro dispatch_ready_selects {
   my @selects = values %{ $kr_handles{$handle}->[HND_SESSIONS]->[$vector] };
 
   foreach my $select (@selects) {
@@ -484,15 +482,15 @@ sub _dispatch_ready_selects {
 # Adapt POE::Kernel's personality to whichever event substrate is
 # present.
 
-sub PERSONALITY_NAME_EVENT  () { 'Event.pm' }
-sub PERSONALITY_NAME_GTK    () { 'Gtk.pm'   }
-sub PERSONALITY_NAME_SELECT () { 'select()' }
-sub PERSONALITY_NAME_TK     () { 'Tk.pm'    }
+sub SUBSTRATE_NAME_EVENT  () { 'Event.pm' }
+sub SUBSTRATE_NAME_GTK    () { 'Gtk.pm'   }
+sub SUBSTRATE_NAME_SELECT () { 'select()' }
+sub SUBSTRATE_NAME_TK     () { 'Tk.pm'    }
 
-sub PERSONALITY_EVENT  () { 0x01 }
-sub PERSONALITY_GTK    () { 0x02 }
-sub PERSONALITY_SELECT () { 0x04 }
-sub PERSONALITY_TK     () { 0x08 }
+sub SUBSTRATE_EVENT  () { 0x01 }
+sub SUBSTRATE_GTK    () { 0x02 }
+sub SUBSTRATE_SELECT () { 0x04 }
+sub SUBSTRATE_TK     () { 0x08 }
 
 BEGIN {
   if (exists $INC{'Gtk.pm'}) {
@@ -510,11 +508,16 @@ BEGIN {
     POE::Kernel::Event->import();
   }
     
-  unless (defined &POE_PERSONALITY) {
+  unless (defined &POE_SUBSTRATE) {
     require POE::Kernel::Select;
     POE::Kernel::Select->import();
   }
 };
+
+# Bring some things from the substrate into this file.  This lets the
+# substrate's things have direct access to our package-lexical Kernel
+# variables.
+{% substrate_define_callbacks %}
 
 #==============================================================================
 # SIGNALS
@@ -525,7 +528,7 @@ my %_terminal_signals =
   ( QUIT => 1, INT => 1, KILL => 1, TERM => 1, HUP => 1, IDLE => 1 );
 
 # As of version 0.1206, signal handlers and the functions that watch
-# them have been moved into personality modules.
+# them have been moved into substrate modules.
 
 #------------------------------------------------------------------------------
 # Register or remove signals.
@@ -570,7 +573,7 @@ sub POE::Kernel::signal {
 # virtual UIDESTROY signal.  Don't bother broadcasting UIDESTROY if
 # there are no sessions remaining.  This is the case when POE exits
 # before its main window.
-sub signal_ui_destroy {
+sub _signal_ui_destroy {
   if (keys %{$poe_kernel->[KR_SESSIONS]}) {
     $poe_kernel->_dispatch_state
       ( $poe_kernel, $poe_kernel,
@@ -612,7 +615,7 @@ sub new {
     # Some personalities allow us to set up static watchers and
     # start/stop them as necessary.  This initializes those static
     # watchers.  This also starts main windows where applicable.
-    _init_main_loop($self);
+    {% substrate_init_main_loop %}
 
     # Kernel ID, based on Philip Gwyn's code.  I hope he still can
     # recognize it.  KR_SESSION_IDS is a hash because it will almost
@@ -648,9 +651,9 @@ sub new {
       # Don't watch CHLD or CLD if we're in Apache.
       next if $signal =~ /^CH?LD$/ and exists $INC{'Apache.pm'};
 
-      # Pass a signal to the personality module, which may or may not
+      # Pass a signal to the substrate module, which may or may not
       # watch it depending on its own criteria.
-      _watch_signal($signal);
+      {% substrate_watch_signal %}
 
       $kr_signals{$signal} = { };
     }
@@ -1038,7 +1041,9 @@ sub _dispatch_state {
     }
 
     # Finally, if there are no more sessions, stop the main loop.
-    _stop_main_loop() unless keys %kr_sessions;
+    unless (keys %kr_sessions) {
+      {% substrate_stop_main_loop %}
+    }
   }
 
   # Check for death by terminal signal.
@@ -1081,221 +1086,7 @@ sub _dispatch_state {
 sub run {
   my $self = shift;
 
-  # We're using our own event loop.
-  if (POE_PERSONALITY & PERSONALITY_SELECT) {
-
-    # Run for as long as there are sessions to service.
-
-    while (keys %kr_sessions) {
-
-      # Check for a hung kernel.
-      _test_for_idle_poe_kernel();
-
-      # Set the select timeout based on current queue conditions.  If
-      # there are FIFO events, then the timeout is zero to poll select
-      # and move on.  Otherwise set the select timeout until the next
-      # pending alarm, if any are in the alarm queue.  If no FIFO
-      # events or alarms are pending, then time out after some
-      # constant number of seconds.
-
-      my $now = time();
-      my $timeout;
-
-      if (@kr_states) {
-        $timeout = 0;
-      }
-      elsif (@kr_alarms) {
-        $timeout = $kr_alarms[0]->[ST_TIME] - $now;
-        $timeout = 0 if $timeout < 0;
-      }
-      else {
-        $timeout = 3600;
-      }
-
-      if (TRACE_QUEUE) {
-        warn( '*** Kernel::run() iterating.  ' .
-              sprintf("now(%.2f) timeout(%.2f) then(%.2f)\n",
-                      $now-$^T, $timeout, ($now-$^T)+$timeout
-                     )
-            );
-        warn( '*** Alarm times: ' .
-              join( ', ',
-                    map { sprintf('%d=%.2f',
-                                  $_->[ST_SEQ], $_->[ST_TIME] - $now
-                                 )
-                        } @kr_alarms
-                  ) .
-              "\n"
-            );
-      }
-
-      if (TRACE_SELECT) {
-        warn ",----- SELECT BITS IN -----\n";
-        warn "| READ    : ", unpack('b*', $kr_vectors[VEC_RD]), "\n";
-        warn "| WRITE   : ", unpack('b*', $kr_vectors[VEC_WR]), "\n";
-        warn "| EXPEDITE: ", unpack('b*', $kr_vectors[VEC_EX]), "\n";
-        warn "`--------------------------\n";
-      }
-
-      # Avoid looking at filehandles if we don't need to.
-
-      if ($timeout || keys(%kr_handles)) {
-
-        # Check filehandles, or wait for a period of time to elapse.
-        my $hits = select( my $rout = $kr_vectors[VEC_RD],
-                           my $wout = $kr_vectors[VEC_WR],
-                           my $eout = $kr_vectors[VEC_EX],
-                           ($timeout < 0) ? 0 : $timeout
-                         );
-
-        if (ASSERT_SELECT) {
-          if ($hits < 0) {
-            confess "select error: $!"
-              unless ( ($! == EINPROGRESS) or
-                       ($! == EWOULDBLOCK) or
-                       ($! == EINTR)
-                     );
-          }
-        }
-
-        if (TRACE_SELECT) {
-          if ($hits > 0) {
-            warn "select hits = $hits\n";
-          }
-          elsif ($hits == 0) {
-            warn "select timed out...\n";
-          }
-          warn ",----- SELECT BITS OUT -----\n";
-          warn "| READ    : ", unpack('b*', $rout), "\n";
-          warn "| WRITE   : ", unpack('b*', $wout), "\n";
-          warn "| EXPEDITE: ", unpack('b*', $eout), "\n";
-          warn "`---------------------------\n";
-        }
-
-        # If select has seen filehandle activity, then gather up the
-        # active filehandles and synchronously dispatch events to the
-        # appropriate states.
-
-        if ($hits > 0) {
-
-          # This is where they're gathered.  It's a variant on a neat
-          # hack Silmaril came up with.
-
-          # -><- This does extra work.  Some of $%kr_handles don't
-          # have all their bits set (for example; VEX_EX is rarely
-          # used).  It might be more efficient to split this into
-          # three greps, for just the vectors that need to be checked.
-
-          # -><- It has been noted that map is slower than foreach
-          # when the size of a list is grown.  The list is exploded on
-          # the stack and manipulated with stack ops, which are slower
-          # than just pushing on a list.  Evil probably ensues here.
-
-          my @selects =
-            map { ( ( vec($rout, fileno($_->[HND_HANDLE]), 1)
-                      ? values(%{$_->[HND_SESSIONS]->[VEC_RD]})
-                      : ( )
-                    ),
-                    ( vec($wout, fileno($_->[HND_HANDLE]), 1)
-                      ? values(%{$_->[HND_SESSIONS]->[VEC_WR]})
-                      : ( )
-                    ),
-                    ( vec($eout, fileno($_->[HND_HANDLE]), 1)
-                      ? values(%{$_->[HND_SESSIONS]->[VEC_EX]})
-                      : ( )
-                    )
-                  )
-                } values %kr_handles;
-
-          if (TRACE_SELECT) {
-            if (@selects) {
-              warn( "found pending selects: ",
-                    join( ', ',
-                          sort { $a <=> $b }
-                          map { fileno($_->[HND_HANDLE]) }
-                          @selects
-                        ),
-                    "\n"
-                  );
-            }
-          }
-
-          if (ASSERT_SELECT) {
-            unless (@selects) {
-              die "found no selects, with $hits hits from select???\a\n";
-            }
-          }
-
-          # Dispatch the gathered selects.  They're dispatched right
-          # away because files will continue to unblock select until
-          # they're taken care of.  The idea is for select handlers to
-          # do whatever is needed to shut up select, and then they
-          # post something indicating what input was got.  Nobody
-          # seems to use them this way, though, not even the author.
-
-          foreach my $select (@selects) {
-            $self->_dispatch_state
-              ( $select->[HSS_SESSION], $select->[HSS_SESSION],
-                $select->[HSS_STATE], ET_SELECT,
-                [ $select->[HSS_HANDLE] ],
-                time(), __FILE__, __LINE__, undef
-              );
-          }
-        }
-      }
-
-      # Dispatch whatever alarms are due.
-
-      $now = time();
-      while ( @kr_alarms and ($kr_alarms[0]->[ST_TIME] <= $now) ) {
-        my $event;
-
-        if (TRACE_QUEUE) {
-          $event = $kr_alarms[0];
-          warn( sprintf('now(%.2f) ', $now - $^T) .
-                sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
-                "seq($event->[ST_SEQ])  " .
-                "name($event->[ST_NAME])\n"
-              );
-        }
-
-        # Pull an alarm off the queue, and dispatch it.
-        $event = shift @kr_alarms;
-        {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
-        $self->_dispatch_state(@$event);
-      }
-
-      # Dispatch one or more FIFOs, if they are available.  There is a
-      # lot of latency between executions of this code block, so we'll
-      # dispatch more than one event if we can.
-
-      my $stop_time = time() + FIFO_DISPATCH_TIME;
-      while (@kr_states) {
-
-        if (TRACE_QUEUE) {
-          my $event = $kr_states[0];
-          warn( sprintf('now(%.2f) ', $now - $^T) .
-                sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
-                "seq($event->[ST_SEQ])  " .
-                "name($event->[ST_NAME])\n"
-              );
-        }
-
-        # Pull an event off the queue, and dispatch it.
-        my $event = shift @kr_states;
-        {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
-        $self->_dispatch_state(@$event);
-
-        # If we have high-resolution time, dispatch more FIFO events
-        # until the stop time is reached.
-        last unless POE_USES_TIME_HIRES and time() < $stop_time;
-      }
-    }
-  }
-  else {
-    # Run some external event substrate.
-    _start_main_loop();
-  }
+  {% substrate_main_loop %}
 
   # The main loop is done, no matter which event library ran it.
   # Let's make sure POE isn't leaking things.
@@ -1418,7 +1209,7 @@ sub _invoke_state {
       # loop.  Warn if it's something unexpected.
 
       else {
-        _resume_watching_child_signals();
+        {% substrate_resume_watching_child_signals %}
         warn $! if $! and $! != ECHILD;
       }
     }
@@ -1426,7 +1217,7 @@ sub _invoke_state {
     # Nothing is left to wait for.  Stop the wait loop.
 
     else {
-      _resume_watching_child_signals();
+      {% substrate_resume_watching_child_signals %}
     }
   }
 
@@ -1581,8 +1372,7 @@ sub _enqueue_state {
   if (exists $kr_sessions{$session}) {
     push @kr_states, {% state_to_enqueue %};
     {% ses_refcount_inc2 $session, SS_EVCOUNT %}
-
-    _resume_idle_watcher();
+    {% substrate_resume_idle_watcher %}
   }
   else {
     warn ">>>>> ", join('; ', keys(%kr_sessions)), " <<<<<\n";
@@ -1686,7 +1476,9 @@ sub _enqueue_alarm {
       }
     }
 
-    _resume_alarm_watcher() if @kr_alarms == 1;
+    if (@kr_alarms == 1) {
+      {% substrate_resume_alarm_watcher %}
+    }
 
     # Manage reference counts.
     {% ses_refcount_inc2 $session, SS_ALCOUNT %}
@@ -1818,7 +1610,7 @@ sub alarm {
 
   # The alarm queue has become empty?  Stop the alarm watcher.
   unless (@kr_alarms) {
-    _pause_alarm_watcher();
+    {% substrate_pause_alarm_watcher %}
   }
 
   # Add the new alarm if it includes a time.
@@ -1966,7 +1758,7 @@ sub _internal_select {
 
       if ($kr_handle->[HND_VECCOUNT]->[$select_index] == 1) {
         vec($kr_vectors[$select_index], fileno($handle), 1) = 1;
-        _watch_filehandle( $kr_handle, $handle, $select_index );
+        {% substrate_watch_filehandle %}
       }
 
       # Increment the handle's overall reference count (which is the
@@ -2037,7 +1829,7 @@ sub _internal_select {
         unless ($kr_handle->[HND_VECCOUNT]->[$select_index]) {
           vec($kr_vectors[$select_index], fileno($handle), 1) = 0;
 
-          _ignore_filehandle( $kr_handle, $handle, $select_index );
+          {% substrate_ignore_filehandle %}
 
           # Shrink the bit vector by chopping zero octets from the
           # end.  Octets because that's the minimum size of a bit
@@ -2141,7 +1933,7 @@ sub select_pause_write {
   # that we'll resume it again at some point.
 
   vec($kr_vectors[VEC_WR], fileno($handle), 1) = 0;
-  _pause_filehandle_write_watcher($handle);
+  {% substrate_pause_filehandle_write_watcher %}
 
   return 0;
 }
@@ -2155,7 +1947,7 @@ sub select_resume_write {
 
   # Turn the select vector's write bit back on.
   vec($kr_vectors[VEC_WR], fileno($handle), 1) = 1;
-  _resume_filehandle_write_watcher($handle);
+  {% substrate_resume_filehandle_write_watcher %}
 
   return 1;
 }
@@ -2172,7 +1964,7 @@ sub select_pause_read {
   # that we'll resume it again at some point.
 
   vec($kr_vectors[VEC_RD], fileno($handle), 1) = 0;
-  _pause_filehandle_read_watcher($handle);
+  {% substrate_pause_filehandle_read_watcher %}
 
   return 0;
 }
@@ -2186,7 +1978,7 @@ sub select_resume_read {
 
   # Turn the select vector's read bit back on.
   vec($kr_vectors[VEC_RD], fileno($handle), 1) = 1;
-  _resume_filehandle_read_watcher($handle);
+  {% substrate_resume_filehandle_read_watcher %}
 
   return 1;
 }

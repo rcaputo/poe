@@ -19,22 +19,11 @@ my (@symbols_to_clean_up, @files_to_unuse);
 
 BEGIN {
   @symbols_to_clean_up =
-    qw( _signal_handler_generic _signal_handler_pipe
-        _signal_handler_child _watch_signal
-        _resume_watching_child_signals _resume_idle_watcher
-        _resume_alarm_watcher _pause_alarm_watcher _watch_filehandle
-        _ignore_filehandle _pause_filehandle_write_watcher
-        _resume_filehandle_write_watcher
-        _pause_filehandle_read_watcher _resume_filehandle_read_watcher
-        _idle_callback _alarm_callback _start_main_loop
-        _stop_main_loop _init_main_loop POE_USES_TIME_HIRES
-        PERSONALITY_NAME_EVENT PERSONALITY_NAME_GTK
-        PERSONALITY_NAME_SELECT PERSONALITY_NAME_TK PERSONALITY_EVENT
-        PERSONALITY_GTK PERSONALITY_SELECT PERSONALITY_TK
-        POE_PERSONALITY POE_PERSONALITY_NAME _test_for_idle_poe_kernel
-        _dispatch_one_from_fifo _dispatch_due_alarms
-        _dispatch_ready_selects _select_read_callback
-        _select_write_callback _select_expedite_callback
+    qw( POE_USES_TIME_HIRES SUBSTRATE_NAME_EVENT SUBSTRATE_NAME_GTK
+        SUBSTRATE_NAME_SELECT SUBSTRATE_NAME_TK SUBSTRATE_EVENT
+        SUBSTRATE_GTK SUBSTRATE_SELECT SUBSTRATE_TK POE_SUBSTRATE
+        POE_SUBSTRATE_NAME _substrate_signal_handler_generic
+        _substrate_signal_handler_pipe _substrate_signal_handler_child
       );
 
   @files_to_unuse =
@@ -45,6 +34,8 @@ BEGIN {
 
 # Clean up after destructive tests.
 sub test_cleanup {
+  POE::Preprocessor->clear_package( 'POE::Kernel' );
+
   foreach my $symbol (@symbols_to_clean_up) {
     delete $POE::Kernel::{$symbol};
   }

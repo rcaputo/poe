@@ -516,6 +516,15 @@ sub import {
   }
 }
 
+# Used for testing, to clear a package's macros.
+sub clear_package {
+  my ($self, $package) = @_;
+  delete $constants{$package};
+  delete $macros{$package};
+  delete $const_regexp{$package};
+  delete $macro{$package};
+}
+
 1;
 
 __END__
