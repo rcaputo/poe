@@ -22,17 +22,58 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $poe_kernel);
 
-  croak "Handle required" unless (exists $params{'Handle'});
+  croak "Handle required"      unless (exists $params{'Handle'});
   croak "AcceptState required" unless (exists $params{'AcceptState'});
 
-  my ($handle, $state_accept, $state_error) =
-    @params{ qw(Handle AcceptState ErrorState) };
-
-  my $self = bless { 'handle' => $handle,
+  my $self = bless { 'handle'       => $params{'Handle'},
+                     'event accept' => $params{'AcceptState'},
+                     'event error'  => $params{'ErrorState'},
                    }, $type;
+                                        # register private event handlers
+  $self->_define_accept_state();
+  $poe_kernel->select($self->{'handle'}, $self->{'state read'});
+
+  $self;
+}
+
+#------------------------------------------------------------------------------
+
+sub event {
+  my $self = shift;
+  push(@_, undef) if (scalar(@_) & 1);
+
+  while (@_) {
+    my ($name, $event) = splice(@_, 0, 2);
+
+    if ($name eq 'AcceptState') {
+      if (defined $event) {
+        $self->{'event accept'} = $event;
+      }
+      else {
+        carp "AcceptState requires an event name.  ignoring undef";
+      }
+    }
+    elsif ($name eq 'ErrorState') {
+      $self->{'event error'} = $event;
+    }
+    else {
+      carp "ignoring unknown ListenAccept parameter '$name'";
+    }
+  }
+
+  $self->_define_accept_state();
+}
+
+#------------------------------------------------------------------------------
+
+sub _define_accept_state {
+  my $self = shift;
+                                        # stupid closure trick
+  my ($event_accept, $event_error, $handle) =
+    @{$self}{'event accept', 'event error', 'handle'};
                                         # register the select-read handler
   $poe_kernel->state
-    ( $self->{'state read'} = $self . ' -> select read',
+    ( $self->{'state read'} =  $self . ' -> select read',
       sub {
                                         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
@@ -42,18 +83,14 @@ sub new {
         my $new_socket = $handle->accept();
 
         if ($new_socket) {
-          $k->call($me, $state_accept, $new_socket);
+          $k->call($me, $event_accept, $new_socket);
         }
         elsif ($! != EAGAIN) {
-          $state_error &&
-            $k->call($me, $state_error, 'accept', ($!+0), $!);
+          $event_error &&
+            $k->call($me, $event_error, 'accept', ($!+0), $!);
         }
       }
     );
-
-  $poe_kernel->select($handle, $self->{'state read'});
-
-  $self;
 }
 
 #------------------------------------------------------------------------------
