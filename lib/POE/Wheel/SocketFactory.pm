@@ -29,8 +29,8 @@ sub MY_MINE_SUCCESS    () {  7 }
 sub MY_MINE_FAILURE    () {  8 }
 sub MY_SOCKET_PROTOCOL () {  9 }
 sub MY_SOCKET_TYPE     () { 10 }
-sub MY_SOCKET_SELECTED () { 11 }
-sub MY_STATE_ERROR     () { 12 }
+sub MY_STATE_ERROR     () { 11 }
+sub MY_SOCKET_SELECTED () { 12 }
 
 # Fletch has subclassed SSLSocketFactory from SocketFactory.  He's
 # added new members after MY_SOCKET_SELECTED.  Be sure, if you extend
@@ -38,15 +38,60 @@ sub MY_STATE_ERROR     () { 12 }
 # know you've broken his module.
 
 # Provide dummy POSIX constants for systems that don't have them.  Use
-# http://support.microsoft.com/support/kb/articles/Q150/5/37.asp for
-# the POSIX error numbers.
+# http://msdn.microsoft.com/library/en-us/winsock/winsock/
+#   windows_sockets_error_codes_2.asp for the POSIX error numbers.
 BEGIN {
   if ($^O eq 'MSWin32') {
-    eval '*EADDRNOTAVAIL = sub { 10049 };';
-    eval '*EINPROGRESS   = sub { 10036 };';
-    eval '*EWOULDBLOCK   = sub { 10035 };';
-    eval '*F_GETFL       = sub {     0 };';
-    eval '*F_SETFL       = sub {     0 };';
+
+    # Constants are evaluated first so they exist when the code uses
+    # them.
+    eval( '*EADDRNOTAVAIL = sub {  10049 };' .
+          '*EINPROGRESS   = sub {  10036 };' .
+          '*EWOULDBLOCK   = sub {  10035 };' .
+          '*F_GETFL       = sub {      0 };' .
+          '*F_SETFL       = sub {      0 };' .
+
+          # Garrett Goebel's patch to support non-blocking connect()
+          # or MSWin32 follows.  His notes on the matter:
+          #
+          # As my patch appears to turn on the overlapped attributes
+          # for all successive sockets... it might not be the optimal
+          # solution. But it works for me ;)
+          #
+          # A better Win32 approach would probably be to:
+          # o  create a dummy socket
+          # o  cache the value of SO_OPENTYPE
+          # o  set the overlapped io attribute
+          # o  close dummy socket
+          #
+          # o  create our sock
+          #
+          # o  create a dummy socket
+          # o  restore previous value of SO_OPENTYPE
+          # o  close dummy socket
+          #
+          # This way we'd only be turning on the overlap attribute for
+          # the socket we created... and not all subsequent sockets.
+
+          '*SO_OPENTYPE   = sub { 0x7008 };' .
+          '*SO_SYNCHRONOUS_ALERT    = sub { 0x10 };' .
+          '*SO_SYNCHRONOUS_NONALERT = sub { 0x20 };'
+        );
+    die if $@;
+
+    # Turn on socket overlapped IO attribute per MSKB: Q181611.  This
+    # concludes Garrett's patch.
+
+    eval( 'socket(POE, AF_INET, SOCK_STREAM, getprotobyname("tcp"))' .
+          'or die "socket failed: $!";' .
+          'my $opt = unpack("I", getsockopt(POE, SOL_SOCKET, SO_OPENTYPE));' .
+          '$opt &= ~(SO_SYNCHRONOUS_ALERT|SO_SYNCHRONOUS_NONALERT);' .
+          'setsockopt(POE, SOL_SOCKET, SO_OPENTYPE, $opt);' .
+          'close POE;'
+
+          # End of Garrett's patch.
+        );
+    die if $@;
   }
 
   unless (exists $INC{"Socket6.pm"}) {
@@ -394,7 +439,7 @@ sub new {
 
   my %params = @_;
 
-  # The calling conventio experienced a hard deprecation.
+  # The calling convention experienced a hard deprecation.
   croak "wheels no longer require a kernel reference as their first parameter"
     if (@_ && (ref($_[0]) eq 'POE::Kernel'));
 
@@ -429,8 +474,8 @@ sub new {
         undef,                            # MY_MINE_FAILURE
         undef,                            # MY_SOCKET_PROTOCOL
         undef,                            # MY_SOCKET_TYPE
-        undef,                            # MY_SOCKET_SELECTED
         undef,                            # MY_STATE_ERROR
+        undef,                            # MY_SOCKET_SELECTED
       ],
       $type
     );

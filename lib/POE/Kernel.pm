@@ -1178,7 +1178,6 @@ sub _data_handle_remove {
       # Remove any events destined for that handle.  Decrement
       # FMO_EV_COUNT for each, because we've removed them.  This makes
       # sense.
-
       my $my_select = sub {
         return 0 unless $_[0]->[EV_TYPE]    &  ET_SELECT;
         return 0 unless $_[0]->[EV_SESSION] == $kill_session;
