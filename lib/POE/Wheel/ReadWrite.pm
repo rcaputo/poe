@@ -827,6 +827,9 @@ record read.  Every InputEvent is accompanied by two parameters.
 C<ARG0> contains the record which was read.  C<ARG1> contains the
 wheel's unique ID.
 
+The wheel will not attempt to read from its Handle or InputHandle if
+InputEvent is omitted.
+
 A sample InputEvent handler:
 
   sub input_state {
