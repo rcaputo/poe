@@ -260,26 +260,9 @@ sub new {
       return undef;
     }
 
-    if (exists $params{'ListenQueue'}) {
-      my $listen_queue = $params{'ListenQueue'};
-      ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
+    carp 'RemotePort ignored' if (exists $params{'RemotePort'});
 
-      carp 'RemoteAddress ignored' if (exists $params{'RemoteAddress'});
-      carp 'RemotePort ignored' if (exists $params{'RemotePort'});
-
-      unless (listen($socket_handle, $listen_queue)) {
-        $poe_kernel->yield($failure_event, 'listen', $!+0, $!);
-        close($socket_handle);
-        return undef;
-      }
-
-      $self->{'handle'} = $socket_handle;
-      $self->_define_accept_state();
-    }
-    else {
-      croak 'RemoteAddress required' unless (exists $params{'RemoteAddress'});
-      carp 'RemotePort ignored' if (exists $params{'RemotePort'});
-
+    if (exists $params{RemoteAddress}) {
       my $remote_address =
         condition_unix_address($params{'RemoteAddress'});
       my $socket_address = sockaddr_un($remote_address);
@@ -299,6 +282,19 @@ sub new {
 
       $self->{'handle'} = $socket_handle;
       $self->_define_connect_state();
+    }
+    else {
+      my $listen_queue = $params{'ListenQueue'} || SOMAXCONN;
+      ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
+
+      unless (listen($socket_handle, $listen_queue)) {
+        $poe_kernel->yield($failure_event, 'listen', $!+0, $!);
+        close($socket_handle);
+        return undef;
+      }
+
+      $self->{'handle'} = $socket_handle;
+      $self->_define_accept_state();
     }
   }
 
@@ -343,70 +339,51 @@ sub new {
       close($socket_handle);
       return undef;
     }
+                                        # bind this side of the socket
+    my ($bind_address, $bind_port);
+    if (exists $params{'BindAddress'}) {
+      $bind_address = $params{'BindAddress'};
+      (length($bind_address) != 4) &&
+        ($bind_address = inet_aton($bind_address));
+      unless (defined $bind_address) {
+        $! = EADDRNOTAVAIL;
+        $poe_kernel->yield($failure_event, 'inet_aton', $!+0, $!);
+        close $socket_handle;
+        return undef;
+      }
+    }
+    else {
+      $bind_address = INADDR_ANY;
+    }
+    
+    if (exists $params{'BindPort'}) {
+      $bind_port = $params{'BindPort'};
+      if ($bind_port !~ /^\d+$/) {
+        $bind_port = getservbyname($bind_port, $protocol_name);
+      }
+    }
+    else {
+      $bind_port = 0;
+    }
+
+    my $packed_bind_address = sockaddr_in($bind_port, $bind_address);
+    unless ($packed_bind_address) {
+      $poe_kernel->yield($failure_event, 'sockaddr_in', $!+0, $!);
+      close $socket_handle;
+      return undef;
+    }
+    
+    unless (bind($socket_handle, $packed_bind_address)) {
+      $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
+      close($socket_handle);
+      return undef;
+    }
 
     if ($protocol_name eq 'tcp') {
-      if (exists $params{'ListenQueue'}) {
-        my $listen_queue = $params{'ListenQueue'};
-        ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
-
-        carp 'RemoteAddress ignored' if (exists $params{'RemoteAddress'});
-        carp 'RemotePort ignored' if (exists $params{'RemotePort'});
-
-        my ($bind_address, $bind_port);
-        if (exists $params{'BindAddress'}) {
-          $bind_address = $params{'BindAddress'};
-          (length($bind_address) != 4) &&
-            ($bind_address = inet_aton($bind_address));
-          unless (defined $bind_address) {
-            $! = EADDRNOTAVAIL;
-            $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
-            close $socket_handle;
-            return undef;
-          }
-        }
-        else {
-          $bind_address = INADDR_ANY;
-        }
-
-        if (exists $params{'BindPort'}) {
-          $bind_port = $params{'BindPort'};
-          if ($bind_port !~ /^\d+$/) {
-            $bind_port = getservbyname($bind_port, $protocol_name);
-          }
-        }
-        else {
-          $bind_port = 0;
-        }
-
-        my $packed_bind_address = sockaddr_in($bind_port, $bind_address);
-        unless ($packed_bind_address) {
-          $poe_kernel->yield($failure_event, 'sockaddr_in', $!+0, $!);
-          close $socket_handle;
-          return undef;
-        }
-
-        unless (bind($socket_handle, $packed_bind_address)) {
-          $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
-          close($socket_handle);
-          return undef;
-        }
-
-        unless (listen($socket_handle, $listen_queue)) {
-          $poe_kernel->yield($failure_event, 'listen', $!+0, $!);
-          close($socket_handle);
-          return undef;
-        }
-
-        $self->{'handle'} = $socket_handle;
-        $self->_define_accept_state();
-      }
-                                        # connecting socket
-      else {
-        carp 'BindAddress ignored' if (exists $params{'BindAddress'});
-        carp 'BindPort ignored' if (exists $params{'BindPort'});
-        croak 'RemoteAddress required'
-          unless (exists $params{'RemoteAddress'});
+                                        # connecting if RemoteAddress
+      if (exists $params{RemoteAddress}) {
         croak 'RemotePort required' unless (exists $params{'RemotePort'});
+        carp 'ListenQueue ignored' if (exists $params{'ListenQueue'});
 
         my $remote_port = $params{'RemotePort'};
         if ($remote_port !~ /^\d+$/) {
@@ -444,12 +421,23 @@ sub new {
         $self->{'handle'} = $socket_handle;
         $self->_define_connect_state();
       }
+                                        # listening if no RemoteAddress
+      else {
+        my $listen_queue = $params{'ListenQueue'} || SOMAXCONN;
+        ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
+
+        unless (listen($socket_handle, $listen_queue)) {
+          $poe_kernel->yield($failure_event, 'listen', $!+0, $!);
+          close($socket_handle);
+          return undef;
+        }
+
+        $self->{'handle'} = $socket_handle;
+        $self->_define_accept_state();
+      }
     }
     elsif ($protocol_name eq 'udp') {
-
-      # udp
       die 'udp inet socket not implemented';
-
     }
     else {
       croak "INET sockets only support tcp and udp, not $protocol_name";
