@@ -138,6 +138,7 @@ t/29_sockfact6.t
 t/res/aliases.t
 t/res/events.t
 t/res/extrefs.t
+t/res/filehandles.t
 t/res/sessions.t
 t/res/sids.t
 t/res/signals.t
