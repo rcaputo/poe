@@ -4,7 +4,7 @@ package POE::Wheel::ReadWrite;
 
 use strict;
 use Carp;
-use POE qw(Wheel);
+use POE qw(Wheel Driver::SysRW Filter::Line);
 
 # Offsets into $self.
 sub HANDLE_INPUT               () {  0 }
@@ -64,15 +64,18 @@ sub new {
     $in_filter = $out_filter = delete $params{Filter};
   }
   else {
-    croak "Filter or InputFilter required"
-      unless defined $params{InputFilter};
-    croak "Filter or OutputFilter required"
-      unless defined $params{OutputFilter};
-    $in_filter  = delete $params{InputFilter};
+    $in_filter = delete $params{InputFilter};
     $out_filter = delete $params{OutputFilter};
+
+    # If neither Filter, InputFilter or OutputFilter is defined, then
+    # they default to POE::Filter::Line.
+    unless (defined $in_filter or defined $out_filter) {
+      $in_filter = $out_filter = POE::Filter::Line->new();
+    }
   }
 
-  croak "Driver required" unless defined $params{Driver};
+  my $driver = delete $params{Driver};
+  $driver = POE::Driver::SysRW->new() unless defined $driver;
 
   # STATE-EVENT
   if (exists $params{HighState}) {
@@ -166,7 +169,7 @@ sub new {
       $out_handle,                      # HANDLE_OUTPUT
       $in_filter,                       # FILTER_INPUT
       $out_filter,                      # FILTER_OUTPUT
-      delete $params{Driver},           # DRIVER_BOTH
+      $driver,                          # DRIVER_BOTH
       delete $params{InputEvent},       # EVENT_INPUT
       delete $params{ErrorEvent},       # EVENT_ERROR
       delete $params{FlushedEvent},     # EVENT_FLUSHED
@@ -802,6 +805,22 @@ filehandle for data.
 =head1 EVENTS AND PARAMETERS
 
 =over 2
+
+=item Driver
+
+Driver is a POE::Driver subclass that is used to read from and write
+to ReadWrite's filehandle(s).  It encapsulates the low-level I/O
+operations so in theory ReadWrite never needs to know about them.
+
+Driver defaults to C<<POE::Driver::SysRW->new()>>.
+
+=item Filter
+
+Filter is a POE::Filter subclass that's used to parse incoming data
+and create streamable outgoing data.  It encapsulates the lowest level
+of a protocol so in theory ReadWrite never needs to know about them.
+
+Filter defaults to C<<POE::Filter::Line->new()>>.
 
 =item InputEvent
 

@@ -10,7 +10,6 @@ use Socket;
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Session::ASSERT_STATES () { 0 }
 use POE qw( Component::Server::TCP
             Wheel::ReadWrite
             Filter::Line
@@ -35,6 +34,7 @@ sub sss_new {
         got_line  => \&sss_line,
         got_error => \&sss_error,
         got_flush => \&sss_flush,
+        _child => sub { },
       },
       args => [ $socket, $peer_addr, $peer_port ],
     );
@@ -201,7 +201,7 @@ POE::Session->create
       got_server => \&client_tcp_connected,
       got_line   => \&client_tcp_got_line,
       got_error  => \&client_tcp_got_error,
-      got_flush  => \&client_tcp_got_flush
+      got_flush  => \&client_tcp_got_flush,
     }
   );
 

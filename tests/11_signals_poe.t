@@ -15,7 +15,7 @@ BEGIN {
 &test_setup(3);
 
 # Turn on all asserts.
-#sub POE::Kernel::TRACE_SIGNALS  () { 1 }
+sub POE::Kernel::TRACE_SIGNALS  () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
 

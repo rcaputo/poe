@@ -47,8 +47,8 @@ sub io_start {
       POE::Wheel::ReadWrite->new
         ( InputHandle  => $heap->{pipe_read}  = $a_read,
           OutputHandle => $heap->{pipe_write} = $b_write,
-          Filter       => POE::Filter::Line->new(),
-          Driver       => POE::Driver::SysRW->new(),
+          # Use default filter.
+          # Use default driver.
           InputEvent   => 'ev_pipe_read',
         );
 

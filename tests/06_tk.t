@@ -79,7 +79,7 @@ sub io_start {
         ( InputHandle  => $a_read,
           OutputHandle => $a_write,
           Filter       => POE::Filter::Line->new(),
-          Driver       => POE::Driver::SysRW->new(),
+          # Use default driver.
           InputEvent   => 'ev_a_read',
         );
 
@@ -88,7 +88,7 @@ sub io_start {
       POE::Wheel::ReadWrite->new
         ( InputHandle  => $b_read,
           OutputHandle => $b_write,
-          Filter       => POE::Filter::Line->new(),
+          # Use default filter.
           Driver       => POE::Driver::SysRW->new(),
           InputEvent   => 'ev_b_read',
         );

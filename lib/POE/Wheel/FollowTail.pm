@@ -6,7 +6,7 @@ use strict;
 use Carp;
 use Symbol;
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END);
-use POE qw(Wheel);
+use POE qw(Wheel Driver::SysRW Filter::Line);
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -78,12 +78,16 @@ sub new {
 
   croak "Handle or Filename required, but not both"
     unless $params{Handle} xor defined $params{Filename};
-  croak "Driver required"     unless defined $params{Driver};
-  croak "Filter required"     unless defined $params{Filter};
+
+  my $driver = delete $params{Driver};
+  $driver = POE::Driver::SysRW->new() unless defined $driver;
+
+  my $filter = delete $params{Filter};
+  $filter = POE::Filter::Line->new() unless defined $filter;
+
   croak "InputEvent required" unless defined $params{InputEvent};
 
-  my ($handle, $filename, $driver, $filter) =
-    @params{ qw(Handle Filename Driver Filter) };
+  my ($handle, $filename) = @params{ qw(Handle Filename) };
 
   my @start_stat;
   if (defined $filename) {
@@ -401,6 +405,19 @@ match events with the wheels which generated them.
 =head1 EVENTS AND PARAMETERS
 
 =over 2
+
+=item Driver
+
+Driver is a POE::Driver subclass that is used to read from and write
+to FollowTail's filehandle.  It encapsulates the low-level I/O
+operations needed to access a file so in theory FollowTail never needs
+to know about them.
+
+=item Filter
+
+Filter is a POE::Filter subclass that is used to parse input from the
+tailed file.  It encapsulates the lowest level of a protocol so that
+in theory FollowTail never needs to know about file formats.
 
 =item PollInterval
 
