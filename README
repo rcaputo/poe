@@ -163,7 +163,7 @@ IO::Pty : 0.01
 All tests successful.
 Files=26, Tests=578, 84 wallclock secs ( 7.73 cusr +  0.66 csys =  8.40 CPU)
 
-** POE 0.1502 on Solaris 8 (dynweb)
+** POE 0.16 on Solaris 8 (dynweb)
 
 Hardware: Ultra-80; 2x UltraSparc II-450; 1GB RAM
 System  : SunOS 5.8
@@ -173,8 +173,21 @@ Tk      : 800.023
 Event   : 0.81
 IO::Pty : 0.01
 
-All tests successful, 1 test skipped.
-Files=26, Tests=570, 88 wallclock secs (17.99 cusr +  1.33 csys = 19.32 CPU)
+All tests successful, 2 tests skipped.
+Files=26, Tests=561, 79 wallclock secs (17.53 cusr +  1.51 csys = 19.04 CPU)
+
+** POE 0.16 on Linux (titanic)
+
+Hardware: dual Celeron 500; 512MB RAM
+System  : Linux 2.4.9 SMP
+Perl    : v5.6.0
+Gtk     : (not installed)
+Tk      : (not installed)
+Event   : 0.79
+IO::Pty : 0.01
+
+All tests successful, 2 tests skipped.
+Files=26, Tests=561, 89 wallclock secs (18.96 cusr +  1.21 csys = 20.17 CPU)
 
 ** POE 0.1501 on Mac OS X (Jotham)
 
@@ -204,19 +217,6 @@ Failed 6/26 test scripts, 76.92% okay. 45/297 subtests failed, 84.85% okay.
 
 [NB: Several of these test failures have been addressed, if not
 fixed.]
-
-** POE 0.1401 on Linux (titanic)
-
-Hardware: dual Celeron 500; 265MB RAM
-System  : Linux 2.2.15 SMP
-Perl    : v5.6.0
-Gtk     : (not installed)
-Tk      : (not installed)
-Event   : 0.79
-IO::Pty : 0.01
-
-All tests successful, 2 tests skipped.
-Files=26, Tests=459, 81 wallclock secs (17.16 cusr +  0.96 csys = 18.12 CPU)
 
 ** POE 0.1203 on Linux (a-mused)
 
