@@ -53,11 +53,17 @@ It involves a little more work if you have an older CPAN shell:
   perl -MCPAN -e shell
   install POE
 
+To install on a Win32 machine using ActiveState's PPM:
+
+  ppm install http://poe.sourceforge.net/packages/POE.ppd
+ 
+
 --------------------------
 Getting The Latest Version
 --------------------------
 
-POE can also be installed manually.  Tarballs are available from at
+POE can also be installed manually, although Win32 users are
+recommended to use the PPM instead.  Tarballs are available from at
 least three sources:
 
 The most recent stable release can be found at your favorite CPAN
