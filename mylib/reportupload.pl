@@ -1,5 +1,27 @@
 #!/usr/bin/perl
 
+=head1 NAME
+
+reportupload.pl - upload an xml test report
+
+=head1 VERSION
+
+$Revision$
+
+=head1 USAGE
+
+    perl -Ilib/ -I./ reportupload.pl
+
+This will attempt to transmit a file called C<poe_report.xml> to a
+central server for recording and browsing by POE's users and
+development team.
+
+=head1 AUTHOR
+
+This program was written by Matt Cashner.
+
+=cut
+
 use IO::Socket::INET;
 use warnings;
 use strict;
@@ -52,7 +74,9 @@ $sock->send($packet);
 my $output;
 $output = <$sock>; # for debug purposes
 if($output =~ /Test Submission/) {
-    print "Report upload succeeded. Thank you for your contribution.\n";
+    print( "Report upload succeeded. Thank you for your contribution.\n",
+           "Please visit http://eekeek.org/poe-tests/ to see other tests.\n"
+         );
 } else {
     print "Report upload failed.\n";
 }
