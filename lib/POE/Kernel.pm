@@ -486,7 +486,7 @@ sub new {
         undef,               # KR_SIGNALS - loaded from POE::Resource::Signals
         undef,               # KR_ALIASES - loaded from POE::Resource::Aliases
         \$kr_active_session, # KR_ACTIVE_SESSION - should this be handled by POE::Resource::Sessions?
-        \$kr_queue,          # KR_QUEUE - should this be extracted into a Resource ?
+        $kr_queue,          # KR_QUEUE - should this be extracted into a Resource ?
         undef,               # KR_ID 
         undef,               # KR_SESSION_IDS - loaded from POE::Resource::SIDS
         undef,               # KR_SID_SEQ - lives in P:R:SIDS but is a lexical scalar. thoughts on if it should live inside the kernel?
