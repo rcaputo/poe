@@ -302,7 +302,7 @@ macro substrate_define_callbacks {
 #------------------------------------------------------------------------------
 # The event loop itself.
 
-macro  substrate_start_main_loop {
+macro substrate_main_loop {
   Tk::MainLoop();
 }
 

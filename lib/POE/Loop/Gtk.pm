@@ -220,6 +220,7 @@ macro substrate_define_callbacks {
   sub _substrate_select_read_callback {
     my $self = $poe_kernel;
     my ($handle, $fileno, $hash) = @_;
+    my $vector = VEC_RD;
 
     {% dispatch_ready_selects %}
     {% test_for_idle_poe_kernel %}
@@ -231,6 +232,7 @@ macro substrate_define_callbacks {
   sub _substrate_select_write_callback {
     my $self = $poe_kernel;
     my ($handle, $fileno, $hash) = @_;
+    my $vector = VEC_WR;
 
     {% dispatch_ready_selects %}
     {% test_for_idle_poe_kernel %}
@@ -242,6 +244,7 @@ macro substrate_define_callbacks {
   sub _substrate_select_expedite_callback {
     my $self = $poe_kernel;
     my ($handle, $fileno, $hash) = @_;
+    my $vector = VEC_EX;
 
     {% dispatch_ready_selects %}
     {% test_for_idle_poe_kernel %}
@@ -254,7 +257,7 @@ macro substrate_define_callbacks {
 #------------------------------------------------------------------------------
 # The event loop itself.
 
-macro substrate_start_main_loop {
+macro substrate_main_loop {
   Gtk->main;
 }
 

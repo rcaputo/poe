@@ -56,7 +56,7 @@ sub _substrate_signal_handler_child {
 #------------------------------------------------------------------------------
 # Signal handler maintenance macros.
 
-macro watch_signal {
+macro substrate_watch_signal {
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
     Event->signal( signal => $signal,
@@ -82,7 +82,7 @@ macro watch_signal {
                );
 }
 
-macro resume_watching_child_signals {
+macro substrate_resume_watching_child_signals {
   # nothing to do
 }
 
@@ -220,7 +220,7 @@ macro substrate_init_main_loop {
       );
 }
 
-macro substrate_start_main_loop {
+macro substrate_main_loop {
   Event::loop();
 }
 
