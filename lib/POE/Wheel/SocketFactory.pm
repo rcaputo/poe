@@ -22,11 +22,20 @@ sub condition_handle {
   my ($self, $handle, $reuse) = @_;
 
   binmode($handle);
-
-  my $flags = fcntl($handle, F_GETFL, 0)
-    or return ['fcntl', $!+0, $!];
-  $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
-    or return ['fcntl', $!+0, $!];
+                                        # do it the Win32 way
+  if ($^O eq '"MSWin32') {
+    my $set_it = "1";
+    ioctl(handle, 126, $set_it)
+      or return ['ioctl', $!+0, $!];
+  }
+                                        # do it the way everyone else does
+  else {
+    my $flags = fcntl($handle, F_GETFL, 0)
+      or return ['fcntl', $!+0, $!];
+    $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
+      or return ['fcntl', $!+0, $!];
+  }
+                                        # reuse the address, maybe
   setsockopt($handle, SOL_SOCKET, SO_REUSEADDR, $reuse)
     or return ['setsockopt', $!+0, $!];
 
