@@ -2,6 +2,11 @@ $Id$
 
 Revision history for Perl extension POE.
 
+*** 0.031 1998.11.24
+
+- Added tests/objsessions.perl to the manifest.  D'oh!
+
+
 *** 0.03  1998.11.23
 
 - Added new constructor syntax to POE::Session.  It's now possible to
