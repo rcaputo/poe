@@ -352,7 +352,7 @@ macro ses_leak_hash (<field>) {
 
 macro kernel_leak_hash (<field>) {
   if (my $leaked = keys <field>) {
-    warn "*** KERNEL HASH LEAK: \<field> = $leaked\a\n";
+    warn "*** KERNEL HASH   LEAK: \<field> = $leaked\a\n";
   }
 }
 
@@ -366,7 +366,7 @@ macro kernel_leak_vec (<field>) {
 
 macro kernel_leak_array (<field>) {
   if (my $leaked = <field>) {
-    warn "*** KERNEL ARRAY LEAK: \<field> = $leaked\a\n";
+    warn "*** KERNEL ARRAY  LEAK: \<field> = $leaked\a\n";
   }
 }
 
@@ -2521,7 +2521,31 @@ sub _internal_select {
 
         # Remove the handle from the kernel's session record.
 
-        delete $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle};
+        my $handle_rec =
+          delete $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle};
+
+        my $kill_session = $handle_rec->[HSS_SESSION];
+        my $kill_event   = $handle_rec->[HSS_STATE];
+
+        # Remove any events destined for that handle.
+
+        my $index = @kr_events;
+        while ( $kr_fno_vec->[FVC_EV_COUNT] and
+                $index-- and
+                $kr_sessions{$kr_active_session}->[SS_EVCOUNT] and
+              ) {
+          next unless ( $kr_events[$index]->[ST_SESSION] == $kill_session and
+                        $kr_events[$index]->[ST_NAME]    eq $kill_event
+                      );
+          {% ses_refcount_dec2 $kr_events[$index]->[ST_SESSION], SS_EVCOUNT %}
+          {% ses_refcount_dec2 $kr_events[$index]->[ST_SOURCE], SS_POST_COUNT %}
+
+          my $removed_event = splice(@kr_events, $index, 1);
+          delete $kr_event_ids{$removed_event->[ST_SEQ]};
+
+          $kr_fno_vec->[FVC_EV_COUNT]--;
+          $kr_filenos[$fileno]->[FNO_TOT_REFCOUNT]--;
+        }
 
         # Decrement the handle's reference count.
 
