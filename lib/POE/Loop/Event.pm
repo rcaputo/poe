@@ -230,4 +230,8 @@ macro substrate_stop_main_loop {
   Event::unloop_all(0);
 }
 
+sub signal_ui_destroy {
+  # does nothing
+}
+
 1;
