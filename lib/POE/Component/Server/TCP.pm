@@ -711,12 +711,6 @@ if one is set.
 POE::Component::Client::TCP, POE::Wheel::SocketFactory,
 POE::Wheel::ReadWrite, POE::Filter
 
-=head1 CAVEATS
-
-This is not suitable for complex tasks.  For example, you cannot
-engage in a challenge-response with the client-- you can only reply to
-the one message a client sends.
-
 =head1 BUGS
 
 This looks nothing like what Ann envisioned.
