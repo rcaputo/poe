@@ -76,7 +76,6 @@ sub new {
     $tf=sub {$freeze->($freezer, @_)};
     $tt=sub {$thaw->($freezer, @_)};
   }
-
                                         # Compression
   $compression ||= 0;
   if ($compression) {

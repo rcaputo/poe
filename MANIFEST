@@ -29,6 +29,7 @@ POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
 POE/Wheel/SocketFactory.pm
 README
+lib/MyOtherFreezer.pm
 lib/TestSetup.pm
 samples/create.perl
 samples/fakelogin.perl
@@ -75,3 +76,4 @@ t/13_wheels_udp.t
 t/14_wheels_ft.t
 t/15_filter_block.t
 t/16_filter_stream.t
+t/17_filter_ref.t

@@ -9,7 +9,7 @@ use Exporter;
 @TestSetup::ISA = qw(Exporter);
 @TestSetup::EXPORT = qw( &test_setup
                          &stderr_pause &stderr_resume
-                         &ok &not_ok &ok_if &ok_unless &results
+                         &ok &not_ok &ok_if &ok_unless &results &many_not_ok
                        );
 
 my $test_count;
@@ -88,6 +88,14 @@ sub not_ok {
         ? " # $reason"
         : ''
       );
+  }
+}
+
+sub many_not_ok {
+  my ($start_number, $end_number, $reason) = @_;
+
+  for (my $test = $start_number; $test <= $end_number; $test++) {
+    &not_ok($test, $reason);
   }
 }
 

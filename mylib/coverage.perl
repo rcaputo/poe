@@ -44,6 +44,12 @@ foreach my $test_file (@test_files) {
 
   unlink "$test_file.coverage";
 
+  $test_file =~ /\/(\d+)_/;
+  my $test_number = $1 + 0;
+  if (@ARGV) {
+    next unless grep /^0*$test_number$/, @ARGV;
+  }
+
   print "*** Testing $test_file ...\n";
 
   # System returns 0 on success.
