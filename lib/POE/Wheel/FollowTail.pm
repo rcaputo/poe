@@ -166,9 +166,11 @@ sub _define_states {
   $poe_kernel->state
     ( $state_read,
       sub {
-                                        # prevents SEGV
+
+        # Protects against coredump on older perls.
         0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
+
+        # The actual code starts here.
         my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
 
         $k->select_read($hdl);
