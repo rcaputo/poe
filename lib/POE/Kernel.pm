@@ -1268,24 +1268,20 @@ sub alias_remove {
 
 sub alias_resolve {
   my ($self, $name) = @_;
+                                        # resolve against sessions
+  if (exists $self->[KR_SESSIONS]->{$name}) {
+    return $self->[KR_SESSIONS]->{$name}->[SS_SESSION];
+  }
+                                        # resolve against aliases
+  if (exists $self->[KR_ALIASES]->{$name}) {
+    return $self->[KR_ALIASES]->{$name};
+  }
                                         # resolve against current namespace
   if ($self->[KR_ACTIVE_SESSION] ne $self) {
     if ($name eq $self->[KR_ACTIVE_SESSION]->[&POE::Session::SE_NAMESPACE]) {
       carp "Using HEAP instead of SESSION is depreciated";
       return $self->[KR_ACTIVE_SESSION];
     }
-  }
-                                        # resolve against itself
-  if (ref($name) ne '') {
-    return $name;
-  }
-                                        # resolve against aliases
-  if (exists $self->[KR_ALIASES]->{$name}) {
-    return $self->[KR_ALIASES]->{$name};
-  }
-                                        # resolve against sessions
-  if (exists $self->[KR_SESSIONS]->{$name}) {
-    return $self->[KR_SESSIONS]->{$name}->[SS_SESSION];
   }
                                         # it doesn't resolve to anything?
   $! = ESRCH;
