@@ -20,46 +20,75 @@ my ( $tck_up, $tck_down, $tck_left, $tck_right, $tck_insert,
      $tck_delete, $tck_home, $tck_end, $tck_backspace
    );
 
+# Screen extent.
+my ($trk_rows, $trk_cols);
+
 # Offsets into $self.
-sub SELF_INPUT        () {  0 }
-sub SELF_CURSOR       () {  1 }
-sub SELF_EVENT_INPUT  () {  2 }
-sub SELF_READING_LINE () {  3 }
-sub SELF_STATE_READ   () {  4 }
-sub SELF_PROMPT       () {  5 }
-sub SELF_HIST_LIST    () {  6 }
-sub SELF_HIST_INDEX   () {  7 }
-sub SELF_INPUT_HOLD   () {  8 }
-sub SELF_KEY_BUILD    () {  9 }
-sub SELF_INSERT_MODE  () { 10 }
-sub SELF_PUT_MODE     () { 11 }
-sub SELF_PUT_BUFFER   () { 12 }
-sub SELF_IDLE_TIME    () { 13 }
-sub SELF_STATE_IDLE   () { 14 }
-sub SELF_HAS_TIMER    () { 15 }
+sub SELF_INPUT          () {  0 }
+sub SELF_CURSOR_INPUT   () {  1 }
+sub SELF_EVENT_INPUT    () {  2 }
+sub SELF_READING_LINE   () {  3 }
+sub SELF_STATE_READ     () {  4 }
+sub SELF_PROMPT         () {  5 }
+sub SELF_HIST_LIST      () {  6 }
+sub SELF_HIST_INDEX     () {  7 }
+sub SELF_INPUT_HOLD     () {  8 }
+sub SELF_KEY_BUILD      () {  9 }
+sub SELF_INSERT_MODE    () { 10 }
+sub SELF_PUT_MODE       () { 11 }
+sub SELF_PUT_BUFFER     () { 12 }
+sub SELF_IDLE_TIME      () { 13 }
+sub SELF_STATE_IDLE     () { 14 }
+sub SELF_HAS_TIMER      () { 15 }
+sub SELF_CURSOR_DISPLAY () { 16 }
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
 #------------------------------------------------------------------------------
 # Helper functions.
 
+# Build a hash of input characters and their "normalized" display
+# versions.  ISO Latin-1 characters (8th bit set "ASCII") are
+# mishandled.  European users, please forgive me.  If there's a good
+# way to handle this-- perhaps this is an interesting use for
+# Unicode-- please let me know.
+
+my (%normalized_character, @normalized_extra_width);
+BEGIN {
+  for (my $ord = 0; $ord < 256; $ord++) {
+    my $normalized =
+      ( ($ord > 126)
+        ? (sprintf "<%2x>", $ord)
+        : ( ($ord > 31)
+            ? chr($ord)
+            : ( '^' . chr($ord+64) )
+          )
+      );
+    $normalized_character{chr($ord)} = $normalized;
+    $normalized_extra_width[$ord] = length($normalized) - 1;
+  }
+};
+
 # Return a normalized version of a string.  This includes destroying
 # non-printable characters, turning them into strange multi-byte
 # sequences.
 sub normalize {
-  join( '',
-        map {
-          if ($_ lt ' ') {
-            $_ = '^' . chr(ord($_) + 64);
-          }
-	  elsif ($_ gt '~') {
-	    $_ = '<' . sprintf('%02.2x', ord($_)) . '>';
-	  }
-	  else {
-	    $_;
-	  }
-	} split //, shift
-      );
+  local $_ = shift;
+  s/([^ -~])/$normalized_character{$1}/g;
+  return $_;
+}
+
+# Calculate the display width of a string.  The display width is
+# sometimes wider than the actual string because some characters are
+# represented on the terminal as multiple characters.
+
+sub display_width {
+  local $_ = shift;
+  my $width = length;
+  foreach my $extra (m/([\x00-\x1F\x7F-\xFF])/g) {
+    $width += $normalized_extra_width[ord $extra];
+  }
+  return $width;
 }
 
 # Some keystrokes generate multi-byte sequences.  Record the prefixes
@@ -107,7 +136,7 @@ BEGIN {
   $bell = $termcap->Tputs( vb => 1 ) unless defined $bell;
   $tc_bell = (defined $bell) ? $bell : '';
 
-  # Arrow keys.	 These are required.
+  # Arrow keys.  These are required.
   $tck_up    = preprocess_keystroke( 'ku' );
   $tck_down  = preprocess_keystroke( 'kd' );
   $tck_left  = preprocess_keystroke( 'kl' );
@@ -115,28 +144,31 @@ BEGIN {
 
   # Insert key.
   eval { $termcap->Trequire( 'kI' ) };
-  if ($@) { $tck_insert = '';				}
-  else	  { $tck_insert = preprocess_keystroke( 'kI' ); }
+  if ($@) { $tck_insert = '';                           }
+  else    { $tck_insert = preprocess_keystroke( 'kI' ); }
 
   # Delete key.
   eval { $termcap->Trequire( 'kD' ) };
-  if ($@) { $tck_delete = '';				}
-  else	  { $tck_delete = preprocess_keystroke( 'kD' ); }
+  if ($@) { $tck_delete = '';                           }
+  else    { $tck_delete = preprocess_keystroke( 'kD' ); }
 
   # Home key.
   eval { $termcap->Trequire( 'kh' ) };
-  if ($@) { $tck_home = '';			      }
-  else	  { $tck_home = preprocess_keystroke( 'kh' ); }
+  if ($@) { $tck_home = '';                           }
+  else    { $tck_home = preprocess_keystroke( 'kh' ); }
 
   # End key.
   eval { $termcap->Trequire( 'kH' ) };
-  if ($@) { $tck_end = '';			     }
-  else	  { $tck_end = preprocess_keystroke( 'kH' ); }
+  if ($@) { $tck_end = '';                           }
+  else    { $tck_end = preprocess_keystroke( 'kH' ); }
 
   # Backspace key.
   eval { $termcap->Trequire( 'kb' ) };
-  if ($@) { $tck_backspace = '';			   }
-  else	  { $tck_backspace = preprocess_keystroke( 'kb' ); }
+  if ($@) { $tck_backspace = '';                           }
+  else    { $tck_backspace = preprocess_keystroke( 'kb' ); }
+
+  # Terminal size.
+  ($trk_cols, $trk_rows) = Term::ReadKey::GetTerminalSize(*STDOUT);
 
   # Esc is the generic meta prefix.
   $meta_prefix{chr(27)} = 1;
@@ -164,28 +196,29 @@ sub new {
   $idle_time = 2 unless defined $idle_time;
 
   my $self = bless
-    [ '',	    # SELF_INPUT
-      0,	    # SELF_CURSOR
+    [ '',           # SELF_INPUT
+      0,            # SELF_CURSOR_INPUT
       $input_event, # SELF_EVENT_INPUT
-      0,    	    # SELF_READING_LINE
-      undef,	    # SELF_STATE_READ
-      '>',	    # SELF_PROMPT
-      [ ],	    # SELF_HIST_LIST
-      0,	    # SELF_HIST_INDEX
-      '',	    # SELF_INPUT_HOLD
-      '',	    # SELF_KEY_BUILD
-      1,	    # SELF_INSERT_MODE
+      0,            # SELF_READING_LINE
+      undef,        # SELF_STATE_READ
+      '>',          # SELF_PROMPT
+      [ ],          # SELF_HIST_LIST
+      0,            # SELF_HIST_INDEX
+      '',           # SELF_INPUT_HOLD
+      '',           # SELF_KEY_BUILD
+      1,            # SELF_INSERT_MODE
       $put_mode,    # SELF_PUT_MODE
       [ ],          # SELF_PUT_BUFFER
       $idle_time,   # SELF_IDLE_TIME
       undef,        # SELF_STATE_IDLE
       0,            # SELF_HAS_TIMER
+      0,            # SELF_CURSOR_DISPLAY
     ], $type;
 
   if (scalar keys %params) {
     carp( "unknown parameters in $type constructor call: ",
-	  join(', ', keys %params)
-	);
+          join(', ', keys %params)
+        );
   }
 
   # Turn off STDOUT buffering.
@@ -270,40 +303,41 @@ sub _define_read_state {
 
     # If any of these change, then the read state is invalidated and
     # needs to be redefined.  Things which are read-only are assigned
-    # by value.	 Things that need to be read/write are assigned by
+    # by value.  Things that need to be read/write are assigned by
     # reference, so that changing them within the state modifies $self
     # without holding a reference to $self.
-    my $input_hold  = \$self->[SELF_INPUT_HOLD];
-    my $input	    = \$self->[SELF_INPUT];
-    my $cursor	    = \$self->[SELF_CURSOR];
-    my $event_input = \$self->[SELF_EVENT_INPUT];
-    my $reading	    = \$self->[SELF_READING_LINE];
-    my $prompt	    = \$self->[SELF_PROMPT];
-    my $hist_list   = $self->[SELF_HIST_LIST];	# already a listref
-    my $hist_index  = \$self->[SELF_HIST_INDEX];
-    my $key_build   = \$self->[SELF_KEY_BUILD];
-    my $insert_mode = \$self->[SELF_INSERT_MODE];
+    my $input_hold     = \$self->[SELF_INPUT_HOLD];
+    my $input          = \$self->[SELF_INPUT];
+    my $cursor_input   = \$self->[SELF_CURSOR_INPUT];
+    my $event_input    = \$self->[SELF_EVENT_INPUT];
+    my $reading        = \$self->[SELF_READING_LINE];
+    my $prompt         = \$self->[SELF_PROMPT];
+    my $hist_list      = $self->[SELF_HIST_LIST];       # already a listref
+    my $hist_index     = \$self->[SELF_HIST_INDEX];
+    my $key_build      = \$self->[SELF_KEY_BUILD];
+    my $insert_mode    = \$self->[SELF_INSERT_MODE];
+    my $cursor_display = \$self->[SELF_CURSOR_DISPLAY];
 
-    my $state_idle  = $self->[SELF_STATE_IDLE];
-    my $idle_time   = $self->[SELF_IDLE_TIME];
-    my $has_timer   = \$self->[SELF_HAS_TIMER];
-    my $put_buffer  = $self->[SELF_PUT_BUFFER];
-    my $put_mode    = $self->[SELF_PUT_MODE];
+    my $state_idle     = $self->[SELF_STATE_IDLE];
+    my $idle_time      = $self->[SELF_IDLE_TIME];
+    my $has_timer      = \$self->[SELF_HAS_TIMER];
+    my $put_buffer     = $self->[SELF_PUT_BUFFER];
+    my $put_mode       = $self->[SELF_PUT_MODE];
 
     $poe_kernel->state
       ( $self->[SELF_STATE_READ] = $self . ' select read',
-	sub {
+        sub {
 
-	  # Prevents SEGV in older Perls.
-	  0 && CRIMSON_SCOPE_HACK('<');
+          # Prevents SEGV in older Perls.
+          0 && CRIMSON_SCOPE_HACK('<');
 
-	  my ($k, $s) = @_[KERNEL, SESSION];
+          my ($k, $s) = @_[KERNEL, SESSION];
 
-	  # Read keys, non-blocking, as long as there are some.
-	  while (defined(my $key = ReadKey(-1))) {
+          # Read keys, non-blocking, as long as there are some.
+          while (defined(my $key = ReadKey(-1))) {
 
-	    # Not reading a line; discard the input.
-	    next unless $$reading;
+            # Not reading a line; discard the input.
+            next unless $$reading;
 
             # Update the timer on significant input.
             if ( $put_mode eq 'idle' ) {
@@ -311,455 +345,494 @@ sub _define_read_state {
               $$has_timer = 1;
             }
 
-	    # Keep glomming keystrokes until they stop existing in the
-	    # hash of meta prefixes.
-	    $$key_build .= $key;
-	    next if exists $meta_prefix{$$key_build};
+            # Keep glomming keystrokes until they stop existing in the
+            # hash of meta prefixes.
+            $$key_build .= $key;
+            next if exists $meta_prefix{$$key_build};
 
-	    # Make the keystroke printable.
-	    $key = normalize($$key_build);
-	    $$key_build = '';
+            # Make the keystroke printable.
+            $key = normalize(my $raw_key = $$key_build);
+            $$key_build = '';
 
-	    # Skip test for meta-keys if the keystroke's length is
-	    # just one character.
-	    if (length($key) > 1) {
+            # Skip test for meta-keys if the keystroke's length is
+            # just one character.
+            if (length($key) > 1) {
 
-	      # Beginning of line.
-	      if ( $key eq '^A' or $key eq $tck_home ) {
-		if ($$cursor) {
-		  $termcap->Tgoto( 'LE', 1, $$cursor, *STDOUT );
-		  $$cursor = 0;
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Beginning of line.
+              if ( $key eq '^A' or $key eq $tck_home ) {
+                if ($$cursor_input) {
+                  $termcap->Tgoto( 'LE', 1, $$cursor_display, *STDOUT );
+                  $$cursor_display = $$cursor_input = 0;
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-	      # Back one character.
-	      if ($key eq '^B' or $key eq $tck_left) {
-		if ($$cursor) {
-		  $$cursor--;
-		  $termcap->Tputs( 'le', 1, *STDOUT );
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Back one character.
+              if ($key eq '^B' or $key eq $tck_left) {
+                if ($$cursor_input) {
+                  $$cursor_input--;
+                  my $left = display_width(substr($$input, $$cursor_input, 1));
+                  $termcap->Tgoto( 'LE', 1, $left, *STDOUT );
+                  $$cursor_display -= $left;
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-	      # Interrupt.
-	      if ($key eq '^C') {
-		print $key, "\x0D\x0A";
-		$poe_kernel->select_read( *STDIN );
-		$poe_kernel->yield( $$event_input, undef, 'interrupt' );
-		$$reading = 0;
-		$$hist_index = @$hist_list;
+              # Interrupt.
+              if ($key eq '^C') {
+                print $key, "\x0D\x0A";
+                $poe_kernel->select_read( *STDIN );
+                $poe_kernel->yield( $$event_input, undef, 'interrupt' );
+                $$reading = 0;
+                $$hist_index = @$hist_list;
                 $self->_flush_output_buffer();
-		next;
-	      }
+                next;
+              }
 
-	      # Delete a character.
-	      if ( $key eq '^D' or $key eq $tck_delete ) {
-		if ($$cursor < length($$input)) {
-		  substr( $$input, $$cursor, 1 ) = '';
-		  print( substr( $$input, $$cursor ), ' ',
-			 $termcap->Tgoto( 'LE', 1,
-					  length($$input) - $$cursor + 1
-					)
-		       );
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Delete a character.
+              if ( $key eq '^D' or $key eq $tck_delete ) {
+                if ($$cursor_input < length($$input)) {
+                  my $kill_width =
+                    display_width(substr($$input, $$cursor_input, 1));
+                  substr( $$input, $$cursor_input, 1 ) = '';
+                  my $normal =
+                    ( normalize(substr($$input, $$cursor_input)) .
+                      (' ' x $kill_width)
+                    );
+                  print $normal;
+                  $termcap->Tgoto( 'LE', 1, length($normal), *STDOUT );
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-	      # End of line.
-	      if ( $key eq '^E' or $key eq $tck_end ) {
-		if ($$cursor < length($$input)) {
-		  $termcap->Tgoto( 'RI',
-				   1, length($$input) - $$cursor,
-				   *STDOUT
-				 );
-		  $$cursor = length($$input);
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # End of line.
+              if ( $key eq '^E' or $key eq $tck_end ) {
+                if ($$cursor_input < length($$input)) {
+                  my $right = display_width(substr($$input, $$cursor_input));
+                  $termcap->Tgoto( 'RI', 1, $right, *STDOUT );
+                  $$cursor_display += $right;
+                  $$cursor_input = length($$input);
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-	      # Forward character.
-	      if ($key eq '^F' or $key eq $tck_right) {
-		if ($$cursor < length($$input)) {
-		  print substr( $$input, $$cursor, 1 );
-		  $$cursor++;
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Forward character.
+              if ($key eq '^F' or $key eq $tck_right) {
+                if ($$cursor_input < length($$input)) {
+                  my $normal = normalize(substr($$input, $$cursor_input, 1));
+                  print $normal;
+                  $$cursor_input++;
+                  $$cursor_display += length($normal);
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-	      # Cancel.
-	      if ($key eq '^G') {
-		print $key, "\x0D\x0A";
-		$poe_kernel->select_read( *STDIN );
-		$poe_kernel->yield( $$event_input, undef, 'cancel' );
-		$$reading = 0;
-		$$hist_index = @$hist_list;
+              # Cancel.
+              if ($key eq '^G') {
+                print $key, "\x0D\x0A";
+                $poe_kernel->select_read( *STDIN );
+                $poe_kernel->yield( $$event_input, undef, 'cancel' );
+                $$reading = 0;
+                $$hist_index = @$hist_list;
                 $self->_flush_output_buffer();
-		return;
-	      }
+                return;
+              }
 
-	      # Backward delete character.
-	      if ($key eq '^H' or $key eq $tck_backspace) {
-		if ($$cursor) {
-		  $$cursor--;
-		  substr($$input, $$cursor, 1) = '';
-		  $termcap->Tputs( 'le', 1, *STDOUT );
-		  print substr($$input, $$cursor), ' ';
-		  $termcap->Tgoto( 'LE', 1,
-				   length($$input) - $$cursor + 1, *STDOUT
-				 );
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Backward delete character.
+              if ($key eq '^H' or $key eq $tck_backspace) {
+                if ($$cursor_input) {
+                  $$cursor_input--;
+                  my $left = display_width(substr($$input, $$cursor_input, 1));
+                  my $kill_width =
+                    display_width(substr($$input, $$cursor_input, 1));
+                  substr($$input, $$cursor_input, 1) = '';
+                  $termcap->Tgoto( 'LE', 1, $left, *STDOUT );
+                  my $normal =
+                    ( normalize(substr($$input, $$cursor_input)) .
+                      (' ' x $kill_width)
+                    );
+                  print $normal;
+                  $termcap->Tgoto( 'LE', 1, length($normal), *STDOUT );
+                  $$cursor_display -= $kill_width;
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-	      # Accept line.
-	      if ($key eq '^J') {
-		print "\x0D\x0A";
-		$poe_kernel->select_read( *STDIN );
-		$poe_kernel->yield( $$event_input, $$input );
-		$$reading = 0;
-		$$hist_index = @$hist_list;
+              # Accept line.
+              if ($key eq '^J') {
+                print "\x0D\x0A";
+                $poe_kernel->select_read( *STDIN );
+                $poe_kernel->yield( $$event_input, $$input );
+                $$reading = 0;
+                $$hist_index = @$hist_list;
                 $self->_flush_output_buffer();
-		next;
-	      }
+                next;
+              }
 
-	      # Kill to EOL.
-	      if ($key eq '^K') {
-		if ($$cursor < length($$input)) {
-		  my $killed_length = length($$input) - $$cursor;
-		  substr( $$input, $$cursor ) = '';
-		  print( (" " x $killed_length),
-			 $termcap->Tgoto( 'LE', 1, $killed_length )
-		       );
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Kill to EOL.
+              if ($key eq '^K') {
+                if ($$cursor_input < length($$input)) {
+                  my $kill_width =
+                    display_width(substr($$input, $$cursor_input));
+                  substr( $$input, $$cursor_input ) = '';
+                  print( (" " x $kill_width),
+                         $termcap->Tgoto( 'LE', 1, $kill_width )
+                       );
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-	      # Clear screen.
-	      if ($key eq '^L') {
-		$termcap->Tputs( 'cl', 1, *STDOUT );
-		print( $$prompt, $$input,
-		       $termcap->Tgoto( 'LE', 1,
-					length($$input) - $$cursor
-				      )
-		     );
-		next;
-	      }
+              # Clear screen.
+              if ($key eq '^L') {
+                my $left = display_width(substr($$input, $$cursor_input));
+                $termcap->Tputs( 'cl', 1, *STDOUT );
+                print $$prompt, normalize($$input);
+                $termcap->Tgoto( 'LE', 1, $left, *STDOUT ) if $left;
+                next;
+              }
 
-	      # Accept line.
-	      if ($key eq '^M') {
-		print "\x0D\x0A";
-		$poe_kernel->select_read( *STDIN );
-		$poe_kernel->yield( $$event_input, $$input );
-		$$reading = 0;
-		$$hist_index = @$hist_list;
+              # Accept line.
+              if ($key eq '^M') {
+                print "\x0D\x0A";
+                $poe_kernel->select_read( *STDIN );
+                $poe_kernel->yield( $$event_input, $$input );
+                $$reading = 0;
+                $$hist_index = @$hist_list;
                 $self->_flush_output_buffer();
-		next;
-	      }
+                next;
+              }
 
-	      # Transpose characters.
-	      if ($key eq '^T') {
-		if ($$cursor > 0 and $$cursor < length($$input)) {
-		  my $transposition =
-		    reverse substr($$input, $$cursor - 1, 2);
-		  substr($$input, $$cursor - 1, 2) = $transposition;
-		  print "\b$transposition\b";
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Transpose characters.
+              if ($key eq '^T') {
+                if ($$cursor_input > 0 and $$cursor_input < length($$input)) {
+                  my $width_left =
+                    display_width(substr($$input, $$cursor_input - 1, 1));
 
-	      # Discard line.
-	      if ($key eq '^U') {
-		if (length $$input) {
+                  my $transposition =
+                    reverse substr($$input, $$cursor_input - 1, 2);
+                  substr($$input, $$cursor_input - 1, 2) = $transposition;
 
-		  # Back up to the beginning of the line.
-		  if ($$cursor) {
-		    print $termcap->Tgoto( 'LE', 1, $$cursor );
-		    $$cursor = 0;
-		  }
+                  $termcap->Tgoto( 'LE', 1, $width_left, *STDOUT );
+                  print normalize($transposition);
+                  $termcap->Tgoto( 'LE', 1, $width_left, *STDOUT );
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-		  # Clear to the end of the line.
-		  if ($tc_has_ke) {
-		    print $termcap->Tputs( 'kE', 1 );
-		  }
-		  else {
-		    print( (' ' x length($$input)),
-			   $termcap->Tgoto( 'LE', 1, length($$input) )
-			 );
-		  }
+              # Discard line.
+              if ($key eq '^U') {
+                if (length $$input) {
 
-		  # Clear the input buffer.
-		  $$input = '';
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+                  # Back up to the beginning of the line.
+                  if ($$cursor_input) {
+                    print $termcap->Tgoto( 'LE', 1, $$cursor_display );
+                    $$cursor_display = $$cursor_input = 0;
+                  }
 
-	      # Word rubout.
-	      if ($key eq '^W' or $key eq '^[^H') {
-		if ($$cursor) {
+                  # Clear to the end of the line.
+                  if ($tc_has_ke) {
+                    print $termcap->Tputs( 'kE', 1 );
+                  }
+                  else {
+                    my $display_width = display_width($$input);
+                    print ' ' x $display_width;
+                    $termcap->Tgoto( 'LE', 1, $display_width, *STDOUT );
+                  }
 
-		  # Delete the word, and back up the cursor.
-		  substr($$input, 0, $$cursor) =~ s/(\S*\s*)$//;
-		  $$cursor -= length($1);
+                  # Clear the input buffer.
+                  $$input = '';
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-		  # Back up the screen cursor; show the line's tail.
-		  print( $termcap->Tgoto( 'LE', 1, length($1) ),
-			 substr( $$input, $$cursor )
-		       );
+              # Word rubout.
+              if ($key eq '^W' or $key eq '^[^H') {
+                if ($$cursor_input) {
 
-		  # Clear to the end of the line.
-		  if ($tc_has_ke) {
-		    print $termcap->Tputs( 'kE', 1 );
-		  }
-		  else {
-		    print( (' ' x length($1)),
-			   $termcap->Tgoto( 'LE', 1, length($1) )
-			 );
-		  }
+                  # Delete the word, and back up the cursor.
+                  substr($$input, 0, $$cursor_input) =~ s/(\S*\s*)$//;
+                  $$cursor_input -= length($1);
 
-		  # Back up the screen cursor to match the edit one.
-		  if (length($$input) != $$cursor) {
-		    print
-		      $termcap->Tgoto( 'LE', 1, length($$input) - $$cursor);
-		  }
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+                  # Back up the screen cursor; show the line's tail.
+                  my $delete_width = display_width($1);
+                  $termcap->Tgoto( 'LE', 1, $delete_width, *STDOUT );
+                  print normalize(substr( $$input, $$cursor_input ));
 
-	      # Previous in history.
-	      if ($key eq '^P' or $key eq $tck_up) {
-		if ($$hist_index) {
+                  # Clear to the end of the line.
+                  if ($tc_has_ke) {
+                    print $termcap->Tputs( 'kE', 1 );
+                  }
+                  else {
+                    print ' ' x $delete_width;
+                    $termcap->Tgoto( 'LE', 1, $delete_width, *STDOUT );
+                  }
 
-		  # Moving away from a new input line; save it in case
-		  # we return.
-		  if ($$hist_index == @$hist_list) {
-		    $$input_hold = $$input;
-		  }
+                  # Back up the screen cursor to match the edit one.
+                  if (length($$input) != $$cursor_input) {
+                    my $display_width =
+                      display_width( substr($$input, $$cursor_input) );
+                    $termcap->Tgoto( 'LE', 1, $display_width, *STDOUT );
+                  }
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-		  # Move cursor to start of input.
-		  if ($$cursor) {
-		    $termcap->Tgoto( 'LE', 1, $$cursor, *STDOUT );
-		  }
+              # Previous in history.
+              if ($key eq '^P' or $key eq $tck_up) {
+                if ($$hist_index) {
 
-		  # Clear to end of line.
-		  if (length $$input) {
-		    if ($tc_has_ke) {
-		      print $termcap->Tputs( 'kE', 1 );
-		    }
-		    else {
-		      print( (' ' x length($$input)),
-			     $termcap->Tgoto( 'LE', 1, length($$input) )
-			   );
-		    }
-		  }
+                  # Moving away from a new input line; save it in case
+                  # we return.
+                  if ($$hist_index == @$hist_list) {
+                    $$input_hold = $$input;
+                  }
 
-		  # Move the history cursor back, set the new input
-		  # buffer, and show what the user's editing.  Set the
-		  # cursor to the end of the new line.
-		  print $$input = $hist_list->[--$$hist_index];
-		  $$cursor = length($$input);
-		}
-		else {
-		  # At top of history list.
-		  print $tc_bell;
-		}
-		next;
-	      }
+                  # Move cursor to start of input.
+                  if ($$cursor_input) {
+                    $termcap->Tgoto( 'LE', 1, $$cursor_display, *STDOUT );
+                  }
 
-	      # Next in history.
-	      if ($key eq '^N' or $key eq $tck_down) {
-		if ($$hist_index < @$hist_list) {
+                  # Clear to end of line.
+                  if (length $$input) {
+                    if ($tc_has_ke) {
+                      print $termcap->Tputs( 'kE', 1 );
+                    }
+                    else {
+                      my $display_width = display_width($$input);
+                      print ' ' x $display_width;
+                      $termcap->Tgoto( 'LE', 1, $display_width, *STDOUT );
+                    }
+                  }
 
-		  # Move cursor to start of input.
-		  if ($$cursor) {
-		    $termcap->Tgoto( 'LE', 1, $$cursor, *STDOUT );
-		  }
+                  # Move the history cursor back, set the new input
+                  # buffer, and show what the user's editing.  Set the
+                  # cursor to the end of the new line.
+                  my $normal;
+                  print $normal =
+                    normalize($$input = $hist_list->[--$$hist_index]);
+                  $$cursor_input = length($$input);
+                  $$cursor_display = length($normal);
+                }
+                else {
+                  # At top of history list.
+                  print $tc_bell;
+                }
+                next;
+              }
 
-		  # Clear to end of line.
-		  if (length $$input) {
-		    if ($tc_has_ke) {
-		      print $termcap->Tputs( 'kE', 1 );
-		    }
-		    else {
-		      print( (' ' x length($$input)),
-			     $termcap->Tgoto( 'LE', 1, length($$input) )
-			   );
-		    }
-		  }
+              # Next in history.
+              if ($key eq '^N' or $key eq $tck_down) {
+                if ($$hist_index < @$hist_list) {
 
-		  if (++$$hist_index == @$hist_list) {
-		    # Just past the end of the history.	 Whatever was
-		    # there when we left it.
-		    print $$input = $$input_hold;
-		    $$cursor = length($$input);
-		  }
-		  else {
-		    # There's something in the history list.  Make that
-		    # the current line.
-		    print $$input = $hist_list->[$$hist_index];
-		    $$cursor = length($$input);
-		  }
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+                  # Move cursor to start of input.
+                  if ($$cursor_input) {
+                    $termcap->Tgoto( 'LE', 1, $$cursor_display, *STDOUT );
+                  }
 
-	      # First in history.
-	      if ($key eq '^[<') {
-		if ($$hist_index) {
+                  # Clear to end of line.
+                  if (length $$input) {
+                    if ($tc_has_ke) {
+                      print $termcap->Tputs( 'kE', 1 );
+                    }
+                    else {
+                      my $display_width = display_width($$input);
+                      print ' ' x $display_width;
+                      $termcap->Tgoto( 'LE', 1, $display_width, *STDOUT );
+                    }
+                  }
 
-		  # Moving away from a new input line; save it in case
-		  # we return.
-		  if ($$hist_index == @$hist_list) {
-		    $$input_hold = $$input;
-		  }
+                  my $normal;
+                  if (++$$hist_index == @$hist_list) {
+                    # Just past the end of the history.  Whatever was
+                    # there when we left it.
+                    print $normal = normalize($$input = $$input_hold);
+                  }
+                  else {
+                    # There's something in the history list.  Make that
+                    # the current line.
+                    print $normal =
+                      normalize($$input = $hist_list->[$$hist_index]);
+                  }
 
-		  # Move cursor to start of input.
-		  if ($$cursor) {
-		    $termcap->Tgoto( 'LE', 1, $$cursor, *STDOUT );
-		  }
+                  $$cursor_input = length($$input);
+                  $$cursor_display = length($normal);
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-		  # Clear to end of line.
-		  if (length $$input) {
-		    if ($tc_has_ke) {
-		      print $termcap->Tputs( 'kE', 1 );
-		    }
-		    else {
-		      print( (' ' x length($$input)),
-			     $termcap->Tgoto( 'LE', 1, length($$input) )
-			   );
-		    }
-		  }
+              # First in history.
+              if ($key eq '^[<') {
+                if ($$hist_index) {
 
-		  # Move the history cursor back, set the new input
-		  # buffer, and show what the user's editing.  Set the
-		  # cursor to the end of the new line.
-		  print $$input = $hist_list->[$$hist_index = 0];
-		  $$cursor = length($$input);
-		}
-		else {
-		  # At top of history list.
-		  print $tc_bell;
-		}
-		next;
-	      }
+                  # Moving away from a new input line; save it in case
+                  # we return.
+                  if ($$hist_index == @$hist_list) {
+                    $$input_hold = $$input;
+                  }
 
-	      # Last in history.
-	      if ($key eq '^[>') {
-		if ($$hist_index != @$hist_list - 1) {
+                  # Move cursor to start of input.
+                  if ($$cursor_input) {
+                    $termcap->Tgoto( 'LE', 1, $$cursor_display, *STDOUT );
+                  }
 
-		  # Move cursor to start of input.
-		  if ($$cursor) {
-		    $termcap->Tgoto( 'LE', 1, $$cursor, *STDOUT );
-		  }
+                  # Clear to end of line.
+                  if (length $$input) {
+                    if ($tc_has_ke) {
+                      print $termcap->Tputs( 'kE', 1 );
+                    }
+                    else {
+                      my $display_width = display_width($$input);
+                      print ' ' x $display_width;
+                      $termcap->Tgoto( 'LE', 1, $display_width, *STDOUT );
+                    }
+                  }
 
-		  # Clear to end of line.
-		  if (length $$input) {
-		    if ($tc_has_ke) {
-		      print $termcap->Tputs( 'kE', 1 );
-		    }
-		    else {
-		      print( (' ' x length($$input)),
-			     $termcap->Tgoto( 'LE', 1, length($$input) )
-			   );
-		    }
-		  }
+                  # Move the history cursor back, set the new input
+                  # buffer, and show what the user's editing.  Set the
+                  # cursor to the end of the new line.
+                  print my $normal =
+                    normalize($$input = $hist_list->[$$hist_index = 0]);
+                  $$cursor_input = length($$input);
+                  $$cursor_display = length($normal);
+                }
+                else {
+                  # At top of history list.
+                  print $tc_bell;
+                }
+                next;
+              }
 
-		  # Move the edit line down to the last history line.
-		  $$hist_index = @$hist_list - 1;
-		  print $$input = $hist_list->[$$hist_index];
-		  $$cursor = length($$input);
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Last in history.
+              if ($key eq '^[>') {
+                if ($$hist_index != @$hist_list - 1) {
 
-	      # Capitalize from cursor on.  This needs uc($key).
-	      if (uc($key) eq '^[C') {
+                  # Moving away from a new input line; save it in case
+                  # we return.
+                  if ($$hist_index == @$hist_list) {
+                    $$input_hold = $$input;
+                  }
 
-		# If there's text to capitalize.
-		if (substr($$input, $$cursor) =~ /^(\s*)(\S+)/) {
+                  # Move cursor to start of input.
+                  if ($$cursor_input) {
+                    $termcap->Tgoto( 'LE', 1, $$cursor_display, *STDOUT );
+                  }
 
-		  # Track leading space, and uppercase word.
-		  my $space = $1; $space = '' unless defined $space;
-		  my $word  = ucfirst(lc($2));
+                  # Clear to end of line.
+                  if (length $$input) {
+                    if ($tc_has_ke) {
+                      print $termcap->Tputs( 'kE', 1 );
+                    }
+                    else {
+                      my $display_width = display_width($$input);
+                      print ' ' x $display_width;
+                      $termcap->Tgoto( 'LE', 1, $display_width, *STDOUT );
+                    }
+                  }
 
-		  # Replace text with the uppercase version.
-		  substr($$input, $$cursor + length($space), length($word)) =
-		    $word;
+                  # Move the edit line down to the last history line.
+                  $$hist_index = @$hist_list - 1;
+                  print my $normal =
+                    normalize($$input = $hist_list->[$$hist_index]);
+                  $$cursor_input = length($$input);
+                  $$cursor_display = length($normal);
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
 
-		  # Display the new text; move the cursor after it.
-		  print $space, $word;
-		  $$cursor += length($space . $word);
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+              # Capitalize from cursor on.  This needs uc($key).
+              if (uc($key) eq '^[C') {
 
-	      # Uppercase from cursor on.  This needs uc($key).
-	      # Modelled after capitalize.
-	      if (uc($key) eq '^[U') {
-		if (substr($$input, $$cursor) =~ /^(\s*)(\S+)/) {
-		  my $space = $1; $space = '' unless defined $space;
-		  my $word  = uc($2);
-		  substr($$input, $$cursor + length($space), length($word)) =
-		    $word;
-		  print $space, $word;
-		  $$cursor += length($space . $word);
-		}
-		else {
-		  print $tc_bell;
-		}
-		next;
-	      }
+                # If there's text to capitalize.
+                if (substr($$input, $$cursor_input) =~ /^(\s*)(\S+)/) {
 
-	      # Lowercase from cursor on.  This needs uc($key).
-	      # Modelled after capitalize.
-	      if (uc($key) eq '^[L') {
-		if (substr($$input, $$cursor) =~ /^(\s*)(\S+)/) {
-		  my $space = $1; $space = '' unless defined $space;
-		  my $word  = lc($2);
-		  substr($$input, $$cursor + length($space), length($word)) =
-		    $word;
-		  print $space, $word;
-		  $$cursor += length($space . $word);
-	        }
+                  # Track leading space, and uppercase word.
+                  my $space = $1; $space = '' unless defined $space;
+                  my $word  = ucfirst(lc($2));
+
+                  # Replace text with the uppercase version.
+                  substr( $$input,
+                          $$cursor_input + length($space), length($word)
+                        ) = $word;
+
+                  # Display the new text; move the cursor after it.
+                  print $space, normalize($word);
+                  $$cursor_input += length($space . $word);
+                  $$cursor_display += length($space) + display_width($word);
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
+
+              # Uppercase from cursor on.  This needs uc($key).
+              # Modelled after capitalize.
+              if (uc($key) eq '^[U') {
+                if (substr($$input, $$cursor_input) =~ /^(\s*)(\S+)/) {
+                  my $space = $1; $space = '' unless defined $space;
+                  my $word  = uc($2);
+                  substr( $$input,
+                          $$cursor_input + length($space), length($word)
+                        ) = $word;
+                  print $space, normalize($word);
+                  $$cursor_input += length($space . $word);
+                  $$cursor_display += length($space) + display_width($word);
+                }
+                else {
+                  print $tc_bell;
+                }
+                next;
+              }
+
+              # Lowercase from cursor on.  This needs uc($key).
+              # Modelled after capitalize.
+              if (uc($key) eq '^[L') {
+                if (substr($$input, $$cursor_input) =~ /^(\s*)(\S+)/) {
+                  my $space = $1; $space = '' unless defined $space;
+                  my $word  = lc($2);
+                  substr( $$input,
+                          $$cursor_input + length($space), length($word)
+                        ) = $word;
+                  print $space, normalize($word);
+                  $$cursor_input += length($space . $word);
+                  $$cursor_display += length($space) + display_width($word);
+                }
                 else {
                   print $tc_bell;
                 }
@@ -769,9 +842,11 @@ sub _define_read_state {
               # Forward one word.  This needs uc($key).  Modelled
               # vaguely after capitalize.
               if (uc($key) eq '^[F') {
-                if (substr($$input, $$cursor) =~ /^(\s*\S+)/) {
-                  $$cursor += length($1);
-                  $termcap->Tgoto( 'RI', 1, length($1), *STDOUT );
+                if (substr($$input, $$cursor_input) =~ /^(\s*\S+)/) {
+                  $$cursor_input += length($1);
+                  my $right = display_width($1);
+                  $termcap->Tgoto( 'RI', 1, $right, *STDOUT );
+                  $$cursor_display += $right;
                 }
                 else {
                   print $tc_bell;
@@ -781,21 +856,25 @@ sub _define_read_state {
 
               # Delete a word forward.  This needs uc($key).
               if (uc($key) eq '^[D') {
-                if ($$cursor < length($$input)) {
-                  substr($$input, $$cursor) =~ s/^(\s*\S*\s*)//;
-                  my $left_length = length($$input) - $$cursor;
+                if ($$cursor_input < length($$input)) {
+                  substr($$input, $$cursor_input) =~ s/^(\s*\S*\s*)//;
+                  my $killed_width = display_width($1);
 
-                  print substr($$input, $$cursor);
+                  my $normal_remaining =
+                    normalize(substr($$input, $$cursor_input));
+                  print $normal_remaining;
+                  my $normal_remaining_length = length($normal_remaining);
+
                   if ($tc_has_ke) {
                     print $termcap->Tputs( 'kE', 1 );
                   }
                   else {
-                    print(' ' x length($1));
-                    $left_length += length($1);
+                    print ' ' x $killed_width;
+                    $normal_remaining_length += $killed_width;
                   }
 
-                  print $termcap->Tgoto( 'LE', 1, $left_length )
-                    if $left_length;
+                  $termcap->Tgoto( 'LE', 1, $normal_remaining_length, *STDOUT )
+                    if $normal_remaining_length;
                 }
                 else {
                   print $tc_bell;
@@ -805,9 +884,11 @@ sub _define_read_state {
 
               # Backward one word.  This needs uc($key).
               if (uc($key) eq '^[B') {
-                if (substr($$input, 0, $$cursor) =~ /(\S+\s*)$/) {
-                  $$cursor -= length($1);
-                  $termcap->Tgoto( 'LE', 1, length($1), *STDOUT );
+                if (substr($$input, 0, $$cursor_input) =~ /(\S+\s*)$/) {
+                  $$cursor_input -= length($1);
+                  my $kill_width = display_width($1);
+                  $termcap->Tgoto( 'LE', 1, $kill_width, *STDOUT );
+                  $$cursor_display -= $kill_width;
                 }
                 else {
                   print $tc_bell;
@@ -817,13 +898,17 @@ sub _define_read_state {
 
               # Transpose words.  This needs uc($key).
               if (uc($key) eq '^[T') {
-                my $cursor_minus_one = $$cursor - 1;
+                my $cursor_sub_one = $$cursor_input - 1;
                 if ( $$input =~
-                     s/^(.{0,$cursor_minus_one})\b(\w+)(\W+)(\w+)/$1$4$3$2/
+                     s/^(.{0,$cursor_sub_one})(?<!\S)(\S+)(\s+)(\S+)/$1$4$3$2/
                    ) {
-                  $termcap->Tgoto( 'LE', 1, $$cursor - length($1), *STDOUT );
-                  print $4, $3, $2;
-                  $$cursor = length($1 . $2 . $3 . $4);
+                  $termcap->Tgoto( 'LE', 1,
+                                   $$cursor_display - display_width($1),
+                                   *STDOUT
+                                 );
+                  print normalize($4 . $3 . $2);
+                  $$cursor_input = length($1 . $2 . $3 . $4);
+                  $$cursor_display = display_width($1 . $2 . $3 . $4);
                 }
                 else {
                   print $tc_bell;
@@ -838,32 +923,71 @@ sub _define_read_state {
               }
             }
 
+            # C-q displays some stuff.
+            if ($key eq '^Q') {
+              my $left = display_width(substr($$input, $$cursor_input));
+              print( "\x0D\x0A",
+                     "cursor_input($$cursor_input) ",
+                     "cursor_display($$cursor_display) ",
+                     "term_columns($trk_cols)\x0D\x0A",
+                     $$prompt, normalize($$input)
+                   );
+              $termcap->Tgoto( 'LE', 1, $left, *STDOUT ) if $left;
+              next;
+            }
+
+            # The raw key is more than 1 character; this is a failed
+            # function key or something.  Don't allow it to be
+            # entered.
+            if (length($raw_key) > 1) {
+              print $tc_bell;
+              next;
+            }
+
             # This is after the meta key checks.  Meta keys that
             # aren't known will fall through here.  Add the keystroke
             # to the input buffer.
 
-            if ($$cursor < length($$input)) {
+            if ($$cursor_input < length($$input)) {
               if ($$insert_mode) {
                 # Insert.
-                substr($$input, $$cursor, 0) = $key;
-                print substr($$input, $$cursor);
-                $$cursor += length($key);
-                $termcap->Tgoto( 'LE', 1, length($$input) - $$cursor,
-                                 *STDOUT
-                               );
+                my $normal = normalize(substr($$input, $$cursor_input));
+                substr($$input, $$cursor_input, 0) = $raw_key;
+                print $key, $normal;
+                $$cursor_input += length($raw_key);
+                $$cursor_display += length($key);
+                $termcap->Tgoto( 'LE', 1, length($normal), *STDOUT );
               }
               else {
                 # Overstrike.
-                substr($$input, $$cursor, length($key)) = $key;
+                my $replaced_width =
+                  display_width
+                    ( substr($$input, $$cursor_input, length($raw_key))
+                    );
+                substr($$input, $$cursor_input, length($raw_key)) = $raw_key;
+
                 print $key;
-                $$cursor += length($key);
+                $$cursor_input += length($raw_key);
+                $$cursor_display += length($key);
+
+                # Expand or shrink the display if unequal replacement.
+                if (length($key) != $replaced_width) {
+                  my $rest = normalize(substr($$input, $$cursor_input));
+                  # Erase trailing screen cruft if it's shorter.
+                  if (length($key) < $replaced_width) {
+                    $rest .= ' ' x ($replaced_width - length($key));
+                  }
+                  print $rest;
+                  $termcap->Tgoto( 'LE', 1, length($rest), *STDOUT );
+                }
               }
             }
             else {
               # Append.
               print $key;
-              $$input .= $key;
-              $$cursor += length($key);
+              $$input .= $raw_key;
+              $$cursor_input += length($raw_key);
+              $$cursor_display += length($key);
             }
           }
         }
@@ -888,12 +1012,13 @@ sub get {
   return if $self->[SELF_READING_LINE];
 
   # Set up for the read.
-  $self->[SELF_READING_LINE] = 1;
-  $self->[SELF_PROMPT]       = $prompt;
-  $self->[SELF_INPUT]        = '';
-  $self->[SELF_CURSOR]       = 0;
-  $self->[SELF_HIST_INDEX]   = @{$self->[SELF_HIST_LIST]};
-  $self->[SELF_INSERT_MODE]  = 1;
+  $self->[SELF_READING_LINE]   = 1;
+  $self->[SELF_PROMPT]         = $prompt;
+  $self->[SELF_INPUT]          = '';
+  $self->[SELF_CURSOR_INPUT]   = 0;
+  $self->[SELF_CURSOR_DISPLAY] = 0;
+  $self->[SELF_HIST_INDEX]     = @{$self->[SELF_HIST_LIST]};
+  $self->[SELF_INSERT_MODE]    = 1;
 
   # Watch the filehandle.
   $poe_kernel->select( *STDIN, $self->[SELF_STATE_READ] );
@@ -907,14 +1032,18 @@ sub _wipe_input_line {
 
   # Clear the current prompt and input, and home the cursor.
   print $termcap->Tgoto( 'LE', 1,
-                         $self->[SELF_CURSOR] + length($self->[SELF_PROMPT])
+                         ( $self->[SELF_CURSOR_DISPLAY] +
+                           length($self->[SELF_PROMPT])
+                         )
                        );
   if ($tc_has_ke) {
     print $termcap->Tputs( 'kE', 1 );
   }
   else {
     my $wipe_length =
-      length($self->[SELF_PROMPT]) + length($self->[SELF_INPUT]);
+      ( length($self->[SELF_PROMPT]) +
+        display_width($self->[SELF_INPUT])
+      );
     print( (' ' x $wipe_length), $termcap->Tgoto( 'LE', 1, $wipe_length) );
   }
 }
@@ -936,11 +1065,14 @@ sub _flush_output_buffer {
 # Set up the prompt and input line like nothing happened.
 sub _repaint_input_line {
   my $self = shift;
-  print( $self->[SELF_PROMPT], $self->[SELF_INPUT] );
-  if ($self->[SELF_CURSOR] != length($self->[SELF_INPUT])) {
-    print $termcap->Tgoto( 'LE', 1,
-                           length($self->[SELF_INPUT]) - $self->[SELF_CURSOR]
-                         );
+  print( $self->[SELF_PROMPT], normalize($self->[SELF_INPUT]) );
+  if ($self->[SELF_CURSOR_INPUT] != length($self->[SELF_INPUT])) {
+    $termcap->Tgoto( 'LE', 1,
+                     ( display_width($self->[SELF_INPUT]) -
+                       $self->[SELF_CURSOR_DISPLAY]
+                     ),
+                     *STDOUT
+                   );
   }
 }
 
@@ -1330,14 +1462,28 @@ the entire POE distribution.
 
 =head1 BUGS
 
-Many features are not implemented:
+=over 2
 
-Input and display are associated.  When you press C-q, it shows as ^Q,
-and the literal string "^Q" is inserted into the input line.  Rather,
-the single character chr(16) should be inserted, but the display
-should show ^Q.  Moving the cursor through this character should cause
-it to jump two positions on the screen but only one in the edit
-buffer.
+=item Non-optimal code
+
+Dissociating the input and display cursors introduced a lot of code.
+Much of this code was thrown in hastily, and things can probably be
+done with less work.  To do: Apply some thought to what's already been
+done.
+
+The screen should update as quickly as possible, especially on slow
+systems.  Do little or no calculation during displaying; either put it
+all before or after the display.  Do it consistently for each handled
+keystroke, so that certain pairs of editing commands don't have extra
+perceived latency.
+
+=item Unimplemented features
+
+Unicode, or at least European code pages.  I feel real bad about
+throwing away native representation of all the 8th-bit-set characters.
+
+SIGWINCH tends to kill Perl quickly, and POE ignores it.  Resizing a
+terminal window has no effect.
 
 Input editing is not kept on one line.  If it wraps, and a terminal
 cannot wrap back through a line division, the cursor will become lost.
@@ -1361,6 +1507,8 @@ History searching:
   C-s     search history
   C-r     reverse search history
   C-v     forward search history
+
+=back
 
 =head1 AUTHORS & COPYRIGHTS
 
