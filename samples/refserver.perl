@@ -13,11 +13,11 @@ use strict;
 use lib '..';
 use Socket;
 
-use POE qw(Wheel::ListenAccept Wheel::ReadWrite Wheel::SocketFactory
+use POE qw(Wheel::ReadWrite Wheel::SocketFactory
            Driver::SysRW Filter::Reference
           );
 
-sub DEBUG { 0 }
+sub DEBUG { 1 }
 
 ###############################################################################
 # Responder is an aliased session that processes data from Daemon
@@ -164,7 +164,7 @@ sub server_start {
   DEBUG && print "Server starting.\n";
                                         # create a socket factory
   $heap->{wheel} = new POE::Wheel::SocketFactory
-    ( BindPort       => '31338',        # on the eleet++ port
+    ( BindPort       => 31338,          # on the eleet++ port
       Reuse          => 'yes',          # and allow immediate reuse of the port
       SuccessState   => 'accept',       # generating this event on connection
       FailureState   => 'error'         # generating this event on error

@@ -16,7 +16,7 @@ sub _default_freezer {
   my $ret;
 
   foreach my $p (qw(Storable FreezeThaw)) {
-    eval { require "$p.pm"; import $p ();};
+    eval { require "$p.pm"; import $p (); };
     warn $@ if $@;
     return $p if $@ eq '';
   }
@@ -26,25 +26,27 @@ sub _default_freezer {
 #------------------------------------------------------------------------------
 # Try to acquire Compress::Zlib.
 
-my ($compress_possible, $zlib_error) = (0, '');
+my $zlib_error = '';
 BEGIN {
-  eval {
-    use Compress::Zlib qw(compress uncompress);
-  };
+  eval 'use Compress::Zlib qw(compress uncompress);';
   if ($@) {
     $zlib_error = $@;
-    eval 'sub compress { @_ }';
-    eval 'sub uncompress { @_ }';
+    eval <<'    EOE';
+      sub compress { @_ }
+      sub uncompress { @_ }
+      sub CAN_COMPRESS () { 0 }
+    EOE
   }
   else {
-    $compress_possible = 1;
+    eval <<'    EOE';
+      sub CAN_COMPRESS () { 1 }
+    EOE
   }
 }
 
 #------------------------------------------------------------------------------
 
 sub new {
-  my $type = shift;
   my($type, $freezer, $compression) = @_;
   $freezer ||= _default_freezer();
                                         # not a reference... maybe a package?
@@ -72,8 +74,8 @@ sub new {
 
                                         # Compression
   $compression ||= 0;
-  if ($compression and !$compression_possible) {
-    carp "Cannot compress; Compress::Zlib load failed with error: $zlib_err";
+  if ($compression and !CAN_COMPRESS) {
+    carp "Compress::Zlib load failed with error: $zlib_error";
   }
 
   my $self = bless { buffer    => '',
