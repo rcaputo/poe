@@ -255,7 +255,7 @@ sub loop_do_timeslice {
 
       if (ASSERT_FILES) {
         if ($hits < 0) {
-          POE::Kernel::_confess("<fh> poll returned $hits (error): $!")
+          POE::Kernel::_trap("<fh> poll returned $hits (error): $!")
             unless ( ($! == EINPROGRESS) or
                      ($! == EWOULDBLOCK) or
                      ($! == EINTR)
