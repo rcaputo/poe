@@ -92,8 +92,8 @@ BEGIN {
 # Macro definitions.
 
 macro sig_remove (<session>,<signal>) {
-  delete $self->[KR_SESSIONS]->{<session>}->[SS_SIGNALS]->{<signal>};
-  delete $self->[KR_SIGNALS]->{<signal>}->{<session>};
+  delete $kr_sessions{<session>}->[SS_SIGNALS]->{<signal>};
+  delete $kr_signals{<signal>}->{<session>};
 }
 
 macro sid (<session>) {
@@ -105,20 +105,20 @@ macro ssid {
 }
 
 macro ses_leak_hash (<field>) {
-  if (my $leaked = keys(%{$sessions->{$session}->[<field>]})) {
+  if (my $leaked = keys(%{$kr_sessions{$session}->[<field>]})) {
     warn {% ssid %}, " leaked $leaked <field>\a\n";
     $errors++;
   }
 }
 
 macro kernel_leak_hash (<field>) {
-  if (my $leaked = keys %{$self->[<field>]}) {
-    warn "*** KERNEL HASH LEAK: <field> = $leaked\a\n";
+  if (my $leaked = keys <field>) {
+    warn "*** KERNEL HASH LEAK: \<field> = $leaked\a\n";
   }
 }
 
 macro kernel_leak_vec (<field>) {
-  { my $bits = unpack('b*', $self->[KR_VECTORS]->[<field>]);
+  { my $bits = unpack('b*', $kr_vectors[<field>]);
     if (index($bits, '1') >= 0) {
       warn "*** KERNEL VECTOR LEAK: <field> = $bits\a\n";
     }
@@ -126,41 +126,41 @@ macro kernel_leak_vec (<field>) {
 }
 
 macro kernel_leak_array (<field>) {
-  if (my $leaked = @{$self->[<field>]}) {
-    warn "*** KERNEL ARRAY LEAK: <field> = $leaked\a\n";
+  if (my $leaked = <field>) {
+    warn "*** KERNEL ARRAY LEAK: \<field> = $leaked\a\n";
   }
 }
 
 macro assert_session_refcount (<session>,<count>) {
   if (ASSERT_REFCOUNT) { # include
     die {% sid <session> %}, " reference count <count> went below zero\n"
-      if $self->[KR_SESSIONS]->{<session>}->[<count>] < 0;
+      if $kr_sessions{<session>}->[<count>] < 0;
   } # include
 }
 
 
 macro ses_refcount_dec (<session>) {
-  $self->[KR_SESSIONS]->{<session>}->[SS_REFCOUNT]--;
+  $kr_sessions{<session>}->[SS_REFCOUNT]--;
   {% assert_session_refcount <session>, SS_REFCOUNT %}
 }
 
 macro ses_refcount_dec2 (<session>,<count>) {
-  $self->[KR_SESSIONS]->{<session>}->[<count>]--;
+  $kr_sessions{<session>}->[<count>]--;
   {% assert_session_refcount <session>, <count> %}
   {% ses_refcount_dec <session> %}
 }
 
 macro ses_refcount_inc (<session>) {
-  $self->[KR_SESSIONS]->{<session>}->[SS_REFCOUNT]++;
+  $kr_sessions{<session>}->[SS_REFCOUNT]++;
 }
 
 macro ses_refcount_inc2 (<session>,<count>) {
-  $self->[KR_SESSIONS]->{<session>}->[<count>]++;
+  $kr_sessions{<session>}->[<count>]++;
   {% ses_refcount_inc <session> %}
 }
 
 macro remove_extra_reference (<session>,<tag>) {
-  delete $self->[KR_SESSIONS]->{<session>}->[SS_EXTRA_REFS]->{<tag>};
+  delete $kr_sessions{<session>}->[SS_EXTRA_REFS]->{<tag>};
 
   {% ses_refcount_dec <session> %}
 
@@ -176,14 +176,14 @@ macro remove_extra_reference (<session>,<tag>) {
 
 macro alias_resolve (<name>) {
   # Resolve against sessions.
-  ( (exists $self->[KR_SESSIONS]->{<name>})
-    ? $self->[KR_SESSIONS]->{<name>}->[SS_SESSION]
+  ( (exists $kr_sessions{<name>})
+    ? $kr_sessions{<name>}->[SS_SESSION]
     # Resolve against IDs.
-    : ( (exists $self->[KR_SESSION_IDS]->{<name>})
-        ? $self->[KR_SESSION_IDS]->{<name>}
+    : ( (exists $kr_session_ids{<name>})
+        ? $kr_session_ids{<name>}
         # Resolve against aliases.
-        : ( (exists $self->[KR_ALIASES]->{<name>})
-            ? $self->[KR_ALIASES]->{<name>}
+        : ( (exists $kr_aliases{<name>})
+            ? $kr_aliases{<name>}
             # Resolve against self.
             : ( (<name> eq $self)
                 ? $self
@@ -200,7 +200,7 @@ macro collect_garbage (<session>) {
     # The next line is necessary for some strange reason.  This feels
     # like a kludge, but I'm currently not smart enough to figure out
     # what it's working around.
-    if (exists $self->[KR_SESSIONS]->{<session>}) {
+    if (exists $kr_sessions{<session>}) {
       if (TRACE_GARBAGE) { # include
         $self->trace_gc_refcount(<session>);
       } # include
@@ -208,8 +208,8 @@ macro collect_garbage (<session>) {
         $self->assert_gc_refcount(<session>);
       } # include
 
-      if ( (exists $self->[KR_SESSIONS]->{<session>})
-           and (!$self->[KR_SESSIONS]->{<session>}->[SS_REFCOUNT])
+      if ( (exists $kr_sessions{<session>})
+           and (!$kr_sessions{<session>}->[SS_REFCOUNT])
          ) {
         $self->session_free(<session>);
       }
@@ -219,15 +219,15 @@ macro collect_garbage (<session>) {
 
 macro validate_handle (<handle>,<vector>) {
   # Don't bother if the kernel isn't tracking the file.
-  return 0 unless exists $self->[KR_HANDLES]->{<handle>};
+  return 0 unless exists $kr_handles{<handle>};
 
   # Don't bother if the kernel isn't tracking the file mode.
-  return 0 unless $self->[KR_HANDLES]->{<handle>}->[HND_VECCOUNT]->[<vector>];
+  return 0 unless $kr_handles{<handle>}->[HND_VECCOUNT]->[<vector>];
 }
 
 macro remove_alias (<session>,<alias>) {
-  delete $self->[KR_ALIASES]->{<alias>};
-  delete $self->[KR_SESSIONS]->{<session>}->[SS_ALIASES]->{<alias>};
+  delete $kr_aliases{<alias>};
+  delete $kr_sessions{<session>}->[SS_ALIASES]->{<alias>};
   {% ses_refcount_dec <session> %}
 }
 
@@ -248,19 +248,19 @@ macro test_resolve (<name>,<resolved>) {
 macro test_for_idle_poe_kernel {
   if (TRACE_REFCOUNT) { # include
     warn( ",----- Kernel Activity -----\n",
-          "| States : ", scalar(@{$self->[KR_STATES]}), "\n",
-          "| Alarms : ", scalar(@{$self->[KR_ALARMS]}), "\n",
-          "| Files  : ", scalar(keys(%{$self->[KR_HANDLES]})), "\n",
-          "|   `--> : ", join(', ', keys(%{$self->[KR_HANDLES]})), "\n",
+          "| States : ", scalar(@kr_states), "\n",
+          "| Alarms : ", scalar(@kr_alarms), "\n",
+          "| Files  : ", scalar(keys(%kr_handles)), "\n",
+          "|   `--> : ", join(', ', keys(%kr_handles)), "\n",
           "| Extra  : ", $self->[KR_EXTRA_REFS], "\n",
           "`---------------------------\n",
           " ..."
          );
   } # include
 
-  unless ( @{$self->[KR_STATES]} or
-           @{$self->[KR_ALARMS]} or
-           keys(%{$self->[KR_HANDLES]}) or
+  unless ( @kr_states or
+           @kr_alarms or
+           keys(%kr_handles) or
            $self->[KR_EXTRA_REFS]
          ) {
     $self->_enqueue_state( $self, $self,
@@ -268,7 +268,7 @@ macro test_for_idle_poe_kernel {
                            [ 'IDLE' ],
                            time(), __FILE__, __LINE__
                          )
-      if keys %{$self->[KR_SESSIONS]};
+      if keys %kr_sessions;
   }
 }
 
@@ -282,8 +282,8 @@ macro post_plain_signal (<destination>,<signal_name>) {
 
 macro dispatch_one_from_fifo {
   # Pull an event off the queue, and dispatch it.
-  if ( @{ $self->[KR_STATES] } ) {
-    my $event = shift @{ $self->[KR_STATES] };
+  if ( @kr_states ) {
+    my $event = shift @kr_states;
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
     $self->_dispatch_state(@$event);
   }
@@ -292,10 +292,10 @@ macro dispatch_one_from_fifo {
 macro dispatch_due_alarms {
   # Pull due alarms off the queue, and dispatch them.
   my $now = time();
-  while ( @{ $self->[KR_ALARMS] } and
-          ($self->[KR_ALARMS]->[0]->[ST_TIME] <= $now)
+  while ( @kr_alarms and
+          ($kr_alarms[0]->[ST_TIME] <= $now)
         ) {
-    my $event = shift @{ $self->[KR_ALARMS] };
+    my $event = shift @kr_alarms;
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
     $self->_dispatch_state(@$event);
   }
@@ -303,7 +303,7 @@ macro dispatch_due_alarms {
 
 macro dispatch_ready_selects {
   my @selects =
-    values %{ $self->[KR_HANDLES]->{$handle}->[HND_SESSIONS]->[$vector] };
+    values %{ $kr_handles{$handle}->[HND_SESSIONS]->[$vector] };
 
   foreach my $select (@selects) {
     $self->_dispatch_state
@@ -426,31 +426,35 @@ const ET_SELECT   0x0400
 const FIFO_DISPATCH_TIME 0.01
 
 #------------------------------------------------------------------------------
-# Here is a roadmap of POE's internal data structures.  It's complex
-# enough that even the author needs a scorecard.
-#------------------------------------------------------------------------------
-#
+# The data structures were moved to lexicals in 0.1201.
+
 # states:
 # [ [ $session, $source_session, $state, $type, \@etc, $time,
 #     $poster_file, $poster_line, $debug_sequence
 #   ],
 #   ...
 # ]
-#
+
+my @kr_states;
+
 # alarms:
 # [ [ $session, $source_session, $state, $type, \@etc, $time,
 #     $poster_file, $poster_line, $debug_sequence
 #   ],
 #   ...
 # ]
-#
+
+my @kr_alarms;
+
 # processes: { $pid => $parent_session, ... }
-#
-# kernel ID: { $kernel_id }
-#
+
+my %kr_processes;
+
 # session IDs: { $id => $session, ... }
-#
-# files:
+
+my %kr_session_ids;
+
+# handles:
 # { $handle =>
 #   [ $handle,
 #     $refcount,
@@ -462,11 +466,17 @@ const FIFO_DISPATCH_TIME 0.01
 #     [ $watcher_r, $watcher_w, $watcher_x ],
 #   ]
 # };
-#
+
+my %kr_handles;
+
 # vectors: [ $read_vector, $write_vector, $expedite_vector ];
-#
+
+my @kr_vectors = ( '', '', '' );
+
 # signals: { $signal => { $session => $state, ... } };
-#
+
+my %kr_signals;
+
 # sessions:
 # { $session =>
 #   [ $session,     # blessed version of the key
@@ -489,10 +499,12 @@ const FIFO_DISPATCH_TIME 0.01
 #     $alarm_count,                # alarm count
 #   ]
 # };
-#
-# names: { $name => $session };
-#
-#------------------------------------------------------------------------------
+
+my %kr_sessions;
+
+# aliases: { $alias => $session };
+
+my %kr_aliases;
 
 #==============================================================================
 # SIGNALS
@@ -583,8 +595,8 @@ sub sig {
   my ($self, $signal, $state) = @_;
   if (defined $state) {
     my $session = $self->[KR_ACTIVE_SESSION];
-    $self->[KR_SESSIONS]->{$session}->[SS_SIGNALS]->{$signal} = $state;
-    $self->[KR_SIGNALS]->{$signal}->{$session} = $state;
+    $kr_sessions{$session}->[SS_SIGNALS]->{$signal} = $state;
+    $kr_signals{$signal}->{$session} = $state;
   }
   else {
     {% sig_remove $self->[KR_ACTIVE_SESSION], $signal %}
@@ -655,21 +667,21 @@ sub new {
     } # include
     
     my $self = $poe_kernel = bless
-      [ { },                            # KR_SESSIONS
-        [ '', '', '' ],                 # KR_VECTORS
-        { },                            # KR_HANDLES
-        [ ],                            # KR_STATES
-        { },                            # KR_SIGNALS
-        { },                            # KR_ALIASES
-        undef,                          # KR_ACTIVE_SESSION
-        { },                            # KR_PROCESSES
-        [ ],                            # KR_ALARMS
-        undef,                          # KR_ID
-        { },                            # KR_SESSION_IDS
-        1,                              # KR_ID_INDEX
-        undef,                          # KR_WATCHER_TIMER
-        undef,                          # KR_WATCHER_IDLE
-        0,                              # KR_EXTRA_REFS
+      [ \%kr_sessions,     # KR_SESSIONS
+        \@kr_vectors,      # KR_VECTORS
+        \%kr_handles,      # KR_HANDLES
+        \@kr_states,       # KR_STATES
+        \%kr_signals,      # KR_SIGNALS
+        \%kr_aliases,      # KR_ALIASES
+        undef,             # KR_ACTIVE_SESSION
+        \%kr_processes,    # KR_PROCESSES
+        \@kr_alarms,       # KR_ALARMS
+        undef,             # KR_ID
+        \%kr_session_ids,  # KR_SESSION_IDS
+        1,                 # KR_ID_INDEX
+        undef,             # KR_WATCHER_TIMER
+        undef,             # KR_WATCHER_IDLE
+        0,                 # KR_EXTRA_REFS
       ], $type;
 
     # If POE uses Event to drive its queues, then one-time initialize
@@ -698,12 +710,12 @@ sub new {
     $self->[KR_ID] = ( (uname)[1] . '-' .
                        unpack 'H*', pack 'N*', time, $$
                      );
-    $self->[KR_SESSION_IDS]->{$self->[KR_ID]} = $self;
+    $kr_session_ids{$self->[KR_ID]} = $self;
 
     # Initialize the vectors as vectors.
-    vec($self->[KR_VECTORS]->[VEC_RD], 0, 1) = 0;
-    vec($self->[KR_VECTORS]->[VEC_WR], 0, 1) = 0;
-    vec($self->[KR_VECTORS]->[VEC_EX], 0, 1) = 0;
+    vec($kr_vectors[VEC_RD], 0, 1) = 0;
+    vec($kr_vectors[VEC_WR], 0, 1) = 0;
+    vec($kr_vectors[VEC_EX], 0, 1) = 0;
 
     # Register all known signal handlers, except the troublesome ones.
     foreach my $signal (keys(%SIG)) {
@@ -807,12 +819,12 @@ sub new {
         } # include
       }
 
-      $self->[KR_SIGNALS]->{$signal} = { };
+      $kr_signals{$signal} = { };
     }
 
     # The kernel is a session, sort of.
     $self->[KR_ACTIVE_SESSION] = $self;
-    $self->[KR_SESSIONS]->{$self} =
+    $kr_sessions{$self} =
       [ $self,                          # SS_SESSION
         0,                              # SS_REFCOUNT
         0,                              # SS_EVCOUNT
@@ -853,10 +865,6 @@ sub _dispatch_state {
   # A copy of the state name, in case we have to change it.
   my $local_state = $state;
 
-  # We do a lot with the sessions structure.  Cache it in a lexical to
-  # save on dereferences.
-  my $sessions = $self->[KR_SESSIONS];
-
   if (TRACE_PROFILE) { # include
     $profile{$state}++;
   } # include
@@ -869,7 +877,7 @@ sub _dispatch_state {
     # a session.  Set up the kernel's tables for this session.
 
     if ($type & ET_START) {
-      my $new_session = $sessions->{$session} =
+      my $new_session = $kr_sessions{$session} =
         [ $session,                     # SS_SESSION
           0,                            # SS_REFCOUNT
           0,                            # SS_EVCOUNT
@@ -885,7 +893,7 @@ sub _dispatch_state {
         ];
 
       # For the ID to session reference lookup.
-      $self->[KR_SESSION_IDS]->{$new_session->[SS_ID]} = $session;
+      $kr_session_ids{$new_session->[SS_ID]} = $session;
 
       if (ASSERT_RELATIONS) { # include
         # Ensure sanity.
@@ -894,12 +902,12 @@ sub _dispatch_state {
         die( {% ssid %},
              " already is a child of ", {% sid $source_session %}, "\a"
            )
-          if (exists $sessions->{$source_session}->[SS_CHILDREN]->{$session});
+          if (exists $kr_sessions{$source_session}->[SS_CHILDREN]->{$session});
 
       } # include
 
       # Add the new session to its parent's children.
-      $sessions->{$source_session}->[SS_CHILDREN]->{$session} = $session;
+      $kr_sessions{$source_session}->[SS_CHILDREN]->{$session} = $session;
       {% ses_refcount_inc $source_session %}
     }
 
@@ -925,8 +933,8 @@ sub _dispatch_state {
       # session's parent).  Tell the departing session's parent that
       # it has new child sessions.
 
-      my $parent   = $sessions->{$session}->[SS_PARENT];
-      my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
+      my $parent   = $kr_sessions{$session}->[SS_PARENT];
+      my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
       foreach my $child (@children) {
         $self->_dispatch_state( $parent, $self,
                                 EN_CHILD, ET_CHILD,
@@ -935,7 +943,8 @@ sub _dispatch_state {
                               );
         $self->_dispatch_state( $child, $self,
                                 EN_PARENT, ET_PARENT,
-                                [ $sessions->{$child}->[SS_PARENT], $parent, ],
+                                [ $kr_sessions{$child}->[SS_PARENT], $parent,
+                                ],
                                 time(), $file, $line, undef
                               );
       }
@@ -962,7 +971,7 @@ sub _dispatch_state {
       # tree depth first.  It ensures that signals posted to the
       # Kernel are delivered to the Kernel last.
 
-      my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
+      my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
       foreach (@children) {
         $self->_dispatch_state( $_, $self,
                                 $state, ET_SIGNAL,
@@ -973,8 +982,8 @@ sub _dispatch_state {
 
       # Translate the '_signal' state to its handler's name.
 
-      if (exists $self->[KR_SIGNALS]->{$signal}->{$session}) {
-        $local_state = $self->[KR_SIGNALS]->{$signal}->{$session};
+      if (exists $kr_signals{$signal}->{$session}) {
+        $local_state = $kr_signals{$signal}->{$session};
       }
     }
   }
@@ -982,7 +991,7 @@ sub _dispatch_state {
   # The destination session doesn't exist.  This indicates sloppy
   # programming.
 
-  unless (exists $self->[KR_SESSIONS]->{$session}) {
+  unless (exists $kr_sessions{$session}) {
 
     if (TRACE_EVENTS) { # include
       warn ">>> discarding $state to nonexistent ", {% ssid %}, "\n";
@@ -1040,7 +1049,7 @@ sub _dispatch_state {
   # delayed until ET_GC.
 
   if ($type & ET_START) {
-    $self->_dispatch_state( $sessions->{$session}->[SS_PARENT], $self,
+    $self->_dispatch_state( $kr_sessions{$session}->[SS_PARENT], $self,
                             EN_CHILD, ET_CHILD,
                             [ CHILD_CREATE, $session, $return ],
                             time(), $file, $line, undef
@@ -1054,67 +1063,65 @@ sub _dispatch_state {
 
     # Remove the departing session from its parent.
 
-    my $parent = $sessions->{$session}->[SS_PARENT];
+    my $parent = $kr_sessions{$session}->[SS_PARENT];
     if (defined $parent) {
 
       if (ASSERT_RELATIONS) { # include
         die {% ssid %}, " is its own parent\a" if ($session == $parent);
         die {% ssid %}, " is not a child of ", {% sid $parent %}, "\a"
           unless ( ($session == $parent) or
-                   exists($sessions->{$parent}->[SS_CHILDREN]->{$session})
+                   exists($kr_sessions{$parent}->[SS_CHILDREN]->{$session})
                  );
       } # include
 
-      delete $sessions->{$parent}->[SS_CHILDREN]->{$session};
+      delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
       {% ses_refcount_dec $parent %}
     }
 
     # Give the departing session's children to its parent.
 
-    my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
+    my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
     foreach (@children) {
 
       if (ASSERT_RELATIONS) { # include
         die {% sid $_ %}, " is already a child of ", {% sid $parent %}, "\a"
-          if (exists $sessions->{$parent}->[SS_CHILDREN]->{$_});
+          if (exists $kr_sessions{$parent}->[SS_CHILDREN]->{$_});
       } # include
 
-      $sessions->{$_}->[SS_PARENT] = $parent;
+      $kr_sessions{$_}->[SS_PARENT] = $parent;
       if (defined $parent) {
-        $sessions->{$parent}->[SS_CHILDREN]->{$_} = $_;
+        $kr_sessions{$parent}->[SS_CHILDREN]->{$_} = $_;
         {% ses_refcount_inc $parent %}
       }
 
-      delete $sessions->{$session}->[SS_CHILDREN]->{$_};
+      delete $kr_sessions{$session}->[SS_CHILDREN]->{$_};
       {% ses_refcount_dec $session %}
     }
 
     # Free any signals that the departing session allocated.
 
-    my @signals = keys %{$sessions->{$session}->[SS_SIGNALS]};
+    my @signals = keys %{$kr_sessions{$session}->[SS_SIGNALS]};
     foreach (@signals) {
       {% sig_remove $session, $_ %}
     }
 
     # Free any events that the departing session has in the queue.
 
-    my $states = $self->[KR_STATES];
-    my $index = @$states;
-    while ($index-- && $sessions->{$session}->[SS_EVCOUNT]) {
-      if ($states->[$index]->[ST_SESSION] == $session) {
+    my $index = @kr_states;
+    while ($index-- && $kr_sessions{$session}->[SS_EVCOUNT]) {
+      if ($kr_states[$index]->[ST_SESSION] == $session) {
         {% ses_refcount_dec2 $session, SS_EVCOUNT %}
-        splice(@$states, $index, 1);
+        splice(@kr_states, $index, 1);
       }
     }
 
     # Free any alarms that the departing session has in its queue.
 
-    my $alarms = $self->[KR_ALARMS];
-    $index = @$alarms;
-    while ($index-- && $sessions->{$session}->[SS_ALCOUNT]) {
-      if ($alarms->[$index]->[ST_SESSION] == $session) {
+    $index = @kr_alarms;
+    while ($index-- && $kr_sessions{$session}->[SS_ALCOUNT]) {
+      if ($kr_alarms[$index]->[ST_SESSION] == $session) {
         {% ses_refcount_dec2 $session, SS_ALCOUNT %}
-        splice(@$alarms, $index, 1);
+        splice(@kr_alarms, $index, 1);
       }
     }
 
@@ -1122,7 +1129,7 @@ sub _dispatch_state {
     # heavy handed; it does work it doesn't need to do.  There must be
     # a better way.
 
-    my @handles = values %{$sessions->{$session}->[SS_HANDLES]};
+    my @handles = values %{$kr_sessions{$session}->[SS_HANDLES]};
     foreach (@handles) {
       $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_RD);
       $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_WR);
@@ -1130,14 +1137,14 @@ sub _dispatch_state {
     }
 
     # Close any lingering extra references.
-    my @extra_refs = keys %{$sessions->{$session}->[SS_EXTRA_REFS]};
+    my @extra_refs = keys %{$kr_sessions{$session}->[SS_EXTRA_REFS]};
     foreach (@extra_refs) {
       {% remove_extra_reference $session, $_ %}
     }
 
     # Release any aliases still registered to the session.
 
-    my @aliases = keys %{$sessions->{$session}->[SS_ALIASES]};
+    my @aliases = keys %{$kr_sessions{$session}->[SS_ALIASES]};
     foreach (@aliases) {
       {% remove_alias $session, $_ %}
     }
@@ -1146,8 +1153,8 @@ sub _dispatch_state {
     # I don't know why I put it there.  -><- The defined test is a
     # kludge; it appears to be undefined when running in Tk mode.
 
-    delete $self->[KR_SESSION_IDS]->{$sessions->{$session}->[SS_ID]}
-      if defined $sessions->{$session}->[SS_ID];
+    delete $kr_session_ids{$kr_sessions{$session}->[SS_ID]}
+      if defined $kr_sessions{$session}->[SS_ID];
     $session->[SS_ID] = undef;
 
     # And finally, check all the structures for leakage.  POE's pretty
@@ -1156,13 +1163,13 @@ sub _dispatch_state {
     if (ASSERT_GARBAGE) { # include
       my $errors = 0;
 
-      if (my $leaked = $sessions->{$session}->[SS_REFCOUNT]) {
+      if (my $leaked = $kr_sessions{$session}->[SS_REFCOUNT]) {
         warn {% ssid %}, " has a refcount leak: $leaked\a\n";
         $errors++;
       }
 
-      foreach my $l (sort keys %{$sessions->{$session}->[SS_EXTRA_REFS]}) {
-        my $count = $sessions->{$session}->[SS_EXTRA_REFS]->{$l};
+      foreach my $l (sort keys %{$kr_sessions{$session}->[SS_EXTRA_REFS]}) {
+        my $count = $kr_sessions{$session}->[SS_EXTRA_REFS]->{$l};
         if ($count) {
           warn( {% ssid %}, " leaked an extra reference: ",
                 "(tag=$l) (count=$count)\a\n"
@@ -1181,7 +1188,7 @@ sub _dispatch_state {
     } # include
 
     # Remove the session's structure from the kernel's structure.
-    delete $sessions->{$session};
+    delete $kr_sessions{$session};
 
     # See if the parent should leave, too.
 
@@ -1190,7 +1197,7 @@ sub _dispatch_state {
     }
 
     # Finally, if there are no more sessions, stop the main loop.
-    unless (keys %$sessions) {
+    unless (keys %kr_sessions) {
 
       if (POE_USES_GTK) { # include
         # Stop Gtk's loop.  ->gtk<- I'm working on voodoo here.
@@ -1256,34 +1263,28 @@ sub run {
   my $self = shift;
 
   if (POE_USES_GTK) { # include
+
     # Use Gtk's main loop, if Gtk is loaded.
     Gtk->main;
 
   } elsif (POE_USES_TK) { # include
+
     # Use Tk's main loop, if Tk is loaded.
     Tk::MainLoop;
 
   } elsif (POE_USES_EVENT) { # include
+
     # Use Event's main loop, if Event is loaded.
     Event::loop();
 
   } elsif (POE_USES_ITSELF) { # include
-    # Otherwise use POE's main loop.
 
-    # Cache some references.  Adds about 15 events/second to a trivial
-    # benchmark.  -><- It probably would be even faster if I flattened
-    # POE::Kernel's data structure and made them all lexicals instead
-    # of members of $self.
-    my $kr_states   = $self->[KR_STATES];
-    my $kr_handles  = $self->[KR_HANDLES];
-    my $kr_sessions = $self->[KR_SESSIONS];
-    my $kr_vectors  = $self->[KR_VECTORS];
-    my $kr_alarms   = $self->[KR_ALARMS];
+    # Otherwise use POE's main loop.
 
     # Continue running while there are sessions that need to be
     # serviced.
 
-    while (keys %$kr_sessions) {
+    while (keys %kr_sessions) {
 
       # Check for a hung kernel.
       {% test_for_idle_poe_kernel %}
@@ -1298,11 +1299,11 @@ sub run {
       my $now = time();
       my $timeout;
 
-      if (@$kr_states) {
+      if (@kr_states) {
         $timeout = 0;
       }
-      elsif (@$kr_alarms) {
-        $timeout = $kr_alarms->[0]->[ST_TIME] - $now;
+      elsif (@kr_alarms) {
+        $timeout = $kr_alarms[0]->[ST_TIME] - $now;
         $timeout = 0 if $timeout < 0;
       }
       else {
@@ -1321,7 +1322,7 @@ sub run {
                     map { sprintf('%d=%.2f',
                                   $_->[ST_SEQ], $_->[ST_TIME] - $now
                                  )
-                        } @$kr_alarms
+                        } @kr_alarms
                   ) .
               "\n"
             );
@@ -1331,21 +1332,21 @@ sub run {
       if (TRACE_SELECT) { # include
 
         warn ",----- SELECT BITS IN -----\n";
-        warn "| READ    : ", unpack('b*', $kr_vectors->[VEC_WR]), "\n";
-        warn "| WRITE   : ", unpack('b*', $kr_vectors->[VEC_WR]), "\n";
-        warn "| EXPEDITE: ", unpack('b*', $kr_vectors->[VEC_EX]), "\n";
+        warn "| READ    : ", unpack('b*', $kr_vectors[VEC_WR]), "\n";
+        warn "| WRITE   : ", unpack('b*', $kr_vectors[VEC_WR]), "\n";
+        warn "| EXPEDITE: ", unpack('b*', $kr_vectors[VEC_EX]), "\n";
         warn "`--------------------------\n";
 
       } # include
 
       # Avoid looking at filehandles if we don't need to.
 
-      if ($timeout || keys(%$kr_handles)) {
+      if ($timeout || keys(%kr_handles)) {
 
         # Check filehandles, or wait for a period of time to elapse.
-        my $hits = select( my $rout = $kr_vectors->[VEC_RD],
-                           my $wout = $kr_vectors->[VEC_WR],
-                           my $eout = $kr_vectors->[VEC_EX],
+        my $hits = select( my $rout = $kr_vectors[VEC_RD],
+                           my $wout = $kr_vectors[VEC_WR],
+                           my $eout = $kr_vectors[VEC_EX],
                            ($timeout < 0) ? 0 : $timeout
                          );
 
@@ -1410,7 +1411,7 @@ sub run {
                       : ( )
                     )
                   )
-                } values %$kr_handles;
+                } values %kr_handles;
 
           if (TRACE_SELECT) { # include
 
@@ -1449,12 +1450,12 @@ sub run {
       # Dispatch whatever alarms are due.
 
       $now = time();
-      while ( @$kr_alarms and ($kr_alarms->[0]->[ST_TIME] <= $now) ) {
+      while ( @kr_alarms and ($kr_alarms[0]->[ST_TIME] <= $now) ) {
         my $event;
 
         if (TRACE_QUEUE) { # include
 
-          $event = $kr_alarms->[0];
+          $event = $kr_alarms[0];
           warn( sprintf('now(%.2f) ', $now - $^T) .
                 sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
                 "seq($event->[ST_SEQ])  " .
@@ -1464,7 +1465,7 @@ sub run {
         } # include
 
         # Pull an alarm off the queue, and dispatch it.
-        $event = shift @$kr_alarms;
+        $event = shift @kr_alarms;
         {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
         $self->_dispatch_state(@$event);
       }
@@ -1474,11 +1475,11 @@ sub run {
       # dispatch more than one event if we can.
 
       my $stop_time = time() + FIFO_DISPATCH_TIME;
-      while (@$kr_states) {
+      while (@kr_states) {
 
         if (TRACE_QUEUE) { # include
 
-          my $event = $kr_states->[0];
+          my $event = $kr_states[0];
           warn( sprintf('now(%.2f) ', $now - $^T) .
                 sprintf('sched_time(%.2f)  ', $event->[ST_TIME] - $^T) .
                 "seq($event->[ST_SEQ])  " .
@@ -1488,7 +1489,7 @@ sub run {
         } # include
 
         # Pull an event off the queue, and dispatch it.
-        my $event = shift @$kr_states;
+        my $event = shift @kr_states;
         {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
         $self->_dispatch_state(@$event);
 
@@ -1520,14 +1521,14 @@ sub run {
     {% kernel_leak_vec VEC_WR %}
     {% kernel_leak_vec VEC_EX %}
 
-    {% kernel_leak_hash KR_PROCESSES   %}
-    {% kernel_leak_hash KR_SESSION_IDS %}
-    {% kernel_leak_hash KR_HANDLES     %}
-    {% kernel_leak_hash KR_SESSIONS    %}
-    {% kernel_leak_hash KR_ALIASES     %}
+    {% kernel_leak_hash %kr_processes   %}
+    {% kernel_leak_hash %kr_session_ids %}
+    {% kernel_leak_hash %kr_handles     %}
+    {% kernel_leak_hash %kr_sessions    %}
+    {% kernel_leak_hash %kr_aliases     %}
 
-    {% kernel_leak_array KR_ALARMS %}
-    {% kernel_leak_array KR_STATES %}
+    {% kernel_leak_array @kr_alarms %}
+    {% kernel_leak_array @kr_states %}
 
   } # include
 
@@ -1556,7 +1557,7 @@ sub _gtk_fifo_callback {
   {% test_for_idle_poe_kernel %}
 
   # Perpetuate the Gtk idle callback if there's more to do.
-  return 1 if @{$self->[KR_STATES]};
+  return 1 if @kr_states;
 
   # Otherwise stop it.
   $self->[KR_WATCHER_IDLE] = undef;
@@ -1576,8 +1577,8 @@ sub _gtk_timeout_callback {
   $self->[KR_WATCHER_TIMER] = undef;
 
   # Register the next timeout if there are alarms left.
-  if (@{$self->[KR_ALARMS]}) {
-    my $next_time = ($self->[KR_ALARMS]->[0]->[ST_TIME] - time()) * 1000;
+  if (@kr_alarms) {
+    my $next_time = ($kr_alarms[0]->[ST_TIME] - time()) * 1000;
     $next_time = 0 if $next_time < 0;
     $self->[KR_WATCHER_TIMER] =
       Gtk->timeout_add( $next_time, \&_gtk_timeout_callback );
@@ -1668,7 +1669,7 @@ sub _tk_fifo_callback {
   # couldn't get anyone to test it on other platforms... (Hey, this could
   # trash yoru desktop! Wanna try it?) :)
 
-  if (@{$self->[KR_STATES]}) {
+  if (@kr_states) {
     $poe_main_window->after
       ( 0,
         sub {
@@ -1700,7 +1701,7 @@ sub _tk_alarm_callback {
 
   # Register the next timed callback if there are alarms left.
 
-  if (@{$self->[KR_ALARMS]}) {
+  if (@kr_alarms) {
 
     # Cancel the Tk alarm that handles alarms.
 
@@ -1717,14 +1718,14 @@ sub _tk_alarm_callback {
             $self->[KR_WATCHER_TIMER]->cancel();
             $self->[KR_WATCHER_TIMER] = undef;
 
-            if (@{$self->[KR_ALARMS]}) {
-              my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
+            if (@kr_alarms) {
+              my $next_time = $kr_alarms[0]->[ST_TIME] - time();
               $next_time = 0 if $next_time < 0;
 
               $self->[KR_WATCHER_TIMER] =
                 $poe_main_window->after( $next_time * 1000,
-                                            \&_tk_alarm_callback
-                                          );
+                                         \&_tk_alarm_callback
+                                       );
             }
           }
         );
@@ -1762,7 +1763,7 @@ sub _event_fifo_callback {
   # Stop the idle watcher if there are no more state transitions in
   # the Kernel's FIFO.
 
-  unless (@{$self->[KR_STATES]}) {
+  unless (@kr_states) {
     $self->[KR_WATCHER_IDLE]->stop();
 
     # Make sure the kernel can still run.
@@ -1780,8 +1781,8 @@ sub _event_alarm_callback {
 
   # Register the next timed callback if there are alarms left.
 
-  if (@{$self->[KR_ALARMS]}) {
-    $self->[KR_WATCHER_TIMER]->at( $self->[KR_ALARMS]->[0]->[ST_TIME] );
+  if (@kr_alarms) {
+    $self->[KR_WATCHER_TIMER]->at( $kr_alarms[0]->[ST_TIME] );
     $self->[KR_WATCHER_TIMER]->start();
   }
 
@@ -1858,10 +1859,10 @@ sub _invoke_state {
         # session registered via $kernel->fork().  Next validate the
         # session or signal everyone.
 
-        my $parent_session = delete $self->[KR_PROCESSES]->{$pid};
+        my $parent_session = delete $kr_processes{$pid};
         $parent_session = $self
           unless ( (defined $parent_session) and
-                   exists $self->[KR_SESSIONS]->{$parent_session}
+                   exists $kr_sessions{$parent_session}
                  );
 
         # Enqueue the signal event. -><- No way to determine whether
@@ -1928,7 +1929,7 @@ sub _invoke_state {
 
   elsif ($state eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
-      unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_HANDLES]})) {
+      unless (@kr_states || keys(%kr_handles)) {
         $self->_enqueue_state( $self, $self,
                                EN_SIGNAL, ET_SIGNAL,
                                [ 'ZOMBIE' ],
@@ -1954,7 +1955,7 @@ sub session_alloc {
 
   if (ASSERT_RELATIONS) { # include
     die {% ssid %}, " already exists\a"
-      if (exists $self->[KR_SESSIONS]->{$session});
+      if (exists $kr_sessions{$session});
   } # include
 
   $self->_dispatch_state( $session, $kr_active_session,
@@ -1977,7 +1978,7 @@ sub session_free {
 
   if (ASSERT_RELATIONS) { # include
     die {% ssid %}, " doesn't exist\a"
-      unless (exists $self->[KR_SESSIONS]->{$session});
+      unless (exists $kr_sessions{$session});
   } # include
 
   $self->_dispatch_state( $session, $self->[KR_ACTIVE_SESSION],
@@ -1995,7 +1996,7 @@ sub trace_gc_refcount {
   my ($package, $file, $line) = caller;
   warn "tracing gc refcount from $file at $line\n";
 
-  my $ss = $self->[KR_SESSIONS]->{$session};
+  my $ss = $kr_sessions{$session};
   warn "+----- GC test for ", {% ssid %}, " ($session) -----\n";
   warn "| total refcnt  : $ss->[SS_REFCOUNT]\n";
   warn "| event count   : $ss->[SS_EVCOUNT]\n";
@@ -2015,7 +2016,7 @@ sub trace_gc_refcount {
 
 sub assert_gc_refcount {
   my ($self, $session) = @_;
-  my $ss = $self->[KR_SESSIONS]->{$session};
+  my $ss = $kr_sessions{$session};
 
   # Calculate the total reference count based on the number of
   # discrete references kept.
@@ -2070,9 +2071,9 @@ sub _enqueue_state {
 
   # These things are FIFO; just enqueue it.
 
-  if (exists $self->[KR_SESSIONS]->{$session}) {
+  if (exists $kr_sessions{$session}) {
 
-    push @{$self->[KR_STATES]}, {% state_to_enqueue %};
+    push @kr_states, {% state_to_enqueue %};
     {% ses_refcount_inc2 $session, SS_EVCOUNT %}
 
     if (POE_USES_GTK) { # include
@@ -2101,7 +2102,7 @@ sub _enqueue_state {
 
   }
   else {
-    warn ">>>>> ", join('; ', keys(%{$self->[KR_SESSIONS]})), " <<<<<\n";
+    warn ">>>>> ", join('; ', keys(%kr_sessions)), " <<<<<\n";
     croak "can't enqueue state($state) for nonexistent session($session)\a\n";
   }
 }
@@ -2115,47 +2116,46 @@ sub _enqueue_alarm {
     warn "}}} enqueuing alarm '$state' for ", {% ssid %}, "\n";
   } # include
 
-  if (exists $self->[KR_SESSIONS]->{$session}) {
-    my $kr_alarms = $self->[KR_ALARMS];
+  if (exists $kr_sessions{$session}) {
 
     # Special case: No alarms in the queue.  Put the new alarm in the
     # queue, and be done with it.
-    unless (@$kr_alarms) {
-      $kr_alarms->[0] = {% state_to_enqueue %};
+    unless (@kr_alarms) {
+      $kr_alarms[0] = {% state_to_enqueue %};
     }
 
     # Special case: New state belongs at the end of the queue.  Push
     # it, and be done with it.
-    elsif ($time >= $kr_alarms->[-1]->[ST_TIME]) {
-      push @$kr_alarms, {% state_to_enqueue %};
+    elsif ($time >= $kr_alarms[-1]->[ST_TIME]) {
+      push @kr_alarms, {% state_to_enqueue %};
     }
 
     # Special case: New state comes before earliest state.  Unshift
     # it, and be done with it.
-    elsif ($time < $kr_alarms->[0]->[ST_TIME]) {
-      unshift @$kr_alarms, {% state_to_enqueue %};
+    elsif ($time < $kr_alarms[0]->[ST_TIME]) {
+      unshift @kr_alarms, {% state_to_enqueue %};
     }
 
     # Special case: Two alarms in the queue.  The new state enters
     # between them, because it's not before the first one or after the
     # last one.
-    elsif (@$kr_alarms == 2) {
-      splice @$kr_alarms, 1, 0, {% state_to_enqueue %};
+    elsif (@kr_alarms == 2) {
+      splice @kr_alarms, 1, 0, {% state_to_enqueue %};
     }
 
     # Small queue.  Perform a reverse linear search on the assumption
     # that (a) a linear search is fast enough on small queues; and (b)
     # most events will be posted for "now" or some future time, which
     # tends to be towards the end of the queue.
-    elsif (@$kr_alarms < 32) {
-      my $index = @$kr_alarms;
+    elsif (@kr_alarms < 32) {
+      my $index = @kr_alarms;
       while ($index--) {
-        if ($time >= $kr_alarms->[$index]->[ST_TIME]) {
-          splice @$kr_alarms, $index+1, 0, {% state_to_enqueue %};
+        if ($time >= $kr_alarms[$index]->[ST_TIME]) {
+          splice @kr_alarms, $index+1, 0, {% state_to_enqueue %};
           last;
         }
         elsif ($index == 0) {
-          unshift @$kr_alarms, {% state_to_enqueue %};
+          unshift @kr_alarms, {% state_to_enqueue %};
         }
       }
     }
@@ -2165,7 +2165,7 @@ sub _enqueue_alarm {
     # determine the break-even point between "large" and "small" alarm
     # queues at start-up and tune itself accordingly.
     else {
-      my $upper = @$kr_alarms - 1;
+      my $upper = @kr_alarms - 1;
       my $lower = 0;
       while ('true') {
         my $midpoint = ($upper + $lower) >> 1;
@@ -2173,20 +2173,20 @@ sub _enqueue_alarm {
         # Upper and lower bounds crossed.  No match; insert at the
         # lower bound point.
         if ($upper < $lower) {
-          splice @$kr_alarms, $lower, 0, {% state_to_enqueue %};
+          splice @kr_alarms, $lower, 0, {% state_to_enqueue %};
           last;
         }
 
         # The key at the midpoint is too high.  The element just below
         # the midpoint becomes the new upper bound.
-        if ($time < $kr_alarms->[$midpoint]->[ST_TIME]) {
+        if ($time < $kr_alarms[$midpoint]->[ST_TIME]) {
           $upper = $midpoint - 1;
           next;
         }
 
         # The key at the midpoint is too low.  The element just above
         # the midpoint becomes the new lower bound.
-        if ($time > $kr_alarms->[$midpoint]->[ST_TIME]) {
+        if ($time > $kr_alarms[$midpoint]->[ST_TIME]) {
           $lower = $midpoint + 1;
           next;
         }
@@ -2195,10 +2195,10 @@ sub _enqueue_alarm {
         # higher keys until the midpoint points to an element with a
         # higher key.  Insert the new state before it.
         $midpoint++
-          while ( ($midpoint < @$kr_alarms) 
-                  and ($time == $kr_alarms->[$midpoint]->[ST_TIME])
+          while ( ($midpoint < @kr_alarms) 
+                  and ($time == $kr_alarms[$midpoint]->[ST_TIME])
                 );
-        splice @$kr_alarms, $midpoint, 0, {% state_to_enqueue %};
+        splice @kr_alarms, $midpoint, 0, {% state_to_enqueue %};
         last;
       }
     }
@@ -2208,8 +2208,8 @@ sub _enqueue_alarm {
       # If using Gtk and the alarm queue now has only one event, then
       # register a timeout callback to dispatch it when it becomes
       # due.
-      if ( @{$self->[KR_ALARMS]} == 1 ) {
-        my $next_time = ($self->[KR_ALARMS]->[0]->[ST_TIME] - time()) * 1000;
+      if ( @kr_alarms == 1 ) {
+        my $next_time = ($kr_alarms[0]->[ST_TIME] - time()) * 1000;
         $next_time = 0 if $next_time < 0;
         $self->[KR_WATCHER_TIMER] =
           Gtk->timeout_add( $next_time, \&_gtk_timeout_callback );
@@ -2220,13 +2220,13 @@ sub _enqueue_alarm {
       # If using Tk and the alarm queue now has only one event, then
       # register a Tk timed callback to dispatch it when it becomes
       # due.
-      if ( @{$self->[KR_ALARMS]} == 1 ) {
+      if ( @kr_alarms == 1 ) {
         if (defined $self->[KR_WATCHER_TIMER]) {
           $self->[KR_WATCHER_TIMER]->cancel();
           $self->[KR_WATCHER_TIMER] = undef;
         }
 
-        my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
+        my $next_time = $kr_alarms[0]->[ST_TIME] - time();
         $next_time = 0 if $next_time < 0;
         $self->[KR_WATCHER_TIMER] =
           $poe_main_window->after( $next_time * 1000,
@@ -2238,8 +2238,8 @@ sub _enqueue_alarm {
 
       # If using Event and the alarm queue now has only one event,
       # then start the Event timer to dispatch it when it becomes due.
-      if ( @{$self->[KR_ALARMS]} == 1 ) {
-        $self->[KR_WATCHER_TIMER]->at( $self->[KR_ALARMS]->[0]->[ST_TIME] );
+      if ( @kr_alarms == 1 ) {
+        $self->[KR_WATCHER_TIMER]->at( $kr_alarms[0]->[ST_TIME] );
         $self->[KR_WATCHER_TIMER]->start();
       }
 
@@ -2249,7 +2249,7 @@ sub _enqueue_alarm {
     {% ses_refcount_inc2 $session, SS_ALCOUNT %}
   }
   else {
-    warn ">>>>> ", join('; ', keys(%{$self->[KR_SESSIONS]})), " <<<<<\n";
+    warn ">>>>> ", join('; ', keys(%kr_sessions)), " <<<<<\n";
     croak "can't enqueue alarm($state) for nonexistent session($session)\a\n";
   }
 }
@@ -2334,9 +2334,9 @@ sub queue_peek_alarms {
   my @pending_alarms;
 
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
-  my $alarm_count = $self->[KR_SESSIONS]->{$kr_active_session}->[SS_ALCOUNT];
+  my $alarm_count = $kr_sessions{$kr_active_session}->[SS_ALCOUNT];
 
-  foreach my $alarm (@{$self->[KR_ALARMS]}) {
+  foreach my $alarm (@kr_alarms) {
     last unless $alarm_count;
     next unless $alarm->[ST_SESSION] == $kr_active_session;
     next unless $alarm->[ST_TYPE] & ET_ALARM;
@@ -2358,14 +2358,14 @@ sub alarm {
   return EINVAL unless defined $state;
 
   # Remove all previous instances of the alarm.
-  my $index = scalar(@{$self->[KR_ALARMS]});
+  my $index = @kr_alarms;
   while ($index--) {
-    if ( ($self->[KR_ALARMS]->[$index]->[ST_TYPE] & ET_ALARM) &&
-         ($self->[KR_ALARMS]->[$index]->[ST_SESSION] == $kr_active_session) &&
-         ($self->[KR_ALARMS]->[$index]->[ST_NAME] eq $state)
+    if ( ($kr_alarms[$index]->[ST_TYPE] & ET_ALARM) &&
+         ($kr_alarms[$index]->[ST_SESSION] == $kr_active_session) &&
+         ($kr_alarms[$index]->[ST_NAME] eq $state)
     ) {
       {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
-      splice(@{$self->[KR_ALARMS]}, $index, 1);
+      splice(@kr_alarms, $index, 1);
     }
   }
 
@@ -2373,16 +2373,16 @@ sub alarm {
 
     # If using Gtk and the alarm queue is empty, then discard the Gtk
     # alarm callback.
-    if ( @{$self->[KR_ALARMS]} == 0 ) {
-      # -><- Remove the alarm handler.  Is this necessary?
+    unless (@kr_alarms) {
+      # -><- Is it necessary to remove the alarm handler?
     }
 
   } elsif (POE_USES_TK) { # include
 
     # If using Tk and the alarm queue is empty, then discard the Tk
     # alarm callback.
-    if ( @{$self->[KR_ALARMS]} == 0 ) {
-      # -><- Remove the alarm handler.  Is this necessary?
+    unless ( @kr_alarms ) {
+      # -><- Is it necessary to remove the alarm handler?
     }
 
   } elsif (POE_USES_EVENT) { # include
@@ -2390,7 +2390,7 @@ sub alarm {
     # If using Event and the alarm queue is empty, then ensure that
     # the timer has stopped.
 
-    if ( @{$self->[KR_ALARMS]} == 0 ) {
+    unless ( @kr_alarms ) {
       $self->[KR_WATCHER_TIMER]->stop();
     }
 
@@ -2457,13 +2457,12 @@ sub delay_add {
 
 sub _internal_select {
   my ($self, $session, $handle, $state, $select_index) = @_;
-  my $kr_handles = $self->[KR_HANDLES];
   my $fileno = fileno($handle);
 
   # Register a select state.
   if ($state) {
-    unless (exists $kr_handles->{$handle}) {
-      $kr_handles->{$handle} =
+    unless (exists $kr_handles{$handle}) {
+      $kr_handles{$handle} =
         [ $handle,                      # HND_HANDLE
           0,                            # HND_REFCOUNT
           [ 0, 0, 0 ],                  # HND_VECCOUNT (VEC_RD, VEC_WR, VEC_EX)
@@ -2504,7 +2503,7 @@ sub _internal_select {
     }
 
     # KR_HANDLES
-    my $kr_handle = $kr_handles->{$handle};
+    my $kr_handle = $kr_handles{$handle};
 
     # If this session hasn't already been watching the filehandle,
     # then modify the handle's reference counts and perhaps turn on
@@ -2522,7 +2521,7 @@ sub _internal_select {
       # its select bit on.
 
       if ($kr_handle->[HND_VECCOUNT]->[$select_index] == 1) {
-        vec($self->[KR_VECTORS]->[$select_index], fileno($handle), 1) = 1;
+        vec($kr_vectors[$select_index], fileno($handle), 1) = 1;
 
         if (POE_USES_GTK) { # include
 
@@ -2616,7 +2615,7 @@ sub _internal_select {
       [ $handle, $session, $state ];
 
     # SS_HANDLES
-    my $kr_session = $self->[KR_SESSIONS]->{$session};
+    my $kr_session = $kr_sessions{$session};
 
     # If the session hasn't already been watching the filehandle, then
     # register the filehandle in the session's structure.
@@ -2644,8 +2643,8 @@ sub _internal_select {
 
     # Make sure the handle is deregistered with the kernel.
 
-    if (exists $kr_handles->{$handle}) {
-      my $kr_handle = $kr_handles->{$handle};
+    if (exists $kr_handles{$handle}) {
+      my $kr_handle = $kr_handles{$handle};
 
       # Make sure the handle was registered to the requested session.
 
@@ -2667,7 +2666,7 @@ sub _internal_select {
         # handle.
 
         unless ($kr_handle->[HND_VECCOUNT]->[$select_index]) {
-          vec($self->[KR_VECTORS]->[$select_index], fileno($handle), 1) = 0;
+          vec($kr_vectors[$select_index], fileno($handle), 1) = 0;
 
           if (POE_USES_GTK) { # include
 
@@ -2722,7 +2721,7 @@ sub _internal_select {
           # vector chunk that Perl manages.  Always keep at least one
           # octet around, even if it's 0.
 
-          $self->[KR_VECTORS]->[$select_index] =~ s/(.)\000+$/$1/;
+          $kr_vectors[$select_index] =~ s/(.)\000+$/$1/;
         }
 
         # Decrement the kernel record's handle reference count.  If
@@ -2738,7 +2737,7 @@ sub _internal_select {
         } # include
 
         unless ($kr_handle->[HND_REFCOUNT]) {
-          delete $kr_handles->{$handle};
+          delete $kr_handles{$handle};
         }
       }
     }
@@ -2746,7 +2745,7 @@ sub _internal_select {
     # SS_HANDLES - Remove the select from the session, assuming there
     # is a session to remove it from.
 
-    my $kr_session = $self->[KR_SESSIONS]->{$session};
+    my $kr_session = $kr_sessions{$session};
     if (exists $kr_session->[SS_HANDLES]->{$handle}) {
 
       # Remove it from the session's read, write or expedite vector.
@@ -2818,11 +2817,11 @@ sub select_pause_write {
   # housekeeping since we're only pausing the handle.  It's assumed
   # that we'll resume it again at some point.
 
-  vec($self->[KR_VECTORS]->[VEC_WR], fileno($handle), 1) = 0;
+  vec($kr_vectors[VEC_WR], fileno($handle), 1) = 0;
 
   if (POE_USES_GTK) { # include
 
-    my $kr_handle = $self->[KR_HANDLES]->{$handle};
+    my $kr_handle = $kr_handles{$handle};
 
     Gtk::Gdk->input_remove( $kr_handle->[HND_WATCHERS]->[VEC_WR] );
     $kr_handle->[HND_WATCHERS]->[VEC_WR] = undef;
@@ -2837,7 +2836,7 @@ sub select_pause_write {
 
   } elsif (POE_USES_EVENT) { # include
 
-    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
+    $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
 
   } # include
 
@@ -2854,16 +2853,16 @@ sub select_resume_write {
   # Turn the select vector's write bit back on.  Resume whatever
   # watcher whichever event loop needs.
 
-  vec($self->[KR_VECTORS]->[VEC_WR], fileno($handle), 1) = 1;
+  vec($kr_vectors[VEC_WR], fileno($handle), 1) = 1;
 
   if (POE_USES_GTK) { # include
 
-    my $kr_handle = $self->[KR_HANDLES]->{$handle};
+    my $kr_handle = $kr_handles{$handle};
 
     confess "resuming unpaused handle"
-      if defined $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR];
+      if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR];
 
-    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR] =
+    $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR] =
       Gtk::Gdk->input_add( fileno($handle), 'write',
                            \&_gtk_select_write_callback, $handle
                          );
@@ -2878,7 +2877,7 @@ sub select_resume_write {
 
   } elsif (POE_USES_EVENT) { # include
 
-    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
+    $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
 
   } # include
 
@@ -2896,11 +2895,11 @@ sub select_pause_read {
   # housekeeping since we're only pausing the handle.  It's assumed
   # that we'll resume it again at some point.
 
-  vec($self->[KR_VECTORS]->[VEC_RD], fileno($handle), 1) = 0;
+  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 0;
 
   if (POE_USES_GTK) { # include
 
-    my $kr_handle = $self->[KR_HANDLES]->{$handle};
+    my $kr_handle = $kr_handles{$handle};
 
     Gtk::Gdk->input_remove( $kr_handle->[HND_WATCHERS]->[VEC_RD] );
     $kr_handle->[HND_WATCHERS]->[VEC_RD] = undef;
@@ -2915,7 +2914,7 @@ sub select_pause_read {
 
   } elsif (POE_USES_EVENT) { # include
 
-    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD]->stop();
+    $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD]->stop();
 
   } # include
 
@@ -2932,16 +2931,16 @@ sub select_resume_read {
   # Turn the select vector's read bit back on.  Resume whatever
   # watcher whichever event loop needs.
 
-  vec($self->[KR_VECTORS]->[VEC_RD], fileno($handle), 1) = 1;
+  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 1;
 
   if (POE_USES_GTK) { # include
 
-    my $kr_handle = $self->[KR_HANDLES]->{$handle};
+    my $kr_handle = $kr_handles{$handle};
 
     confess "resuming unpaused handle"
-      if defined $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD];
+      if defined $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD];
 
-    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD] =
+    $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD] =
       Gtk::Gdk->input_add( fileno($handle), 'read',
                            \&_gtk_select_read_callback, $handle
                          );
@@ -2956,7 +2955,7 @@ sub select_resume_read {
 
   } elsif (POE_USES_EVENT) { # include
 
-    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD]->start();
+    $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD]->start();
 
   } # include
 
@@ -2972,13 +2971,13 @@ sub alias_set {
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
   # Don't overwrite another session's alias.
-  if (exists $self->[KR_ALIASES]->{$name}) {
-    return EEXIST if $self->[KR_ALIASES]->{$name} != $kr_active_session;
+  if (exists $kr_aliases{$name}) {
+    return EEXIST if $kr_aliases{$name} != $kr_active_session;
     return 0;
   }
 
-  $self->[KR_ALIASES]->{$name} = $kr_active_session;
-  $self->[KR_SESSIONS]->{$kr_active_session}->[SS_ALIASES]->{$name} = 1;
+  $kr_aliases{$name} = $kr_active_session;
+  $kr_sessions{$kr_active_session}->[SS_ALIASES]->{$name} = 1;
 
   {% ses_refcount_inc $kr_active_session %}
 
@@ -2990,8 +2989,8 @@ sub alias_remove {
   my ($self, $name) = @_;
   my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
-  return ESRCH unless exists $self->[KR_ALIASES]->{$name};
-  return EPERM if $self->[KR_ALIASES]->{$name} != $kr_active_session;
+  return ESRCH unless exists $kr_aliases{$name};
+  return EPERM if $kr_aliases{$name} != $kr_active_session;
 
   {% remove_alias $kr_active_session, $name %}
 
@@ -3025,9 +3024,9 @@ sub ID {
 
 sub ID_id_to_session {
   my ($self, $id) = @_;
-  if (exists $self->[KR_SESSION_IDS]->{$id}) {
+  if (exists $kr_session_ids{$id}) {
     $! = 0;
-    return $self->[KR_SESSION_IDS]->{$id};
+    return $kr_session_ids{$id};
   }
   $! = ESRCH;
   return undef;
@@ -3037,9 +3036,9 @@ sub ID_id_to_session {
 
 sub ID_session_to_id {
   my ($self, $session) = @_;
-  if (exists $self->[KR_SESSIONS]->{$session}) {
+  if (exists $kr_sessions{$session}) {
     $! = 0;
-    return $self->[KR_SESSIONS]->{$session}->[SS_ID];
+    return $kr_sessions{$session}->[SS_ID];
   }
   $! = ESRCH;
   return undef;
@@ -3060,7 +3059,7 @@ sub refcount_increment {
     # time the tag's been used for the session, then increment the
     # session's reference count as well.
 
-    my $refcount = ++$self->[KR_SESSIONS]->{$session}->[SS_EXTRA_REFS]->{$tag};
+    my $refcount = ++$kr_sessions{$session}->[SS_EXTRA_REFS]->{$tag};
 
     if (TRACE_REFCOUNT) { # include
       carp( "+++ ", {% ssid %}, " refcount for tag '$tag' incremented to ",
@@ -3073,7 +3072,7 @@ sub refcount_increment {
 
       if (TRACE_REFCOUNT) { # include
           carp( "+++ ", {% ssid %}, " refcount for session is at ",
-                $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT]
+                $kr_sessions{$session}->[SS_REFCOUNT]
              );
       } # include
 
@@ -3101,7 +3100,7 @@ sub refcount_decrement {
     # time the tag's been used for the session, then decrement the
     # session's reference count as well.
 
-    my $refcount = --$self->[KR_SESSIONS]->{$session}->[SS_EXTRA_REFS]->{$tag};
+    my $refcount = --$kr_sessions{$session}->[SS_EXTRA_REFS]->{$tag};
 
     if (ASSERT_REFCOUNT) { # include
       croak( "--- ", {% ssid %}, " refcount for tag '$tag' dropped below 0" )
@@ -3119,7 +3118,7 @@ sub refcount_decrement {
 
       if (TRACE_REFCOUNT) { # include
         carp( "--- ", {% ssid %}, " refcount for session is at ",
-              $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT]
+              $kr_sessions{$session}->[SS_REFCOUNT]
             );
       } # include
 
@@ -3142,7 +3141,7 @@ sub state {
   $state_alias = $state_name unless defined $state_alias;
 
   if ( (ref($self->[KR_ACTIVE_SESSION]) ne '') &&
-                                        # -><- breaks subclasses... sky has fix
+       # -><- breaks subclasses... sky has fix
        (ref($self->[KR_ACTIVE_SESSION]) ne 'POE::Kernel')
   ) {
     $self->[KR_ACTIVE_SESSION]->register_state( $state_name,
@@ -3157,11 +3156,9 @@ sub state {
 
 ###############################################################################
 # Bootstrap the kernel.  This is inherited from a time when multiple
-# kernels could be present in the same Perl process. -><- I think
-# multiple kernels will never again be supported; revising things to
-# be more static may improve performance.
+# kernels could be present in the same Perl process.
 
-new POE::Kernel();
+POE::Kernel->new();
 
 ###############################################################################
 1;
