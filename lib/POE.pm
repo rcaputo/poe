@@ -12,7 +12,7 @@ package POE;
 
 use vars qw($VERSION);
 
-$VERSION = "0.05_02";
+$VERSION = "0.05_03";
 
 use strict;
 use Carp;
