@@ -1,8 +1,8 @@
 # $Id$
 
-# Copyright 1998 Rocco Caputo E<lt>troc@netrus.netE<gt>.  All rights
-# reserved.  This program is free software; you can redistribute it
-# and/or modify it under the same terms as Perl itself.
+# Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
+# This program is free software; you can redistribute it and/or modify
+# it under the same terms as Perl itself.
 
 package POE::Filter::Stream;
 
