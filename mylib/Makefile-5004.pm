@@ -25,8 +25,9 @@ poe_report.xml: Makefile
 EOF
 }
 
-# Touch CHANGES so it exists.
-open(CHANGES, ">>CHANGES") and close CHANGES;
+# Touch generated files so they exist.
+open(TOUCH, ">>CHANGES") and close TOUCH;
+open(TOUCH, ">>META.yml") and close TOUCH;
 
 WriteMakefile
   ( NAME           => 'POE',
