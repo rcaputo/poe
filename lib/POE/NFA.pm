@@ -56,7 +56,8 @@ macro fetch_id (<whence>) {
 
 #------------------------------------------------------------------------------
 # Export constants into calling packages.  This is evil; perhaps
-# EXPORT_OK instead?
+# EXPORT_OK instead?  The parameters NFA has in common with SESSION
+# (and other sessions) must be kept at the same offsets as each-other.
 
 sub OBJECT   () {  0 }
 sub MACHINE  () {  1 }
