@@ -141,7 +141,7 @@ Tk      : (not installed)
 Event   : (not installed)
 
 All tests successful, 4 tests and 5 subtests skipped.
-Files=23, Tests=409, 141 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+Files=24, Tests=429, 162 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
 ** POE 0.1203 on FreeBSD
 
@@ -169,10 +169,7 @@ Files=23, Tests=415, 104 wallclock secs (19.50 cusr +  0.85 csys = 20.35 CPU)
 
 ** POE 0.1203 on Solaris/SunOS 5.7
 
-(Does anyone know how remote users can find a Sparc/SunOS machine's
-CPU type(s) and speed(s)?)
-
-Hardware: SPARCstation-20; unknown speed; 320MB RAM
+Hardware: SPARCstation-20; dual Sparc-75; 320MB RAM
 System  : SunOS 5.7
 Perl    : 5.005_03
 Gtk     : (not installed)
