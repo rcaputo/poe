@@ -22,6 +22,7 @@ $VERSION = (qw($Revision$ ))[1];
 use Carp qw(croak);
 use HTTP::Status;
 use HTTP::Request;
+use HTTP::Response;
 use HTTP::Date qw(time2str);
 use URI;
 
