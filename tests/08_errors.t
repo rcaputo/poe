@@ -210,8 +210,8 @@ print "ok 19\n";
 
   stderr_pause();
   POE::Wheel::SocketFactory->new
-    ( SuccessState => [ ],
-      FailureState => [ ],
+    ( SuccessEvent => [ ],
+      FailureEvent => [ ],
     );
   stderr_resume();
 
@@ -220,10 +220,10 @@ print "ok 19\n";
 
   stderr_pause();
   POE::Wheel::SocketFactory->new
-    ( SocketDomain => AF_UNIX,
+    ( SocketDomain   => AF_UNIX,
       SocketProtocol => 'tcp',
-      SuccessState => 'okay',
-      FailureState => 'okay',
+      SuccessEvent   => 'okay',
+      FailureEvent   => 'okay',
     );
   stderr_resume();
 

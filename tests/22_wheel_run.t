@@ -6,6 +6,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use Socket;
+use Config;
 
 use TestSetup;
 &test_setup(24);
@@ -126,7 +127,7 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
 my $tty_flush_count = 0;
 
 my $program =
-  ( '/usr/bin/perl -we \'' .
+  ( $Config{perlpath} . ' -we \'' .
     '$/ = q(!); select STDERR; $| = 1; select STDOUT; $| = 1; ' .
     'while (<STDIN>) { ' .
     '  last if /^bye/; ' .

@@ -64,8 +64,8 @@ sub client_start {
   $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => $server_addr,   # connecting to address $server_addr
       RemotePort     => $server_port,   # connecting to port $server_port
-      SuccessState   => 'connected',    # generating this event when connected
-      FailureState   => 'error',        # generating this event upon an error
+      SuccessEvent   => 'connected',    # generating this event when connected
+      FailureEvent   => 'error',        # generating this event upon an error
     );
 }
 
@@ -93,8 +93,8 @@ sub client_connected {
     ( Handle     => $socket,                 # read and write on this socket
       Driver     => POE::Driver::SysRW->new, # using sysread and syswrite
       Filter     => POE::Filter::Line->new,  # and parsing I/O as lines
-      InputState => 'receive',               # generating this event on input
-      ErrorState => 'error',                 # generating this event on error
+      InputEvent => 'receive',               # generating this event on input
+      ErrorEvent => 'error',                 # generating this event on error
     );
 
   shutdown($socket, 1);
@@ -293,9 +293,9 @@ sub session_start {
     ( Handle       => $handle,                 # on the client's socket
       Driver       => POE::Driver::SysRW->new, # using sysread and syswrite
       Filter       => POE::Filter::Line->new,  # and parsing I/O as lines
-      InputState   => 'receive',               # generating this event on input
-      ErrorState   => 'error',                 # generating this event on error
-      FlushedState => 'flushed',               # generating this event on flush
+      InputEvent   => 'receive',               # generating this event on input
+      ErrorEvent   => 'error',                 # generating this event on error
+      FlushedEvent => 'flushed',               # generating this event on flush
     );
                                         # give the client the time of day
   $heap->{'wheel'}->put
@@ -393,8 +393,8 @@ sub server_start {
     ( BindAddress    => $server_addr,   # bind the listener to this address
       BindPort       => $server_port,   # bind the listener to this port
       Reuse          => 'yes',          # and reuse the socket right away
-      SuccessState   => 'accept_success', # generate this event for connections
-      FailureState   => 'accept_error',   # generate this event for errors
+      SuccessEvent   => 'accept_success', # generate this event for connections
+      FailureEvent   => 'accept_error',   # generate this event for errors
     );
 }
 

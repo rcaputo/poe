@@ -85,15 +85,15 @@ sub session_start {
     ( Handle     => $socket,
       Driver     => POE::Driver::SysRW->new,
       Filter     => POE::Filter::Stream->new,
-      InputState => 'client_input',
-      ErrorState => 'client_error',
+      InputEvent => 'client_input',
+      ErrorEvent => 'client_error',
     );
 
   $heap->{wheel_server} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => $remote_addr,
       RemotePort     => $remote_port,
-      SuccessState   => 'server_connect',
-      FailureState   => 'server_error',
+      SuccessEvent   => 'server_connect',
+      FailureEvent   => 'server_error',
     );
 }
 
@@ -172,8 +172,8 @@ sub session_server_connect {
     ( Handle     => $socket,
       Driver     => POE::Driver::SysRW->new,
       Filter     => POE::Filter::Stream->new,
-      InputState => 'server_input',
-      ErrorState => 'server_error',
+      InputEvent => 'server_input',
+      ErrorEvent => 'server_error',
     );
 
   $heap->{state} = 'connected';
@@ -249,8 +249,8 @@ sub server_start {
     ( BindAddress    => $local_addr,      # bind to this address
       BindPort       => $local_port,      # and bind to this port
       Reuse          => 'yes',            # reuse immediately
-      SuccessState   => 'accept_success', # generate this event on connection
-      FailureState   => 'accept_failure', # generate this event on error
+      SuccessEvent   => 'accept_success', # generate this event on connection
+      FailureEvent   => 'accept_failure', # generate this event on error
     );
 }
 

@@ -67,9 +67,9 @@ sub _start {
     ( Handle       => $socket,                  # on this socket handle
       Driver       => POE::Driver::SysRW->new,  # using sysread and syswrite
       Filter       => POE::Filter::Line->new,   # and parsing streams as lines
-      InputState   => 'got_line',   # generate this event upon receipt of input
-      ErrorState   => 'got_error',  # and this event if an error occurs
-      FlushedState => 'flushed'     # and this event when all output is sent
+      InputEvent   => 'got_line',   # generate this event upon receipt of input
+      ErrorEvent   => 'got_error',  # and this event if an error occurs
+      FlushedEvent => 'flushed'     # and this event when all output is sent
     );
                                         # keep state for a high-level protocol
   $heap->{'protocol state'} = 'running';
@@ -198,8 +198,8 @@ sub _start {
     ( Handle     => $socket,                 # on this socket handle
       Driver     => POE::Driver::SysRW->new, # using sysread and syswrite
       Filter     => POE::Filter::Line->new,  # and parsing streams as lines
-      InputState => 'got_response',          # generate this event upon input
-      ErrorState => 'got_error'              # and this one if an error occurs
+      InputEvent => 'got_response',          # generate this event upon input
+      ErrorEvent => 'got_error'              # and this one if an error occurs
     );
                                         # set up a query queue
   $heap->{'commands'} =
@@ -299,8 +299,8 @@ sub _start {
   $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( SocketDomain => AF_UNIX,          # in the Unix address family
       BindAddress  => $unix_server,     # bound to this Unix address
-      SuccessState => 'got_client',     # sending this message when connected
-      FailureState => 'got_error',      # sending this message upon failure
+      SuccessEvent => 'got_client',     # sending this message when connected
+      FailureEvent => 'got_error',      # sending this message upon failure
     );
 
   my $bind_path = unpack_sockaddr_un($heap->{wheel}->getsockname());
@@ -406,8 +406,8 @@ sub _start {
   $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( SocketDomain  => AF_UNIX,           # in the Unix address family
       RemoteAddress => $unix_server,      # connected to that Unix address
-      SuccessState  => 'got_connection',  # sending this message when connected
-      FailureState  => 'got_error'        # sending this message upon failure
+      SuccessEvent  => 'got_connection',  # sending this message when connected
+      FailureEvent  => 'got_error'        # sending this message upon failure
     );
 }
 
@@ -515,8 +515,8 @@ sub _start {
     ( BindAddress    => '127.0.0.1',    # bound to 127.0.0.1, port 30000
       BindPort       => 30000,
       Reuse          => 'yes',          # reusing the address and port
-      SuccessState   => 'got_client',   # sending this message when connected
-      FailureState   => 'got_error',    # sending this message upon failure
+      SuccessEvent   => 'got_client',   # sending this message when connected
+      FailureEvent   => 'got_error',    # sending this message upon failure
     );
 
   my ($bind_port, $bind_addr) =
@@ -601,8 +601,8 @@ sub _start {
     ( RemoteAddress   => '127.0.0.1',      # connected to 127.0.0.1, port 30000
       RemotePort      => 30000,
       Reuse           => 'yes',            # reusing the address and port
-      SuccessState    => 'got_connection', # send this message when connected
-      FailureState    => 'got_error',      # send this message upon failure
+      SuccessEvent    => 'got_connection', # send this message when connected
+      FailureEvent    => 'got_error',      # send this message upon failure
     );
 }
 
@@ -687,8 +687,8 @@ sub _start {
       BindPort       => 30001,
       SocketProtocol => 'udp',
       Reuse          => 'yes',
-      SuccessState   => 'got_socket',
-      FailureState   => 'got_error',
+      SuccessEvent   => 'got_socket',
+      FailureEvent   => 'got_error',
     );
 
   if (defined $heap->{wheel}) {
@@ -786,8 +786,8 @@ sub _start {
     ( RemoteAddress  => '127.0.0.1',
       RemotePort     => 30001,
       SocketProtocol => 'udp',
-      SuccessState   => 'got_socket',
-      FailureState   => 'got_error',
+      SuccessEvent   => 'got_socket',
+      FailureEvent   => 'got_error',
     );
 }
 

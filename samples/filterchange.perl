@@ -41,8 +41,8 @@ sub c_start
     $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( RemotePort     => $port,
       RemoteAddress  => '127.0.0.1',
-      SuccessState   => 'connected',    # generating this event on connection
-      FailureState   => 'error'         # generating this event on error
+      SuccessEvent   => 'connected',    # generating this event on connection
+      FailureEvent   => 'error'         # generating this event on error
     );
 }
 
@@ -82,10 +82,10 @@ sub _start
     $heap->{wheel_client} = POE::Wheel::ReadWrite->new
     ( Handle     => $handle,                    # on this handle
       Driver     => POE::Driver::SysRW->new(),  # using sysread and syswrite
-      InputState => 'received',
+      InputEvent => 'received',
 
       Filter     => POE::Filter::Stream->new(),
-      ErrorState => 'error',            # generate this event on error
+      ErrorEvent => 'error',            # generate this event on error
     );
 
 
@@ -234,8 +234,8 @@ sub e_start
     ( BindPort     => $port,
       BindAddress  => '127.0.0.1',
       Reuse         => 1,
-      SuccessState   => 'accept',       # generating this event on connection
-      FailureState   => 'error'         # generating this event on error
+      SuccessEvent   => 'accept',       # generating this event on connection
+      FailureEvent   => 'error'         # generating this event on error
     );
 }
 
@@ -277,9 +277,9 @@ sub _start
     $heap->{wheel_client} = POE::Wheel::ReadWrite->new
     ( Handle     => $handle,                    # on this handle
       Driver     => POE::Driver::SysRW->new(),  # using sysread and syswrite
-      ErrorState => 'error',            # generate this event on error
+      ErrorEvent => 'error',            # generate this event on error
 
-      InputState => $heap->{filters}->{Stream}->[0],
+      InputEvent => $heap->{filters}->{Stream}->[0],
       Filter     => $heap->{filters}->{Stream}->[1],
     );
     _response($heap, "OK");                     # start the dialog
@@ -318,7 +318,7 @@ sub _received
             if($f)
             {
                 print "Effect [$$] Switching to $type\n";
-                $heap->{wheel_client}->event(InputState=>$f->[0]);
+                $heap->{wheel_client}->event(InputEvent=>$f->[0]);
                 $heap->{wheel_client}->set_filter($f->[1]);
                 $heap->{'ref'}=$f->[2];
             } else
@@ -348,7 +348,7 @@ sub _received
 
 
 ################################################
-# InputState when we are using Filter::Stream
+# InputEvent when we are using Filter::Stream
 sub r_stream
 {
     my($heap, $data)=@_[HEAP, ARG0];
@@ -357,7 +357,7 @@ sub r_stream
 
 
 ################################################
-# InputState when we are using Filter::Line
+# InputEvent when we are using Filter::Line
 sub r_line
 {
     my($heap, $line)=@_[HEAP, ARG0];
@@ -365,7 +365,7 @@ sub r_line
 }
 
 ################################################
-# InputState when we are using Filter::Referenece
+# InputEvent when we are using Filter::Referenece
 sub r_reference
 {
     my($heap, $reference)=@_[HEAP, ARG0];

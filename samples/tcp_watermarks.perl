@@ -45,13 +45,13 @@ sub poe_start {
       Driver       => POE::Driver::SysRW->new(),
       Filter       => POE::Filter::Line->new(),
 
-      InputState   => 'wheel_got_input',
-      ErrorState   => 'wheel_got_error',
+      InputEvent   => 'wheel_got_input',
+      ErrorEvent   => 'wheel_got_error',
 
       HighMark     => 256,
       LowMark      => 128,
-      HighState    => 'wheel_throttle',
-      LowState     => 'wheel_resume',
+      HighEvent    => 'wheel_throttle',
+      LowEvent     => 'wheel_resume',
     );
 
   $_[HEAP]->{okay_to_send} = 1;

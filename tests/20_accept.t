@@ -36,12 +36,12 @@ sub listener_start {
 
   $heap->{listener_wheel} = POE::Wheel::ListenAccept->new
     ( Handle      => $listening_socket,
-      AcceptState => 'got_connection_nonexistent',
-      ErrorState  => 'got_error_nonexistent'
+      AcceptEvent => 'got_connection_nonexistent',
+      ErrorEvent  => 'got_error_nonexistent'
     );
 
-  $heap->{listener_wheel}->event( AcceptState => 'got_connection',
-                                  ErrorState  => 'got_error'
+  $heap->{listener_wheel}->event( AcceptEvent => 'got_connection',
+                                  ErrorEvent  => 'got_error'
                                 );
 
   $heap->{accept_count} = 0;
@@ -70,8 +70,8 @@ sub connector_start {
   $_[HEAP]->{connector_wheel} = POE::Wheel::SocketFactory->new
     ( RemoteAddress => '127.0.0.1',
       RemotePort    => 14195,
-      SuccessState  => 'got_connection',
-      FailureState  => 'got_error',
+      SuccessEvent  => 'got_connection',
+      FailureEvent  => 'got_error',
     );
 }
 

@@ -39,8 +39,8 @@ sub c_start
     $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( RemotePort     => $port,
       RemoteAddress  => '127.0.0.1',
-      SuccessState   => 'connected',    # generating this event on connection
-      FailureState   => 'error'         # generating this event on error
+      SuccessEvent   => 'connected',    # generating this event on connection
+      FailureEvent   => 'error'         # generating this event on error
     );
     $heap->{freezer}=$freezer;
 }
@@ -76,10 +76,10 @@ sub _start
     $heap->{wheel_client} = POE::Wheel::ReadWrite->new
     ( Handle     => $handle,                    # on this handle
       Driver     => POE::Driver::SysRW->new(),  # using sysread and syswrite
-      InputState => 'received',
+      InputEvent => 'received',
 
       Filter     => POE::Filter::Reference->new($freezer),
-      ErrorState => 'error',            # generate this event on error
+      ErrorEvent => 'error',            # generate this event on error
     );
 
     my $t=\ "Using $freezer";
@@ -154,8 +154,8 @@ sub e_start
     ( BindPort     => $port,
       BindAddress  => '127.0.0.1',
       Reuse         => 1,
-      SuccessState   => 'accept',       # generating this event on connection
-      FailureState   => 'error'         # generating this event on error
+      SuccessEvent   => 'accept',       # generating this event on connection
+      FailureEvent   => 'error'         # generating this event on error
     );
     $heap->{freezer}=$freezer;
 }
@@ -189,16 +189,16 @@ sub _start
     $heap->{wheel_client} = POE::Wheel::ReadWrite->new
     ( Handle     => $handle,                    # on this handle
       Driver     => POE::Driver::SysRW->new(),  # using sysread and syswrite
-      ErrorState => 'error',            # generate this event on error
+      ErrorEvent => 'error',            # generate this event on error
 
-      InputState => 'received',
+      InputEvent => 'received',
       Filter     => POE::Filter::Reference->new($freezer),
     );
     $heap->{resp}=\ "Using $freezer";
 }
 
 ################################################
-# InputState when we are using Filter::Referenece
+# InputEvent when we are using Filter::Referenece
 sub received
 {
     my($heap, $reference)=@_[HEAP, ARG0];

@@ -80,7 +80,7 @@ sub io_start {
           OutputHandle => $a_write,
           Filter       => POE::Filter::Line->new(),
           Driver       => POE::Driver::SysRW->new(),
-          InputState   => 'ev_a_read',
+          InputEvent   => 'ev_a_read',
         );
 
     # Second wheel to test a fileevent quirk.
@@ -90,7 +90,7 @@ sub io_start {
           OutputHandle => $b_write,
           Filter       => POE::Filter::Line->new(),
           Driver       => POE::Driver::SysRW->new(),
-          InputState   => 'ev_b_read',
+          InputEvent   => 'ev_b_read',
         );
 
     # And a timer loop to test alarms.

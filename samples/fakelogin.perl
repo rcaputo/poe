@@ -27,7 +27,7 @@ sub login_login_start {
                                         # switch the output filter to stream
   $heap->{wheel}->set_output_filter( POE::Filter::Stream->new );
                                         # switch the input event to login_input
-  $heap->{wheel}->event( InputState => 'login_input' );
+  $heap->{wheel}->event( InputEvent => 'login_input' );
                                         # display the prompt
   $heap->{wheel}->put('login: ');
 }
@@ -56,7 +56,7 @@ sub login_password_start {
                                         # switch output filter to stream
   $heap->{wheel}->set_output_filter( POE::Filter::Stream->new );
                                         # switch input event to password_input
-  $heap->{wheel}->event( InputState => 'password_input' );
+  $heap->{wheel}->event( InputEvent => 'password_input' );
                                         # display the prompt
   $heap->{wheel}->put('Password: ');
 }
@@ -101,7 +101,7 @@ sub login_session_start {
     ( 'Handle'     => $handle,
       'Driver'     => POE::Driver::SysRW->new,
       'Filter'     => POE::Filter::Line->new,
-      'ErrorState' => 'error',
+      'ErrorEvent' => 'error',
     );
                                         # hello, world!\n
   $heap->{wheel}->put('FreeBSD (localhost) (ttyp2)', '', '');
@@ -146,8 +146,8 @@ POE::Session->new
 
       $heap->{wheel} = POE::Wheel::SocketFactory->new
         ( BindPort       => $port,
-          SuccessState   => 'socket_ok',
-          FailureState   => 'socket_error',
+          SuccessEvent   => 'socket_ok',
+          FailureEvent   => 'socket_error',
           Reuse          => 'yes',
         );
     },

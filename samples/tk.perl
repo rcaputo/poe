@@ -53,8 +53,8 @@ sub ui_start {
         OutputHandle => $heap->{pipe_write},
         Filter       => POE::Filter::Line->new(),
         Driver       => POE::Driver::SysRW->new(),
-        InputState   => 'ev_pipe_read',
-        ErrorState   => 'ev_pipe_error',
+        InputEvent   => 'ev_pipe_read',
+        ErrorEvent   => 'ev_pipe_error',
       );
 
   # A file.
@@ -71,7 +71,7 @@ sub ui_start {
       ( Handle     => $heap->{file_write},
         Filter     => POE::Filter::Line->new(),
         Driver     => POE::Driver::SysRW->new(),
-        ErrorState => 'ev_file_error',
+        ErrorEvent => 'ev_file_error',
       );
 
   $heap->{file_read_wheel} =
@@ -79,8 +79,8 @@ sub ui_start {
       ( Handle       => $heap->{file_read},
         Filter       => POE::Filter::Line->new(),
         Driver       => POE::Driver::SysRW->new(),
-        InputState   => 'ev_file_read',
-        ErrorState   => 'ev_file_error',
+        InputEvent   => 'ev_file_read',
+        ErrorEvent   => 'ev_file_error',
         PollInterval => 0.3,
       );
 

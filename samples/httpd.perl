@@ -62,9 +62,9 @@ sub _start {
     ( Handle       => $handle,                  # on this handle
       Driver       => POE::Driver::SysRW->new,  # using sysread and syswrite
       Filter       =>  POE::Filter::HTTPD->new, # parsing I/O as http requests
-      InputState   => 'receive',        # generating this event for requests
-      ErrorState   => 'error',          # generating this event for errors
-      FlushedState => 'flushed',        # generating this event for all-sent
+      InputEvent   => 'receive',        # generating this event for requests
+      ErrorEvent   => 'error',          # generating this event for errors
+      FlushedEvent => 'flushed',        # generating this event for all-sent
     );
                                         # save some information for the logs
   $heap->{host} = $peer_addr;
@@ -168,8 +168,8 @@ sub _start {
   $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( BindPort       => $port,           # on this port
       Reuse          => 'yes',           # and allow immediate port reuse
-      SuccessState   => 'accept_client', # generating this event on connection
-      FailureState   => 'accept_error'   # generating this event on error
+      SuccessEvent   => 'accept_client', # generating this event on connection
+      FailureEvent   => 'accept_error'   # generating this event on error
     );
 
   DEBUG && print "Listening to port $port on all interfaces.\n";

@@ -48,9 +48,9 @@ sub sss_start {
     ( Handle       => $socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 10 ),
       Filter       => POE::Filter::Line->new(),
-      InputState   => 'got_line',
-      ErrorState   => 'got_error',
-      FlushedState => 'got_flush',
+      InputEvent   => 'got_line',
+      ErrorEvent   => 'got_error',
+      FlushedEvent => 'got_flush',
     );
 
   $heap->{wheel_id} = $heap->{wheel}->ID;
@@ -101,8 +101,8 @@ sub client_tcp_start {
   $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => '127.0.0.1',
       RemotePort    => $tcp_server_port,
-      SuccessState  => 'got_server',
-      FailureState  => 'got_error',
+      SuccessEvent  => 'got_server',
+      FailureEvent  => 'got_error',
     );
 
   $heap->{socket_wheel_id} = $heap->{wheel}->ID;
@@ -123,9 +123,9 @@ sub client_tcp_connected {
     ( Handle       => $server_socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 10 ),
       Filter       => POE::Filter::Line->new(),
-      InputState   => 'got_line',
-      ErrorState   => 'got_error',
-      FlushedState => 'got_flush',
+      InputEvent   => 'got_line',
+      ErrorEvent   => 'got_error',
+      FlushedEvent => 'got_flush',
     );
 
   $heap->{readwrite_wheel_id} = $heap->{wheel}->ID;

@@ -53,13 +53,13 @@ sub sss_start {
     ( Handle       => $socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 24 ),
       Filter       => POE::Filter::Block->new( BlockSize => 16 ),
-      InputState   => 'got_block_nonexistent',
-      ErrorState   => 'got_error_nonexistent',
+      InputEvent   => 'got_block_nonexistent',
+      ErrorEvent   => 'got_error_nonexistent',
     );
 
   # Test event changing.
-  $heap->{wheel}->event( InputState => 'got_block',
-                         ErrorState => 'got_error',
+  $heap->{wheel}->event( InputEvent => 'got_block',
+                         ErrorEvent => 'got_error',
                        );
 
   $heap->{test_two} = 1;
@@ -92,13 +92,13 @@ sub client_tcp_start {
   $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => '127.0.0.1',
       RemotePort    => $tcp_server_port,
-      SuccessState  => 'got_server_nonexistent',
-      FailureState  => 'got_error_nonexistent',
+      SuccessEvent  => 'got_server_nonexistent',
+      FailureEvent  => 'got_error_nonexistent',
     );
 
   # Test event changing.
-  $heap->{wheel}->event( SuccessState => 'got_server',
-                         FailureState => 'got_error',
+  $heap->{wheel}->event( SuccessEvent => 'got_server',
+                         FailureEvent => 'got_error',
                        );
 
   $heap->{socketfactory_wheel_id} = $heap->{wheel}->ID;
@@ -120,13 +120,13 @@ sub client_tcp_connected {
     ( Handle       => $server_socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 32 ),
       Filter       => POE::Filter::Block->new( BlockSize => 16 ),
-      ErrorState   => 'got_error_nonexistent',
-      FlushedState => 'got_flush_nonexistent',
+      ErrorEvent   => 'got_error_nonexistent',
+      FlushedEvent => 'got_flush_nonexistent',
     );
 
   # Test event changing.
-  $heap->{wheel}->event( ErrorState   => 'got_error',
-                         FlushedState => 'got_flush',
+  $heap->{wheel}->event( ErrorEvent   => 'got_error',
+                         FlushedEvent => 'got_flush',
                        );
 
   $heap->{test_six} = 1;

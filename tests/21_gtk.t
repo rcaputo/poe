@@ -74,7 +74,7 @@ sub io_start {
           OutputHandle => $heap->{pipe_write} = $b_write,
           Filter       => POE::Filter::Line->new(),
           Driver       => POE::Driver::SysRW->new(),
-          InputState   => 'ev_pipe_read',
+          InputEvent   => 'ev_pipe_read',
         );
 
     # And a timer loop to test alarms.

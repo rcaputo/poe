@@ -97,8 +97,8 @@ sub daemon_start {
     ( Handle     => $handle,                    # on this handle
       Driver     => POE::Driver::SysRW->new,    # using sysread and syswrite
       Filter     => POE::Filter::Reference->new, # parsing as refs
-      InputState => 'client',           # generate this event on input
-      ErrorState => 'error',            # generate this event on error
+      InputEvent => 'client',           # generate this event on input
+      ErrorEvent => 'error',            # generate this event on error
     );
 }
 
@@ -168,8 +168,8 @@ sub server_start {
   $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( BindPort       => 31338,          # on the eleet++ port
       Reuse          => 'yes',          # and allow immediate reuse of the port
-      SuccessState   => 'accept',       # generating this event on connection
-      FailureState   => 'error'         # generating this event on error
+      SuccessEvent   => 'accept',       # generating this event on connection
+      FailureEvent   => 'error'         # generating this event on error
     );
 }
 

@@ -45,7 +45,7 @@ for my $j (0..9) {
             ( Handle     => $handle,                  # using this handle
               Driver     => POE::Driver::SysRW->new,  # using syswrite
               Filter     => POE::Filter::Line->new,   # write lines
-              ErrorState => 'log_error'               # acknowledge errors
+              ErrorEvent => 'log_error'               # acknowledge errors
             );
 
           $kernel->post($session, 'activity');
@@ -92,8 +92,8 @@ for my $j (0..9) {
             ( 'Handle' => $handle,                  # follow this handle
               'Driver' => POE::Driver::SysRW->new,  # use sysread to read
               'Filter' => POE::Filter::Line->new,   # file contains lines
-              'InputState' => 'got a line',         # input handler
-              'ErrorState' => 'error reading',      # error handler
+              'InputEvent' => 'got a line',         # input handler
+              'ErrorEvent' => 'error reading',      # error handler
               'PollInterval' => 2,
             );
         }

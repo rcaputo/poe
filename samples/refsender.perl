@@ -49,8 +49,8 @@ sub client_start {
   $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => '127.0.0.1',    # connect to this address
       RemotePort     => 31338,          # connect to this port (eleet++)
-      SuccessState   => 'connected',    # generating this event on success
-      FailureState   => 'error'         # generating this event on failure
+      SuccessEvent   => 'connected',    # generating this event on success
+      FailureEvent   => 'error'         # generating this event on failure
     );
 }
 
@@ -79,9 +79,9 @@ sub client_connected {
     ( Handle       => $socket,                    # read/write on this handle
       Driver       => POE::Driver::SysRW->new,    # using sysread and syswrite
       Filter       => POE::Filter::Reference->new, # parsing refs
-      InputState   => 'received',                 # generating this on input
-      ErrorState   => 'error',                    # generating this on error
-      FlushedState => 'flushed',                  # generating this on flush
+      InputEvent   => 'received',                 # generating this on input
+      ErrorEvent   => 'error',                    # generating this on error
+      FlushedEvent => 'flushed',                  # generating this on flush
     );
 
   # Send objects.  If there are command-line arguments, the first one

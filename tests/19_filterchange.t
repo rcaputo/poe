@@ -149,9 +149,9 @@ sub slave_start {
       OutputHandle => $slave_write,
       Filter       => POE::Filter::Line->new(),
       Driver       => POE::Driver::SysRW->new(),
-      InputState   => 'got_input',
-      FlushedState => 'got_flush',
-      ErrorState   => 'got_error',
+      InputEvent   => 'got_input',
+      FlushedEvent => 'got_flush',
+      ErrorEvent   => 'got_error',
     );
 
   $heap->{current_mode} = LINE;
@@ -260,9 +260,9 @@ sub master_start {
       OutputHandle => $master_write,
       Filter       => POE::Filter::Line->new(),
       Driver       => POE::Driver::SysRW->new(),
-      InputState   => 'got_input',
-      FlushedState => 'got_flush',
-      ErrorState   => 'got_error',
+      InputEvent   => 'got_input',
+      FlushedEvent => 'got_flush',
+      ErrorEvent   => 'got_error',
     );
 
   $heap->{current_mode}  = LINE;

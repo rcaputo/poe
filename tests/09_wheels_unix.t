@@ -52,9 +52,9 @@ sub sss_start {
     ( Handle       => $socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 10 ),
       Filter       => POE::Filter::Line->new(),
-      InputState   => 'got_line',
-      ErrorState   => 'got_error',
-      FlushedState => 'got_flush',
+      InputEvent   => 'got_line',
+      ErrorEvent   => 'got_error',
+      FlushedEvent => 'got_flush',
     );
 
   $heap->{wheel_id}    = $heap->{wheel}->ID;
@@ -106,8 +106,8 @@ sub server_unix_start {
   $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( SocketDomain => PF_UNIX,
       BindAddress  => $unix_server_socket,
-      SuccessState => 'got_client',
-      FailureState => 'got_error',
+      SuccessEvent => 'got_client',
+      FailureEvent => 'got_error',
     );
 
   $heap->{client_count} = 0;
@@ -161,8 +161,8 @@ sub client_unix_start {
   $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( SocketDomain  => PF_UNIX,
       RemoteAddress => $unix_server_socket,
-      SuccessState  => 'got_server',
-      FailureState  => 'got_error',
+      SuccessEvent  => 'got_server',
+      FailureEvent  => 'got_error',
     );
 
   $heap->{socket_wheel_id} = $heap->{wheel}->ID;
@@ -183,9 +183,9 @@ sub client_unix_connected {
     ( Handle       => $server_socket,
       Driver       => POE::Driver::SysRW->new( BlockSize => 10 ),
       Filter       => POE::Filter::Line->new(),
-      InputState   => 'got_line',
-      ErrorState   => 'got_error',
-      FlushedState => 'got_flush',
+      InputEvent   => 'got_line',
+      ErrorEvent   => 'got_error',
+      FlushedEvent => 'got_flush',
     );
 
   $heap->{readwrite_wheel_id} = $heap->{wheel}->ID;
