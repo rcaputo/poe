@@ -5,6 +5,11 @@
 # Empty package to appease perl.
 package POE::Kernel::Tk;
 
+BEGIN {
+  die "POE's Tk support requires version Tk 800.021 or higher.\n"
+    if $Tk::VERSION < 800.021;
+};
+
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
 
