@@ -35,16 +35,17 @@ sub _data_ev_initialize {
 ### End-run leak checking.
 
 sub _data_ev_finalize {
-  # Don't bother if run() was never called. -><- Is this needed?
-  # return unless $kr_run_warning & KR_RUN_CALLED;
-
+  my $finalized_ok = 1;
   while (my ($ses, $cnt) = each(%event_count)) {
+    $finalized_ok = 0;
     warn "!!! Leaked event-to count: $ses = $cnt\n";
   }
 
   while (my ($ses, $cnt) = each(%post_count)) {
+    $finalized_ok = 0;
     warn "!!! Leaked event-from count: $ses = $cnt\n";
   }
+  return $finalized_ok;
 }
 
 ### Enqueue an event.
@@ -109,6 +110,12 @@ sub _data_ev_clear_session {
   }
 }
 
+# -><- Alarm maintenance functions may move out to a separate
+# POE::Resource module in the future.  Why?  Because alarms may
+# eventually be managed by something other than the event queue.
+# Especially if we incorporate a proper Session scheduler.  Be sure to
+# move the tests to a corresponding t/res/*.t file.
+
 ### Remove a specific alarm by its name.  This is in the events
 ### section because alarms are currently implemented as events with
 ### future due times.
@@ -130,7 +137,7 @@ sub _data_ev_clear_alarm_by_name {
 
 ### Remove a specific alarm by its ID.  This is in the events section
 ### because alarms are currently implemented as events with future due
-### times.
+### times.  -><- It's possible to remove non-alarms; is that wrong?
 
 sub _data_ev_clear_alarm_by_id {
   my ($self, $session, $alarm_id) = @_;
