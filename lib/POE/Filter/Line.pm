@@ -37,7 +37,7 @@ sub new {
   # Literal newline for both incoming and outgoing.  Every other known
   # parameter conflicts with this one.
   if (defined $params{Literal}) {
-    croak "Literal must be defined and have a nonzero length"
+    croak "A defined Literal must have a nonzero length"
       unless defined($params{Literal}) and length($params{Literal});
     $input_regexp   = quotemeta $params{Literal};
     $output_literal = $params{Literal};
