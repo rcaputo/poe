@@ -122,7 +122,7 @@ sub main_start {
                                         # stupid scope trick, part 3 of 3 parts
     $session_name = $name;
     my $session = create POE::Session
-      ( inline_states => 
+      ( inline_states =>
         { _start      => \&child_start,
           _stop       => \&child_stop,
           increment   => \&child_increment,
