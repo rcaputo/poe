@@ -1,0 +1,944 @@
+*NAME #® -*- outline -*- ¯
+POE-TODO - To-Do List for POE
+*DESCRIPTION
+This is the author's wish-list and personal event queue.  It's
+included in the POE distribution so that others may read it and
+comment on it.
+
+Rocco plans get around to everything (within reason), eventually, but
+the general convention is that whoever needs a feature first has dibs
+on implementing it.
+
+People who want to implement something for POE should check the latest
+version of this list (to see if anyone has claimed it already), and
+let Rocco know (so they can be added to the list).
+
+Also see the POE mailing list, which tends to be pretty quiet.
+**Tutorials, Papers & Things
+***tail + grep
+***Coroutines in POE
+***Simulating call-with-current-continuation (callcc) in POE
+***Write a Book
+Crimson's bugging me to write a book about POE, in a PCB-like Q&A
+format.  Some suggested questions are:
+
+Problem: You need to construct a ``safe'' Internet service daemon.
+How do you start?
+**Short-Term Core Features & Fixes
+***Announce 0.06
+***Fix functions to test for C®undef¯ B®or¯ C®@_==1¯
+***If no B®ErrorState¯, wheels should C®warn¯ with C®$!¯
+***Consolidate B®FailureState¯ and B®ErrorState¯.
+Whichever one doesn't survive will be depreciated for a while, then
+discontinued.
+**Good Ideas
+***POE::Simple
+Leolo suggests POE::Simple::(Server|Client|Proxy), which would be
+stratospheric-level interfaces to extremely common tasks.  "Contrast
+LWP::Simple w/ the other modules."
+**Namespace partitions?
+Artur suggested a slice of the POE namespace reserved for
+contributions, which could be maintained and released separately from
+POE in general.  I think this is a good idea, but the name we came up
+with, "POE::Module" seems too broad to be descriptive.  The problem I
+see is that contributions are more than just modules:
+***POE::App
+Stand-alone applications.  POE itself would never include stand-alone
+applications.
+***POE::Module
+Modules would be stand-alone "daemon" sessions that can be referred to
+by name.  I suppose, to keep modules from stoping on each-other, the
+internal session name should be the same as the package name.
+
+Sean Puckett suggests that POE::Module plug-ins have a function that
+lets people/programs query what they can do, similar to CORBA or COM
+objects.  That will let programs grok what they're capable of and
+dynamically link themselves to the modules they contain.  Sounds neat;
+I hope it's doable.
+***Other types of contributions
+Filters, Drivers and Wheels.  Where would they go?
+
+Would they all be incorporated into POE's "core" distribution?  It may
+be time to back out a level and make "POE" a bundle.  Others can then
+contribute into the POE packages without their code being in "POE"
+itself.
+***On the other hand
+Then again, does it really matter?  POE::App is just other peoples'
+programs, with a dependence on POE.  POE::Module still is useful as a
+place for people to contribute hot-pluggable things.
+**Core Ideas Being Considered
+***A new paradigm for driver/filter/wheel
+Randal has a lot to say about SocketFactory:
+
+  I need something that has callbacks when the listen socket is bound,
+  and can tell me what port I'm actually connected to if I select 0
+  for a port number
+
+  Also... since stream-ish and gram-ish sockets really need different
+  filters, maybe two different classes of factory with different
+  defaults.
+
+  It should be more like creating an IO::Socket; lots of defaults.
+  Presume tcp and stream for a streamsocket.  Presume udp and datagram
+  for a gramsocket.
+
+  I wonder if I can just derive from IO::Socket and add a few new
+  parameters.  I wonder if filters shouldn't just work like sys-v
+  drivers; as in, have a low-level socket, then push protocols on top.
+
+  This is thinking I did last night while driving downtown. :)
+
+  I want to create a socket of one of many various flavors, then push
+  a protocol on top of it:
+
+    tcp-socket-with-oob, push line-oriented-protocol, push
+    irc-client-protocol
+
+    or tcp-socket-that-buffers-writes-before-connect, push
+    line-oriented-protocol, push ftp-client
+
+    or unix-stream-socket, then ditto
+
+    or open-/dev/ttynn, push cooked-mode, push line-oriented, push
+    irc-client
+
+    so the filter-to-filter protocol must be inclusive enough from the
+    ground up to let me write "line-oriented"
+
+This seems to mesh with the concept of chained filters, but it
+addresses some things that haven't yet been considered.  I have been
+asked to consider "SysV pushed drivers" and Unix streams.
+***Pre-defined state transition tables
+Crimson mentioned something in kermit called "WART".  My
+interpretation of this is a yy-like table of state transitions
+embedded in the session:
+
+  %transition_table = ( $current_state_1 =>
+                        { $next_state_1 => [ $event_name, \@args ],
+                          $next_state_2 => [ $event_name, \@args ],
+                          # ...
+                          $next_state_n => [ $event_name, \@args ],
+                        },
+                        $current_state_2 => ...
+                      );
+
+The table would be installed into a session as a Session::option() or
+a special $_[HEAP] entry.  Or perhaps a set of session methods:
+
+  $session->set_transitions( \%transition_table ); # like above
+
+C®add_transitions()¯ would write C®%transition_table¯ into the
+session's table, overwriting transitions that already existed and
+leaving the rest alone.
+
+  $session->clear_current( @current_states_to_remove );
+
+C®clear_current()¯ would clean the given current states, and all their
+next states.
+
+  $session->clear_transitions( $current_state_1, $next_state_1,
+                               $current_state_2, $next_state_2,
+                               # ...
+                               $current_state_n, $next_state_n,
+                             );
+
+A new POE::Kernel method would take into account the current session's
+current state and the desired next state to post a proper event.  Two
+things could happen if the current->next state transition is illegal:
+First, C®POE::Kernel::enter()¯ could return a failure code; second,
+the transition table could define an B®exception¯ state that's called
+on bad transitions.  For example, the transition table might have a
+B®_default_state¯ that is invoked on a bad transition:
+
+  %transition_table = ( $current_state =>
+                        { '_default_state' => [ 'whoops', \@args ],
+                          'next_state_1' => [ $event_1, \@args_1 ],
+                          # ...
+                        }
+                      );
+
+If an invalid transition is requested...
+
+  $kernel->enter( 'invalid_state', \@args );
+
+... then B®_default_state¯ is entered instead.  The session receives a
+B®whoops¯ event with @args that describe the requested state transition
+and parameters.  The B®whoops¯ event handler then can try to recover
+or shut the session down.
+***Allow different newlines for Filter::Line
+Add a constructor parameter and a method for specifying newlines.
+Will need a way to submit regexps or multiple line separators, to
+support the default case of having lots of different newlines to deal
+with.
+***%SIGNAL tied hash
+This will emulate %SIG, but in a POE way.  This will fabricate an
+event name, register the coderef as a handler for it, and set sig(HUP)
+to point to the event:
+
+  $SIGNAL{'HUP'} = sub { ... };
+
+This will just register the event name under the signal:
+
+  $SIGNAL{'HUP'} = 'event_name';
+
+And 'DEFAULT' and 'IGNORE' would do the right things.
+
+Tom Christiansen says it's bad news to tie down %SIG, but he didn't
+explain it.  I'll have to experiment with that.
+***add DEFAULT and IGNORE as special event handlers for sig()
+***fix alarm semantics (in a way that does not break things)
+That's easy to say, anyway.  How about depreciating &Kernel::alarm and
+&Kernel::delay, and adding these functions?
+
+  $alarm_id = $kernel->alarm_set($time, $event, @etc);
+  $kernel->alarm_adjust($alarm_id, $seconds_to_adjust);
+  $kernel->alarm_remove($alarm_id);
+
+Also the delay shortcut, which would return an ID usable by
+&Kernel::alarm_adjust and &Kernel::alarm_remove:
+
+  $alarm_id = $kernel->delay_set($seconds, $event, @etc);
+
+There is a growing need to manipulate remote sessions, along the lines
+of Kernel::signal(), ::alarm(), and :state().  This seems to break the
+barriers between sessions in uncomfortable ways, but it appears to
+have its uses.
+
+While I can't justify remote signal() and state(), remote alarm() is
+harmless enough.  But who gets the $alarm_id?
+
+***Automated Test Suite
+It's becoming unfun to run tests/*.perl before each release.
+***redo the Session::option(default)
+1 = "internal" events; 2 = "user" events; 3 = all events
+***Non-blocking DNS
+This will be a simple Net::DNS wrapper.
+***Serial device support
+This amounts to creating pre-conditioned serial filehandles that the
+regular select logic can deal with.  The code is mostly written
+already; it just needs to be cleaned up and 
+***Chained (Stacked?) filters
+Allow more than one filter to have its way with the stream.  For
+example, many protocols work with lines.  It would be nice to have
+these filters chained after Filter::Line, so they wouldn't have to
+duplicate the line parsing code.
+****Filter::SSL
+Requires stacked/chained filters.
+****Filter::SSH
+Requires stacked/chained filters.
+***Chained wheels
+Allow the output events of one wheel to be sent to input events in
+another wheel.
+***Exception handling
+Artur suggests wrapping event handler invocations in C®eval BLOCK¯.
+This would let them throw exceptions with C®die¯, or perhaps an
+imported C®throw¯ function which dies internally.
+
+The caught exception would be translated into an exception event, and
+posted or called back to the session.  Or maybe translated into a
+warning.
+***Filter::Block
+This will work like Filter::Stream, but individual C®put¯ calls will
+be kept separate.  The actual implementation is still unknown; it may
+stream data prepended by "chunk" lengths, or it may expect to work
+with datagram sockets.  There may be options for each.
+***Add a Kernel function to list active sessions.
+Taken care of by kernel hooks/extensions?
+***Add a Kernel function to acquire details about a session.
+Taken care of by kernel hooks/extensions?
+***Add a Kernel function to acquire the kernel's and OS's load averages.
+Taken care of by kernel hooks/extensions?
+***Kernel::daemon() to daemonify the process
+From _Advanced Programming in the UNIX Environment_ by W. Richard
+Stevens:
+
+  fork() && exit;
+  setsid();
+  chdir('/');
+  umask(0);
+  close(STDIN); close(STDOUT); close(STDERR); # if necessary
+
+***"Morphing" SocketFactory
+SocketFactory is dead weight after it's made a connection, and its
+socket is useless while it's trying to make the connection.  Randal
+Schwartz suggests a SocketFactory::put() method that queues data and
+delivers it to the socket when it finally connects.
+****Morphing SocketFactory: First Sortie
+After some debate, the idea evolved into a SocketFactory that can
+"morph" into another wheel after it successfully connects.
+Furthermore, it was suggested that an option to automatically retry
+connections might be useful.
+
+Since most of the work is done in the SocketFactory constructor,
+here is a sample of what such a beast might look like:
+
+  new POE::Wheel::SocketFactory
+                                        # regular SocketFactory things
+    ( SocketDomain    => AF_INET,
+      SocketType      => SOCK_STREAM,
+      SocketProtocol  => 'tcp',
+      RemoteAddress   => $remote_address,
+      RemotePort      => $remote_port,
+      FailureState    => 'io_error',
+                                        # here's where it gets strange
+      MorphInto       => 'Wheel::ReadWrite',
+      MorphParameters => { Driver     => new POE::Driver::SysRW,
+                           Filter     => new POE::Filter::Line,
+                           InputState => 'got_a_line',
+                           ErrorState => 'io_error',
+                         },
+   );
+
+You sort of need to know what you want to do ahead of time, since
+almost all the work's during initialization.  Some folks will find
+this concept very strange.
+****Morphing SocketFactory: Second Sortie
+I just like saying "sortie".  It comes from long afternoons playing
+Choplifter on the Apple ][.  Anyway:
+
+POE::Wheel::SocketFactory would have a put() method, and it would
+enqueue output just like the original idea.  However, instead of
+playing with the SocketFactory's blessing with the OO equivalent of
+goto, provide another method (maybe dequeue_to()) that returns the
+queued data as a list.  The list would be suitable for feeding back
+into another wheel's put() method.
+
+dequeue_to() might look like this inside:
+
+  sub SocketFactory::dequeue_to {
+    my ($self, $new_wheel) = @_;
+    if (@{$self->{queue}}) {
+      $new_wheel->put(@{$self->{queue}});
+      $self->{queue} = [];
+    }
+    $new_wheel;
+  }
+
+You would create a new wheel and pass its reference through the
+dequeue_to() function.  This would let you create the new wheel,
+dequeue to it, and store it in one statement:
+
+  sub SomeSession::connect_handler {
+    my $heap = $_[HEAP];
+
+    $heap->{wheel} =
+      $heap->{wheel}->dequeue_to( new Wheel::ReadWrite( ... ) );
+  }
+
+This seems cleaner than playing with the SocketFactory's blessing.
+***Filter::Reference rewrite
+Rewrite Filter::Reference to chain off Filter::Block.  This would
+depend on the ability to chain filters and the existence of a
+Filter::Block.
+
+This brings up an interesting subject.  What if the Filter::Reference
+is chained off Filter::Line instead?
+
+The "chaining" could be made internal to Filter::Reference, so it
+automagically brings in Filter::Block.  That would prevent people from
+chaining incompatible filters together, but it would limit their
+flexibility.
+
+Or components (wheels, filters and drivers) could be made aware of the
+other components they're working with.  That would give them an
+opportunity to verify that they're working with compatible components.
+It might also allow components to alter their default behaviors.  For
+example, Filter::Reference might make sure to escape/unescape newline
+characters if it's working with a Filter::Line.  It might even go so
+far as to query the Filter::Line about the newline characters it needs
+to escape.
+***Filter::IRCD / Wheel::IRCD
+The details are kind of sketchy.  Sean Puckett (catbear; afs@nexi.com)
+has a working prototype of a multi-protocol chat server.  IRC users
+can "/server nexi.com 1617", then "/join #main" (channels aren't in
+yet); telnet/mud users can connect to "nexi.com 1618".  Everyone
+shares the same chat stream, and 'web support will be on the way.
+**Module Ideas Being Considered
+***Authentication API
+Artur suggests that an API be defined so that diverse servers within a
+single POE kernel can share the user database.  For example, HTTP and
+FTP authentication could ask a "POE::Module::Userbase" session whether
+a given login/password pair is valid.
+
+Security issues:  Kernel hooks can accidentally or maliciously peek at
+authentication requests, possibly logging them or otherwise displaying
+cleartext passwords.
+***Network servers & clients
+****SMTP client
+****SMTP server
+****NNTP client
+****NNTP server 
+***Extensions
+Artur has made excellent progress with kernel extensions.
+
+Extensions (perhaps POE::Extension, or just a special kind of
+POE::Module) are POE modules that register kernel hooks.  They are, in
+essence, wheels for the kernel instead of sessions.
+
+Artur suggests extensions have to be included at the compile time with
+a parameter to the first use POE; so a CONST trick can be used for
+speed, and extension hooks can be avoided if they're not used.
+
+Extensions may be moved into the kernel, if two conditions are met:
+(1) They are useful to everyone, all the time.  (2) A coderef hook is
+too much overhead.
+
+Likewise, parts of the kernel may be moved out to extensions if
+they're not useful all the time and coderef hooks aren't too
+slow. C®:)¯
+
+Rocco also wanted some way to override or extend kernel functions,
+this is rather simple as long as two extensions don't try to do it at
+once, if someone figures this one out..
+
+One example were this could be used would be a kernel::fork(); call
+that lets you split off a session in it's own fork and send and get
+events from the originating kernel.
+
+  use POE qw(Extension::Fork); # registers the Kernel::fork() method
+
+  sub _start {
+    $_[KERNEL]->fork();
+  }
+
+The Kernel::fork() method might look something like this.  A lot of
+the details are missing or unknown at the moment:
+
+  sub POE::Kernel::fork {
+    #pseduo code :)
+    fork();
+    if (parent) {
+      Create wheel to talk to the child.
+      Insert registered states, so they forward through the wheel.
+      Return.
+    }
+    else { # child
+      Hard-stop all other sessions in the child fork, in such a way
+      that they don't know they've been stopped (because they really
+      haven't-- they're just running in the parent process).
+
+      Create a wheel to talk to the parent.
+
+      Insert hooks so that all the kernel functions go back to the
+      parent process.
+    }
+  }
+
+That would make it much simpler to do a DBI module, where requests are
+forked off to be handled.  It would also be possible to no-op things,
+or redefine them totally, in a threaded environment.
+
+Another example would be a simple stat engine, that uses the queries
+and the hooks to collect stats about the sessions for runtime
+profiling.
+***System Statistics
+On to the stats question, Artur think the following would be useful,
+number of times it has been run, average time spent in the state, % of
+running time it spent totally in the state.
+
+A general hook, and then specific hooks.  Pre-dispatch and
+post-dispatch versions.  CODE references only, for speed.
+
+Several extensions?  Hooks are called one after another, in the order
+they are registered.
+
+Add/remove methods.  AUTOLOAD?  Mangle the symbol table?  Whatever is
+fastest.  To create a new POE::Kernel method:
+
+  sub POE::Kernel::new_sid();
+  sub POE::Kernel::new_sid { };
+
+Hooks to existing Kernel methods?  Maybe for overriding post() to do
+remote kernel lookup, for instance?
+
+Artur has made excellent progress on system statistics, primarily as
+an extension.
+***POE::Module::Cron
+Artur says he's working on it.
+***POE::Module::At
+Listed for completeness.
+**Wild Ideas
+***Scheme
+Write a virtual scheme machine that compiles into POE sessions.
+Sessions can emulate callcc (call-with-current-continuation), which in
+turn emulates everything, so it's theoretically possible.
+***"Organic" FSA
+POE::Session instances are finite state automata.  They are permitted
+to modify themselves at runtime.  Is there an elegant way to encode
+decisions in POE::Session instances, perhaps in a way that can modify
+itself over time?
+
+For example, a neural network could be encoded in a POE::Session, one
+neuron per state.  Neurons would fire events at each-other, in massive
+simulated parallelism.
+
+Neural networks implemented this way are also dynamic, because
+sessions may add, remove and redefine their states.  There just isn't
+a handy way to define this particular POE use yet.
+***MacOS support
+This is vaguely in the works, thanks to Pudge's efforts.
+***Win32 support
+Catbear started working on this, then switched to Linux.  I think he's
+happier this way (generally speaking), but it means POE's Win32
+support isn't complete.
+***Translate plain procedural perl into POE event handlers
+The following piece of e-mail outlines a way to translate procedural
+code into event handlers.  It's a very simple idea (on the outside),
+and I believe it can work with plain old Perl, too.
+
+How to make it work with Perl?  First, use the B module to compile
+procedural Perl code into bytecodes.  Second, perform the translation
+from procedural code to event handlers, as outlined in the following
+message, but on the bytecode level.  Third, assemble the bytecodes
+back into something Perl can run.  This will be a slow, convoluted
+process, but it could be very sweet if done right.
+
+Anyway, here's the e-mail message:
+
+  Received: from sinistar.idle.com (sinistar.idle.com [198.109.160.36])
+          by anshar.shadow.net (8.7.3/8.7.3) with ESMTP id JAA05315
+          for <troc@shadow.net>; Fri, 7 Feb 1997 09:59:05 -0500 (EST)
+  Received: (from slist@localhost) by sinistar.idle.com (8.7.5/8.7.3)
+          id JAA12501; Fri, 7 Feb 1997 09:00:15 -0500 (EST)
+  Resent-Date: Fri, 7 Feb 1997 09:00:15 -0500 (EST)
+  Message-Id: <199702071400.JAA00295@anshar.shadow.net>
+  From: "Rocco Caputo" <troc@shadow.net>
+  To: "Felix Gallo" <fgallo@wellspring.us.dg.com>,
+          "perl5-porters@perl.org" <perl5-porters@perl.org>
+  Date: Fri, 07 Feb 97 08:54:23 -0400
+  Reply-To: "Rocco Caputo" <troc@shadow.net>
+  Priority: Normal
+  Subject: portable multithreading
+  Resent-Message-ID: <"O2kshC.A.W5C.lTz-y"@sinistar>
+  Resent-From: perl5-porters@perl.org
+  X-Mailing-List: <perl5-porters@perl.org> archive/latest/135
+  X-Loop: perl5-porters@perl.org
+  Precedence: list
+  Resent-Sender: perl5-porters-request@perl.org
+  Content-Type: text
+  Content-Length: 3989
+  Status:   
+
+  On Thu, 06 Feb 1997 12:52:56 +0000, Felix Gallo wrote:
+
+  >Felix's Perl-related Metaproblems:
+  >
+  >1.  Perl is not event-driven, so programs which wish
+  >to make objects available to the network must manually
+  >interrupt their control flow to determine if a remote
+  >object transaction request is pending.
+
+  I'm writing a MUD in perl.  The object language faces
+  some of the same issues as perl, but I think there are
+  ways around them (in the MUD language and in perl).  In
+  the MUD server, objects' methods must be compiled into
+  perl bytecode.  They must be multitasked/multithreaded
+  so that bad code won't hang the server, and object
+  authors usually should not have to think about events.
+
+  For example, this "bad" MUD code will be legal.  Don't
+  worry, I move on to perl in just a minute.
+
+    count = 10000000
+    while count--
+      say "hello, world!  enter some text: "
+      getline some_text
+      if some_text eq 'quit'
+        last
+      endif
+    endwhile
+    say "\ngoodbye, world!\n"
+
+  This needs to be compiled to perl bytecode at runtime.
+  The MUD bytecode compiler first parses and syntax
+  checks an object's source.  If everything passes, it
+  builds a perl sub definition in a string.  This
+  sub-in-a-string is treated as an assembly language for
+  perl bytecode.  The server runs eval() to assemble the
+  string-o-perl into bytecodes, and then the resulting sub
+  can be called over and over without additional eval()
+  overhead.  (Thanks, Silmaril!)
+
+  Making that bad loop work in an event-driven server is
+  a little harder than making bytecodes.  The MUD compiler
+  will build perl assembly as event-driven state machines.
+  It can do this by noting the locations of branch
+  destinations and returns from blocking calls.  Each of
+  these locations starts a new atomic "state", and an
+  "instruction pointer" determines which state to run next.
+
+  Here's the event-driven perl "assembly" for that sample
+  MUD code.  It's not very efficient, but it serves for
+  illustration.
+
+    sub aaaaa {
+      # assumes the existence of a tasking/event kernel
+      my $task = shift;
+      my $namespace = $task->{"namespace"};
+      my $ip = $task->{'instruction pointer'}; # state
+
+      # initial entry point
+      if ($ip == 0) {
+        $namespace->{'count'} = 10000000 ;
+        $task->{'instruction pointer'} = 1;
+      }
+      # top of while loop
+      elsif ($ip == 1) {
+        if ( $namespace->{'count'} -- ) {
+          $task->say( qq(hello, world!  enter some text: ) ) ;
+          # soft block on 'getline'
+          $task->{'blocking'} = 'getline';
+          $task->{'instruction pointer'} = 2;
+        }
+        else {
+          $task->{'instruction pointer'} = 3;
+        }
+      }
+      # "return" from getline
+      elsif ($ip == 2) {
+        $namespace->{'some_text'} = $task->getline();
+        if ( $namespace->{'some_text'} eq q(quit) ) {
+          $task->{'instruction pointer'} = 3;
+        }
+        else {
+          $task->{'instruction pointer'} = 1;
+        }
+      }
+      # after endwhile
+      elsif ($ip == 3) {
+        $task->say( qq(\ngoodbye, world!\n) ) ;
+        $task->{'instruction pointer'} = -1; # signals end
+      }
+    }
+
+  The main select/event loop would have some code to run tasks
+  round-robin.  Something like this, but probably including code
+  to deal with priorities.
+
+    if ($next = shift(@task_queue)) {
+      if (($next->{'blocking'}) || ($next->run() != -1)) {
+        push(@task_queue, $next);
+      }
+      else {
+        undef $next;
+      }
+    }
+
+  And starting a new task might look like this:
+
+    $task = new Task($tasking_kernel, "count =  ...  world!\n");
+    if ($task->has_errors()) {
+      $task->display_errors();
+      undef $task;
+    }
+    # otherwise the task has been compiled and registered
+    # with the $tasking_kernel
+
+  Anyway, that's how I'm writing portable multitasking for a
+  syntactically simple MUD language.  To make this work for
+  perl, there would be a standard tasking package, and perl's
+  bytecode compiler would need to modify its output to work
+  with the package.  Sort of like how the perl debugger works.
+
+  Just some ideas to ponder.
+
+  Rocco
+  <troc@shadow.net>
+***AutoPOE
+AutoPOE would implement Philip Gwyn's idea, to auto-split and
+translate Perl code into POE event handlers as part of an installation
+process, rather than at runtime.
+***POE::Perl
+POE::Perl would take a different approach.  It would try to manipulate
+Perl into cooperating with POE's event model.  So far, the idea
+includes:
+***POE::Module::VNC
+VNC's home is <http://www.uk.research.att.com/vnc/>.
+
+Something on the VNC site caught my eye, but I don't remember exactly
+where it is.  The site mentions that the VNC protocol doesn't really
+need a desktop behind it.  Instead, it can be used to provide
+graphical interfaces to one or more remote clients.
+
+It sure would be interesting if POE could serve virtual desktops.
+Interesting and scary, like a huge, mutant, radioactive lizard staring
+in your car window, wondering if maybe it wants a crunchy snack with a
+soft, gooey center.  Or something.
+****Overriding Perl's built-in functions
+CORE::GLOBAL::sleep, for example, would register an alarm handler, and
+set an alarm for it.
+****Manipulating Perl's call stack
+CORE::GLOBAL::sleep would save the call stack going into the sleep()
+function, and simulate a return back to the kernel.  When the alarm
+handler is called, the stack is reconstituted, and CORE::GLOBAL::sleep
+returns back to the session.
+
+That's the idea, anyway.  Perl may not like it.
+***POP?  bholzman's persistent objects; crimson is working on it?
+***$kernel->stop() and $kernel->run() to pause and resume the kernel?
+Is this still necessary/useful?
+***Filter::HTTPD needs to send responses directly... POE::Module::*?
+And a CGI-like interface.
+***Use threads, if available, requested and stable.
+Taken care of by kernel hooks?
+***Use fork, if available and requested.
+Taken care of by kernel hooks?
+***Distributed event queue
+Enabled by kernel hooks/extensions?  Anyway, this probably will be
+implemented as a "poe_distributor" session that acts as an event
+gateway to other systems.
+***Load-balancing among distributed POE kernels.
+Taken care of by kernel hooks?
+***Filter::HTTP (user agent).
+This is the client side.  q[merlyn] thinks there's a non-blocking way
+to use LWP, possibly by suppling the select loop logic for it, which
+would work nicely.
+***Rewrite Serv's curses widgets for POE.
+***POE::Extension?  POE::DeepMagic?  An API for kernel extensions.
+See the Kernel Hooks, above.  Artur is working on this.
+***Unique IDs
+I think this should be taken care of in the Kernel.
+
+Session IDs would be a serial number, starting at 1 and increasing
+"forever".  Would it restart at 1 each time the process is started, or
+would it maintain the last SID in a file?  It could also include
+(somehow) the unix epoch time that the server was started.
+
+Kernel IDs would be the process' network address and server port.
+**Object Layer
+The object layer will consist of a few parts.  As it's shaping up, it
+should consist of the following classes.
+
+Since interface is more important that guts (form follows function, as
+my biology teacher would often say), the notes here mainly focus on
+how things will be used.  Details connecting points A and B will be
+added later.
+***Repository (object database)
+This is the database back-end.  It will have a consistent interface
+that supports sequential, random, memory and remote object
+repositories.
+
+  my $repository = new POE::Repository::Sequential( $filename );
+  my $repository = new POE::Repository::MySQL( $login, $pass, $db );
+  # ... and so on
+
+The repository will not be a tied hash thing.
+***Curator (object manager)
+The Curator abstraction manages objects in the database.  It will
+provide a Perl-like access method to objects in the repository, and it
+will implement object-level security.
+
+The curator will use a tied-hash interface, so it can manage objects
+while looking like a plain Perl thing.
+
+  my $curator = tie %object, 'POE::Curator', $repository;
+
+Then objects may be referenced as:
+
+  $object{12}->{attribute}
+
+  exists $object{12}
+  delete $object{12}
+
+Supported tied-hash things in Curator:
+
+  TIEHASH, FETCH, EXISTS, DELETE, DESTROY
+
+Unsupported tied-hash things in Curator:
+
+  STORE - objects may not be created or replaced this way
+  FIRSTKEY, NEXTKEY - or maybe they will be supported?
+  CLEAR - danger, Roy Orbeson!
+
+Methods for the C®$curator¯ reference:
+
+  create_object - the supported way to create objects
+  ... others?
+
+***Object (managed object)
+POE::Object instances are "weak" references to the data in the
+Curator.  This allows objects to disappear cleanly when deleted from
+the Curator's C®%object¯ hash, even if references to it exist
+elsewhere.
+
+POE::Object also provides a Perl-like access method to object
+attributes, attribute-level security, referential integrity between
+complementary attribute pairs (e.g., parent/child; owner/owns;
+location/contents), and an AUTOLOAD method to invoke attributes
+directly as methods.
+
+The C®%curator¯ hash will return objects as new POE::Object
+instances:
+
+  my $obj = $object{13};
+
+At which point, C®$obj¯ is both an object and a tied hash:
+
+  $obj->{method} = q( ... source code ... );
+  $obj->method( @args );     # provided by AUTOLOAD
+
+  exists $obj->{attribute};
+  delete $obj->{attribute};
+
+  $value = $obj->{attribute};
+
+  etc.
+
+The "weak reference" feature means that this will throw an exception:
+
+  my $obj = $object{13};
+  delete $object{13};
+  $obj->{attribute} = $value; # throws an exception; #13 is gone
+  $value = $obj->{attribute}; # throws an exception; #13 is gone
+
+Supported tied-hash things in Object:
+
+  TIEHASH, FETCH, EXISTS, DELETE, DESTROY, STORE, FIRSTKEY, NEXTKEY
+
+Unsupported tied-hash things in Object:
+
+  CLEAR - unless someone can provide a convincing reason otherwise
+
+****Strange Object Issues
+How should attributes' type information be stored?  This wouldn't be a
+problem if code could be frozen and thawed, but that is probably way
+too much to ask.
+
+1. Plain, and try to figure things out by context?
+
+2. Explicitly?  C®$object->{'attribute'} = [ 'code', $value ];¯
+
+3. Implicitly by name? C®$object->{'&attribute'} = q( ... code ... );¯
+
+4. Freeze on store; thaw on recall?  This could be fun.  Enormously
+slow, but fun.
+
+***"Built-In" Functions
+Some of POE's kernel methods, the database methods, and object
+manipulation functions will be used a lot.  They should be as easy to
+use as possible, which probably means importing them to look like
+built-ins.
+
+Here are some examples:
+
+  post $object, $attribute, @etc;
+  $retval = call $object, $attribute, @etc;
+  yield $attribute, @etc;
+
+  move $destination, @objects;
+  destroy @objects;
+  $new_id = create( name => $name, in => $container,
+                    from => $parent, with => \@aspects
+                  );
+
+**Input Parsing (factoid style)
+Input parsing is hard.  I have some prototype code for Infocom-style
+command parsing, but it doesn't scale well when you consider that that
+existing infobots (see <http://www.cs.cmu.edu/~infobot>) already
+manage 100,000 or more factiods.
+
+So consider the need to look up responses in a 90,000 factoid
+database.  This isn't so far-fetched; there's an IRC 'bot that does
+this now with a tied hash (I think; haven't looked).  Its limitation,
+however is that it can't perform "fuzzy" matches on user input.
+
+Consider the example:
+
+  can someone help me?
+
+There are a number of different ways to represent it, and they can be
+summarized succintly as a regexp:
+
+  /^can some(one|body) help( me)?$/
+
+So the question is: how do I key a hash by regexp?  The answer is: I
+can't.  But there seems to be a limited regexp style that might work.
+Instead of using the full regexp syntax, I limit it to just (|).
+Begin and end anchors are implied, and I leave out some bits.
+
+  (can|would) (someone|somebody|anyone|anybody) (help|assist) (|me)
+
+Pretty rough.  How to make that pattern a factoid key, so that someone
+asking the original question triggers the response.
+***Factoid Storage
+First we treat the factoid key as a series of words instead of a
+string of letters.  This removes the whitespace dependency:
+
+  (can|would), (someone|somebody|anyone|anybody), (help|assist), (|me)
+
+Second, we sort options lexically, so that (can|would) and (would|can)
+are treated the same:
+
+  (can|would), (anybody|anyone|somebody|someone), (assist|help), (|me)
+
+Third, we build a hash of discrete words to the option groups they
+occur in.  I have some doubts about this, but it's my best idea so
+far:
+
+  $alias{'can'}   = [ 'can',   'can|would' ];
+  $alias{'would'} = [ 'would', 'can|would' ];
+
+  $alias{'someone'}  => [ 'someone',  'anybody|anyone|somebody|someone' ];
+  $alias{'anyone'}   => [ 'anyone',   'anybody|anyone|somebody|someone' ];
+  $alias{'somebody'} => [ 'somebody', 'anybody|anyone|somebody|someone' ];
+  $alias{'anybody'}  => [ 'anybody',  'anybody|anyone|somebody|someone' ];
+
+  $alias{'help'}   => [ 'help',   'assist|help' ];
+  $alias{'assist'} => [ 'assist', 'assist|help' ];
+
+  $alias{'me'} => [ 'me', '|me' ];
+
+Fourth, the factoid is stored under list of words and sorted options
+(the results from the second step):
+
+  $factoid{ 'can|would', 'anybody|anyone|somebody|someone',
+            'assist|help', '|me'
+          } = 'No! Go away!';
+
+***Information Retrieval
+Retrieving factoids is a little harder.  Let's review the target
+input, preprocessed as a list of words (punctuation handily
+discarded):
+
+  'can', 'someone', 'help', 'me'
+
+Here's the query (pseudo-SQL):
+
+  select factoid from factoids
+   where key.word_1 is in
+         ( select alias from aliases where key=='can' )
+     and key.word_2 is in
+         ( select alias from aliases where key=='someone' )
+     and key.word_3 is in
+         ( select alias from aliases where key=='help' )
+     and key.word_4 is in
+         ( select alias from aliases where key=='me' )
+
+And then pick the factoid with the shortest/longest key?
+
+Actually, this fails for (|me) things, because the select will look
+for four words.  So I suppose what's really needed is an index that
+works in the same vein as regexps do for matching.  Somehow.
+
+So, the query:
+
+  qw(can someone help me)
+
+somehow matches a factoid stored by:
+
+  qw(can|would anybody|anyone|somebody|someone assist|help |me)
+
+Hrm.  I've decided it's going to take some experimentation, which
+means having a framework for tinkering.  And the best framework for
+tinkering with NLP/factoid stuff is a 'bot!  And the best way to have
+a 'bot that you don't have to reset all the time is (IMO) the fabled
+Object Layer.
+
+So, this to-do is on hold 'til I can build an IRC 'bot.
+*AUTHOR
+POE is Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights
+reserved.  POE is free software; you may redistribute it and/or modify
+it under the same terms as Perl itself.
+
+Please see the main documentation for contributor information and
+other copyright notices.
