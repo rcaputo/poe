@@ -730,9 +730,12 @@ kernel just before the event is dispatched.
 
 =item $kernel->session_free($session)
 
-Enqueues a C<_stop> event for a session.  The kernel will deallocate and
-destroy the session and all its related resources after C<_stop> has been
-dispatched to the session.
+Immediately dispatches a C<_stop> event for a session.  Doing this
+from sessions is not recommended.  Instead, post a C<_stop> message
+C<$kernel-Z<gt>post($me, '_stop')>, which does the same thing but with
+two advantages: you can use the C<$me> namespace if a blessed
+C<$session> is not known, and it allows any queued events to be
+processed before the session is torn down.
 
 =back
 
