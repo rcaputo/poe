@@ -2658,6 +2658,7 @@ sub alias_remove {
   return 0;
 }
 
+# Resolve an alias into a session.
 sub alias_resolve {
   my ($self, $name) = @_;
 
@@ -2672,6 +2673,31 @@ sub alias_resolve {
     $! = ESRCH;
   }
   $session;
+}
+
+# List the aliases for a given session.
+sub alias_list {
+  my ($self, $search_session) = @_;
+
+  # If the search session is defined, then resolve it in case it's an
+  # ID or something.
+  if (defined $search_session) {
+    $search_session = {% alias_resolve $search_session %};
+    unless (defined $search_session) {
+      TRACE_RETURNS and carp "session does not exist";
+      ASSERT_RETURNS and croak "session does not exist";
+      $! = ESRCH;
+      return;
+    }
+  }
+
+  # Undefined?  Make it the current session by default.
+  else {
+    $search_session = $kr_active_session;
+  }
+
+  # Return whatever can be found.
+  return grep {$kr_aliases{$_} == $search_session} keys %kr_aliases;
 }
 
 #==============================================================================
@@ -2981,6 +3007,10 @@ Symbolic name, or session alias methods:
   # Return a session ID for a session reference.  It is functionally
   # equivalent to $session->ID.
   $session_id = $kernel->ID_session_to_id( $session_reference );
+
+  # Return a list of aliases for a session (or the current one, by
+  # default).
+  @aliases = $kernel->alias_list( $session );
 
 Filehandle watcher methods:
 
@@ -3595,6 +3625,21 @@ lookup failed.
 The session ID does not refer to a running session.
 
 =back
+
+=item alias_list SESSION
+
+=item alias_list
+
+alias_list() returns a list of alias(es) associated with a SESSION, or
+with the current session if a SESSION is omitted.
+
+SESSION may be a session reference (either blessed or stringified), a
+session ID, or a session alias.  It will be resolved into a session
+reference internally, and that will be used to locate the session's
+aliases.
+
+alias_list() returns a list of aliases associated with the session.
+It returns an empty list if none were found.
 
 =item ID_session_to_id SESSION_REFERENCE
 
