@@ -376,13 +376,6 @@ POE::Component, POE::Driver and POE::Filter exist to document their
 classes of objects.  POE::Wheel contains some base functions for
 tracking unique wheel IDs.
 
-=head1 OBJECT LAYER
-
-The object layer has fallen into disrepair again.  In fact, it never
-really got to a good start.  It's scheduled to be removed from this
-distribution in version 0.1301.  When it does return, it will be as a
-separate component.
-
 =head1 SAMPLE PROGRAMS
 
 The sample programs are scheduled for removal from this distribution
@@ -658,15 +651,6 @@ create and manage sockets; the events they emit on connection,
 acceptance, and failure; and the parameters which govern what they do.
 
 =back
-
-=head2 Object Layer
-
-These modules comprise the object layer.  They will be removed after
-0.13 and made into a separate component some time after that.  I'm not
-going to bother explaining them since they're doomed.
-
-POE::Curator; POE::Object; POE::Repository; POE::Attribute::Array;
-POE::Runtime
 
 =head2 Standard Components
 
