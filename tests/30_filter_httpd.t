@@ -212,10 +212,20 @@ SKIP: { # simple put {{{
     is($req->url, 'http://localhost/foo.mhtml',
         'multipart form data: HTTP::Request object contains proper URI');
 
-    like($req->header('Content-Type'), qr#multipart/form-data#,
-        'multipart form data: HTTP::Request object contains proper Content-Type header');
+    if($] >= '5.006') {
+        eval "
+        like(\$req->header('Content-Type'), qr#multipart/form-data#,
+            'multipart form data: HTTP::Request object contains proper Content-Type header');
 
-    like($req->content, qr#&results;.*?exit;#s,
+        like(\$req->content, qr#&results;.*?exit;#s,
             'multipart form data: content seems to contain all data sent');
+        ";
+    } else {
+        SKIP: {
+            skip("Need qr// support for these tests",2);
+            ok(1);
+            ok(1);
+        }
+    } 
 
 } # }}}
