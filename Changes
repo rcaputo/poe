@@ -7,6 +7,13 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.0702 1999.07.??
+-----------------
+
+Made BindAddress optional for UNIX client sockets.  It's still
+required for server sockets.
+
+
 0.0701 1999.07.01
 -----------------
 

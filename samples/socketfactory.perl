@@ -399,7 +399,6 @@ sub _start {
                                         # start a socket factory
   $heap->{'wheel'} = new POE::Wheel::SocketFactory
     ( SocketDomain  => AF_UNIX,           # in the Unix address family
-      BindAddress   => $heap->{'socket'}, # bind to this address
       RemoteAddress => $unix_server,      # connected to that Unix address
       SuccessState  => 'got_connection',  # sending this message when connected
       FailureState  => 'got_error'        # sending this message upon failure

@@ -481,6 +481,10 @@ SocketFactory doesn't support connectionless sockets.
 
 Wheels need to be able to stack things.
 
+Swapping wheels requires that old ones be deleted before new ones are
+created, otherwise selects are cleared improperly.  This is bad, I
+don't like it, and I don't have time to fix it right now.  Grrrr!
+
 ** Cascaded States
 
 Cherem <joeo@suninternet.com> wants this for NIRC.

@@ -231,9 +231,6 @@ sub new {
     carp 'BindPort ignored'       if (exists $params{'BindPort'});
     carp 'RemotePort ignored'     if (exists $params{'RemotePort'});
 
-    croak 'BindAddress required'  unless (exists $params{'BindAddress'});
-    croak 'BindAddress exists'    if (-e $params{'BindAddress'});
-
     unless (socket($socket_handle, $socket_domain, $socket_type, PF_UNSPEC)) {
       $poe_kernel->yield($failure_event, 'socket', $!+0, $!);
       return undef;
@@ -250,18 +247,21 @@ sub new {
       return undef;
     }
 
-    my $bind_address = &condition_unix_address($params{'BindAddress'});
-    my $socket_address = sockaddr_un($bind_address);
-    unless ($socket_address) {
-      $poe_kernel->yield($failure_event, 'sockaddr_un', $!+0, $!);
-      close($socket_handle);
-      return undef;
-    }
+    if (exists $params{'BindAddress'}) {
+      croak 'BindAddress exists' if (-e $params{'BindAddress'});
+      my $bind_address = &condition_unix_address($params{'BindAddress'});
+      my $socket_address = sockaddr_un($bind_address);
+      unless ($socket_address) {
+        $poe_kernel->yield($failure_event, 'sockaddr_un', $!+0, $!);
+        close($socket_handle);
+        return undef;
+      }
 
-    unless (bind($socket_handle, $socket_address)) {
-      $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
-      close($socket_handle);
-      return undef;
+      unless (bind($socket_handle, $socket_address)) {
+        $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
+        close($socket_handle);
+        return undef;
+      }
     }
 
     carp 'RemotePort ignored' if (exists $params{'RemotePort'});
@@ -288,6 +288,8 @@ sub new {
       $self->_define_connect_state();
     }
     else {
+      croak "Must bind a UNIX server socket"
+        unless (exists $params{'BindAddress'});
       my $listen_queue = $params{'ListenQueue'} || SOMAXCONN;
       ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
 
