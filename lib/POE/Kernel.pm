@@ -329,17 +329,24 @@ sub _die {
 BEGIN {
   my $used_first;
 
-  my $base_path = __FILE__;
-  substr($base_path, -9) = "Loop";
+  # First see if someone has loaded a POE::Loop or XS version
+  # explicitly.  Make a note of it if they already have.  The next
+  # loop through %INC will just verify that two loops aren't active at
+  # once.
+  foreach my $file (keys %INC) {
+    if ($file =~ /^POE\/(?:XS\/)?Loop\/(.+)\.pm$/) {
+      $used_first = $1;
+    }
+  }
 
   foreach my $file (keys %INC) {
-    my $pared_file = $file;
     # Remove IO/ so we can load POE::Loop::Poll instead of
     # POE::Loop::IO/Poll.
     #
     # TODO - A better convention would be to replace the path
     # separators with hyphens and rename Loop/Poll.pm to
     # Loop/IO-Poll.pm.  Foresight > Hindsight.
+    my $pared_file = $file;
     $pared_file =~ s/^IO\///;
     next if $pared_file =~ /\//;
 
@@ -363,7 +370,7 @@ BEGIN {
     next if $@ =~ /^Can't locate/;
     die if $@ and $@ !~ /not really dying/;
 
-    if (defined $used_first) {
+    if (defined $used_first and $used_first ne $module) {
       die(
         "*\n",
         "* POE can't use multiple event loops at once.\n",
