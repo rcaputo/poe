@@ -1,0 +1,21 @@
+# $Id$
+Changes
+MANIFEST
+Makefile.PL
+POE.pm
+README
+POE/Driver.pm
+POE/Driver/SysRW.pm
+POE/Filter.pm
+POE/Filter/Line.pm
+POE/Kernel.pm
+POE/Session.pm
+POE/Wheel.pm
+POE/Wheel/ListenAccept.pm
+POE/Wheel/ReadWrite.pm
+t/test.t
+tests/forkbomb.perl
+tests/selects.perl
+tests/sessions.perl
+tests/signals.perl
+tests/wheels.perl

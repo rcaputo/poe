@@ -1,0 +1,11 @@
+$Id$
+
+To build, test and install this distribution, type:
+
+  perl Makefile.PL
+  make test
+  make install
+
+Examples (and the real tests) exist in ./test.
+
+-- Rocco Caputo / troc@netrus.net
