@@ -8,7 +8,7 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0805 2000.--.--
+0.0805 2000.01.05
 -----------------
 
 Added a getsockname() method to SocketFactory.  This is used to find
@@ -18,6 +18,21 @@ FTP.
 
 Added code to samples/socketfactory.perl to display bind addresses
 using $wheel->getsockname().
+
+Made some minor cosmetic changes to SocketFactory.  This was to be a
+clean rewrite of SocketFactory's internals so they could support new
+protocols (like UDP), but time ran out.
+
+Added samples/udp.perl to show how UDP sockets fit into the scheme of
+things.  It's also to get me in the mood to support other protocols in
+SocketFactory.
+
+Fixed POE.pm's documentation to include new tests and samples.  These
+are poing.perl (multi-host ping); udp.perl; and wheels2.perl
+(two-handle ReadWrite).
+
+Barring problems [crosses fingers], 0.0805 will be the last subversion
+before 0.09.  SocketFactory revisions should appear in 0.0901.
 
 
 0.0804 1999.12.31

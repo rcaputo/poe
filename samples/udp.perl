@@ -1,0 +1,167 @@
+#!/usr/bin/perl -w
+# $Id$
+
+# Sample program to exercize my knowledge of UDP so it'll grow up to
+# be big and strong.
+
+use strict;
+use lib qw(..);
+use POE;
+use IO::Socket;
+
+#==============================================================================
+# Some configuration things.
+
+sub DATAGRAM_MAXLEN () { 1024 }
+sub UDP_PORT        () { 5121 }
+
+#==============================================================================
+# UDP server.  Uses plain IO::Socket sockets, because SocketFactory
+# doesn't support connectionless sockets yet (expect it in 0.0901+).
+# Besides, IO::Socket has no reason to block.  Callbacks are pretty
+# silly.
+
+sub udp_server_start {
+  my ($kernel, $heap, $port) = @_[KERNEL, HEAP, ARG0];
+  warn "server: starting\n";
+
+  if (defined 
+      ($heap->{socket} = new IO::Socket::INET( Proto => 'udp',
+                                               LocalPort => UDP_PORT
+                                             )
+      )
+     ) {
+    $kernel->select_read($heap->{socket}, 'select_read');
+  }
+  else {
+    warn "server: error ", ($!+0), " creating socket: $!\n";
+  }
+}
+
+#------------------------------------------------------------------------------
+
+sub udp_server_stop {
+  warn "server: stopping\n";
+  delete $_[HEAP]->{socket};
+}
+
+#------------------------------------------------------------------------------
+
+sub udp_server_receive {
+  my ($kernel, $heap, $socket) = @_[KERNEL, HEAP, ARG0];
+
+  warn "server: select read\n";
+
+  my $remote_socket = recv( $heap->{socket},
+                            my $message = '', DATAGRAM_MAXLEN, 0
+                          );
+  if (defined $remote_socket) {
+    my ($remote_port, $remote_addr) = unpack_sockaddr_in($remote_socket);
+    my $human_addr = inet_ntoa($remote_addr);
+
+    warn( "server: received message from $human_addr : $remote_port\n",
+          "server: message=($message)\n",
+
+        );
+
+    send( $heap->{socket},
+          'Test response at ' . time . " (ACK=$message)",
+          0, $remote_socket
+        );
+  }
+}
+
+#==============================================================================
+# UDP client.  UDP clients don't blok either, so IO::Socket is good.
+
+sub udp_client_start {
+  my ($kernel, $heap, $server_addr, $server_port) =
+    @_[KERNEL, HEAP, ARG0, ARG1];
+
+  warn "client: starting\n";
+
+  my $socket = new IO::Socket::INET( Proto => 'udp' );
+
+  if (defined $socket) {
+    $heap->{socket} = $socket;
+    $heap->{server} = pack_sockaddr_in($server_port, inet_aton($server_addr));
+    $kernel->yield('send_datagram');
+    $kernel->select_read($socket, 'select_read');
+  }
+  else {
+    warn "client: error ", ($!+0), " creating socket: $!\n";
+  }
+}
+
+#------------------------------------------------------------------------------
+
+sub udp_client_stop {
+  warn "client: stopping\n";
+  delete $_[HEAP]->{socket};
+}
+
+#------------------------------------------------------------------------------
+
+sub udp_client_send {
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+  warn "client: alarm ping; sending a message\n";
+  send( $heap->{socket}, 'Test message at ' . time, 0, $heap->{server} );
+  $kernel->delay( 'send_datagram', 1 );
+}
+
+#------------------------------------------------------------------------------
+
+sub udp_client_receive {
+  my ($kernel, $heap, $socket) = @_[KERNEL, HEAP, ARG0];
+
+  warn "client: select read\n";
+
+  my $remote_socket = recv( $heap->{socket},
+                            my $message = '', DATAGRAM_MAXLEN, 0
+                          );
+  if (defined $remote_socket) {
+    my ($remote_port, $remote_addr) = unpack_sockaddr_in($remote_socket);
+    my $human_addr = inet_ntoa($remote_addr);
+
+    warn( "client: received message from $human_addr : $remote_port\n",
+          "client: message=($message)\n",
+
+        );
+  }
+}
+
+#==============================================================================
+# Main loop.
+
+# This is the server session.
+create POE::Session
+  ( inline_states =>
+    { _start          => \&udp_server_start,
+      _stop           => \&udp_server_stop,
+      select_read     => \&udp_server_receive,
+      socket_made     => \&udp_server_socket,
+      socket_error    => \&udp_server_error,
+    },
+    args => [ UDP_PORT ],
+    options => { debug => 1 },
+  );
+
+# This is the client session.
+create POE::Session
+  ( inline_states =>
+    { _start            => \&udp_client_start,
+      _stop             => \&udp_client_stop,
+      select_read       => \&udp_client_receive,
+      send_datagram     => \&udp_client_send,
+    },
+    args => [ 'localhost', UDP_PORT ],
+    options => { debug => 1 },
+  );
+
+# Start the main loop until everything is done.
+$poe_kernel->run();
+
+exit;
+
+__END__

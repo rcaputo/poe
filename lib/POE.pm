@@ -5,7 +5,7 @@ package POE;
 
 use vars qw($VERSION);
 
-$VERSION = 0.08_04;
+$VERSION = 0.08_05;
 
 use strict;
 use Carp;
@@ -216,7 +216,7 @@ The obligatory ASCII art:
 
 =head1 EXAMPLES
 
-As of this writing there are 22 sample programs.  Each illustrates and
+As of this writing there are 24 sample programs.  Each illustrates and
 tests some aspect of POE use.  They are included in the POE
 distribution archive, but they are not installed.  If POE was
 installed via the CPAN shell, then you should be able to find them in
@@ -403,10 +403,24 @@ thrash.perl will show an abnormally low connections/second rate.
 
 =item *
 
+udp.perl
+
+Udp shows how to use UDP sockets with Kernel::select calls.
+
+=item *
+
 wheels.perl
 
 This program is a basic rot13 server.  It is a basic test of the whole
 premise of wheels.
+
+=item *
+
+wheels2.perl
+
+Wheels2 shows how to use separate input and output filehandles with
+wheels.  It's a simple raw tcp socket client, piping between a client
+socket and stdio (in cooked mode).
 
 =back
 
@@ -434,6 +448,17 @@ cases, they prove that the concept is possible, even though it wasn't
 considered while POE was being designed.
 
 =over 4
+
+=item *
+
+poing.perl
+
+Poing is a ping program that can check multiple hosts at the same
+time.  Historical information scrolls across the screen in a "strip
+chart" fashion.  It's great for listening to the seismology of your
+local network (no, it's not deliberately a Quake reference).
+
+Poing's event-driven pinger "borrows" heavily from Net::Ping.
 
 =item *
 
@@ -496,6 +521,8 @@ POE::Runtime
 
 The Object Layer is still in early design and implementation, so it's
 not documented yet.
+
+There are no automated regression tests.
 
 =head1 AUTHORS & COPYRIGHTS
 

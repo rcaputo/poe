@@ -152,6 +152,16 @@ sub create {
     delete $params{'args'};
   }
 
+  if (exists $params{options}) {
+    if (ref($params{options}) eq 'HASH') {
+      $self->[SE_OPTIONS] = $params{options};
+    }
+    else {
+      croak "options for $type constructor is expected to be a HASH reference";
+    }
+    delete $params{options};
+  }
+
   my @params_keys = keys(%params);
   foreach (@params_keys) {
     my $state_hash = $params{$_};
@@ -400,6 +410,7 @@ POE::Session - POE State Machine
                         $package2 => \@function_names_2,
                         ...
                       },
+    options => \%options,
   );
 
   # Set or clear some session options:
@@ -497,7 +508,9 @@ to the session's B<_start> state.
 create
 
 POE::Session::create() is a new constructor style.  It does not use
-parameter overloading and DWIM to discern different session types.
+parameter overloading and DWIM to discern different session types.  It
+also supports the ability to set options in the constructor, unlike
+POE::Session::new().
 
 Please see the SYNOPSIS for create() usage.
 
@@ -875,7 +888,8 @@ POE; POE::Kernel
 
 =head1 BUGS
 
-Oh, probably some.
+The documentation for POE::Session::creak() isn't as good as it could
+be.
 
 =head1 AUTHORS & COPYRIGHTS
 

@@ -262,10 +262,8 @@ sub new {
   croak 'SuccessState required' unless (exists $params{'SuccessState'});
   croak 'FailureState required' unless (exists $params{'FailureState'});
 
-  $params{'SocketDomain'} = AF_INET
-    unless (exists $params{'SocketDomain'});
-  $params{'SocketType'} = SOCK_STREAM
-    unless (exists $params{'SocketType'});
+  $params{SocketDomain} = AF_INET unless (exists $params{SocketDomain});
+  $params{SocketType} = SOCK_STREAM unless (exists $params{SocketType});
 
   my $self = bless { }, $type;
   my $socket_handle = gensym;
@@ -364,10 +362,8 @@ sub new {
 
   elsif (($socket_domain == AF_INET) || ($socket_domain == PF_INET)) {
 
-    $params{'SocketProtocol'} = 'tcp'
-      unless (exists $params{'SocketProtocol'});
-
-    my $socket_protocol = $params{'SocketProtocol'};
+    $params{SocketProtocol} = 'tcp' unless (exists $params{SocketProtocol});
+    my $socket_protocol = $params{SocketProtocol};
 
     if ($socket_protocol !~ /^\d+$/) {
       unless ($socket_protocol = getprotobyname($socket_protocol)) {
@@ -501,7 +497,7 @@ sub new {
       }
     }
     elsif ($protocol_name eq 'udp') {
-      die 'udp inet socket not implemented';
+      die 'udp inet socket not implemented (expect it in version 0.09_01+)';
     }
     else {
       croak "Internet sockets only support tcp and udp, not $protocol_name";
