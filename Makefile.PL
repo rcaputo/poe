@@ -81,4 +81,17 @@ else {
   require "./mylib/Makefile-5005.pm";
 }
 
+print(
+  "\n",
+  "==================================================================\n",
+  "\n",
+  "Please consider running 'make uploadreport' to create and upload a\n",
+  "test report.  You can see samples of other test reports by visitng\n",
+  "http://eekeek.org/poe-tests/\n",
+  "\n",
+  "Thank you.\n",
+  "\n",
+  "==================================================================\n",
+);
+
 0;
