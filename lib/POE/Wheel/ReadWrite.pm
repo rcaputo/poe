@@ -123,7 +123,7 @@ sub new {
       undef,                            # STATE_READ
       # Unique ID.
       &POE::Wheel::allocate_wheel_id(), # UNIQUE_ID
-    ];
+    ], $type;
 
   if (scalar keys %params) {
     carp( "unknown parameters in $type constructor call: ",
