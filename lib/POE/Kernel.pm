@@ -1301,76 +1301,71 @@ sub _invoke_state {
     TRACE_SIGNALS and
       warn "POE::Kernel is polling for signals at " . time() . "\n";
 
-    # Reap a child process without blocking.
+    # Reap children for as long as waitpid(2) says something
+    # interesting has happened.  -><- This has a strong possibility of
+    # an infinite loop.
 
-    my $pid = waitpid(-1, WNOHANG);
+    while (my $pid = waitpid(-1, WNOHANG)) {
 
-    # Deal with waitpid(2)'s return value.
+      # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
+      # event and loop around again.
 
-    # If it's above zero, then a child process was reaped.  Emit an
-    # appropriate SIGCHLD event and enqueue an event to poll again
-    # immediately.
+      if ($pid > 0) {
+        if (WIFEXITED($?) or WIFSIGNALED($?)) {
 
-    # If it's below zero, then an error occurred.  If it's an
-    # unexpected error, warn about that, and resume slow polling.
+          TRACE_SIGNALS and
+            warn "POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)\n";
 
-    # If it's zero, then no more children needed to be reaped.  Resume
-    # slow polling.
-
-    if ($pid > 0) {
-      if (WIFEXITED($?) or WIFSIGNALED($?)) {
-
-        TRACE_SIGNALS and
-          warn "POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)\n";
-
-        $self->_enqueue_event
-          ( $self, $self,
-            EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
-            time(), __FILE__, __LINE__
-          );
-      }
-
-      TRACE_SIGNALS and
-        warn "POE::Kernel will poll again immediately.\n";
-
-      $self->_enqueue_event
-        ( $poe_kernel, $poe_kernel,
-          EN_SCPOLL, ET_SCPOLL, [ ],
-          time(), __FILE__, __LINE__
-        );
-
-    }
-    elsif ($pid == -1) {
-      if ($! == EINTR) {
-
-        TRACE_SIGNALS and
-          warn "POE::Kernel's waitpid(2) interrupted.  Polling again soon.\n";
-
-        $self->_enqueue_event
-          ( $poe_kernel, $poe_kernel,
-            EN_SCPOLL, ET_SCPOLL, [ ],
-            time(), __FILE__, __LINE__
-          );
-      }
-      else {
-
-        TRACE_SIGNALS and
-          warn( "POE::Kernel's waitpid(2) got error: $!\n",
-                "POE::Kernel will poll again after a delay.\n"
-              );
-
-        {% substrate_resume_watching_child_signals %}
-        warn $! if $! and $! != ECHILD;
-      }
-    }
-    else {
-      TRACE_SIGNALS and
-        warn( "POE::Kernel's waitpid(2) didn't see a stopped child.\n",
-              "POE::Kernel will poll again after a delay.\n"
+          $self->_enqueue_event
+            ( $self, $self,
+              EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
+              time(), __FILE__, __LINE__
             );
+        }
+        else {
+          TRACE_SIGNALS and
+            warn "POE::Kernel detected strange exit (pid=$pid; exit=$?\n";
+        }
 
-      {% substrate_resume_watching_child_signals %}
+        TRACE_SIGNALS and warn "POE::Kernel will poll again immediately.\n";
+
+        next;
+      }
+
+      # The only negative value waitpid(2) should return is -1.
+
+      die "internal consistency error" if $pid != -1;
+
+      # If the error is an interrupted syscall, poll again right away.
+
+      if ($! == EINTR) {
+        TRACE_SIGNALS and
+          warn( "POE::Kernel's waitpid(2) was interrupted.\n",
+                "POE::Kernel will poll again immediately.\n"
+              );
+        next;
+      }
+
+      # No child processes exist.  -><- This is different than
+      # children being present but running.  Maybe this condition
+      # could halt polling entirely, and some UNIVERSAL::fork wrapper
+      # could restart polling when processes are forked.
+
+      if ($! == ECHILD) {
+        TRACE_SIGNALS and warn "POE::Kernel has no child processes.\n";
+        last;
+      }
+
+      # Some other error occurred.
+
+      TRACE_SIGNALS and warn "POE::Kernel's waitpid(2) got error: $!\n";
+      last;
     }
+
+    # The poll loop is over.  Resume slowly polling for signals.
+
+    TRACE_SIGNALS and warn "POE::Kernel will poll again after a delay.\n";
+    {% substrate_resume_watching_child_signals %}
   }
 
   # A signal was posted.  Because signals propagate depth-first, this
