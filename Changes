@@ -36,6 +36,10 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 0.1006 2000.??.?? (!!!)
 -----------------------
 
+Tweaked postbacks.  Older Perl versions were not doing the right
+things with \@_ in POE::Session's postback() method.  Replaced it
+with [ @_ ] instead.
+
 Expanded t/02_alarms.t to test the big-queue binary search and insert
 code.  Previous tests didn't expand the alarm queue past the maximum
 threshhold for linear insertion.

@@ -679,7 +679,7 @@ sub postback {
   my $postback = bless
     ( sub {
         my $id = {% fetch_id $self %};
-        $POE::Kernel::poe_kernel->post( $id, $event, \@etc, \@_ );
+        $POE::Kernel::poe_kernel->post( $id, $event, \@etc, [ @_ ] );
       },
       'POE::Session::Postback'
     );

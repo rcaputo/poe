@@ -76,6 +76,7 @@ POE::Session->create
       catch_sigchld =>
       sub {
         $_[HEAP]->{reaped}++;
+        $_[KERNEL]->delay( time_is_up => 5 );
       },
 
       time_is_up =>
