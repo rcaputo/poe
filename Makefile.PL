@@ -15,8 +15,14 @@ sub MY::test {
 
 WriteMakefile
   ( NAME           => 'POE',
-    AUTHOR         => 'Rocco Caputo <troc+poe@netrus.net>',
-    ABSTRACT       => 'Event driven threads and I/O abstractions.',
+
+    ( ($^O eq 'MacOS')
+      ? ()
+      : ( AUTHOR   => 'Rocco Caputo <troc+poe@netrus.net>',
+          ABSTRACT => 'Event driven threads and I/O abstractions.',
+        )
+    ),
+
     VERSION_FROM   => 'POE.pm',
     dist           => { 'COMPRESS' => 'gzip -9f',
                         'SUFFIX'   => 'gz',
@@ -39,4 +45,4 @@ WriteMakefile
     PMLIBDIRS      => [ 'POE' ],
   );
 
-exit 0;
+exit 0 unless $^O eq 'MacOS';
