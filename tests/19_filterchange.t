@@ -23,36 +23,39 @@ use POE qw( Wheel::ReadWrite Driver::SysRW
 # all tests are skipped.  Try socketpair() first, so that both methods
 # will be tested on my test platforms.
 
-my ($master_read, $master_write, $slave_read, $slave_write);
-
 # Socketpair.  Read and write handles are the same.
-$master_read = $slave_write  = gensym();
-$slave_read  = $master_write = gensym();
+my $master_read  = gensym();
+my $master_write = gensym();
+my $slave_read   = gensym();
+my $slave_write  = gensym();
 
 # Try socketpair in the UNIX domain.
 eval {
   die "socketpair failed" unless 
     socketpair($master_read, $slave_read, AF_UNIX, SOCK_STREAM, PF_UNSPEC);
+  open($master_write, "+<&=" . fileno($master_read)) or die "dup failed";
+  open($slave_write , "+<&=" . fileno($slave_read) ) or die "dup failed";
+  DEBUG and warn "using UNIX socketpair\n";
 };
 
 # Try it in the INET domain, if it failed in the UNIX domain.
 if (length $@) {
   eval {
     my $tcp_proto = getprotobyname('tcp') or die "getprotobyname failed";
-    die "socketpain failed" unless
+    die "socketpair failed" unless
       socketpair($master_read, $slave_read, AF_INET, SOCK_STREAM, $tcp_proto);
+    open($master_write, "+<&=" . fileno($master_read)) or die "dup failed";
+    open($slave_write,  "+<&=" . fileno($slave_read) ) or die "dup failed";
+    DEBUG and warn "using INET socketpair\n";
   };
 }
 
 # Try pipe if socketpair refuses to work.
 if (length $@) {
-  # Write handles must be made unique.
-  $master_write = gensym();
-  $slave_write  = gensym();
-
   eval {
     die "pipe failed" unless pipe($master_read, $slave_write );
     die "pipe failed" unless pipe($slave_read,  $master_write);
+    DEBUG and warn "using a pair of pipes\n";
   };
 
   if (length $@) {
