@@ -1,6 +1,13 @@
 #!perl -w -I..
 # $Id$
 
+# This is the first test program written for POE.  It originally was
+# written to test POE's ability to dispatch events to inline sessions
+# (which was the only kind of sessions at the time).  It was later
+# amended to test directly calling event handlers, delayed garbage
+# collection, and some other things that new developers probably don't
+# need to know. :)
+
 use strict;
 
 # use POE always includes POE::Kernel and POE::Session, since they are
@@ -8,7 +15,7 @@ use strict;
 # exports the $kernel global, a reference to the process' Kernel
 # instance.  POE::Session exports a number of constants for event
 # handler parameter offsets.  Some of the offsets are KERNEL, HEAP,
-# SELF, and ARG0-ARG9.
+# SESSION, and ARG0-ARG9.
 
 use POE;
                                         # stupid scope trick, part 1 of 3 parts
@@ -31,6 +38,8 @@ sub child_start {
   $heap->{'name'} = $session_name;
   $kernel->sig('INT', 'sigint');
   print "Session $heap->{'name'} started.\n";
+
+  return "i am $heap->{'name'}";
 }
 
 #------------------------------------------------------------------------------
@@ -49,7 +58,8 @@ sub child_stop {
 # another "increment" message.
 
 sub child_increment {
-  my ($kernel, $me, $heap, $name, $count) = @_[KERNEL, SELF, HEAP, ARG0, ARG1];
+  my ($kernel, $me, $name, $count) =
+    @_[KERNEL, SESSION, ARG0, ARG1];
 
   $count++;
 
@@ -90,6 +100,14 @@ sub child_display_two {
   return $count * 3;
 }
 
+#------------------------------------------------------------------------------
+# This event handler is a helper for child sessions.  It returns the
+# session's name.  Parent sessions should call it directly.
+
+sub child_fetch_name {
+  $_[HEAP]->{'name'};
+}
+
 #==============================================================================
 # This section defines the event handler (or state) subs for the
 # sessions that this program calls "parent" sessions.  Each sub does
@@ -113,6 +131,7 @@ sub main_start {
         increment   => \&child_increment,
         display_one => \&child_display_one,
         display_two => \&child_display_two,
+        fetch_name  => \&child_fetch_name,
       );
 
     # Normally, sessions are stopped if they have nothing to do.  The
@@ -134,13 +153,20 @@ sub main_stop {
 
 #------------------------------------------------------------------------------
 # POE sends a _child event whenever a child session is about to
-# receive a _stop event.  The direction argument is either 'gain' or
-# 'lose', to signify whether the child is being given or taken away.
+# receive a _stop event (or has received a _start event).  The
+# direction argument is either 'gain', 'lose' or 'create', to signify
+# whether the child is being given to, taken away from, or created by
+# the session (respectively).
 
 sub main_child {
-  my ($self, $direction, $child) = @_[SELF, ARG0, ARG1];
+  my ($kernel, $me, $direction, $child, $return) =
+    @_[KERNEL, SESSION, ARG0, ARG1, ARG2];
 
-  print "*** $self ${direction}s child $child\n";
+  print( "*** Main session ${direction}s child ",
+         $kernel->call($child, 'fetch_name'),
+         (($direction eq 'create') ? " (child returns: $return)" : ''),
+         "\n"
+       );
 }
 
 #==============================================================================
@@ -153,6 +179,6 @@ new POE::Session
     _child => \&main_child,
   );
 
-$kernel->run();
+$poe_kernel->run();
 
 exit;

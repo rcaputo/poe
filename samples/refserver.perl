@@ -1,152 +1,210 @@
 #!perl -w -I..
 # $Id$
 
-# Filter::Reference test, part 1 of 2.
-# This program accepts references from refsender.perl.  It thaws the
-# references it receives, and displays its contents for verification.
+# This program is half of a test suite for POE::Filter::Reference.  It
+# implements a server that accepts frozen data, thaws it, and displays
+# some information about it.  It also tests aliased "daemon" sessions,
+# as well as a few other things.
 
 # Contributed by Artur Bergman <artur@vogon-solutions.com>
+# Revised for 0.06 by Rocco Caputo <troc@netrus.net>
 
 use strict;
+use Socket;
 
 use POE qw(Wheel::ListenAccept Wheel::ReadWrite Wheel::SocketFactory
            Driver::SysRW Filter::Reference
           );
-use Socket;
 
-my $kernel = new POE::Kernel();
+sub DEBUG { 0 }
 
-#------------------------------------------------------------------------------
-# Start listening for objects.
-
-new POE::Session
-  ( $kernel,
-    _start => sub {
-      my ($k, $me, $from) = @_;
-
-      $me->{'wheel'} = new POE::Wheel::SocketFactory
-        ( $kernel,
-          SocketDomain => AF_INET,
-          SocketType => SOCK_STREAM,
-          SocketProtocol => 'tcp',
-          BindAddress => INADDR_ANY,
-          BindPort => '31338', # eleet++
-          ListenQueue => 5,
-          Reuse => 'yes',
-          SuccessState => 'accept',
-          FailureState => 'accept error'
-        );
-    },
-    'accept error' => sub { 
-      my ($k, $me, $from, $operation, $errnum, $errstr) = @_;
-      print "! $operation error $errnum: $errstr\n";
-    },
-    'accept' => sub {
-      my ($k, $me, $from, $handle, $peer_host, $peer_port) = @_;
-      my $object = Daemon->new($handle);
-      print STDERR "Got connection from ",
-                   inet_ntoa($peer_host), ":$peer_port\n";
-      
-      new POE::Session ( $k,
-                         $object,
-                         [qw (_start client write shutdown client_error)],
-                       );
-    },
-  );
+###############################################################################
+# Responder is an aliased session that processes data from Daemon
+# instances.
 
 #------------------------------------------------------------------------------
-# Set up a single Responder session that can handle thawed references.
+# This is just a convenient way to create responders.
 
-new POE::Session ( $kernel,
-                   new Responder(),
-                   [ qw(_start respond) ],
-		 );
-
-$kernel->run();
-
-#------------------------------------------------------------------------------
-# Responder is an aliased (daemon) session that processes thawed references.
-
-package Responder;
-use strict;
-
-sub new {
-  my $class = shift;
-  return bless {}, $class;
+sub responder_create {
+  new POE::Session( _start   => \&responder_start,
+                    respond  => \&responder_respond,
+                  );
 }
 
-sub _start {
-  my ($self,$kernel,$namespace,$from) = @_;
+#------------------------------------------------------------------------------
+# Accept POE's standard _start message, and start the responder.
+
+sub responder_start {
+  my $kernel = $_[KERNEL];
+
+  DEBUG && print "Responder started.\n";
+                                        # allow it to be called by name
   $kernel->alias_set('Responder');
 }
 
-sub respond {
-  my ($self,$kernel,$namespace,$from,$request) = @_;
-  print STDERR "Received at ", time, ": $request = ";
+#------------------------------------------------------------------------------
+# Daemons give requests to this state for processing.
+
+sub responder_respond {
+  my $request = $_[ARG0];
+
+  print "Responder @ " . time . ": $request = ";
   if ($request =~ /(^|=)HASH\(/) {
-    print STDERR "{ ", join(', ', %$request), " }\n";
+    print "{ ", join(', ', %$request), " }\n";
   }
   elsif ($request =~ /(^|=)ARRAY\(/) {
-    print STDERR "( ", join(', ', @$request), " )\n";
+    print "( ", join(', ', @$request), " )\n";
   }
   elsif ($request =~ /(^|=)SCALAR\(/) {
-    print STDERR "$$request\n";
+    print $$request, "\n";
   }
   else {
-    print STDERR "(unknown reference type)\n";
+    print "(unknown reference type)\n";
   }
+}
+
+###############################################################################
+# Daemon instances are created by the listening session to handle
+# connections.  They receive one or more thawed references, and pass
+# them to the running Responder session for processing.
+
+#------------------------------------------------------------------------------
+# This is just a convenient way to create daemons.
+
+sub daemon_create {
+  my $handle = $_[0];
+
+  DEBUG && print "Daemon session created.\n";
+
+  new POE::Session( _start => \&daemon_start,
+                    _stop  => \&daemon_shutdown,
+                    client => \&daemon_client,
+                    error  => \&daemon_error,
+                                        # ARG0
+                    [ $handle ]
+                  );
 }
 
 #------------------------------------------------------------------------------
-# Daemon instances are created by the listening session to handle connections.
-# It receives one or more thawed references, and passes them to the running
-# Responder session for processing.
+# Accept POE's standard _start event, and begin processing data.
 
-package Daemon;
-use strict;
-
-sub new {
-  my $class = shift;
-  my $handle = shift;
-
-  return bless {
-		handle => $handle,
-	       }, $class;
-}
-
-sub _start {
-  my ($self,$kernel,$namespace,$from) = @_;
-  $namespace->{'wheel_client'} = new POE::Wheel::ReadWrite
-    ( $kernel,
-      Handle => $self->{handle},
-      Driver => new POE::Driver::SysRW(),
-      Filter => new POE::Filter::Reference(),
-      InputState => 'client',
-      ErrorState => 'client_error',
+sub daemon_start {
+  my ($heap, $handle) = @_[HEAP, ARG0];
+                                        # start reading and writing
+  $heap->{wheel_client} = new POE::Wheel::ReadWrite
+    ( Handle     => $handle,                    # on this handle
+      Driver     => new POE::Driver::SysRW,     # using sysread and syswrite
+      Filter     => new POE::Filter::Reference, # and parsing I/O as references
+      InputState => 'client',           # generate this event on input
+      ErrorState => 'error',            # generate this event on error
     );
 }
 
-sub client {
-  my ($self,$kernel,$namespace,$from,$request) = @_;
-  $kernel->post('Responder','respond',$request);
+#------------------------------------------------------------------------------
+# This state is invoked for each reference received by the session's
+# ReadWrite wheel.
+
+sub daemon_client {
+  my ($kernel, $request) = @_[KERNEL, ARG0];
+  DEBUG && print "Daemon received a reference.\n";
+                                        # call the Responder daemon to process
+  $kernel->call('Responder', 'respond', $request);
 }
 
-sub write {
-  my ($self,$kernel,$namespace,$from,$response) = @_;
-  $namespace->{'wheel_client'}->put($response);
-}
+#------------------------------------------------------------------------------
+# This state is invoked for each error encountered by the session's
+# ReadWrite wheel.
 
-sub client_error {
-  my ($self,$k,$me,$from,$operation,$errnum,$errstr) = @_;
-  print "client closed connection";
+sub daemon_error {
+  my ($heap, $operation, $errnum, $errstr) =
+    @_[HEAP, ARG0, ARG1, ARG2];
+
   if ($errnum) {
-    print ": $operation error $errnum ($errstr)";
+    DEBUG && print "Daemon encountered $operation error $errnum: $errstr\n";
   }
-  print "\n";
-  $k->post($me, 'shutdown');
+  else {
+    DEBUG && print "The daemon's client closed its connection.\n";
+  }
+                                        # either way, shut down
+  delete $heap->{wheel_client};
 }
 
-sub shutdown {
-  my ($self,$k, $me, $from) = @_;
-  delete $me->{'wheel_client'};
+#------------------------------------------------------------------------------
+# Process POE's standard _stop event by shutting down.
+
+sub daemon_shutdown {
+  my $heap = $_[ARG0];
+  DEBUG && print "Daemon has shut down.\n";
+  delete $heap->{wheel_client};
 }
+
+###############################################################################
+# This is a simple reference server.
+
+#------------------------------------------------------------------------------
+# This is just a convenient way to create servers.  To be useful in
+# multi-server situations, it probably should accept a bind address
+# and port.
+
+sub server_create {
+  new POE::Session( _start => \&server_start,
+                    error  => \&server_error,
+                    accept => \&server_accept
+                  );
+}
+
+#------------------------------------------------------------------------------
+# Accept POE's standard _start event, and set up the listening socket
+# factory.
+
+sub server_start {
+  my $heap = $_[HEAP];
+
+  DEBUG && print "Server starting.\n";
+                                        # create a socket factory
+  $heap->{wheel} = new POE::Wheel::SocketFactory
+    ( SocketDomain   => AF_INET,        # in the INET domain/address family
+      SocketType     => SOCK_STREAM,    # create stream sockets
+      SocketProtocol => 'tcp',          # using the tcp protocol
+      BindAddress    => INADDR_ANY,     # bound to any address
+      BindPort       => '31338',        # on the eleet++ port
+      ListenQueue    => 5,              # listen, with a 5-connection queue
+      Reuse          => 'yes',          # and allow immediate reuse of the port
+      SuccessState   => 'accept',       # generating this event on connection
+      FailureState   => 'error'         # generating this event on error
+    );
+}
+
+#------------------------------------------------------------------------------
+# Log server errors, but don't stop listening for connections.  If the
+# error occurs while initializing the factory's listening socket, it
+# will exit anyway.
+
+sub server_error {
+  my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
+  DEBUG && print "Server encountered $operation error $errnum: $errstr\n";
+}
+
+#------------------------------------------------------------------------------
+# The socket factory invokes this state to take care of accepted
+# connections.
+
+sub server_accept {
+  my ($handle, $peer_host, $peer_port) = @_[ARG0, ARG1, ARG2];
+
+  DEBUG &&
+    print "Server connection from ", inet_ntoa($peer_host), " $peer_port\n";
+                                        # give the connection to a daemon
+  &daemon_create($handle);
+}
+
+###############################################################################
+# Set up a responder and a server, and have POE run them until they
+# stop.
+
+&responder_create();
+&server_create();
+
+$poe_kernel->run();
+
+exit;
