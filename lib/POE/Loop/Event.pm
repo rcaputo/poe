@@ -217,6 +217,7 @@ sub _loop_event_callback {
   }
 
   $self->_data_ev_dispatch_due();
+  $self->_test_if_kernel_is_idle();
 
   # Register the next timed callback if there are events left.
 
@@ -234,11 +235,6 @@ sub _loop_event_callback {
     if ($self->_data_ses_count() == 1) {
       $self->_test_if_kernel_is_idle();
     }
-  }
-
-  # Make sure the kernel can still run.
-  else {
-    $self->_test_if_kernel_is_idle();
   }
 
   # Transfering control back to Event; this is idle time.
