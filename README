@@ -83,8 +83,10 @@ things to install.  Please read the dependency report carefully.
   make test
 
 Now you're ready to install POE, but first you may want to look at its
-samples.  All the programs in the samples subdirectory are written to
-run from the distribution directory without POE being installed yet.
+samples.  Some of the samples may not work; the important thing is
+that the tests pass.  All the programs in the samples subdirectory are
+written to run from the distribution directory without POE being
+installed yet.
 
   cd ./samples
   ls -l
@@ -127,11 +129,11 @@ Test Results
 All the tests have been made to run unattended, and testing has been
 automated across the systems.
 
-** POE 0.1205 on OS/2
+** POE 0.1205 on OS/2 (home-os2)
 
 OS/2 doesn't grok system vs. user time, so the numbers are 0.
 
-Hardware: Cyrix P166+; 64MB RAM (home os2)
+Hardware: Cyrix P166+; 64MB RAM
 System  : OS/2 4.0, Fix 13
 Perl    : v5.6.0
 Gtk     : (not installed)
@@ -140,11 +142,11 @@ Event   : (not installed)
 IO::Pty : 0.01
 
 All tests successful, 4 tests and 5 subtests skipped.
-Files=24, Tests=429, 227 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+Files=24, Tests=429, 148 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
-** POE 0.1205 on FreeBSD
+** POE 0.1205 on FreeBSD (home-bsd)
 
-Hardware: AMD 486-40; 16MB RAM (home bsd)
+Hardware: AMD 486-40; 16MB RAM
 System  : FreeBSD 4.0-STABLE
 Perl    : v5.6.0
 Gtk     : 0.7004
@@ -153,7 +155,7 @@ Event   : 0.79
 IO::Pty : 0.01
 
 All tests successful.
-Files=24, Tests=455, 666 wallclock secs (432.98 cusr + 35.99 csys = 468.97 CPU)
+Files=24, Tests=455, 684 wallclock secs (425.65 cusr + 36.95 csys = 462.60 CPU)
 
 ** POE 0.1205 on Linux (titanic)
 
@@ -166,11 +168,11 @@ Event   : 0.79
 IO::Pty : 0.01
 
 All tests successful, 2 tests skipped.
-Files=24, Tests=438, 105 wallclock secs (21.53 cusr +  0.71 csys = 22.24 CPU)
+Files=24, Tests=438, 106 wallclock secs (22.53 cusr +  0.84 csys = 23.37 CPU)
 
-** POE 0.1205 on Solaris/SunOS 5.7
+** POE 0.1205 on Solaris/SunOS 5.7 (hfb)
 
-Hardware: SPARCstation-20; dual Sparc-75; 320MB RAM (hfb)
+Hardware: SPARCstation-20; dual Sparc-75; 320MB RAM
 System  : SunOS 5.7
 Perl    : 5.005_03
 Gtk     : (not installed)
@@ -179,7 +181,7 @@ Event   : (not installed)
 IO::Pty : 0.01
 
 All tests successful, 4 tests skipped.
-Files=24,  Tests=429, 120 wallclock secs (59.72 cusr +  5.50 csys = 65.22 CPU)
+Files=24,  Tests=429, 122 wallclock secs (61.70 cusr +  5.49 csys = 67.19 CPU)
 
 ** POE 0.1203 on Linux (a-mused)
 
@@ -214,7 +216,7 @@ coverage is a fun goal.  Increasing the coverage percents gives the
 author some small sense of accomplishment, and it assures users that
 something's being done to assure POE's quality.
 
-These results are for POE 0.1204 on the FreeBSD test machine.  This
+These results are for POE 0.1205 on the FreeBSD test machine.  This
 machine is the slowest of the bunch, but it also has the most support
 libraries installed.
 
@@ -230,7 +232,7 @@ libraries installed.
   POE/Filter/Line.pm                  =    77 /    82 =  93.90%
   POE/Filter/Reference.pm             =    60 /    66 =  90.91%
   POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-  POE/Kernel.pm                       =   660 /   860 =  76.74%
+  POE/Kernel.pm                       =   572 /   815 =  70.18%
   POE/NFA.pm                          =    74 /   157 =  47.13%
   POE/Pipe/OneWay.pm                  =    20 /    39 =  51.28%
   POE/Pipe/TwoWay.pm                  =    23 /    43 =  53.49%
@@ -239,10 +241,10 @@ libraries installed.
   POE/Wheel.pm                        =    11 /    11 = 100.00%
   POE/Wheel/FollowTail.pm             =    75 /    96 =  78.12%
   POE/Wheel/ListenAccept.pm           =    39 /    53 =  73.58%
-  POE/Wheel/ReadWrite.pm              =   111 /   184 =  60.33%
-  POE/Wheel/Run.pm                    =   141 /   230 =  61.30%
+  POE/Wheel/ReadWrite.pm              =   111 /   188 =  59.04%
+  POE/Wheel/Run.pm                    =   141 /   239 =  59.00%
   POE/Wheel/SocketFactory.pm          =   197 /   234 =  84.19%
-  All Told                            =  1926 /  2658 =  72.46%
+  All Told                            =  1838 /  2626 =  69.99%
 
 Thanks for reading!
 
