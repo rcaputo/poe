@@ -11,7 +11,7 @@ use Carp qw(croak);
 
 # Used to generate unique IDs for wheels.  This is static data, shared
 # by all.
-my $next_id = 1;
+my $current_id = 0;
 my %active_wheel_ids;
 
 sub new {
@@ -21,14 +21,18 @@ sub new {
 
 sub allocate_wheel_id {
   while (1) {
-    last unless exists $active_wheel_ids{ ++$next_id };
+    last unless exists $active_wheel_ids{ ++$current_id };
   }
-  return $active_wheel_ids{$next_id} = $next_id;
+  return $active_wheel_ids{$current_id} = $current_id;
 }
 
 sub free_wheel_id {
   my $id = shift;
   delete $active_wheel_ids{$id};
+}
+
+sub _test_set_wheel_id {
+  $current_id = shift;
 }
 
 #------------------------------------------------------------------------------
@@ -124,6 +128,9 @@ be called as normal functions:
 
 =item allocate_wheel_id
 
+B<This is not a class method.  Call it as:
+POE::Wheel::allocate_wheel_id().>
+
 allocate_wheel_id() allocates a unique identifier for a wheel.  Wheels
 pass these identifiers back to sessions in their events so that
 sessions with several wheels can match events back to other
@@ -134,6 +141,9 @@ important to free an ID when it's not in use, or they will consume
 memory unnecessarily.
 
 =item free_wheel_id WHEEL_ID
+
+B<This is not a class method.  Call it as:
+POE::Wheel::free_wheel_id($id).>
 
 Deallocates a wheel identifier so it may be reused later.  This often
 is called from a wheel's destructor.
