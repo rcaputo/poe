@@ -275,9 +275,3 @@ ok_if(55, $poe_kernel->_data_ses_finalize());
 
 results();
 exit 0;
-
-__END__
-
-_data_ses_finalize
-_data_ses_free
-
