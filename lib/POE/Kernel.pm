@@ -1475,11 +1475,11 @@ sub run {
   TRACE_PROFILE and do {
     my $title = ',----- State Profile ';
     $title .= '-' x (74 - length($title)) . ',';
-    warn $title, "\n";
+    printf STDERR $title, "\n";
     foreach (sort keys %profile) {
-      printf "| %60s %10d |\n", $_, $profile{$_};
+      printf STDERR "| %60s %10d |\n", $_, $profile{$_};
     }
-    warn '`', '-' x 73, "'\n";
+    printf STDERR '`', '-' x 73, "'\n";
   }
 }
 

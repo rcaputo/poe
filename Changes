@@ -81,6 +81,9 @@ support them.
 
 Skipped signals tests on MSWin32, which doesn't seem to do signals.
 
+TRACE_PROFILE output was mixed across STDERR and STDOUT.  Put it all
+on STDERR.  evilPetey's got a good evilEye.
+
 
 0.1104 2000.08.12
 -----------------
