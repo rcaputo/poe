@@ -2,6 +2,40 @@ $Id$
 
 Revision history for Perl extension POE.
 
+*** 0.05 1998.12.04
+
+- Delayed garbage collection on new sessions.  Previously, sessions
+would be tested for garbage collection immediately after creation.
+
+- Fixed a fatal bug in tests/proxy.perl.  Added ability to redirect
+multiple ports.  Added more logging information.
+
+- Fixed SIGPIPE handling.  Previously, SIGPIPE would be dispatched to
+every Session.  Now it is dispatched directly to the session that was
+running when the signal occurred.  This probably breaks multithreaded
+programs that contain multiple kernels, and I am considering dropping
+multi-kernel support.
+
+- Fixed SIGRTMIN handling.  At least one system has this signal
+defined in %SIG but doesn't support it.  Assigning to $SIG{'RTMIN'}
+there causes an "Attempt to free unreferenced scalar" warning, and the
+test program hangs.  POE now skips RTMIN and RTMAX when assigning
+handlers.
+
+- Added Filter::Reference, contributed by Artur Bergman
+<artur@vogon-solutions.com>.  Filter::References enables POE to pass
+copies of referenced data between processes.  It requires C<Storable>
+or C<FreezeThaw>.
+
+- Fixed Wheel::ReadWrite::put().  It used to send a concatenated
+version of @_ to its driver.  This broke Filter::Reference when
+putting a list of references.  Now it's up to respective Filter
+classes to do the right thing with @_.
+
+- Fixed Wheel::ReadWrite.  Now it sends FlushedState events when it
+should.
+
+
 *** 0.04 1998.11.24
 
 - Added $object->can($state) check when registering object methods as
