@@ -66,8 +66,10 @@ BEGIN {
 # moved into lexicals in 0.1201.
 
 # A flag determining whether there are child processes.  Starts true
-# so our waitpid() loop can run at least once.
-my $kr_child_procs = 1;
+# so our waitpid() loop can run at least once.  Starts false when
+# running in an Apache handler so our SIGCHLD hijinx don't interfere
+# with the web server.
+my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
 
 # A reference to the currently active session.  Used throughout the
 # functions that act on the current session.
