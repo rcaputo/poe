@@ -397,15 +397,15 @@ sub _start {
 
   print "$object received _start.  Hi!\n";
                                         # get a new socket
-  $heap->{socket} = &get_next_client_address();
+  $heap->{'socket'} = &get_next_client_address();
                                         # start a socket factory
   $heap->{'wheel'} = new POE::Wheel::SocketFactory
-    ( SocketDomain  => AF_UNIX,          # in the Unix address family
-      SocketType    => SOCK_STREAM,      # create stream sockets
-      BindAddress   => $heap->{socket},  # bind to this address
-      RemoteAddress => $unix_server,     # connected to that Unix address
-      SuccessState  => 'got_connection', # sending this message when connected
-      FailureState  => 'got_error'       # sending this message upon failure
+    ( SocketDomain  => AF_UNIX,           # in the Unix address family
+      SocketType    => SOCK_STREAM,       # create stream sockets
+      BindAddress   => $heap->{'socket'}, # bind to this address
+      RemoteAddress => $unix_server,      # connected to that Unix address
+      SuccessState  => 'got_connection',  # sending this message when connected
+      FailureState  => 'got_error'        # sending this message upon failure
     );
 }
 
@@ -418,12 +418,12 @@ sub _stop {
                                         # stop the wheel (closes socket)
   delete $heap->{wheel};
                                         # unlink the unix socket
-  if (exists $heap->{socket}) {
-    if (-e $heap->{socket}) {
-      unlink($heap->{socket})
-        or warn "could not unlink $heap->{socket}: $!";
+  if (exists $heap->{'socket'}) {
+    if (-e $heap->{'socket'}) {
+      unlink($heap->{'socket'})
+        or warn "could not unlink $heap->{'socket'}: $!";
     }
-    delete $heap->{socket};
+    delete $heap->{'socket'};
   }
 }
 
