@@ -33,7 +33,7 @@ my %signal_watcher;
 # Loop construction and destruction.
 
 sub loop_initialize {
-  my $kernel = shift;
+  my $self = shift;
 
   $_watcher_timer =
     Event->timer
@@ -44,6 +44,8 @@ sub loop_initialize {
 }
 
 sub loop_finalize {
+  my $self = shift;
+
   for (0..$#fileno_watcher) {
     warn "Watcher for fileno $_ is allocated during loop finalize"
       if defined $fileno_watcher[$_];
@@ -85,7 +87,7 @@ sub _loop_signal_handler_child {
 # Signal handler maintenance functions.
 
 sub loop_watch_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
 
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
@@ -93,8 +95,8 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $poe_kernel->_enqueue_event
-      ( time() + 1, $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+    $self->_enqueue_event
+      ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
@@ -121,7 +123,7 @@ sub loop_watch_signal {
 }
 
 sub loop_ignore_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
   if (defined $signal_watcher{$signal}) {
     $signal_watcher{$signal}->stop();
     delete $signal_watcher{$signal};
@@ -136,15 +138,15 @@ sub loop_attach_uidestroy {
 # Maintain time watchers.
 
 sub loop_resume_time_watcher {
-  my $next_time = shift;
+  my ($self, $next_time) = @_;
   $_watcher_timer->at($next_time);
   $_watcher_timer->start();
 }
 
 sub loop_reset_time_watcher {
-  my $next_time = shift;
-  loop_pause_time_watcher();
-  loop_resume_time_watcher($next_time);
+  my ($self, $next_time) = @_;
+  $self->loop_pause_time_watcher();
+  $self->loop_resume_time_watcher($next_time);
 }
 
 sub loop_pause_time_watcher {
@@ -155,7 +157,7 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   $fileno_watcher[$fileno] =
@@ -173,21 +175,20 @@ sub loop_watch_filehandle {
 }
 
 sub loop_ignore_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
   $fileno_watcher[$fileno]->cancel();
   $fileno_watcher[$fileno] = undef;
 }
 
-
 sub loop_pause_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
   $fileno_watcher[$fileno]->stop();
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
   $fileno_watcher[$fileno]->start();
 }
@@ -196,11 +197,11 @@ sub loop_resume_filehandle_watcher {
 sub _loop_event_callback {
   my $self = $poe_kernel;
 
-  _data_dispatch_due_events();
+  $self->_data_dispatch_due_events();
 
   # Register the next timed callback if there are events left.
 
-  my $next_time = $poe_kernel->get_next_event_time();
+  my $next_time = $self->get_next_event_time();
   if (defined $next_time) {
     $_watcher_timer->at($next_time);
     $_watcher_timer->start();
@@ -211,14 +212,14 @@ sub _loop_event_callback {
     # vs. kernel events, and GC the kernel when the user events drop
     # to 0.
 
-    if ($poe_kernel->get_session_count() == 1) {
-      _data_test_for_idle_poe_kernel();
+    if ($self->get_session_count() == 1) {
+      $self->_data_test_for_idle_poe_kernel();
     }
   }
 
   # Make sure the kernel can still run.
   else {
-    _data_test_for_idle_poe_kernel();
+    $self->_data_test_for_idle_poe_kernel();
   }
 }
 
@@ -240,8 +241,8 @@ sub _loop_select_callback {
                    )
                );
 
-  _data_enqueue_ready_selects($vector, $fileno);
-  _data_test_for_idle_poe_kernel();
+  $self->_data_handle_enqueue_ready($vector, $fileno);
+  $self->_data_test_for_idle_poe_kernel();
 }
 
 #------------------------------------------------------------------------------

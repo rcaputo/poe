@@ -33,7 +33,7 @@ my @fileno_watcher;
 # Loop construction and destruction.
 
 sub loop_initialize {
-  my $kernel = shift;
+  my $self = shift;
 
   Gtk->init;
 }
@@ -81,7 +81,7 @@ sub _loop_signal_handler_child {
 # Signal handler maintenance functions.
 
 sub loop_watch_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
 
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
@@ -92,8 +92,8 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $poe_kernel->_enqueue_event
-      ( time() + 1, $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+    $self->_enqueue_event
+      ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
@@ -117,7 +117,7 @@ sub loop_watch_signal {
 }
 
 sub loop_ignore_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
   $SIG{$signal} = "DEFAULT";
 }
 
@@ -132,7 +132,7 @@ sub loop_attach_uidestroy {
   $window->signal_connect
     ( delete_event =>
       sub {
-        if ($poe_kernel->get_session_count()) {
+        if ($self->get_session_count()) {
           $self->_dispatch_event
             ( $self, $self,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
@@ -148,22 +148,24 @@ sub loop_attach_uidestroy {
 # Maintain time watchers.
 
 sub loop_resume_time_watcher {
-  my $next_time = (shift() - time) * 1000;
+  my ($self, $next_time) = @_;
+  $next_time -= time();
+  $next_time *= 1000;
   $next_time = 0 if $next_time < 0;
   $_watcher_timer = Gtk->timeout_add($next_time, \&_loop_event_callback);
 }
 
 sub loop_reset_time_watcher {
-  my $next_time = shift;
+  my ($self, $next_time) = @_;
   # Should always be defined, right?
   Gtk->timeout_remove($_watcher_timer);
   undef $_watcher_timer;
-  loop_resume_time_watcher($next_time);
+  $self->loop_resume_time_watcher($next_time);
 }
 
 sub _loop_resume_timer {
   Gtk->idle_remove($_watcher_timer);
-  loop_resume_time_watcher($poe_kernel->get_next_event_time());
+  $poe_kernel->loop_resume_time_watcher($poe_kernel->get_next_event_time());
 }
 
 sub loop_pause_time_watcher {
@@ -174,7 +176,7 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # Overwriting a pre-existing watcher?
@@ -204,7 +206,7 @@ sub loop_watch_filehandle {
 }
 
 sub loop_ignore_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # Don't bother removing a select if none was registered.
@@ -215,14 +217,14 @@ sub loop_ignore_filehandle {
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
   Gtk::Gdk->input_remove($fileno_watcher[$fileno]);
   undef $fileno_watcher[$fileno];
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # Quietly ignore requests to resume unpaused handles.
@@ -253,14 +255,14 @@ sub loop_resume_filehandle_watcher {
 sub _loop_event_callback {
   my $self = $poe_kernel;
 
-  _data_dispatch_due_events();
-  _data_test_for_idle_poe_kernel();
+  $self->_data_dispatch_due_events();
+  $self->_data_test_for_idle_poe_kernel();
 
   Gtk->timeout_remove($_watcher_timer);
   undef $_watcher_timer;
 
   # Register the next timeout if there are events left.
-  if ($poe_kernel->get_event_count()) {
+  if ($self->get_event_count()) {
     $_watcher_timer = Gtk->idle_add(\&_loop_resume_timer);
   }
 
@@ -273,8 +275,8 @@ sub _loop_select_read_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  _data_enqueue_ready_selects(VEC_RD, $fileno);
-  _data_test_for_idle_poe_kernel();
+  $self->_data_handle_enqueue_ready(VEC_RD, $fileno);
+  $self->_data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
   return 0;
@@ -284,8 +286,8 @@ sub _loop_select_write_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  _data_enqueue_ready_selects(VEC_WR, $fileno);
-  _data_test_for_idle_poe_kernel();
+  $self->_data_handle_enqueue_ready(VEC_WR, $fileno);
+  $self->_data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
   return 0;
@@ -295,8 +297,8 @@ sub _loop_select_expedite_callback {
   my $self = $poe_kernel;
   my ($handle, $fileno, $hash) = @_;
 
-  _data_enqueue_ready_selects(VEC_EX, $fileno);
-  _data_test_for_idle_poe_kernel();
+  $self->_data_handle_enqueue_ready(VEC_EX, $fileno);
+  $self->_data_test_for_idle_poe_kernel();
 
   # Return false to stop... probably not with this one.
   return 0;

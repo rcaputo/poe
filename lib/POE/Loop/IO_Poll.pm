@@ -39,8 +39,7 @@ my %poll_fd_masks;
 # Loop construction and destruction.
 
 sub loop_initialize {
-  my $kernel = shift;
-
+  my $self = shift;
   %poll_fd_masks = ();
 }
 
@@ -84,7 +83,7 @@ sub _loop_signal_handler_child {
 # Signal handler maintenance functions.
 
 sub loop_watch_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
 
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
@@ -92,8 +91,8 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $poe_kernel->_enqueue_event
-      ( time() + 1, $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+    $self->_enqueue_event
+      ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
@@ -117,7 +116,7 @@ sub loop_watch_signal {
 }
 
 sub loop_ignore_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
   $SIG{$signal} = "DEFAULT";
 }
 
@@ -129,16 +128,18 @@ sub loop_attach_uidestroy {
 # Maintain time watchers.
 
 sub loop_resume_time_watcher {
-  # does nothing ($_[0] == next time)
+  # does nothing
 }
 
 sub loop_reset_time_watcher {
-  # does nothing ($_[0] == next time)
+  # does nothing
 }
 
 sub loop_pause_time_watcher {
-  # does nothing ($_[0] == next time)
+  # does nothing
 }
+
+# A static function; not some object method.
 
 sub vec_to_poll {
   return POLLIN     if $_[0] == VEC_RD;
@@ -151,7 +152,7 @@ sub vec_to_poll {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
@@ -169,7 +170,7 @@ sub loop_watch_filehandle {
 }
 
 sub loop_ignore_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
@@ -192,7 +193,7 @@ sub loop_ignore_filehandle {
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
@@ -215,7 +216,7 @@ sub loop_pause_filehandle_watcher {
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   my $type = vec_to_poll($vector);
@@ -236,8 +237,10 @@ sub loop_resume_filehandle_watcher {
 # The event loop itself.
 
 sub loop_do_timeslice {
+  my $self = shift;
+
   # Check for a hung kernel.
-  _data_test_for_idle_poe_kernel();
+  $self->_data_test_for_idle_poe_kernel();
 
   # Set the poll timeout based on current queue conditions.  If there
   # are FIFO events, then the poll timeout is zero and move on.
@@ -247,7 +250,7 @@ sub loop_do_timeslice {
 
   my $now = time();
 
-  my $timeout = $poe_kernel->get_next_event_time();
+  my $timeout = $self->get_next_event_time();
   if (defined $timeout) {
     $timeout -= $now;
     $timeout = MINIMUM_POLL_TIMEOUT if $timeout < MINIMUM_POLL_TIMEOUT;
@@ -334,21 +337,21 @@ sub loop_do_timeslice {
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing read for fileno $fd\n";
-            _data_enqueue_ready_selects(VEC_RD, $fd);
+            $self->_data_handle_enqueue_ready(VEC_RD, $fd);
           }
 
           if ( $watch_mask & POLLOUT and
                $got_mask & (POLLOUT | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing write for fileno $fd\n";
-            _data_enqueue_ready_selects(VEC_WR, $fd);
+            $self->_data_handle_enqueue_ready(VEC_WR, $fd);
           }
 
           if ( $watch_mask & POLLRDBAND and
                $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "enqueuing expedite for fileno $fd\n";
-            _data_enqueue_ready_selects(VEC_EX, $fd);
+            $self->_data_handle_enqueue_ready(VEC_EX, $fd);
           }
         }
       }
@@ -369,13 +372,15 @@ sub loop_do_timeslice {
   }
 
   # Dispatch whatever events are due.
-  _data_dispatch_due_events();
+  $self->_data_dispatch_due_events();
 }
 
+### Run for as long as there are sessions to service.
+
 sub loop_run {
-  # Run for as long as there are sessions to service.
-  while ($poe_kernel->get_session_count()) {
-    loop_do_timeslice();
+  my $self = shift;
+  while ($self->get_session_count()) {
+    $self->loop_do_timeslice();
   }
 }
 

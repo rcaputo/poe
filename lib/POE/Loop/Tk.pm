@@ -37,9 +37,11 @@ my @_fileno_refcount;
 # Loop construction and destruction.
 
 sub loop_initialize {
+  my $self = shift;
+
   $poe_main_window = Tk::MainWindow->new();
   die "could not create a main Tk window" unless defined $poe_main_window;
-  $poe_kernel->signal_ui_destroy( $poe_main_window );
+  $self->signal_ui_destroy($poe_main_window);
 }
 
 sub loop_finalize {
@@ -82,7 +84,7 @@ sub _loop_signal_handler_child {
 # Signal handler maintenance functions.
 
 sub loop_watch_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
 
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
@@ -90,8 +92,8 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $poe_kernel->_enqueue_event
-      ( time() + 1, $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+    $self->_enqueue_event
+      ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
@@ -115,17 +117,18 @@ sub loop_watch_signal {
 }
 
 sub loop_ignore_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
   $SIG{$signal} = "DEFAULT";
 }
 
 sub loop_attach_uidestroy {
-  my ($poe_kernel, $window) = @_;
+  my ($self, $window) = @_;
+
   $window->OnDestroy
     ( sub {
-        if ($poe_kernel->get_session_count()) {
-          $poe_kernel->_dispatch_event
-            ( $poe_kernel, $poe_kernel,
+        if ($self->get_session_count()) {
+          $self->_dispatch_event
+            ( $self, $self,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
               time(), __FILE__, __LINE__, undef
             );
@@ -138,7 +141,8 @@ sub loop_attach_uidestroy {
 # Maintain time watchers.
 
 sub loop_resume_time_watcher {
-  my $next_time = shift() - time();
+  my ($self, $next_time) = @_;
+  $next_time -= time();
 
   if (defined $_watcher_timer) {
     $_watcher_timer->cancel();
@@ -151,11 +155,12 @@ sub loop_resume_time_watcher {
 }
 
 sub loop_reset_time_watcher {
-  my $next_time = shift;
-  loop_resume_time_watcher($next_time);
+  my ($self, $next_time) = @_;
+  $self->loop_resume_time_watcher($next_time);
 }
 
 sub loop_pause_time_watcher {
+  my $self = shift;
   $_watcher_timer->stop() if defined $_watcher_timer;
 }
 
@@ -163,7 +168,7 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # The Tk documentation implies by omission that expedited
@@ -191,7 +196,7 @@ sub loop_watch_filehandle {
 }
 
 sub loop_ignore_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
 
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 2 of 2.
@@ -232,7 +237,7 @@ sub loop_ignore_filehandle {
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
 
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 2 of 2.
@@ -251,7 +256,7 @@ sub loop_pause_filehandle_watcher {
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   # The Tk documentation implies by omission that expedited
@@ -281,9 +286,7 @@ sub loop_resume_filehandle_watcher {
 
 # Tk timer callback to dispatch events.
 sub _loop_event_callback {
-  my $poe_kernel = $poe_kernel;
-
-  _data_dispatch_due_events();
+  $poe_kernel->_data_dispatch_due_events();
 
   # As was mentioned before, $widget->after() events can dominate a
   # program's event loop, starving it of other events, including Tk's
@@ -330,21 +333,21 @@ sub _loop_event_callback {
     # to 0.
 
     if ($poe_kernel->get_event_count() == 1) {
-      _data_test_for_idle_poe_kernel();
+      $poe_kernel->_data_test_for_idle_poe_kernel();
     }
   }
 
   # Make sure the kernel can still run.
   else {
-    _data_test_for_idle_poe_kernel();
+    $poe_kernel->_data_test_for_idle_poe_kernel();
   }
 }
 
 # Tk filehandle callback to dispatch selects.
 sub _loop_select_callback {
   my ($fileno, $vector) = @_;
-  _data_enqueue_ready_selects($vector, $fileno);
-  _data_test_for_idle_poe_kernel();
+  $poe_kernel->_data_handle_enqueue_ready($vector, $fileno);
+  $poe_kernel->_data_test_for_idle_poe_kernel();
 }
 
 #------------------------------------------------------------------------------

@@ -52,7 +52,7 @@ my %loop_filenos;
 # Loop construction and destruction.
 
 sub loop_initialize {
-  my $kernel = shift;
+  my $self = shift;
 
   # Initialize the vectors as vectors.
   @loop_vectors = ( '', '', '' );
@@ -63,6 +63,8 @@ sub loop_initialize {
 
 
 sub loop_finalize {
+  my $self = shift;
+
   # This is "clever" in that it relies on each symbol on the left to
   # be stringified by the => operator.
   my %kernel_vectors =
@@ -115,7 +117,7 @@ sub _loop_signal_handler_child {
 # Signal handler maintenance functions.
 
 sub loop_watch_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
 
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
@@ -123,8 +125,8 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $poe_kernel->_enqueue_event
-      ( time() + 1, $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+    $self->_enqueue_event
+      ( time() + 1, $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
         __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
@@ -148,7 +150,7 @@ sub loop_watch_signal {
 }
 
 sub loop_ignore_signal {
-  my $signal = shift;
+  my ($self, $signal) = @_;
   $SIG{$signal} = "DEFAULT";
 }
 
@@ -175,7 +177,7 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   vec($loop_vectors[$vector], $fileno, 1) = 1;
@@ -183,7 +185,7 @@ sub loop_watch_filehandle {
 }
 
 sub loop_ignore_filehandle {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   vec($loop_vectors[$vector], $fileno, 1) = 0;
@@ -191,7 +193,7 @@ sub loop_ignore_filehandle {
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   vec($loop_vectors[$vector], $fileno, 1) = 0;
@@ -199,7 +201,7 @@ sub loop_pause_filehandle_watcher {
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($handle, $vector) = @_;
+  my ($self, $handle, $vector) = @_;
   my $fileno = fileno($handle);
 
   vec($loop_vectors[$vector], $fileno, 1) = 1;
@@ -210,8 +212,10 @@ sub loop_resume_filehandle_watcher {
 # The event loop itself.
 
 sub loop_do_timeslice {
+  my $self = shift;
+
   # Check for a hung kernel.
-  _data_test_for_idle_poe_kernel();
+  $self->_data_test_for_idle_poe_kernel();
 
   # Set the select timeout based on current queue conditions.  If
   # there are FIFO events, then the timeout is zero to poll select and
@@ -220,7 +224,7 @@ sub loop_do_timeslice {
   # for some constant number of seconds.
 
   my $now = time();
-  my $timeout = $poe_kernel->get_next_event_time();
+  my $timeout = $self->get_next_event_time();
 
   if (defined $timeout) {
     $timeout -= $now;
@@ -338,9 +342,12 @@ sub loop_do_timeslice {
         # Enqueue the gathered selects, and flag them as temporarily
         # paused.  They'll resume after dispatch.
 
-        @rd_selects and _data_enqueue_ready_selects(VEC_RD, @rd_selects);
-        @wr_selects and _data_enqueue_ready_selects(VEC_WR, @wr_selects);
-        @ex_selects and _data_enqueue_ready_selects(VEC_EX, @ex_selects);
+        @rd_selects and
+          $self->_data_handle_enqueue_ready(VEC_RD, @rd_selects);
+        @wr_selects and
+          $self->_data_handle_enqueue_ready(VEC_WR, @wr_selects);
+        @ex_selects and
+          $self->_data_handle_enqueue_ready(VEC_EX, @ex_selects);
       }
     }
 
@@ -358,13 +365,15 @@ sub loop_do_timeslice {
   }
 
   # Dispatch whatever events are due.
-  _data_dispatch_due_events();
+  $self->_data_dispatch_due_events();
 }
 
 sub loop_run {
+  my $self = shift;
+
   # Run for as long as there are sessions to service.
-  while ($poe_kernel->get_session_count()) {
-    loop_do_timeslice();
+  while ($self->get_session_count()) {
+    $self->loop_do_timeslice();
   }
 }
 
