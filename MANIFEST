@@ -3,6 +3,7 @@ CHANGES
 HISTORY
 MANIFEST
 MANIFEST.SKIP
+META.yml
 Makefile.PL
 NEEDS
 POE.pm
@@ -60,6 +61,7 @@ POE/Wheel/Run.pm
 POE/Wheel/SocketFactory.pm
 README
 TODO
+lib/Build.PL
 lib/Devel/Null.pm
 lib/Devel/Trace.pm
 lib/ExtUtils/AutoInstall.pm

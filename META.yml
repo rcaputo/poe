@@ -1,0 +1,177 @@
+--- #YAML:1.0
+name: POE
+version: 0.2601
+license: perl
+distribution_type: module
+requires:
+  Carp: 0
+  Exporter: 0
+  Filter::Util::Call: 1.04
+  IO: 0
+  POSIX: 0
+  Socket: 0
+recommends: {}
+build_requires: {}
+conflicts: {}
+provides:
+  Foo:
+    file: lib/POE/Preprocessor.pm
+    version: 1.30
+  POE:
+    file: lib/POE.pm
+    version: 0.2601
+  POE::API::ResLoader:
+    file: lib/POE/API/ResLoader.pm
+    version: 1.2
+  POE::Component:
+    file: lib/POE/Component.pm
+    version: 1.5
+  POE::Component::Client::TCP:
+    file: lib/POE/Component/Client/TCP.pm
+    version: 1.34
+  POE::Component::Server::TCP:
+    file: lib/POE/Component/Server/TCP.pm
+    version: 1.38
+  POE::Driver:
+    file: lib/POE/Driver.pm
+    version: 1.14
+  POE::Driver::SysRW:
+    file: lib/POE/Driver/SysRW.pm
+    version: 1.23
+  POE::Filter:
+    file: lib/POE/Filter.pm
+    version: 1.12
+  POE::Filter::Block:
+    file: lib/POE/Filter/Block.pm
+    version: 1.11
+  POE::Filter::Grep:
+    file: lib/POE/Filter/Grep.pm
+    version: 1.4
+  POE::Filter::HTTPD:
+    file: lib/POE/Filter/HTTPD.pm
+    version: 1.28
+  POE::Filter::Line:
+    file: lib/POE/Filter/Line.pm
+    version: 1.23
+  POE::Filter::Map:
+    file: lib/POE/Filter/Map.pm
+    version: 1.4
+  POE::Filter::RecordBlock:
+    file: lib/POE/Filter/RecordBlock.pm
+    version: 1.3
+  POE::Filter::Reference:
+    file: lib/POE/Filter/Reference.pm
+    version: 1.27
+  POE::Filter::Stackable:
+    file: lib/POE/Filter/Stackable.pm
+    version: 1.4
+  POE::Filter::Stream:
+    file: lib/POE/Filter/Stream.pm
+    version: 1.11
+  POE::Kernel:
+    file: lib/POE/Resource/Signals.pm
+    version: 1.8
+  POE::Loop:
+    file: lib/POE/Loop.pm
+    version: 1.2
+  POE::Loop::Event:
+    file: lib/POE/Loop/Event.pm
+    version: 1.33
+  POE::Loop::Gtk:
+    file: lib/POE/Loop/Gtk.pm
+    version: 1.36
+  POE::Loop::PerlSignals:
+    file: lib/POE/Loop/PerlSignals.pm
+    version: 1.3
+  POE::Loop::Poll:
+    file: lib/POE/Loop/Poll.pm
+    version: 1.22
+  POE::Loop::Select:
+    file: lib/POE/Loop/Select.pm
+    version: 1.49
+  POE::Loop::Tk:
+    file: lib/POE/Loop/TkActiveState.pm
+    version: 1.4
+  POE::Loop::TkCommon:
+    file: lib/POE/Loop/TkCommon.pm
+    version: 1.2
+  POE::Loop::YourToolkit:
+    file: lib/POE/Loop.pm
+    version: 1.2
+  POE::Macro::UseBytes:
+    file: lib/POE/Macro/UseBytes.pm
+    version: 1.2
+  POE::NFA:
+    file: lib/POE/NFA.pm
+    version: 1.23
+  POE::Pipe:
+    file: lib/POE/Pipe.pm
+    version: 1.10
+  POE::Pipe::OneWay:
+    file: lib/POE/Pipe/OneWay.pm
+    version: 1.12
+  POE::Pipe::TwoWay:
+    file: lib/POE/Pipe/TwoWay.pm
+    version: 1.15
+  POE::Preprocessor:
+    file: lib/POE/Preprocessor.pm
+    version: 1.30
+  POE::Queue:
+    file: lib/POE/Queue.pm
+    version: 1.2
+  POE::Queue::Array:
+    file: lib/POE/Queue/Array.pm
+  POE::Resource:
+    file: lib/POE/Resource.pm
+    version: 1.2
+  POE::Resources:
+    file: lib/POE/Resources.pm
+  POE::Resources::Aliases:
+    file: lib/POE/Resource/Aliases.pm
+    version: 1.7
+  POE::Resources::Events:
+    file: lib/POE/Resource/Events.pm
+    version: 1.4
+  POE::Resources::Extrefs:
+    file: lib/POE/Resource/Extrefs.pm
+    version: 1.5
+  POE::Resources::FileHandles:
+    file: lib/POE/Resource/FileHandles.pm
+    version: 1.6
+  POE::Resources::SIDs:
+    file: lib/POE/Resource/SIDs.pm
+    version: 1.6
+  POE::Resources::Sessions:
+    file: lib/POE/Resource/Sessions.pm
+    version: 1.8
+  POE::Resources::Signals:
+    file: lib/POE/Resource/Signals.pm
+    version: 1.8
+  POE::Session:
+    file: lib/POE/Session.pm
+    version: 1.87
+  POE::Wheel:
+    file: lib/POE/Wheel.pm
+    version: 1.17
+  POE::Wheel::Curses:
+    file: lib/POE/Wheel/Curses.pm
+    version: 1.10
+  POE::Wheel::FollowTail:
+    file: lib/POE/Wheel/FollowTail.pm
+    version: 1.47
+  POE::Wheel::ListenAccept:
+    file: lib/POE/Wheel/ListenAccept.pm
+    version: 1.26
+  POE::Wheel::ReadLine:
+    file: lib/POE/Wheel/ReadLine.pm
+    version: 1.27
+  POE::Wheel::ReadWrite:
+    file: lib/POE/Wheel/ReadWrite.pm
+    version: 1.63
+  POE::Wheel::Run:
+    file: lib/POE/Wheel/Run.pm
+    version: 1.50
+  POE::Wheel::SocketFactory:
+    file: lib/POE/Wheel/SocketFactory.pm
+    version: 1.71
+generated_by: Module::Build version 0.19
