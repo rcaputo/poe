@@ -3782,7 +3782,7 @@ parameters:
   $kernel->alarm( 'do_that', $at_this_time );
 
 To clear existing timed events for 'do_the_other_thing' without
-setting a new alarm:
+setting a new delay:
 
   $kernel->alarm( 'do_the_other_thing' );
 
@@ -3820,7 +3820,8 @@ delay() is a single-shot delayed event.  It first clears all the timed
 events destined for EVENT_NAME in the current session.  If SECONDS is
 included, it will set a new delay for EVENT_NAME to be dispatched
 SECONDS seconds hence, optionally including values from a
-PARAMETER_LIST.
+PARAMETER_LIST.  Please note that delay()ed event are placed on the
+queue and are thus asynchronous.
 
 delay() uses whichever time(2) is available within POE::Kernel.  That
 may be the more accurate Time::HiRes::time(), or perhaps not.
