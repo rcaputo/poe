@@ -179,9 +179,8 @@ sub put {
     $status_line .= " $message";
     push @result, $status_line;
     push @result, $_->headers_as_string("\x0D\x0A"); # network newlines!
-    my $content = $_->content;
-    push @result, $content if defined $content;
-    push @raw, 'HTTP/1.0 ' . join("\x0D\x0A", @result, ""); # network newlines!
+    # network newlines!  Don't touch the content!
+    push @raw, 'HTTP/1.0 ' . join("\x0D\x0A", @result, "") . $_->content;
   }
 
   \@raw;
@@ -301,6 +300,17 @@ Please see the documentation for HTTP::Request and HTTP::Response.
 =head1 PUBLIC FILTER METHODS
 
 Please see POE::Filter.
+
+=head1 Streaming Media
+
+It is perfectly possible to use Filter::HTTPD for streaming output
+media.  Even if it's not possible to change the input filter from
+Filter::HTTPD, by setting the output_filter to Filter::Stream and
+omitting any content in the HTTP::Response object.
+
+  $wheel->put($response); # Without content, it sends just headers.
+  $wheel->set_output_filter(POE::Filter::Stream->new());
+  $wheel->put("Raw content.");
 
 =head1 SEE ALSO
 
