@@ -7,10 +7,8 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
--><- High/low watermark sample by 0.10.  Artur says he has one.
 
-
-0.0905 2000.02.xx
+0.0905 2000.02.20
 -----------------
 
 Changed Wheel::ReadWrite's baaaaad $self to be a listref instead of a
@@ -39,6 +37,8 @@ important for non-blocking connect() otherwise, I added a dummy
 constant for it when POE is running on MSWin32 platforms.  This
 affects POE::Kernel and Wheel::SocketFactory, which should now
 work better on Windows systems.
+
+Added a watermarks test, samples/watermarks.perl.
 
 
 0.0904 2000.02.16

@@ -281,12 +281,13 @@ package functions as states instead of inline code references.
 
 =item *
 
-piong.perl
+poing.perl
 
-This is a quick and dirty multiple-host icmp ping program.  It
-requires two common vt100 escape codes ("\e[2J" to clear the screen
-and "\e[0;0H\" to home the cursor).  It needs to be run by root, since
-it expects to open a raw socket.
+This is a quick and dirty multiple-host icmp ping program.  Actually,
+it's getting better as creatures feep; it may be useful enough to be a
+separate program.  It requires a vt100 or ANSI terminal.  It needs to
+be run by root, since it expects to open a raw socket for ICMP
+pinging.
 
 I thank Russell Mosemann <mose@ccsn.edu> for the Net::Ping module,
 which I "borrowed" heavily from.  Net::Ping is the route of choice if
@@ -413,6 +414,20 @@ thrash.perl will show an abnormally low connections/second rate.
 udp.perl
 
 Udp shows how to use UDP sockets with Kernel::select calls.
+
+=item *
+
+watermarks.perl
+
+This program is a cross between wheels.perl (wheel-based server) and
+selects.perl (chargen service).  It creates a chargen service (on port
+32019) that uses watermark events to pause output when the unflushed
+write buffer reaches about 512 bytes.  It resumes spewing chargen
+output when the client finally reads what's waiting for it.
+
+There currently is no program to act as a slow client for it.  Telnet
+or other raw TCP clients may work, especially if the client is running
+at maximum niceness.
 
 =item *
 
