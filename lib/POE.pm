@@ -7,7 +7,7 @@ use strict;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.1701';
+$VERSION = '0.1702';
 
 sub import {
   my $self = shift;
@@ -58,7 +58,7 @@ __END__
 
 =head1 NAME
 
-POE - perl application kernel with event driven threads
+POE - multitasking and networking with perl
 
 =head1 SYNOPSIS
 
@@ -67,12 +67,6 @@ POE - perl application kernel with event driven threads
 
   # Use POE!
   use POE;
-
-  # Every session must handle a special event, _start.  It's used to
-  # tell the session that it has been successfully instantiated.
-  # $_[KERNEL] is a reference to the program's global POE::Kernel
-  # instance; $_[HEAP] is the session's local storage; $_[SESSION] is
-  # a reference to the session itself.
 
   sub handler_start {
     my ($kernel, $heap, $session) = @_[KERNEL, HEAP, SESSION];
@@ -87,17 +81,9 @@ POE - perl application kernel with event driven threads
     $kernel->yield('increment') if $heap->{count} < 10;
   }
 
-  # The _stop event is special but, handling it is not required.  It's
-  # used to tell a session that it's about to be destroyed.  _stop
-  # handlers perform shutdown things like resource cleanup or
-  # termination logging.
-
   sub handler_stop {
     print "Session ", $_[SESSION]->ID, " has stopped.\n";
   }
-
-  # Start ten sessions.  POE::Session constructors map event names to
-  # the code that handles them.
 
   for (0..9) {
     POE::Session->create(
@@ -108,8 +94,6 @@ POE - perl application kernel with event driven threads
         }
     );
   }
-
-  # Start the kernel, which will run as long as there are sessions.
 
   $poe_kernel->run();
   exit;
@@ -122,16 +106,19 @@ documentation.
 Please see the samples directory in POE's distribution for several
 well-commented sample and tutorial programs.
 
-Please see <http://www.perl.com/pub/2001/01/poe.html> for an
-excellent, and more importantly: gradual, introduction to POE.  If
-this manpage doesn't make sense, perhaps the introduction will.
+Please see http://www.perl.com/pub/2001/01/poe.html for an excellent,
+and more importantly: gradual, introduction to POE.  If this manpage
+doesn't make sense, perhaps the introduction will.
+
+Please see POE's web site at http://poe.perl.org/ for FAQs, cookbook
+examples, and modules using POE.
 
 =head1 DESCRIPTION
 
-POE is an acronym of "Persistent Object Environment".  It originally
-was designed as the core of a persistent object server and runtime
-environment, but it's evolved into a general purpose application (as
-opposed to system) kernel.
+POE is an acronym of "Perl Object Environment".  It originally was
+designed as the core of a persistent object server and runtime
+environment, but it's evolved into a general purpose multitasking and
+networking framework.
 
 POE's core contains two types of module.  First there's POE::Kernel;
 this is the main resource manager and event loop.  Second are the
@@ -375,11 +362,15 @@ things.  This should be true for any library, though.
 
 =over 2
 
+=item POE::Component::Client::TCP
+
+The Client::TCP component provides the most common core features for
+writing TCP clients.
+
 =item POE::Component::Server::TCP
 
-This is a thin wrapper around POE::Wheel::SocketFactory.  It provides
-the core of a very simple TCP server and is customized by giving it
-coderefs to execute when connections arrive or errors occur.
+The Server::TCP component provides the most common core features for
+writing TCP servers.  A simple echo server is about 20 lines.
 
 =head1 Support Modules
 
@@ -427,7 +418,7 @@ and at least one unspecified version of Windows.  As far as anyone can
 tell, nobody ever has tried it on any version of MacOS.
 
 POE has been tested with Perl versions as far back as 5.004_03 and as
-recent as 5.6.0.  The CPAN testers are a wonderful bunch of people who
+recent as 5.7.2.  The CPAN testers are a wonderful bunch of people who
 have dedicated resources to running new modules on a variety of
 platforms.  The latest POE tests are visible at
 <http://testers.cpan.org/search?request=dist&dist=POE>.  Thanks,
@@ -454,40 +445,42 @@ No known problems.  POE has no OS/2 tester starting with version
 Windows support lapsed between version 0.0806 and 0.0903 when Sean
 Puckett ran out of time to pursue it and Douglas Couch found time for
 it.  Douglas now maintains POE's Windows code, as well as the
-ActiveState PPM and HTML documentation available at
-<http://poe.sourceforge.net/>.
+ActiveState PPM and HTML documentation at http://poe.sourceforge.net/
+
+Windows support is still flaky as of POE 0.1702, partly because of a
+bug in ActivePerl 5.6.1.630.  Build 631 (unreleased at the time of
+this writing) should help considerably.
 
 =item MacOS
 
-I have heard rumors from MacOS users that POE might work with MacPerl,
-but so far nobody has stepped forward with an actual status report.
-I'd be happy to hear either way.
+POE generally works with MacOS/X, but it fails some tests.  Resolving
+these failures depends on SourceForge bringing their MacOS/X machines
+back online.
+
+MacOS pre-X seems like a lost cause unless someone steps forward as a
+tester and/or porter to that platform.
 
 =back
 
 =head1 SYSTEM REQUIREMENTS
 
-POE's module recommendations have been codified as part of the `make
-test' procedure.  Any missing dependencies will be reported on, and
-POE will refuse to test itself if critical modules aren't found.
+POE requires Filter::Util::Call version 1.18 or newer.  All the other
+modules are optional.
 
 Some of POE's sample programs use fork().  They won't work wherever
 fork() isn't available; sorry.
 
 POE relies heavily on constants in the POSIX module.  Some of the
-constants aren't defined by ActiveState Perl for Windows, but POE
-defines them itself to work around this.
-
-POE::Preprocessor needs Filter::Util::Call version 1.18 or later for
-source filtering.  Everything else relies on POE::Preprocessor.
+constants aren't defined on some platforms.  POE works around this as
+best it can.
 
 Some of POE's sample programs require a recent IO bundle, but you get
 that for free with recent versions of Perl.
 
-Filter::Reference needs Storable or FreezeThaw or some other data
-freezer/thawer package.  Storable tends to be the fastest, and so it's
-preferred.  Compress::Zlib is needed if you want to compress frozen
-data.
+If you want to use Filter::Reference to serialize data for
+transporting over a network, you will need Storable, FreezeThaw, or
+some other freezer/thawer package installed.  If you want your data to
+be shipped compressed, you will also need Compress::Zlib.
 
 B<Important Filter::Reference note:> If you're using Filter::Reference
 to pass data to another machine, make sure every machine has the same
@@ -498,7 +491,9 @@ upgrade to the latest versions.
 
 Filter::HTTPD uses a small world of modules including HTTP::Status;
 HTTP::Request; HTTP::Date and URI::URL.  The httpd.perl sample program
-uses Filter::HTTPD, which uses all that other stuff.
+uses Filter::HTTPD, which uses all that other stuff.  If you want to
+write web servers, you'll need to install libwww-perl, which requires
+libnet.
 
 Wheel::Curses requires the Curses module, which in turn requires some
 sort of curses library.
@@ -525,13 +520,13 @@ All forms of feedback are welcome.
 =item The POE Web Site
 
 POE has a web site where the latest development snapshot, along with
-the Changes file and other stuff may be found: <http://poe.perl.org/>
+the Changes file and other stuff may be found: http://poe.perl.org/
 
 =item SourceForge
 
 POE's development has moved to SourceForge as an experiment in project
 management.  You can reach POE's project summary page at
-<http://sourceforge.net/projects/poe/>.
+http://sourceforge.net/projects/poe/
 
 =back
 
@@ -582,7 +577,7 @@ force them to.
 
 =head2 I/O Layer
 
-These modules comprise POE's "Wheels" I/O abstraction.
+These modules comprise POE's default I/O abstraction.
 
 =over 2
 
@@ -702,6 +697,11 @@ universally useful.
 The POE::Component manpage discusses what components are and why they
 exist.
 
+=item POE::Component::Client::TCP
+
+The TCP client component explains how to create TCP clients quickly
+and easily.
+
 =item POE::Component::Server::TCP
 
 The TCP server component explains how to create TCP servers with a
@@ -737,19 +737,19 @@ constants, and macro substitutions in perl programs.
 =head1 BUGS
 
 The t/*.t tests only cover about 70% of POE.  The latest numbers are
-in the README file.
+on POE's web site.
 
 =head1 AUTHORS & COPYRIGHT
 
-POE is the combined effort of more people than I can remember
-sometimes.  If I've forgotten someone, please let me know.
+POE is the combined effort of several people.  If someone is missing
+from this list, please let Rocco know.
 
 =over 2
 
 =item Ann Barcomb
 
 Ann Barcomb is <kudra@domaintje.com>, aka C<kudra>.  Ann contributed
-large portions of poesimple and the code that became the ReadWrite
+large portions of POE::Simple and the code that became the ReadWrite
 support in POE::Component::Server::TCP.  Her ideas were also used in
 the Client::TCP component introduced in version 0.1702.
 
@@ -771,8 +771,7 @@ moment.  This project has far-reaching implications for POE's future.
 
 Jos Boumans is <boumans@frg.eur.nl>, aka C<Co-Kane>.  Jos is a major
 driving force behind the POE::Simple movement and is one of the POE
-idea fairies.  Jos is almost always available on IRC for the wizards
-to bounce ideas off or for a fresh perspective.
+idea fairies.  Jos is working with Ann on POE::Simple.
 
 =item Matt Cashner
 
@@ -787,14 +786,15 @@ and features back into the distribution for everyone's enjoyment.
 
 =item Andrew Chen
 
-Andrew Chen is <achen-poe@micropixel.com>.  Andrew contributes much
-needed testing for Solaris on the SPARC and Windows 2000 platforms.
+Andrew Chen is <achen-poe@micropixel.com>.  Andrew is the resident
+POE/Windows guru.  He contributes much needed testing for Solaris on
+the SPARC and Windows on various Intel platforms.
 
 =item Douglas Couch
 
-Douglas Couch is <dscouch@purdue.edu>.  Douglas maintains POE for
-Windows, as well as the latest PPM and online documentation at
-<http://poe.sourceforge.net/>.  Rockin'!
+Douglas Couch is <dscouch@purdue.edu>.  Douglas maintains POE's PPD
+for Windows as well as up-to-date online documentation at
+http://poe.sourceforge.net/
 
 =item Jeffrey Goff
 
@@ -807,8 +807,7 @@ Beginner's Introduction to POE" at www.perl.com.
 
 Philip Gwyn is <gwynp@artware.qc.ca>.  He extended the Wheels I/O
 abstraction to support hot-swappable filters, and he eventually
-convinced me of the utility of unique session and kernel IDs.  They
-rock, by the way, and I'm sorry I didn't apply his patches sooner.
+convinced Rocco that unique session and kernel IDs were a good thing.
 
 Philip also enhanced Filter::Reference to support different
 serialization methods.  His intangible contributions include the
@@ -819,7 +818,7 @@ and a thorough code review around version 0.06.
 
 Arnar is <addi@umich.edu>.  Addi tested POE and POE::Component::IRC on
 Windows, finding bugs and testing fixes.  He appears throughout the
-CHANGES file.
+Changes file.
 
 =item Dave Paris
 
@@ -827,8 +826,8 @@ Dave Paris is <dparis@w3works.com>.  Dave tested and benchmarked POE
 around version 0.05, discovering some subtle (and not so subtle)
 timing problems.  The pre-forking server sample was his idea.
 Versions 0.06 and later should scale to higher loads because of his
-work.  His intangible contributions include lots of testing and
-feedback, much of which is tagged in the Changes file as a-mused.
+work.  He has contributed a lot of testing and feedback, much of which
+is tagged in the Changes file as a-mused.
 
 And I do mean *lots* of testing.  I go and announce a new development
 version, and he's, like, "All tests passed!" just a few minutes later.
@@ -838,9 +837,10 @@ often fixes them.  The man's scarily good.
 =item Dieter Pearcey
 
 Dieter Pearcey is <dieter@bullfrog.perlhacker.org>.  He goes by
-several Japanese nicknames.  Dieter patched Wheel::FollowTail to be
-more useful.  His Filter contributions include the basic Block filter,
-as well as Stackable, RecordBlock, Grep and Map.
+several Japanese nicknames.  Dieter's current area of expertise is in
+Wheels and Filters.  He greatly improved Wheel::FollowTail, and his
+Filter contributions include the basic Block filter, as well as
+Stackable, RecordBlock, Grep and Map.
 
 =item Robert Seifer
 
@@ -852,8 +852,6 @@ computers, towards the detection and eradication of a memory
 corruption bug that POE tickled in earlier Perl versions.  In the end,
 his work produced a simple compile-time hack that worked around a
 problem relating to anonymous subs, scope and @{} processing.
-
-In short, he squashed a coredump with a reliable work-around.
 
 =item Richard Soderberg
 
@@ -880,9 +878,9 @@ Please contact the author if you've been forgotten.
 
 =item Rocco Caputo
 
-Rocco Caputo is <troc+poe@netrus.net>.  POE is his brainchild.
+Rocco Caputo is <rcaputo@cpan.org>.  POE is his brainchild.
 
-Except where otherwise noted, POE is Copyright 1998-2001 Rocco Caputo.
+Except where otherwise noted, POE is Copyright 1998-2002 Rocco Caputo.
 All rights reserved.  POE is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 
