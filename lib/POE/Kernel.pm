@@ -851,22 +851,25 @@ sub _dispatch_event {
     _warn("<ev> event $seq ``$event'' returns ($string_ret)\n");
   }
 
-  # Post-dispatch processing.  This is a user event (but not a call),
-  # so garbage collect it.  Also garbage collect the sender, if
-  # needed.  Avoid collecting garbage on the source session if it's
-  # already died somewhere else.  -><- I'm not sure that's the best
-  # solution; a better one might avoid the double free situation
-  # altogether.
-
-  # Maybe we should defer all garbage collection until the current
-  # event handler returns.  That may simplify a lot of things; just
-  # touch the ones that need to be GC'd and then run through them all
-  # at once.  No, probably not, since GC triggers _stop, which may
-  # trigger other GC. -><-
-
-  # Need to test $session for existence because POE::NFA->stop() may
-  # have discarded it already.  -><- This is rapidly becoming a
-  # mess, and some sort of mark/sweep may clean it up.
+  # Post-dispatch processing.
+  #
+  # If this invocation is a user event, see if the destination session
+  # needs to be garbage collected.  Also check the source session if
+  # it's different from the destination.
+  #
+  # If the invocation is a call, and the destination session is
+  # different from the calling one, test it for garbage collection.
+  # We avoid testing if the source and destination are the same
+  # because at some point we'll hit a user event that will catch it.
+  #
+  # -><- We test whether the sessions exist.  They should, but we've
+  # been getting double-free errors lately.  I think we should avoid
+  # the double free some other way, but this is the most expedient
+  # method.
+  #
+  # -><- It turns out that POE::NFA->stop() may have discarded
+  # sessions already, so we need to do the GC test anyway.  Maybe some
+  # sort of mark-and-sweep can avoid redundant tests.
 
   if ($type & ET_USER) {
     $self->_data_ses_collect_garbage($session)
@@ -875,6 +878,10 @@ sub _dispatch_event {
       if ( $session != $source_session and
            $self->_data_ses_exists($source_session)
          );
+  }
+  elsif ($type & ET_CALL and $source_session != $session) {
+    $self->_data_ses_collect_garbage($session)
+      if $self->_data_ses_exists($session);
   }
 
   # A new session has started.  Tell its parent.  Incidental _start
