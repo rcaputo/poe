@@ -18,6 +18,7 @@ POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
 tests/followtail.perl
 tests/forkbomb.perl
+tests/names.perl
 tests/objsessions.perl
 tests/proxy.perl
 tests/selects.perl
