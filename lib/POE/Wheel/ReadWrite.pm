@@ -486,27 +486,27 @@ POE::Wheel::ReadWrite - buffered non-blocking I/O
 
 =head1 SYNOPSIS
 
-  $wheel = new POE::Wheel::ReadWrite(
+  $wheel = POE::Wheel::ReadWrite->new(
 
     # To read and write from the same handle, such as a socket, use
     # the Handle parameter:
-    Handle       => $file_or_socket_handle,       # Handle to read/write
+    Handle       => $file_or_socket_handle,  # Handle to read/write
 
     # To read and write from different handles, such as a dual pipe to
     # a child process, or a console, use InputHandle and OutputHandle:
-    InputHandle  => $readable_filehandle,         # Handle to read
-    OutputHandle => $writable_filehandle,         # Handle to write
+    InputHandle  => $readable_filehandle,    # Handle to read
+    OutputHandle => $writable_filehandle,    # Handle to write
 
-    Driver       => new POE::Driver::Something(), # How to read/write it
+    Driver       => POE::Driver::Something->new(), # How to read/write it
 
     # To read and write using the same line discipline, such as
     # Filter::Line, use the Filter parameter:
-    Filter       => new POE::Filter::Something(), # How to parse in and out
+    Filter       => POE::Filter::Something->new(), # How to parse in and out
 
     # To read and write using different line disciplines, such as
     # stream out and line in:
-    InputFilter  => new POE::Filter::Something(),     # Read data one way
-    OUtputFilter => new POE::Filter::SomethingElse(), # Write data another
+    InputFilter  => POE::Filter::Something->new(),     # Read data one way
+    OUtputFilter => POE::Filter::SomethingElse->new(), # Write data another
 
     InputState   => $input_state_name,  # Input received state
     FlushedState => $flush_state_name,  # Output flushed state
@@ -524,11 +524,11 @@ POE::Wheel::ReadWrite - buffered non-blocking I/O
   $wheel->event( ... );
 
   # To set both the input and output filters at once:
-  $wheel->set_filter( new POE::Filter::Something );
+  $wheel->set_filter( POE::Filter::Something->new() );
 
   # To set an input filter or an output filter:
-  $wheel->set_input_filter( new POE::Filter::Something );
-  $wheel->set_output_filter( new POE::Filter::Something );
+  $wheel->set_input_filter( POE::Filter::Something->new() );
+  $wheel->set_output_filter( POE::Filter::Something->new() );
 
   # To alter the high or low water marks:
   $wheel->set_high_mark( $new_high_mark_octets );
@@ -549,7 +549,7 @@ been read or flushed.
 
 =head1 PUBLIC METHODS
 
-=over 4
+=over 2
 
 =item put LISTREF_OF_RECORDS
 
@@ -608,7 +608,7 @@ match events with the wheels which generated them.
 
 =head1 EVENTS AND PARAMETERS
 
-=over 4
+=over 2
 
 =item InputState
 

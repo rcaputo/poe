@@ -23,7 +23,7 @@ POE::Driver - an abstract file driver
 
 =head1 SYNOPSIS
 
-  $driver = new POE::Driver::Something();
+  $driver = POE::Driver::Something->new();
   $arrayref_of_data_chunks = $driver->get($filehandle);
   $queue_octets = $driver->put($arrayref_of_data_chunks);
   $queue_octets = $driver->flush($filehandle);
@@ -40,7 +40,7 @@ needing to know the details for doing so.
 These methods are the generic Driver interface, and every driver must
 implement them.  Specific drivers may have additional methods.
 
-=over 4
+=over 2
 
 =item new
 

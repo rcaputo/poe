@@ -158,7 +158,7 @@ POE::Filter::Reference - freeze data for sending; thaw data when it arrives
 
 =head1 SYNOPSIS
 
-  $filter = new POE::Filter::Reference();
+  $filter = POE::Filter::Reference->new();
   $arrayref_of_perl_references =
     $filter->get($arrayref_of_raw_chunks_from_driver);
   $arrayref_of_serialized_perl_references =
@@ -173,7 +173,7 @@ between processes and systems.
 
 =head1 PUBLIC FILTER METHODS
 
-=over 4
+=over 2
 
 =item new SERIALIZER, COMPRESSION
 
@@ -200,27 +200,25 @@ have a thaw() function as well as etither an nfreeze() or a freeze()
 function.
 
   # Use Storable explicitly, specified by package name.
-  my $filter = new POE::Filter::Reference('Storable');
+  my $filter = POE::Filter::Reference->new('Storable');
 
 If SERIALIZER is an object reference, it's assumed to have a thaw()
 method as well as either an nfreeze() or freeze() method.
 
   # Use an object.
-  my $filter = new POE::Filter::Reference($object);
+  my $filter = POE::Filter::Reference->new($object);
 
 If SERIALIZER is omitted or undef, the Reference filter will try to
 use Storable.  If storable isn't found, it will try FreezeThaw.  And
 finally, if FreezeThaw is not found, it will die.
 
   # Use the default filter (either Storable or FreezeThaw).
-  my $filter = new POE::Filter::Reference();
+  my $filter = POE::Filter::Reference->new();
 
 Filter::Reference will try to compress frozen strings and uncompress
 them before thawing if COMPRESSION is true.  It uses Compress::Zlib
 for this, but it works fine even without Zlib as long as COMPRESSION
 is false.
-
--><-
 
 An object serializer must have a thaw() method.  It also must have
 either a freeze() or nfreeze() method.  If it has both freeze() and
@@ -237,13 +235,13 @@ naming a serializer.
 For example:
 
   # Use the default filter (either Storable or FreezeThaw).
-  my $filter = new POE::Filter::Reference();
+  my $filter = POE::Filter::Reference->new();
 
   # Use an object, with compression.
-  my $filter = new POE::Filter::Reference($object, 1);
+  my $filter = POE::Filter::Reference->new($object, 1);
 
   # Use the default serializer, with compression.
-  my $filter = new POE::Filter::Reference(undef, 1);
+  my $filter = POE::Filter::Reference->new(undef, 1);
 
 The new() method will try to require any packages it needs.
 

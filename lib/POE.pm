@@ -589,7 +589,7 @@ force them to.
 
 These modules comprise POE's "Wheels" I/O abstraction.
 
-=over
+=over 2
 
 =item POE::Driver
 
@@ -704,31 +704,6 @@ constants, and macro substitutions in perl programs.
 
 The t/*.t tests only cover about 70% of POE.  The latest numbers are
 in the README file.
-
-The documentation is in the process of another revision.  Here is a
-progress report:
-
-  POE                          revised 2000.12.19; rewritten 2000.05.15
-  README                       queued; rewritten 2000.05.16
-  POE::Kernel                  queued; rewritten 2000.05.19
-  POE::Session                 queued; rewritten 2000.05.21
-  POE::Wheel                   queued; rewritten 2000.05.22
-  POE::Preprocessor            queued; revised   2000.05.23
-
-  POE::Component               queued
-  POE::Component::Server::TCP  queued
-  POE::Driver                  queued
-  POE::Driver::SysRW           queued
-  POE::Filter                  queued
-  POE::Filter::Block           queued
-  POE::Filter::HTTPD           queued
-  POE::Filter::Line            queued
-  POE::Filter::Reference       queued
-  POE::Filter::Stream          queued
-  POE::Wheel::FollowTail       queued
-  POE::Wheel::ListenAccept     queued
-  POE::Wheel::ReadWrite        queued
-  POE::Wheel::SocketFactory    queued
 
 =head1 AUTHORS & COPYRIGHT
 

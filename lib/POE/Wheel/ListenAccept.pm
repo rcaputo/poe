@@ -137,7 +137,7 @@ POE::Wheel::ListenAccept - accept connections from regular listening sockets
 
 =head1 SYNOPSIS
 
-  $wheel = new POE::Wheel::ListenAccept(
+  $wheel = POE::Wheel::ListenAccept->new(
     Handle      => $socket_handle,      # Listening socket
     AcceptState => $accept_state_name,  # Success state
     ErrorState  => $error_state_name,   # Failure state
@@ -161,7 +161,7 @@ This wheel neither needs nor includes a put() method.
 
 =head1 PUBLIC METHODS
 
-=over 4
+=over 2
 
 =item event EVENT_TYPE => EVENT_NAME, ...
 
@@ -182,7 +182,7 @@ match events with the wheels which generated them.
 These are the event types this wheel emits and the parameters which
 are included with each.
 
-=over 4
+=over 2
 
 =item AcceptState
 

@@ -37,7 +37,7 @@ POE::Wheel - high-level protocol logic
 
 =head1 SYNOPSIS
 
-  $wheel = new POE::Wheel::Something( ... );
+  $wheel = POE::Wheel::Something->new( ... );
   $wheel->put($some_logical_data_chunks);
 
 =head1 DESCRIPTION

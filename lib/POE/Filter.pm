@@ -23,7 +23,7 @@ POE::Filter - a protocol abstraction
 
 =head1 SYNOPSIS
 
-  $filter = new POE::Filter::Something();
+  $filter = POE::Filter::Something->new();
   $arrayref_of_logical_chunks =
     $filter->get($arrayref_of_raw_chunks_from_driver);
   $arrayref_of_streamable_chunks_for_driver =
@@ -43,7 +43,7 @@ business of using lines.
 These methods are the generic Filter interface, and every filter must
 implement them.  Specific filters may have additional methods.
 
-=over 4
+=over 2
 
 =item new
 

@@ -43,7 +43,7 @@ POE::Filter::Stream - pass through data unchanged (a do-nothing filter)
 
 =head1 SYNOPSIS
 
-  $filter = new POE::Filter::Stream();
+  $filter = POE::Filter::Stream->new();
   $arrayref_of_logical_chunks =
     $filter->get($arrayref_of_raw_chunks_from_driver);
   $arrayref_of_streamable_chunks_for_driver =

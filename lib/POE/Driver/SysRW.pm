@@ -131,7 +131,7 @@ POE::Driver::SysRW - an abstract sysread/syswrite file driver
 
 =head1 SYNOPSIS
 
-  $driver = new POE::Driver::SysRW();
+  $driver = POE::Driver::SysRW->new();
   $arrayref_of_data_chunks = $driver->get($filehandle);
   $queue_octets = $driver->put($arrayref_of_data_chunks);
   $queue_octets = $driver->flush($filehandle);
@@ -143,7 +143,7 @@ This driver implements an abstract interface to sysread and syswrite.
 
 =head1 PUBLIC METHODS
 
-=over 4
+=over 2
 
 =item new BlockSize => $block_size
 

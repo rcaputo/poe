@@ -713,7 +713,7 @@ __END__
 
 =head1 NAME
 
-POE::Session - a cooperatively threaded abstract state machine
+POE::Session - an event driven abstract state machine
 
 =head1 SYNOPSIS
 
@@ -1177,7 +1177,7 @@ using the first form.
 
 =back
 
-=head1 Predefined Event Fields
+=head1 PREDEFINED EVENT FIELDS
 
 Each session maintains its unique runtime context.  Sessions pass
 their contexts on to their states through a series of standard
@@ -1323,15 +1323,7 @@ by almost anything.
 
 =back
 
-###############################################################################
-###############################################################################
-###############################################################################
-##### AM HERE ### AM HERE ### AM HERE ### AM HERE ### AM HERE ### AM HERE #####
-###############################################################################
-###############################################################################
-###############################################################################
-
-=head1 Predefined Event Names
+=head1 PREDEFINED EVENT NAMES
 
 POE contains helpers which, in order to help, need to emit predefined
 events.  These events all being with a single leading underscore, and
@@ -1485,6 +1477,8 @@ releasing custom resources and breaking circular references so that
 Perl's garbage collection will properly destroy things.
 
 =back
+
+=head1 MISCELLANEOUS CONCEPTS
 
 =head2 States' Return Values
 

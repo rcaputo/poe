@@ -113,7 +113,7 @@ POE::Filter::Block - filter between streams and blocks
 
 =head1 SYNOPSIS
 
-  $filter = new POE::Filter::Block( BlockSize => 1024 );
+  $filter = POE::Filter::Block->new( BlockSize => 1024 );
   $arrayref_of_blocks =
     $filter->get($arrayref_of_raw_chunks_from_driver);
   $arrayref_of_streamable_chunks_for_driver =

@@ -106,7 +106,7 @@ POE::Component::Server::TCP - a simplified TCP server
     # possibly shut down the server
   }
 
-  new POE::Component::Server::TCP
+  POE::Component::Server::TCP->new
     ( Port     => $bind_port,
       Acceptor => \&accept_handler,
       Error    => \&error_handler,  # Optional.

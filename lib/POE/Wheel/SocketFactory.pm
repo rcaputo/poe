@@ -808,7 +808,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   use Socket; # For the constants
 
   # Listening Unix domain socket.
-  $wheel = new POE::Wheel::SocketFactory(
+  $wheel = POE::Wheel::SocketFactory->new(
     SocketDomain => AF_UNIX,               # Sets the socket() domain
     BindAddress  => $unix_socket_address,  # Sets the bind() address
     SuccessState => $success_state,        # State to call upon accept()
@@ -818,7 +818,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   );
 
   # Connecting Unix domain socket.
-  $wheel = new POE::Wheel::SocketFactory(
+  $wheel = POE::Wheel::SocketFactory->new(
     SocketDomain  => AF_UNIX,              # Sets the socket() domain
     RemoteAddress => $unix_server_address, # Sets the connect() address
     SuccessState  => $success_state,       # State to call on connection
@@ -830,7 +830,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   );
 
   # Listening Internet domain socket.
-  $wheel = new POE::Wheel::SocketFactory(
+  $wheel = POE::Wheel::SocketFactory->new(
     BindAddress    => $inet_address,       # Sets the bind() address
     BindPort       => $inet_port,          # Sets the bind() port
     SuccessState   => $success_state,      # State to call upon accept()
@@ -844,7 +844,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   );
 
   # Connecting Internet domain socket.
-  $wheel = new POE::Wheel::SocketFactory(
+  $wheel = POE::Wheel::SocketFactory->new(
     RemoteAddress  => $inet_address,       # Sets the connect() address
     RemotePort     => $inet_port,          # Sets the connect() port
     SuccessState   => $success_state,      # State to call on connection
@@ -1009,7 +1009,7 @@ match events with the wheels which generated them.
 
 =head1 EVENTS AND PARAMETERS
 
-=over 4
+=over 2
 
 =item SuccessState
 

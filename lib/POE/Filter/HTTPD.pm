@@ -212,7 +212,7 @@ POE::Filter::HTTPD - convert stream to HTTP::Request; HTTP::Response to stream
 
 =head1 SYNOPSIS
 
-  $httpd = new POE::Filter::HTTPD();
+  $httpd = POE::Filter::HTTPD->new();
   $arrayref_with_http_response_as_string =
     $httpd->put($full_http_response_object);
   $arrayref_with_http_request_object =

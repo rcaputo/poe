@@ -258,10 +258,10 @@ POE::Wheel::FollowTail - follow the tail of an ever-growing file
 
 =head1 SYNOPSIS
 
-  $wheel = new POE::Wheel::FollowTail(
-    Handle       => $file_handle,                 # File to tail
-    Driver       => new POE::Driver::Something(), # How to read it
-    Filter       => new POE::Filter::Something(), # How to parse it
+  $wheel = POE::Wheel::FollowTail->new(
+    Handle       => $file_handle,                  # File to tail
+    Driver       => POE::Driver::Something->new(), # How to read it
+    Filter       => POE::Filter::Something->new(), # How to parse it
     PollInterval => 1,                  # How often to check it
     InputState   => $input_event_name,  # State to call upon input
     ErrorState   => $error_event_name,  # State to call upon error
@@ -278,7 +278,7 @@ This is a read-only wheel so it does not include a put() method.
 
 =head1 PUBLIC METHODS
 
-=over 4
+=over 2
 
 =item event EVENT_TYPE => EVENT_NAME, ...
 
@@ -296,7 +296,7 @@ match events with the wheels which generated them.
 
 =head1 EVENTS AND PARAMETERS
 
-=over 4
+=over 2
 
 =item PollInterval
 
