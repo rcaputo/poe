@@ -153,7 +153,10 @@ POE::Session - a state machine, driven by C<POE::Kernel>
 
   new POE::Session(
     $kernel,
-    $blessed_object, \@array_of_methods
+    $object, \@methods,
+    'state' => \&handler,
+    $object_2, \@methods_2,
+    'state2' => \&handler_2,
   );
 
 =head1 DESCRIPTION
@@ -183,9 +186,18 @@ C<$kernel>.
 Normal events/states are named after C<$name>, and handled by CODE
 references in C<$handler>.
 
-If C<$name> is a blessed object reference, then C<$handler> is
-expected to be a reference to an array of object methods that are used
-as handlers.
+Then there is the C<$object>, C<\@methods> format.  C<$object> is a
+blessed object, and C<\@methods> is a list of events that the object
+will handle.  Methods are named after their corresponding events.
+When using this syntax, remember that Perl's "=> operator stringifies
+its left operand.
+
+The Session will hold a copy of the C<$object> reference for each
+registered method.  These references will be freed when the Session
+exits, and the referenced C<$object> should be garbage collected at
+that time.  The references are also freed when handlers are
+deallocated, and deallocating the last handler in an object will free
+that object before the Session is destroyed.
 
 C<new(...)> returns a reference to the new Session, which should be
 discarded promptly since the C<$kernel> will maintain it.  Keeping
