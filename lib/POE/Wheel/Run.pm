@@ -760,12 +760,12 @@ POE::Wheel::Run - event driven fork/exec with added value
     # Set StdinFilter and StdoutFilter together.
     StdioFilter => POE::Filter::Line->new(),    # Or some other filter.
 
-    # Optionally specify different I/O methods.
+    # Specify different I/O methods.
     StdinDriver  => POE::Driver::SysRW->new(),  # Defaults to SysRW.
     StdoutDriver => POE::Driver::SysRW->new(),  # Same.
     StderrDriver => POE::Driver::SysRW->new(),  # Same.
 
-    # Optionally specify both StdinDriver and StdoutDriver together.
+    # Set StdinDriver and StdoutDriver together.
     StdioDriver  => POE::Driver::SysRW->new(),
   );
 
