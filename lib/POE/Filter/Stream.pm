@@ -39,7 +39,7 @@ __END__
 
 =head1 NAME
 
-POE::Filter::Stream - POE Stream (Null) Protocol Abstraction
+POE::Filter::Stream - pass through data unchanged (a do-nothing filter)
 
 =head1 SYNOPSIS
 

@@ -19,7 +19,7 @@ __END__
 
 =head1 NAME
 
-POE::Driver - POE Read/Write Abstraction
+POE::Driver - an abstract file driver
 
 =head1 SYNOPSIS
 
@@ -31,68 +31,51 @@ POE::Driver - POE Read/Write Abstraction
 
 =head1 DESCRIPTION
 
-Drivers provide a generic interface for low-level file I/O.  Wheels
-use this interface to read and write files, sockets, and things,
-without having to know the details for each.
-
-In theory, drivers should be pretty much interchangeable.  In
-practice, there seems to be an impermeable barrier between the
-different SOCK_* types.
+Drivers implement generic interfaces to low-level file I/O.  Wheels
+use them to read and write files, sockets, and other things without
+needing to know the details for doing so.
 
 =head1 PUBLIC DRIVER METHODS
 
-These methods are the generic Driver interface.  Specific drivers may
-have additional methods.
+These methods are the generic Driver interface, and every driver must
+implement them.  Specific drivers may have additional methods.
 
 =over 4
 
-=item *
+=item new
 
-POE::Driver::new()
+new() creates and initializes a new driver.  Specific drivers may have
+different constructor parameters.
 
-The new() method creates and initializes a new driver.  Specific
-drivers may have different constructor parameters.
+=item get FILEHANDLE
 
-=item *
+get() immediately tries to read information from a filehandle.  It
+returns a reference to an array containing whatever it managed to
+read, or an empty array if nothing could be read.  It returns undef on
+error, and $! will be set.
 
-POE::Driver::get($filehandle)
+The arrayref get() returns is suitable for passing to any
+POE::Filter's get() method.  This is exactly what the ReadWrite wheel
+does with it.
 
-The get() method immediately tries to read information from a
-filehandle.  It returns a reference to an array of received data
-chunks.  The array may be empty if nothing could be read.  The array
-reference it returns is a suitable parameter to POE::Filter::get().
+=item put ARRAYREF
 
-get() returns undef on an error.
+put() places raw data chunks into the driver's output queue.  it
+accepts a reference to a list of raw data chunks, and it returns the
+number of octets remaining in its output queue.
 
-Wheels usually call the get() method from their read select states.
+Some drivers may flush data immediately from their put() methods.
 
-=item *
+=item flush FILEHANDLE
 
-POE::Driver::put($arrayref_of_data_chunks)
+flush() attempts to flush some data from the driver's output queue to
+the FILEHANDLE.  It returns the number of octets remaining in the
+output queue after the flush attempt.
 
-The put() method places raw data into the driver's output queue.  Some
-drivers may flush data from the put() method.  It accepts a reference
-to an array of writable chunks, and it returns the number of octets in
-its output queue.
+=item get_out_messages_buffered
 
-Wheels usually call the put() method from their own put() methods.
-
-=item *
-
-POE::Driver::flush($filehandle)
-
-The flush() method attempts to flush some data from the driver's
-output queue to the file.  It returns the number of octets remaining
-in the output queue after the flush.
-
-Wheels usually call the flush() method from their write select states.
-
-=item *
-
-POE::Driver::get_out_messages_buffered()
-
-Returns the number of messages in the driver's output buffer.  If the
-top message is partially flushed, it is still counted as a full one.
+This data accessor returns the number of messages in the driver's
+output queue.  Partial messages are counted as whole ones.
 
 =back
 
@@ -104,6 +87,10 @@ the entire POE distribution.
 =head1 BUGS
 
 There is no POE::Driver::SendRecv, but nobody has needed one so far.
+
+In theory, drivers should be pretty much interchangeable.  In
+practice, there seems to be an impermeable barrier between the
+different SOCK_* types.
 
 =head1 AUTHORS & COPYRIGHTS
 

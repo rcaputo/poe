@@ -208,7 +208,7 @@ __END__
 
 =head1 NAME
 
-POE::Filter::HTTPD - POE HTTP 1.0 (Server Side) Protocol Abstraction
+POE::Filter::HTTPD - convert stream to HTTP::Request; HTTP::Response to stream
 
 =head1 SYNOPSIS
 
@@ -221,8 +221,8 @@ POE::Filter::HTTPD - POE HTTP 1.0 (Server Side) Protocol Abstraction
 =head1 DESCRIPTION
 
 The HTTPD filter parses the first HTTP 1.0 request from an incoming
-stream into an HTTP::Request object.  It accepts a single
-HTTP::Response object, and returns a HTTP 1.0 stream for sending.
+stream into an HTTP::Request object.  To send a response, give its
+put() method a HTTP::Response object.
 
 Please see the documentation for HTTP::Request and HTTP::Response.
 

@@ -224,7 +224,7 @@ __END__
 
 =head1 NAME
 
-POE::Filter::Line - POE Line Protocol Abstraction
+POE::Filter::Line - filter data as lines
 
 =head1 SYNOPSIS
 
@@ -238,40 +238,47 @@ POE::Filter::Line - POE Line Protocol Abstraction
   $arrayref_of_leftovers =
     $filter->get_pending();
 
-  # To use a literal newline terminator for input and output:
+  # Use a literal newline terminator for input and output:
   $filter = POE::Filter::Line->new( Literal => "\x0D\x0A" );
 
-  # To terminate input lines with a string regexp:
+  # Terminate input lines with a string regexp:
   $filter = POE::Filter::Line->new( InputRegexp   => '[!:]',
                                     OutputLiteral => "!"
                                   );
 
-  # To terminate input lines with a compiled regexp (requires perl
-  # 5.005 or newer):
+  # Terminate input lines with a compiled regexp (requires perl 5.005
+  # or newer):
   $filter = POE::Filter::Line->new( InputRegexp   => qr/[!:]/,
                                     OutputLiteral => "!"
                                   );
 
-  # To autodetect the input line terminator:
+  # Autodetect the input line terminator:
   $filter = POE::Filter::Line->new( InputLiteral => undef );
 
 =head1 DESCRIPTION
 
-The Line filter translates streams to and from newline-separated
-lines.  The lines it returns do not contain newlines.  Neither should
-the lines given to it.
+The Line filter translates streams to and from separated lines.  The
+lines it returns do not include the line separator (usually newlines).
+Neither should the lines given to it.
 
-By default, incoming newline are recognized with a regular
-subexpression: C</(\x0D\x0A?|\x0A\x0D?)/>.  This encompasses all sorts
-of variations on CR and LF, but it has a problem.  If incoming data is
-broken between CR and LF, then the second character will be
-interpreted as a blank line.  This doesn't happen often, but it can
-happen often enough.  B<People are advised to specify custom newlines
-in applications where blank lines are significant.>
+Incoming newlines are recognized with a simple regular expression by
+default: C</(\x0D\x0A?|\x0A\x0D?)/>.  This regexp encompasses all the
+variations of CR and/or LF, but it has a race condition.
 
-By default, outgoing lines have traditional network newlines attached
-to them: C<"\x0D\x0A">, or CRLF.  The C<OutputLiteral> parameter is
-used to specify a new one.
+Consider a CRLF newline is broken into two stream chunks, one which
+ends with CR and the other which begins with LF:
+
+   some stream dataCR
+   LFother stream data
+
+The default regexp will recognize the CR as one end-of-line marker and
+the LF as another.  The line filter will emit two lines: "some stream
+data" and a blank line.  B<People are advised to specify custom
+literal newlines or autodetect the newline style in applications where
+blank lines are significant.>
+
+Outgoing lines have traditional network newlines (CRLF) appended to
+them by default.
 
 =head1 PUBLIC FILTER METHODS
 

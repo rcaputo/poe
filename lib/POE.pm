@@ -3,12 +3,11 @@
 
 package POE;
 
-
 use strict;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.1201';
+$VERSION = '0.1202';
 
 sub import {
   my $self = shift;
@@ -68,7 +67,6 @@ POE - perl application kernel with event driven threads
 
   # Use POE!
   use POE;
-
   
   # Every session must handle a special event, _start.  It's used to
   # tell the session that it has been successfully instantiated.
@@ -607,7 +605,8 @@ operation.
 =item POE::Filter
 
 The POE::Filter manpage covers filters in general and their common
-interface.
+interface.  It discusses the pitfalls involved in switching filters
+on a running wheel.
 
 =item POE::Filter::HTTPD
 

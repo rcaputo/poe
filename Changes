@@ -29,10 +29,24 @@ Version numbers have four fields: X.YYZZAA
 0.1202 2000.??.??
 -----------------
 
+Revised all the documentation.
+
 Documented FollowTail's SeekBack parameter.  Whoops!
 
 Added a conceptual cross-reference to POE's "SEE ALSO" section, so now
-it acts as a table of contents for the entire distribution.
+it acts as a table of contents for the entire distribution.  Pointed
+all the other SEE ALSOs at it.
+
+Replaced a stupid regexp in POE::Preprocessor with a faster one.
+
+Fixed a couple spots in SocketFactory where the conversion from
+hashref to listref was incomplete.  Thanks to Rob Bloodgood.
+
+Added wheel IDs to the events ListenAccept emit.  Changed
+ListenAccept's object implementation from a hashref to a listref.
+
+Changed FollowTail's object implementation from a hashref to a
+listref.
 
 
 0.1201 2000.12.15

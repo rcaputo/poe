@@ -9,6 +9,16 @@ use POE qw(Wheel);
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
+sub SELF_HANDLE      () { 0 }
+sub SELF_DRIVER      () { 1 }
+sub SELF_FILTER      () { 2 }
+sub SELF_INTERVAL    () { 3 }
+sub SELF_EVENT_INPUT () { 4 }
+sub SELF_EVENT_ERROR () { 5 }
+sub SELF_UNIQUE_ID   () { 6 }
+sub SELF_STATE_READ  () { 7 }
+sub SELF_STATE_WAKE  () { 8 }
+
 # Turn on tracing.  A lot of debugging occurred just after 0.11.
 sub TRACE () { 0 }
 
@@ -38,15 +48,15 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $poe_kernel);
 
-  croak "Handle required"     unless defined $params{'Handle'};
-  croak "Driver required"     unless defined $params{'Driver'};
-  croak "Filter required"     unless defined $params{'Filter'};
-  croak "InputState required" unless defined$params{'InputState'};
+  croak "Handle required"     unless defined $params{Handle};
+  croak "Driver required"     unless defined $params{Driver};
+  croak "Filter required"     unless defined $params{Filter};
+  croak "InputState required" unless defined$params{InputState};
 
   my ($handle, $driver, $filter) = @params{ qw(Handle Driver Filter) };
 
-  my $poll_interval = ( (defined $params{'PollInterval'})
-                        ? $params{'PollInterval'}
+  my $poll_interval = ( (defined $params{PollInterval})
+                        ? $params{PollInterval}
                         : 1
                       );
 
@@ -56,14 +66,16 @@ sub new {
                   );
   $seek_back = 0 if $seek_back < 0;
 
-  my $self = bless { handle      => $handle,
-                     driver      => $driver,
-                     filter      => $filter,
-                     interval    => $poll_interval,
-                     event_input => $params{'InputState'},
-                     event_error => $params{'ErrorEvent'},
-                     unique_id   => &POE::Wheel::allocate_wheel_id(),
-                   }, $type;
+  my $self = bless [ $handle,                          # SELF_HANDLE
+                     $driver,                          # SELF_DRIVER
+                     $filter,                          # SELF_FILTER
+                     $poll_interval,                   # SELF_INTERVAL
+                     $params{InputState},              # SELF_EVENT_INPUT
+                     $params{ErrorEvent},              # SELF_EVENT_ERROR
+                     &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
+                     undef,                            # SELF_STATE_READ
+                     undef,                            # SELF_STATE_WAKE
+                  ], $type;
 
   $self->_define_states();
 
@@ -71,7 +83,7 @@ sub new {
   # on it.  Part of the Kernel's select() logic is making things
   # non-blocking, and the following code will assume that.
 
-  $poe_kernel->select($handle, $self->{state_read});
+  $poe_kernel->select($handle, $self->[SELF_STATE_READ]);
 
   # Try to position the file pointer before the end of the file.  This
   # is so we can "tail -f" an existing file.  FreeBSD, at least,
@@ -113,15 +125,15 @@ sub _define_states {
   # If any of these change, then the states are invalidated and must
   # be redefined.
 
-  my $filter        = $self->{filter};
-  my $driver        = $self->{driver};
-  my $event_input   = \$self->{event_input};
-  my $event_error   = \$self->{event_error};
-  my $state_wake    = $self->{state_wake} = $self . ' alarm';
-  my $state_read    = $self->{state_read} = $self . ' select read';
-  my $poll_interval = $self->{interval};
-  my $handle        = $self->{handle};
-  my $unique_id     = $self->{unique_id};
+  my $filter        = $self->[SELF_FILTER];
+  my $driver        = $self->[SELF_DRIVER];
+  my $event_input   = \$self->[SELF_EVENT_INPUT];
+  my $event_error   = \$self->[SELF_EVENT_ERROR];
+  my $state_wake    = $self->[SELF_STATE_WAKE] = $self . ' alarm';
+  my $state_read    = $self->[SELF_STATE_READ] = $self . ' select read';
+  my $poll_interval = $self->[SELF_INTERVAL];
+  my $handle        = $self->[SELF_HANDLE];
+  my $unique_id     = $self->[SELF_UNIQUE_ID];
 
   # Define the read state.
 
@@ -192,14 +204,14 @@ sub event {
 
     if ($name eq 'InputState') {
       if (defined $event) {
-        $self->{event_input} = $event;
+        $self->[SELF_EVENT_INPUT] = $event;
       }
       else {
         carp "InputState requires an event name.  ignoring undef";
       }
     }
     elsif ($name eq 'ErrorState') {
-      $self->{event_error} = $event;
+      $self->[SELF_EVENT_ERROR] = $event;
     }
     else {
       carp "ignoring unknown FollowTail parameter '$name'";
@@ -214,25 +226,25 @@ sub event {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $poe_kernel->select($self->{handle});
+  $poe_kernel->select($self->[SELF_HANDLE]);
 
-  if ($self->{state_read}) {
-    $poe_kernel->state($self->{state_read});
-    delete $self->{state_read};
+  if ($self->[SELF_STATE_READ]) {
+    $poe_kernel->state($self->[SELF_STATE_READ]);
+    undef $self->[SELF_STATE_READ];
   }
 
-  if ($self->{state_wake}) {
-    $poe_kernel->state($self->{state_wake});
-    delete $self->{state_wake};
+  if ($self->[SELF_STATE_WAKE]) {
+    $poe_kernel->state($self->[SELF_STATE_WAKE]);
+    undef $self->[SELF_STATE_WAKE];
   }
 
-  &POE::Wheel::free_wheel_id($self->{unique_id});
+  &POE::Wheel::free_wheel_id($self->[SELF_UNIQUE_ID]);
 }
 
 #------------------------------------------------------------------------------
 
 sub ID {
-  return $_[0]->{unique_id};
+  return $_[0]->[SELF_UNIQUE_ID];
 }
 
 ###############################################################################
@@ -242,7 +254,7 @@ __END__
 
 =head1 NAME
 
-POE::Wheel - POE FollowTail Protocol Logic
+POE::Wheel::FollowTail - follow the tail of an ever-growing file
 
 =head1 SYNOPSIS
 
@@ -258,29 +270,27 @@ POE::Wheel - POE FollowTail Protocol Logic
 
 =head1 DESCRIPTION
 
-This wheel follows the end of an ever-growing file, perhaps a log
-file, and generates events whenever new data appears.  It is a
-read-only wheel, so it does not include a put() method.  It uses
-sysseek(2) wrapped in eval { }, so it should work okay on all sorts of
-files.  That is, if perl supports select(2)'ing them on the underlying
-operating system.
+FollowTail follows the end of an ever-growing file, such as a log of
+system events.  It generates events for each new record that is
+appended to its file.
+
+This is a read-only wheel so it does not include a put() method.
 
 =head1 PUBLIC METHODS
 
 =over 4
 
-=item *
+=item event EVENT_TYPE => EVENT_NAME, ...
 
-POE::Wheel::FollowTail::event(...)
+event() is covered in the POE::Wheel manpage.
 
-Please see POE::Wheel.
+FollowTail's event types are C<InputState> and C<ErrorState>.
 
-=item *
+=item ID
 
-POE::Wheel::FollowTail::ID()
-
-Returns the FollowTail wheel's unique ID.  This can be used to
-associate the wheel's events back to the wheel itself.
+The ID method returns a FollowTail wheel's unique ID.  This ID will be
+included in every event the wheel generates, and it can be used to
+match events with the wheels which generated them.
 
 =back
 
@@ -288,66 +298,62 @@ associate the wheel's events back to the wheel itself.
 
 =over 4
 
-=item *
+=item PollInterval
 
-PollInterval
+PollInterval is the amount of time, in seconds, the wheel will wait
+before retrying after it has reached the end of the file.  This delay
+prevents the wheel from going into a CPU-sucking loop.
 
-PollInterval is the number of seconds to wait between file checks.
-Once FollowTail re-reaches the end of the file, it waits this long
-before checking again.
+=item SeekBack
 
-=item *
+The SeekBack parameter tells FollowTail how far before EOF to start
+reading before following the file.  Its value is specified in bytes,
+and values greater than the file's current size will quietly cause
+FollowTail to start from the file's beginning.
 
-SeekBack
+When SeekBack isn't specified, the wheel seeks 4096 bytes before the
+end of the file and discards everything it reads up until EOF.  It
+does this to frame records within the file.
 
-SeekBack is the number of bytes to seek back from the current end of
-file before reading.  By default, this is 4096, and data read up to
-the end of file is not returned.  (This is used to frame lines before
-returning actual data.)  If SeekBack is specified, then existing data
-up until EOF is returned, and then the wheel begins following tail.
+When SeekBack is used, the wheel assumes that records have already
+been framed, and the seek position is the beginning of one.  It will
+return everything it reads up until EOF.
 
-=item *
+=item InputState
 
-InputState
+InputState contains the event which is emitted for every complete
+record read.  Every InputState event is accompanied by two parameters.
+C<ARG0> contains the record which was read.  C<ARG1> contains the
+wheel's unique ID.
 
-The InputState event is identical to POE::Wheel::ReadWrite's
-InputState.  It's the state to be called when the followed file
-lengthens.
+A sample InputState event handler:
 
-ARG0 contains a logical chunk of data, read from the end of the tailed
-file.  ARG1 contains the ID of the wheel that received this input.
-
-=item *
-
-ErrorState
-
-The ErrorState event contains the name of the state that will be
-called when a file error occurs.  The FollowTail wheel knows what to
-do with EAGAIN, so it's not considered a true error.  FollowTail will
-continue running even on an error, so it's up to the Session to stop
-things if that's what it wants.
-
-The ARG0 parameter contains the name of the function that failed.
-ARG1 and ARG2 contain the numeric and string versions of $! at the
-time of the error, respectively.  ARG3 contains the ID of the wheel
-that encountered the error; this is useful for closing the proper
-wheel when one of several has encountered an error.
-
-A sample ErrorState state:
-
-  sub error_state {
-    my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
-    warn "$operation error $errnum: $errstr\n";
+  sub input_state {
+    my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
+    print "Wheel $wheel_id received input: $input\n";
   }
 
-=item *
+=item ErrorState
 
-SeekBack
+ErrorState contains the event which is emitted whenever an error
+occurs.  Every ErrorState event comes with four parameters:
 
-The SeekBack parameter tells FollowTail how far from EOF to start
-following the file.  Its value is specified in bytes, and seeking
-before the beginning of a file will quietly cause FollowTail to start
-from the file's beginning.
+C<ARG0> contains the name of the operation that failed.  This usually
+is 'read'.  Note: This is not necessarily a function name.  The wheel
+doesn't know which function its Driver is using.
+
+C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
+respectively.  Note: FollowTail knows how to handle EAGAIN, so it will
+never return that error.
+
+C<ARG3> contains the wheel's unique ID.
+
+A sample ErrorState event handler:
+
+  sub error_state {
+    my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
+    warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
+  }
 
 =back
 
@@ -360,7 +366,7 @@ the entire POE distribution.
 
 =head1 BUGS
 
-This wheel can't tail pipes and consoles.  This may have been fixed.
+This wheel can't tail pipes and consoles on some systems.
 
 =head1 AUTHORS & COPYRIGHTS
 

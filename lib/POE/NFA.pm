@@ -539,7 +539,7 @@ __END__
 
 =head1 NAME
 
-POE::NFA - a Nondeterministic Finite Automaton session
+POE::NFA - even driver nondeterministic finite automata
 
 =head1 SYNOPSIS
 

@@ -109,7 +109,7 @@ __END__
 
 =head1 NAME
 
-POE::Filter::Block - POE Block Protocol Abstraction
+POE::Filter::Block - filter between streams and blocks
 
 =head1 SYNOPSIS
 
@@ -125,12 +125,14 @@ POE::Filter::Block - POE Block Protocol Abstraction
 
 =head1 DESCRIPTION
 
-The Block filter translates streams to and from blocks of bytes.  If a
-block size is specified when the filter is constructed, then
-fixed-length blocks of that size will be built or parsed.  Otherwise
-it builds and parses length-prepended variable-sized blocks.  Programs
-that specify block sizes less than 1 byte are soundly spanked, just as
-they deserve.
+The Block filter translates data between serial streams and blocks.
+It can handle two kinds of block: fixed-length and length-prepended.
+
+Fixed-length blocks are used when Block's constructor is given a block
+size.  Otherwise the Block filter uses length-prepended blocks.
+
+Users who specify block sizes less than one deserver to be soundly
+spanked.
 
 Extra bytes are buffered until more bytes arrive to complete a block.
 

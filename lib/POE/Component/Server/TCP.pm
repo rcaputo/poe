@@ -89,7 +89,7 @@ __END__
 
 =head1 NAME
 
-POE::Component::Server::TCP - simplified TCP server
+POE::Component::Server::TCP - a simplified TCP server
 
 =head1 SYNOPSIS
 
@@ -114,38 +114,40 @@ POE::Component::Server::TCP - simplified TCP server
 
 =head1 DESCRIPTION
 
-POE::Component::Server::TCP is a wrapper around
-POE::Wheel::SocketFactory.  It abstracts the steps required to create
-a TCP server, taking away equal measures of responsibility and control
-for listening for and accepting remote socket connections.
+The TCP server component hides the steps needed to create a server
+using Wheel::SocketFactory.  The steps aren't many, but they're still
+repetitive and thus boring.
 
-At version 1.0, the Server::TCP component takes three arguments:
+POE::Component::Server::TCP helps out by supplying a default error
+handler.  This handler will write an error message on STDERR and shut
+the server down.
+
+The TCP server component takes three named arguments.  It's expected
+to accept other parameters as it evolves.
 
 =over 2
 
-=item *
-
-Port
+=item Port
 
 Port is the port the listening socket will be bound to.
 
-=item *
+  Port => 30023
 
-Acceptor
+=item Acceptor
 
 Acceptor is a coderef which will be called to handle accepted sockets.
 The coderef is used as POE::Wheel::SocketFactory's SuccessState, so it
 accepts the same parameters.
 
-=item *
+  Acceptor => \&success_state
 
-Error
+=item Error
 
 Error is an optional coderef which will be called to handle server
 socket errors.  The coderef is used as POE::Wheel::SocketFactory's
 FailureState, so it accepts the same parameters.  If it is omitted, a
-fairly standard error handler will be provided.  The default handler
-will log the error to STDERR and shut down the server.
+default error handler will be provided.  The default handler will log
+the error to STDERR and shut down the server.
 
 =back
 
@@ -155,8 +157,9 @@ POE::Wheel::SocketFactory
 
 =head1 BUGS
 
-POE::Component::Server::TCP does not accept many of the options that
-POE::Wheel::SocketFactory does.
+POE::Component::Server::TCP currently does not accept many of the
+options that POE::Wheel::SocketFactory does, but it can be expanded
+easily to do so.
 
 =head1 AUTHORS & COPYRIGHTS
 

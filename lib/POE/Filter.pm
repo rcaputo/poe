@@ -19,7 +19,7 @@ __END__
 
 =head1 NAME
 
-POE::Filter - POE Protocol Abstraction
+POE::Filter - a protocol abstraction
 
 =head1 SYNOPSIS
 
@@ -31,89 +31,86 @@ POE::Filter - POE Protocol Abstraction
 
 =head1 DESCRIPTION
 
-Filters provide a generic interface for low and medium level
-protocols.  Wheels use this interface to communicate in different
-protocols without necessarily having to know the details for each.
-
-In theory, filters should be interchangeable.  In practice, stream and
-block protocols tend to be incompatible.
+Filters implement generic interfaces to low- and medium-level
+protocols.  Wheels use them to communicate in basic ways without
+needing to know the details for doing so.  For example, the Line
+filter does everything needed to translate incoming streams into lines
+and outgoing lines into streams.  Sessions can get on with the
+business of using lines.
 
 =head1 PUBLIC FILTER METHODS
 
-These methods are the generic Filter interface.  Specific filters may
-have additional methods.
+These methods are the generic Filter interface, and every filter must
+implement them.  Specific filters may have additional methods.
 
 =over 4
 
-=item *
+=item new
 
-POE::Filter::new()
+new() creates and initializes a new filter.  Specific filters may have
+different constructor parameters.
 
-The new() method creates and initializes a new filter.  Specific
-filters may have different constructor parameters.
+=item get ARRAYREF
 
-=item *
+get() translates raw data into records as defined by the filter.  It
+accepts a reference to an array of raw data chunks, and it returns a
+reference to an array of complete records.
 
-POE::Filter::get($arrayref_of_raw_chunks_from_driver)
+Drivers' get() methods return ARRAYREFs of raw data chunks suitable
+for passing to filters' put() methods.
 
-The get() method translates raw stream data into logical units.  It
-accepts a reference to an array of raw stream chunks as returned from
-POE::Driver::get().  It returns a reference to an array of complete
-logical data chunks.  There may or may not be a 1:1 correspondence
-between raw stream chunks and logical data chunks.
+  my $records = $filter->get( $driver->get( $filehandle ) );
 
-Some filters may buffer partial logical units until they are completed
-in subsequent get() calls.
+There needn't be a 1:1 ratio between raw data and logical records.
+Some filters buffer partial records until they are completed in
+subsequent get() calls.
 
-The get() method returns a reference to an empty array if the stream
-doesn't include enough information for a complete logical unit.
+get() returns a reference to an empty array if the stream doesn't
+include enough information to complete a record.
 
-=item *
+=item put ARRAYREF
 
-POE::Filter::put($arrayref_of_logical_chunks)
+put() serializes records into a form that may be written to a file or
+sent across a socket.  It accepts a reference to a list of records,
+and it returns a reference to a list of stream chunks.
 
-The put() method takes a reference to an array of logical data chunks.
-It serializes them into streamable representations suitable for
-POE::Driver::put().  It returns the raw streamable versions in a
-different array reference.
+The list reference it returns may be passed directly to a driver.
 
-=item *
+  $driver->put( $filter->put( \@records ) );
 
-POE::Filter::get_pending()
+=item get_pending
 
-The get_pending() method is part of wheels' buffer swapping mechanism.
-It clears the filter's input buffer and returns a copy of whatever was
-in it.  It doesn't manipulate filters' output buffers because they
-don't exist (filters expect to receive entire logical data chunks from
-sessions, so there's no reason to buffer data and frame it).
+get_pending() returns a filter's partial input buffer, clearing it in
+the process.  The ReadWrite wheel uses this for hot-swapping filters;
+it gives partial input buffers to the next filter.
 
-B<Please note that relying on the get_pending() method in networked
-settings require some forethought.> For instance, POE::Filter::Stream
-never buffers data.
+Filters don't have output buffers.  They accept complete records and
+immediately pass the serialized information to a driver's queue.
 
-Switching filters usually requires some sort of flow control,
-otherwise it's easy to cause a race condition where one side sends the
-wrong type of information for the other side's current filter.
-Framing errors will ensue.  Consider the following:
+It can be tricky keeping both ends of a socket synchronized during a
+filter change.  It's recommended that some sort of handshake protocol
+be used to make sure both ends are using the same type of filter at
+the same time.
 
-Assume a server and client are using POE::Filter::Line.  When the
-client asks the server to switch to POE::Filter::Reference, it should
-wait for the server's ACK or NAK before changing its own filter.  This
-lets the client avoid sending referenced data while the server still
-is parsing lines.
+TCP also tries to combine small packets for efficiency's sake.  In a
+streaming protocol, a filter change could be embedded between two data
+chunks.
 
-Here's something else to consider.  Programs using POE::Wheel::put()
-on TCP sockets cannot rely on each put data chunk arriving separately
-on the receiving end of the connection.  This is because TCP coalesces
-packets whenever possible, to minimize packet header overhead.
+  type-1 data
+  type-1 data
+  change to type-2 filter
+  type-2 data
+  type-2 data
 
-Most systems have a way to disable the TCP delay (Nagle's algorithm),
-in one form or another.  If you need this, please check your C headers
-for the TCP_NODELAY socket option.  It's neither portable, nor
-supported in Perl by default.
+A driver can easily read that as a single chunk.  It will be passed to
+a filter as a single chunk, and that filter (type-1 in the example)
+will break the chunk into pieces.  The type-2 data will be interpreted
+as type-1 because the ReadWrite wheel hasn't had a chance to switch
+filters yet.
 
-The filterchange.perl sample program copes with flow control while
-switching filters.
+Adding a handshake protocol means the sender will wait until a filter
+change has been acknowledged before going ahead and sending data in
+the new format.
 
 =back
 
@@ -124,7 +121,8 @@ the entire POE distribution.
 
 =head1 BUGS
 
-Oh, probably some.
+In theory, filters should be interchangeable.  In practice, stream and
+block protocols tend to be incompatible.
 
 =head1 AUTHORS & COPYRIGHTS
 

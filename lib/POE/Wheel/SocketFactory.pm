@@ -253,7 +253,7 @@ sub event {
             carp "Strange reference used as SuccessState event";
           }
           $self->[MY_STATE_SUCCESS] = $event;
-          delete $self->[MY_MINE_SUCCESS];
+          undef $self->[MY_MINE_SUCCESS];
         }
       }
       else {
@@ -274,7 +274,7 @@ sub event {
             carp "Strange reference used as FailureState event (ignored)"
           }
           $self->[MY_STATE_FAILURE] = $event;
-          delete $self->[MY_MINE_FAILURE];
+          undef $self->[MY_MINE_FAILURE];
         }
       }
       else {
@@ -801,7 +801,7 @@ __END__
 
 =head1 NAME
 
-POE::Wheel::SocketFactory - POE Socket Creation Logic Abstraction
+POE::Wheel::SocketFactory - non-blocking socket creation and management
 
 =head1 SYNOPSIS
 
@@ -862,155 +862,148 @@ POE::Wheel::SocketFactory - POE Socket Creation Logic Abstraction
 
 =head1 DESCRIPTION
 
-This wheel creates sockets, generating events when something happens
-to them.  Success events come with connected, ready to use sockets.
-Failure events are accompanied by error codes, similar to other
-wheels'.
+SocketFactory creates sockets.  It can create connectionless sockets
+like UDP, or connected sockets like UNIX domain streams and TCP
+sockets.
 
-SocketFactory currently supports Unix domain sockets, and TCP sockets
-within the Internet domain.  Other protocols are forthcoming,
-eventually; let the author or mailing list know if they're needed
-sooner.
+The SocketFactory manages connecting and listening sockets on behalf
+of the session that created it.  It will watch a connecting socket and
+fire a SuccessState or FailureState event when something happens.  It
+will watch a listening socket and fire a SuccessState or FailureState
+event for every connection.
 
 =head1 PUBLIC METHODS
 
-=over 4
+=over 2
 
-=item *
+=item new LOTS_OF_THINGS
 
-POE::Wheel::SocketFactory::new()
+new() creates a new socket.  If necessary, it registers event handlers
+to manage the socket.  new() has parameters for just about every
+aspect of socket creation; thankfully they all aren't needed at once.
 
-The new() method does most of the work.  It has parameters for just
-about every aspect of socket creation: socket(), setsockopt(), bind(),
-listen(), connect() and accept().  Thankfully they all aren't used at
-the same time.
+new() always returns a SocketFactory wheel reference, even if a socket
+couldn't be created.
 
-(!!!) The new() method always returns the SocketFactory wheel's
-reference, even if the constructor didn't succeed.  This is different
-from versions before 0.1106.
-
-The parameters:
+These parameters provide information for the SocketFactory's socket()
+call.
 
 =over 2
 
-=item *
+=item SocketDomain
 
-SocketDomain
+SocketDomain supplies socket() with its DOMAIN parameter.  Supported
+values are AF_UNIX, AF_INET, PF_UNIX and PF_INET.  If SocketDomain is
+omitted, it defaults to AF_INET.
 
-SocketDomain is the DOMAIN parameter for the socket() call.  Currently
-supported values are AF_UNIX, AF_INET, PF_UNIX and PF_INET.  It
-defaults to AF_INET if omitted.
+=item SocketType
 
-=item *
+SocketType supplies socket() with its TYPE parameter.  Supported
+values are SOCK_STREAM and SOCK_DGRAM, although datagram sockets
+haven't been tested at this time.  If SocketType is omitted, it
+defaults to SOCK_STREAM.
 
-SocketType
+=item SocketProtocol
 
-SocketType is the TYPE parameter for the socket() call.  Currently
-supported values are SOCK_STREAM and SOCK_DGRAM (although datagram
-sockets aren't tested at this time).  It defaults to SOCK_STREAM if
-omitted.
+SocketProtocol supplies socket() with its PROTOCOL parameter.
+Protocols may be specified by number or by a name that can be found in
+the system's protocol (or equivalent) database.  SocketProtocol is
+ignored for UNIX domain sockets.  It defaults to 'tcp' if it's omitted
+from an INET socket factory.
 
-=item *
+=back
 
-SocketProtocol
+These parameters provide information for the SocketFactory's bind()
+call.
 
-SocketProtocol is the PROTOCOL parameter for the socket() call.
-Protocols may be specified by name or number (see /etc/protocols, or
-the equivalent file).  The only supported protocol at this time is
-'tcp'.  SocketProtocol is ignored for Unix domain sockets.  It
-defaults to 'tcp' if omitted from an Internet socket constructor.
+=over 2
 
-=item *
+=item BindAddress
 
-BindAddress
+BindAddress supplies the address where a socket will be bound to.  It
+has different meanings and formats depending on the socket domain.
 
-BindAddress is the local interface address that the socket will be
-bound to.
+BindAddress may contain either a string or a packed Internet address
+when it's specified for INET sockets.  The string form of BindAddress
+should hold a dotted numeric address or resolvable host name.
+BindAddress is optional for INET sockets, and SocketFactory will use
+INADDR_ANY by default.
 
-For Internet domain sockets: The bind address may be a string
-containing a dotted quad, a host name, or a packed Internet address
-(without the port).  It defaults to INADDR_ANY if it's not specified,
-which will try to bind the socket to every interface.  If any
-interface has a socket already bound to the BindPort, then bind() (and
-the SocketFactory) will fail.
+When used to bind a UNIX domain socket, BindAddress should contain a
+path describing the socket's filename.  This is required for server
+sockets and datagram client sockets.  BindAddress has no default value
+for UNIX sockets.
 
-For Unix domain sockets: The bind address is a path where the socket
-will be created.  It is required for server sockets and datagram
-client sockets.  If a file exists at the bind address, then bind()
-(and the SocketFactory) will fail.
+=item BindPort
 
-=item *
+BindPort is only meaningful for INET domain sockets.  It contains a
+port on the BindAddress interface where the socket will be bound.  It
+defaults to 0 if omitted.
 
-BindPort
+BindPort may be a port number or a name that can be looked up in the
+system's services (or equivalent) database.
 
-BindPort is the port of the local interface(s) that the socket will
-try to bind to.  It is ignored for Unix sockets and recommended for
-Internet sockets.  It defaults to 0 if omitted, which will bind the
-socket to an unspecified available port.
+=back
 
-The bind port may be a number, or a name in the /etc/services (or
-equivalent) database.
+These parameters are used for outbound sockets.
 
-=item *
+=over 2
 
-ListenQueue
+=item RemoteAddress
 
-ListenQueue specifies the length of the socket's listen() queue.  It
-defaults to SOMAXCONN if omitted.  SocketFactory will ensure that
-ListenQueue doesn't exceed SOMAXCONN.
-
-It should go without saying that ListenQueue is only appropriate for
-listening sockets.
-
-=item *
-
-RemoteAddress
-
-RemoteAddress is the remote address to which the socket should
+RemoteAddress specifies the remote address to which a socket should
 connect.  If present, the SocketFactory will create a connecting
-socket; otherwise, the SocketFactory will make a listening socket.
+socket.  Otherwise, it will make a listening socket, should the
+protocol warrant it.
 
-The remote address may be a string containing a dotted quad, a host
-name, a packed Internet address, or a Unix socket path.  It will be
-packed, with or without an accompanying RemotePort as necessary for
-the socket domain.
+Like with the bind address, RemoteAddress may be a string containing a
+dotted quad or a resolvable host name.  It may also be a packed
+Internet address, or a UNIX socket path.  It will be packed, with or
+without an accompanying RemotePort, as necessary for the socket
+domain.
 
-=item *
-
-RemotePort
+=item RemotePort
 
 RemotePort is the port to which the socket should connect.  It is
 required for connecting Internet sockets and ignored in all other
 cases.
 
-The remote port may be a number, or a name in the /etc/services (or
+The remote port may be a number or a name in the /etc/services (or
 equivalent) database.
 
 =back
 
-=item *
+This parameter is used for listening sockets.
 
-POE::Wheel::SocketFactory::event(...)
+=over 2
 
-Please see POE::Wheel.
+=item ListenQueue
 
-=item *
+ListenQueue specifies the length of the socket's listen() queue.  It
+defaults to SOMAXCONN if omitted.  SocketFactory will ensure that it
+doesn't exceed SOMAXCONN.
 
-POE::Wheel::SocketFactory::getsockname()
+=back
 
-Returns the value of getsockname() as called with the SocketFactory's
-socket.
+=item event EVENT_TYPE => EVENT_NAME, ...
 
-This is useful for finding out what the SocketFactory's internal
-socket has bound to when it's been instructed to use BindAddress =>
-INADDR_ANY and/or BindPort => INADDR_ANY.
+event() is covered in the POE::Wheel manpage.
 
-=item *
+=item getsockname
 
-POE::Wheel::SocketFactory::ID()
+getsockname() behaves like the built-in function of the same name.
+Because the SocketFactory's underlying socket is hidden away, it's
+hard to do this directly.
 
-Returns the SocketFactory wheel's unique ID.  This can be used to
-associate the wheel's events back to the wheel itself.
+It's useful for finding which address and/or port the SocketFactory
+has bound to when it's been instructed to use BindAddress =>
+INADDR_ANY or BindPort => 0.
+
+=item ID
+
+The ID method returns a FollowTail wheel's unique ID.  This ID will be
+included in every event the wheel generates, and it can be used to
+match events with the wheels which generated them.
 
 =back
 
@@ -1018,57 +1011,62 @@ associate the wheel's events back to the wheel itself.
 
 =over 4
 
-=item *
+=item SuccessState
 
-SuccessState
+SuccessState defines the event that will be emitted when a socket has
+been established successfully.  The SuccessState event is fired when
+outbound sockets have connected or whenever listening sockets accept
+new connections.
 
-The SuccessState parameter defines a state name or coderef to call
-upon a successful connect or accept.  The operation it succeeds on
-depends on the type of socket created.
+In all cases, C<ARG0> holds the new socket handle.  C<ARG3> holds the
+wheel's unique ID.  The parameters between them differ according to
+the socket's domain and whether it's listening or connecting.
 
-For connecting sockets, the success state/coderef is called when the
-socket has connected.  For listening sockets, the success
-state/coderef is called for each successfully accepted client
-connection.
+For INET sockets, C<ARG1> and C<ARG2> hold the socket's remote address
+and port, respectively.
 
-ARG0 contains the connected or accepted socket.
+For UNIX B<client> sockets, C<ARG1> holds the server address.  It may
+be undefined on systems that have trouble retrieving a UNIX socket's
+remote address.  C<ARG2> is always undefined for UNIX B<client>
+sockets.
 
-For INET sockets, ARG1 and ARG2 hold the socket's remote address and
-port, respectively.
+According to _Perl Cookbook_, the remote address returned by accept()
+on UNIX sockets is undefined, so C<ARG1> and C<ARG2> are also
+undefined in this case.
 
-For Unix client sockets, ARG1 contains the server address and ARG2 is
-undefined.  Some systems have trouble getting the address of a socket's
-remote end, so ARG1 may be undefined if there was trouble determining
-it.
+A sample SuccessState event handler:
 
-ARG3 contains a unique ID for the SocketFactory that generated the
-event.  This is useful for associating socket statuses with particular
-socket factories.
+  sub server_accept {
+    my $accepted_handle = $_[ARG0];
 
-According to _Perl Cookbook_, the remote address for accepted Unix
-domain sockets is undefined.  So ARG1 and ARG2 are, too.
+    my $peer_host = inet_ntoa($_[ARG1]);
+    print( "Wheel $_[ARG3] accepted a connection from ",
+           "$peer_host port $peer_port\n"
+         );
 
-=item *
+    # Do something with the new connection.
+    &spawn_connection_session( $accepted_handle );
+  }
 
-FailureState
+=item FailureState
 
-The FailureState parameter defines a state name or coderef to call
-when a socket error occurs.  The SocketFactory knows what to do with
-EAGAIN, so that's not considered an error.
+FailureState defines the event that will be emitted when a socket
+error occurs.  EAGAIN does not count as an error since the
+SocketFactory knows what to do with it.
 
-The ARG0 parameter contains the name of the function that failed.
-ARG1 and ARG2 contain the numeric and string versions of $! at the
-time of the error, respectively.
+The FailureState event comes with the standard error event parameters.
 
-ARG3 contains a unique ID for the SocketFactory that generated the
-event.  This is useful for associating socket statuses with particular
-socket factories.
+C<ARG0> contains the name of the operation that failed.  C<ARG1> and
+C<ARG2> hold numeric and string values for C<$!>, respectively.
+C<ARG3> contains the wheel's unique ID, which may be matched back to
+the wheel itself via the $wheel->ID call.
 
-A sample ErrorState state:
+A sample ErrorState event handler:
 
   sub error_state {
-    my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
-    warn "$operation error $errnum: $errstr\n";
+    my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
+    warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
+    delete $heap->{wheels}->{$wheel_id}; # shut down that wheel
   }
 
 =back
@@ -1084,6 +1082,13 @@ the entire POE distribution.
 
 Many (if not all) of the croak/carp/warn/die statements should fire
 back $state_failure instead.
+
+SocketFactory is only tested with UNIX streams and INET sockets using
+the UDP and TCP protocols.  Others may or may not work, but the latest
+design is data driven and should be easy to extend.  Patches are
+welcome, as are test cases for new families and protocols.  Even if
+test cases fail, they'll make nice reference code to test additions to
+the SocketFactory class.
 
 =head1 AUTHORS & COPYRIGHTS
 

@@ -713,7 +713,7 @@ __END__
 
 =head1 NAME
 
-POE::Session - a POE thread of execution
+POE::Session - an event driven thread
 
 =head1 SYNOPSIS
 

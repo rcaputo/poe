@@ -9,6 +9,12 @@ use Symbol;
 use POSIX qw(fcntl_h errno_h);
 use POE qw(Wheel);
 
+sub SELF_HANDLE       () { 0 }
+sub SELF_EVENT_ACCEPT () { 1 }
+sub SELF_EVENT_ERROR  () { 2 }
+sub SELF_UNIQUE_ID    () { 3 }
+sub SELF_STATE_ACCEPT () { 4 }
+
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
 #------------------------------------------------------------------------------
@@ -25,14 +31,15 @@ sub new {
   croak "Handle required"      unless defined $params{Handle};
   croak "AcceptState required" unless defined $params{AcceptState};
 
-  my $self = bless { handle        => $params{Handle},
-                     event_accept  => $params{AcceptState},
-                     event_error   => $params{ErrorState},
-                     unique_id     => &POE::Wheel::allocate_wheel_id(),
-                   }, $type;
+  my $self = bless [ $params{Handle},                  # SELF_HANDLE
+                     $params{AcceptState},             # SELF_EVENT_ACCEPT
+                     $params{ErrorState},              # SELF_EVENT_ERROR
+                     &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
+                     undef,                            # SELF_STATE_ACCEPT
+                   ], $type;
                                         # register private event handlers
   $self->_define_accept_state();
-  $poe_kernel->select($self->{handle}, $self->{state_accept});
+  $poe_kernel->select($self->[SELF_HANDLE], $self->[SELF_STATE_ACCEPT]);
 
   $self;
 }
@@ -48,14 +55,14 @@ sub event {
 
     if ($name eq 'AcceptState') {
       if (defined $event) {
-        $self->{event_accept} = $event;
+        $self->[SELF_EVENT_ACCEPT] = $event;
       }
       else {
         carp "AcceptState requires an event name.  ignoring undef";
       }
     }
     elsif ($name eq 'ErrorState') {
-      $self->{event_error} = $event;
+      $self->[SELF_EVENT_ERROR] = $event;
     }
     else {
       carp "ignoring unknown ListenAccept parameter '$name'";
@@ -70,12 +77,13 @@ sub event {
 sub _define_accept_state {
   my $self = shift;
                                         # stupid closure trick
-  my $event_accept = \$self->{event_accept};
-  my $event_error  = \$self->{event_error};
-  my $handle       = $self->{handle};
+  my $event_accept = \$self->[SELF_EVENT_ACCEPT];
+  my $event_error  = \$self->[SELF_EVENT_ERROR];
+  my $handle       = $self->[SELF_HANDLE];
+  my $unique_id    = $self->[SELF_UNIQUE_ID];
                                         # register the select-read handler
   $poe_kernel->state
-    ( $self->{state_accept} =  $self . ' select read',
+    ( $self->[SELF_STATE_ACCEPT] =  $self . ' select read',
       sub {
         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
@@ -87,11 +95,11 @@ sub _define_accept_state {
         my $peer = accept($new_socket, $handle);
 
         if ($peer) {
-          $k->call($me, $$event_accept, $new_socket, $peer);
+          $k->call($me, $$event_accept, $new_socket, $peer, $unique_id);
         }
         elsif ($! != EWOULDBLOCK) {
           $$event_error &&
-            $k->call($me, $$event_error, 'accept', ($!+0), $!);
+            $k->call($me, $$event_error, 'accept', ($!+0), $!, $unique_id);
         }
       }
     );
@@ -102,20 +110,20 @@ sub _define_accept_state {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $poe_kernel->select($self->{handle});
+  $poe_kernel->select($self->[SELF_HANDLE]);
 
-  if ($self->{state_accept}) {
-    $poe_kernel->state($self->{state_accept});
-    delete $self->{state_accept};
+  if ($self->[SELF_STATE_ACCEPT]) {
+    $poe_kernel->state($self->[SELF_STATE_ACCEPT]);
+    undef $self->[SELF_STATE_ACCEPT];
   }
 
-  &POE::Wheel::free_wheel_id($self->{unique_id});
+  &POE::Wheel::free_wheel_id($self->[SELF_UNIQUE_ID]);
 }
 
 #------------------------------------------------------------------------------
 
 sub ID {
-  return $_[0]->{unique_id};
+  return $_[0]->[SELF_UNIQUE_ID];
 }
 
 ###############################################################################
@@ -125,7 +133,7 @@ __END__
 
 =head1 NAME
 
-POE::Wheel::ListenAccept - POE Listen/Accept Logic Abstraction
+POE::Wheel::ListenAccept - accept connections from regular listening sockets
 
 =head1 SYNOPSIS
 
@@ -140,85 +148,88 @@ POE::Wheel::ListenAccept - POE Listen/Accept Logic Abstraction
 
 =head1 DESCRIPTION
 
-ListenAccept waits for activity on a listening socket and accepts
-remote connections as they arrive.  It generates events for successful
-and failed connections (EAGAIN is not considered to be a failure).
+ListenAccept listens on an already established socket and accepts
+remote connections from it as they arrive.  Sockets it listens on can
+come from anything that makes filehandles.  This includes socket()
+calls and IO::Socket::* instances.
+
+The ListenAccept wheel generates events for successful and failed
+connections.  EAGAIN is handled internally, so sessions needn't worry
+about it.
 
 This wheel neither needs nor includes a put() method.
-
-ListenAccept is a good way to listen on sockets from other sources,
-such as IO::Socket or plain socket() calls.
 
 =head1 PUBLIC METHODS
 
 =over 4
 
-=item *
+=item event EVENT_TYPE => EVENT_NAME, ...
 
-POE::Wheel::ListenAccept::event( ... )
+event() is covered in the POE::Wheel manpage.
 
-The event() method changes the events that a ListenAccept wheel emits
-for different conditions.  It accepts a list of event types and
-values.  Defined state names change the previous values.  Undefined
-ones turn off the given condition's events.
+ListenAccept's event types are C<AcceptState> and C<ErrorState>.
 
-For example, this event() call changes a wheel's AcceptState event and
-turns off its ErrorState event.
+=item ID
 
-  $wheel->event( AcceptState => $new_accept_state_name,
-                 ErrorState  => undef
-               );
-
-=item *
-
-POE::Wheel::ListenAccept::ID()
-
-Returns the ListenAccept wheel's unique ID.  This can be used to
-associate the wheel's events back to the wheel itself.
+The ID method returns a ListenAccept wheel's unique ID.  This ID will
+be included in every event the wheel generates, and it can be used to
+match events with the wheels which generated them.
 
 =back
 
-=head1 EVENTS AND PARAMETERS
+=head1 EVENT TYPES AND THEIR PARAMETERS
+
+These are the event types this wheel emits and the parameters which
+are included with each.
 
 =over 4
 
-=item *
+=item AcceptState
 
-AcceptState
+The AcceptState event is generated whenever a new connection has been
+successfully accepted.  AcceptState's event is accompanied by three
+parameters: C<ARG0> contains the accepted socket handle.  C<ARG1>
+contains the accept() call's return value, which often is the address
+of the other end of the socket.  C<ARG2> contains the wheel's unique
+ID.
 
-The AcceptState event contains the name of the state that will be
-called when a new connection has been accepted.
-
-The ARG0 parameter contains the accepted connection's new socket
-handle.
-
-ARG1 contains C<accept()>'s return value.
-
-A sample AcceptState state:
+A sample AcceptState event handler:
 
   sub accept_state {
-    my $accepted_handle = $_[ARG0];
-    # Optional security things with getpeername might go here.
+    my ($accepted_handle, $remote_address, $wheel_id) = @_[ARG0..ARG2];
+
+    # The remote address is always good here.
+    my ($port, $packed_ip) = sockaddr_in($remote_address);
+    my $dotted_quad = inet_ntoa($packed_ip);
+
+    print( "Wheel $wheel_id accepted a connection from ",
+           "$dotted_quad port $port.\n"
+         );
+
+    # Spawn off a session to interact with the socket.
     &create_server_session($handle);
   }
 
-=item *
+=item ErrorState
 
-ErrorState
+The ErrorState event is generated whenever a new connection could not
+be successfully accepted.  Its event is accompanied by four
+parameters.
 
-The ErrorState event contains the name of the state that will be
-called when a socket error occurs.  The ListenAccept wheel knows what
-to do with EAGAIN, so it's not considered an error worth reporting.
+C<ARG0> contains the name of the operation that failed.  This usually
+is 'accept'.  Note: This is not necessarily a function name.
 
-The ARG0 parameter contains the name of the function that failed.
-This usually is 'accept'.  ARG1 and ARG2 contain the numeric and
-string versions of $! at the time of the error, respectively.
+C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
+respectively.  Note: ListenAccept knows how to handle EAGAIN, so it
+will never return that error.
 
-A sample ErrorState state:
+C<ARG3> contains the wheel's unique ID.
+
+A sample ErrorState event handler:
 
   sub error_state {
-    my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
-    warn "$operation error $errnum: $errstr\n";
+    my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
+    warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
   }
 
 =back

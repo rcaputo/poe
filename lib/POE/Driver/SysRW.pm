@@ -127,7 +127,7 @@ __END__
 
 =head1 NAME
 
-POE::Driver::SysRW - POE sysread/syswrite Abstraction
+POE::Driver::SysRW - an abstract sysread/syswrite file driver
 
 =head1 SYNOPSIS
 
@@ -139,22 +139,23 @@ POE::Driver::SysRW - POE sysread/syswrite Abstraction
 
 =head1 DESCRIPTION
 
-This driver provides an abstract interface to sysread and syswrite.
+This driver implements an abstract interface to sysread and syswrite.
 
 =head1 PUBLIC METHODS
 
 =over 4
 
-=item *
+=item new BlockSize => $block_size
 
-POE::Driver::SysRW::new( ... );
+=item new
 
-The new() constructor accepts one optional parameter:
+new() creates a new SysRW driver.  It accepts one optional named
+parameter, BlockSize, which tells it how much information to read and
+write at a time.  BlockSize defaults to 512 if it's omitted.
 
-  BlockSize => $block_size
+  my $driver = POE::Driver::SysRW->new( BlockSize => $block_size );
 
-This is the maximum data size that the SysRW driver will read at once.
-If omitted, $block_size defaults to 512.
+  my $driver = POE::Driver::SysRW->new;
 
 =back
 
@@ -164,10 +165,6 @@ POE::Driver.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
-
-=head1 BUGS
-
-Oh, probably some.
 
 =head1 AUTHORS & COPYRIGHTS
 
