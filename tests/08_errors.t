@@ -84,18 +84,20 @@ BEGIN {
   sub test_cleanup {
     POE::Preprocessor->clear_package( 'POE::Kernel' );
 
-    foreach my $symbol (@symbols_to_clean_up) {
-      delete $POE::Kernel::{$symbol};
-    }
+#    foreach my $symbol (@symbols_to_clean_up) {
+#      delete $POE::Kernel::{$symbol};
+#    }
 
     delete @INC{ @files_to_unuse };
+    use Symbol qw(delete_package);
+    delete_package("POE::Kernel");
   }
 
   # Test that errors occur when multiple event loops are enabled.
 
   if ($^O eq 'MSWin32') {
     for (1..3) {
-      print "ok $_ # skipped: This test crashes ActiveState Perl\n";
+      print "ok $_ # skipped: This test crashes ActiveState Perl.\n";
     }
   }
   else {
@@ -155,13 +157,13 @@ sub test_start {
   # Test error handling for the Kernel's call() method.
   $! = 0;
   print "not "
-    if (defined $kernel->call( 1000 => 'nonexistent' ) or $! != ESRCH);
+    if defined $kernel->call( 1000 => 'nonexistent' ) or $! != ESRCH;
   print "ok 8\n";
 
   # Test error handling for the Kernel's post() method.
   $! = 0;
   print "not "
-    if (defined $kernel->post( 1000 => 'nonexistent' ) or $! != ESRCH);
+    if defined $kernel->post( 1000 => 'nonexistent' ) or $! != ESRCH;
   print "ok 9\n";
 
   # Failed alias addition.
@@ -221,7 +223,8 @@ POE::Session->create
 print "not " if $POE::Kernel::poe_kernel->alias_remove( 'kernel_alias' );
 print "ok 18\n";
 
-print "not " unless $POE::Kernel::poe_kernel->state( woobly => sub { die } ) == ESRCH;
+print "not "
+  unless $POE::Kernel::poe_kernel->state( woobly => sub { die } ) == ESRCH;
 print "ok 19\n";
 
 ### TCP Server problems.
@@ -248,8 +251,8 @@ print "ok 19\n";
 
   # Grar!  No UNIX sockets on Windows.
   if ($^O eq 'MSWin32') {
-    print "ok 21 # skipped: Windows won't listen on unbound sockets\n";
-    print "ok 22 # skipped: Windows doesn't seem to UNIX sockets\n";
+    print "ok 21 # skipped: $^O does not support listen on unbound sockets.\n";
+    print "ok 22 # skipped: $^O does not support UNIX sockets.\n";
   }
   else {
     # Odd parameters.
@@ -343,7 +346,7 @@ unless (defined $@ and length $@) {
   print "ok 30\n";
 }
 else {
-  print "ok 30 # skipped: Prerequisites missing for POE::Filter::HTTPD\n";
+  print "ok 30 # skipped: libwww-perl and URI are needed for this test.\n";
 }
 
 # POE::Session constructor stuff.
@@ -427,7 +430,7 @@ print 'not ' unless defined $@ and length $@;
 print "ok 47\n";
 
 if ($^O eq 'MSWin32') {
-  print "ok 48 # skipped: Windows can't set STDIN non-blocking\n";
+  print "ok 48 # skipped: $^O does not support non-blocking STDIN.\n";
 }
 else {
   eval( 'POE::Wheel::FollowTail->new( Handle => \*STDIN,' .
@@ -448,7 +451,7 @@ print "ok 49\n";
 
 if ($^O eq 'MSWin32') {
   for (50..52) {
-    print "ok $_ # skipped: Windows can't set STDIN non-blocking\n";
+    print "ok $_ # skipped: $^O does not support non-blocking STDIN.\n";
   }
 }
 else {
@@ -507,7 +510,7 @@ if ($^O ne 'MSWin32' and $^O ne 'MacOS') {
 }
 else {
   for (53..59) {
-    print "ok $_ # skipped: Wheel::Run currently unsupported on $^O\n";
+    print "ok $_ # skipped: $^O does not support POE::Wheel::Run.\n";
   }
 }
 
