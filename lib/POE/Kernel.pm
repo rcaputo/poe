@@ -2352,7 +2352,7 @@ Signal watcher and generator methods:
 
   # Post a signal through POE rather than through the underlying OS.
   # This only works within the same process.
-  $kernel->signal( $session, $signal_name );
+  $kernel->signal( $session, $signal_name, @optional_args );
 
 State (event handler) management methods:
 
@@ -3187,14 +3187,14 @@ POE also recognizes "non-maskable" signals.  These will terminate a
 program even when they are handled.  The signal that indicates user
 interface destruction is just such a non-maskable signal.
 
-Event handlers use C<sig_handled()> to tell POE when a signal has been
+Event handlers use sig_handled() to tell POE when a signal has been
 handled.  Some unhandled signals will terminate a program.  Handling
 them is important if that is not desired.
 
 Event handlers can also implicitly tell POE when a signal has been
 handled, simply by returning some true value.  This is deprecated,
 however, because it has been the source of constant trouble in the
-past.  Please use C<sig_handled()> in its place.
+past.  Please use sig_handled() in its place.
 
 Handled signals will continue to propagate through the parent/child
 hierarchy.
@@ -3319,6 +3319,8 @@ The sig() method does not return a meaningful value.
 
 sig_handled() informs POE that a signal was handled.  It is only
 meaningful within event handlers that are triggered by signals.
+
+=item signal SESSION, SIGNAL_NAME, OPTIONAL_ARGS
 
 =item signal SESSION, SIGNAL_NAME
 
