@@ -290,6 +290,7 @@ BEGIN {
 # Include resource modules here.  Later, when we have the option of XS
 # versions, we'll adapt this to include them if they're available.
 ###############################################################################
+
 use POE::Resources;
 
 ###############################################################################

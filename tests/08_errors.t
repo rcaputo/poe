@@ -26,6 +26,8 @@ BEGIN {
         POE/Loop/Event.pm POE/Loop/Gtk.pm
         POE/Loop/Select.pm POE/Loop/Tk.pm
 
+        POE/Loop/PerlSignals.pm
+
         Event.pm Gtk.pm Tk.pm
       );
 
