@@ -239,9 +239,10 @@ sub new {
   $params{'SocketType'} = SOCK_STREAM
     unless (exists $params{'SocketType'});
 
-  my $self = bless { 'event success' => $params{'SuccessState'},
-                     'event failure' => $params{'FailureState'},
-                   }, $type;
+  my $self = bless { }, $type;
+  $self->event( SuccessState => $params{'SuccessState'},
+                FailureState => $params{'FailureState'},
+              );
   my $socket_handle = gensym;
 
   my ($socket_domain, $socket_type, $success_event, $failure_event)
@@ -714,10 +715,13 @@ Please see POE::Wheel.
 
 SuccessState
 
-The SuccessState event contains the name of the state that will be
-called when the SocketFactory has successfully accepted or connected a
-socket.  The operation it succeeds on depends on the type of socket
-being created.
+The SuccessState parameter defines a state name or coderef to call
+upon -><-
+
+The SuccessState event contains the name of the state, or a coderef,
+that will be called when the SocketFactory has successfully accepted
+or connected a socket.  The operation it succeeds on depends on the
+type of socket being created.
 
 For connecting sockets, the success state is called when the socket
 has connected.  For listening sockets, the success state is called for
