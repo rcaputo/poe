@@ -1200,7 +1200,7 @@ named methods.
 
   $object_two => { event_ten => 'method_foo', event_eleven => 'method_bar' },
 
-Packgae states are specified as package names mapped to list or hash
+Package states are specified as package names mapped to list or hash
 references.  Package names that are mapped to listrefs will handle
 events with identically named methods.
 
