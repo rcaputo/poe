@@ -41,6 +41,16 @@ BEGIN {
   &test_setup( 0, "Tk requires Perl 5.005_03 or newer." ) if $] < 5.005_03;
 };
 
+# Test whether we can connect to the display.
+BEGIN {
+  eval {
+    require POE::Kernel;
+  };
+  if ($@ and $@ =~ /(couldn't connect to display ".*?")/) {
+    test_setup(0, $1);
+  }
+}
+
 test_setup(11);
 
 warn( "\n",
@@ -49,7 +59,12 @@ warn( "\n",
       "***\n",
     );
 
-use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::TwoWay);
+use POE::Kernel;
+use POE::Session;
+use POE::Wheel::ReadWrite;
+use POE::Filter::Line;
+use POE::Driver::SysRW;
+use POE::Pipe::TwoWay;
 
 # How many things to push through the pipe.
 my $write_max = 10;
