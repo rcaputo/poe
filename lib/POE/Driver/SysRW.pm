@@ -29,12 +29,13 @@ BEGIN {
 
 sub new {
   my $type = shift;
-  my $self = bless [ [ ], # OUTPUT_QUEUE
-                     0,   # CURRENT_OCTETS_DONE
-                     0,   # CURRENT_OCTETS_LEFT
-                     512, # BLOCK_SIZE
-                     0,   # TOTAL_OCTETS_LEFT
-                   ], $type;
+  my $self = bless [
+    [ ],   # OUTPUT_QUEUE
+    0,     # CURRENT_OCTETS_DONE
+    0,     # CURRENT_OCTETS_LEFT
+    65536, # BLOCK_SIZE
+    0,     # TOTAL_OCTETS_LEFT
+  ], $type;
 
   if (@_) {
     if (@_ % 2) {
@@ -44,7 +45,7 @@ sub new {
     if (defined $args{BlockSize}) {
       $self->[BLOCK_SIZE] = delete $args{BlockSize};
       croak "$type BlockSize must be greater than 0"
-        if ($self->[BLOCK_SIZE]<1);
+        if ($self->[BLOCK_SIZE] <= 0);
     }
     if (keys %args) {
       my @bad_args = sort keys %args;
@@ -189,14 +190,18 @@ This driver implements an abstract interface to sysread and syswrite.
 =item new
 
 new() creates a new SysRW driver.  It accepts one optional named
-parameter, BlockSize, which tells it how much information to read at a
-time.  BlockSize defaults to 512 if it is omitted.
+parameter, BlockSize, which indicates the maximum number of octets it
+will read at a time.  For speed, syswrite() tries to send as much
+information as it can.
+
+BlockSize defaults to 65536 if it is omitted.  Higher values improve
+performance in high-throughput applications at the expense of
+consuming more resident memory.  Lower values reduce memory
+consumption with corresponding throughput penalties.
 
   my $driver = POE::Driver::SysRW->new( BlockSize => $block_size );
 
   my $driver = POE::Driver::SysRW->new;
-
-syswrite() size defaults to the size of whatever is given to put().
 
 =back
 

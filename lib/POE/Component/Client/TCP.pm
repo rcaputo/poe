@@ -180,7 +180,7 @@ sub new {
           # Ok to overwrite like this as of 0.13.
           $_[HEAP]->{server} = POE::Wheel::ReadWrite->new
             ( Handle       => $socket,
-              Driver       => POE::Driver::SysRW->new( BlockSize => 4096 ),
+              Driver       => POE::Driver::SysRW->new(),
               Filter       => $filter->new(@filter_args),
               InputEvent   => 'got_server_input',
               ErrorEvent   => 'got_server_error',

@@ -161,15 +161,15 @@ sub new {
                 $heap->{remote_port} = $remote_port;
 
                 $heap->{client} = POE::Wheel::ReadWrite->new
-                  ( Handle       => $socket,
-                    Driver       => POE::Driver::SysRW->new(BlockSize => 4096),
-                    Filter       => $client_filter->new(@client_filter_args),
-                    InputEvent   => 'tcp_server_got_input',
-                    ErrorEvent   => 'tcp_server_got_error',
+                  ( Handle      => $socket,
+                    Driver      => POE::Driver::SysRW->new(),
+                    Filter      => $client_filter->new(@client_filter_args),
+                    InputEvent  => 'tcp_server_got_input',
+                    ErrorEvent  => 'tcp_server_got_error',
                     FlushedEvent => 'tcp_server_got_flush',
                   );
 
-                $kernel->yield( tcp_server_client_connected => @_[ARG0 .. $#_] );
+                $kernel->yield(tcp_server_client_connected => @_[ARG0 .. $#_]);
               },
 
               # To quiet ASSERT_STATES.
