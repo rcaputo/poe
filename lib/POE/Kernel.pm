@@ -147,6 +147,16 @@ macro define_assert (<const>) {
   defined &ASSERT_<const> or eval 'sub ASSERT_<const> { ASSERT_DEFAULT }';
 }
 
+macro test_resolve (<name>,<resolved>) {
+  unless (defined <resolved>) {
+    ASSERT_SESSIONS and do {
+      confess "Cannot resolve <name> into a session reference\n";
+    };
+    $! = ESRCH;
+    return undef;
+  }
+}
+
 # MACROS END <-- search tag for editing
 
 #------------------------------------------------------------------------------
@@ -411,20 +421,16 @@ sub sig {
 
 # Public interface for posting signal events.
 sub signal {
-  my ($self, $session, $signal) = @_;
+  my ($self, $destination, $signal) = @_;
 
-  $session = {% alias_resolve $session %};
+  my $session = {% alias_resolve $destination %};
+  {% test_resolve $destination, $session %}
 
-  if (defined $session) {
-    $self->_enqueue_state( $session, $self->[KR_ACTIVE_SESSION],
-                           EN_SIGNAL, ET_SIGNAL,
-                           [ $signal ],
-                           time(), (caller)[1,2]
-                         );
-  }
-  else {
-    $! = ESRCH;
-  }
+  $self->_enqueue_state( $session, $self->[KR_ACTIVE_SESSION],
+                         EN_SIGNAL, ET_SIGNAL,
+                         [ $signal ],
+                         time(), (caller)[1,2]
+                       );
 }
 
 #==============================================================================
@@ -1218,20 +1224,25 @@ sub session_free {
 sub trace_gc_refcount {
   my ($self, $session) = @_;
   my $ss = $self->[KR_SESSIONS]->{$session};
-  warn ",----- GC test for ", {% ssid %}, " -----\n";
+  warn "+----- GC test for ", {% ssid %}, " -----\n";
   warn "| ref. count    : $ss->[SS_REFCOUNT]\n";
   warn "| event count   : $ss->[SS_EVCOUNT]\n";
   warn "| child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n";
   warn "| handles in use: ", scalar(keys(%{$ss->[SS_HANDLES]})), "\n";
   warn "| aliases in use: ", scalar(keys(%{$ss->[SS_ALIASES]})), "\n";
   warn "| extra refs    : ", scalar(keys(%{$ss->[SS_EXTRA_REFS]})), "\n";
-  warn "`---------------------------------------------------\n";
-  warn "<<< GARBAGE: $session\n" unless ($ss->[SS_REFCOUNT]);
+  warn "+---------------------------------------------------\n";
+  warn("| Session ", {% ssid %}, " is garbage; recycling it...\n")
+    unless $ss->[SS_REFCOUNT];
+  warn "+---------------------------------------------------\n";
 }
 
 sub assert_gc_refcount {
   my ($self, $session) = @_;
   my $ss = $self->[KR_SESSIONS]->{$session};
+
+  # Calculate the total reference count based on the number of
+  # discrete references kept.
 
   my $calc_ref =
     ( $ss->[SS_EVCOUNT] +
@@ -1240,12 +1251,21 @@ sub assert_gc_refcount {
       scalar(keys(%{$ss->[SS_EXTRA_REFS]})) +
       scalar(keys(%{$ss->[SS_ALIASES]}))
     );
-  die if ($calc_ref != $ss->[SS_REFCOUNT]);
+
+  # The calculated reference count really ought to match the one POE's
+  # been keeping track of all along.
+
+  die "session ", {% ssid %}, " has a reference count inconsistency\n"
+    if $calc_ref != $ss->[SS_REFCOUNT];
+
+  # Compare held handles against reference counts for them.
 
   foreach (values %{$ss->[SS_HANDLES]}) {
     $calc_ref = $_->[SH_VECCOUNT]->[VEC_RD] +
       $_->[SH_VECCOUNT]->[VEC_WR] + $_->[SH_VECCOUNT]->[VEC_EX];
-    die if ($calc_ref != $_->[SH_REFCOUNT]);
+
+    die "session ", {% ssid %}, " has a handle reference count inconsistency\n"
+      if $calc_ref != $_->[SH_REFCOUNT];
   }
 }
 
@@ -1286,7 +1306,8 @@ sub _enqueue_state {
     }
 
     # Special case: Two states in the queue.  The new state enters
-    # between them.
+    # between them, because it's not before the first one or after the
+    # last one.
     elsif (@$kr_states == 2) {
       splice @$kr_states, 1, 0, {% state_to_enqueue %};
     }
@@ -1364,21 +1385,21 @@ sub _enqueue_state {
 sub post {
   my ($self, $destination, $state_name, @etc) = @_;
 
-  $destination = {% alias_resolve $destination %};
-  if (defined $destination) {
-    $self->_enqueue_state( $destination, $self->[KR_ACTIVE_SESSION],
-                           $state_name, ET_USER,
-                           \@etc,
-                           time(), (caller)[1,2]
-                         );
-    return 1;
-  }
-  ASSERT_SESSIONS and do {
-    warn "Cannot resolve alias $destination into a session\n";
-    confess;
-  };
-  $! = ESRCH;
-  return undef;
+  # Attempt to resolve the destination session reference against
+  # various things.
+
+  my $session = {% alias_resolve $destination %};
+  {% test_resolve $destination, $session %}
+
+  # Enqueue the state for "now", which simulates FIFO in our
+  # time-ordered queue.
+
+  $self->_enqueue_state( $destination, $self->[KR_ACTIVE_SESSION],
+                         $state_name, ET_USER,
+                         \@etc,
+                         time(), (caller)[1,2]
+                       );
+  return 1;
 }
 
 #------------------------------------------------------------------------------
@@ -1401,22 +1422,28 @@ sub yield {
 sub call {
   my ($self, $destination, $state_name, @etc) = @_;
 
-  $destination = {% alias_resolve $destination %};
+  # Attempt to resolve the destination session reference against
+  # various things.
 
-  if (defined $destination) {
-    $! = 0;
-    return $self->_dispatch_state( $destination, $self->[KR_ACTIVE_SESSION],
-                                   $state_name, ET_USER,
-                                   \@etc,
-                                   time(), (caller)[1,2], undef
-                                 );
-  }
-  ASSERT_SESSIONS and do {
-    warn "Cannot resolve alias $destination into session\n";
-    confess;
-  };
-  $! = ESRCH;
-  return undef;
+  my $session = {% alias_resolve $destination %};
+  {% test_resolve $destination, $session %}
+
+  # Dispatch the state right now, bypassing the queue altogether.
+  # This tends to be a Bad Thing to Do, but it's useful for
+  # synchronous events like selects'.  -><- The difference between
+  # synchronous and asynchronous events should be made more clear in
+  # the documentation, so that people have a tendency not to abuse
+  # them.  I discovered in xws that that mixing the two types makes it
+  # harder than necessary to write deterministic programs, but the
+  # difficulty can be ameliorated if programmers set some base rules
+  # and stick to them.
+
+  $! = 0;
+  return $self->_dispatch_state( $destination, $self->[KR_ACTIVE_SESSION],
+                                 $state_name, ET_USER,
+                                 \@etc,
+                                 time(), (caller)[1,2], undef
+                               );
 }
 
 #------------------------------------------------------------------------------

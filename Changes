@@ -47,6 +47,10 @@ Removed poing.perl, which has evolved into a separate program in its
 own right.  It's now available from the author's page at
 <http://www.newts.org/~troc/poe-grams.html>.
 
+Added t/03_aliases.t to test session aliases.
+
+Added t/04_selects.t to test filehandle watchers.
+
 
 0.10 2000.03.23 (!!!)
 ---------------------
