@@ -156,7 +156,7 @@ sub event {
       $self->{event_error} = $event;
     }
     else {
-      carp "ignoring unknown ReadWrite parameter '$name'";
+      carp "ignoring unknown FollowTail parameter '$name'";
     }
   }
 
