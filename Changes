@@ -99,6 +99,15 @@ Oh.  I added a test to t/06_tk.t to exercise the fileevent bug.
 
 Added Tk workarounds to make the new failing tests pass.  Hooray!
 
+Added file/line reporting in Session's trace option, so the sources of
+events are now reported.
+
+Apply a bunch of notes Rob Bloodgood sent in about the postback
+documentation in POE::Session.
+
+Added ReadWrite methods: get_input_filter and get_output_filter, so
+that filters' methods can be manipulated directly.
+
 
 0.1204 2001.01.13
 -----------------
@@ -840,8 +849,8 @@ documentation.
 0.1005 2000.05.23
 -----------------
 
-I forgot to document POE::Session's constructors.  Oops!  Now thery
-are documented.
+I forgot to document POE::Session's constructors.  Oops!  Now they are
+documented.
 
 Rewrote the POE::Wheel POD.
 

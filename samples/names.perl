@@ -136,7 +136,7 @@ sub lock {
 # protocol, similar to lock's.
 
 sub unlock {
-  my ($kernel, $heap, $sender, $lock_name, $success, $failure) = 
+  my ($kernel, $heap, $sender, $lock_name, $success, $failure) =
     @_[KERNEL, HEAP, SENDER, ARG0, ARG1, ARG2];
                                         # if the lock exists...
   if (exists $heap->{$lock_name}) {

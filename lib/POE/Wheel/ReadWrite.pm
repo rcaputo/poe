@@ -412,6 +412,20 @@ sub set_output_filter {
   $self->[FILTER_OUTPUT] = $new_filter;
 }
 
+# Get the current input filter; used for accessing the filter's custom
+# methods, as in: $wheel->get_input_filter()->filter_method();
+sub get_input_filter {
+  my $self = shift;
+  return $self->[FILTER_INPUT];
+}
+
+# Get the current input filter; used for accessing the filter's custom
+# methods, as in: $wheel->get_input_filter()->filter_method();
+sub get_output_filter {
+  my $self = shift;
+  return $self->[FILTER_OUTPUT];
+}
+
 # Set the high water mark.
 
 sub set_high_mark {
@@ -591,6 +605,17 @@ get_pending() in L<POE::Filter>.
 
 The HTTPD filter does not support get_pending(), and it will complain
 if a program tries to switch away from one.
+
+=item get_input_filter
+
+=item get_output_filter
+
+Return the wheel's input or output filter.  In many cases, they both
+may be the same.  This is used to access custom methods on the filter
+itself; for example, Filter::Stackable has methods to push and pop
+filters on its stack.
+
+  $wheel->get_input_filter()->pop();
 
 =item set_high_mark HIGH_MARK_OCTETS
 

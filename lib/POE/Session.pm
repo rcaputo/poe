@@ -467,7 +467,7 @@ sub _invoke_state {
   # Trace the state invocation if tracing is enabled.
 
   if (exists($self->[SE_OPTIONS]->{OPT_TRACE})) {
-    warn {% fetch_id $self %}, " -> $state\n";
+    warn {% fetch_id $self %}, " -> $state (from $file at $line)\n";
   }
 
   # The desired destination state doesn't exist in this session.
@@ -1068,10 +1068,11 @@ EVENT_NAME events back to the session whose postback() method was
 called.  Postbacks hold external references on the sessions they're
 created for, so they keep their sessions alive.
 
-The EVENT_NAME event includes two fields.  C<ARG0> contains a
-reference to the PARAMETER_LIST passed to C<postback()>.  This is the
-"request" field.  C<ARG1> holds a reference to the parameters passed
-to the coderef when it's called.  That's the "response" field.
+The EVENT_NAME event includes two fields, both of which are list
+references.  C<ARG0> contains a reference to the PARAMETER_LIST passed
+to C<postback()>.  This is the "request" field.  C<ARG1> holds a
+reference to the parameters passed to the coderef when it's called.
+That's the "response" field.
 
 This creates a Tk button that posts an "ev_counters_begin" event to
 C<$session> whenever it's pressed.
@@ -1081,8 +1082,29 @@ C<$session> whenever it's pressed.
       -command => $session->postback( 'ev_counters_begin' )
     )->pack;
 
-C<postback()> works wherever a callback does.  It's also possible to
-use postbacks for request/response protocols between sessions.
+C<postback()> works wherever a callback does.  Another good use of
+postbacks is for request/response protocols between sessions.  For
+example, a client session will post an event to a server session.  The
+client may include a postback as part of its request event, or the
+server may build a postback based on C<$_[SENDER]> and an event name
+either pre-arranged or provided by the client.
+
+Since C<postback()> is a Session method, you can call it on
+C<$_[SESSION]> to create a postback for the current session.  In this
+case, the client gives its postback to the server, and the server
+would call the postback to return a response event.
+
+  # This code is in a client session.  SESSION is this session, so it
+  # refers to the client.
+  my $client_postback = $_[SESSION]->postback( reply_event_name => $data );
+
+The other case is where the server creates a postback to respond to a
+client.  Here, it calls C<postback()> on C<$_[SENDER]> to create a
+postback that will respond to the request's sender.
+
+  # This code is in a server session.  SENDER is the session that sent
+  # a request event: the client session.
+  my $client_postback = $_[SENDER]->postback( reply_event_name => $data );
 
 In the following code snippets, Servlet is a session that acts like a
 tiny daemon.  It receives requests from "client" sessions, performs
@@ -1107,11 +1129,17 @@ sends requests to Servlet and eventually receives its responses.
     my ($heap, $sender, $reply_to, @request_args) =
       @_[HEAP, SENDER, ARG0, ARG1..$#_];
 
+    # Set the request in motion based on @request_args.  This may take
+    # a while.
+
+    ...;
+
+    # Create a postback, and hold onto it so we'll have a way to
+    # respond back to the client session when the request has
+    # finished.
+
     $heap->{postback}->{$sender} =
       $sender->postback( $reply_to, @request_args );
-
-    # Do something with @request_args.
-    ...;
   }
 
   # When the server is ready to respond, it retrieves the postback and
@@ -1134,7 +1162,12 @@ sends requests to Servlet and eventually receives its responses.
 
   sub Client::request {
     my $kernel = $_[KERNEL];
-    $kernel->post( server => accept_request_event => reply_to => 1, 2, 3 );
+
+    # Assemble a request for the server.
+    my @request = ( 1, 2, 3 );
+
+    # Post the request to the server.
+    $kernel->post( server => accept_request_event => reply_to => @request );
   }
 
   # Here's where the client receives its response.  Postback events

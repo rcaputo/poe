@@ -187,7 +187,7 @@ one-way pipes.
 
 So anyway, the syntax is pretty easy:
 
-  my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::OneWay->new();
+  my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new();
   die "couldn't create a pipe: $!" unless defined $a_read;
 
 And now you have an unbuffered pipe with two read/write sides, A and
