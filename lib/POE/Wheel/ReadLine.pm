@@ -489,7 +489,14 @@ sub _define_read_state {
             if (length($key) > 1) {
 
               # Beginning of line.
-              if ( $key eq '^A' or $key eq $tck_home ) {
+              if (
+                $key eq '^A' or
+                $key eq $tck_home or
+                $key eq '^[[H' or       # HP xterm
+                $key eq "^[[\0" or      # HP xterm
+                $key eq '^[h' or        # hpterm
+                $key eq "\0\107"        # DOS
+              ) {
                 if ($$cursor_input) {
                   curs_left($$cursor_display);
                   $$cursor_display = $$cursor_input = 0;
@@ -501,7 +508,15 @@ sub _define_read_state {
               }
 
               # Back one character.
-              if ($key eq '^B' or $key eq $tck_left) {
+              if (
+                $key eq '^B' or
+                $key eq $tck_left or
+                $key eq '^[[D' or       # vt
+                $key eq '^[OD' or       # vt
+                $key eq '^[[[D' or      # vt
+                $key eq "\0\113" or     # DOS
+                $key eq '^[D'           # hpterm
+              ) {
                 if ($$cursor_input) {
                   $$cursor_input--;
                   my $left = display_width(substr($$input, $$cursor_input, 1));
@@ -537,7 +552,12 @@ sub _define_read_state {
 
               # Delete a character.  On an empty line, it throws an
               # "eot" exception, just like Term::ReadLine does.
-              if ( $key eq '^D' or $key eq $tck_delete ) {
+              if (
+                $key eq '^D' or
+                $key eq $tck_delete or
+                $key eq '\eP' or        # hpterm
+                $key eq '\0\123'        # DOS
+              ) {
                 unless (length $$input) {
                   print $stdout $key, "\x0D\x0A";
                   $poe_kernel->select_read($stdin);
@@ -576,7 +596,13 @@ sub _define_read_state {
               }
 
               # End of line.
-              if ( $key eq '^E' or $key eq $tck_end ) {
+              if (
+                $key eq '^E' or
+                $key eq $tck_end or
+                $key eq '^[&r1R' or     # hpterm shift+right
+                $key eq '^[F' or        # hpterm shift+home
+                $key eq "\0\117"        # DOS
+              ) {
                 if ($$cursor_input < length($$input)) {
                   my $right_string = substr($$input, $$cursor_input);
                   print normalize($right_string);
@@ -591,7 +617,15 @@ sub _define_read_state {
               }
 
               # Forward character.
-              if ($key eq '^F' or $key eq $tck_right) {
+              if (
+                $key eq '^F' or
+                $key eq $tck_right or
+                $key eq '^[[C' or       # vt
+                $key eq '^[OC' or       # vt
+                $key eq '^[[[C' or      # vt
+                $key eq '^[C' or        # hpterm
+                $key eq "\0\115"        # DOS
+              ) {
                 if ($$cursor_input < length($$input)) {
                   my $normal = normalize(substr($$input, $$cursor_input, 1));
                   print $stdout $normal;
@@ -626,7 +660,11 @@ sub _define_read_state {
               }
 
               # Backward delete character.
-              if ($key eq '^H' or $key eq $tck_backspace) {
+              if (
+                $key eq '^H' or
+                $key eq "<7f>" or
+                $key eq $tck_backspace
+              ) {
                 if ($$cursor_input) {
                   $$cursor_input--;
                   my $left = display_width(substr($$input, $$cursor_input, 1));
@@ -797,7 +835,15 @@ sub _define_read_state {
               }
 
               # Previous in history.
-              if ($key eq '^P' or $key eq $tck_up) {
+              if (
+                $key eq '^P' or
+                $key eq $tck_up or
+                $key eq '^[[A' or       # vt
+                $key eq '^[OA' or       # vt
+                $key eq '^[[[A' or      # vt
+                $key eq '^[A' or        # HP xterm / hpterm
+                $key eq "\0\110"        # DOS
+              ) {
                 if ($$hist_index) {
 
                   # Moving away from a new input line; save it in case
@@ -840,7 +886,15 @@ sub _define_read_state {
               }
 
               # Next in history.
-              if ($key eq '^N' or $key eq $tck_down) {
+              if (
+                $key eq '^N' or
+                $key eq $tck_down or
+                $key eq '^[[B' or       # vt
+                $key eq '^[OB' or       # vt
+                $key eq '^[[[B' or      # vt
+                $key eq '^[B' or        # hpterm
+                $key eq "\0\120"        # DOS
+              ) {
                 if ($$hist_index < @$hist_list) {
 
                   # Move cursor to start of input.
@@ -1146,7 +1200,14 @@ sub _define_read_state {
               }
 
               # Toggle insert mode.
-              if ($key eq $tck_insert) {
+              if (
+                $key eq $tck_insert or
+                $key eq '^[[2~' or      # vt
+                $key eq '^[[3~' or      # vt
+                $key eq '^[[4~' or      # vt
+                $key eq '^[Q' or        # hpterm
+                $key eq "\0\122"        # DOS
+              ) {
                 $$insert_mode = !$$insert_mode;
                 next;
               }
