@@ -7,6 +7,81 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.06_03 1999.03.17
+------------------
+
+Incorrect parameters to &POE::Session::new could cause an infinite
+loop.  Fixed.
+
+Depreciated posting/calling $_[HEAP] instead of $_[SESSION].
+
+Allow posting to stringified session references.
+
+Sessions will carp on invalid states, if their 'debug' option is set
+and they do not have a _default state registered.
+
+Added an event() method to the wheels.  This lets programs change the
+events they emit without having to destroy them outright and create
+replacements.
+
+Allow packed addresses in SocketFactory's parameters.
+
+Documented the mailing list.
+
+Fixed a race error in tests/proxy.perl.  It would die if the client
+sent information before the server connection was made.
+
+
+0.06_02 1999.02.20
+------------------
+
+Fixed POE documentation to stop being silly about => "stringifying"
+things that it's not.  Sorry about that.
+
+Updated tests/proxy.perl to queue data sent by the client before the
+server connection is fully established.  Previously, the proxy would
+try to call SocketFactory::put, and the proxy would die.  Whoops!
+
+Updated SocketFactory to fail on unresolved hostnames.  Previously it
+was relying on undef from Socket::sockaddr_in; now it checks the
+inet_aton results.
+
+Updated SocketFactory to generate FailureState on failure to connect.
+
+Replaced SocketFactory's hard failures with FailureState events.
+
+Fixed proxy.perl; it wasn't registering the proxy/server ReadWrite
+wheel properly.
+
+Assigned EADDRNOTAVAIL to $! if inet_aton fails in SocketFactory.  I
+assumed inet_aton (gethostbyname, too) touch $! on failure.  Wrong!
+
+
+0.06_01 1999.02.16
+------------------
+
+Added Kernel::session_create, a semantically sweeter version of C<new
+POE::Session>, for people who prefer to think this way.
+
+Added check for pre-packed INET addresses in Wheel::SocketFactory.
+Previously it would try to inet_aton() them.
+
+Added check for stringified session references in
+Kernel::alias_resolve.  Now you can post/call to hash keys.
+
+Added the event() method to existing POE::Wheel classes.  Now events
+can be changed without destroying old wheels and creating new ones.
+
+Made state redefinition warnings optional.  They will not appear
+unless a session's 'debug' option is set.
+
+Added tests/fakelogin.perl to test the event() method for ReadWrite.
+The other wheels' event() methods are untested.  If they're broken,
+let the author know.
+
+Split the TO-DO list out of the main POE.pm file.
+
+
 0.06 1999.02.03 (!!!)
 ---------------------
 
