@@ -1,3 +1,15 @@
 ~$
 \.swp$
 ^\.
+^poe_report.xml$
+^Makefile$
+^Makefile.old$
+^MANIFEST.bak^
+\.bak$
+^blib/
+^pm_to_blib$
+\.swo$
+CVS
+~$
+\.rej$
+\.cvsignore
