@@ -61,18 +61,18 @@ Finally you can install it:
 Test Results and Coverage
 -------------------------
 
-Test results for 0.1010 running FreeBSD 4.0-STABLE with perl 5.6.0,
-Event 0.79, and Perl/Tk 800.021:
+These are the results for `make test` in POE 0.11, on an old 486
+running FreeBSD 4.0-STABLE with perl 5.6.0, Event 0.79, and Perl/Tk
+800.021:
 
 All tests successful.
-Files=18, Tests=294, 763 wallclock secs (249.12 cusr + 23.84 csys = 272.96 CPU)
+Files=18, Tests=294, 721 wallclock secs (245.87 cusr + 21.68 csys = 267.55 CPU)
 
-POE's development after 0.1005 consists of a big push to test
-everything.  To further this effort, the author wrote a test coverage
-reporting program; then he discovered Devel::Coverage.  Oh well!
-Anyway, here's the test coverage summary for version 0.1009.  The numbers
-don't match up yet, but this is a general guideline for how well-tested
-POE is.
+POE's development after 0.1005 includes a big push to test everything.
+To further this effort, POE now includes some extra profiling code
+which isn't installed.  Anyway, here's a list of POE's modules and
+approximate coverage statistics for each.  These numbers are misleading
+at best, but they give a rough idea of what's been tested.
 
 Source File                         =   Ran / Total = Covered
 POE.pm                              =    19 /    19 = 100.00%
@@ -83,15 +83,15 @@ POE/Filter/HTTPD.pm                 =    11 /    85 =  12.94%
 POE/Filter/Line.pm                  =    15 /    20 =  75.00%
 POE/Filter/Reference.pm             =    58 /    66 =  87.88%
 POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-POE/Kernel.pm                       =   718 /   927 =  77.45%
+POE/Kernel.pm                       =   706 /   927 =  76.16%
 POE/Kernel.pmPOE/Kernel.pm          =     0 /     1 =   0.00%
 POE/Preprocessor.pm                 =   119 /   138 =  86.23%
-POE/Session.pm                      =    85 /   194 =  43.81%
+POE/Session.pm                      =    81 /   194 =  41.75%
 POE/Wheel/FollowTail.pm             =    54 /    69 =  78.26%
 POE/Wheel/ListenAccept.pm           =     5 /    43 =  11.63%
 POE/Wheel/ReadWrite.pm              =   100 /   183 =  54.64%
-POE/Wheel/SocketFactory.pm          =   194 /   275 =  70.55%
-All Told                            =  1487 /  2145 =  69.32%
+POE/Wheel/SocketFactory.pm          =   195 /   278 =  70.14%
+All Told                            =  1472 /  2148 =  68.53%
 
 Good luck, and thank you for reading!
 
