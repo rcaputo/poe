@@ -165,12 +165,7 @@ sub _start {
   $kernel->sig('INT', 'signals');
                                         # create a socket factory
   $heap->{wheel} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,        # in the INET domain/address family
-      SocketType     => SOCK_STREAM,    # create stream sockets
-      SocketProtocol => 'tcp',          # using the tcp protocol
-      BindAddress    => INADDR_ANY,     # bound to any interface
-      BindPort       => $port,          # on this port
-      ListenQueue    => 5,              # listen, with a 5-connection queue
+    ( BindPort       => $port,          # on this port
       Reuse          => 'yes',          # and allow immediate port reuse
       SuccessState   => 'accept',       # generating this event on connection
       FailureState   => 'accept_error'  # generating this event on error

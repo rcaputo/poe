@@ -140,12 +140,7 @@ sub _start {
   my ($kernel, $heap, $processes) = @_[KERNEL, HEAP, ARG0];
                                         # create a socket factory
   $heap->{wheel} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,        # in the INET domain/address family
-      SocketType     => SOCK_STREAM,    # create stream sockets
-      SocketProtocol => 'tcp',          # that use the 'tcp' protocol
-      BindAddress    => INADDR_ANY,     # bind to port 8888 of any address
-      BindPort       => 8888,
-      ListenQueue    => 5,              # listen, with a 5-connection queue
+    ( BindPort       => 8888,           # bind on this port
       SuccessState   => 'connection',   # generate this event for connections
       FailureState   => 'error'         # generate this event for errors
     );

@@ -88,10 +88,7 @@ sub session_start {
     );
   
   $heap->{wheel_server} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,
-      SocketType     => SOCK_STREAM,
-      SocketProtocol => 'tcp',
-      RemoteAddress  => $remote_addr,
+    ( RemoteAddress  => $remote_addr,
       RemotePort     => $remote_port,
       SuccessState   => 'server_connect',
       FailureState   => 'server_error',
