@@ -7,7 +7,17 @@ use ExtUtils::Manifest qw(maniread);
 use File::Spec;
 use Text::Wrap;
 
-sub TRACE_GATHER  () { 0 }  # extra information about dependency gathering
+# Enable verbose testing if this is running on solaris, because
+# solaris' CPAN tester's machine has trouble finding some modules
+# which do exist.
+BEGIN {
+  if ($^O eq 'solaris') {
+    eval 'sub TRACE_GATHER () { 1 }';
+  }
+  else {
+    eval 'sub TRACE_GATHER () { 0 }';
+  }
+};
 sub TRACE_SECTION () { 1 }  # lets the installer know what's going on
 
 open STDERR_HOLD, '>&STDERR' or die "cannot save STDERR: $!";
