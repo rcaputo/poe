@@ -38,6 +38,8 @@ sub load_required_module {
 
 # Required modules first.
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+
 &load_required_module( 1, 'POE'); # includes POE::Kernel and POE::Session
 &load_required_module( 2, 'POE::Filter::Line');
 &load_required_module( 3, 'POE::Filter::Stream');

@@ -11,12 +11,15 @@ sub MAC_CODE       () { 1 }
 sub STATE_PLAIN     () { 0x0000 }
 sub STATE_MACRO_DEF () { 0x0001 }
 
-sub COND_FLAG () { 0 }
-sub COND_LINE () { 1 }
+sub COND_FLAG   () { 0 }
+sub COND_LINE   () { 1 }
+sub COND_INDENT () { 2 }
 
 BEGIN {
-  defined &DEBUG     or eval 'sub DEBUG     () { 0 }'; # preprocessor
-  defined &DEBUG_ROP or eval 'sub DEBUG_ROP () { 0 }'; # regexp optimizer
+  defined &DEBUG        or eval 'sub DEBUG        () { 0 }'; # preprocessor
+  defined &DEBUG_ROP    or eval 'sub DEBUG_ROP    () { 0 }'; # regexp optimizer
+  defined &DEBUG_INVOKE or eval 'sub DEBUG_INVOKE () { 0 }'; # macro invocs
+  defined &DEBUG_DEFINE or eval 'sub DEBUG_DEFINE () { 0 }'; # macro defines
 };
 
 # Create an optimal regexp to match a list of things.
@@ -111,10 +114,22 @@ sub optimum_match {
   $sub_expression;
 }
 
-sub COND_INCLUDE () { 1 }
-sub COND_EXCLUDE () { 0 }
+# These must be accessible from outside the current package.
+use vars qw(%conditional_stacks %excluding_code %exclude_indent);
 
-use vars qw(%conditional_stacks); # Must be global.
+sub fix_exclude {
+  my $package_name = shift;
+  $excluding_code{$package_name} = 0;
+  if (@{$conditional_stacks{$package_name}}) {
+    foreach my $flag (@{$conditional_stacks{$package_name}}) {
+      unless ($flag->[COND_FLAG]) {
+        $excluding_code{$package_name} = 1;
+        $exclude_indent{$package_name} = $flag->[COND_INDENT];
+        last;
+      }
+    }
+  }
+}
 
 sub import {
   # Outer closure to define a unique scope.
@@ -125,6 +140,7 @@ sub import {
     my $state = STATE_PLAIN;
 
     $conditional_stacks{$package_name} = [ ];
+    $excluding_code{$package_name} = 0;
 
     my $set_const = sub {
       my ($name, $value) = @_;
@@ -136,7 +152,7 @@ sub import {
       $constants{$name} = $value;
       $const_regexp_dirty++;
 
-      DEBUG and
+      DEBUG_DEFINE and
         warn( ",-----\n",
               "| Defined a constant: $name = $value\n",
               "`-----\n"
@@ -163,87 +179,154 @@ sub import {
           ### Usurp modified Perl syntax for code inclusion.  These
           ### are hardcoded and always handled.
 
-          # } else { # include
-          if (/^\s*\}\s*else\s*\{\s*\#\s*include\s*$/) {
+          # Only do the conditionals if there's a flag present.
+          if (/[\{\}]\s*\#\s*include\s*$/) {
 
-            $_ = "# $_";
+            # if (...) { # include
+            if (/^(\s*)if\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
+              my $space = (defined $1) ? $1 : '';
+              $_ =
+                ( $space .
+                  "BEGIN { push( \@{\$" . __PACKAGE__ .
+                  "::conditional_stacks{'$package_name'}}, " .
+                  "[ !!$2, $line_number, '$space' ] ); \&" . __PACKAGE__ .
+                  "::fix_exclude('$package_name'); }; # $_"
+                );
+              s/\#\s+/\# /;
 
-            unless (@{$conditional_stacks{$package_name}}) {
-              die( "else { # include ... without if or unless " .
-                   "at $file_name line $line_number\n"
-                 );
-              return -1;
+              # Dummy line in the macro.
+              if ($state & STATE_MACRO_DEF) {
+                local $_ = $_;
+                s/B/\# B/;
+                $macro_line++;
+                $macros{$macro_name}->[MAC_CODE] .= $_;
+                DEBUG and
+                  warn sprintf "%4d M: # mac 1: %s", $line_number, $_;
+              }
+              else {
+                DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+              }
+
+              return $status;
             }
 
-            $conditional_stacks{$package_name}->[-1]->[COND_FLAG] =
-              !$conditional_stacks{$package_name}->[-1]->[COND_FLAG];
-            return $status;
-          }
+            # } # include
+            elsif (/^\s*\}\s*\#\s*include\s*$/) {
+              s/^(\s*)/$1\# /;
+              pop @{$conditional_stacks{$package_name}};
+              &fix_exclude($package_name);
 
-          # } # include
-          if (/^\s*\}\s*\#\s*include\s*$/) {
-            $_ = "\# $_";
-            pop @{$conditional_stacks{$package_name}};
-            return $status;
-          }
-
-          # if (...) { # include
-          if (/^\s*if\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
-            $_ = ( "BEGIN { push( \@{\$" . __PACKAGE__ .
-                   "::conditional_stacks{'$package_name'}}, " .
-                   "[ !!$1, $line_number ] ) }; # $_"
-                 );
-            return $status;
-          }
-
-          # unless (...) { # include
-          if (/^\s*unless\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
-            $_ = ( "BEGIN { push( \@{\$" . __PACKAGE__ .
-                   "::conditional_stacks{'$package_name'}}, " .
-                   "[ !$1, $line_number ] ) }; # $_"
-                 );
-            return $status;
-          }
-
-          # } elsif (...) { # include
-          if (/^\s*\}\s*elsif\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
-            unless (@{$conditional_stacks{$package_name}}) {
-              die( "Include elsif without include if or unless " .
-                   "at $file_name line $line_number\n"
-                 );
-              return -1;
+              unless ($state & STATE_MACRO_DEF) {
+                DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+                return $status;
+              }
             }
 
-            $_ = ( "BEGIN { \$" . __PACKAGE__ .
-                   "::conditional_stacks{'$package_name'}->[-1] = " .
-                   "[ !!$1, $line_number ] }; # $_"
-                 );
-            return $status;
+            # } else { # include
+            elsif (/^\s*\}\s*else\s*\{\s*\#\s*include\s*$/) {
+              unless (@{$conditional_stacks{$package_name}}) {
+                die( "else { # include ... without if or unless " .
+                     "at $file_name line $line_number\n"
+                   );
+                return -1;
+              }
+
+              s/^(\s*)/$1\# /;
+              $conditional_stacks{$package_name}->[-1]->[COND_FLAG] =
+                !$conditional_stacks{$package_name}->[-1]->[COND_FLAG];
+              &fix_exclude($package_name);
+
+              unless ($state & STATE_MACRO_DEF) {
+                DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+                return $status;
+              }
+            }
+
+            # unless (...) { # include
+            elsif (/^(\s*)unless\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
+              my $space = (defined $1) ? $1 : '';
+              $_ = ( $space .
+                     "BEGIN { push( \@{\$" . __PACKAGE__ .
+                     "::conditional_stacks{'$package_name'}}, " .
+                     "[ !$2, $line_number, '$space' ] ); \&" . __PACKAGE__ .
+                     "::fix_exclude('$package_name'); }; # $_"
+                   );
+              s/\#\s+/\# /;
+
+              # Dummy line in the macro.
+              if ($state & STATE_MACRO_DEF) {
+                local $_ = $_;
+                s/B/\# B/;
+                $macro_line++;
+                $macros{$macro_name}->[MAC_CODE] .= $_;
+                DEBUG and
+                  warn sprintf "%4d M: # mac 2: %s", $line_number, $_;
+              }
+              else {
+                DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+              }
+
+              return $status;
+            }
+
+            # } elsif (...) { # include
+            elsif (/^(\s*)\}\s*elsif\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
+              unless (@{$conditional_stacks{$package_name}}) {
+                die( "Include elsif without include if or unless " .
+                     "at $file_name line $line_number\n"
+                   );
+                return -1;
+              }
+
+              my $space = (defined $1) ? $1 : '';
+              $_ = ( $space .
+                     "BEGIN { \$" . __PACKAGE__ .
+                     "::conditional_stacks{'$package_name'}->[-1] = " .
+                     "[ !!$2, $line_number, '$space' ]; \&" . __PACKAGE__ .
+                     "::fix_exclude('$package_name'); }; # $_"
+                   );
+              s/\#\s+/\# /;
+
+              # Dummy line in the macro.
+              if ($state & STATE_MACRO_DEF) {
+                local $_ = $_;
+                s/B/\# B/;
+                $macro_line++;
+                $macros{$macro_name}->[MAC_CODE] .= $_;
+                DEBUG and
+                  warn sprintf "%4d M: # mac 3: %s", $line_number, $_;
+              }
+              else {
+                DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+              }
+
+              return $status;
+            }
           }
 
-          ### Not including code, so comment it out.
-          if ( @{$conditional_stacks{$package_name}}
-               and grep( { !$_->[COND_FLAG] }
-                         @{$conditional_stacks{$package_name}}
-                       )
-             ) {
-            DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
-            $_ = "# $_\n";
-            return $status;
+          ### Not including code, so comment it out.  Don't return
+          ### $status here since the code may well be in a macro.
+          if ($excluding_code{$package_name}) {
+            s{^($exclude_indent{$package_name})?}
+             {$exclude_indent{$package_name}\# };
+
+            # Kludge: Must thwart macros on this line.
+            s/\{\%(.*?)\%\}/MACRO($1)/g;
+
+            unless ($state & STATE_MACRO_DEF) {
+              DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+              return $status;
+            }
           }
-        
-          ### From here on, we're including code.  Do everything to it.
 
           ### Inside a macro definition.
           if ($state & STATE_MACRO_DEF) {
-
-            DEBUG and warn sprintf "%4d M: %s", $line_number, $_;
 
             # Close it!
             if (/^\}\s*$/) {
               $state = STATE_PLAIN;
 
-              DEBUG and
+              DEBUG_DEFINE and
                 warn( ",-----\n",
                       "| Defined macro $macro_name\n",
                       "| Parameters: ",
@@ -254,10 +337,8 @@ sub import {
                       "`-----\n"
                     );
 
-              unless ($macros{$macro_name}->[MAC_CODE] =~ /\;\s*$/) {
-                $macros{$macro_name}->[MAC_CODE] =~ s/^\s*//;
-                $macros{$macro_name}->[MAC_CODE] =~ s/\s*$//;
-              }
+              $macros{$macro_name}->[MAC_CODE] =~ s/^\s*//;
+              $macros{$macro_name}->[MAC_CODE] =~ s/\s*$//;
 
               $macro_name = '';
             }
@@ -269,23 +350,27 @@ sub import {
             }
 
             # Either way, the code must not go on.
-            $_ = "# macro: $_";
+            $_ = "# mac 4: $_";
+            DEBUG and warn sprintf "%4d M: %s", $line_number, $_;
+
             return $status;
           }
-
-          ### Ignore comments and blank lines.
-          return $status if /^\s*\#/ or /^\s*$/;
 
           ### Ignore everything after __END__ or __DATA__.  This works
           ### around a coredump in 5.005_61 through 5.6.0 at the
           ### expense of preprocessing data and documentation.
           if (/^__(END|DATA)__\s*$/) {
-            $_ = "\n";
+            $_ = "# $_";
             return 0;
           }
 
+          ### We're done if we're excluding code.
+          return $status if $excluding_code{$package_name};
+
           ### Define an enum.
           if (/^enum(?:\s+(\d+|\+))?\s+(.*?)\s*$/) {
+            my $temp_line = $_;
+
             $enum_index = ( (defined $1)
                             ? ( ($1 eq '+')
                                 ? $enum_index
@@ -296,14 +381,20 @@ sub import {
             foreach (split /\s+/, $2) {
               &{$set_const}($_, $enum_index++);
             }
-            $_ = "\n";
+
+            $_ = "# $temp_line";
+
+            DEBUG and warn sprintf "%4d E: %s", $line_number, $_;
+
             return $status;
           }
 
           ### Define a constant.
           if (/^const\s+([A-Z_][A-Z_0-9]+)\s+(.+?)\s*$/) {
+
             &{$set_const}($1, $2);
-            $_ = "\n";
+            $_ = "# $_";
+            DEBUG and warn sprintf "%4d E: %s", $line_number, $_;
             return $status;
           }
 
@@ -311,7 +402,7 @@ sub import {
           if (/^macro\s*(\w+)\s*(?:\((.*?)\))?\s*\{\s*$/) {
             $state = STATE_MACRO_DEF;
 
-            DEBUG and warn sprintf "%4d D: %s", $line_number, $_;
+            my $temp_line = $_;
 
             $macro_name = $1;
             $macro_line = 0;
@@ -331,17 +422,17 @@ sub import {
             $macros{$macro_name}->[MAC_PARAMETERS] = \@macro_params;
             $macros{$macro_name}->[MAC_CODE] = '';
 
-            $_ = "\n";
+            $_ = "# $temp_line";
+            DEBUG and warn sprintf "%4d D: %s", $line_number, $_;
             return $status;
           }
 
           ### Perform macro substitutions.
+          my $substitutions = 0;
           while (/^(.*?)\{\%\s+(\S+)\s*(.*?)\s*\%\}(.*)$/s) {
-
-            DEBUG and warn sprintf "%4d S: %s", $line_number, $_;
-
             my ($left, $name, $params, $right) = ($1, $2, $3, $4);
-            DEBUG and
+
+            DEBUG_INVOKE and
               warn ",-----\n| macro invocation: $name $params\n";
 
             if (exists $macros{$name}) {
@@ -360,7 +451,7 @@ sub import {
               }
 
               # Build a new bit of code here.
-              my $substitution = "\n" . $macros{$name}->[MAC_CODE];
+              my $substitution = $macros{$name}->[MAC_CODE];
 
               foreach my $mac_param (@mac_params) {
                 my $use_param = shift @use_params;
@@ -368,12 +459,14 @@ sub import {
               }
 
               unless ($^P) {
-                my @sub_lines = split "\n", $substitution;
-                for (my $sub_line = 0; $sub_line < @sub_lines; $sub_line++) {
-                  $sub_lines[$sub_line] =
-                    ( "# line $line_number \"macro $name (line $sub_line) " .
-                      "invoked from $file_name\"\n"
-                    ) . $sub_lines[$sub_line];
+                my @sub_lines = split /\n/, $substitution;
+                my $sub_line = @sub_lines;
+                while ($sub_line--) {
+                  splice( @sub_lines, $sub_line, 0,
+                          "# line $line_number " .
+                          "\"macro $name (line $sub_line) " .
+                          "invoked from $file_name\""
+                        );
                 }
                 $substitution = join "\n", @sub_lines;
               }
@@ -382,7 +475,9 @@ sub import {
               $_ .= "# line " . ($line_number+1) . " \"$file_name\"\n"
                 unless $^P;
 
-              DEBUG and warn "$_`-----\n";
+              DEBUG_INVOKE and warn "$_`-----\n";
+
+              $substitutions++;
             }
             else {
               warn( "macro $name has not been defined ",
@@ -402,11 +497,20 @@ sub import {
 
           # Perform constant substitutions.
           if (defined $const_regexp) {
-            s/\b($const_regexp)\b/$constants{$1}/sg;
+            $substitutions += s/\b($const_regexp)\b/$constants{$1}/sg;
           }
 
-          # Unmolested lines.
-          DEBUG and warn sprintf "%4d |: %s", $line_number, $_;
+          # Trace substitutions.
+          if (DEBUG) {
+            if ($substitutions) {
+              foreach my $line (split /\n/) {
+                warn sprintf "%4d S: %s\n", $line_number, $line;
+              }
+            }
+            else {
+              warn sprintf "%4d |: %s", $line_number, $_;
+            }
+          }
 
           $status;
         }
@@ -442,13 +546,17 @@ POE::Preprocessor - A Macro Preprocessor
 
   print "ONE TWO THREE TWELVE THIRTEEN FOURTEEN FIFTEEN SIXTEEN SEVENTEEN\n";
 
-  +{ evaluated condition;
+  if ($expression) {      # include
      ... lines of code ...
-   };
+  }                       # include
 
-  -{ evaluated condition;
-     ... lines of code ...
-   };
+  unless ($expression) {  # include
+    ... lines of code ...
+  } elsif ($expression) { # include
+    ... lines of code ...
+  } else {                # include
+    ... lines of code ...
+  }                       # include
 
 =head1 DESCRIPTION
 
@@ -520,13 +628,16 @@ later.
 
 =head1 DEBUGGING
 
-POE::Preprocessor has two debugging constants: DEBUG (which traces
-source filtering to stderr) and DEBUG_ROP (which shows what the regexp
-optimizer is up to).  They can be overridden prior to
-POE::Preprocessor's use:
+POE::Preprocessor has four debugging constants: DEBUG (which traces
+source filtering to stderr); DEBUG_ROP (which shows what the regexp
+optimizer is up to); DEBUG_INVOKE (which traces macro substitutions);
+and DEBUG_DEFINE (which traces macro, const and enum definitions).
+They can be overridden prior to POE::Preprocessor's use:
 
-  sub POE::Preprocessor::DEBUG     () { 1 } # trace preprocessor
-  sub POE::Preprocessor::DEBUG_ROP () { 1 } # trace regexp optimizer
+  sub POE::Preprocessor::DEBUG        () { 1 } # trace preprocessor
+  sub POE::Preprocessor::DEBUG_ROP    () { 1 } # trace regexp optimizer
+  sub POE::Preprocessor::DEBUG_INVOKE () { 1 } # trace macro use
+  sub POE::Preprocessor::DEBUG_DEFINE () { 1 } # trace macro/const/enum defs
   use POE::Preprocessor;
 
 =head1 BUGS

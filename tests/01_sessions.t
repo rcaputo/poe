@@ -174,9 +174,12 @@ POE::Session->create
 print "ok 4\n";
 
 # The coverage testing runtime tracker hangs this test.  We override
-# POE's SIGINT handler so that it can be killed manually and will
-# exit gracefully.
-$SIG{INT} = sub { exit; };
+# POE's SIGINT and SIGALRM handlers so that it can at least exit
+# gracefully once the tests are done.
+if ($^P) {
+  $SIG{ALRM} = $SIG{INT} = sub { exit; };
+  alarm(60);
+}
 
 # Now run them 'til they complete.
 $poe_kernel->run();

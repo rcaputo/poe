@@ -91,7 +91,6 @@ BEGIN {
 #------------------------------------------------------------------------------
 # Macro definitions.
 
-
 macro sig_remove (<session>,<signal>) {
   delete $self->[KR_SESSIONS]->{<session>}->[SS_SIGNALS]->{<signal>};
   delete $self->[KR_SIGNALS]->{<signal>}->{<session>};
@@ -408,10 +407,10 @@ const ET_STOP     0x0008
 const ET_SIGNAL   0x0010
 const ET_GC       0x0020
 const ET_PARENT   0x0040
-const ET_CHILD    0x0100
-const ET_SCPOLL   0x0280
-const ET_ALARM    0x0400
-const ET_SELECT   0x0800
+const ET_CHILD    0x0080
+const ET_SCPOLL   0x0100
+const ET_ALARM    0x0200
+const ET_SELECT   0x0400
 
 # The amount of time to spend dispatching FIFO events.  Increasing
 # this value will improve POE's FIFO dispatch performance by

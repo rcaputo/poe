@@ -59,10 +59,19 @@ Revised large chunks of POE::Preprocessor.  Added conditional code
 inclusion on the assumption that not performing macro substitution and
 compiling code we don't use will be faster.  This could well be false.
 
+Added DEBUG_INVOKE and DEBUG_DEFINE to POE::Preprocessor.
+
 Revised POE::Kernel to use conditional code inclusion instead of
 optimized-away optrees.
 
 Revised t/05_macros.t to test conditional code inclusion.
+
+Revised t/01_sessions.t to time out in coverage tests.  Previously,
+the tracing library would cause some subtle hang.
+
+Revised the coverage testing tools to cope with conditional code
+inclusion.  Conditional code inclusion inside macros changes line
+numbers no matter what I do, so the coverage report has to cope.
 
 
 0.1108 2000.10.06

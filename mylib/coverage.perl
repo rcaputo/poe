@@ -7,18 +7,14 @@
 use strict;
 use lib qw( . .. ../lib );
 
-my %statistics;
-sub CALL_COUNT  () { 0 }
-sub SUB_NAME    () { 1 }
-sub SOURCE_CODE () { 2 }
+sub DEBUG  () { 0 } # skip running tests to better debug this one
+sub UNLINK () { 0 } # unlink coverage files when done (disable for testing)
 
-# Ignore most signals.
+sub SRC_COUNT () { 0 }
+sub SRC_LINE  () { 1 }
+sub SRC_SRC   () { 2 }
 
-foreach (keys %SIG) {
-  next if /^(__.*__|CH?LD|INT)$/;
-  next unless defined $SIG{$_};
-  $SIG{$_} = 'IGNORE';
-}
+my (%counts, %uncalled);
 
 # Find the tests.
 
@@ -38,7 +34,10 @@ closedir T;
 # Run each test with coverage statistics.
 
 # Skip actual runs for testing.
-# goto SPANG;
+if (DEBUG) {
+  warn "not running test programs";
+  goto SPANG;
+}
 
 foreach my $test_file (@test_files) {
 
@@ -81,20 +80,39 @@ foreach my $test_file (@test_files) {
     chomp;
     my ($file, $line, $count, $sub, $source) = split /\t/;
 
-    if (exists $statistics{$file}->{$line}) {
-      $statistics{$file}->{$line}->[CALL_COUNT] += $count;
-      if ($statistics{$file}->{$line}->[SOURCE_CODE] ne $source) {
-        $statistics{$file}->{$line}->[SOURCE_CODE] = '(varies)';
-      }
+    my $report_source = $source;
+    $source =~ s/\s+/ /g;
+    $source =~ s/^\s+//;
+    $source =~ s/\s+$//;
+
+    # Ignore preprocessor BEGIN lines.
+    next if $source =~ /^BEGIN.*\#\s*include\s*$/;
+
+    # Ignore uninitialized lines.  Sanity check them, too.
+    if ($source eq '(uninitialized)') {
+      die( "instrumented uninitialized line in sub $sub ",
+           "in $file at line $line\n"
+         )
+        if $count;
+      next;
+    }
+
+    # Count the initialized line.
+    if (exists $counts{$file}->{$sub}->{$source}) {
+      $counts{$file}->{$sub}->{$source}->[SRC_COUNT] += $count;
+      $counts{$file}->{$sub}->{$source}->[SRC_LINE] = $line
+        if $counts{$file}->{$sub}->{$source}->[SRC_LINE] < $line;
     }
     else {
-      $statistics{$file}->{$line} = [ $count, $sub, $source ];
+      $counts{$file}->{$sub}->{$source} = [ $count, $line, $report_source ];
     }
   }
 
   close R;
 
-  # unlink $results_file;
+  if (UNLINK) {
+    unlink $results_file;
+  }
 }
 
 # Summary first.
@@ -108,23 +126,29 @@ printf( REPORT
         'Source File', 'Ran', 'Total', 'Covered'
       );
 
-my $ueber_total = 0;
+my $ueber_total  = 0;
 my $ueber_called = 0;
-foreach my $file (sort keys %statistics) {
+foreach my $file (sort keys %counts) {
   next unless $file =~ /^POE.*\.pm$/;
 
-  my $file_total = 0;
+  my $file_total  = 0;
   my $file_called = 0;
-  my $lines = $statistics{$file};
-  my @uncalled;
+  my $subs        = $counts{$file};
 
-  foreach my $line (sort { $a <=> $b } keys %$lines) {
-    $file_total++;
-    if ($lines->{$line}->[CALL_COUNT]) {
-      $file_called++;
-    }
-    else {
-      push @uncalled, $line;
+  foreach my $sub (sort keys %$subs) {
+    my $sub_rec = $subs->{$sub};
+
+    foreach my $line_rec ( sort { $a->[SRC_LINE] <=> $b->[SRC_LINE] }
+                           values %$sub_rec
+                         ) {
+      $file_total++;
+      if ($line_rec->[SRC_COUNT]) {
+        $file_called++;
+      }
+      else {
+        $uncalled{$file}->{$sub} = [ ] unless exists $uncalled{$file}->{$sub};
+        push @{$uncalled{$file}->{$sub}}, $line_rec;
+      }
     }
   }
 
@@ -150,16 +174,13 @@ printf( REPORT
 
 # Now detail.
 
-foreach my $file (sort keys %statistics) {
-  my $lines = $statistics{$file};
-  my $this_sub = '';
-  foreach my $line (sort { $a <=> $b } keys %$lines) {
-    unless ($lines->{$line}->[CALL_COUNT]) {
-      if ($this_sub ne $lines->{$line}->[SUB_NAME]) {
-        $this_sub = $lines->{$line}->[SUB_NAME];
-        print REPORT "\n*** Uninstrumented lines in $file sub $this_sub:\n\n";
-      }
-      printf REPORT "%5d : %-70.70s\n", $line, $lines->{$line}->[SOURCE_CODE];
+foreach my $file (sort keys %uncalled) {
+  foreach my $sub (sort keys %{$uncalled{$file}}) {
+    print REPORT "\n*** Uninstrumented lines in $file sub $sub:\n\n";
+
+    my $sub_rec = $uncalled{$file}->{$sub};
+    foreach my $line (@$sub_rec) {
+      printf REPORT "%5d : %-70.70s\n", $line->[SRC_LINE], $line->[SRC_SRC];
     }
   }
 }
