@@ -8,6 +8,8 @@ use strict;
 
 use Test::More tests => 5;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+
 BEGIN { use_ok("POE") }
 BEGIN { use_ok("POE::Pipe::OneWay") }
 
