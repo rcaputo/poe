@@ -66,10 +66,10 @@ my $kr_active_session;
 # The Kernel's master queue.
 my $kr_queue;
 
-# Filehandle vector sub-fields.  These are used in a few places.
-sub VEC_RD () { 0 }
-sub VEC_WR () { 1 }
-sub VEC_EX () { 2 }
+# Filehandle activity modes.  They are often used as list indexes.
+sub MODE_RD () { 0 }  # read
+sub MODE_WR () { 1 }  # write
+sub MODE_EX () { 2 }  # exception/expedite
 
 #------------------------------------------------------------------------------
 # Kernel structure.  This is the root of a large data tree.  Dumping
@@ -758,13 +758,13 @@ sub _data_alias_loggable {
 
 my %kr_filenos;
 
-sub FNO_VEC_RD       () { VEC_RD }  # [ [ (fileno read mode structure)
+sub FNO_MODE_RD      () { MODE_RD } # [ [ (fileno read mode structure)
 # --- BEGIN SUB STRUCT 1 ---        #
-sub FVC_REFCOUNT     () { 0      }  #     $fileno_total_use_count,
-sub FVC_ST_ACTUAL    () { 1      }  #     $requested_file_state (see HS_PAUSED)
-sub FVC_ST_REQUEST   () { 2      }  #     $actual_file_state (see HS_PAUSED)
-sub FVC_EV_COUNT     () { 3      }  #     $number_of_pending_events,
-sub FVC_SESSIONS     () { 4      }  #     { $session_watching_this_handle =>
+sub FMO_REFCOUNT     () { 0      }  #     $fileno_total_use_count,
+sub FMO_ST_ACTUAL    () { 1      }  #     $requested_file_state (see HS_PAUSED)
+sub FMO_ST_REQUEST   () { 2      }  #     $actual_file_state (see HS_PAUSED)
+sub FMO_EV_COUNT     () { 3      }  #     $number_of_pending_events,
+sub FMO_SESSIONS     () { 4      }  #     { $session_watching_this_handle =>
 # --- BEGIN SUB STRUCT 2 ---        #
 sub HSS_HANDLE       () { 0      }  #       [ $blessed_handle,
 sub HSS_SESSION      () { 1      }  #         $blessed_session,
@@ -773,16 +773,16 @@ sub HSS_STATE        () { 2      }  #         $event_name,
 # --- CEASE SUB STRUCT 2 ---        #     },
 # --- CEASE SUB STRUCT 1 ---        #   ],
                                     #
-sub FNO_VEC_WR       () { VEC_WR }  #   [ (write mode structure is the same)
+sub FNO_MODE_WR      () { MODE_WR } #   [ (write mode structure is the same)
                                     #   ],
                                     #
-sub FNO_VEC_EX       () { VEC_EX }  #   [ (expedite mode struct is the same)
+sub FNO_MODE_EX      () { MODE_EX } #   [ (expedite mode struct is the same)
                                     #   ],
                                     #
 sub FNO_TOT_REFCOUNT () { 3      }  #   $total_number_of_file_watchers,
                                     # ]
 
-### These are the values for FVC_ST_ACTUAL and FVC_ST_REQUEST.
+### These are the values for FMO_ST_ACTUAL and FMO_ST_REQUEST.
 
 sub HS_STOPPED   () { 0x00 }   # The file has stopped generating events.
 sub HS_PAUSED    () { 0x01 }   # The file temporarily stopped making events.
@@ -796,9 +796,9 @@ my %kr_ses_to_handle;
 # --- BEGIN SUB STRUCT ---  #      [
 sub SH_HANDLE     () {  0 } #        $blessed_file_handle,
 sub SH_REFCOUNT   () {  1 } #        $total_reference_count,
-sub SH_VECCOUNT   () {  2 } #        [ $read_reference_count,     (VEC_RD)
-                            #          $write_reference_count,    (VEC_WR)
-                            #          $expedite_reference_count, (VEC_EX)
+sub SH_MODECOUNT  () {  2 } #        [ $read_reference_count,     (MODE_RD)
+                            #          $write_reference_count,    (MODE_WR)
+                            #          $expedite_reference_count, (MODE_EX)
 # --- CEASE SUB STRUCT ---  #        ],
                             #      ],
                             #      ...
@@ -812,10 +812,10 @@ END {
     warn "!!! Leaked fileno: $fd (total refcnt=$tot)\n";
 
     warn( "!!!\tRead:\n",
-          "!!!\t\trefcnt  = $rd->[FVC_REFCOUNT]\n",
-          "!!!\t\tev cnt  = $rd->[FVC_EV_COUNT]\n",
+          "!!!\t\trefcnt  = $rd->[FMO_REFCOUNT]\n",
+          "!!!\t\tev cnt  = $rd->[FMO_EV_COUNT]\n",
         );
-    while (my ($ses, $ses_rec) = each(%{$rd->[FVC_SESSIONS]})) {
+    while (my ($ses, $ses_rec) = each(%{$rd->[FMO_SESSIONS]})) {
       warn( "!!!\t\tsession = $ses\n",
             "!!!\t\t\thandle  = $ses_rec->[HSS_HANDLE]\n",
             "!!!\t\t\tsession = $ses_rec->[HSS_SESSION]\n",
@@ -824,10 +824,10 @@ END {
     }
 
     warn( "!!!\tWrite:\n",
-          "!!!\t\trefcnt  = $wr->[FVC_REFCOUNT]\n",
-          "!!!\t\tev cnt  = $wr->[FVC_EV_COUNT]\n",
+          "!!!\t\trefcnt  = $wr->[FMO_REFCOUNT]\n",
+          "!!!\t\tev cnt  = $wr->[FMO_EV_COUNT]\n",
         );
-    while (my ($ses, $ses_rec) = each(%{$wr->[FVC_SESSIONS]})) {
+    while (my ($ses, $ses_rec) = each(%{$wr->[FMO_SESSIONS]})) {
       warn( "!!!\t\tsession = $ses\n",
             "!!!\t\t\thandle  = $ses_rec->[HSS_HANDLE]\n",
             "!!!\t\t\tsession = $ses_rec->[HSS_SESSION]\n",
@@ -836,10 +836,10 @@ END {
     }
 
     warn( "!!!\tException:\n",
-          "!!!\t\trefcnt  = $ex->[FVC_REFCOUNT]\n",
-          "!!!\t\tev cnt  = $ex->[FVC_EV_COUNT]\n",
+          "!!!\t\trefcnt  = $ex->[FMO_REFCOUNT]\n",
+          "!!!\t\tev cnt  = $ex->[FMO_EV_COUNT]\n",
         );
-    while (my ($ses, $ses_rec) = each(%{$ex->[FVC_SESSIONS]})) {
+    while (my ($ses, $ses_rec) = each(%{$ex->[FMO_SESSIONS]})) {
       warn( "!!!\t\tsession = $ses\n",
             "!!!\t\t\thandle  = $ses_rec->[HSS_HANDLE]\n",
             "!!!\t\t\tsession = $ses_rec->[HSS_SESSION]\n",
@@ -852,9 +852,9 @@ END {
     warn "!!! Leaked handle in $ses\n";
     while (my ($hnd, $rc) = each(%$hnd_rec)) {
       warn( "!!!\tHandle: $hnd (tot refcnt=$rc->[SH_REFCOUNT])\n",
-            "!!!\t\tRead      refcnt: $rc->[SH_VECCOUNT]->[VEC_RD]\n",
-            "!!!\t\tWrite     refcnt: $rc->[SH_VECCOUNT]->[VEC_WR]\n",
-            "!!!\t\tException refcnt: $rc->[SH_VECCOUNT]->[VEC_EX]\n",
+            "!!!\t\tRead      refcnt: $rc->[SH_MODECOUNT]->[MODE_RD]\n",
+            "!!!\t\tWrite     refcnt: $rc->[SH_MODECOUNT]->[MODE_WR]\n",
+            "!!!\t\tException refcnt: $rc->[SH_MODECOUNT]->[MODE_EX]\n",
           );
     }
   }
@@ -872,33 +872,33 @@ sub _data_handle_resume_requested_state {
   # isn't watched?
   return unless exists $kr_filenos{$fileno};
 
-  my $kr_fno_vec  = $kr_filenos{$fileno}->[$mode];
+  my $kr_fno_rec  = $kr_filenos{$fileno}->[$mode];
 
   if (TRACE_SELECT) {
     warn( "<fd> decrementing event count in mode ($mode) ",
           "for fileno (", $fileno, ") from count (",
-          $kr_fno_vec->[FVC_EV_COUNT], ")"
+          $kr_fno_rec->[FMO_EV_COUNT], ")"
         );
   }
 
   # If all events for the fileno/mode pair have been delivered, then
-  # resume the filehandle's watcher.  This decrements FVC_EV_COUNT
+  # resume the filehandle's watcher.  This decrements FMO_EV_COUNT
   # because the event has just been dispatched.  This makes sense.
 
-  unless (--$kr_fno_vec->[FVC_EV_COUNT]) {
-    if ($kr_fno_vec->[FVC_ST_REQUEST] & HS_PAUSED) {
+  unless (--$kr_fno_rec->[FMO_EV_COUNT]) {
+    if ($kr_fno_rec->[FMO_ST_REQUEST] & HS_PAUSED) {
       $self->loop_pause_filehandle_watcher($handle, $mode);
-      $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
+      $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
     }
-    elsif ($kr_fno_vec->[FVC_ST_REQUEST] & HS_RUNNING) {
+    elsif ($kr_fno_rec->[FMO_ST_REQUEST] & HS_RUNNING) {
       $self->loop_resume_filehandle_watcher($handle, $mode);
-      $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
+      $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
     }
     else {
       confess "internal consistency error";
     }
   }
-  elsif ($kr_fno_vec->[FVC_EV_COUNT] < 0) {
+  elsif ($kr_fno_rec->[FMO_EV_COUNT] < 0) {
     confess "handle event count went below zero";
   }
 }
@@ -911,11 +911,11 @@ sub _data_handle_enqueue_ready {
 
   foreach my $fileno (@filenos) {
     confess "internal inconsistency: undefined fileno" unless defined $fileno;
-    my $kr_fno_vec = $kr_filenos{$fileno}->[$mode];
+    my $kr_fno_rec = $kr_filenos{$fileno}->[$mode];
 
     # Gather all the events to emit for this fileno/mode pair.
 
-    my @selects = map { values %$_ } values %{ $kr_fno_vec->[FVC_SESSIONS] };
+    my @selects = map { values %$_ } values %{ $kr_fno_rec->[FMO_SESSIONS] };
 
     # Emit them.
 
@@ -929,18 +929,18 @@ sub _data_handle_enqueue_ready {
           __FILE__, __LINE__, time(),
         );
 
-      # Count the enqueued event.  This increments FVC_EV_COUNT
+      # Count the enqueued event.  This increments FMO_EV_COUNT
       # because an event has just been enqueued.  This makes sense.
 
-      unless ($kr_fno_vec->[FVC_EV_COUNT]++) {
+      unless ($kr_fno_rec->[FMO_EV_COUNT]++) {
         my $handle = $select->[HSS_HANDLE];
         $self->loop_pause_filehandle_watcher($handle, $mode);
-        $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
+        $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
       }
 
       if (TRACE_SELECT) {
         warn( "<fd> incremented event count in mode ($mode) ",
-              "for fileno ($fileno) to count ($kr_fno_vec->[FVC_EV_COUNT])"
+              "for fileno ($fileno) to count ($kr_fno_rec->[FMO_EV_COUNT])"
             );
       }
     }
@@ -956,7 +956,7 @@ sub _data_handle_is_good {
   return 0 unless exists $kr_filenos{fileno $handle};
 
   # Don't bother if the kernel isn't tracking the file mode.
-  return 0 unless $kr_filenos{fileno $handle}->[$mode]->[FVC_REFCOUNT];
+  return 0 unless $kr_filenos{fileno $handle}->[$mode]->[FMO_REFCOUNT];
 
   return 1;
 }
@@ -970,23 +970,23 @@ sub _data_handle_add {
   unless (exists $kr_filenos{$fd}) {
 
     $kr_filenos{$fd} =
-      [ [ 0,          # FVC_REFCOUNT    VEC_RD
-          HS_PAUSED,  # FVC_ST_ACTUAL
-          HS_PAUSED,  # FVC_ST_REQUEST
-          0,          # FVC_EV_COUNT
-          { },        # FVC_SESSIONS
+      [ [ 0,          # FMO_REFCOUNT    MODE_RD
+          HS_PAUSED,  # FMO_ST_ACTUAL
+          HS_PAUSED,  # FMO_ST_REQUEST
+          0,          # FMO_EV_COUNT
+          { },        # FMO_SESSIONS
         ],
-        [ 0,          # FVC_REFCOUNT    VEC_WR
-          HS_PAUSED,  # FVC_ST_ACTUAL
-          HS_PAUSED,  # FVC_ST_REQUEST
-          0,          # FVC_EV_COUNT
-          { },        # FVC_SESSIONS
+        [ 0,          # FMO_REFCOUNT    MODE_WR
+          HS_PAUSED,  # FMO_ST_ACTUAL
+          HS_PAUSED,  # FMO_ST_REQUEST
+          0,          # FMO_EV_COUNT
+          { },        # FMO_SESSIONS
         ],
-        [ 0,          # FVC_REFCOUNT    VEC_EX
-          HS_PAUSED,  # FVC_ST_ACTUAL
-          HS_PAUSED,  # FVC_ST_REQUEST
-          0,          # FVC_EV_COUNT
-          { },        # FVC_SESSIONS
+        [ 0,          # FMO_REFCOUNT    MODE_EX
+          HS_PAUSED,  # FMO_ST_ACTUAL
+          HS_PAUSED,  # FMO_ST_REQUEST
+          0,          # FMO_EV_COUNT
+          { },        # FMO_SESSIONS
         ],
         0,            # FNO_TOT_REFCOUNT
       ];
@@ -1030,25 +1030,26 @@ sub _data_handle_add {
 
   # Cache some high-level lookups.
   my $kr_fileno  = $kr_filenos{$fd};
-  my $kr_fno_vec = $kr_fileno->[$mode];
+  my $kr_fno_rec = $kr_fileno->[$mode];
 
   # The session is already watching this fileno in this mode.
 
-  if ($kr_fno_vec->[FVC_SESSIONS]->{$session}) {
+  if ($kr_fno_rec->[FMO_SESSIONS]->{$session}) {
 
     # The session is also watching it by the same handle.  Treat this
     # as a "resume" in this mode.
 
-    if (exists $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle}) {
+    if (exists $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle}) {
       if (TRACE_SELECT) {
-        warn( "<fd> fileno(" . $fd . ") mode($mode) " .
-              "count($kr_fno_vec->[FVC_EV_COUNT])"
+        warn( "<fd> running fileno(" . $fd . ") mode($mode) " .
+              "count($kr_fno_rec->[FMO_EV_COUNT])"
             );
       }
-      unless ($kr_fno_vec->[FVC_EV_COUNT]) {
+      unless ($kr_fno_rec->[FMO_EV_COUNT]) {
         $self->loop_resume_filehandle_watcher($handle, $mode);
+        $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
       }
-      $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
+      $kr_fno_rec->[FMO_ST_REQUEST] = HS_RUNNING;
     }
 
     # The session is watching it by a different handle.  It can't be
@@ -1063,23 +1064,23 @@ sub _data_handle_add {
   # the session/handle pair.
 
   else {
-    $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle} =
-      [ $handle,      # HSS_HANDLE
-        $session,     # HSS_SESSION
-        $event,       # HSS_STATE
+    $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle} =
+      [ $handle,   # HSS_HANDLE
+        $session,  # HSS_SESSION
+        $event,    # HSS_STATE
       ];
 
     # Fix reference counts.
     $kr_fileno->[FNO_TOT_REFCOUNT]++;
-    $kr_fno_vec->[FVC_REFCOUNT]++;
+    $kr_fno_rec->[FMO_REFCOUNT]++;
 
     # If this is the first time a file is watched in this mode, then
     # have the event loop bridge watch it.
 
-    if ($kr_fno_vec->[FVC_REFCOUNT] == 1) {
+    if ($kr_fno_rec->[FMO_REFCOUNT] == 1) {
       $self->loop_watch_filehandle($handle, $mode);
-      $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
-      $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
+      $kr_fno_rec->[FMO_ST_ACTUAL]  = HS_RUNNING;
+      $kr_fno_rec->[FMO_ST_REQUEST] = HS_RUNNING;
     }
   }
 
@@ -1090,9 +1091,9 @@ sub _data_handle_add {
     $kr_ses_to_handle{$session}->{$handle} =
       [ $handle,  # SH_HANDLE
         0,        # SH_REFCOUNT
-        [ 0,      # SH_VECCOUNT / VEC_RD
-          0,      # SH_VECCOUNT / VEC_WR
-          0       # SH_VECCOUNT / VEC_EX
+        [ 0,      # SH_MODECOUNT / MODE_RD
+          0,      # SH_MODECOUNT / MODE_WR
+          0       # SH_MODECOUNT / MODE_EX
         ]
       ];
     $self->_data_ses_refcount_inc($session);
@@ -1102,8 +1103,8 @@ sub _data_handle_add {
   # session knows it has a reason to live.
 
   my $ss_handle = $kr_ses_to_handle{$session}->{$handle};
-  unless ($ss_handle->[SH_VECCOUNT]->[$mode]) {
-    $ss_handle->[SH_VECCOUNT]->[$mode]++;
+  unless ($ss_handle->[SH_MODECOUNT]->[$mode]) {
+    $ss_handle->[SH_MODECOUNT]->[$mode]++;
     $ss_handle->[SH_REFCOUNT]++;
   }
 }
@@ -1119,24 +1120,24 @@ sub _data_handle_remove {
 
   if (exists $kr_filenos{$fd}) {
     my $kr_fileno  = $kr_filenos{$fd};
-    my $kr_fno_vec = $kr_fileno->[$mode];
+    my $kr_fno_rec = $kr_fileno->[$mode];
 
     # Make sure the handle was registered to the requested session.
 
-    if ( exists($kr_fno_vec->[FVC_SESSIONS]->{$session}) and
-         exists($kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle})
+    if ( exists($kr_fno_rec->[FMO_SESSIONS]->{$session}) and
+         exists($kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle})
        ) {
 
       # Remove the handle from the kernel's session record.
 
       my $handle_rec =
-        delete $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle};
+        delete $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle};
 
       my $kill_session = $handle_rec->[HSS_SESSION];
       my $kill_event   = $handle_rec->[HSS_STATE];
 
       # Remove any events destined for that handle.  Decrement
-      # FVC_EV_COUNT for each, because we've removed them.  This makes
+      # FMO_EV_COUNT for each, because we've removed them.  This makes
       # sense.
 
       my $my_select = sub {
@@ -1156,41 +1157,41 @@ sub _data_handle_remove {
         TRACE_EVENTS and
           warn "<ev> removing select event $id ``$event->[EV_NAME]''";
 
-        $kr_fno_vec->[FVC_EV_COUNT]--;
+        $kr_fno_rec->[FMO_EV_COUNT]--;
 
         if (TRACE_SELECT) {
           confess( "<fd> fileno $fd mode $mode event count went to ",
-                   $kr_fno_vec->[FVC_EV_COUNT]
+                   $kr_fno_rec->[FMO_EV_COUNT]
                  );
         }
 
         if (ASSERT_REFCOUNT) {
           confess "<fd> fileno $fd mode $mode event count went below zero"
-            if $kr_fno_vec->[FVC_EV_COUNT] < 0;
+            if $kr_fno_rec->[FMO_EV_COUNT] < 0;
         }
       }
 
       # Decrement the handle's reference count.
 
-      $kr_fno_vec->[FVC_REFCOUNT]--;
+      $kr_fno_rec->[FMO_REFCOUNT]--;
 
       if (ASSERT_REFCOUNT) {
         confess "fileno mode refcount went below zero"
-          if $kr_fno_vec->[FVC_REFCOUNT] < 0;
+          if $kr_fno_rec->[FMO_REFCOUNT] < 0;
       }
 
       # If the "mode" count drops to zero, then stop selecting the
       # handle.
 
-      unless ($kr_fno_vec->[FVC_REFCOUNT]) {
+      unless ($kr_fno_rec->[FMO_REFCOUNT]) {
         $self->loop_ignore_filehandle($handle, $mode);
-        $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
-        $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
+        $kr_fno_rec->[FMO_ST_ACTUAL]  = HS_STOPPED;
+        $kr_fno_rec->[FMO_ST_REQUEST] = HS_STOPPED;
 
         # The session is not watching handles anymore.  Remove the
         # session entirely the fileno structure.
-        delete $kr_fno_vec->[FVC_SESSIONS]->{$session}
-          unless keys %{$kr_fno_vec->[FVC_SESSIONS]->{$session}};
+        delete $kr_fno_rec->[FMO_SESSIONS]->{$session}
+          unless keys %{$kr_fno_rec->[FMO_SESSIONS]->{$session}};
       }
 
       # Decrement the kernel record's handle reference count.  If the
@@ -1224,11 +1225,11 @@ sub _data_handle_remove {
     # Remove it from the session's read, write or expedite mode.
 
     my $ss_handle = $kr_ses_to_handle{$session}->{$handle};
-    if ($ss_handle->[SH_VECCOUNT]->[$mode]) {
+    if ($ss_handle->[SH_MODECOUNT]->[$mode]) {
 
       # Hmm... what is this?  Was POE going to support multiple selects?
 
-      $ss_handle->[SH_VECCOUNT]->[$mode] = 0;
+      $ss_handle->[SH_MODECOUNT]->[$mode] = 0;
 
       # Decrement the reference count, and delete the handle if it's done.
 
@@ -1256,21 +1257,22 @@ sub _data_handle_resume {
   my ($self, $handle, $mode) = @_;
 
   my $kr_fileno = $kr_filenos{fileno($handle)};
-  my $kr_fno_vec = $kr_fileno->[$mode];
+  my $kr_fno_rec = $kr_fileno->[$mode];
 
   if (TRACE_SELECT) {
     warn( "<fd> resume test: fileno(" . fileno($handle) . ") mode($mode) " .
-          "count($kr_fno_vec->[FVC_EV_COUNT])"
+          "count($kr_fno_rec->[FMO_EV_COUNT])"
         );
   }
 
   # Resume the handle if there are no events for it.
-  unless ($kr_fno_vec->[FVC_EV_COUNT]) {
+  unless ($kr_fno_rec->[FMO_EV_COUNT]) {
     $self->loop_resume_filehandle_watcher($handle, $mode);
+    $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
   }
 
   # Either way we set the handle's requested state to "running".
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
+  $kr_fno_rec->[FMO_ST_REQUEST] = HS_RUNNING;
 }
 
 ### Pause a filehandle.  If there are no events in the queue for this
@@ -1281,21 +1283,22 @@ sub _data_handle_pause {
   my ($self, $handle, $mode) = @_;
 
   my $kr_fileno = $kr_filenos{fileno($handle)};
-  my $kr_fno_vec = $kr_fileno->[$mode];
+  my $kr_fno_rec = $kr_fileno->[$mode];
 
   if (TRACE_SELECT) {
     warn( "<fd> pause test: fileno(" . fileno($handle) . ") mode($mode) " .
-          "count($kr_fno_vec->[FVC_EV_COUNT])"
+          "count($kr_fno_rec->[FMO_EV_COUNT])"
         );
   }
 
-  unless ($kr_fno_vec->[FVC_EV_COUNT]) {
+  unless ($kr_fno_rec->[FMO_EV_COUNT]) {
     $self->loop_pause_filehandle_watcher($handle, $mode);
+    $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
   }
 
   # Correct the requested state so it matches the actual one.
 
-  $kr_fno_vec->[FVC_ST_REQUEST] = HS_PAUSED;
+  $kr_fno_rec->[FMO_ST_REQUEST] = HS_PAUSED;
 }
 
 ### Return the number of active filehandles in the entire system.
@@ -1320,14 +1323,14 @@ sub _data_handle_clear_session {
   my @handles = values %{$kr_ses_to_handle{$session}};
   foreach (@handles) {
     my $handle = $_->[SH_HANDLE];
-    my $refcount = $_->[SH_VECCOUNT];
+    my $refcount = $_->[SH_MODECOUNT];
 
-    $self->_data_handle_remove($handle, VEC_RD, $session)
-      if $refcount->[VEC_RD];
-    $self->_data_handle_remove($handle, VEC_WR, $session)
-      if $refcount->[VEC_WR];
-    $self->_data_handle_remove($handle, VEC_EX, $session)
-      if $refcount->[VEC_EX];
+    $self->_data_handle_remove($handle, MODE_RD, $session)
+      if $refcount->[MODE_RD];
+    $self->_data_handle_remove($handle, MODE_WR, $session)
+      if $refcount->[MODE_WR];
+    $self->_data_handle_remove($handle, MODE_EX, $session)
+      if $refcount->[MODE_EX];
   }
 }
 
@@ -1522,11 +1525,20 @@ sub _data_ev_get_count_from {
 
 sub _data_ev_dispatch_due {
   my $self = shift;
+
+  if (TRACE_EVENTS) {
+    foreach ($kr_queue->peek_items(sub { 1 })) {
+      warn( "<eq> time($_->[ITEM_PRIORITY]) id($_->[ITEM_ID]) ",
+            "event(@{$_->[ITEM_PAYLOAD]})\n"
+          );
+    }
+  }
+
   my $now = time();
   while (defined(my $next_time = $kr_queue->get_next_priority())) {
     last if $next_time > $now;
     my ($time, $id, $event) = $kr_queue->dequeue_next();
-    TRACE_EVENTS and warn "<ev> dispatching event $id";
+    TRACE_EVENTS and warn "<eq> dispatching event $id ($event->[EV_NAME])";
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
     $self->_dispatch_event(@$event, $time, $id);
   }
@@ -1874,7 +1886,7 @@ sub _data_ses_stop {
   $self->_dispatch_event
     ( $session, $kr_active_session,
       EN_STOP, ET_STOP, [],
-      __FILE__, __LINE__, time(), undef
+      __FILE__, __LINE__, time(), -__LINE__
     );
 }
 
@@ -2178,13 +2190,13 @@ sub _dispatch_event {
         $self->_dispatch_event
           ( $parent, $self,
             EN_CHILD, ET_CHILD, [ CHILD_GAIN, $child ],
-            $file, $line, time(), undef
+            $file, $line, time(), -__LINE__
           );
         $self->_dispatch_event
           ( $child, $self,
             EN_PARENT, ET_PARENT,
             [ $self->_data_ses_get_parent($child), $parent, ],
-            $file, $line, time(), undef
+            $file, $line, time(), -__LINE__
           );
       }
 
@@ -2195,7 +2207,7 @@ sub _dispatch_event {
         $self->_dispatch_event
           ( $parent, $self,
             EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
-            $file, $line, time(), undef
+            $file, $line, time(), -__LINE__
           );
       }
     }
@@ -2229,7 +2241,7 @@ sub _dispatch_event {
           $self->_dispatch_event
             ( $session_ref, $self,
               $event, ET_SIGNAL_EXPLICIT, $etc,
-              $file, $line, time(), undef
+              $file, $line, time(), -__LINE__
             );
         }
       }
@@ -2252,7 +2264,7 @@ sub _dispatch_event {
         $self->_dispatch_event
           ( $_, $self,
             $event, ET_SIGNAL_COMPATIBLE, $etc,
-            $file, $line, time(), undef
+            $file, $line, time(), -__LINE__
           );
 
         TRACE_SIGNALS and warn "<sg> propagated to $_ (", $_->ID, ")";
@@ -2336,7 +2348,7 @@ sub _dispatch_event {
     $self->_dispatch_event
       ( $self->_data_ses_get_parent($session), $self,
         EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
-        $file, $line, time(), undef
+        $file, $line, time(), -__LINE__
       );
   }
 
@@ -2617,7 +2629,7 @@ sub session_alloc {
   $self->_dispatch_event
     ( $session, $kr_active_session,
       EN_START, ET_START, \@args,
-      __FILE__, __LINE__, time(), undef
+      __FILE__, __LINE__, time(), -__LINE__
     );
   $self->_data_ev_enqueue
     ( $session, $kr_active_session, EN_GC, ET_GC, [],
@@ -2645,7 +2657,7 @@ sub detach_myself {
   $self->_dispatch_event
     ( $old_parent, $self,
       EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session ],
-      (caller)[1,2], time(), undef
+      (caller)[1,2], time(), -__LINE__
     );
 
   # Tell the new parent (kernel) that it's gaining a child.
@@ -2656,7 +2668,7 @@ sub detach_myself {
   $self->_dispatch_event
     ( $kr_active_session, $self,
       EN_PARENT, ET_PARENT, [ $old_parent, $self ],
-      (caller)[1,2], time(), undef
+      (caller)[1,2], time(), -__LINE__
     );
 
   $self->_data_ses_move_child($kr_active_session, $self);
@@ -2694,7 +2706,7 @@ sub detach_child {
   $self->_dispatch_event
     ( $kr_active_session, $self,
       EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session ],
-      (caller)[1,2], time(), undef
+      (caller)[1,2], time(), -__LINE__
     );
 
   # Tell the new parent (kernel) that it's gaining a child.
@@ -2705,7 +2717,7 @@ sub detach_child {
   $self->_dispatch_event
     ( $child_session, $self,
       EN_PARENT, ET_PARENT, [ $kr_active_session, $self ],
-      (caller)[1,2], time(), undef
+      (caller)[1,2], time(), -__LINE__
     );
 
   $self->_data_ses_move_child($child_session, $self);
@@ -2823,7 +2835,7 @@ sub call {
     $self->_dispatch_event
       ( $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
-        (caller)[1,2], time(), undef
+        (caller)[1,2], time(), -__LINE__
       );
   $! = 0;
   return $return_value;
@@ -3143,9 +3155,9 @@ sub select {
     }
   }
 
-  $self->_internal_select($kr_active_session, $handle, $event_r, VEC_RD);
-  $self->_internal_select($kr_active_session, $handle, $event_w, VEC_WR);
-  $self->_internal_select($kr_active_session, $handle, $event_e, VEC_EX);
+  $self->_internal_select($kr_active_session, $handle, $event_r, MODE_RD);
+  $self->_internal_select($kr_active_session, $handle, $event_w, MODE_WR);
+  $self->_internal_select($kr_active_session, $handle, $event_e, MODE_EX);
   return 0;
 }
 
@@ -3163,7 +3175,7 @@ sub select_read {
         ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event_name, VEC_RD);
+  $self->_internal_select($kr_active_session, $handle, $event_name, MODE_RD);
   return 0;
 }
 
@@ -3180,7 +3192,7 @@ sub select_write {
         ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event_name, VEC_WR);
+  $self->_internal_select($kr_active_session, $handle, $event_name, MODE_WR);
   return 0;
 }
 
@@ -3197,7 +3209,7 @@ sub select_expedite {
         ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event_name, VEC_EX);
+  $self->_internal_select($kr_active_session, $handle, $event_name, MODE_EX);
   return 0;
 }
 
@@ -3213,9 +3225,9 @@ sub select_pause_write {
       unless defined fileno($handle);
   };
 
-  return 0 unless $self->_data_handle_is_good($handle, VEC_WR);
+  return 0 unless $self->_data_handle_is_good($handle, MODE_WR);
 
-  $self->_data_handle_pause($handle, VEC_WR);
+  $self->_data_handle_pause($handle, MODE_WR);
 
   return 1;
 }
@@ -3232,9 +3244,9 @@ sub select_resume_write {
       unless defined fileno($handle);
   };
 
-  return 0 unless $self->_data_handle_is_good($handle, VEC_WR);
+  return 0 unless $self->_data_handle_is_good($handle, MODE_WR);
 
-  $self->_data_handle_resume($handle, VEC_WR);
+  $self->_data_handle_resume($handle, MODE_WR);
 
   return 1;
 }
@@ -3251,9 +3263,9 @@ sub select_pause_read {
       unless defined fileno($handle);
   };
 
-  return 0 unless $self->_data_handle_is_good($handle, VEC_RD);
+  return 0 unless $self->_data_handle_is_good($handle, MODE_RD);
 
-  $self->_data_handle_pause($handle, VEC_RD);
+  $self->_data_handle_pause($handle, MODE_RD);
 
   return 1;
 }
@@ -3270,9 +3282,9 @@ sub select_resume_read {
       unless defined fileno($handle);
   };
 
-  return 0 unless $self->_data_handle_is_good($handle, VEC_RD);
+  return 0 unless $self->_data_handle_is_good($handle, MODE_RD);
 
-  $self->_data_handle_resume($handle, VEC_RD);
+  $self->_data_handle_resume($handle, MODE_RD);
 
   return 1;
 }
