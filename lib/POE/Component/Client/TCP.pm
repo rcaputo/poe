@@ -293,7 +293,8 @@ POE::Component::Client::TCP - a simplified TCP client
   POE::Component::Client::TCP->new
     ( RemoteAddress => "127.0.0.1",
       RemotePort    => "chargen",
-      Domain        => AF_INET,      # Optional.
+      Domain        => AF_INET,        # Optional.
+      Alias         => $session_alias  # Optional.
       ServerInput   => sub {
         my $input = $_[ARG0];
         print "from server: $input\n";
@@ -307,8 +308,9 @@ POE::Component::Client::TCP - a simplified TCP client
       RemotePort     => "chargen",
       BindAddress    => "127.0.0.1",
       BindPort       => 8192,
-      Domain         => AF_INET,  # Optional.
-      ConnectTimeout => 5,        # Seconds; optional.
+      Domain         => AF_INET,        # Optional.
+      Alias          => $session_alias  # Optional.
+      ConnectTimeout => 5,              # Seconds; optional.
 
       SessionType   => "POE::Session::Abc",           # Optional.
       SessionParams => [ options => { debug => 1 } ], # Optional.

@@ -315,6 +315,7 @@ POE::Component::Server::TCP - a simplified TCP server
     ( Port     => $bind_port,
       Address  => $bind_address,    # Optional.
       Domain   => AF_INET,          # Optional.
+      Alias    => $session_alias,   # Optional.
       Acceptor => \&accept_handler,
       Error    => \&error_handler,  # Optional.
     );
@@ -325,6 +326,7 @@ POE::Component::Server::TCP - a simplified TCP server
     ( Port     => $bind_port,
       Address  => $bind_address,      # Optional.
       Domain   => AF_INET,            # Optional.
+      Alias    => $session_alias,     # Optional.
       Acceptor => \&accept_handler,   # Optional.
       Error    => \&error_handler,    # Optional.
       Args     => [ "arg0", "arg1" ], # Optional.
