@@ -56,22 +56,24 @@ sub CRIMSON_SCOPE_HACK ($) { 0 }
 my (%normalized_character, @normalized_extra_width);
 BEGIN {
   for (my $ord = 0; $ord < 256; $ord++) {
-    my $normalized =
-      ( ($ord > 126)
-        ? (sprintf "<%2x>", $ord)
-        : ( ($ord > 31)
-            ? chr($ord)
-            : ( '^' . chr($ord+64) )
+    $normalized_extra_width[$ord] =
+      length
+        ( $normalized_character{chr($ord)} =
+          ( ($ord > 126)
+            ? (sprintf "<%2x>", $ord)
+            : ( ($ord > 31)
+                ? chr($ord)
+                : ( '^' . chr($ord+64) )
+              )
           )
-      );
-    $normalized_character{chr($ord)} = $normalized;
-    $normalized_extra_width[$ord] = length($normalized) - 1;
+        ) - 1;
   }
 };
 
 # Return a normalized version of a string.  This includes destroying
-# non-printable characters, turning them into strange multi-byte
-# sequences.
+# 8th-bit-set characters, turning them into strange multi-byte
+# sequences.  Apologies to everyone; please let me know of a portable
+# way to deal with this.
 sub normalize {
   local $_ = shift;
   s/([^ -~])/$normalized_character{$1}/g;
@@ -85,9 +87,7 @@ sub normalize {
 sub display_width {
   local $_ = shift;
   my $width = length;
-  foreach my $extra (m/([\x00-\x1F\x7F-\xFF])/g) {
-    $width += $normalized_extra_width[ord $extra];
-  }
+  $width += $normalized_extra_width[ord] foreach (m/([\x00-\x1F\x7F-\xFF])/g);
   return $width;
 }
 
@@ -388,6 +388,10 @@ sub _define_read_state {
               if ($key eq '^C') {
                 print $key, "\x0D\x0A";
                 $poe_kernel->select_read( *STDIN );
+                if ($$has_timer) {
+                  $k->delay( $state_idle );
+                  $$has_timer = 0;
+                }
                 $poe_kernel->yield( $$event_input, undef, 'interrupt' );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
@@ -446,6 +450,10 @@ sub _define_read_state {
               if ($key eq '^G') {
                 print $key, "\x0D\x0A";
                 $poe_kernel->select_read( *STDIN );
+                if ($$has_timer) {
+                  $k->delay( $state_idle );
+                  $$has_timer = 0;
+                }
                 $poe_kernel->yield( $$event_input, undef, 'cancel' );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
@@ -480,6 +488,10 @@ sub _define_read_state {
               if ($key eq '^J') {
                 print "\x0D\x0A";
                 $poe_kernel->select_read( *STDIN );
+                if ($$has_timer) {
+                  $k->delay( $state_idle );
+                  $$has_timer = 0;
+                }
                 $poe_kernel->yield( $$event_input, $$input );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
@@ -516,6 +528,10 @@ sub _define_read_state {
               if ($key eq '^M') {
                 print "\x0D\x0A";
                 $poe_kernel->select_read( *STDIN );
+                if ($$has_timer) {
+                  $k->delay( $state_idle );
+                  $$has_timer = 0;
+                }
                 $poe_kernel->yield( $$event_input, $$input );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
@@ -1065,6 +1081,10 @@ sub _flush_output_buffer {
 # Set up the prompt and input line like nothing happened.
 sub _repaint_input_line {
   my $self = shift;
+
+  my ($p, $f, $l) = caller;
+  print "Called from line $l\x0D\x0A";
+
   print( $self->[SELF_PROMPT], normalize($self->[SELF_INPUT]) );
   if ($self->[SELF_CURSOR_INPUT] != length($self->[SELF_INPUT])) {
     $termcap->Tgoto( 'LE', 1,
@@ -1102,7 +1122,8 @@ sub put {
     # Print the new stuff.
     print @lines;
 
-    $self->_repaint_input_line();
+    # Only repaint the input if we're reading a line.
+    $self->_repaint_input_line() if $self->[SELF_READING_LINE];
 
     return;
   }
@@ -1479,15 +1500,20 @@ perceived latency.
 
 =item Unimplemented features
 
-Unicode, or at least European code pages.  I feel real bad about
-throwing away native representation of all the 8th-bit-set characters.
-
-SIGWINCH tends to kill Perl quickly, and POE ignores it.  Resizing a
-terminal window has no effect.
-
 Input editing is not kept on one line.  If it wraps, and a terminal
 cannot wrap back through a line division, the cursor will become lost.
-This bites.
+This bites, and it's the next against the wall in my bug hunting.
+
+Unicode, or at least European code pages.  I feel real bad about
+throwing away native representation of all the 8th-bit-set characters.
+I also have no idea how to do this, and I don't have a system to test
+this.  Patches are recommended.
+
+SIGWINCH tends to kill Perl quickly, and POE ignores it.  Resizing a
+terminal window has no effect.  Making this useful will require signal
+polling, perhaps in the wheel itself (either as a timer loop, a
+keystroke, or per every N keystrokes) or in POE::Kernel.  I'm not sure
+which yet.
 
 Tab completion:
 
