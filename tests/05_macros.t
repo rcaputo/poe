@@ -15,19 +15,19 @@ print "ok 1\n";
 # Define some macros.
 
 macro numeric_max (<one>, <two>) {
-  ((<one>) > (<two>)) ? (<one>) : (<two>)
+  (((<one>) > (<two>)) ? (<one>) : (<two>))
 }
 
 macro numeric_min (<one>, <two>) {
-  ((<one>) < (<two>)) ? (<one>) : (<two>)
+  (((<one>) < (<two>)) ? (<one>) : (<two>))
 }
 
 macro lexical_max (<one>, <two>) {
-  ((<one>) gt (<two>)) ? (<one>) : (<two>)
+  (((<one>) gt (<two>)) ? (<one>) : (<two>))
 }
 
 macro lexical_min (<one>, <two>) {
-  ((<one>) lt (<two>)) ? (<one>) : (<two>)
+  (((<one>) lt (<two>)) ? (<one>) : (<two>))
 }
 
 # Define some constants.
