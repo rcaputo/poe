@@ -44,11 +44,15 @@ POE has been tested with Perl 5.004_04, 5.005_02, 5.005_53 and
 detailed compatibility information, please see
 <http://www.connect.net/gbarr/cpan-test/by-dist/POE.html>.
 
-POE currently does not work on Windows platforms, due to differences
-between Windows' and the rest of the world's ioctl and select calls.
+As of this writing, POE does not work on Windows platforms.  This has
+been traced to differences between Windows' and the rest of the
+world's ioctl and select calls.
 
 POE is suspected to work on MacOS.  If someone could confirm or deny
 this, it would be greatly appreciated.
+
+CPAN.pm will ensure that you have up-to-date copies of all the modules
+POE uses, even if you don't need them.
 
 Non-requirements:
 
