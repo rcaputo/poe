@@ -2062,7 +2062,6 @@ sub _internal_select {
         # handle.
 
         unless ($kr_handle->[HND_VECCOUNT]->[$select_index]) {
-warn $handle;
           vec($self->[KR_VECTORS]->[$select_index], fileno($handle), 1) = 0;
 
           # If we're using Tk, then we tell it to stop watching this
@@ -2184,7 +2183,6 @@ sub select_pause_write {
   # housekeeping since we're only pausing the handle.  It's assumed
   # that we'll resume it again at some point.
 
-warn $handle;
   vec($self->[KR_VECTORS]->[VEC_WR], fileno($handle), 1) = 0;
 
   if (POE_HAS_TK) {
