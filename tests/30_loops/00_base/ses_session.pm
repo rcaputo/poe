@@ -637,39 +637,54 @@ print "ok 37 # dest $objects_destroyed objects (expected $expected)\n";
 # another Kernel.  If all goes well, it'll dispatch some events and
 # exit normally.
 
-# The sleep is a little voodoo to see if Tk stops exiting here.  I'm
-# still not sure WHY it's exiting.  The only clue I have so far is:
+# The restart test dumps core when using Tk with Perl 5.8.0 and
+# beyond, but only if they're built without threading support.  It
+# happens consistently in a pure Tk test case.  It happens
+# consistently in POE's "make test" suite.  It doesn't happen at all
+# when running the test by hand.
 #
-# tests/30_loops/50_tk/ses_session....................dubious
-#         Test returned status 0 (wstat 139, 0x8b)
-# DIED. FAILED tests 31-43
-#         Failed 13/43 tests, 69.77% okay
+# http://rt.cpan.org/Ticket/Display.html?id=8588 is tracking the Tk
+# test case.  Wish us luck there.
 #
-# ... and it doesn't even happen consistently!
-sleep 1;
+# Meanwhile, these tests will be skipped under Tk if Perl is 5.8.0 or
+# beyond, and it's not built for threading.
 
-POE::Session->create(
-  options => { trace => 1, default => 1, debug => 1 },
-  inline_states => {
-    _start => sub {
-      print "ok 38\n";
-      $_[KERNEL]->yield("woot");
-      $_[KERNEL]->delay(narf => 1);
-    },
-    woot => sub {
-      print "ok 40\n";
-    },
-    narf => sub {
-      print "ok 41\n";
-    },
-    _stop => sub {
-      print "ok 42\n";
-    },
+use Config;
+if (
+  $] >= 5.008 and
+  exists $INC{"Tk.pm"} and
+  !$Config{useithreads}
+) {
+  foreach (38..43) {
+    print(
+      "not ok $_ # Skip: Restarting Tk dumps core in single-threaded perl $]\n"
+    );
   }
-);
+}
+else {
+  POE::Session->create(
+    options => { trace => 1, default => 1, debug => 1 },
+    inline_states => {
+      _start => sub {
+        print "ok 38\n";
+        $_[KERNEL]->yield("woot");
+        $_[KERNEL]->delay(narf => 1);
+      },
+      woot => sub {
+        print "ok 40\n";
+      },
+      narf => sub {
+        print "ok 41\n";
+      },
+      _stop => sub {
+        print "ok 42\n";
+      },
+    }
+  );
 
-print "ok 39\n";
-POE::Kernel->run();
-print "ok 43\n";
+  print "ok 39\n";
+  POE::Kernel->run();
+  print "ok 43\n";
+}
 
 1;
