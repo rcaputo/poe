@@ -637,6 +637,9 @@ BEGIN {
 #==============================================================================
 
 # A list of signals that must be handled lest they terminate sessions.
+# "Terminal" signals are the ones that UNIX defaults to killing
+# processes with.  Thus STOP is not terminal.
+
 my %_terminal_signals =
   ( QUIT => 1, INT => 1, KILL => 1, TERM => 1, HUP => 1, IDLE => 1 );
 
