@@ -845,6 +845,8 @@ destroyed properly when children exit.
 Sends a signal to the child process.  It's useful for processes which
 tend to be reluctant to exit when their terminals are closed.
 
+=back
+
 =head1 EVENTS AND PARAMETERS
 
 =over 2
