@@ -250,9 +250,15 @@ coexist in the same program.  POE only includes one I/O layer: Wheels.
 "Wheels" is a whimsical name for interlocking cogs that together make
 things go.  They're also reinvented a lot, and this is no exception.
 
-POE comes with four wheels.
+POE comes with six wheels.
 
 =over 2
+
+=item POE::Wheel::Curses
+
+The Curses wheel handles non-blocking input for programs using the
+curses text interface.  It requires the Curses perl module and a
+familiarity with curses programming.
 
 =item POE::Wheel::FollowTail
 
@@ -336,6 +342,14 @@ The stream filter does nothing.  It merely passes data through without
 any change.
 
 =back
+
+=item POE::Wheel::Run
+
+The Run wheel provides a way to run functions or other programs in
+child processes.  It encapsulates the necessary pipe() and fork()
+code, and sometimes exec().  Internally, it handles reading from and
+writing to child processes without further intervention.  Child output
+arrives in the Wheel's owner as events.
 
 =item POE::Wheel::SocketFactory
 
@@ -780,10 +794,9 @@ never have come this far without his support.
 
 =item Douglas Couch
 
-Douglas Couch is <dscouch@purdue.edu>.  He was the brave soul who
-stepped forward to offer valuable testing on the Windows platforms.
-His reports helped get POE working on Win32 and are summarized earlier
-in this document.
+Douglas Couch is <dscouch@purdue.edu>.  Douglas maintains POE for
+Windows, as well as the latest PPM and online documentation at
+<http://poe.sourceforge.net/>.  Rockin'!
 
 =item Philip Gwyn
 

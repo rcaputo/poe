@@ -29,6 +29,7 @@ POE/Pipe/TwoWay.pm
 POE/Preprocessor.pm
 POE/Session.pm
 POE/Wheel.pm
+POE/Wheel/Curses.pm
 POE/Wheel/FollowTail.pm
 POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadLine.pm

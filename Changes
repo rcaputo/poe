@@ -151,6 +151,9 @@ The time reduction in POE's signal tests was too aggressive, causing
 some problems on the Debian test system.  Increased the delay a little
 bit.
 
+Add POE::Wheel::Curses to provide non-blocking input for Curses
+programs.
+
 
 0.1206 2001.03.23
 -----------------
