@@ -11,7 +11,8 @@ $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 use Carp;
 use Symbol;
 
-use POSIX qw(fcntl_h errno_h);
+use POSIX qw(fcntl_h);
+use Errno qw(EWOULDBLOCK EADDRNOTAVAIL EINPROGRESS EADDRINUSE);
 use Socket;
 use POE qw(Wheel);
 
@@ -37,18 +38,13 @@ sub MY_SOCKET_SELECTED () { 12 }
 # this, to extend add stuff BEFORE MY_SOCKET_SELECTED or let Fletch
 # know you've broken his module.
 
-# Provide dummy POSIX constants for systems that don't have them.  Use
-# http://msdn.microsoft.com/library/en-us/winsock/winsock/
-#   windows_sockets_error_codes_2.asp for the POSIX error numbers.
+# Provide dummy constants for systems that don't have them.
 BEGIN {
   if ($^O eq 'MSWin32') {
 
     # Constants are evaluated first so they exist when the code uses
     # them.
-    eval( '*EADDRNOTAVAIL = sub { 10049 };' .
-          '*EINPROGRESS   = sub { 10036 };' .
-          '*EWOULDBLOCK   = sub { 10035 };' .
-          '*F_GETFL       = sub {     0 };' .
+    eval( '*F_GETFL       = sub {     0 };' .
           '*F_SETFL       = sub {     0 };' .
 
           # Garrett Goebel's patch to support non-blocking connect()
@@ -946,10 +942,6 @@ sub new {
   # handle.
   if (defined $connect_address) {
     unless (connect($socket_handle, $connect_address)) {
-
-      # XXX EINPROGRESS is not included in ActiveState's POSIX.pm, and
-      # I don't know what AS's Perl uses instead.  What to do here?
-
       if ($! and ($! != EINPROGRESS) and ($! != EWOULDBLOCK)) {
         $poe_kernel->yield( $event_failure,
                             'connect', $!+0, $!, $self->[MY_UNIQUE_ID]

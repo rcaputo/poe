@@ -9,7 +9,7 @@ use vars qw(@ISA $VERSION);
 @ISA = qw(POE::Queue);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
-use POSIX qw(ESRCH EPERM);
+use Errno qw(ESRCH EPERM);
 
 sub DEBUG () { 0 }
 

@@ -13,7 +13,8 @@ $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Symbol qw(gensym);
 use IO::Socket;
-use POSIX qw(fcntl_h errno_h);
+use POSIX qw(fcntl_h);
+use Errno qw(EINPROGRESS EWOULDBLOCK);
 
 # CygWin seems to have a problem with socketpair() and exec().  When
 # an exec'd process closes, any data on sockets created with
@@ -53,19 +54,12 @@ sub shift_preference {
   shift @preference;
 }
 
-# Provide a dummy EINPROGRESS for systems that don't have one.  Give
-# it a documented value.  This code is stolen from
-# POE::Wheel::SocketFactory.
+# Provide dummy constants for MSWin32, so things at least compile.
 
 BEGIN {
-  # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
-  # defines EINPROGRESS as 10035.  We provide it here because some
-  # Win32 users report POSIX::EINPROGRESS is not vendor-supported.
   if ($^O eq 'MSWin32') {
-    eval '*EINPROGRESS = sub { 10036 };';
-    eval '*EWOULDBLOCK = sub { 10035 };';
-    eval '*F_GETFL     = sub {     0 };';
-    eval '*F_SETFL     = sub {     0 };';
+    eval '*F_GETFL = sub { 0 };';
+    eval '*F_SETFL = sub { 0 };';
   }
 }
 

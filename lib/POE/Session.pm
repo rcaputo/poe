@@ -8,7 +8,7 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Carp qw(carp croak);
-use POSIX qw(ENOSYS);
+use Errno qw(ENOSYS);
 
 sub SE_NAMESPACE    () { 0 }
 sub SE_OPTIONS      () { 1 }

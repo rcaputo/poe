@@ -10,7 +10,8 @@ $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 use Carp;
 use Symbol;
 
-use POSIX qw(fcntl_h errno_h);
+use POSIX qw(fcntl_h);
+use Errno qw(EWOULDBLOCK);
 use POE qw(Wheel);
 
 sub SELF_HANDLE       () { 0 }

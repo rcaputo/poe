@@ -17,6 +17,7 @@ $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 package POE::Kernel;
 
 use strict;
+use Errno qw(EINPROGRESS EWOULDBLOCK EINTR);
 
 # Delcare which event loop bridge is being used, but first ensure that
 # no other bridge has been loaded.

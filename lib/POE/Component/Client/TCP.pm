@@ -8,7 +8,7 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Carp qw(carp croak);
-use POSIX qw(ETIMEDOUT ECONNRESET);
+use Errno qw(ETIMEDOUT ECONNRESET);
 
 # Explicit use to import the parameter constants;
 use POE::Session;
@@ -493,7 +493,8 @@ to be established.  If it is omitted, Client::TCP relies on the
 operating system to abort stalled connect() calls.
 
 Upon a connection timeout, Client::TCP will send a ConnectError event.
-Its ARG0 will be 'connect' and ARG1 will be the POSIX ETIMEDOUT value.
+Its ARG0 will be 'connect' and ARG1 will be the POSIX/Errno ETIMEDOUT
+value.
 
 =item Disconnected
 

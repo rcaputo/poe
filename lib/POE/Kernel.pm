@@ -8,7 +8,8 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use POE::Queue::Array;
-use POSIX qw(errno_h fcntl_h sys_wait_h);
+use POSIX qw(fcntl_h sys_wait_h);
+use Errno qw(ESRCH EINTR ECHILD EPERM EINVAL EEXIST EAGAIN EWOULDBLOCK);
 use Carp qw(carp croak confess cluck);
 use Sys::Hostname qw(hostname);
 use IO::Handle;
@@ -52,14 +53,11 @@ BEGIN {
     Time::HiRes->import(qw(time sleep));
   } if USE_TIME_HIRES();
 
-  # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
-  # defines EINPROGRESS as 10035.  We provide it here because some
-  # Win32 users report POSIX::EINPROGRESS is not vendor-supported.
+  # Provide dummy constants so things at least compile.
+
   if (RUNNING_IN_HELL) {
-    eval '*EINPROGRESS = sub { 10036 };';  # not used here?
-    eval '*EWOULDBLOCK = sub { 10035 };';
-    eval '*F_GETFL     = sub {     0 };';
-    eval '*F_SETFL     = sub {     0 };';
+    eval '*F_GETFL = sub { 0 };';
+    eval '*F_SETFL = sub { 0 };';
   }
 }
 
