@@ -150,3 +150,55 @@ sub new {
 
 ###############################################################################
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Pipe::OneWay - portable one-way pipe creation (works without POE)
+
+=head1 SYNOPSIS
+
+  my ($read, $write) = POE::Pipe::OneWay->new();
+  die "couldn't create a pipe: $!" unless defined $read;
+
+=head1 DESCRIPTION
+
+POE::Pipe::OneWay makes unbuffered one-way pipes or it dies trying.
+
+Pipes are troublesome beast.  Some systems support pipe() directly.
+Other systems don't have pipe(), but they do have socketpair().  And
+still, there are other systems without pipe() or socketpair() but
+which can create plain INET domain sockets.  POE::Pipe::OneWay tries
+all these methods in its endeavor to persevere in a known area of
+unportable behavior.
+
+It tries them in pipe -> socketpair -> inet sockets order.
+
+So anyway, the syntax is pretty easy:
+
+  my ($read, $write) = POE::Pipe::OneWay->new();
+  die "couldn't create a pipe: $!" unless defined $read;
+
+And now you have a pipe with a read side and a write side.
+
+=head1 DEBUGGING
+
+It's possible to force POE::Pipe::OneWay to use one of its underlying
+pipe methods.  This was implemented for exercising each method in
+tests, but it's possibly useful for others.
+
+However, forcing OneWay's pipe method isn't documented because it's
+cheezy and likely to change.  Use it at your own risk.
+
+=head1 BUGS
+
+The INET domain socket method may block for up to 1s if it fails.
+
+=head1 AUTHOR & COPYRIGHT
+
+POE::Pipe::OneWay is copyright 2000 by Rocco Caputo.  All rights
+reserved.  POE::Pipe::OneWay is free software; you may redistribute it
+and/or modify it under the same terms as Perl itself.
+
+=cut

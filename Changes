@@ -31,17 +31,17 @@ Very minor optimization to Gtk read/write resuming.  Replace Gtk's
 noisy warning about resuming unpaused handles with quiet acceptance.
 
 Added POE::Pipe::OneWay, a portable way to create one-way pipes.  It
-tries pipe first, then socketpair, then inet sockets before failing.
+tries pipe first, then unix domain socketpair, then inet sockets
+before failing.
 
-Added POE::Pipe::TwoWay, which does pretty much the same as OneWay,
-but it's designet to make two-way pipes.  It can be more efficient
-with filehandles, since socketpair() and inet sockets already are
-bidirectional.  It tries socketpair() before dual pipe() calls because
-that's more frugal.
+Added POE::Pipe::TwoWay, a portable way to create two-way pipes.  It
+tries unix socketpair first, two pipes, then inet sockets before
+failing.  It can be more frugal with filehandles than two one-way
+pipes.
 
 Added Wheel::Run, an open2/open3 style wheel that lets sessions spawn
-off spawn off background processes.  It takes care of the whole pipe,
-fork, exec deal.
+off background processes.  It takes care of the whole pipe, fork, exec
+deal.
 
 Removed lib/TestPipe and replaced all its uses with either
 Pipe::OneWay or Pipe::TwoWay.

@@ -654,7 +654,7 @@ is 'read'.  Note: This is not necessarily a function name.  The wheel
 doesn't know which function its Driver is using.
 
 C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
-respectively.  Note: FollowTail knows how to handle EAGAIN, so it will
+respectively.  Note: ReadWrite knows how to handle EAGAIN, so it will
 never return that error.
 
 C<ARG3> contains the wheel's unique ID.

@@ -693,6 +693,18 @@ These modules help in the background.
 
 =over 2
 
+=item POE::Pipe::OneWay
+
+This creates unbuffered one-way pipes.  It tries various methods in
+the hope that one of them will work on any given platform.
+
+=item POE::Pipe::TwoWay
+
+This creates unbuffered two-way pipes.  It tries various methods in
+the hope that one of them will work on any given platform.  It's
+preferred over two OneWay pipes because sometimes two-way transports
+are available and it can save you a couple filehandles.
+
 =item POE::Preprocessor
 
 POE's preprocessor covers inline constant replacement, enumerated

@@ -159,3 +159,58 @@ sub new {
 
 __END__
 
+=head1 NAME
+
+POE::Pipe::TwoWay - portable two-way pipe creation (works without POE)
+
+=head1 SYNOPSIS
+
+  my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new();
+  die "couldn't create a pipe: $!" unless defined $a_read;
+
+=head1 DESCRIPTION
+
+POE::Pipe::TwoWay makes unbuffered two-way pipes or it dies trying.
+It can be more frugal with filehandles than two OneWay pipes when
+socketpair() is available.
+
+Pipes are troublesome beasts because the different pipe creation
+methods have spotty support from one system to another.  Some systems
+have C<pipe()>, others have C<socketfactory()>, and still others have
+neither.
+
+POE::Pipe::TwoWay tries different ways to make a pipe in the hope that
+one of them will succeed on any given platform.  It tries them in
+socketpair() -> pipe() -> IO::Socket::INET order.  If socketpair() is
+available, the two-way pipe will use half as many filehandles as two
+one-way pipes.
+
+So anyway, the syntax is pretty easy:
+
+  my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::OneWay->new();
+  die "couldn't create a pipe: $!" unless defined $a_read;
+
+And now you have an unbuffered pipe with two read/write sides, A and
+B.  Writing to C<$a_write> passes data to C<$b_read>, and writing to
+C<$b_write> passes data to C<$a_read>.
+
+=head1 DEBUGGING
+
+It's possible to force POE::Pipe::TwoWay to use one of its underlying
+pipe methods.  This was implemented for exercising each method in
+tests, but it's possibly useful for others.
+
+However, forcing TwoWay's pipe method isn't documented because it's
+cheezy and likely to change.  Use it at your own risk.
+
+=head1 BUGS
+
+The INET domain socket method may block for up to 1s if it fails.
+
+=head1 AUTHOR & COPYRIGHT
+
+POE::Pipe::TwoWay is copyright 2000 by Rocco Caputo.  All rights
+reserved.  POE::Pipe::TwoWay is free software; you may redistribute it
+and/or modify it under the same terms as Perl itself.
+
+=cut

@@ -1,12 +1,10 @@
 # $Id$
 
-# -><- error operations need to be better
-
 package POE::Wheel::Run;
 
 use strict;
 use Carp;
-use POE qw(Wheel Pipe::OneWay Driver::SysRW);
+use POE qw(Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW);
 
 # Offsets into $self.
 sub UNIQUE_ID     () {  0 }
@@ -89,12 +87,13 @@ sub new {
   }
 
   # Make the pipes.  We make more pipes than strictly necessary in
-  # case someone wants to turn some onn later.
-  my ($stdin_read,  $stdin_write)  = POE::Pipe::OneWay->new();
+  # case someone wants to turn some on later.  Uses a TwoWay pipe for
+  # STDIN/STDOUT and a OneWay pipe for STDERR.  This may save 2
+  # filehandles if socketpair() is available.
+  my ($stdin_read, $stdout_write, $stdout_read, $stdin_write) =
+    POE::Pipe::TwoWay->new();
   croak "could not make stdin pipes: $!"
     unless defined $stdin_read and defined $stdin_write;
-
-  my ($stdout_read, $stdout_write) = POE::Pipe::OneWay->new();
   croak "could not make stdout pipes: $!"
     unless defined $stdout_read and defined $stdout_write;
 
@@ -429,15 +428,19 @@ sub put {
 # code in Wheel::ReadWrite.
 
 sub set_filter {
+  carp "set_filter not implemented";
 }
 
 sub set_stdin_filter {
+  carp "set_stdin_filter not implemented";
 }
 
 sub set_stdout_filter {
+  carp "set_stdout_filter not implemented";
 }
 
 sub set_stderr_filter {
+  carp "set_stderr_filter not implemented";
 }
 
 #------------------------------------------------------------------------------
@@ -470,12 +473,35 @@ POE::Wheel::Run - event driven fork/exec with added value
 
 =head1 SYNOPSIS
 
-  $wheel = POE::Wheel::Run->new(
+  # Program may be scalar or \@array.
+  $program = '/usr/bin/cat -';
+  $program = [ '/usr/bin/cat', '-' ];
 
-    # -><- code
+  $wheel = POE::Wheel::Run->new(
+    Program    => $program,
+    Priority   => +5,                 # Adjust priority.  May need to be root.
+    User       => getpwnam('nobody'), # Adjust UID. May need to be root.
+    Group      => getgrnam('nobody'), # Adjust GID. May need to be root.
+    ErrorEvent => 'oops',             # Event to emit on errors.
+
+    StdinEvent  => 'stdin',  # Event to emit when stdin is flushed to child.
+    StdoutEvent => 'stdout', # Event to emit with child stdout information.
+    StderrEvent => 'stderr', # Event to emit with child stderr information.
+
+    # Identify the child process' I/O type.
+    Filter => POE::Filter::Line->new(), # Or some other filter.
+
+    # May also specify filters per handle.
+    StdinFilter  => POE::Filter::Line->new(),   # Child accepts input as lines.
+    StdoutFilter => POE::Filter::Stream->new(), # Child output is a stream.
+    StderrFilter => POE::Filter::Line->new(),   # Child errors are lines.
   );
 
-  # -><- code
+  print "Unique wheel ID is  : ", $wheel->ID;
+  print "Wheel's child PID is: ", $wheel->PID;
+
+  # Send something to the child's STDIN.
+  $wheel->put( 'input for the child' );
 
 =head1 DESCRIPTION
 
@@ -488,17 +514,178 @@ based communication with them.
 
 =item new LOTS_OF_STUFF
 
--><- code etc
+new() creates a new Run wheel.  If successful, the new wheel
+represents a child process and the input, output and error pipes that
+speak with it.
+
+new() accepts lots of stuff.  Each parameter is name/value pair.
+
+=over 2
+
+=item ErrorEvent
+=item StdinEvent
+=item StdoutEvent
+=item StderrEvent
+
+C<ErrorEvent> contains the name of an event to emit if something
+fails.  It's optional, and if omitted, it won't emit any errors.
+
+Wheel::Run requires at least one of the following three events:
+
+C<StdinEvent> contains the name of an event that Wheel::Run emits
+whenever all its output has been flushed to the child process' STDIN
+handle.
+
+C<StdoutEvent> and C<StderrEvent> contain names of events that
+Wheel::Run emits whenever the child process writes something to its
+STDOUT or STDERR handles, respectively.
+
+=item Filter
+=item StdinFilter
+=item StdoutFilter
+=item StderrFilter
+
+C<Filter> contains a reference to a POE::Filter class that describes
+how the child process performs input and output.  C<Filter> will be
+used to describe the child's stdin, stdout and stderr.
+
+C<StdinFilter>, C<StdoutFilter> and C<StderrFilter> can be used
+instead of C<Filter> to set different filters for each handle.
+
+=item Group
+
+C<Group> contains a numerical group ID that the child process should
+run at.  This may not be meaningful on systems that have no concept of
+group IDs.  The current process may need to run as root in order to
+change group IDs.  Mileage varies considerably.
+
+=item Priority
+
+C<Priority> contains an offset from the current process's priority.
+The child will be executed at the current priority plus the offset.
+The priority offset may be negative, but the current process may need
+to be running as root for that to work.
+
+=item Program
+
+C<Program> is the program to exec() once pipes and fork have been set
+up.  C<Program> can contain either a scalar or an array reference, and
+that form will tell Wheel::Run how to exec() the program.
+
+If C<Program> holds a scalar, the child will be executed as
+exec($program).  exec() may pass C<Program> through a shell to expand
+metacharacters.
+
+If C<Program> holds an array reference, the child will be executed as
+exec(@$program).  This form doesn't get passed through a shell.
+
+L<perlfunc> has more information about exec() and the different ways
+to call it.
 
 =back
+
+=item event EVENT_TYPE => EVENT_NAME, ...
+
+event() changes the event that Wheel::Run emits when a certain type of
+event occurs.  C<EVENT_TYPE> may be one of the event parameters in
+Wheel::Run's constructor.
+
+  $wheel->event( StdinEvent  => 'new-stdin-event',
+                 StdoutEvent => 'new-stdout-event',
+               );
+
+=item put LIST
+
+put() queues a LIST of different inputs for the child process.  They
+will be flushed asynchronously once the current state returns.  Each
+item in the LIST is processed according to the C<StdinFilter>.
+
+=item set_filter FILTER_REFERENCE
+
+Set C<StdinFilter>, C<StdoutFilter. and C<StderrFilter> all at once.
+Not yet implemented.
+
+=item set_stdin_filter FILTER_REFERENCE
+
+Set C<StdinFilter> to something else.  Not yet implemented.
+
+=item set_stdout_filter FILTER_REFERENCE
+
+Set C<StdoutFilter> to something else.  Not yet implemented.
+
+=item set_stderr_filter FILTER_REFERENCE
+
+Set C<StderrFilter> to something else.  Not yet implemented.
+
+=item ID
+
+Returns the wheel's unique ID, which is not the same as the child
+process' ID.  Every event generated by Wheel::Run includes a wheel ID
+so that it can be matched up with its generator.  This lets a single
+session manage several wheels without becoming confused about which
+one generated what event.
+
+=item PID
+
+Returns the child process' ID.  It's useful for matching up to SIGCHLD
+events, which include child process IDs as well, so that wheels can be
+destroyed properly when children exit.
 
 =head1 EVENTS AND PARAMETERS
 
 =over 2
 
+=item ErrorEvent
+
+ErrorEvent contains the name on an event that Wheel::Run emits
+whenever an error occurs.  Every error event comes with four
+parameters:
+
+C<ARG0> contains the name of the operation that failed.  It may be
+'read' or 'write' or 'fork' or 'exec' or something.  The actual values
+aren't yet defined.  Note: This is not necessarily a function name.
+
+C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
+respectively.
+
+C<ARG3> contains the wheel's unique ID.
+
+A sample error event handler:
+
+  sub error_state {
+    my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
+    warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
+  }
+
 =item StdinEvent
 
--><- code etc
+StdinEvent contains the name of an event that Wheel::Run emits
+whenever everything queued by its put() method has been flushed to the
+child's STDIN handle.
+
+StdinEvent's C<ARG0> parameter contains its wheel's unique ID.
+
+=item StdoutEvent
+=item StderrEvent
+
+StdoutEvent and StderrEvent contain names for events that Wheel::Run
+emits whenever the child process makes output.  StdoutEvent contains
+information the child wrote to its STDOUT handle, and StderrEvent
+includes whatever arrived from the child's STDERR handle.
+
+Both of these events come with two parameters.  C<ARG0> contains the
+information that the child wrote.  C<ARG1> holds the wheel's unique
+ID.
+
+  sub stdout_state {
+    my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
+    print "Child process in wheel $wheel_id wrote to STDOUT: $input\n";
+  }
+
+  sub stderr_state {
+    my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
+    print "Child process in wheel $wheel_id wrote to STDERR: $input\n";
+  }
 
 =back
 
@@ -511,7 +698,15 @@ the entire POE distribution.
 
 =head1 BUGS
 
-None currently known.
+Wheel::Run's constructor doesn't emit proper events when it fails.
+Instead, it just dies, carps or croaks.
+
+Filter changing hasn't been implemented yet.  Let the author know if
+it's needed.  Better yet, patch the file based on the code in
+Wheel::ReadWrite.
+
+Wheel::Run generates SIGCHLD.  This may eventually cause Perl to
+segfault.  Bleah.
 
 =head1 AUTHORS & COPYRIGHTS
 

@@ -181,6 +181,7 @@ POE::Session->create
 
 $poe_kernel->run();
 
+# out, err, bye == 3
 &ok_if( 16, $flush_count == 3 );
 
 &results();
