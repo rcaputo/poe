@@ -80,7 +80,8 @@ sub get {
 
   my $result = sysread($handle, my $buffer = '', $self->[BLOCK_SIZE]);
 
-  # sysread() was successful.  Return whatever was read.
+  # sysread() returned a positive number of octets.  Return whatever
+  # was read.
   return [ $buffer ] if $result;
 
   # 18:01 <dngor> sysread() clears $! when it returns 0 for eof?
@@ -108,6 +109,11 @@ sub get {
 
   # Nonfatal sysread() error.  Return an empty list.
   return [ ] if $! == EAGAIN or $! == EWOULDBLOCK;
+
+  # In perl 5.005_04 on FreeBSD, $! is not set properly unless this
+  # silly no-op is executed.  TODO - Make it optimizable at compile
+  # time.
+  $result = "$result";
 
   # fatal sysread error
   undef;
