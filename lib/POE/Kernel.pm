@@ -2881,7 +2881,7 @@ sub select_pause_write {
   my $kr_fileno  = $kr_filenos[fileno($handle)];
   my $kr_fno_vec = $kr_fileno->[VEC_WR];
   if (TRACE_SELECT) {
-    warn( "=== fileno(" . fileno($handle) . ") vector(VEC_WR) " .
+    warn( "=== pause test: fileno(" . fileno($handle) . ") vector(VEC_WR) " .
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
@@ -2918,7 +2918,7 @@ sub select_resume_write {
   my $kr_fileno = $kr_filenos[fileno($handle)];
   my $kr_fno_vec = $kr_fileno->[VEC_WR];
   if (TRACE_SELECT) {
-    warn( "=== fileno(" . fileno($handle) . ") vector(VEC_WR) " .
+    warn( "=== resume test: fileno(" . fileno($handle) . ") vector(VEC_WR) " .
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
@@ -2955,7 +2955,7 @@ sub select_pause_read {
   my $kr_fileno = $kr_filenos[fileno($handle)];
   my $kr_fno_vec = $kr_fileno->[VEC_RD];
   if (TRACE_SELECT) {
-    warn( "=== fileno(" . fileno($handle) . ") vector(VEC_RD) " .
+    warn( "=== pause test: fileno(" . fileno($handle) . ") vector(VEC_RD) " .
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
@@ -2992,7 +2992,7 @@ sub select_resume_read {
   my $kr_fileno = $kr_filenos[fileno($handle)];
   my $kr_fno_vec = $kr_fileno->[VEC_RD];
   if (TRACE_SELECT) {
-    warn( "=== fileno(" . fileno($handle) . ") vector(VEC_RD) " .
+    warn( "=== resume test: fileno(" . fileno($handle) . ") vector(VEC_RD) " .
           "count($kr_fno_vec->[FVC_EV_COUNT])"
         );
   }
