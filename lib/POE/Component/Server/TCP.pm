@@ -185,6 +185,7 @@ sub new {
                 unless ($_[ARG0] eq 'accept' and $_[ARG1] == ECONNABORTED) {
                   $client_error->(@_);
                   if ($_[HEAP]->{shutdown_on_error}) {
+                    $_[HEAP]->{got_an_error} = 1;
                     $_[KERNEL]->yield("shutdown");
                   }
                 }
@@ -201,7 +202,10 @@ sub new {
                 my $heap = $_[HEAP];
                 $heap->{shutdown} = 1;
                 if (defined $heap->{client}) {
-                  unless ($heap->{client}->get_driver_out_octets()) {
+                  if (
+                    $heap->{got_an_error} or
+                    not $heap->{client}->get_driver_out_octets()
+                  ) {
                     $client_disconnected->(@_);
                     delete $heap->{client};
                   }

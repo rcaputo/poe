@@ -213,7 +213,10 @@ sub new {
 
         got_server_error => sub {
           $error_callback->(@_);
-          $_[KERNEL]->yield("shutdown") if $_[HEAP]->{shutdown_on_error};
+          if ($_[HEAP]->{shutdown_on_error}) {
+            $_[KERNEL]->yield("shutdown");
+            $_[HEAP]->{got_an_error} = 1;
+          }
         },
 
         got_server_input => sub {
@@ -239,9 +242,13 @@ sub new {
 
           if ($heap->{connected}) {
             if (defined $heap->{server}) {
-              delete $heap->{server}
-                unless $heap->{server}->get_driver_out_octets();
-              $disc_callback->(@_);
+              if (
+                $heap->{got_an_error} or
+                not $heap->{server}->get_driver_out_octets()
+              ) {
+                delete $heap->{server};
+                $disc_callback->(@_);
+              }
             }
           }
           else {
