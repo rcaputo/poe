@@ -8,6 +8,8 @@ use strict;
 use POE::Kernel;
 use POE::Session;
 
+select(STDOUT); $|=1;
+
 my $kernel = new POE::Kernel();
 
 new POE::Session
@@ -18,18 +20,24 @@ new POE::Session
      my ($k, $me, $from) = @_;
      $k->sig('INT', 'signal handler');
      print "Signal watcher started.  Send SIGINT: ";
-     $k->post_state($me, 'set an alarm');
+     $k->post($me, 'set an alarm');
    },
    '_stop' => sub
    {
      my ($k, $me, $from) = @_;
      print "Signal watcher stopped.\n";
    },
+   '_default' => sub
+   {
+     my ($k, $me, $from, $state, @etc) = @_;
+     print "Signal watcher _default gets state ($state) from ($from) ",
+           "parameters(", join(', ', @etc), ")\n";
+   },
    'set an alarm' => sub
    {
      my ($k, $me, $from, $name) = @_;
      print ".";
-     $k->alarm('set an alarm', 'arbitrary', time()+1);
+     $k->alarm('set an alarm', time()+1);
    },
    'signal handler' => sub
    {

@@ -40,7 +40,7 @@ new POE::Session
    '_stop' => sub
    {
      my ($k, $me, $from) = @_;
-     print "Stopping chargen server ...\n";
+     print "Chargen server listener session stopped.\n";
    },
    '_child' => sub
    {
@@ -51,6 +51,12 @@ new POE::Session
    {
      my ($k, $me, $new_parent) = @_;
      print "Parent of chargen server is now ($new_parent).\n";
+   },
+   '_default' => sub
+   {
+     my ($k, $me, $from, $state, @etc) = @_;
+     print "Chargen server _default got state ($state) from ($from) ",
+           "parameters(", join(', ', @etc), ")\n";
    },
                                         # start soft states
    'accept' => sub
@@ -74,7 +80,13 @@ new POE::Session
           },
           '_stop' => sub {
             my ($k, $me, $from) = @_;
-            print "Chargen service stopped.\n";
+            print "Chargen server connection session stopped.\n";
+          },
+          '_default' => sub
+          {
+            my ($k, $me, $from, $state, @etc) = @_;
+            print "Chargen service _default got state ($state) from ($from) ",
+                  "parameters(", join(', ', @etc), ")\n";
           },
                                         # consume anything sent
           'read' => sub {
@@ -115,7 +127,7 @@ new POE::Session
      else {
        if ($! == EAGAIN) {
          print "Incoming chargen server connection not ready... try again!\n";
-         $k->post_state($me, 'accept', $handle);
+         $k->post($me, 'accept', $handle);
        }
        else {
          print "Incoming chargen server connection failed: $!\n";
@@ -151,7 +163,13 @@ new POE::Session
    '_stop' => sub
    {
      my ($k, $me, $from) = @_;
-     print "Stopping chargen client ...\n";
+     print "Chargen client stopped.\n";
+   },
+   '_default' => sub
+   {
+     my ($k, $me, $from, $state, @etc) = @_;
+     print "Chargen client _default got state ($state) from ($from) ",
+           "parameters(", join(', ', @etc), ")\n";
    },
    '_child' => sub
    {

@@ -24,7 +24,7 @@ sub new {
   if (exists $self->{'states'}->{'_start'}) {
     $kernel->session_alloc($self);
   }
-  else {
+  elsif (exists $self->{'namespace'}->{'_kernel_debug'}) {
     carp "discarding session $self - no '_start' state";
   }
 
@@ -50,8 +50,10 @@ sub _invoke_state {
                                    $source_session, @$etc
                                   );
   }
-  else {
-    warn "discarding state($state) for session($self) - state not registered";
+  elsif (exists $self->{'states'}->{'_default'}) {
+    &{$self->{'states'}->{'_default'}}($kernel, $self->{'namespace'},
+                                       $source_session, $state, @$etc
+                                      );
   }
 }
 

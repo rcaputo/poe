@@ -12,7 +12,6 @@ use Carp;
 use POE::Session;
 
 #------------------------------------------------------------------------------
-
 # states  : [ [ $session, $source_session, $state, $time, \@etc ], ... ]
 #
 # selects:  { $handle  => [ [ [ $r_sess, $r_state], ... ],
@@ -25,9 +24,13 @@ use POE::Session;
 # signals:  { $signal => [ [ $session, $state ], ... ] }
 #
 # sessions: { $session => [ $parent, \@children, $states, $selects, $session,
-#                           $running
+#                           $running, $signals,
 #                         ]
 #           }
+#------------------------------------------------------------------------------
+
+# these signals will stop the kernel; all others won't
+my @_terminal_signals = qw(QUIT INT KILL TERM);
 
 sub _signal_handler {
   if (defined $_[0]) {
@@ -58,12 +61,11 @@ sub new {
   $self->{'sel_w'} = new IO::Select() || die $!;
   $self->{'sel_e'} = new IO::Select() || die $!;
 
-  foreach my $signal (
-    qw(ILL QUIT BREAK EMT ABRT BUS USR1 INT USR2 ALRM KILL HUP PIPE SEGV
-       TRAP TERM FPE CHLD SYS)
-  ) {
-    $self->{'signals'}->{$signal} = [ ];
+  foreach my $signal (keys(%SIG)) {
+    next if ($signal =~ /^NUM\d+$/);
     $SIG{$signal} = \&_signal_handler;
+    $self->{'signals'}->{$signal} = [ ];
+    push @{$self->{'blocked signals'}}, $signal;
   }
 
   push(@POE::Kernel::instances, $self);
@@ -100,12 +102,12 @@ sub _dispatch_state {
 
   if ($state eq '_start') {
     $self->{'sessions'}->{$session} =
-      [ $source_session, [ ], 0, 0, $session, 0 ];
+      [ $source_session, [ ], 0, 0, $session, 0, 0 ];
     push(@{$self->{'sessions'}->{$source_session}->[1]}, $session);
   }
 
   if (exists $self->{'sessions'}->{$session}) {
-    if (($state eq '_stop') && ($session ne $self)) {
+    if ($state eq '_stop') {
                                         # remove the session from its parent
       my $old_parent = $self->{'sessions'}->{$session}->[0];
       if (exists $self->{'sessions'}->{$old_parent}) {
@@ -124,6 +126,7 @@ sub _dispatch_state {
         push(@{$self->{'sessions'}->{$old_parent}->[1]}, $child_session);
         $self->_dispatch_state($child_session, $old_parent, '_parent', []);
       }
+      $self->{'sessions'}->{$session}->[1] = [ ];
     }
     elsif ($state eq '_start') {
       $self->{'sessions'}->{$session}->[5] = 1;
@@ -138,14 +141,14 @@ sub _dispatch_state {
       if ($state eq '_stop') {
         $self->{'sessions'}->{$session}->[5] = 0;
                                         # free lingering signals
-        my @signals = $self->{'signals'};
-        foreach my $signal (@signals) {
+        foreach my $signal (@{$self->{'blocked signals'}}) {
           $self->_internal_sig($session, $signal);
         }
                                         # free lingering states (if leaking?)
         my $index = scalar(@{$self->{'states'}});
         while ($index--) {
           if ($self->{'states'}->[$index]->[0] eq $session) {
+            $self->{'sessions'}->{$session}->[2]--;
             splice(@{$self->{'states'}}, $index, 1);
           }
         }
@@ -154,9 +157,18 @@ sub _dispatch_state {
         foreach my $handle (@handles) {
           $self->_kernel_select($session, $self->{'selects'}->{$handle}->[3]);
         }
-
-        if ($session eq $self) {
-          $self->{'running'} = 0;
+                                        # check for leaks -><- debugging only
+        if (my $leaked = @{$self->{'sessions'}->{$session}->[1]}) {
+          print "*** $session - leaking children ($leaked)\a\n";
+        }
+        if (my $leaked = $self->{'sessions'}->{$session}->[2]) {
+          print "*** $session - leaking states ($leaked)\a\n";
+        }
+        if (my $leaked = $self->{'sessions'}->{$session}->[3]) {
+          print "*** $session - leaking selects ($leaked)\a\n";
+        }
+        if (my $leaked = $self->{'sessions'}->{$session}->[6]) {
+          print "*** $session - leaking signals ($leaked)\a\n";
         }
 
         delete $self->{'sessions'}->{$session};
@@ -171,6 +183,7 @@ sub _dispatch_state {
     }
   }
   else {
+                                        # warning because it should not happen
     warn "session($session) does not exist - state($state) not dispatched";
   }
 }
@@ -201,7 +214,6 @@ sub _dispatch_selects {
 
 sub run {
   my $self = shift;
-  $self->{'running'} = 'yes';
 
   while (keys(%{$self->{'sessions'}})) {
                                         # SIGZOMBIE sent if no states/signals
@@ -245,12 +257,18 @@ sub run {
       }
     }
   }
-                                        # check things after all done
+                                        # buh-bye!
   print "Kernel stopped.\n";
-  print "Resources leaked (if any):\n";
-  print "states  : ", scalar(@{$self->{'states'}}), "\n";
-  print "selects : ", scalar(keys %{$self->{'selects'}}), "\n";
-  print "sessions: ", scalar(keys %{$self->{'sessions'}}), "\n";
+                                        # oh, by the way...
+  if (my $leaked = @{$self->{'states'}}) {
+    print "*** $self - leaking states ($leaked)\a\n";
+  }
+  if (my $leaked = keys(%{$self->{'selects'}})) {
+    print "*** $self - leaking selects ($leaked)\a\n";
+  }
+  if (my $leaked = keys(%{$self->{'sessions'}})) {
+    print "*** $self - leaking sessions ($leaked)\a\n";
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -320,21 +338,6 @@ sub session_free {
 #  $self->_enqueue_state($session, $self->{'active session'},
 #                        '_stop', time(), []
 #                       );
-}
-
-#------------------------------------------------------------------------------
-
-sub alarm {
-  my ($self, $state, $name, $time, @etc) = @_;
-  my $active_session = $self->{'active session'};
-
-  if ($time < (my $now = time())) {
-    $time = $now;
-  }
-
-  $self->_enqueue_state($active_session, $active_session,
-                        $state, $time, [ $name, @etc ]
-                       );
 }
 
 #------------------------------------------------------------------------------
@@ -409,19 +412,8 @@ sub _kernel_select {
 }
 
 #------------------------------------------------------------------------------
-
-sub select {
-  my ($self, $handle, $state_r, $state_w, $state_e) = @_;
-  $self->_kernel_select($self->{'active session'}, $handle,
-                        $state_r, $state_w, $state_e
-                       );
-}
-
-#------------------------------------------------------------------------------
 # Dummy _invoke_state, so the Kernel can exist in its own 'sessions' table
 # as a parent for root-level sessions.
-
-my @_terminal_signals = qw(QUIT INT KILL HUP TERM ZOMBIE);
 
 sub _invoke_state {
   my ($self, $kernel, $source_session, $state, $etc) = @_;
@@ -432,13 +424,11 @@ sub _invoke_state {
     if ($signal_name eq 'ZOMBIE') {
       print "Kernel caught SIGZOMBIE.\n";
     }
+
     foreach my $session (@{$self->{'signals'}->{$signal_name}}) {
       $self->_dispatch_state($session->[0], $self, $session->[1],
                              [ $signal_name ]
                             );
-      $self->_enqueue_state($session->[0], $self, $session->[1],
-                            time(), [ $signal_name ]
-                           );
     }
 
     if (grep(/^$signal_name$/, @_terminal_signals)) {
@@ -457,7 +447,7 @@ sub _invoke_state {
 sub _internal_sig {
   my ($self, $session, $signal, $state) = @_;
 
-  if ($signal) {
+  if ($state) {
     my $written = 0;
     foreach my $signal (@{$self->{'signals'}->{$signal}}) {
       if ($signal->[0] eq $session) {
@@ -468,6 +458,7 @@ sub _internal_sig {
     }
     unless ($written) {
       push(@{$self->{'signals'}->{$signal}}, [ $session, $state ]);
+      $self->{'sessions'}->{$session}->[6]++;
     }
   }
   else {
@@ -475,6 +466,7 @@ sub _internal_sig {
     while ($index--) {
       if ($self->{'signals'}->{$signal}->[$index]->[0] eq $session) {
         splice(@{$self->{'signals'}->{$signal}}, $index, 1);
+        $self->{'sessions'}->{$session}->[6]--;
         last;
       }
     }
@@ -482,6 +474,44 @@ sub _internal_sig {
 }
 
 #------------------------------------------------------------------------------
+# Alarm management.
+
+sub alarm {
+  my ($self, $state, $time, @etc) = @_;
+  my $active_session = $self->{'active session'};
+                                        # remove alarm (all instances)
+  my $index = scalar(@{$self->{'states'}});
+  while ($index--) {
+    if (($self->{'states'}->[$index]->[0] eq $active_session) &&
+        ($self->{'states'}->[$index]->[2] eq $state)
+    ) {
+      $self->{'sessions'}->{$active_session}->[2]--;
+      splice(@{$self->{'states'}}, $index, 1);
+    }
+  }
+                                        # add alarm (if non-zero time)
+  if ($time) {
+    if ($time < (my $now = time())) {
+      $time = $now;
+    }
+    $self->_enqueue_state($active_session, $active_session,
+                          $state, $time, [ @etc ]
+                         );
+  }
+}
+
+#------------------------------------------------------------------------------
+# Select management.
+
+sub select {
+  my ($self, $handle, $state_r, $state_w, $state_e) = @_;
+  $self->_kernel_select($self->{'active session'}, $handle,
+                        $state_r, $state_w, $state_e
+                       );
+}
+
+#------------------------------------------------------------------------------
+# Signal management.
 
 sub sig {
   my ($self, $signal, $state) = @_;
@@ -489,9 +519,9 @@ sub sig {
 }
 
 #------------------------------------------------------------------------------
-# Stuff for Sessions to use.
+# Post a state to the queue.
 
-sub post_state {
+sub post {
   my ($self, $destination_session, $state_name, @etc) = @_;
   my $active_session = $self->{'active session'};
                                         # external -> internal representation

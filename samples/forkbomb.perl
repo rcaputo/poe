@@ -25,12 +25,12 @@ sub forkbomb {
        $me->{'id'} = ++$forkbomber;
        print $me->{'id'}, ": starting...\n";
        $k->sig('INT', 'signal handler');
-       $k->post_state($me, 'fork');
+       $k->post($me, 'fork');
      },
      '_stop' => sub
      {
        my ($k, $me, $from) = @_;
-       print $me->{'id'}, ": stopping...\n";
+       print $me->{'id'}, ": stopped.\n";
      },
      '_child' => sub
      {
@@ -42,7 +42,13 @@ sub forkbomb {
        my ($k, $me, $new_parent) = @_;
        print $me->{'id'}, ": parent now is $new_parent ...\n";
      },
-     'signal handler' => sub 
+     '_default' => sub
+     {
+       my ($k, $me, $from, $state, @etc) = @_;
+       print $me->{'id'}, ": _default got state ($state) from ($from) ",
+             "parameters(", join(', ', @etc), ")\n";
+     },
+     'signal handler' => sub
      {
        my ($k, $me, $from, $signal) = @_;
        print $me->{'id'}, ": caught SIG$signal\n";
@@ -51,10 +57,10 @@ sub forkbomb {
      {
        my ($k, $me, $from) = @_;
        print $me->{'id'}, ": starting new child...\n";
-       if ($forkbomber < 1000) {
+       if ($forkbomber < 100) {
          &forkbomb($k);
-         if (($forkbomber < 500) || (rand() < 0.5)) {
-           $k->post_state($me, 'fork');
+         if (($forkbomber < 50) || (rand() < 0.5)) {
+           $k->post($me, 'fork');
          }
          else {
            print $me->{'id'}, ": preparing to stop...\n";

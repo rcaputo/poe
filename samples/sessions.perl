@@ -19,41 +19,37 @@ foreach my $session_name
     (
      $kernel,
 
-      '_start' => sub
-      {
-        my ($k, $me, $from) = @_;
-        print "Starting session $session_name.\n";
-        $me->{'name'} = $session_name;
-        $k->post_state($me, 'increment', $session_name, 0);
-      },
-      '_stop' => sub
-      {
-        my ($k, $me, $from) = @_;
-        print "Stopping session ", $me->{'name'}, ".\n";
-      },
-      '_child' => sub
-      {
-        my ($k, $me, $child_session) = @_;
-        print "Child session ($child_session) has stopped.\n";
-      },
-      '_parent' => sub
-      {
-        my ($k, $me, $new_parent) = @_;
-        print "Parent has changed to ($new_parent).\n";
-      },
-      'increment' => sub
-      {
-        my ($k, $me, $from, $session_name, $counter) = @_;
-        $counter++;
-        print "Session $session_name, iteration $counter.\n";
-        if ($counter < 5) {
-          $k->post_state($me, 'increment', $session_name, $counter);
-        }
-        else {
-          # no more states; session should stop
-        }
-      },
-
+     '_start' => sub
+     {
+       my ($k, $me, $from) = @_;
+       $me->{'name'} = $session_name;
+       $k->sig('INT', 'sigint');
+       $k->post($me, 'increment', $session_name, 0);
+       print "Session $session_name started.\n";
+     },
+     '_stop' => sub
+     {
+       my ($k, $me, $from) = @_;
+       print "Session ", $me->{'name'}, " stopped.\n";
+     },
+     '_default' => sub
+     {
+       my ($k, $me, $from, $state, @etc) = @_;
+       print "Session ", $me->{'name'}, " _default got state ($state) ",
+             "from ($from) parameters (", join(', ', @etc), ")\n";
+     },
+     'increment' => sub
+     {
+       my ($k, $me, $from, $session_name, $counter) = @_;
+       $counter++;
+       print "Session $session_name, iteration $counter.\n";
+       if ($counter < 5) {
+         $k->post($me, 'increment', $session_name, $counter);
+       }
+       else {
+         # no more states; nothing left to do.  session stops.
+       }
+     },
     );
 }
 
