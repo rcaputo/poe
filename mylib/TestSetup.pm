@@ -16,6 +16,8 @@ use Exporter;
 my $test_count;
 my @test_results;
 
+sub TRACE_RESULTS () { 0 }
+
 sub test_setup {
   $test_count = shift;
 
@@ -76,6 +78,8 @@ sub ok {
         : ''
       );
   }
+
+  TRACE_RESULTS and warn "<<< $test_results[$test_number] >>>\n";
 }
 
 sub not_ok {
@@ -94,6 +98,8 @@ sub not_ok {
         : ''
       );
   }
+
+  TRACE_RESULTS and warn "<<< $test_results[$test_number] >>>\n";
 }
 
 sub many_not_ok {

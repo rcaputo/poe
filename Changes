@@ -71,6 +71,14 @@ If it all goes as planned, this will give people at least 1/4 year to
 update their programs.
 
 
+0.1205 2001.??.??
+-----------------
+
+Added TRACE_RESULTS to lib/TestSetup.  One of the tests in 0.1204 hung
+on a user's machine, and it was impossible to figure it out remotely
+without first seeing which test hung.
+
+
 0.1204 2001.01.13
 -----------------
 
