@@ -61,12 +61,12 @@ Finally you can install it:
 Test Results and Coverage
 -------------------------
 
-These are the `make test' results for POE 0.1103.  Hardware: Cyrix
+These are the `make test' results for POE 0.1104.  Hardware: Cyrix
 P166+; 64MB RAM.  Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no
 Event.
 
   All tests successful, 3 tests skipped.
-  Files=20, Tests=361, 191 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+  Files=21, Tests=365, 190 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
 These are the `make test' results for POE 0.1103.  Hardware: AMD
 486-40 (overclocked to 50); 16MB RAM.  Software: FreeBSD 4.0-STABLE;

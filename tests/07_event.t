@@ -9,6 +9,7 @@ use lib qw(./lib ../lib);
 use Symbol;
 
 use TestSetup;
+use TestPipe;
 
 # Skip if Event isn't here.
 BEGIN {
@@ -16,7 +17,7 @@ BEGIN {
   unless (exists $INC{'Event.pm'}) {
     &test_setup(0, 'the Event module is not installed');
   }
-}
+};
 
 &test_setup(6);
 
@@ -34,27 +35,17 @@ sub io_start {
 
   # A pipe.
 
-  $heap->{pipe_read}  = gensym();
-  $heap->{pipe_write} = gensym();
-
-  eval {
-    pipe($heap->{pipe_read}, $heap->{pipe_write})
-      or die "can't create pipe: $!";
-  };
-
-  # Can't test file events.
-
-  if ($@ ne '') {
+  my ($a_read, $a_write, $b_read, $b_write) = TestPipe->new();
+  unless (defined $a_read) {
     print "skip 2 # $@\n";
   }
-
   else {
     # The wheel uses read and write file events internall, so they're
     # tested here.
     $heap->{pipe_wheel} =
       POE::Wheel::ReadWrite->new
-        ( InputHandle  => $heap->{pipe_read},
-          OutputHandle => $heap->{pipe_write},
+        ( InputHandle  => $heap->{pipe_read}  = $a_read,
+          OutputHandle => $heap->{pipe_write} = $b_write,
           Filter       => POE::Filter::Line->new(),
           Driver       => POE::Driver::SysRW->new(),
           InputState   => 'ev_pipe_read',

@@ -33,6 +33,7 @@ lib/coverage.perl
 lib/Devel/Null.pm
 lib/Devel/Trace.pm
 lib/MyOtherFreezer.pm
+lib/TestPipe.pm
 lib/TestSetup.pm
 samples/create.perl
 samples/fakelogin.perl
@@ -83,3 +84,4 @@ t/16_filter_stream.t
 t/17_filter_ref.t
 t/18_filter_line.t
 t/19_filterchange.t
+t/20_accept.t

@@ -4,7 +4,9 @@ package POE::Wheel::ListenAccept;
 
 use strict;
 use Carp;
-use POSIX qw(EAGAIN);
+use Symbol;
+
+use POSIX qw(fcntl_h errno_h);
 use POE;
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
@@ -18,19 +20,18 @@ sub new {
   croak "wheels no longer require a kernel reference as their first parameter"
     if (@_ && (ref($_[0]) eq 'POE::Kernel'));
 
-  croak "$type requires a working Kernel"
-    unless (defined $poe_kernel);
+  croak "$type requires a working Kernel" unless defined $poe_kernel;
 
-  croak "Handle required"      unless (exists $params{'Handle'});
-  croak "AcceptState required" unless (exists $params{'AcceptState'});
+  croak "Handle required"      unless exists $params{Handle};
+  croak "AcceptState required" unless exists $params{AcceptState};
 
-  my $self = bless { 'handle'       => $params{'Handle'},
-                     'event accept' => $params{'AcceptState'},
-                     'event error'  => $params{'ErrorState'},
+  my $self = bless { handle        => $params{Handle},
+                     event_accept  => $params{AcceptState},
+                     event_error   => $params{ErrorState},
                    }, $type;
                                         # register private event handlers
   $self->_define_accept_state();
-  $poe_kernel->select($self->{'handle'}, $self->{'state read'});
+  $poe_kernel->select($self->{handle}, $self->{state_accept});
 
   $self;
 }
@@ -46,14 +47,14 @@ sub event {
 
     if ($name eq 'AcceptState') {
       if (defined $event) {
-        $self->{'event accept'} = $event;
+        $self->{event_accept} = $event;
       }
       else {
         carp "AcceptState requires an event name.  ignoring undef";
       }
     }
     elsif ($name eq 'ErrorState') {
-      $self->{'event error'} = $event;
+      $self->{event_error} = $event;
     }
     else {
       carp "ignoring unknown ListenAccept parameter '$name'";
@@ -68,24 +69,26 @@ sub event {
 sub _define_accept_state {
   my $self = shift;
                                         # stupid closure trick
-  my $event_accept = \$self->{'event accept'};
-  my $event_error  = \$self->{'event error'};
+  my $event_accept = \$self->{event_accept};
+  my $event_error  = \$self->{event_error};
   my $handle       = $self->{handle};
                                         # register the select-read handler
   $poe_kernel->state
-    ( $self->{'state read'} =  $self . ' select read',
+    ( $self->{state_accept} =  $self . ' select read',
       sub {
-                                        # prevents SEGV
+        # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
+
+        # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-        my $new_socket = $handle->accept();
+        my $new_socket = gensym;
+        my $peer = accept($new_socket, $handle);
 
-        if ($new_socket) {
+        if ($peer) {
           $k->call($me, $$event_accept, $new_socket);
         }
-        elsif ($! != EAGAIN) {
+        elsif ($! != EWOULDBLOCK) {
           $$event_error &&
             $k->call($me, $$event_error, 'accept', ($!+0), $!);
         }
@@ -98,11 +101,11 @@ sub _define_accept_state {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $poe_kernel->select($self->{'handle'});
+  $poe_kernel->select($self->{handle});
 
-  if ($self->{'state read'}) {
-    $poe_kernel->state($self->{'state read'});
-    delete $self->{'state read'};
+  if ($self->{state_accept}) {
+    $poe_kernel->state($self->{state_accept});
+    delete $self->{state_accept};
   }
 }
 

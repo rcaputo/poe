@@ -43,7 +43,9 @@ Version numbers have four fields: X.YYZZAA
 | code.  Migrate SocketFactory's code to ListenAccept, and write
 | a test based on IO::Socket::INET sockets.
 |
-| Split the samples out into a separate distribution.
+| Split the samples out into a separate distribution.  POE's
+| distribution tree is over 800 kilobytes!  Most of it's supporting
+| documentation, tests, and samples.
 |
 | Revise the POE web pages.
 |
@@ -57,10 +59,32 @@ Version numbers have four fields: X.YYZZAA
 0.1104 2000.??.??
 -----------------
 
-Thanks to jaxdahl's donation of shell time on a Windows 2000 machine,
-I think I've found a bug in POE::Preprocessor.  This bug only occurs
-on Windows machines so far.  Although it should also appear on other
-multi-byte newline systems, it doesn't on my OS/2 system.
+Jaxdahl donated some shell time on his Win32 machine, allowing me to
+figure out why POE was failing miserably with ActiveState's Perl port.
+I made a bad assumption about source code newlines in
+POE::Preprocessor.
+
+Wheel::ListenAccept wasn't as lagged behind Wheel::SocketFactory as I
+had thought.  It required only minor changes to be brought up to date.
+
+Skip some tests on Win32 because pipes can't be made non-blocking
+there.
+
+Brian Buchanan found and fixed a problem where SIGCHLD would not be
+delivered when child processes exited by signal.
+
+Added t/20_accept.t to test Wheel::ListenAccept.
+
+Wrote lib/TestPipe.pm.  This file tries to make a two-way pipe at any
+cost.  It tries socketpair(2) in the UNIX domain, socketpair(2) in the
+INET domain, a pair of pipe(2)s, and finally a plain INET domain
+socket.  This would make a great basis for an open3 thingy.
+
+select(2) bits are keyed on fileno.  POE's selects were keyed on file
+handle.  Several dup(2)'d handles could have the same fileno.  POE
+would manage the select(2) bits based on reference counts for handles.
+This was bad.  Changed POE to manage its own selects by fileno
+instead of filehandle.  This worked, much to my surprise.
 
 
 0.1103 2000.08.06

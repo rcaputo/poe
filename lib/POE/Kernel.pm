@@ -131,12 +131,12 @@ macro collect_garbage (<session>) {
   }
 }
 
-macro validate_handle (<handle>,<vector>) {
-  # Don't bother if the kernel isn't tracking the handle.
-  return 0 unless exists $self->[KR_HANDLES]->{<handle>};
+macro validate_fileno (<fileno>,<vector>) {
+  # Don't bother if the kernel isn't tracking the file.
+  return 0 unless exists $self->[KR_FILES]->{<fileno>};
 
-  # Don't bother if the kernel isn't tracking the handle's write status.
-  return 0 unless $self->[KR_HANDLES]->{<handle>}->[HND_VECCOUNT]->[<vector>];
+  # Don't bother if the kernel isn't tracking the file mode.
+  return 0 unless $self->[KR_FILES]->{<fileno>}->[HND_VECCOUNT]->[<vector>];
 }
 
 macro remove_alias (<session>,<alias>) {
@@ -172,7 +172,7 @@ macro test_for_idle_poe_kernel {
     warn( ",----- Kernel Activity -----\n",
            "| States : ", scalar(@{$self->[KR_STATES]}), "\n",
            "| Alarms : ", scalar(@{$self->[KR_ALARMS]}), "\n",
-           "| Handles: ", scalar(keys(%{$self->[KR_HANDLES]})), "\n",
+           "| Files  : ", scalar(keys(%{$self->[KR_FILES]})), "\n",
            "| Extra  : ", $self->[KR_EXTRA_REFS], "\n",
            "`---------------------------\n"
          );
@@ -180,7 +180,7 @@ macro test_for_idle_poe_kernel {
 
   unless ( @{$self->[KR_STATES]} or
            @{$self->[KR_ALARMS]} or
-           keys(%{$self->[KR_HANDLES]}) or
+           keys(%{$self->[KR_FILES]}) or
            $self->[KR_EXTRA_REFS]
          ) {
     $self->_enqueue_state( $self, $self,
@@ -223,7 +223,8 @@ macro dispatch_due_alarms {
 
 macro dispatch_ready_selects {
   my @selects =
-    values %{ $self->[KR_HANDLES]->{$handle}->[HND_SESSIONS]->[$vector] };
+    values %{ $self->[KR_FILES]->{fileno($handle)}->[HND_SESSIONS]->[$vector]
+            };
 
   foreach my $select (@selects) {
     $self->_dispatch_state
@@ -363,12 +364,12 @@ enum + SS_SIGNALS SS_ALIASES  SS_PROCESSES SS_ID SS_EXTRA_REFS SS_ALCOUNT
 enum   SH_HANDLE SH_REFCOUNT SH_VECCOUNT
 
 # The Kernel object.  KR_SIZE goes last (it's the index count).
-enum   KR_SESSIONS KR_VECTORS KR_HANDLES KR_STATES KR_SIGNALS KR_ALIASES
+enum   KR_SESSIONS KR_VECTORS KR_FILES KR_STATES KR_SIGNALS KR_ALIASES
 enum + KR_ACTIVE_SESSION KR_PROCESSES KR_ALARMS KR_ID KR_SESSION_IDS
 enum + KR_ID_INDEX KR_WATCHER_TIMER KR_WATCHER_IDLE KR_EXTRA_REFS KR_SIZE
 
 # Handle structure.
-enum HND_HANDLE HND_REFCOUNT HND_VECCOUNT HND_SESSIONS HND_FILENO HND_WATCHERS
+enum HND_HANDLE HND_REFCOUNT HND_VECCOUNT HND_SESSIONS HND_WATCHERS
 
 # Handle session structure.
 enum HSS_HANDLE HSS_SESSION HSS_STATE
@@ -439,8 +440,8 @@ const FIFO_DISPATCH_TIME 0.01
 #
 # session IDs: { $id => $session, ... }
 #
-# handles:
-# { $handle =>
+# files:
+# { $fileno =>
 #   [ $handle,
 #     $refcount,
 #     [ $ref_r, $ref_w, $ref_x ],
@@ -448,7 +449,6 @@ const FIFO_DISPATCH_TIME 0.01
 #       { $session => [ $handle, $session, $state ], .. },
 #       { $session => [ $handle, $session, $state ], .. }
 #     ],
-#     fileno(),
 #     [ $watcher_r, $watcher_w, $watcher_x ],
 #   ]
 # };
@@ -640,7 +640,7 @@ sub new {
     my $self = $poe_kernel = bless
       [ { },                            # KR_SESSIONS
         [ '', '', '' ],                 # KR_VECTORS
-        { },                            # KR_HANDLES
+        { },                            # KR_FILES
         [ ],                            # KR_STATES
         { },                            # KR_SIGNALS
         { },                            # KR_ALIASES
@@ -1243,7 +1243,7 @@ sub run {
     # POE::Kernel's data structure and made them all lexicals instead
     # of members of $self.
     my $kr_states   = $self->[KR_STATES];
-    my $kr_handles  = $self->[KR_HANDLES];
+    my $kr_files    = $self->[KR_FILES];
     my $kr_sessions = $self->[KR_SESSIONS];
     my $kr_vectors  = $self->[KR_VECTORS];
     my $kr_alarms   = $self->[KR_ALARMS];
@@ -1304,7 +1304,7 @@ sub run {
 
       # Avoid looking at filehandles if we don't need to.
 
-      if ($timeout || keys(%$kr_handles)) {
+      if ($timeout || keys(%$kr_files)) {
 
         # Check filehandles, or wait for a period of time to elapse.
         my $hits = select( my $rout = $kr_vectors->[VEC_RD],
@@ -1315,7 +1315,7 @@ sub run {
 
         ASSERT_SELECT and do {
           if ($hits < 0) {
-            die "select error: $!"
+            confess "select error: $!"
               unless ( ($! == EINPROGRESS) or
                        ($! == EWOULDBLOCK) or
                        ($! == EINTR)
@@ -1346,10 +1346,10 @@ sub run {
           # This is where they're gathered.  It's a variant on a neat
           # hack Silmaril came up with.
 
-          # -><- This does extra work.  Some of $%kr_handles don't
-          # have all their bits set (for example; VEX_EX is rarely
-          # used).  It might be more efficient to split this into
-          # three greps, for just the vectors that need to be checked.
+          # -><- This does extra work.  Some of $%kr_files don't have
+          # all their bits set (for example; VEX_EX is rarely used).
+          # It might be more efficient to split this into three greps,
+          # for just the vectors that need to be checked.
 
           # -><- It has been noted that map is slower than foreach
           # when the size of a list is grown.  The list is exploded on
@@ -1357,20 +1357,20 @@ sub run {
           # than just pushing on a list.  Evil probably ensues here.
 
           my @selects =
-            map { ( ( vec($rout, $_->[HND_FILENO], 1)
-                      ? values(%{$_->[HND_SESSIONS]->[VEC_RD]})
+            map { ( ( vec($rout, $_, 1)
+                      ? values(%{$kr_files->{$_}->[HND_SESSIONS]->[VEC_RD]})
                       : ( )
                     ),
-                    ( vec($wout, $_->[HND_FILENO], 1)
-                      ? values(%{$_->[HND_SESSIONS]->[VEC_WR]})
+                    ( vec($wout, $_, 1)
+                      ? values(%{$kr_files->{$_}->[HND_SESSIONS]->[VEC_WR]})
                       : ( )
                     ),
-                    ( vec($eout, $_->[HND_FILENO], 1)
-                      ? values(%{$_->[HND_SESSIONS]->[VEC_EX]})
+                    ( vec($eout, $_, 1)
+                      ? values(%{$kr_files->{$_}->[HND_SESSIONS]->[VEC_EX]})
                       : ( )
                     )
                   )
-                } values %$kr_handles;
+                } keys %$kr_files;
 
           TRACE_SELECT and do {
             if (@selects) {
@@ -1464,7 +1464,7 @@ sub run {
 
     {% kernel_leak_hash KR_PROCESSES   %}
     {% kernel_leak_hash KR_SESSION_IDS %}
-    {% kernel_leak_hash KR_HANDLES     %}
+    {% kernel_leak_hash KR_FILES       %}
     {% kernel_leak_hash KR_SESSIONS    %}
     {% kernel_leak_hash KR_ALIASES     %}
 
@@ -1695,7 +1695,7 @@ sub _invoke_state {
       # stopping for some other reason.  This is perl Perl Cookbook
       # recipe 16.19 and the waitpid(2) manpage.
 
-      if (WIFEXITED($?)) {
+      if (WIFEXITED($?) or WIFSIGNALED($?)) {
 
         # Map the process ID to a session reference.  First look for a
         # session registered via $kernel->fork().  Next validate the
@@ -1707,7 +1707,8 @@ sub _invoke_state {
                    exists $self->[KR_SESSIONS]->{$parent_session}
                  );
 
-        # Enqueue the signal event.
+        # Enqueue the signal event. -><- No way to determine whether
+        # the child left via exit or a signal. Add another parameter?
 
         $self->_enqueue_state( $parent_session, $self,
                                EN_SIGNAL, ET_SIGNAL,
@@ -1769,7 +1770,7 @@ sub _invoke_state {
 
   elsif ($state eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
-      unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_HANDLES]})) {
+      unless (@{$self->[KR_STATES]} || keys(%{$self->[KR_FILES]})) {
         $self->_enqueue_state( $self, $self,
                                EN_SIGNAL, ET_SIGNAL,
                                [ 'ZOMBIE' ],
@@ -2247,17 +2248,17 @@ sub delay_add {
 
 sub _internal_select {
   my ($self, $session, $handle, $state, $select_index) = @_;
-  my $kr_handles = $self->[KR_HANDLES];
+  my $kr_files = $self->[KR_FILES];
+  my $fileno = fileno($handle);
 
   # Register a select state.
   if ($state) {
-    unless (exists $kr_handles->{$handle}) {
-      $kr_handles->{$handle} =
+    unless (exists $kr_files->{$fileno}) {
+      $kr_files->{$fileno} =
         [ $handle,                      # HND_HANDLE
           0,                            # HND_REFCOUNT
           [ 0, 0, 0 ],                  # HND_VECCOUNT (VEC_RD, VEC_WR, VEC_EX)
           [ { }, { }, { } ],            # HND_SESSIONS (VEC_RD, VEC_WR, VEC_EX)
-          fileno($handle)               # HND_FILENO
         ];
 
       # For DOSISH systems like OS/2
@@ -2293,25 +2294,25 @@ sub _internal_select {
       select((select($handle), $| = 1)[0]);
     }
 
-    # KR_HANDLES
-    my $kr_handle = $kr_handles->{$handle};
+    # KR_FILES
+    my $kr_file = $kr_files->{$fileno};
 
     # If this session hasn't already been watching the filehandle,
     # then modify the handle's reference counts and perhaps turn on
     # the appropriate select bit.
 
-    unless (exists $kr_handle->[HND_SESSIONS]->[$select_index]->{$session}) {
+    unless (exists $kr_file->[HND_SESSIONS]->[$select_index]->{$session}) {
 
       # Increment the handle's vector (Read, Write or Expedite)
       # reference count.  This helps the kernel know when to manage
       # the handle's corresponding vector bit.
 
-      $kr_handle->[HND_VECCOUNT]->[$select_index]++;
+      $kr_file->[HND_VECCOUNT]->[$select_index]++;
 
       # If this is the first session to watch the handle, then turn
       # its select bit on.
 
-      if ($kr_handle->[HND_VECCOUNT]->[$select_index] == 1) {
+      if ($kr_file->[HND_VECCOUNT]->[$select_index] == 1) {
         vec($self->[KR_VECTORS]->[$select_index], fileno($handle), 1) = 1;
 
         # If we're using Tk, then we tell it to watch this filehandle
@@ -2341,7 +2342,7 @@ sub _internal_select {
 
         if (POE_HAS_EVENT) {
 
-          $kr_handle->[HND_WATCHERS]->[$select_index] =
+          $kr_file->[HND_WATCHERS]->[$select_index] =
             Event->io
               ( fd => $handle,
                 poll => ( ( $select_index == VEC_RD )
@@ -2360,14 +2361,14 @@ sub _internal_select {
       # sum of its read, write and expedite counts but kept separate
       # for faster runtime checking).
 
-      $kr_handle->[HND_REFCOUNT]++;
+      $kr_file->[HND_REFCOUNT]++;
     }
 
     # Record the session parameters in the kernel's handle structure,
     # so we know what to do when the watcher unblocks.  This
     # overwrites a previous value, if any, or adds a new one.
 
-    $kr_handle->[HND_SESSIONS]->[$select_index]->{$session} =
+    $kr_file->[HND_SESSIONS]->[$select_index]->{$session} =
       [ $handle, $session, $state ];
 
     # SS_HANDLES
@@ -2395,32 +2396,32 @@ sub _internal_select {
   # session's destruction.
 
   else {
-    # KR_HANDLES
+    # KR_FILES
 
     # Make sure the handle is deregistered with the kernel.
 
-    if (exists $kr_handles->{$handle}) {
-      my $kr_handle = $kr_handles->{$handle};
+    if (exists $kr_files->{$fileno}) {
+      my $kr_file = $kr_files->{$fileno};
 
       # Make sure the handle was registered to the requested session.
 
-      if (exists $kr_handle->[HND_SESSIONS]->[$select_index]->{$session}) {
+      if (exists $kr_file->[HND_SESSIONS]->[$select_index]->{$session}) {
 
         # Remove the handle from the kernel's session record.
 
-        delete $kr_handle->[HND_SESSIONS]->[$select_index]->{$session};
+        delete $kr_file->[HND_SESSIONS]->[$select_index]->{$session};
 
         # Decrement the handle's reference count.
 
-        $kr_handle->[HND_VECCOUNT]->[$select_index]--;
+        $kr_file->[HND_VECCOUNT]->[$select_index]--;
         ASSERT_REFCOUNT and do {
-          die if ($kr_handle->[HND_VECCOUNT]->[$select_index] < 0);
+          die if ($kr_file->[HND_VECCOUNT]->[$select_index] < 0);
         };
 
         # If the "vector" count drops to zero, then stop selecting the
         # handle.
 
-        unless ($kr_handle->[HND_VECCOUNT]->[$select_index]) {
+        unless ($kr_file->[HND_VECCOUNT]->[$select_index]) {
           vec($self->[KR_VECTORS]->[$select_index], fileno($handle), 1) = 0;
 
           # If we're using Tk, then we tell it to stop watching this
@@ -2453,8 +2454,8 @@ sub _internal_select {
           # code.
 
           if (POE_HAS_EVENT) {
-            $kr_handle->[HND_WATCHERS]->[$select_index]->cancel();
-            $kr_handle->[HND_WATCHERS]->[$select_index] = undef;
+            $kr_file->[HND_WATCHERS]->[$select_index]->cancel();
+            $kr_file->[HND_WATCHERS]->[$select_index] = undef;
           }
 
           # Shrink the bit vector by chopping zero octets from the
@@ -2471,12 +2472,12 @@ sub _internal_select {
         # collection on it, as soon as whatever else in "user space"
         # frees it.
 
-        $kr_handle->[HND_REFCOUNT]--;
+        $kr_file->[HND_REFCOUNT]--;
         ASSERT_REFCOUNT and do {
-          die if ($kr_handle->[HND_REFCOUNT] < 0);
+          die if ($kr_file->[HND_REFCOUNT] < 0);
         };
-        unless ($kr_handle->[HND_REFCOUNT]) {
-          delete $kr_handles->{$handle};
+        unless ($kr_file->[HND_REFCOUNT]) {
+          delete $kr_files->{$fileno};
         }
       }
     }
@@ -2548,7 +2549,7 @@ sub select_expedite {
 sub select_pause_write {
   my ($self, $handle) = @_;
 
-  {% validate_handle $handle, VEC_WR %}
+  {% validate_fileno fileno($handle), VEC_WR %}
 
   # Turn off the select vector's write bit for us.  We don't do any
   # housekeeping since we're only pausing the handle.  It's assumed
@@ -2565,7 +2566,7 @@ sub select_pause_write {
   }
 
   if (POE_HAS_EVENT) {
-    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
+    $self->[KR_FILES]->{fileno($handle)}->[HND_WATCHERS]->[VEC_WR]->stop();
   }
 
   return 0;
@@ -2576,7 +2577,7 @@ sub select_pause_write {
 sub select_resume_write {
   my ($self, $handle) = @_;
 
-  {% validate_handle $handle, VEC_WR %}
+  {% validate_fileno fileno($handle), VEC_WR %}
 
   # Turn off the select vector's write bit for us.  We don't do any
   # housekeeping since we're only pausing the handle.  It's assumed
@@ -2593,7 +2594,7 @@ sub select_resume_write {
   }
 
   if (POE_HAS_EVENT) {
-    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
+    $self->[KR_FILES]->{fileno($handle)}->[HND_WATCHERS]->[VEC_WR]->start();
   }
 
   return 1;

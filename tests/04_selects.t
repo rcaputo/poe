@@ -6,14 +6,14 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
+use TestPipe;
+
 &test_setup(23);
 
 # Turn on all asserts.
+# sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
-
-use Socket;
-use Symbol qw(gensym);
 
 ### Test parameters.
 
@@ -40,18 +40,16 @@ sub master_start {
 
   $test_index *= 2;
 
-  # Create a pair of pipes.
-  my ($downlink_read, $downlink_write) = (gensym, gensym);
-  pipe($downlink_read, $downlink_write)
-    or die "cannot create downlink pipe: $!";
+  my ($master_read, $master_write, $slave_read, $slave_write) =
+    TestPipe->new();
 
-  # Create a pair of pipes.
-  my ($uplink_read, $uplink_write) = (gensym, gensym);
-  pipe($uplink_read, $uplink_write)
-    or die "cannot create uplink pipe: $!";
+  unless (defined $master_read) {
+    $test_results[$test_index] = $test_results[$test_index + 1] = undef;
+    return;
+  }
 
   # Listen on the uplink_read side.
-  $kernel->select_read($uplink_read, 'input');
+  $kernel->select_read($master_read, 'input');
 
   # Give the other side to a newly spawned session.
   POE::Session->create
@@ -61,17 +59,17 @@ sub master_start {
         input  => \&slave_got_input,
         output => \&slave_put_output,
       },
-      args     => [ $downlink_read, $uplink_write, $test_index + 1 ],
+      args     => [ $slave_read, $slave_write, $test_index + 1 ],
     );
 
   # Save some values for later.
-  $heap->{write}      = $downlink_write;
+  $heap->{write}      = $master_write;
   $heap->{test_index} = $test_index;
   $heap->{test_count} = 0;
   $heap->{queue}      = [ ];
 
   # Start the write thing.
-  $kernel->select_write($downlink_write, 'output');
+  $kernel->select_write($master_write, 'output');
 }
 
 sub master_stop {
@@ -86,7 +84,6 @@ sub master_got_input {
 
   my $received = sysread($handle, my $buffer = '', 4);
   unless ($received == 4) {
-die;
     $kernel->select_read($handle);
     $kernel->select_write($heap->{write});
     return;
@@ -154,7 +151,6 @@ sub slave_got_input {
 
   my $received = sysread($handle, my $buffer = '', 4);
   unless ($received == 4) {
-die;
     $kernel->select_read($handle);
     $kernel->select_write($heap->{write});
     return;
