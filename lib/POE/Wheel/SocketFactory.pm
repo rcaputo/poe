@@ -13,6 +13,14 @@ use POE;
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 sub DEBUG () { 0 }
 
+# Provide a dummy EINPROGRESS for systems that don't have one.  Give
+# it an improbable errno value.
+BEGIN {
+  if ($^O eq 'MSWin32') {
+    eval "sub EINPROGRESS () { 3.141 }";
+  }
+}
+
 #------------------------------------------------------------------------------
 
 sub DOM_UNIX () { 'unix' }

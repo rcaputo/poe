@@ -31,26 +31,80 @@ things.
 COMPATIBILITY
 =============
 
+General
+-------
+
 POE has been tested with as many Perl versions as the author (and
-testing pool) can find.  It is known to work with older Perl versions,
-back to 5.004_03 (maybe earlier).  It should also work with the latest
-stable release (the latest development release may also work).  For
-the most recent compatibility results, see
+testing pool) can find.  This includes Linux, FreeBSD, and OS/2, all
+of which support enough of POSIX to run POE.  It is known to work with
+older Perl versions, back to 5.004_03 (maybe earlier).  It should also
+work with the latest stable release (the latest development release
+may also work).  For the most recent compatibility results, see
 <http://www.perl.org/cpan-testers/results.cgi?request=dist&dist=POE>.
 
-The last attempt at writing Windows support into POE was in early
-January 1999.  The Windows code was never completed nor tested, and it
-has been backed out as of January 2000.  The assumption is that
-ActiveState has been working on bringing its perl port into line with
-normal things, and it would be better to start cleanly now than try to
-work with code implementing old assumptions.  The Changes file lists
-the exact versions and dates when the Windows support went in and came
-out.
+If you have news about breakage on an unlisted platform, please let me
+know.  Thank you!
+
+
+Windows
+-------
+
+The half-tested Windows support that was removed in 0.0806 turns out
+to be necessary and useful.  It was put back in version 0.0807, and at
+least one Windows user, Douglas Couch <purdue.edu!dscouch>, has found
+joy using POE.
+
+As of this writing, Doug reports that POE works with the latest stable
+ActivePerl, prior to (but not including) version 5.6.  He says that
+the 5.6 version includes fork() and other Unix compatibilities, but it
+still definitely seems to be beta level code.
+
+He writes:
+
+  I've done some preliminary testing of the 0.0903 version and the
+  re-addition of the Win32 support seems to be a success.  I'll do
+  some more intensive testing in the next few days to make sure
+  nothing else is broken that I haven't missed.
+
+And later:
+
+  After testing out my own program and having no problems with the
+  newest version (with Win32 support), I thought I'd test out some of
+  the samples and relay my results.
+
+  filterchange.perl and preforkedserver.perl both contain fork
+  commands which are still unsupported by ActiveState's port of Perl,
+  so they were both unsuccessful.  (this was anticipated for anything
+  containing fork)
+
+  ref-type.perl, refsender.perl, thrash.perl and wheels2.perl all ran
+  up against the same unsupported POSIX macro.  According to the error
+  message, my vendor's POSIX doesn't support the macro EINPROGRESS ...q
+
+  Other than those particular problems all of the other sample scripts
+  ran fine.
+
+And later, after it was suggested to remove the EINPROGRESS code:
+
+  > ... and running something that connects to an outbound server,
+  > such as samples/proxy.perl.  The normal "connection in progress"
+  > state will become a failure, and the proxy will die in "connect"
+  > with an error number and name.
+
+  Ummmm...  would you believe I did this and couldn't get it to break?
+  I think I need to play a bit with the proxy settings in the sample,
+  I couldn't make it do an http proxy, but I also couldn't make it
+  break.
+
+... so I made EINPROGRESS a dummy thing on Win32.  Let me know if
+there's breakage!
+
+
+MacOS
+-----
 
 MacOS is suspected to support POE.  It would be greatly appreciated if
 someone could confirm or deny this.
-
-Please let me or the list know if any of this is wrong.  Thanks!
 
 
 Non-requirements:

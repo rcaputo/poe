@@ -7,8 +7,7 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
--><- High/low watermark sample by 0.10
--><- Incorporate Douglas' Win32 notes in 0.0906
+-><- High/low watermark sample by 0.10.  Artur says he has one.
 
 
 0.0905 2000.02.xx
@@ -26,6 +25,20 @@ states can be redefined on the fly.
 
 Documented Wheel::ReadWrite->set_(high|low)_mark; they weren't
 documented up to 0.0904.
+
+Expanded samples/poing.perl to accept different forms of host lines in
+.rc files.  Now accepts "host ip_address" or "host hostname" or "host
+ip_address alias".  It will look up the missing information when the
+first two formats are used; it can totally bypass looking up names or
+addresses when the last format is used.  And aliases can be more
+meaningful than host names.
+
+EINPROGRESS isn't provided by ActiveState's POSIX module.  It also
+seems to be meaningless on MSWin32 systems.  Since it's pretty
+important for non-blocking connect() otherwise, I added a dummy
+constant for it when POE is running on MSWin32 platforms.  This
+affects POE::Kernel and Wheel::SocketFactory, which should now
+work better on Windows systems.
 
 
 0.0904 2000.02.16

@@ -11,13 +11,22 @@ use Exporter;
 @POE::Kernel::ISA = qw(Exporter);
 @POE::Kernel::EXPORT = qw( $poe_kernel );
 
-                                        # allow subsecond alarms, if available
+# Perform some optional setup.
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
+
+  # Include Time::HiRes, which is pretty darned cool, if it's
+  # available.  Life goes on without it.
   eval {
     require Time::HiRes;
     import Time::HiRes qw(time);
   };
+
+  # Provide a dummy EINPROGRESS for systems that don't have one.  Give
+  # it an improbable errno value.
+  if ($^O eq 'MSWin32') {
+    eval "sub EINPROGRESS () { 3.141 }";
+  }
 }
 
 #------------------------------------------------------------------------------
