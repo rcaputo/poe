@@ -183,7 +183,7 @@ sub import {
             return $status;
           }
 
-          # The next two "ignore" returns speed up multiple const/enum
+          # The next two returns speed up multiple const/enum
           # definitions in the same area.  They also eliminate the
           # need to check for things in semantically nil lines.
 
@@ -192,6 +192,15 @@ sub import {
 
           # Ignore blank lines.
           return $status if /^\s*$/;
+
+          # This return works around a bug where __END__ and __DATA__
+          # cause perl 5.005_61 through 5.6.0 to blow up with memory
+          # errors.  It detects these tags, replaces them with a blank
+          # line, and simulates EOF.
+          if (/^__(END|DATA)__\s*$/) {
+            $_ = "\n";
+            return 0;
+          }
 
           # Define an enum.
           if (/^enum(?:\s+(\d+|\+))?\s+(.*?)\s*$/) {
