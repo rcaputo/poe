@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This is an early, basic test of POE's filehandle selecting
@@ -21,6 +21,7 @@
 # *session*.perl tests.  They are commented in more detail.
 
 use strict;
+use lib '..';
 
 use POE;
 use IO::Socket;

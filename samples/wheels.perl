@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # If wheels make you squeamish, see selects.perl.  It is about the
@@ -17,6 +17,7 @@
 # this program still relies on IO::Socket.
 
 use strict;
+use lib '..';
 
 use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line);
 use IO::Socket;

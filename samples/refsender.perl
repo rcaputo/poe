@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This program is half of a test suite for POE::Filter::Reference.  It
@@ -10,6 +10,7 @@
 # Revised for POE 0.06 by Rocco Caputo <troc@netrus.net>
 
 use strict;
+use lib '..';
 use Socket;
 
 use POE qw(Wheel::SocketFactory

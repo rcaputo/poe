@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This is a proof of concept for proxies, or other programs that
@@ -6,6 +6,7 @@
 # incarnations of POE did not easily support proxies.
 
 use strict;
+use lib '..';
 use Socket;
 use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Stream
            Wheel::SocketFactory

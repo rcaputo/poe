@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 =pod //////////////////////////////////////////////////////////////////////////
@@ -25,6 +25,7 @@ Here we go:
 =cut \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 use strict;
+use lib '..';
 use Socket;
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);
 

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This program tests signals.  It tests OS signals (such as SIGINT),
@@ -8,6 +8,7 @@
 # arbitrarily named signals.
 
 use strict;
+use lib '..';
 use POE;
 
 #==============================================================================

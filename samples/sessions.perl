@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This is the first test program written for POE.  It originally was
@@ -9,6 +9,7 @@
 # need to know. :)
 
 use strict;
+use lib '..';
 
 # use POE always includes POE::Kernel and POE::Session, since they are
 # the fundamental POE classes and universally used.  POE::Kernel

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This program creates a server session and an infinitude of clients
@@ -12,6 +12,7 @@
 #   In the "client" copy, comment out th ecall to &server_create();
 
 use strict;
+use lib '..';
 use Socket;
 
 use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line

@@ -5,7 +5,7 @@
 # be big and strong.
 
 use strict;
-use lib qw(..);
+use lib '..';
 use POE;
 use IO::Socket;
 

@@ -1,8 +1,11 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This program tests the ability of Filter::Reference to use "any"
 # package or object for freeze/thaw.
+
+use strict;
+use lib '..';
 
 ###############################################################################
 # This is the caller.

@@ -1,10 +1,11 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # This program tests POE::Wheel::SocketFactory.  Basically, it is
 # thrash.perl, but for AF_UNIX, AF_INET tcp, and AF_INET udp sockets.
 
 use strict;
+use lib '..';
 
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);
 

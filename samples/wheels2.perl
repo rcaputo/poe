@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I..
+#!/usr/bin/perl -w
 # $Id$
 
 # A simple socket client that uses a two-handle wheel to pipe between
@@ -6,6 +6,7 @@
 # rot13 server on localhost port 32000.
 
 use strict;
+use lib '..';
 use POSIX;
 
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Stream);
