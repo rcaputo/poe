@@ -35,17 +35,34 @@ BEGIN {
 # names: { $name => $session }
 #------------------------------------------------------------------------------
 
+# keep track of the currently running kernel.  this will most likely fail
+# in a multithreaded situation where multiple kernels are active.  this
+# may be a reason to drop multi-Kernel support.
+
+my $active_kernel = undef;
+
 # a list of signals that will terminate all sessions (and stop the kernel)
 my @_terminal_signals = qw(QUIT INT KILL TERM HUP ZOMBIE);
 
 # global signal handler
 sub _signal_handler {
   if (defined $_[0]) {
-    foreach my $kernel (@POE::Kernel::instances) {
-      $kernel->_enqueue_state($kernel, $kernel, '_signal',
-                              time(), [ $_[0] ]
-                             );
+                                        # dispatch SIGPIPE directly to session
+    if (($_[0] eq 'PIPE') && (defined $active_kernel)) {
+      $active_kernel->_enqueue_state
+        ( $active_kernel->{'active session'}, $active_kernel,
+          '_signal', time(), [ $_[0] ]
+        );
     }
+                                        # propagate other signals
+    else {
+      foreach my $kernel (@POE::Kernel::instances) {
+        $kernel->_enqueue_state($kernel, $kernel, '_signal',
+                                time(), [ $_[0] ]
+                               );
+      }
+    }
+                                        # reset the signal handler, in case...
     $SIG{$_[0]} = \&_signal_handler;
   }
   else {
@@ -158,6 +175,7 @@ sub _dispatch_state {
     }
   }
                                         # dispatch this object's state
+  $active_kernel = $self;
   my $hold_active_session = $self->{'active session'};
   $self->{'active session'} = $session;
   my $handled = $session->_invoke_state($self, $source_session,
@@ -166,6 +184,7 @@ sub _dispatch_state {
                                         # stringify to remove possible blessing
   defined($handled) ? ($handled = "$handled") : ($handled = '');
   $self->{'active session'} = $hold_active_session;
+  undef $active_kernel;
 
 # print "\x1b[1;32m$session $state returns($handled)\x1b[0m\n";
 
