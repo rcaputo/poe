@@ -404,16 +404,15 @@ tracking unique wheel IDs.
 
 =head1 SAMPLE PROGRAMS
 
+This distribution contains several example and/or tutorial programs in
+the ./samples directory.  Be advised, however, that they are old and
+may not exhibit the most current coding practices.
+
 The sample programs are scheduled for removal from this distribution
-in version 0.1301.  They will be moved to a separate distribution and
-documented better.
+in version 0.1301.  They are being moved to the web version of the POE
+Cookbook, which is available at <http://poe.perl.org/?POE_Cookbook>.
 
-This distribution contains 28 example and/or tutorial programs in the
-archive's ./samples directory.  Be advised, however, that many of them
-date from the early days of POE's development and may not exhibit the
-best coding practices.
-
-The author's always looking for new example ideas.
+The author is always looking for new example ideas.
 
 =head1 COMPATIBILITY ISSUES
 
