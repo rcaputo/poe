@@ -145,7 +145,8 @@ print "ok 1\n";
 {
   sub encoder {
     my $stuff = shift;
-    return pack("N", length($$stuff)) . $$stuff;
+    substr($$stuff, 0, 0) = pack("N", length($$stuff));
+    undef;
   }
 
   sub decoder {

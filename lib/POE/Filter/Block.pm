@@ -20,13 +20,18 @@ sub DECODER        () { 4 }
 
 sub _default_decoder {
   my $stuff = shift;
-  return unless $$stuff =~ s/^(\d+)\0//s;
+  unless ($$stuff =~ s/^(\d+)\0//s) {
+    warn length($1), " strange bytes removed from stream"
+      if $$stuff =~ s/^(\D+)//s;
+    return;
+  }
   return $1;
 }
 
 sub _default_encoder {
   my $stuff = shift;
-  return length($$stuff) . "\0" . $$stuff;
+  substr($$stuff, 0, 0) = length($$stuff) . "\0";
+  return;
 }
 
 sub new {
@@ -184,7 +189,10 @@ sub put {
   # steals a lot of Artur's code from the Reference filter.
 
   else {
-    @raw = map { $self->[ENCODER]->(\$_) } @$blocks;
+    @raw = @$blocks;
+    foreach (@raw) {
+      $self->[ENCODER]->(\$_);
+    }
   }
 
   \@raw;
@@ -210,6 +218,9 @@ POE::Filter::Block - filter between streams and blocks
 =head1 SYNOPSIS
 
   $filter = POE::Filter::Block->new( BlockSize => 1024 );
+  $filter = POE::Filter::Block->new(
+    LengthCodec => [ \&encoder, \&decoder ]
+  );
   $arrayref_of_blocks =
     $filter->get($arrayref_of_raw_chunks_from_driver);
   $arrayref_of_streamable_chunks_for_driver =
@@ -222,13 +233,45 @@ POE::Filter::Block - filter between streams and blocks
 The Block filter translates data between serial streams and blocks.
 It can handle two kinds of block: fixed-length and length-prepended.
 
-Fixed-length blocks are used when Block's constructor is given a block
-size.  Otherwise the Block filter uses length-prepended blocks.
+Fixed-length blocks are used when Block's constructor is called with a
+BlockSize value.  Otherwise the Block filter uses length-prepended
+blocks.
 
 Users who specify block sizes less than one deserve to be soundly
 spanked.
 
-Extra bytes are buffered until more bytes arrive to complete a block.
+In variable-length mode, a LengthCodec parameter is valid.  The
+LengthCodec should be a list reference of two functions: The length
+encoder, and the length decoder:
+
+  LengthCodec => [ \&encoder, \&decoder ]
+
+The encoder takes a reference to a buffer and prepends the buffer's
+length to it.  The default encoder prepends the ASCII representation
+of the buffer's length.  The length is separated from the buffer by an
+ASCII NUL ("\0") character.
+
+  sub _default_encoder {
+    my $stuff = shift;
+    substr($$stuff, 0, 0) = length($$stuff) . "\0";
+    return;
+  }
+
+Sensibly enough, the corresponding decoder removes the prepended
+length and separator, returning its numeric value.  It returns nothing
+if no length can be determined.
+
+  sub _default_decoder {
+    my $stuff = shift;
+    unless ($$stuff =~ s/^(\d+)\0//s) {
+      warn length($1), " strange bytes removed from stream"
+        if $$stuff =~ s/^(\D+)//s;
+      return;
+    }
+    return $1;
+  }
+
+This filter holds onto incomplete blocks until they are completed.
 
 =head1 PUBLIC FILTER METHODS
 
