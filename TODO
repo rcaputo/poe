@@ -1,7 +1,9 @@
 $Id$
 
 ===============================================================================
+===============================================================================
                              Introduction
+===============================================================================
 ===============================================================================
 
 ------------
@@ -43,7 +45,9 @@ to fix something after the release.  If the release version is also
 blank, then you're doubly safe, and so on.
 
 ===============================================================================
+===============================================================================
                  Depreciations & Changes IN PROGRESS
+===============================================================================
 ===============================================================================
 
 These changes have begun or will begin shortly.  If they plan to break
@@ -64,42 +68,17 @@ Schedule:
 1. Release a version with XyzEvent and XyzState working side by side.
    XyzState becomes undocumented in favor of XyzEvent.
 
-   Done: 2001.07.15.
+   Done: 2001-07-15.
 
 2. Wait at least 28 days after the release.  The next stage of
-   breakage will fall on or after 2001.08.12.
+   breakage will fall on or after 2001-08-12.
 
 3. Release a version that generates warnings when XyzState is used.
 
 4. Wait at least 28 days after the warning release.  The next stage of
-   breakage will fall on or after 2001.09.09.
+   breakage will fall on or after 2001-09-09.
 
 5. Release a version that does not support XyzState at all.
-
------------------------
-Improve Alarm Interface
------------------------
-
-This change adds new features without breaking the way old ones work.
-
-Schedule:
-
-1. Release a version with the new functions in place.
-
-   Done: 2001.07.15.
-
-2. Optimize the new functions.  Currently there are chunks of common
-   code which have been copied, pasted, and altered for their new
-   environments.  Some of this can become macros.
-
-Notes:
-
-+ alarm_set(), alarm_adjust(), and alarm_remove() are done
-+ delay_set() is done
-+ alarm_remove_all() is done
-
-- decided against alarm_remove_by_event(); use alarm() instead
-- decided against alarm_remove_by time(); it's not very useful
 
 ----------------------------------
 Depreciate queue_peek_alarms (!!!)
@@ -113,21 +92,23 @@ Schedule:
 1. Release a version with queue_peek_alarms() depreciated and
    undocumented.
 
-   Done: 2001.07.15.
+   Done: 2001-07-15.
 
 2. Wait at least 28 days after the release.  The next stage of
-   breakage will fall on or after 2001.08.12.
+   breakage will fall on or after 2001-08-12.
 
 3. Release a version with a depreciation warning in
    queue_peek_alarms().
 
 4. Wait at least 28 days after the release.  The next stage of
-   breakage will fall on or after 2001.09.09.
+   breakage will fall on or after 2001-09-09.
 
 5. Release a version with queue_peek_alarms() removed altogether.
 
 ===============================================================================
+===============================================================================
                Depreciations & Changes BEING CONSIDERED
+===============================================================================
 ===============================================================================
 
 These changes are not confirmed yet.  They are still under heavy
@@ -136,11 +117,9 @@ include depreciation schedules, they are only tentative.  I can't
 overly stress that this is the wishlist section of the TODO file, but
 I'll certainly try. :)
 
-----------------------------------------
-Signal Handling Flawed As Designed (!!!)
-----------------------------------------
-
-This is a high priority task.
+----------------------------------
+Fix Signal Event Dispatching (!!!)
+----------------------------------
 
 Signal propagation (and the _signal event) are vestigial design from a
 time when POE was to be the core for a multi-user object environment.
@@ -168,6 +147,53 @@ While the current signal propagation scheme is useful in some cases,
 it's bad for the general case.  Every component would need to agree
 whether it should or shouldn't catch signals in a particular program.
 That's madness.
+
+2001-07-26 - Signals Getting Better?
+
+Perl 5.7.2 or so has "safe" signals.  Signals are handled in C, and
+the main dispatch loop sets flags or something.  The upshot is that a
+really nasty hack I'd devised doesn't actually need to be implemented.
+Furthermore, the other nasty hack (SIGINT polling) can go away once
+everyone upgrades to the most bleeding edge perl release.
+
+Hmm... that may not be immediately useful.  Plan A goes on.
+
+2001-07-26 - Tentative Release Schedule
+
+1. Release a version with the new signal event dispatching semantics.
+
+   a. The three-phase signal dispatch and side effects.
+   b. $kernel->handle_signal() works.
+
+   For backward compatibility, signal handler return values are
+   significant unless $kernel->handle_signal() has been called.
+
+   Documentation changes:
+
+   a. Document the new signal handler dispatch phases.
+   b. Depreciate (but leave documented) the significance of signal
+      handler return values.
+   c. Document $kernel->handle_signal() and say it's recommended.
+
+2. Wait at least 28 days after the release.  The next stage of
+   breakage will fall on or after [to be determined].
+
+3. Release a version that warns when signal handlers return true
+   without calling $kernel->handle_signal().
+
+   There will be a number of false positives on the warning,
+   unfortunately, but there's definitelay a work-around, and it lets
+   people know for sure that things are changing.
+
+   Docmentation changes:
+
+   a. Undocument the significance of signal handler return values.
+
+4. Wait at least 28 days after the release.  The next stage of
+   breakage will fall on or after [to be determined].
+
+5. Release a version without warnings and without significant signal
+   handler return values.
 
 2001-07-24 - Signal Propagation
 
@@ -245,6 +271,89 @@ do next with a signal.  Here are some ideas for signal flags.
     Flag the signal as terminal without any hope of handling it.
     SIGZOMBIE is like that.
 
+----------------------------------
+SIGTSTP Does the Wrong Thing (???)
+----------------------------------
+
+This one's marked with "(???)" because I'm not really sure it'll break
+anything.
+
+Gordon Matzigkeit writes 2001-02-16:
+
+| If you haven't already, would you please add TSTP as a signal that
+| should not be messed with in POE::Kernel:
+|
+|         if (POE_USES_EVENT) { # include
+|           # If Event is available, register a signal watcher with it.
+|           # Don't register a SIGKILL handler, though, because Event
+|           # doesn't like that.
+|           if ($signal ne 'KILL' and $signal ne 'STOP'
+|               and $signal ne 'TSTP' # <-- HERE
+|              ) {
+|             Event->signal( signal => $signal,
+|                            cb     => \&_event_signal_handler_generic
+|                          );
+|           }
+
+I responded:
+
+| I think a more correct implementation might set up TSTP and CONT
+| handlers like in _APUE_'s program 10.22.  That way, POE can
+| gracefully suspend and resume itself while also propagating TSTP and
+| CONT signals to sessions so they too can perform pause/resume tasks.
+
+2001-07-26 - Update Schedule
+
+A lot of people have been bitten by this.  The TSTP handler might go
+something like this:
+
+1. Dispatch TSTP according to the current signal dispatch semantics.
+
+2. If anything "handles" the signal, then don't stop the process.
+
+3. If the signal remains unhandled, then stop the process.  The code
+   to stop a process hasn't been designed yet, but here's the code
+   from program 10.22 so I don't have to keep looking in the book.
+
+   int main (void) {
+     int n;
+     char buf[BUFSIZE];
+
+     /* only catch SIGTSTP if we're running in a job-control shell */
+     if (signal(SIGTSTP, SIG_IGN) == SIG_DFL)
+         signal(SIGTSTP, sig_tstp);
+
+     /* ... code to do stuff ... */
+
+     exit(0);
+   }
+
+   static void sig_tstp(int signo) { /* signal handler for SIGTSTP */
+     sigset_t mask;
+
+     /* ... code to set up us the suspend ... */
+
+     /* unblock SIGTSTP, since it's blocked while we're handling it */
+     sigemptyset(&mask);
+     sigaddset(&mask, SIGTSTP);
+     sigprocmask(SIG_UNBLOCK, &mask, null);
+
+     signal(SIGTSTP, SIG_DFL);  /* reset disposition to default */
+     kill(getpid(), SIGTSTP);   /* and send the signal to ourself */
+
+     /* kill won't return until we receive SIGCONT or something */
+
+     signal(SIGTSTP, sig_tstp); /* reestablish signal handler */
+
+     /* ... code to set up us the resume ... */
+
+     return;
+   }
+
+4. The process stops in kill() and doesn't resume until kill()
+   returns.  When kill() returns, dispatch CONT to everyone to let
+   them know they've awakened.
+
 -----------------------------------------
 Wheel::ReadWrite Needs Input Flow Control
 -----------------------------------------
@@ -270,22 +379,25 @@ simplify the proxy sample.
 The second form of flow control is flawed, and I need to work on it
 some more before including it here.
 
-Proposed change schedule:
+2001-07-26 - Related Issues
 
-1. Add pause_input() and resume_input() from Torvald's ReadWrite.pm
-   patch.
+This won't ever get off the ground until POE::Filter::Xyz are
+de-optimized.  Bleah!  But it's the right thing to do after all these
+years.
 
-2. Document pause_input() and resume_input().
+2001-07-26 - Update Schedule
 
-3. Add pause_input() and resume_input() tests.
+1. Release a version with POE::Wheel methods pause_input() and
+   resume_input() from Torvald's patch.
 
-4. Do the other thing which isn't designed yet.
+   Document the new methods, and add tests for them.
 
-Bleah!  I think the crux of *this* matter is related to the filter
-changing flaw in the next section.
+   Do the other thing, which isn't fully designed yet.
+
+2. Release it!
 
 ----------------------------------------
-Filter Changing Flawed As Designed (!!!)
+Filter Changing Flawed As Designed (???)
 ----------------------------------------
 
 POE::Filter::Xyz's get() method is optimized to reduce the number of
@@ -358,7 +470,8 @@ be read.
 
 I'm beginning to wonder if ReadWrite might be a lost cause at this
 point.  It seems like a lot of working around to do.  Could it be
-redesigned as Stream?
+redesigned as Stream?  No, let's try to improve it incrementally for
+now.
 
 --------------------------------
 Make Things Inheritance-Friendly
@@ -378,6 +491,13 @@ useful common things; perhaps Philip Gwyn can add interoperability
 stuff there and make components do the right things.
 
 Kernel?  Should it be inheritable?
+
+2001-07-25
+
+Removed const and enum from Session and NFA, turning them into plain
+constant subs instead.  This makes the constants inheritable.
+Something must be done about the macros, though.  I may have to back
+them out into method calls, which WILL be slower than inlined code.
 
 ---------------------------
 Simplify Session Definition
@@ -424,7 +544,12 @@ think about it.  It's a rocking idea, though.
 POE One-Liners are HARD
 -----------------------
 
-And it's a shame.  What can be done about that?
+It's a shame that you can't write many one-liners in POE.  What can be
+done about this?
+
+My first inclination is to develop something SO high level that it
+does what you mean.  My second inclination is to hit myself in the
+head until I stop thinking about it. :)
 
 ----------------------------------------------------
 The POE Community Wants a Bigger Hand in Development
@@ -443,6 +568,10 @@ good idea to know going into it what's expected to come out of it.
 
 So, what am I trying to do here?  What are the decision priorities
 when making trade-offs?  Where do I want to go today?
+
+2001-07-26 - Still Not Done
+
+I'm finding this a lot easier to say than to do.
 
 ---------------------------------------
 Give Exported Constants Some Prefix(es)
@@ -468,6 +597,24 @@ Give Exported Constants Some Prefix(es)
 
 That sounds like a good idea.
 
+2001-07-25 - One Idea
+
+use POE::Session qw( ConstPrefix => 'POE_SESSION_' );
+
+It would also be fun to tweak TRACE_ and ASSERT_ through POE::Kernel's
+and POE::Session's import() methods.
+
+use POE::Session qw( Traces => [ DEFAULT => 1, GARBAGE => 0 ] ) ... or
+something.
+
+2001-07-26 - Two Idea
+
+use POE::Tweak qw( Trace  => qw( +default -garbage   ),
+                   Assert => qw( +default -reference ),
+                 );
+
+Tweaks would be global.
+
 -------------------------------------------
 Change Internal Helpers To Static Functions
 -------------------------------------------
@@ -488,62 +635,6 @@ about that?
 This is a relatively easy change, and it would make a good starter
 project for someone who wants to get familiar with Kernel.pm and
 Kernel/*.pm.
-
-------------------------------------------
-Signal Handler Return Values Must Go (!!!)
-------------------------------------------
-
-Signal handlers' return values are significant, determining whether
-the handler has handled a signal, which in turn determines whether the
-session will survive a terminal signal dispatch.  This is the only
-time where a state/event handler's return value is significant within
-POE itself, and it's incongruous with the rest of the library.  It's
-also really easy to accidentally handle (or not) a signal by mistake:
-simply implicitly return some random value.
-
-To do:
-
-* Add a POE::Kernel method: handle_signal().
-
-  This will indicate that the currently dispatched signal has been
-  handled for the session.  Should it also affect all sessions?  For
-  example, if one session handles SIGINT, would they all remain alive?
-
-* Change the documentation to list handle_signal() as the proper way
-  to handle terminal signals.
-
-* Run a complete test/coverage suite to make sure the current signal
-  handling code is not broken in the process of adding the new code.
-
-* Add new tests for handle_signal() to make sure it works, and run a
-  complete test/coverage suit to verify that.
-
-* Port the samples to use handle_signal() instead of return values.
-
-* Release version ?.??, and announce the depreciation.
-
-* Wait at least 28 days after the formal depreciation announcement
-  (until ????.??.??) before continuing this change schedule.  This
-  gives people time to adapt their production code to the new signal
-  handling method before the warnings start.
-
-* Add depreciation warnings whenever a terminal signal is handled by
-  its return value instead of the new handle_signal() method.
-
-* Release version ?.??, and announce the next phase of the signal
-  handler depreciation.
-
-* Wait at least 28 days after the next phase announcement (until
-  ????.??.??) before continuing this change schedule.  This gives
-  people time to adapt their production code to avoid the depreciation
-  warnings and subsequent breakage.
-
-* Remove the code to recognize implicit signal handling due to
-  handlers' return values, making the handle_signal() method the only
-  way to do this.
-
-* Release version ?.??, and announce that signal handlers' return
-  values have been completely depreciated.
 
 ----------------------
 Batch Remove Resources
@@ -601,71 +692,8 @@ This is a pretty basic function, and it's one a lot of people are
 probably using.  This depreciation should have a longer than usual
 schedule, to avoid unnecessary breakage.
 
-----------------------------------
-SIGTSTP Does the Wrong Thing (???)
-----------------------------------
-
-Gordon Matzigkeit writes (16 Feb 2001):
-
-| If you haven't already, would you please add TSTP as a signal that
-| should not be messed with in POE::Kernel:
-|
-|         if (POE_USES_EVENT) { # include
-|           # If Event is available, register a signal watcher with it.
-|           # Don't register a SIGKILL handler, though, because Event
-|           # doesn't like that.
-|           if ($signal ne 'KILL' and $signal ne 'STOP'
-|               and $signal ne 'TSTP' # <-- HERE
-|              ) {
-|             Event->signal( signal => $signal,
-|                            cb     => \&_event_signal_handler_generic
-|                          );
-|           }
-
-I responded:
-
-| I think a more correct implementation might set up TSTP and CONT
-| handlers like in _APUE_'s program 10.22.  That way, POE can
-| gracefully suspend and resume itself while also propagating TSTP and
-| CONT signals to sessions so they too can perform pause/resume tasks.
-
-The code hasn't been designed yet, but here's the code from program
-10.22 so I don't have to keep looking in the book.
-
-int main (void) {
-  int n;
-  char buf[BUFSIZE];
-
-  /* only catch SIGTSTP if we're running in a job-control shell */
-  if (signal(SIGTSTP, SIG_IGN) == SIG_DFL)
-      signal(SIGTSTP, sig_tstp);
-
-  /* ... code to do stuff ... */
-
-  exit(0);
-}
-
-static void sig_tstp(int signo) { /* signal handler for SIGTSTP */
-  sigset_t mask;
-
-  /* ... code to set up us the suspend ... */
-
-  /* unblock SIGTSTP, since it's blocked while we're handling it */
-  sigemptyset(&mask);
-  sigaddset(&mask, SIGTSTP);
-  sigprocmask(SIG_UNBLOCK, &mask, null);
-
-  signal(SIGTSTP, SIG_DFL);  /* reset disposition to default */
-  kill(getpid(), SIGTSTP);   /* and send the signal to ourself */
-
-  /* kill won't return until we receive SIGCONT or something */
-
-  signal(SIGTSTP, sig_tstp); /* reestablish signal handler */
-
-  /* ... code to set up us the resume ... */
-
-  return;
-}
+The $session->post() idea is doable, but not until Session and NFA can
+be subclassed.
 
 -----------------------
 ARG0..ARG9 May Go (!!!)
@@ -836,6 +864,46 @@ developers statically preprocess applications into stand-alone files.
 
 Let Ilya Melamed know when this is done.  It's his request.
 
-===
-EOT
-===
+===============================================================================
+===============================================================================
+                          Stuff That's DONE
+===============================================================================
+===============================================================================
+
+-----------------------
+Improve Alarm Interface
+-----------------------
+
+This change adds new features without breaking the way old ones work.
+
+Schedule:
+
+1. Release a version with the new functions in place.
+
+   Done: 2001-07-15.
+
+2. Optimize the new functions.
+
+   Done: 2001-07-26
+
+   I decided against using macros because bits of the alarm adjustment
+   code were different from the alarm setting code.  The reason?
+   Adjusting an alarm doesn't have to look at the whole queue.  It
+   only needs to look towards the beginning or end of the queue,
+   depending on the direction of the adjustment.
+
+Notes:
+
++ alarm_set(), alarm_adjust(), and alarm_remove() are done
++ delay_set() is done
++ alarm_remove_all() is done
+
+- decided against alarm_remove_by_event(); use alarm() instead
+- decided against alarm_remove_by time(); it's not very useful
+
+
+===============================================================================
+===============================================================================
+                                 EOT
+===============================================================================
+===============================================================================
