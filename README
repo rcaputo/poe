@@ -157,11 +157,11 @@ System  : FreeBSD 4.3-STABLE
 Perl    : 5.6.1
 Gtk     : 0.7008
 Tk      : 800.022
-Event   : 0.81
+Event   : 0.83
 IO::Pty : 0.01
 
 All tests successful.
-Files=26, Tests=559, 88 wallclock secs ( 7.79 cusr +  0.80 csys =  8.59 CPU)
+Files=26, Tests=559, 85 wallclock secs ( 7.80 cusr +  0.76 csys =  8.56 CPU)
 
 ** POE 0.1501 on Mac OS X (Jotham)
 
