@@ -122,7 +122,8 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
 }
 
 ### Test Wheel::Run with filehandles.  Uses "!" as a newline to avoid
-### having to deal with whatever the system uses.
+### having to deal with whatever the system uses.  Use double quotes
+### if we're running on Windows.
 
 my $tty_flush_count = 0;
 
@@ -136,6 +137,8 @@ my $program =
     '} ' .
     'exit 0;\''
   );
+
+$program =~ tr[\'][\"] if $^O eq "MSWin32";
 
 { POE::Session->create
     ( inline_states =>
