@@ -708,7 +708,8 @@ probably using.  This depreciation should have a longer than usual
 schedule, to avoid unnecessary breakage.
 
 The $session->post() idea is doable, but not until Session and NFA can
-be subclassed.
+be subclassed.  There's another section in this TODO file about
+subclassable sessions.
 
 -----------------------
 ARG0..ARG9 May Go (!!!)
