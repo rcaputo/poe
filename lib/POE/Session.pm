@@ -631,7 +631,7 @@ sub _invoke_state {
         undef,                          # unused #6
         $file,                          # caller file name
         $line,                          # caller file line
-		$fromstate,						# caller state
+    $fromstate,            # caller state
         @$etc                           # args
       );
   }
@@ -649,7 +649,7 @@ sub _invoke_state {
         undef,                          # unused #6
         $file,                          # caller file name
         $line,                          # caller file line
-		$fromstate,						# caller state
+    $fromstate,            # caller state
         @$etc                           # args
       );
 }
@@ -932,20 +932,20 @@ POE::Session - an event driven abstract state machine
   POE::Session->create(
 
     # Inline or coderef states.
-    inline_states =>
-      { state_one => \&coderef_one,
-        state_two => sub { ... },
-      },
+    inline_states => {
+      state_one => \&coderef_one,
+      state_two => sub { ... },
+    },
 
     # Plain and mapped object states.
-    object_states =>
-    [ $object_one => [ 'state_three', 'state_four', 'state_five' ],
+    object_states => [
+      $object_one => [ 'state_three', 'state_four', 'state_five' ],
       $object_two => { state_nine => 'method_nine' },
     ],
 
     # Plain and mapped package states.
-    package_states =>
-    [ $package_one => [ 'state_six', 'state_seven', 'state_eight' ],
+    package_states => [
+      $package_one => [ 'state_six', 'state_seven', 'state_eight' ],
       $package_two => { state_ten => 'method_ten' },
     ],
 
@@ -1082,8 +1082,8 @@ C<inline_states> maps events names to the plain coderefs which will
 handle them.  Its value is a reference to a hash of event names and
 corresponding coderefs.
 
-  inline_states =>
-  { _start => sub { print "arg0=$_[ARG0], arg1=$_[ARG1], etc.=$_[ARG2]\n"; }
+  inline_states => {
+    _start => sub { print "arg0=$_[ARG0], arg1=$_[ARG1], etc.=$_[ARG2]\n"; }
     _stop  => \&stop_handler,
   },
 
@@ -1104,8 +1104,8 @@ form maps each event to an object method with the same name.  In this
 example, C<event_one> is handled by C<$object>'s C<event_one()>
 method.
 
-  object_states =>
-  [ $object => [ 'event_one', 'event_two' ],
+  object_states => [
+    $object => [ 'event_one', 'event_two' ],
   ];
 
 The second form associates a hashref to each object reference.  In
@@ -1114,10 +1114,11 @@ this form, the object's method names needn't match the event names
 they'll handle.  For example, C<event_four> is handled by C<$object's>
 C<handler_four()> method.
 
-  object_states =>
-  [ $object => { event_three => 'handler_three',
-                 event_four  => 'handler_four',
-               }
+  object_states => [
+    $object => {
+      event_three => 'handler_three',
+      event_four  => 'handler_four',
+    }
   ];
 
 =item options => HASHREF
@@ -1154,8 +1155,8 @@ maps each event to a package method with the same name.  In this
 example, C<event_ten> is handled by C<Package>'s C<event_ten()>
 method.
 
-  package_states =>
-  [ Package => [ 'event_ten', 'event_eleven' ],
+  package_states => [
+    Package => [ 'event_ten', 'event_eleven' ],
   ];
 
 The second form associates a hashref to each package name.  In turn,
@@ -1164,10 +1165,11 @@ form, the package's method names needn't match the event names they'll
 handle.  For example, C<event_twelve> is handled by C<Package>'s
 C<handler_twelve()> method.
 
-  package_states =>
-  [ Package => { event_twelve   => 'handler_twelve',
-                 event_thirteen => 'handler_thirteen',
-               }
+  package_states => [
+    Package => {
+      event_twelve   => 'handler_twelve',
+      event_thirteen => 'handler_thirteen',
+    }
   ];
 
 =back
@@ -1290,10 +1292,10 @@ That's the "response" field.
 This creates a Tk button that posts an "ev_counters_begin" event to
 C<$session> whenever it's pressed.
 
-  $poe_tk_main_window->Button
-    ( -text    => 'Begin Slow and Fast Alarm Counters',
-      -command => $session->postback( 'ev_counters_begin' )
-    )->pack;
+  $poe_tk_main_window->Button(
+    -text    => 'Begin Slow and Fast Alarm Counters',
+    -command => $session->postback( 'ev_counters_begin' )
+  )->pack;
 
 C<postback()> works wherever a callback does.  Another good use of
 postbacks is for request/response protocols between sessions.  For
@@ -1421,7 +1423,9 @@ this:
 
   sub put_stuff {
     my @stuff_to_put = @_;
-    $poe_kernel->get_active_session()->get_heap()->{wheel}->put(@stuff);
+    $poe_kernel->get_active_session()->get_heap()->{wheel}->put(
+      @stuff_to_put
+    );
   }
 
   sub some_state {
@@ -1586,14 +1590,15 @@ C<STATE> contains the event name that invoked a state.  This is useful
 in cases where a single state handles several different events.
 
   sub some_state {
-    print( "some_state in session ", $_[SESSION]-ID,
-           " was invoked as ", $_[STATE], "\n"
-         );
+    print(
+      "some_state in session ", $_[SESSION]-ID,
+      " was invoked as ", $_[STATE], "\n"
+    );
   }
 
   POE::Session->create(
-    inline_states =>
-    { one => \&some_state,
+    inline_states => {
+      one => \&some_state,
       two => \&some_state,
       six => \&some_state,
       ten => \&some_state,
@@ -1606,8 +1611,8 @@ in cases where a single state handles several different events.
 
 =item CALLER_STATE
 
-    my ($caller_file, $caller_line, $caller_state) =
-		@_[CALLER_FILE,CALLER_LINE,CALLER_STATE];
+  my ($caller_file, $caller_line, $caller_state) =
+    @_[CALLER_FILE,  CALLER_LINE,  CALLER_STATE];
 
 The file, line number, and state from which this state was called.
 
