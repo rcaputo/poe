@@ -17,48 +17,44 @@ Version numbers have four fields: X.YYZZAA
      is a public release.  Nonzero versions are limited alpha level
      releases (development snapshots) for specific testers.
 
-[ Hey, Rocco, don't forget to assign a tag to the release after you
-  make dist on it!  0.0910 is ``v0_0910''!  For example:
+,------------------------------------------------------------------------------
+| Hey, Rocco, don't forget to assign a tag to the release after you
+| make dist on it!  0.0910 is ``v0_0910''!  For example:
+|
+| cvs tag -Rc v0_11   .
+| cvs tag -Rc v0_1009 .
+`------------------------------------------------------------------------------
 
-  cvs tag -Rc v0_11   .
-  cvs tag -Rc v0_1009 .
-]
 
-,----- To Do (actual changes appear afterwards) -----
-|
-| _enqueue_alarm has already tested against the first and last items
-| in the alarm queue by the time it gets to the small and large queue
-| code.  Does it need to compare against the whole list?
-|
-| Better alarms API.  Roderick has threatened to do something.
-|
-| Why does samples/tk.perl leak memory, and, if it's my fault, how
-| can I fix it?
-|
-| caller() calls in POE::Kernel report POE::Kernel lines.  They
-| should follow the call chain out to someone else's code.  This
-| will be slow.
-|
-| Write a Filter::HTTPD test.  Which may involve writing a web
-| server and client.  Ow! Ow! Ow!  PoCo::Client::HTTP would simplify
-| things greatly...
-|
-| Samples, long term: Split them out and turn them into proper
-| tutorials.  They take up something like half the distribution!
-|
-| POE::NFA test.
-|
-| Benchmark index vs. rindex vs. regexp for finding line terminators.
-| Use this to optimize Filter::Line.
-|
-| Real streams.  Wheels are getting in the way for more serious
-| applications.
-|
-| How can startup be sped up without going into C?  Macros and stuff
-| are nice, but they're killing startup time.  What can be done
-| without losing POE's "pure Perl" aspect?
-|
-`----------------------------------------------------
+0.1111 2000.??.??
+-----------------
+
+Added nick collision prevention and a /quit command to
+tutorial-chat.perl.
+
+Removed the "to do" list from Changes.
+
+Added the 'heap' parameter to POE::Session->create().  Documented it,
+too.
+
+Fixed a condition where the Kernel would not exit.  This happened
+whenever a session with extra reference counts was forcibly stopped.
+The session would clean up and exit, but the Kernel's master "extra
+references" count was not decremented.  The Kernel had thought that
+there was still activity going on, so it wouldn't exit.  The biggest
+symptom of this problem was Gtk/Tk apps not exiting when they ought
+to.
+
+Removed &sub from lib/Devel/Trace.pm because it was causing some of
+the tests to fail.  It doesn't seem to hurt anything by being gone.
+Thanks to Nejiteepu for hitting me with the bludgeon of reason on it.
+
+Removed the $SIG{ALRM} kludge from t/01_sessions.t; it's not needed
+now that &sub is gone from lib/Devel/Trace.pm.
+
+Added tests for &Kernel::get_active_session and &Session::get_heap().
+
+Exercise more code in the tests, including some error conditions.
 
 
 0.1110 2000.11.11 (!!!)

@@ -18,6 +18,7 @@ const CREATE_OPTIONS  'options'
 const CREATE_INLINES  'inline_states'
 const CREATE_PACKAGES 'package_states'
 const CREATE_OBJECTS  'object_states'
+const CREATE_HEAP     'heap'
 
 const OPT_TRACE   'trace'
 const OPT_DEBUG   'debug'
@@ -415,6 +416,13 @@ sub create {
       }
     }
 
+    # Import an external heap.  This is a convenience, since it
+    # eliminates the need to connect _start options to heap values.
+
+    elsif ($param_name eq CREATE_HEAP) {
+      $self->[SE_NAMESPACE] = $param_value;
+    }
+
     else {
       croak "unknown $type parameter: $param_name";
     }
@@ -787,6 +795,9 @@ them.  The create() constructor is therefore recommended over new().
     # session options to be set at creation time.  'options' refers to
     # a hash containing option names and initial values.
     options => \%options,
+
+    # Specify a heap other than the default empty hashref.
+    heap => [ ],
   );
 
 Other methods:
@@ -1292,6 +1303,28 @@ Defines the arguments to give to the machine's _start state.  They're
 passed in as @_[ARG0..$#_].
 
   args => [ 'arg0', 'arg1', 'etc.' ],
+
+=item heap => ANYTHING or NOTHING
+
+Defines the session's heap, which will be passed to each of its states
+in $_[HEAP].  Sessions are created with anonymous hash references by
+default, which are used like this:
+
+  my $heap = $_[HEAP];
+  $heap->{variable} = $value;  # simple hashref stuff
+
+It's possible, however, to use create's C<heap> parameter to change
+that into a list reference, or even some sort of magical tied thing.
+It's also possible to pre-populate a session's heap.
+
+  POE::Session->create(
+    ...,
+    heap => [ 'mi',    # HEAP_ALIAS ( These are constants defined
+              [ ],     # HEAP_QUEUE   elsewhere.
+              0,       # HEAP_COUNT )
+            ],
+    ....,
+  );
 
 =item inline_states => HASHREF
 

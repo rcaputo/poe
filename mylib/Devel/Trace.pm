@@ -7,7 +7,7 @@ use strict;
 package Trace; # satisfies 'use'
 
 package DB;
-use vars qw($sub);
+use vars qw($sub @args);
 
 use POSIX;
 
@@ -23,38 +23,39 @@ BEGIN {
   open STATS, ">$0.coverage" or die "can't write $0.coverage: $!";
   $signal_set = POSIX::SigSet->new();
   $signal_set->fillset();
-}
+};
 
 # &DB is called for every breakpoint that's encountered.  We use it to
 # track which code is instrumented during a given program run.
 
 sub DB {
-  # Try to block signal delivery while this is recording information.
-  sigprocmask( SIG_BLOCK, $signal_set );
+    # Try to block signal delivery while this is recording information.
+    sigprocmask( SIG_BLOCK, $signal_set );
 
-  my ($package, $file, $line) = caller;
+    my ($package, $file, $line) = caller;
 
-  # Skip lines that aren't in the POE namespace.  Skip lines in files
-  # ending with ] (they're evals).
-  return if
-    ( substr($package, 0, 3) ne 'POE' or
-      index($file, 'POE') < $[ or substr($file, -1) eq ']'
-    );
+    # Skip lines that aren't in the POE namespace.  Skip lines in files
+    # ending with ] (they're evals).
+    return if
+      ( substr($package, 0, 3) ne 'POE' or
+        index($file, 'POE') < $[ or substr($file, -1) eq ']'
+      );
 
-  # Gather a statistic for this line.
-  $statistics{$file}->{$line} = [ 0, '(uninitialized)', '(uninitialized)' ]
-    unless exists $statistics{$file}->{$line};
-  $statistics{$file}->{$line}->[CALL_COUNT]++;
+    # Gather a statistic for this line.
+    $statistics{$file}->{$line} = [ 0, '(uninitialized)', '(uninitialized)' ]
+      unless exists $statistics{$file}->{$line};
+    $statistics{$file}->{$line}->[CALL_COUNT]++;
 
-  # Unblock signals now that we're done.
-  sigprocmask( SIG_UNBLOCK, $signal_set );
+    # Unblock signals now that we're done.
+    sigprocmask( SIG_UNBLOCK, $signal_set );
 }
 
-# &sub is a proxy function that's used to trace function calls.  We
-# don't use it for anything right now, but things seem to run better
-# when it's defined.
+# &sub is a proxy function that's used to trace function calls.  It's
+# not used for anything, and things either run better or worse without
+# it depending on some kinda voodoo I have no control over or idea how
+# works.  Today it seems to work better commented out.
 
-sub sub { no strict 'refs'; &$sub; }
+# sub sub { no strict 'refs'; &$sub }
 
 # After all's said and done, say what's done.
 
@@ -101,6 +102,6 @@ END {
     }
   }
   close STATS;
-}
+};
 
 1;

@@ -161,7 +161,14 @@ macro ses_refcount_inc2 (<session>,<count>) {
 
 macro remove_extra_reference (<session>,<tag>) {
   delete $self->[KR_SESSIONS]->{<session>}->[SS_EXTRA_REFS]->{<tag>};
+
   {% ses_refcount_dec <session> %}
+
+  $self->[KR_EXTRA_REFS]--;
+  if (ASSERT_REFCOUNT) { # include
+    die( "--- ", {% ssid %}, " refcounts for kernel dropped below 0")
+      if $self->[KR_EXTRA_REFS] < 0;
+  } # include
 }
 
 # There is an string equality test in alias_resolve that should not be
@@ -244,7 +251,7 @@ macro test_for_idle_poe_kernel {
           "| States : ", scalar(@{$self->[KR_STATES]}), "\n",
           "| Alarms : ", scalar(@{$self->[KR_ALARMS]}), "\n",
           "| Files  : ", scalar(keys(%{$self->[KR_HANDLES]})), "\n",
-          "|        : ", join(', ', keys(%{$self->[KR_HANDLES]})), "\n",
+          "|   `--> : ", join(', ', keys(%{$self->[KR_HANDLES]})), "\n",
           "| Extra  : ", $self->[KR_EXTRA_REFS], "\n",
           "`---------------------------\n",
           " ..."
@@ -3109,12 +3116,6 @@ sub refcount_decrement {
 
     unless ($refcount) {
       {% remove_extra_reference $session, $tag %}
-      $self->[KR_EXTRA_REFS]--;
-
-      if (ASSERT_REFCOUNT) { # include
-        die( "--- ", {% ssid %}, " refcounts for kernel dropped below 0")
-          if $self->[KR_EXTRA_REFS] < 0;
-      } # include
 
       if (TRACE_REFCOUNT) { # include
         carp( "--- ", {% ssid %}, " refcount for session is at ",

@@ -7,7 +7,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(18);
+&test_setup(20);
 
 use POSIX qw(:errno_h);
 use Socket;
@@ -77,6 +77,15 @@ sub test_start {
   $! = 0;
   print "not " if defined $kernel->signal( 1000 => 'BOOGA' ) or $! != ESRCH;
   print "ok 12\n";
+
+  ### Extra references.
+  $! = 0;
+  print 'not ' if defined $kernel->refcount_increment( 'tag' ) or $! != ESRCH;
+  print "ok 13\n";
+
+  $! = 0;
+  print 'not ' if defined $kernel->refcount_decrement( 'tag' ) or $! != ESRCH;
+  print "ok 14\n";
 }
 
 # Did we get this far?
@@ -93,10 +102,10 @@ POE::Session->create
   );
 
 print "not " if $poe_kernel->alias_remove( 'kernel_alias' );
-print "ok 13\n";
+print "ok 15\n";
 
 print "not " unless $poe_kernel->state( woobly => sub { die } ) == ESRCH;
-print "ok 14\n";
+print "ok 16\n";
 
 ### TCP Server problems.
 
@@ -112,7 +121,7 @@ print "ok 14\n";
   stderr_resume();
 
   print "not " unless $warnings == 1;
-  print "ok 15\n";
+  print "ok 17\n";
 }
 
 ### SocketFactory problems.
@@ -128,7 +137,7 @@ print "ok 14\n";
   stderr_resume();
 
   print "not " unless $warnings == 2;
-  print "ok 16\n";
+  print "ok 18\n";
 
   stderr_pause();
   POE::Wheel::SocketFactory->new
@@ -140,7 +149,7 @@ print "ok 14\n";
   stderr_resume();
 
   print "not " unless $warnings == 3;
-  print "ok 17\n";
+  print "ok 19\n";
 }
 
 ### Main loop.
@@ -149,6 +158,6 @@ stderr_pause();
 $poe_kernel->run();
 stderr_resume();
 
-print "ok 18\n";
+print "ok 20\n";
 
 exit;

@@ -57,6 +57,7 @@ sub master_start {
       { _start => \&slave_start,
         _stop  => \&slave_stop,
         input  => \&slave_got_input,
+        resume => \&slave_resume_read,
         output => \&slave_put_output,
       },
       args     => [ $slave_read, $slave_write, $test_index + 1 ],
@@ -130,6 +131,7 @@ sub slave_start {
   $kernel->select_read($read_handle, 'input');
 
   # Remember some things.
+  $heap->{read}       = $read_handle;
   $heap->{write}      = $write_handle;
   $heap->{test_index} = $test_index;
   $heap->{queue}      = [ ];
@@ -144,6 +146,13 @@ sub slave_stop {
 
   # Determine if we were successful.
   $test_results[$heap->{test_index}] = ($heap->{test_count} == $chat_count);
+}
+
+# Resume reading after a brief delay.
+sub slave_resume_read {
+  $_[KERNEL]->select_resume_read( $_[HEAP]->{read} );
+  $_[KERNEL]->delay( error_resuming => undef );
+  $_[HEAP]->{resume_count}++;
 }
 
 sub slave_got_input {
@@ -164,6 +173,10 @@ sub slave_got_input {
     if ($heap->{test_count} < $chat_count) {
       push @{$heap->{queue}}, 'ping';
       $kernel->select_resume_write($heap->{write});
+
+      # Pause reading.  Gets resumed after a delay.
+      $kernel->select_pause_read( $heap->{read} );
+      $kernel->delay( resume => 0.5 );
     }
 
     # Otherwise we're done.  Send a quit, and quit ourselves.
