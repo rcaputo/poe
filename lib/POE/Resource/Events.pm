@@ -234,19 +234,25 @@ sub _data_ev_dispatch_due {
   my $now = time();
   while (defined(my $next_time = $kr_queue->get_next_priority())) {
     last if $next_time > $now;
-    my ($time, $id, $event) = $kr_queue->dequeue_next();
+
+    my ($due_time, $id, $event) = $kr_queue->dequeue_next();
 
     if (TRACE_EVENTS) {
       _warn("<ev> dispatching event $id ($event->[EV_NAME])");
     }
 
-    if ($time < $now) {
-        $self->_data_stat_add('blocked', 1);
-        $self->_data_stat_add('blocked_seconds', $now - $time);
+    # An event is "blocked" if its due time is earlier than the
+    # current time.  This means that the event has had to wait before
+    # being dispatched.  As far as I can tell, all events will be
+    # "blocked" according to these rules.
+
+    if ($due_time < $now) {
+      $self->_data_stat_add('blocked', 1);
+      $self->_data_stat_add('blocked_seconds', $now - $due_time);
     }
 
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
-    $self->_dispatch_event(@$event, $time, $id);
+    $self->_dispatch_event(@$event, $due_time, $id);
   }
 }
 
