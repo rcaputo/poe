@@ -1,23 +1,38 @@
 #!/usr/bin/perl
 # $Id$
 
-# This program is Copyright 2002 by Rocco Caputo.  All rights are
+# This program is Copyright 2002-2004 by Rocco Caputo.  All rights are
 # reserved.  This program is free software.  It may be modified, used,
 # and redistributed under the same terms as Perl itself.
 
 # Generate a nice looking change log from the CVS logs for a Perl
-# project.
+# project.  The log is also easy for machines to parse.
 
+use warnings;
 use strict;
 
+use Getopt::Long;
 use Text::Wrap qw(wrap fill $columns $huge);
+use Time::Local;
+
 $Text::Wrap::huge = "wrap";
 $Text::Wrap::columns = 74;
 
-use Time::Local;
+my $date_range = "1 year ago<"; # How back to check.
+my $cvs_dir    = ".";           # Where to log from.
+my $send_help  = 0;             # Display help and exit.
 
-my $date_range = "-d'1 year ago<'";
-# $date_range = "-d'2 years ago<'";
+GetOptions(
+  "age=s"      => \$date_range,
+  "dir=s"      => \$cvs_dir,
+  "help"       => \$send_help,
+) or exit;
+
+die(
+  "$0 usage:\n",
+  "  --age 'cvs date spec'\n",
+  "  --dir /path/to/cvs/checkout\n",
+) if $send_help;
 
 my ( %rev, %file, %time, %tag, %tags_by_time, %log, %last_tag_times, );
 
@@ -29,13 +44,13 @@ sub ST_CHANGE  () { 0x04 }
 sub ST_DESC    () { 0x08 }
 sub ST_SKIP    () { 0x10 }
 
-sub FL_TIME () { 0 }
-sub FL_AUTH () { 1 }
-sub FL_DESC () { 2 }
+sub FL_TIME    () { 0 }
+sub FL_AUTH    () { 1 }
+sub FL_DESC    () { 2 }
 
-sub LOG_VER  () { 0 }
-sub LOG_DSC  () { 1 }
-sub LOG_AUTH () { 2 }
+sub LOG_VER    () { 0 }
+sub LOG_DSC    () { 1 }
+sub LOG_AUTH   () { 2 }
 
 ### Gather the change log information for the date range, and collate
 ### it a number of ways.
@@ -45,7 +60,9 @@ my $log_file  = "";
 my $log_ver   = "";
 my $rcs_file  = "";
 
-open(LOG, "/usr/bin/cvs log $date_range .|") or die "can't get cvs log: $!";
+chdir($cvs_dir) or die "Can't chdir $cvs_dir: $!";
+open(LOG, "/usr/bin/cvs log -d '$date_range' .|")
+  or die "can't get cvs log: $!";
 
 while (<LOG>) {
   chomp;
@@ -153,6 +170,9 @@ sub rev_compare {
 foreach my $file (keys %file) {
   foreach my $ver (keys %{$file{$file}}) {
     my $desc = fill("    ", "    ", $file{$file}{$ver}[FL_DESC]);
+    # Blank lines should have the right amount of leading space.  This
+    # makes it easier for other utilities to parse.
+    $desc =~ s/^\s*$/    /mg;
     $file{$file}{$ver}[FL_DESC] = $desc;
   }
 }
