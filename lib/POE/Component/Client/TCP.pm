@@ -101,9 +101,7 @@ sub new {
   if (defined($session_params) && ref($session_params)) {
     if (ref($session_params) ne 'ARRAY') {
       croak "SessionParams must be an array reference";
-    } else {
-      $session_params = [ ];
-    }    
+    }
   } else {
     $session_params = [ ];
   }
