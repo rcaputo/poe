@@ -110,6 +110,30 @@ These changes are under consideration.  They have not begun, and they
 may not ever be made.  These are proto-plans being considered and made
 ready for deployment.
 
+---------------------------------------
+Give Exported Constants Some Prefix(es)
+---------------------------------------
+
+<Micksa> eep, poe uses yet another calling convention
+<Micksa> like:
+<Micksa>    my ($kernel, $heap, $session) = @_[KERNEL, HEAP, SESSION];
+<Fletch> that's the normal convention, it just doesn't hardcode what
+         order particular arguments will be passed
+<Micksa> it's, like, the 4th way I've seen so far for passing named
+         parameters.
+<Fletch> it's so that if calling order ever changes programs that use
+         the symbolic constants don't break
+<Fletch> it's really no different than say
+         `my($kernel,$heap)=@_[0,3]', just that the 0 and 3 come from
+         constant subs rather than magic numbers
+<Micksa> problem is, the symbolic constants are rather likely to
+         clash.
+<Fletch> maybe there could be an option to prefix them, like
+         poe_KERNEL or P_KERNEL?
+<Micksa> *shrug*
+
+That sounds like a good idea.
+
 -------------------------------------------
 Change Internal Helpers To Static Functions
 -------------------------------------------
