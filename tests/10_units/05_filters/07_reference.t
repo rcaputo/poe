@@ -150,10 +150,20 @@ my $pending_thing  = $pending_filter->get($pending_filter->get_pending());
 &ok_if( 88, $pending_thing->[1]->[1] == 4 );
 &ok_if( 89, $pending_thing->[1]->[2] == 6 );
 
-# Throw away MyOtherFrezere's methods to make it look like it's only
-# partly loaded.  This will should fool POE::Filter::Reference::new().
 
-delete_package("MyOtherFreezer");
+# Drop MyOtherFreezer from the symbol table.
+
+delete_package('MyOtherFreezer');
+
+# Create some "pretend" entries in the symbol table, to ensure that
+# POE::Filter::Reference loads the entire module if all needed methods
+# are not present.
+eval qq{
+    sub never_called
+    {
+        return MyOtherFreezer::thaw( MyOtherFreezer::freeze(@_));
+    }
+};
 
 # Test each combination of things.
 &test_freeze_and_thaw( 90,  'MyOtherFreezer',            undef );
