@@ -35,12 +35,13 @@ POE/Pipe/TwoWay.pm
 POE/Preprocessor.pm
 POE/Queue.pm
 POE/Queue/Array.pm
+POE/Resource.pm
 POE/Resource/Aliases.pm
 POE/Resource/Events.pm
 POE/Resource/Extrefs.pm
 POE/Resource/FileHandles.pm
-POE/Resource/Sessions.pm
 POE/Resource/SIDs.pm
+POE/Resource/Sessions.pm
 POE/Resource/Signals.pm
 POE/Session.pm
 POE/Wheel.pm
@@ -129,3 +130,5 @@ t/26_comp_tcp.t
 t/27_poll.t
 t/28_windows.t
 t/29_sockfact6.t
+t/res/aliases.t
+t/res/extrefs.t
