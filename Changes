@@ -19,11 +19,16 @@ Add Artur's high/low watermark patches to Wheel::ReadWrite.  This is a
 higher level watermark than previous patches, and it's not confined to
 a particular driver (which is moot at this point, since there's only
 one driver).  It implements high- and low-water callbacks instead of
-performing its own flow control.
+performing its own flow control.  Documented them but didn't include a
+watermark sample in this release.  A sample will be in by 0.10.
 
 (!!!) Changed drivers' flush() and put() methods' return values.  They
 now return pending octets instead of objects.  ReadWrite's water marks
 rely on this to make the marks meaningful.  Updated documentation.
+
+Changed Driver::SysRW's internal object from a hashref to an listref.
+This is a minor micro-optimization, which may offset the
+micro-pessimization introduced during octet counting.
 
 
 0.0902 2000.02.07

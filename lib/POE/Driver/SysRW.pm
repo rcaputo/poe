@@ -10,25 +10,32 @@ use strict;
 use POSIX qw(EAGAIN);
 use Carp;
 
+sub OUTPUT_QUEUE        () { 0 }
+sub CURRENT_OCTETS_DONE () { 1 }
+sub CURRENT_OCTETS_LEFT () { 2 }
+sub BLOCK_SIZE          () { 3 }
+sub TOTAL_OCTETS_LEFT   () { 4 }
+
 #------------------------------------------------------------------------------
 
 sub new {
   my $type = shift;
-  my $self = bless { 'out queue'  => [ ],
-                     'bytes done' => 0,
-                     'bytes left' => 0,
-                     BlockSize    => 512,
-                     bytes_queued => 0,
-                   }, $type;
+  my $self = bless [ [ ], # OUTPUT_QUEUE
+                     0,   # CURRENT_OCTETS_DONE
+                     0,   # CURRENT_OCTETS_LEFT
+                     512, # BLOCK_SIZE
+                     0,   # TOTAL_OCTETS_LEFT
+                   ], $type;
 
   if (@_) {
     if (@_ % 2) {
       croak "$type requires an even number of parameters, if any";
     }
     my %args = @_;
-    if (exists $self->{BlockSize}) {
-      $self->{BlockSize} = delete $args{BlockSize};
-      croak "$type BlockSize must be greater than 0" if ($self->{BlockSize}<1);
+    if (exists $args{BlockSize}) {
+      $self->[BLOCK_SIZE] = delete $args{BlockSize};
+      croak "$type BlockSize must be greater than 0"
+        if ($self->[BLOCK_SIZE]<1);
     }
     if (keys %args) {
       my @bad_args = sort keys %args;
@@ -43,19 +50,19 @@ sub new {
 
 sub put {
   my ($self, $chunks) = @_;
-  my $old_queue_length = $self->{bytes_queued};
+  my $old_queue_octets = $self->[TOTAL_OCTETS_LEFT];
 
   foreach (grep { length } @$chunks) {
-    $self->{bytes_queued} += length;
-    push @{$self->{'out queue'}}, $_;
+    $self->[TOTAL_OCTETS_LEFT] += length;
+    push @{$self->[OUTPUT_QUEUE]}, $_;
   }
 
-  if ($self->{bytes_queued} && (!$old_queue_length)) {
-    $self->{'bytes left'} = length($self->{'out queue'}->[0]);
-    $self->{'bytes done'} = 0;
+  if ($self->[TOTAL_OCTETS_LEFT] && (!$old_queue_octets)) {
+    $self->[CURRENT_OCTETS_LEFT] = length($self->[OUTPUT_QUEUE]->[0]);
+    $self->[CURRENT_OCTETS_DONE] = 0;
   }
 
-  $self->{bytes_queued};
+  $self->[TOTAL_OCTETS_LEFT];
 }
 
 #------------------------------------------------------------------------------
@@ -63,7 +70,7 @@ sub put {
 sub get {
   my ($self, $handle) = @_;
 
-  my $result = sysread($handle, my $buffer = '', $self->{BlockSize});
+  my $result = sysread($handle, my $buffer = '', $self->[BLOCK_SIZE]);
   if ($result || ($! == EAGAIN)) {
     $! = 0;
     [ $buffer ];
@@ -78,11 +85,11 @@ sub get {
 sub flush {
   my ($self, $handle) = @_;
                                         # syswrite it, like we're supposed to
-  while (@{$self->{'out queue'}}) {
+  while (@{$self->[OUTPUT_QUEUE]}) {
     my $wrote_count = syswrite($handle,
-                               $self->{'out queue'}->[0],
-                               $self->{'bytes left'},
-                               $self->{'bytes done'}
+                               $self->[OUTPUT_QUEUE]->[0],
+                               $self->[CURRENT_OCTETS_LEFT],
+                               $self->[CURRENT_OCTETS_DONE],
                               );
 
     unless ($wrote_count) {
@@ -90,21 +97,21 @@ sub flush {
       last;
     }
 
-    $self->{'bytes done'} += $wrote_count;
-    $self->{bytes_queued} -= $wrote_count;
-    unless ($self->{'bytes left'} -= $wrote_count) {
-      shift(@{$self->{'out queue'}});
-      if (@{$self->{'out queue'}}) {
-        $self->{'bytes done'} = 0;
-        $self->{'bytes left'} = length($self->{'out queue'}->[0]);
+    $self->[CURRENT_OCTETS_DONE] += $wrote_count;
+    $self->[TOTAL_OCTETS_LEFT] -= $wrote_count;
+    unless ($self->[CURRENT_OCTETS_LEFT] -= $wrote_count) {
+      shift(@{$self->[OUTPUT_QUEUE]});
+      if (@{$self->[OUTPUT_QUEUE]}) {
+        $self->[CURRENT_OCTETS_DONE] = 0;
+        $self->[CURRENT_OCTETS_LEFT] = length($self->[OUTPUT_QUEUE]->[0]);
       }
       else {
-        $self->{'bytes done'} = $self->{'bytes left'} = 0;
+        $self->[CURRENT_OCTETS_DONE] = $self->[CURRENT_OCTETS_LEFT] = 0;
       }
     }
   }
 
-  $self->{bytes_queued};
+  $self->[TOTAL_OCTETS_LEFT];
 }
 
 ###############################################################################

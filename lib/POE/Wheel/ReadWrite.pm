@@ -381,6 +381,13 @@ POE::Wheel::ReadWrite - POE Read/Write Logic Abstraction
     InputState   => $input_state_name,  # Input received state
     FlushedState => $flush_state_name,  # Output flushed state
     ErrorState   => $error_state_name,  # Error occurred state
+
+    # To enable callbacks for high and low water events (using any one
+    # of these options requires the rest):
+    HighMark  => $high_mark_octets, # Outgoing high-water mark
+    HighState => $high_mark_state,  # State to call when high-water reached
+    LowMark   => $low_mark_octets,  # Outgoing low-water mark
+    LowState  => $low_mark_state,   # State to call when low-water reached
   );
 
   $wheel->put( $something );
@@ -392,6 +399,10 @@ POE::Wheel::ReadWrite - POE Read/Write Logic Abstraction
   # To set an input filter or an output filter:
   $wheel->set_input_filter( new POE::Filter::Something );
   $wheel->set_output_filter( new POE::Filter::Something );
+
+  # To alter the high or low water marks:
+  $wheel->set_high_mark( $new_high_mark_octets );
+  $wheel->set_low_mark( $new_low_mark_octets );
 
 =head1 DESCRIPTION
 
@@ -511,6 +522,35 @@ A sample ErrorState state:
     my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
     warn "$operation error $errnum: $errstr\n";
   }
+
+=item *
+
+HighState
+
+The HighState event indicates when the wheel's driver's output buffer
+has grows to reach HighMark octets of unwritten data.  This event will
+fire once when the output buffer reaches HighMark, and it will not
+fire again until a LowState event occurs.
+
+HighState and LowState together are used for flow control.  The idea
+is to perform some sort of throttling when HighState is called and
+resume full-speed transmission when LowState is called.
+
+HighState includes no parameters.
+
+=item *
+
+LowState
+
+The LowState event indicates when a wheel's driver's output buffer
+shrinks down to LowMark octets of unwritten data.  This event will
+only fire when the output buffer reaches LowMark after a HighState event.
+
+HighState and LowState together are used for flow control.  The idea
+is to perform some sort of throttling when HighState is called and
+resume full-speed transmission when LowState is called.
+
+LowState includes no parameters.
 
 =back
 
