@@ -87,6 +87,30 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
+# check a session for death by starvation
+
+sub _collect_garbage {
+  my ($self, $session) = @_;
+                                        # check for death by starvation
+  if (($session ne $self) && (exists $self->{'sessions'}->{$session})) {
+
+#     warn( "***** $session  states(" . $self->{'sessions'}->{$session}->[2] .
+#           ")  selects(" . $self->{'sessions'}->{$session}->[3] .
+#           ")  children(" . scalar(@{$self->{'sessions'}->{$session}->[1]}) .
+#           ")\n"
+#         );
+
+    unless ($self->{'sessions'}->{$session}->[2] || # queued states
+            $self->{'sessions'}->{$session}->[3] || # pending selects
+            @{$self->{'sessions'}->{$session}->[1]} || # children
+            keys(%{$self->{'sessions'}->{$session}->[6]}) # registered names
+    ) {
+      $self->session_free($session);
+    }
+  }
+}
+
+#------------------------------------------------------------------------------
 # Send a state to a session right now.  Used by _disp_select to expedite
 # select() states, and used by run() to deliver posted states from the queue.
 
@@ -112,6 +136,7 @@ sub _dispatch_state {
     }
                                         # tell the parent its child is gone
     $self->_dispatch_state($parent, $session, '_child', []);
+    $self->_collect_garbage($parent);
   }
                                         # dispatch signal to children
   elsif ($state eq '_signal') {
@@ -206,23 +231,6 @@ sub _dispatch_state {
       $self->session_free($session);
     }
   }
-                                        # check for death by starvation
-  elsif (($session ne $self) && (exists $self->{'sessions'}->{$session})) {
-
-#     warn( "***** $session  states(" . $self->{'sessions'}->{$session}->[2] .
-#           ")  selects(" . $self->{'sessions'}->{$session}->[3] .
-#           ")  children(" . scalar(@{$self->{'sessions'}->{$session}->[1]}) .
-#           ")\n"
-#         );
-
-    unless ($self->{'sessions'}->{$session}->[2] || # queued states
-            $self->{'sessions'}->{$session}->[3] || # pending selects
-            @{$self->{'sessions'}->{$session}->[1]} || # children
-            keys(%{$self->{'sessions'}->{$session}->[6]}) # registered names
-    ) {
-      $self->session_free($session);
-    }
-  }
                                         # return what the state handler did
   $handled;
 }
@@ -241,6 +249,7 @@ sub _dispatch_selects {
       foreach my $notify (@selects) {
         my ($session, $state) = @$notify;
         $self->_dispatch_state($session, $session, $state, [ $handle ]);
+        $self->_collect_garbage($session);
       }
     }
     else {
@@ -293,6 +302,7 @@ sub run {
           = @{shift @{$self->{'states'}}};
         $self->{'sessions'}->{$session}->[2]--;
         $self->_dispatch_state($session, $source_session, $state, $etc);
+        $self->_collect_garbage($session);
       }
     }
   }
@@ -363,6 +373,7 @@ sub session_alloc {
 #  $self->_enqueue_state($session, $active_session, '_start', time(), []);
 
   $self->_dispatch_state($session, $active_session, '_start', []);
+  $self->_collect_garbage($session);
   $self->{'active session'} = $active_session;
 }
 
@@ -373,6 +384,7 @@ sub session_free {
     unless (exists $self->{'sessions'}->{$session});
 
   $self->_dispatch_state($session, $self->{'active session'}, '_stop', []);
+  $self->_collect_garbage($session);
 
 #  $self->_enqueue_state($session, $self->{'active session'},
 #                        '_stop', time(), []
@@ -762,8 +774,20 @@ propagated to every session managed by that kernel.
 
 =item $kernel->post($destination_session, $state_name, @etc)
 
-Enqueues an event (C<$state>) for the C<$destination_session>.  Additional
-parameters (C<@etc>) can be passed along.
+Enqueues an event (C<$state_name>) for the C<$destination_session>.
+Additional parameters (C<@etc>) can be passed along.
+
+C<$destination_session> may be an alias, or a Kernel instance.
+
+=item $kernel->call($destination_session, $state_name, @etc)
+
+Directly calls an event handler (C<$state_name>) for the
+C<$destination_session>.  Additional parameters (C<@etc>) can be
+passed along.
+
+Returns the event handler's return value.
+
+C<$destination_session> may be an alias, or a Kernel instance.
 
 =item $kernel->state($state_name, $state_code)
 
