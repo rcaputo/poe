@@ -16,15 +16,11 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 ,----- To Do -----
 |
-| Next
-|
-| Event doesn't seem very fast; am I using it incorrectly?
-|
 | Before 0.11
 |
-| Test $kernel->fork()
+| Test $kernel->fork() or replace it entirely.
 |
-| Turn SocketFactory's sample program into a test case.
+| Test SocketFactory with UDP sockets.
 |
 | After 0.11
 |
@@ -34,8 +30,32 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 `-----------------
 
 
-0.1006 2000.??.?? (!!!)
+0.1007 2000.06.07
+-----------------
+
+Version 0.1006 was put on the web site, but ignatz found a bug in
+SocketFactory that prevented t/09_wheels_unix.t from passing on
+Linux machines.  a-mused confirmed that the problem appears on Linux
+but not Solaris.  My own FreeBSD system was not affected.  The bug
+relates to calling getpeername on UNIX domain sockets.  The resulting
+unpack_sockaddr_un call would fail when getpeername returned an
+undefined (not undef) value.  The failing code is now wrapped in
+eval, and it will gracefully recover from this sort of error.
+
+Many thanks to ignatz and a-mused for quick testing, and to Fletch
+for verifying that 0.1007 works on RedHat 6.2 x86!
+
+
+0.1006 2000.06.07 (!!!)
 -----------------------
+
+This version was placed on the web site, but a-mused and ignatz found
+bugs SocketFactory right away.  As a result, I held off announcing it
+to the mailing list until a fix could be included.
+
+Added t/12_signals_ev.t to test Event's SIGCHLD handler.  It's pretty
+much the same as t/11_signals_poe.t, but using Event or skipping itself
+if Event is not available.
 
 Increased the time that t/11_signals_poe.t waits to reap children.  On
 memory- and cpu-challenged systems, swap times could delay process
@@ -49,9 +69,9 @@ greatly reduces the amount of work done in POE's stock $SIG{CHLD}
 handlers which in turn reduces the probability that SIGCHLD will
 segfault Perl.  Note, however, that the chance of this occurring will
 remain nonzero as long as Perl is not signal safe.  (Also, the patch
-wouldn't apply and I sort of redid the code as I spliced the idea into
-the Kernel.  It's probably busted, and I should compare it against
-Philip's original patch to make sure it works the way he intended.)
+wouldn't apply and I sort of redid the code as I spliced it into the
+the Kernel.  I'll know when Philip tests it whether I've broken his
+algorithm.)
 
 Tweaked postbacks.  Older Perl versions were not doing the right
 things with \@_ in POE::Session's postback() method.  Replaced it

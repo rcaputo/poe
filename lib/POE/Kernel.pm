@@ -1571,8 +1571,6 @@ sub _tk_select_callback {
 sub _event_fifo_callback {
   my $self = $poe_kernel;
 
-warn "fifo callback";
-
   {% dispatch_one_from_fifo %}
 
   # Stop the idle watcher if there are no more state transitions in
@@ -1652,8 +1650,6 @@ sub _invoke_state {
   # children.  It's time to check for children waiting.
 
   if ($state eq EN_SCPOLL) {
-
-warn $state;
 
     # Non-blocking wait for a child process.  If one was reaped,
     # dispatch a SIGCHLD to the session who called fork.

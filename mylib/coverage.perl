@@ -29,6 +29,8 @@ closedir T;
 
 # Run each test with coverage statistics.
 
+goto SPANG;
+
 foreach my $test_file (@test_files) {
   unlink "$test_file.coverage";
 
@@ -39,6 +41,8 @@ foreach my $test_file (@test_files) {
     next;
   }
 }
+
+SPANG:
 
 # Combine coverage statistics across all files.
 

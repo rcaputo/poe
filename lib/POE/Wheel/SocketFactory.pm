@@ -153,9 +153,23 @@ sub _define_connect_state {
           my $peer = getpeername($handle);
           my ($peer_addr, $peer_port);
 
+          # getpeername's return value in undefined for unbound peer
+          # sockets in the Unix domain.  Take precautions against
+          # evil undefined behavior.
+
           if ($domain eq DOM_UNIX) {
-            $peer_addr = unpack_sockaddr_un($peer);
-            $peer_port = undef;
+            $peer_addr = $peer_port = undef;
+            if (defined $peer) {
+              eval {
+                $peer_addr = unpack_sockaddr_un($peer);
+              };
+              if ($@) {
+                $peer_addr = undef;
+              }
+            }
+            else {
+              $peer_addr = undef;
+            }
           }
           elsif ($domain eq DOM_INET) {
             ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
@@ -895,7 +909,9 @@ For INET sockets, ARG1 and ARG2 hold the socket's remote address and
 port, respectively.
 
 For Unix client sockets, ARG1 contains the server address and ARG2 is
-undefined.
+undefined.  Some systems have trouble getting the address of a socket's
+remote end, so ARG1 may be undefined if there was trouble determining
+it.
 
 According to _Perl Cookbook_, the remote address for accepted Unix
 domain sockets is undefined.  So ARG0 and ARG1 are, too.

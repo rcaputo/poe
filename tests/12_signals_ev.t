@@ -18,7 +18,6 @@ BEGIN {
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 use POE;
 
 &test_setup(2);
@@ -34,7 +33,7 @@ eval {
   import Time::HiRes qw(time sleep);
 };
 
-my $fork_count = 1;
+my $fork_count = 16;
 
 # Set up a signal catching session.  This test uses plain fork(2) and
 # POE's $SIG{CHLD} handler.
@@ -58,7 +57,6 @@ POE::Session->create
             }
             else {
               sleep $wake_time - time();
-warn "child $$ exits";
               dump;
             }
           }
@@ -79,7 +77,6 @@ warn "child $$ exits";
 
       _stop =>
       sub {
-        warn "stop";
         my $heap = $_[HEAP];
         if ($heap->{reaped} == $fork_count) {
           print "ok 2\n";
@@ -91,14 +88,12 @@ warn "child $$ exits";
 
       catch_sigchld =>
       sub {
-        warn "sigchld";
         $_[HEAP]->{reaped}++;
         $_[KERNEL]->delay( time_is_up => 15 );
       },
 
       time_is_up =>
       sub {
-        warn "time is up";
         # do nothing, really
       },
     },

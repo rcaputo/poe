@@ -93,7 +93,7 @@ sub server_unix_start {
   unlink $unix_server_socket if -e $unix_server_socket;
 
   $heap->{wheel} = POE::Wheel::SocketFactory->new
-    ( SocketDomain => AF_UNIX,
+    ( SocketDomain => PF_UNIX,
       BindAddress  => $unix_server_socket,
       SuccessState => 'got_client',
       FailureState => 'got_error',
@@ -141,7 +141,7 @@ sub client_unix_start {
   my $heap = $_[HEAP];
 
   $heap->{wheel} = POE::Wheel::SocketFactory->new
-    ( SocketDomain  => AF_UNIX,
+    ( SocketDomain  => PF_UNIX,
       RemoteAddress => $unix_server_socket,
       SuccessState  => 'got_server',
       FailureState  => 'got_error',
