@@ -33,6 +33,7 @@ BEGIN {
   }
   else {
     eval "sub DUMP_EXPANDED () { 0 }";
+    eval "sub DUMP_BASE     () { die }";
   }
 };
 
