@@ -232,7 +232,8 @@ sub io_stop {
 # to force the program closed when we get them.
 
 sub io_postback {
-  my ($kernel, $session, $postback_given) = @_[KERNEL, SESSION, ARG0];
+  my ($kernel, $heap, $session, $postback_given) =
+    @_[KERNEL, HEAP, SESSION, ARG0];
   my $test_number = $postback_given->[0];
 
   if ($test_number =~ /^\d+$/) {
