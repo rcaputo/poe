@@ -47,9 +47,32 @@ sub get {
   # happen.  -><- Maybe this should return [] instead of dying?
 
   if($self->{'finish'}) {
-    return [ $self->build_error( RC_BAD_REQUEST,
-                                 "Did not want any more data"
-                               )
+
+    # This works around a request length vs. actual content length
+    # error.  Looks like some browsers (mozilla!) sometimes add on an
+    # extra newline?
+
+    # return [] unless @$stream and grep /\S/, @$stream;
+
+    my (@dump, $offset);
+    $stream = join("", @$stream);
+    while (length $stream) {
+      my $line = substr($stream, 0, 16);
+      substr($stream, 0, 16) = '';
+
+      my $hexdump  = unpack 'H*', $line;
+      $hexdump =~ s/(..)/$1 /g;
+
+      $line =~ tr[ -~][.]c;
+      push @dump, sprintf( "%x %s- %s\n", $offset, $hexdump, $line );
+      $offset += 16;
+    }
+
+    return [ $self->build_error
+             ( RC_BAD_REQUEST,
+               "Did not want any more data.  Got this:" .
+               "<p>" . join("<br>", @dump) . "</p>"
+             )
            ];
   }
 

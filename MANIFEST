@@ -5,6 +5,7 @@ Makefile.PL
 NEEDS
 POE.pm
 POE/Component.pm
+POE/Component/Client/TCP.pm
 POE/Component/Server/TCP.pm
 POE/Driver.pm
 POE/Driver/SysRW.pm
@@ -100,3 +101,4 @@ t/22_wheel_run.t
 t/23_nfa.t
 t/24_filter_stack.t
 t/25_detach.t
+t/26_comp_tcp.t
