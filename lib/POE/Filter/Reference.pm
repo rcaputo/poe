@@ -37,8 +37,8 @@ sub new {
     }
 
   # Now get the methodes we want
-  my $freeze=$freezer->can('freeze') || $freezer->can('nfreeze');
-  carp "$freezer doesn't have a freeze method" unless $freeze;
+  my $freeze=$freezer->can('nfreeze') || $freezer->can('freeze');
+  carp "$freezer doesn't have a freeze or nfreeze method" unless $freeze;
   my $thaw=$freezer->can('thaw');
   carp "$freezer doesn't have a thaw method" unless $thaw;
 
@@ -145,17 +145,18 @@ The new() method creates and initializes the reference filter.  It
 accepts an optional parameter to specify a serializer.  The serializer
 may be a package or an object.
 
-A package serializer must have thaw() and either freeze() or nfreeze()
-functions.  The nfreeze() function is recommended, because using
-network byte order everywhere prevents problems when crossing endian
-borders.  These functions match Storable and FreezeThaw's call
-signatures.
+A package serializer must have a thaw() function, and it must have
+either a freeze() or nfreeze() function.  If it has both freeze() and
+nfreeze(), then Filter::Reference will use nfreeze() for portability.
+These functions match Storable and FreezeThaw's call signatures.
 
-An object serializer must have thaw() and either freeze() or nfreeze()
-methods.  The thaw() method accepts $self and a scalar; it should
-return a reference to the reconstituted data.  The freeze() and
-nfreeze() methods receive $self and a reference; they should return a
-scalar with the reference's serialized representation.
+An object serializer must have a thaw() method.  It also must have
+either a freeze() or nfreeze() method.  If it has both freeze() and
+nfreeze(), then Filter::Reference will use nfreeze() for portability.
+The thaw() method accepts $self and a scalar; it should return a
+reference to the reconstituted data.  The freeze() and nfreeze()
+methods receive $self and a reference; they should return a scalar
+with the reference's serialized representation.
 
 For example:
 
@@ -167,6 +168,7 @@ For example:
 
   # Use an object.
   my $filter = new POE::Filter::Reference($object);
+
 
 The new() method will try to require any packages it needs.
 

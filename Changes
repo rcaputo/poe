@@ -4,7 +4,23 @@ Revision history for Perl extension POE.
 ========================================
 
 Changes marked with "(!!!)" may break backward compatibility.
-Versions with "_xx" subversions are internal test releases.
+Versions with "_xx" subversions are internal test releases.  Most
+subversions are available from <http://www.newts.org/~troc/poe.html>.
+
+
+0.08 1999.11.19
+---------------
+
+John Labovitz <watchguard.com!johnl> submitted a patch to change
+Driver::SysRW's read block size.  He also pointed out that
+Filter::Reference prefers to use freeze() instead of the more portable
+nfreeze().  I applied a modified version of his block size patch, and
+I changed Filter::Reference to prefer nfreeze().
+
+There have been no complaints with the 0.07_xx subversions, and they
+contain useful changes, so the version is bumped to 0.08.
+
+Mentioned the "POE2" project in the README file.
 
 
 0.0704 1999.11.14

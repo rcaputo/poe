@@ -8,6 +8,7 @@ package POE::Driver::SysRW;
 
 use strict;
 use POSIX qw(EAGAIN);
+use Carp;
 
 #------------------------------------------------------------------------------
 
@@ -16,7 +17,24 @@ sub new {
   my $self = bless { 'out queue'  => [ ],
                      'bytes done' => 0,
                      'bytes left' => 0,
+                     BlockSize    => 512,
                    }, $type;
+
+  if (@_) {
+    if (@_ % 2) {
+      croak "$type requires an even number of parameters, if any";
+    }
+    my %args = @_;
+    if (exists $self->{BlockSize}) {
+      $self->{BlockSize} = delete $args{BlockSize};
+      croak "$type BlockSize must be greater than 0" if ($self->{BlockSize}<1);
+    }
+    if (keys %args) {
+      my @bad_args = sort keys %args;
+      croak "$type has unknown parameter(s): @bad_args";
+    }
+  }
+
   $self;
 }
 
@@ -38,7 +56,7 @@ sub put {
 sub get {
   my ($self, $handle) = @_;
 
-  my $result = sysread($handle, my $buffer = '', 512);
+  my $result = sysread($handle, my $buffer = '', $self->{BlockSize});
   if ($result || ($! == EAGAIN)) {
     $! = 0;
     [ $buffer ];
@@ -100,6 +118,23 @@ POE::Driver::SysRW - POE sysread/syswrite Abstraction
 =head1 DESCRIPTION
 
 This driver provides an abstract interface to sysread and syswrite.
+
+=head1 PUBLIC METHODS
+
+=over 4
+
+=item *
+
+POE::Driver::SysRW::new( ... );
+
+The new() constructor accepts one optional parameter:
+
+  BlockSize => $block_size
+
+This is the maximum data size that the SysRW driver will read at once.
+If omitted, $block_size defaults to 512.
+
+=back
 
 =head1 SEE ALSO
 

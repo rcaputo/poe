@@ -4,7 +4,8 @@ TABLE OF CONTENTS
 =================
 
 Table of Contents; About POE; Compatibility (Non-Requirements and
-Requirements); Availability; Support Resources; Installing and Testing
+Requirements); Availability; Support Resources; Installing and
+Testing; The Future
 
 
 ABOUT POE
@@ -150,6 +151,15 @@ effect.
 Once everything looks good, POE can be installed by typing:
 
   make install
+
+
+THE FUTURE
+==========
+
+A next-generation POE (code-named "POE2") is in the works.  It is a
+complete rewrite, supporting some of the more difficult feature
+requests.  An "RFC" level pre-alpha release is available from the POE
+home page.
 
 
 -- Rocco Caputo / troc@netrus.net / Thank you for reading.
