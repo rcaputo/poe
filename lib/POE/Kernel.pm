@@ -2076,7 +2076,7 @@ sub _explain_resolve_failure {
 ### Explain why a function is returning unsuccessfully.
 
 sub _explain_return {
-  my $message = shift;
+  my ($self, $message) = @_;
   local $Carp::CarpLevel = 2;
   ASSERT_RETVALS and confess "<rv> $message";
   TRACE_RETVALS  and carp "<rv> $message";
