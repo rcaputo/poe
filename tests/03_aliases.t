@@ -6,7 +6,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(18);
+&test_setup(20);
 
 use POSIX qw (:errno_h);
 
@@ -69,6 +69,21 @@ sub machine_start {
 
   print "not " unless $kernel->ID_session_to_id($kernel) eq $kernel->ID;
   print "ok 12\n";
+
+  # Check alias list for session.
+  my @aliases = $kernel->alias_list();
+  print "not " unless @aliases == 1 and $aliases[0] eq 'new name';
+  print "ok 13\n";
+
+  # Set and test a second alias.
+  $kernel->alias_set( 'second name' );
+  @aliases = $kernel->alias_list( $session );
+  print "not "
+    unless ( @aliases == 2 and
+             grep( /^new name$/, @aliases ) == 1 and
+             grep( /^second name$/, @aliases ) == 1
+           );
+  print "ok 14\n";
 }
 
 # Catch SIGIDLE and SIGZOMBIE.
@@ -96,10 +111,10 @@ sub machine_stop {
   my $heap = $_[HEAP];
 
   print "not " unless $heap->{idle_count} == 1;
-  print "ok 16\n";
+  print "ok 18\n";
 
   print "not " unless $heap->{zombie_count} == 1;
-  print "ok 17\n";
+  print "ok 19\n";
 }
 
 ### Main loop.
@@ -118,7 +133,7 @@ POE::Session->create
 
 # Spawn a second machine to test for alias removal.
 
-print "ok 13\n";
+print "ok 15\n";
 
 my $sigidle_test = 1;
 my $sigzombie_test = 1;
@@ -129,7 +144,7 @@ POE::Session->create
       sub {
         $_[KERNEL]->alias_set( 'a_sample_alias' );
         print "not " if $_[KERNEL]->alias_remove( 'a_sample_alias' );
-        print "ok 14\n";
+        print "ok 16\n";
       },
       _signal =>
       sub {
@@ -139,12 +154,12 @@ POE::Session->create
     }
   );
 
-print "ok 15\n";
+print "ok 17\n";
 
 # Now run the kernel until there's nothing left to do.
 
 $poe_kernel->run();
 
-print "ok 18\n";
+print "ok 20\n";
 
 exit;
