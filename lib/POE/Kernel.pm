@@ -280,8 +280,9 @@ BEGIN {
 sub _trap {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
-  warn "Please mail the following information to bug-POE\@rt.cpan.org:\n";
-  confess @_;
+  confess(
+    "Please mail the following information to bug-POE\@rt.cpan.org:\n@_"
+  );
 }
 
 sub _croak {
