@@ -205,8 +205,8 @@ sub new {
             ( BindPort     => $port,
               BindAddress  => $address,
               Reuse        => 'yes',
-              SuccessState => 'tcp_server_got_connection',
-              FailureState => 'tcp_server_got_error',
+              SuccessEvent => 'tcp_server_got_connection',
+              FailureEvent => 'tcp_server_got_error',
             );
         },
 
