@@ -90,7 +90,7 @@ sub _check_session_resources {
 sub _dispatch_state {
   my ($self, $session, $source_session, $state, $etc) = @_;
   if (exists $self->{'sessions'}->{$session}) {
-    if ($state eq '_stop') {
+    if (($state eq '_stop') && ($session ne $self)) {
                                         # remove the session from its parent
       my $old_parent = $self->{'sessions'}->{$session}->[0];
       if (exists $self->{'sessions'}->{$old_parent}) {
@@ -116,6 +116,30 @@ sub _dispatch_state {
     $self->{'running'} = $self;
 
     if ($state eq '_stop') {
+      $self->{'running'} = $session;
+                                        # free lingering signals
+      my @signals = $self->{'signals'};
+      foreach my $signal (@signals) {
+        $self->sig($signal);
+      }
+                                        # free lingering states (if leaking?)
+      my $index = scalar(@{$self->{'states'}});
+      while ($index--) {
+        if ($self->{'states'}->[$index]->[0] eq $session) {
+          print "??? Lingering state(", $self->{'states'}->[$index]->[2],
+                ") for session($session)\n";
+          splice(@{$self->{'states'}}, $index, 1);
+        }
+      }
+                                        # free lingering selects
+      my @handles = keys(%{$self->{'selects'}});
+      foreach my $handle (@handles) {
+        $self->select($handle);
+      }
+      $self->{'running'} = $self;
+
+      # test if everything really went away?
+      
       delete $self->{'sessions'}->{$session};
     }
 
@@ -155,7 +179,11 @@ sub _dispatch_selects {
 sub run {
   my $self = shift;
 
-  while (@{$self->{'states'}} || keys(%{$self->{'selects'}})) {
+  while (1) {
+                                        # SIGZOMBIE sent to remaining tasks
+    unless (@{$self->{'states'}} || keys(%{$self->{'selects'}})) {
+      $self->_enqueue_state($self, $self, '_signal', time(), [ 'ZOMBIE' ]);
+    }
                                         # select, if necessary
     my $timeout = (@{$self->{'states'}}) ?
       ($self->{'states'}->[0]->[3] - time()) : 3600;
@@ -246,7 +274,7 @@ sub session_alloc {
   warn "session $session already exists"
     if (exists $self->{'sessions'}->{$session});
   
-  $self->{'sessions'}->{$session} = [ $active_session, [ ], 0, 0 ];
+  $self->{'sessions'}->{$session} = [ $active_session, [ ], 0, 0, $session ];
   push(@{$self->{'sessions'}->{$active_session}->[1]}, $session);
 
   $self->_enqueue_state($session, $active_session, '_start', time(), []);
@@ -266,8 +294,13 @@ sub session_free {
 sub alarm {
   my ($self, $state, $name, $time, @etc) = @_;
   my $active_session = $self->{'running'};
+
+  if ($time < (my $now = time())) {
+    $time = $now;
+  }
+
   $self->_enqueue_state($active_session, $active_session,
-                        $state, $time, $name, \@etc
+                        $state, $time, [ $name, @etc ]
                        );
 }
 
@@ -335,14 +368,16 @@ sub select {
   $self->_internal_select($active_session, $handle, $state_w, 'sel_w', 1);
   $self->_internal_select($active_session, $handle, $state_e, 'sel_e', 2);
 
-#  unless ($state_r || $state_w || $state_e) {
-#    delete $self->{'selects'}->{$handle};
-#  }
+  unless ($state_r || $state_w || $state_e) {
+    delete $self->{'selects'}->{$handle};
+  }
 }
 
 #------------------------------------------------------------------------------
 # Dummy _invoke_state, so the Kernel can exist in its own 'sessions' table
 # as a parent for root-level sessions.
+
+my @_terminal_signals = qw(QUIT INT KILL HUP TERM ZOMBIE);
 
 sub _invoke_state {
   my ($self, $kernel, $source_session, $state, $etc) = @_;
@@ -350,29 +385,54 @@ sub _invoke_state {
   if ($state eq '_signal') {
     my $signal_name = $etc->[0];
 
-    # actually, with terminal signals like INT, the signal should be dispatched
-    # around to everyone who cares, and then the kernel should receive a _stop,
-    # which forcibly stops the main loop.  until then, we should die on SIGINT
-    # so that the author can debug without rebooting a lot. -><-
-
-    die if ($signal_name eq 'INT');
-
     foreach my $session (@{$self->{'signals'}->{$signal_name}}) {
-      $self->_dispatch_state($session->[0], $self, $session->[1], []);
+      $self->_dispatch_state($session->[0], $self, $session->[1],
+                             [ $signal_name ]
+                            );
     }
+
+    if (grep(/^$signal_name$/, @_terminal_signals)) {
+      my @sessions = keys(%{$self->{'sessions'}});
+      foreach my $session (@sessions) {
+        $self->session_free($self->{'sessions'}->{$session}->[4])
+      }
+      $self->session_free($self);
+    }
+  }
+  elsif ($state eq '_stop') {
+    print "Kernel stopped.\n";
+    exit;
   }
 }
 
 #------------------------------------------------------------------------------
 
-sub signals {
-  my ($self, $signal) = @_;
+sub sig {
+  my ($self, $signal, $state) = @_;
   my $active_session = $self->{'running'};
 
-  # -><- add or remove the signal handler
-  # -><- return value signifies success (whether can trap signal or not)
-  # -><- also consider whether run() can terminate if only selects left
-  croak "signals not fully implemented";
+  if ($signal) {
+    my $written = 0;
+    foreach my $signal (@{$self->{'signals'}->{$signal}}) {
+      if ($signal->[0] eq $active_session) {
+        $written = 1;
+        $signal->[1] = $state;
+        last;
+      }
+    }
+    unless ($written) {
+      push(@{$self->{'signals'}->{$signal}}, [ $active_session, $state ]);
+    }
+  }
+  else {
+    my $index = scalar(@{$self->{'signals'}->{$signal}});
+    while ($index--) {
+      if ($self->{'signals'}->{$signal}->[$index]->[0] eq $active_session) {
+        splice(@{$self->{'signals'}->{$signal}}, $index, 1);
+        last;
+      }
+    }
+  }
 }
 
 #------------------------------------------------------------------------------
