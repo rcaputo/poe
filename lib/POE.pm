@@ -13,10 +13,12 @@ $REVISION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 sub import {
   my $self = shift;
 
-  my @loops    = map { s/^Loop\:\:// } grep(/^Loop\:\:/, @_);
+  my @loops    = grep(/^Loop\:\:/, @_);
   my @sessions = grep(/^(Session|NFA)$/, @_);
-  my @modules  = grep(!/^(Kernel|Session|NFA)$/, @_);
+  my @modules  = grep(!/^(Kernel|Session|NFA|Loop)$/, @_);
 
+  croak "can't use multiple event loops at once"
+    if (@loops > 1);
   croak "POE::Session and POE::NFA export conflicting constants"
     if grep(/^(Session|NFA)$/, @sessions) > 1;
 
@@ -38,7 +40,7 @@ sub import {
   {
     my $loop = "";
     if (@loops) {
-      $loop = '{ loop => [ "' . join("', '", @loops) . "' ] }";
+      $loop = "{ loop => '" . shift (@loops) . "' }";
     }
     my $code = "package $package; use POE::Kernel $loop;";
     # warn $code;

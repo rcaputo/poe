@@ -26,6 +26,9 @@ sub import {
   my ($class, $args) = @_;
   my $package = caller();
 
+  croak "POE::Kernel expects its arguments in a hash ref"
+    if ($args && ref($args) ne 'HASH');
+
   {
     no strict 'refs';
     *{ $package . '::poe_kernel'      } = \$poe_kernel;

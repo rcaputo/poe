@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 4;
+use Test::More tests => 5;
 
 BEGIN { eval "use POE"; ok(!$@, "you just saved a kitten"); }
 
@@ -27,4 +27,11 @@ ok(
   $@ && $@ =~ /could not import qw\(nonexistent\)/,
   "don't import nonexistent modules"
 );
+
+eval {POE->import( qw( Loop::Foo Loop::Bar) ) };
+ok(
+  $@ && $@ =~ /multiple event loops/,
+  "don't load more than one event loop"
+);
+
 exit 0;
