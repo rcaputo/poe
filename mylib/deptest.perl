@@ -116,7 +116,7 @@ if (open(NEEDS, "<NEEDS")) {
     elsif (/^ \s* (\S+)
               \s+ (wants|needs|prefers)
               \s+ (\S+)
-              \s* ([0-9\_\.]*)
+              \s* ([0-9_\.]*)
               \s* (?:\#.*)?
            $/x
           ) {
@@ -410,7 +410,7 @@ sub build_dependency_tree {
       next if $dependent !~ /[A-Z]/;
 
       # Skip modules with illegal characters.
-      next if $dependent =~ /[^A-Za-z\:\-\_]/;
+      next if $dependent =~ /[^A-Za-z\:\-_]/;
 
       # Explode extra parameters if the reference is to POE itself.
       my @modules = ($dependent);
