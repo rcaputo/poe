@@ -115,7 +115,7 @@ flushed to its filehandle.
 
 =head1 STATIC FUNCTIONS
 
-These functions keep global information about all weels.  They should
+These functions keep global information about all wheels.  They should
 be called as normal functions:
 
   &POE::Wheel::function( ... );
@@ -124,8 +124,8 @@ be called as normal functions:
 
 =item allocate_wheel_id
 
-allocate_wheel_id() allocates a uniquely identifier for a wheel.
-Wheels pass these identifiers back to sessions in their events so that
+allocate_wheel_id() allocates a unique identifier for a wheel.  Wheels
+pass these identifiers back to sessions in their events so that
 sessions with several wheels can match events back to other
 information.
 
