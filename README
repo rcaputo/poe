@@ -129,7 +129,9 @@ place a window.  Unfortunately, the time it takes to acknowledge these
 interactive tests skews test results.  Any results that include
 interactive tests will not include times.
 
-** POE 0.1202 on OS/2
+** POE 0.1203 on OS/2
+
+(OS/2 doesn't grok system vs. user time.)
 
 Hardware: Cyrix P166+; 64MB RAM
 System  : OS/2 4.0, Fix 13
@@ -138,10 +140,10 @@ Gtk     : (not installed)
 Tk      : (not installed)
 Event   : (not installed)
 
-All tests successful, 4 tests skipped.
-Files=22, Tests=388, 130 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+All tests successful, 4 tests and 5 subtests skipped.
+Files=23, Tests=406, 171 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
-** POE 0.1202 on FreeBSD
+** POE 0.1203 on FreeBSD
 
 Hardware: AMD 486-40; 16MB RAM
 System  : FreeBSD 4.0-STABLE
@@ -153,7 +155,7 @@ Event   : 0.79
 All tests successful.
 Files=22, Tests=413, [ some tests paused ]
 
-** POE 0.1202 on Linux
+** POE 0.1203 on Linux
 
 Hardware: dual Celeron 500; 265MB RAM
 System  : Linux 2.2.15 SMP
@@ -163,11 +165,12 @@ Tk      : (not installed)
 Event   : 0.79
 
 All tests successful, 2 tests skipped.
-Files=22, Tests=397, 103 wallclock secs (18.80 cusr +  0.77 csys = 19.57 CPU)
+Files=23, Tests=415, 103 wallclock secs (19.67 cusr +  0.71 csys = 20.38 CPU)
 
-** POE 0.1202 on Solaris/SunOS 5.7
+** POE 0.1203 on Solaris/SunOS 5.7
 
-(If anyone knows how I can determine 
+(Does anyone know how remote users can find a Sparc/SunOS machine's
+CPU type(s) and speed(s)?)
 
 Hardware: SPARCstation-20; unknown speed; 320MB RAM
 System  : SunOS 5.7
@@ -177,7 +180,7 @@ Tk      : (not installed)
 Event   : (not installed)
 
 All tests successful, 4 tests skipped.
-Files=22,  Tests=388, 112 wallclock secs (52.44 cusr +  4.66 csys = 57.10 CPU)
+Files=23,  Tests=406, 113 wallclock secs (54.64 cusr +  5.61 csys = 60.25 CPU)
 
 ** POE 0.1202 on Solaris/SunOS 5.8
 

@@ -42,7 +42,7 @@ warn( "\n",
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::TwoWay);
+use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::OneWay);
 
 # How many things to push through the pipe.
 my $write_max = 10;
@@ -67,7 +67,7 @@ sub io_start {
 
   # A pipe.
 
-  my ($a_read, $b_write) = POE::Pipe::TwoWay->new();
+  my ($a_read, $b_write) = POE::Pipe::OneWay->new();
 
   unless (defined $a_read) {
     print "skip 2 # $@\n";
