@@ -318,7 +318,7 @@ BEGIN {
     $orig_die_handler = $SIG{__DIE__};
 
     $SIG{__WARN__} = sub { print TRACE_FILE $_[0] };
-    $SIG{__DIE__} = sub { print TRACE_FILE $_[0]; die $@; };
+    $SIG{__DIE__} = sub { print TRACE_FILE $_[0]; die $_[0]; };
 
   }
 
