@@ -75,7 +75,7 @@ sub new {
   $error_callback = \&_default_server_error unless defined $error_callback;
 
   if (defined $client_input) {
-    $client_filter = POE::Filter::Line->new() unless defined $client_filter;
+    $client_filter = "POE::Filter::Line" unless defined $client_filter;
     $client_error  = \&_default_client_error  unless defined $client_error;
     $client_connected    = sub {} unless defined $client_connected;
     $client_disconnected = sub {} unless defined $client_disconnected;
@@ -117,7 +117,7 @@ sub new {
               $heap->{client} = POE::Wheel::ReadWrite->new
                 ( Handle       => $socket,
                   Driver       => POE::Driver::SysRW->new( BlockSize => 4096 ),
-                  Filter       => $client_filter,
+                  Filter       => $client_filter->new(),
                   InputEvent   => 'tcp_server_got_input',
                   ErrorEvent   => 'tcp_server_got_error',
                   FlushedEvent => 'tcp_server_got_flush',
@@ -287,7 +287,7 @@ POE::Component::Server::TCP - a simplified TCP server
       ClientDisconnected => \&handle_client_disconnect, # Optional.
       ClientError        => \&handle_client_error,      # Optional.
       ClientFlushed      => \&handle_client_flush,      # Optional.
-      ClientFilter       => POE::Filter::Xyz->new(),    # Optional.
+      ClientFilter       => "POE::Filter::Xyz",         # Optional.
 
       # Optionally define other states for the client session.
       InlineStates  => { ... },
@@ -415,10 +415,13 @@ connection.
 
 =item ClientFilter
 
-ClientFilter is a reference to a POE::Filter instance that will be
-used to interpret and serialize data for the client socket.
-POE::Component::Server::TCP will provide a generic Line filter by
-default.
+ClientFilter is the name of a POE::Filter class.  Objects of that
+class will be instantiated to interpret and serialize data for the
+client socket.  POE::Component::Server::TCP will provide a generic
+Line filter by default.
+
+If a ClientFilter class is specified, it's up to the programmer to use
+or define that class.
 
 =item ClientInput
 
