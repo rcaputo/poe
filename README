@@ -1,11 +1,34 @@
 $Id$
 
-To build, test and install this distribution, type:
+* About
+
+POE is the Perl Object Environment, a non-forking, non-blocking, co-operative
+multitasking, object-oriented virtual environment.  When finished, it should
+look almost exactly like a cross between a MUD and an operating system.
+
+* Version 0.01 includes:
+
+The POE Kernel.  This provides an event queue, select(2) logic, alarms (delayed
+events) and limited signal processing.
+
+A state machine class (Session) that reacts to state transitions (events)
+created or dispatched from the Kernel.
+
+Reusable boilerplace state machines (Wheels) that extend Sessions by adding
+their states when constructed and removing their states when destroyed.
+
+* Future plans include:
+
+A Dictionary class to manage POE objects.
+A high-level scripting language for object behaviors.
+
+* To build, test and install this distribution, type:
 
   perl Makefile.PL
   make test
   make install
 
-Examples (and the real tests) exist in ./test.
+Please see the F<tests> directory for examples that exercise different parts
+of POE.
 
 -- Rocco Caputo / troc@netrus.net
