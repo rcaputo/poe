@@ -31,7 +31,7 @@ POE::Session->create
   ( inline_states =>
     { _start => sub {
         $_[KERNEL]->sig(CHLD => "child_handler");
-        $_[KERNEL]->delay(timeout => 2);
+        $_[KERNEL]->delay(timeout => 5);
         open(FOO, "echo foo > nul:|") or die $!;
         open(FOO, "echo foo > nul:|") or die $!;
         my @x = <FOO>;
