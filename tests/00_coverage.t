@@ -18,6 +18,12 @@ sub load_optional_module {
   my $reason = $@;
   $reason =~ s/[\x0a\x0d]+/ \/ /g;
   $reason =~ tr[ ][ ]s;
+
+  # Make skip messages look more proper.
+  if ($reason =~ /Can\'t locate (.*?) in \@INC/) {
+    $reason = "optional module $1 not installed";
+  }
+
   print( "ok $test_number",
          ( (length $reason) ? " # skipped: $reason" : '' ),
          "\n"
