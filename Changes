@@ -92,8 +92,8 @@ If it all goes as planned, this will give people at least 1/4 year to
 update their programs.
 
 
-0.1207 2001.??.??
------------------
+0.13 2001.04.20
+---------------
 
 Add Dieter Pearcey's Stackable filter, allowing ReadWrite (and other
 wheels) to pass data through two or more filters.  Stackable comes
