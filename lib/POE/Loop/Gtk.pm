@@ -128,7 +128,7 @@ macro substrate_resume_watching_child_signals () {
 ### Time.
 
 macro substrate_resume_time_watcher {
-  my $next_time = ($kr_events[0]->[ST_TIME] - time()) * 1000;
+  my $next_time = ($poe_kernel->[KR_EVENTS]->[0]->[ST_TIME] - time()) * 1000;
   $next_time = 0 if $next_time < 0;
   $poe_kernel->[KR_WATCHER_TIMER] =
     Gtk->timeout_add( $next_time, \&_substrate_event_callback );
@@ -138,6 +138,11 @@ macro substrate_reset_time_watcher {
   # Should always be defined, right?
   Gtk->timeout_remove( $self->[KR_WATCHER_TIMER] );
   $self->[KR_WATCHER_TIMER] = undef;
+  {% substrate_resume_time_watcher %}
+}
+
+sub _substrate_resume_timer {
+  Gtk->idle_remove($poe_kernel->[KR_WATCHER_TIMER]);
   {% substrate_resume_time_watcher %}
 }
 
@@ -233,10 +238,7 @@ macro substrate_define_callbacks {
 
     # Register the next timeout if there are events left.
     if (@kr_events) {
-      my $next_time = ($kr_events[0]->[ST_TIME] - time()) * 1000;
-      $next_time = 0 if $next_time < 0;
-      $self->[KR_WATCHER_TIMER] =
-        Gtk->timeout_add( $next_time, \&_substrate_event_callback );
+      $self->[KR_WATCHER_TIMER] = Gtk->idle_add(\&_substrate_resume_timer);
     }
 
     # Return false to stop.
