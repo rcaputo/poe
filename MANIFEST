@@ -31,6 +31,7 @@ POE/Wheel.pm
 POE/Wheel/FollowTail.pm
 POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
+POE/Wheel/Run.pm
 POE/Wheel/SocketFactory.pm
 README
 lib/Devel/Null.pm
