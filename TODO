@@ -9,6 +9,9 @@ will be marked with "(!!!)".  Since these are long-term plans,
 however, actual code breakage will not occur for at least a month
 after release.
 
+Various forms of "Xyz" are used throughout to mean "for every".  For
+example, "POE::Filter::Xyz" means "for every POE::Filter".
+
 ===================================
 Depreciations & Changes In Progress
 ===================================
@@ -144,6 +147,71 @@ whether it should or shouldn't catch signals in a particular program.
 That's madness.
 
 So this needs a redesign and a depreciation schedule.
+
+----------------------------------------
+Filter Changing Flawed As Designed (!!!)
+----------------------------------------
+
+POE::Filter::Xyz's get() method is optimized to reduce the number of
+times it must be called.  Unfortunately, this means it parses raw
+input in advance of the next input event.
+
+Consider parsing HTTP requests.  Requests start with some headers
+which must be parsed as lines, followed by a blank line, and then raw
+streamed input which may be almost anything.
+
+The Filter::Xyz optimization has it accepting raw data and returning
+at once as many parsed things as it can.
+
+This causes problems when switching filters.  When a filter changes,
+there quite likely is some data beyond that which was already parsed
+with the old filter.  When switching from lines to raw data when
+moving from HTTP headers to the body itself, part of the body may have
+been interpreted as lines.
+
+The solution with the least amount of public breakage would be to redo
+the input/dispatch loop within POE::Wheel::ReadWrite.  Currently it's:
+
+  if (defined(my $raw_input = $driver->get($handle))) {
+    foreach my $cooked_input (@{$input_filter->get($raw_input)}) {
+      $k->call($me, $$event_input, $cooked_input, $unique_id);
+    }
+  }
+
+The Filter would have to be pessimized to return one thing at a time
+instead of many, and the Wheel would need to loop, calling the filter
+as many times as necessary to return everything:
+
+  if (defined(my $raw_input = $driver->get($handle))) {
+    while (my $cooked_input = $input_filter->get_one($raw_input)) {
+      $k->call($me, $$event_input, $cooked_input, $unique_id);
+
+      # Undefining $raw_input flags get_one() to just return whatever
+      # it has in subsequent calls.
+      undef $raw_input;
+    }
+  }
+
+In the new design, rapid bursts of data are parsed one at a time.
+This leaves as much data as possible in the filter's raw buffer, so it
+can be transferred to the next filter in a mid-stream change.
+
+This does what people expect at the expense of speed in most cases.
+Artur is vaguely against this, and rightfully so: why should most code
+slow down for the relatively rare instances where people change
+filters?  However, requiring someone set a flag ahead of time
+requesting this feature seems to me like a setup for failure.  People
+will forget, wonder why it doesn't work, and eventually grow to
+despise having to set that flag.  Mark my words, copy them, and paste
+them somewhere safe.
+
+Part of the design requires a new get_one() method for all the
+existing filters.  get_one() gets one thing, leaving the raw buffer
+alone.  Wheel::Xyz can use can() to determine if get_one() exists and
+support that if it's available.  If not-- for example, in legacy or
+third-party filters which haven't been updated-- it can fall back to
+the less reliable behavior.  Furthermore, set_filter() and its
+variants can carp if used with unreliable filters.
 
 ---------------------------------------
 Give Exported Constants Some Prefix(es)
