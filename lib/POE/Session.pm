@@ -1296,7 +1296,7 @@ postback that will respond to the request's sender.
 
 In the following code snippets, Servlet is a session that acts like a
 tiny daemon.  It receives requests from "client" sessions, performs
-som long-running task, and eventually posts responses back.  Client
+some long-running task, and eventually posts responses back.  Client
 sends requests to Servlet and eventually receives its responses.
 
   # Aliases are a common way for daemon sessions to advertise
