@@ -560,7 +560,8 @@ as trace and debug. See L<POE::Session> for an example list of options.
 
 ClientConnected is a coderef that will be called for each new client
 connection.  ClientConnected callbacks receive the usual POE
-parameters, but nothing special is included.
+parameters, plus a copy of whatever was specified in the component's
+C<Args> constructor parameter.
 
 =item ClientDisconnected
 
