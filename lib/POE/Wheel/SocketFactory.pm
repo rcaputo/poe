@@ -643,6 +643,7 @@ sub new {
   # Make the socket reusable, if requested.
   if ( (defined $params{Reuse})
        and ( (lc($params{Reuse}) eq 'yes')
+             or (lc($params{Reuse}) eq 'on')
              or ( ($params{Reuse} =~ /\d+/)
                   and $params{Reuse}
                 )
@@ -1095,7 +1096,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
     SocketType     => SOCK_STREAM,         # Sets the socket() type
     SocketProtocol => 'tcp',               # Sets the socket() protocol
     ListenQueue    => SOMAXCONN,           # The listen() queue length
-    Reuse          => 'no',                # Lets the port be reused
+    Reuse          => 'on',                # Lets the port be reused
   );
 
   # Connecting Internet domain socket.
@@ -1108,7 +1109,7 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
     SocketDomain   => AF_INET,             # Sets the socket() domain
     SocketType     => SOCK_STREAM,         # Sets the socket() type
     SocketProtocol => 'tcp',               # Sets the socket() protocol
-    Reuse          => 'no',                # Lets the port be reused
+    Reuse          => 'yes',               # Lets the port be reused
   );
 
   $wheel->event( ... );
