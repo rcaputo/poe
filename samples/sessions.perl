@@ -2,7 +2,14 @@
 # $Id$
 
 use strict;
-                                        # Kernel and Session always included
+
+# use POE always includes POE::Kernel and POE::Session, since they are
+# the fundamental POE classes and universally used.  POE::Kernel
+# exports the $kernel global, a reference to the process' Kernel
+# instance.  POE::Session exports a number of constants for event
+# handler parameter offsets.  Some of the offsets are KERNEL, HEAP,
+# SELF, and ARG0-ARG9.
+
 use POE;
                                         # stupid scope trick, part 1 of 3 parts
 my $session_name;
