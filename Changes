@@ -30,6 +30,12 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 `-----------------
 
 
+0.1011 2000.??.??
+-----------------
+
+Added t/17_filter_ref.t: 80 tests for Filter::Reference.
+
+
 0.1010 2000.06.20 (!!!)
 -----------------------
 
