@@ -138,10 +138,6 @@ sub import {
           # Handle errors or EOF.
           return $status if $status <= 0;
 
-          # Ignore purely comment lines.  This doesn't grok here docs
-          # or anything special.
-          return $status if /^\s*\#/;
-
           # Inside a macro definition.
           if ($macro_name ne '') {
 
@@ -186,6 +182,16 @@ sub import {
             $_ = "\n";
             return $status;
           }
+
+          # The next two "ignore" returns speed up multiple const/enum
+          # definitions in the same area.  They also eliminate the
+          # need to check for things in semantically nil lines.
+
+          # Ignore comments.
+          return $status if /^\s*\#/;
+
+          # Ignore blank lines.
+          return $status if /^\s*$/;
 
           # Define an enum.
           if (/^enum(?:\s+(\d+|\+))?\s+(.*?)\s*$/) {
