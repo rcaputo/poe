@@ -123,19 +123,19 @@ macro substrate_ignore_filehandle {
 }
 
 macro substrate_pause_filehandle_write_watcher {
-  $kr_handles->{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
+  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR]->stop();
 }
 
 macro substrate_resume_filehandle_write_watcher {
-  $kr_handles->{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
+  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_WR]->start();
 }
 
 macro substrate_pause_filehandle_read_watcher {
-  $kr_handles->{$handle}->[HND_WATCHERS]->[VEC_RD]->stop();
+  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD]->stop();
 }
 
 macro substrate_resume_filehandle_read_watcher {
-  $kr_handles->{$handle}->[HND_WATCHERS]->[VEC_RD]->start();
+  $kr_handles{$handle}->[HND_WATCHERS]->[VEC_RD]->start();
 }
 
 macro substrate_define_callbacks {
