@@ -1080,6 +1080,17 @@ sub _dispatch_event {
       {% sig_remove $session, $_ %}
     }
 
+    # Close any selects that the session still has open.  -><- This is
+    # heavy handed; it does work it doesn't need to do.  There must be
+    # a better way.
+
+    my @handles = values %{$kr_sessions{$session}->[SS_HANDLES]};
+    foreach (@handles) {
+      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_RD);
+      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_WR);
+      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_EX);
+    }
+
     # Free any events that the departing session has in its queue.
     # Also free the events this session has posted.
 
@@ -1090,24 +1101,13 @@ sub _dispatch_event {
             )
           ) {
       if ( $kr_events[$index]->[ST_SESSION] == $session or
-           $kr_events[$index]->[ST_SOURCE] == $session
+           $kr_events[$index]->[ST_SOURCE]  == $session
          ) {
         {% ses_refcount_dec2 $kr_events[$index]->[ST_SESSION], SS_EVCOUNT %}
         {% ses_refcount_dec2 $kr_events[$index]->[ST_SOURCE], SS_POST_COUNT %}
         my $removed_event = splice(@kr_events, $index, 1);
         delete $kr_event_ids{$removed_event->[ST_SEQ]};
       }
-    }
-
-    # Close any selects that the session still has open.  -><- This is
-    # heavy handed; it does work it doesn't need to do.  There must be
-    # a better way.
-
-    my @handles = values %{$kr_sessions{$session}->[SS_HANDLES]};
-    foreach (@handles) {
-      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_RD);
-      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_WR);
-      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_EX);
     }
 
     # Close any lingering extra references.
@@ -2535,7 +2535,6 @@ sub _internal_select {
           delete $kr_event_ids{$removed_event->[ST_SEQ]};
 
           $kr_fno_vec->[FVC_EV_COUNT]--;
-          $kr_filenos[$fileno]->[FNO_TOT_REFCOUNT]--;
         }
 
         # Decrement the handle's reference count.
