@@ -189,7 +189,7 @@ sub new {
       if defined $params{StdioFilter};
     croak "Replace deprecated Filter with StdioFilter and StderrFilter"
       if defined $stderr_event and not defined $stderr_filter;
-    carp "Filter is deprecated.  Please use StdioFilter and/or StderrFilter";
+    carp "Filter is deprecated.  Please try StdioFilter and/or StderrFilter";
   }
   else {
     $stdio_filter = delete $params{StdioFilter};

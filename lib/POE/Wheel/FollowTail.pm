@@ -116,7 +116,7 @@ sub new {
   if (exists $params{SeekBack}) {
     $seek = $params{SeekBack} * -1;
     if (exists $params{Seek}) {
-      croak "can't use Seek and SeekBack at the same time";
+      croak "can't have Seek and SeekBack at the same time";
     }
   }
   elsif (exists $params{Seek}) {
@@ -206,7 +206,7 @@ sub new {
   else {
     carp "FollowTail does not support SeekBack on a special file"
       if defined $params{SeekBack};
-    carp "FollowTail does not use PollInterval for special files"
+    carp "FollowTail does not need PollInterval for special files"
       if defined $params{PollInterval};
 
     # Start the select loop.
