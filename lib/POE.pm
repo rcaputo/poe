@@ -3,7 +3,7 @@
 
 package POE;
 
-$VERSION = "0.04";
+$VERSION = "0.05";
 
 use strict;
 use Carp;
@@ -64,6 +64,8 @@ data to something useful (such as lines), and back
 
 =item * POE::Filter::Line - break input into lines; add newlines to output
 
+=item * POE::Filter::Reference - freeze references; thaw streams
+
 =item * POE::Wheel (abstract) - a way to extend C<POE::Session> by adding or
 removing event handlers from state machines
 
@@ -105,6 +107,15 @@ This is a simple line-based TCP proxy.  It redirects connections from
 localhost:7777 to perl.com:echo.  It shows how to use two or more wheels
 from a single session.
 
+-item * F<tests/refserver.perl>
+
+Accepts frozen objects from other programs, thaws them, and displays
+information about them.
+
+=item * F<tests/refsender.perl>
+
+Freezes referenced data, and sends it to a waiting refserver.perl.
+
 =item * F<tests/selects.perl>
 
 Starts two sessions, and runs until SIGINT.  The first session is a TCP chargen
@@ -139,8 +150,10 @@ None known.
 
 =head1 CONTACT AND COPYRIGHT
 
-Copyright 1998 Rocco Caputo E<lt>troc@netrus.netE<gt>.  All rights reserved.
-This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+Copyright 1998 Rocco Caputo E<lt>troc@netrus.netE<gt>.  All rights
+reserved.  This program is free software; you can redistribute it
+and/or modify it under the same terms as Perl itself.
+
+Portions may also be copyrighted by their respective contributors.
 
 =cut
