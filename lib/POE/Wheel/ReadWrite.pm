@@ -726,9 +726,9 @@ immediately.  ReadWrite uses its Filter to translate the records into
 a form suitable for writing.  It uses its Driver to queue and send
 them.
 
-put() accepts a reference to a list of records.  It returns a boolean
-value indicating whether the wheel's high-water mark has been reached.
-It always returns false if a wheel doesn't have a high-water mark set.
+put() accepts a list of records.  It returns a boolean value
+indicating whether the wheel's high-water mark has been reached.  It
+always returns false if a wheel doesn't have a high-water mark set.
 
 This will quickly fill a wheel's output queue if it has a high-water
 mark set.  Otherwise it will loop infinitely, eventually exhausting
