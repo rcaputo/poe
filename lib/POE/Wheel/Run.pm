@@ -195,12 +195,19 @@ sub new {
         ioctl( $stdin_read, TIOCSCTTY, 0 );
       }
 
-      # Turn off echo and canonical input in the slave.  APITUE 19.4.
+      # Put the pty conduit into "raw" or "cbreak" mode, per APITUE
+      # 19.4 and 11.10.
       my $tio = POSIX::Termios->new();
       $tio->getattr(fileno($stdin_read));
       my $lflag = $tio->getlflag;
-      $lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL | ICANON);
+      $lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
       $tio->setlflag($lflag);
+      my $iflag = $tio->getiflag;
+      $iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+      $tio->setiflag($iflag);
+      my $cflag = $tio->getcflag;
+      $cflag &= ~(CSIZE | PARENB);
+      $tio->setcflag($cflag);
       my $oflag = $tio->getoflag;
       $oflag &= ~(OPOST);
       $tio->setoflag($oflag);

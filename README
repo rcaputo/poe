@@ -168,7 +168,7 @@ IO::Pty : 0.01
 All tests successful, 2 tests and 3 subtests skipped.
 Files=24, Tests=438, 105 wallclock secs (21.54 cusr +  0.68 csys = 22.22 CPU)
 
-** POE 0.1203 on Solaris/SunOS 5.7
+** POE 0.1204 on Solaris/SunOS 5.7
 
 Hardware: SPARCstation-20; dual Sparc-75; 320MB RAM (hfb)
 System  : SunOS 5.7
