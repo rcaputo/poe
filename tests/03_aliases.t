@@ -151,6 +151,7 @@ POE::Session->create
         $sigidle_test   = 0 if $_[0] eq 'IDLE';
         $sigzombie_test = 0 if $_[0] eq 'ZOMBIE';
       },
+      _stop => sub { },
     }
   );
 

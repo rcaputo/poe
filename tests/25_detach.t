@@ -11,6 +11,7 @@ use TestSetup;
 # Turn on all asserts.  This makes the tests slower, but it also
 # ensures that internal checks are performed within POE::Kernel.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Session::ASSERT_STATES () { 0 }
 use POE;
 
 # Spawn a grandchild.

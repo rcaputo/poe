@@ -90,6 +90,9 @@ POE::Session->create
              );
        $_[KERNEL]->yield( 'push' ) if $_[HEAP]->{push_count} < 10;
      },
+     # Dummy handlers to avoid ASSERT_STATES warnings.
+     _signal => sub { 0 },
+     _stop   => sub { 0 },
    }
   );
 
@@ -190,9 +193,12 @@ POE::Session->create
         $test_number++;
         $_[KERNEL]->yield( 'next_test' ) if @test;
       },
+      # Dummy handlers to avoid ASSERT_STATES warnings.
+      _signal => sub { 0 },
+      _stop   => sub { 0 },
     },
   );
-     
+
 ### Run everything until it's all done.  Display test results when
 ### everything is done, and exit.  Success!
 

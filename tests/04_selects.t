@@ -217,6 +217,7 @@ for (my $index = 0; $index < $pair_count; $index++) {
     ( inline_states =>
       { _start => \&master_start,
         _stop  => \&master_stop,
+        _child => sub { },
         input  => \&master_got_input,
         output => \&master_put_output,
       },

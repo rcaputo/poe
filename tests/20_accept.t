@@ -10,6 +10,7 @@ use IO::Socket;
 use TestSetup qw(ok not_ok ok_if results test_setup many_not_ok);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Session::ASSERT_STATES () { 0 }
 use POE qw(Wheel::ListenAccept Wheel::SocketFactory);
 
 &test_setup(4);

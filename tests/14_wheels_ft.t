@@ -13,6 +13,7 @@ use TestSetup;
 # Turn on all asserts.
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Session::ASSERT_STATES () { 0 }
 use POE qw( Component::Server::TCP
             Wheel::FollowTail
             Wheel::ReadWrite

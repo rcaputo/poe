@@ -14,6 +14,7 @@ use TestSetup;
 # Turn on all asserts, and use POE and other modules.
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Session::ASSERT_STATES () { 0 }
 use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
 
 ### Test one-way pipe() pipe.
