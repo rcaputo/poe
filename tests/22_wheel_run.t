@@ -9,7 +9,13 @@ use Socket;
 use Config;
 
 use TestSetup;
-&test_setup(24);
+
+# Skip these tests if fork() is unavailable.
+BEGIN {
+  test_setup(0, "MacOS doesn't support fork") if $^O eq 'MacOS';
+}
+
+test_setup(24);
 
 # Turn on extra debugging output within this test program.
 sub DEBUG () { 0 }

@@ -13,6 +13,9 @@ use POSIX;  # termios stuff
 use POE qw(Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW);
 
 BEGIN {
+  die "POE::Wheel::Run requires fork(), which is not supported on $^O\n"
+    if $^O eq 'MacOS';
+
   local $SIG{'__DIE__'} = 'DEFAULT';
   eval    { require IO::Pty; };
   if ($@) { eval 'sub PTY_AVAILABLE () { 0 }';  }

@@ -188,7 +188,9 @@ POE::Session->create
         $_[KERNEL]->post( server => request => $test[0]->[0] );
       },
       fib => sub {
-        &ok_if( $test_number, $_[ARG0] == $test[0]->[1] );
+        &ok_if( $test_number, $_[ARG0] == $test[0]->[1],
+                "fib($test[0]->[0]) returned $_[ARG0] (wanted $test[0]->[1])"
+              );
         shift @test;
         $test_number++;
         $_[KERNEL]->yield( 'next_test' ) if @test;
