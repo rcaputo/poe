@@ -66,7 +66,7 @@ ok_if(11, $poe_kernel->_data_extref_count() == 1);
 
 # Extra references for the kernel should be two.  A nonexistent
 # session should have none.
-ok_if(12, $poe_kernel->_data_extref_count_ses($poe_kernel) == 1);
+ok_if(12, $poe_kernel->_data_extref_count_ses($poe_kernel) == 2);
 ok_if(13, $poe_kernel->_data_extref_count_ses("nothing") == 0);
 
 # Clear the references, and make sure the subsystem shuts down
