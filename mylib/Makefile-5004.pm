@@ -12,6 +12,9 @@ sub MY::test {
 
 sub MY::postamble {
     return <<EOF;
+reportupload: poe_report.xml
+	lib/reportupload.pl
+
 testreport: poe_report.xml
 
 poe_report.xml:
