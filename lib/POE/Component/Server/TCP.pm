@@ -106,25 +106,27 @@ sub new {
 
       if (ref($client_infilter) eq 'ARRAY') {
          @client_infilter_args = @$client_infilter;
-	 $client_infilter      = shift @client_infilter_args;
+         $client_infilter      = shift @client_infilter_args;
       }
 
       if (ref($client_outfilter) eq 'ARRAY') {
          @client_outfilter_args = @$client_outfilter;
-	 $client_outfilter      = shift @client_outfilter_args;
+         $client_outfilter      = shift @client_outfilter_args;
       }
 
       my $eval = eval {
-	 (my $inmod  = $client_infilter)  =~ s!::!/!g;
-	 (my $outmod = $client_outfilter) =~ s!::!/!g;
-         require "$inmod.pm";
-         require "$outmod.pm";
-	 1;
+        (my $inmod  = $client_infilter)  =~ s!::!/!g;
+        (my $outmod = $client_outfilter) =~ s!::!/!g;
+        require "$inmod.pm";
+        require "$outmod.pm";
+        1;
       };
 
       if (!$eval and $@) {
-        carp "Failed to load [$client_infilter] and [$client_outfilter]\n"
-           . "Reason $@\nUsing defualts ";
+        carp(
+          "Failed to load [$client_infilter] and [$client_outfilter]\n" .
+          "Reason $@\nUsing defualts "
+        );
 
         undef($client_infilter);
         undef($client_outfilter);
@@ -132,7 +134,8 @@ sub new {
         @client_filter_args = ();
       }
 
-    } else {
+    }
+    else {
        undef($client_infilter);  # just to be safe in case one was defined
        undef($client_outfilter); # and the other wasn't
 
@@ -185,122 +188,122 @@ sub new {
     unless (defined $accept_callback) {
       $accept_callback = sub {
         my ($socket, $remote_addr, $remote_port) = @_[ARG0, ARG1, ARG2];
-        $session_type->create
-          ( @$session_params,
-            inline_states =>
-            { _start => sub {
-                my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
+        $session_type->create(
+          @$session_params,
+          inline_states => {
+            _start => sub {
+              my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
 
-                $heap->{shutdown} = 0;
-                $heap->{shutdown_on_error} = $shutdown_on_error;
+              $heap->{shutdown} = 0;
+              $heap->{shutdown_on_error} = $shutdown_on_error;
 
-                # Unofficial UNIX support, suggested by Damir Dzeko.
-                # Real UNIX socket support should go into a separate
-                # module, but if that module only differs by four
-                # lines of code it would be bad to maintain two
-                # modules for the price of one.  One solution would be
-                # to pull most of this into a base class and derive
-                # TCP and UNIX versions from that.
-                if (
-                  defined $domain and
-                  ($domain == AF_UNIX or $domain == PF_UNIX)
-                ) {
-                  $heap->{remote_ip} = "LOCAL";
-                }
-                elsif (length($remote_addr) == 4) {
-                  $heap->{remote_ip} = inet_ntoa($remote_addr);
-                }
-                else {
-                  $heap->{remote_ip} =
-                    Socket6::inet_ntop($domain, $remote_addr);
-                }
+              # Unofficial UNIX support, suggested by Damir Dzeko.
+              # Real UNIX socket support should go into a separate
+              # module, but if that module only differs by four
+              # lines of code it would be bad to maintain two
+              # modules for the price of one.  One solution would be
+              # to pull most of this into a base class and derive
+              # TCP and UNIX versions from that.
+              if (
+                defined $domain and
+                ($domain == AF_UNIX or $domain == PF_UNIX)
+              ) {
+                $heap->{remote_ip} = "LOCAL";
+              }
+              elsif (length($remote_addr) == 4) {
+                $heap->{remote_ip} = inet_ntoa($remote_addr);
+              }
+              else {
+                $heap->{remote_ip} =
+                  Socket6::inet_ntop($domain, $remote_addr);
+              }
 
-                $heap->{remote_port} = $remote_port;
+              $heap->{remote_port} = $remote_port;
 
-                # Alter the filters depending whether they are
-                # discrete input/output ones, or whether they are the
-                # same.  It's useful to note that the input/output
-                # filters may be changed at runtime.
-                my @filters;
-                if ($client_infilter) {
-                  @filters = (
-                    InputFilter  => $client_infilter->new(
-                      @client_infilter_args
-                    ),
-                    OutputFilter => $client_outfilter->new(
-                      @client_outfilter_args
-                    ),
-                  );
-                }
-                else {
-                  @filters = (
-                    Filter       => $client_filter->new(@client_filter_args),
-                  );
-                }
-
-                $heap->{client} = POE::Wheel::ReadWrite->new(
-                  Handle       => $socket,
-                  Driver       => POE::Driver::SysRW->new(),
-                  @filters,
-                  InputEvent   => 'tcp_server_got_input',
-                  ErrorEvent   => 'tcp_server_got_error',
-                  FlushedEvent => 'tcp_server_got_flush',
+              # Alter the filters depending whether they are
+              # discrete input/output ones, or whether they are the
+              # same.  It's useful to note that the input/output
+              # filters may be changed at runtime.
+              my @filters;
+              if ($client_infilter) {
+                @filters = (
+                  InputFilter  => $client_infilter->new(
+                    @client_infilter_args
+                  ),
+                  OutputFilter => $client_outfilter->new(
+                    @client_outfilter_args
+                  ),
                 );
+              }
+              else {
+                @filters = (
+                  Filter => $client_filter->new(@client_filter_args),
+                );
+              }
 
-                $kernel->yield(tcp_server_client_connected => @_[ARG0 .. $#_]);
-              },
+              $heap->{client} = POE::Wheel::ReadWrite->new(
+                Handle       => $socket,
+                Driver       => POE::Driver::SysRW->new(),
+                @filters,
+                InputEvent   => 'tcp_server_got_input',
+                ErrorEvent   => 'tcp_server_got_error',
+                FlushedEvent => 'tcp_server_got_flush',
+              );
 
-              # To quiet ASSERT_STATES.
-              _child  => sub { },
+              $kernel->yield(tcp_server_client_connected => @_[ARG0 .. $#_]);
+            },
 
-              tcp_server_client_connected => $client_connected,
+            # To quiet ASSERT_STATES.
+            _child  => sub { },
 
-              tcp_server_got_input => sub {
-                return if $_[HEAP]->{shutdown};
-                $client_input->(@_);
-              },
-              tcp_server_got_error => sub {
-                unless ($_[ARG0] eq 'accept' and $_[ARG1] == ECONNABORTED) {
-                  $client_error->(@_);
-                  if ($_[HEAP]->{shutdown_on_error}) {
-                    $_[HEAP]->{got_an_error} = 1;
-                    $_[KERNEL]->yield("shutdown");
-                  }
+            tcp_server_client_connected => $client_connected,
+
+            tcp_server_got_input => sub {
+              return if $_[HEAP]->{shutdown};
+              $client_input->(@_);
+            },
+            tcp_server_got_error => sub {
+              unless ($_[ARG0] eq 'accept' and $_[ARG1] == ECONNABORTED) {
+                $client_error->(@_);
+                if ($_[HEAP]->{shutdown_on_error}) {
+                  $_[HEAP]->{got_an_error} = 1;
+                  $_[KERNEL]->yield("shutdown");
                 }
-              },
-              tcp_server_got_flush => sub {
-                my $heap = $_[HEAP];
-                $client_flushed->(@_);
-                if ($heap->{shutdown}) {
+              }
+            },
+            tcp_server_got_flush => sub {
+              my $heap = $_[HEAP];
+              $client_flushed->(@_);
+              if ($heap->{shutdown}) {
+                $client_disconnected->(@_);
+                delete $heap->{client};
+              }
+            },
+            shutdown => sub {
+              my $heap = $_[HEAP];
+              $heap->{shutdown} = 1;
+              if (defined $heap->{client}) {
+                if (
+                  $heap->{got_an_error} or
+                  not $heap->{client}->get_driver_out_octets()
+                ) {
                   $client_disconnected->(@_);
                   delete $heap->{client};
                 }
-              },
-              shutdown => sub {
-                my $heap = $_[HEAP];
-                $heap->{shutdown} = 1;
-                if (defined $heap->{client}) {
-                  if (
-                    $heap->{got_an_error} or
-                    not $heap->{client}->get_driver_out_octets()
-                  ) {
-                    $client_disconnected->(@_);
-                    delete $heap->{client};
-                  }
-                }
-              },
-              _stop => sub {},
-
-              # User supplied states.
-              %$inline_states
+              }
             },
+            _stop => sub {},
 
-            # More user supplied states.
-            package_states => $package_states,
-            object_states  => $object_states,
+            # User supplied states.
+            %$inline_states
+          },
 
-            args => $args,
-          );
+          # More user supplied states.
+          package_states => $package_states,
+          object_states  => $object_states,
+
+          args => $args,
+        );
       };
     }
   };
@@ -313,46 +316,48 @@ sub new {
   # Create the session, at long last.  This is done inline so that
   # closures can customize it.
 
-  $session_type->create
-    ( @$session_params,
-      inline_states =>
-      { _start =>
-          sub {
-            if (defined $alias) {
-              $_[HEAP]->{alias} = $alias;
-              $_[KERNEL]->alias_set( $alias );
-            }
+  $session_type->create(
+    @$session_params,
+    inline_states => {
+      _start => sub {
+        if (defined $alias) {
+          $_[HEAP]->{alias} = $alias;
+          $_[KERNEL]->alias_set( $alias );
+        }
 
-            $_[HEAP]->{listener} = POE::Wheel::SocketFactory->new
-              ( BindPort     => $port,
-                BindAddress  => $address,
-                SocketDomain => $domain,
-                Reuse        => 'yes',
-                SuccessEvent => 'tcp_server_got_connection',
-                FailureEvent => 'tcp_server_got_error',
-              );
-	      $server_started->(@_);
-          },
-        # Catch an error.
-        tcp_server_got_error => $error_callback,
+        $_[HEAP]->{listener} = POE::Wheel::SocketFactory->new(
+          ( ($domain == AF_UNIX or $domain == PF_UNIX)
+            ? ()
+            : ( BindPort => $port )
+          ),
+          BindAddress  => $address,
+          SocketDomain => $domain,
+          Reuse        => 'yes',
+          SuccessEvent => 'tcp_server_got_connection',
+          FailureEvent => 'tcp_server_got_error',
+        );
+        $server_started->(@_);
+      },
+      # Catch an error.
+      tcp_server_got_error => $error_callback,
 
-        # We accepted a connection.  Do something with it.
-        tcp_server_got_connection => $accept_callback,
+      # We accepted a connection.  Do something with it.
+      tcp_server_got_connection => $accept_callback,
 
-        # Shut down.
-        shutdown => sub {
-          delete $_[HEAP]->{listener};
-          $_[KERNEL]->alias_remove( $_[HEAP]->{alias} )
-            if defined $_[HEAP]->{alias};
-        },
-
-        # Dummy states to prevent warnings.
-        _stop   => sub { return 0 },
-        _child  => sub { },
+      # Shut down.
+      shutdown => sub {
+        delete $_[HEAP]->{listener};
+        $_[KERNEL]->alias_remove( $_[HEAP]->{alias} )
+          if defined $_[HEAP]->{alias};
       },
 
-      args => $args,
-    );
+      # Dummy states to prevent warnings.
+      _stop   => sub { return 0 },
+      _child  => sub { },
+    },
+
+    args => $args,
+  );
 
   # Return undef so nobody can use the POE::Session reference.  This
   # isn't very friendly, but it saves grief later.
@@ -363,9 +368,10 @@ sub new {
 # server.
 
 sub _default_server_error {
-  warn( 'Server ', $_[SESSION]->ID,
-        " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
-      );
+  warn(
+    'Server ', $_[SESSION]->ID,
+    " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
+  );
   delete $_[HEAP]->{listener};
 }
 
