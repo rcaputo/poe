@@ -427,8 +427,8 @@ sub new {
   close $sem_pipe_write;
 
   $self->_define_stdin_flusher();
-  $self->_define_stdout_reader() if defined $stdout_event;
-  $self->_define_stderr_reader() if defined $stderr_event;
+  $self->_define_stdout_reader() if defined $stdout_read;
+  $self->_define_stderr_reader() if defined $stderr_read;
 
   return $self;
 }
@@ -442,13 +442,13 @@ sub _define_stdin_flusher {
 
   # Read-only members.  If any of these change, then the write state
   # is invalidated and needs to be redefined.
-  my $unique_id     = $self->[UNIQUE_ID];
-  my $driver        = $self->[DRIVER_STDIN];
-  my $error_event   = \$self->[ERROR_EVENT];
-  my $close_event   = \$self->[CLOSE_EVENT];
-  my $stdin_filter  = $self->[FILTER_STDIN];
-  my $stdin_event   = \$self->[EVENT_STDIN];
-  my $is_active     = \$self->[IS_ACTIVE];
+  my $unique_id    = $self->[UNIQUE_ID];
+  my $driver       = $self->[DRIVER_STDIN];
+  my $error_event  = \$self->[ERROR_EVENT];
+  my $close_event  = \$self->[CLOSE_EVENT];
+  my $stdin_filter = $self->[FILTER_STDIN];
+  my $stdin_event  = \$self->[EVENT_STDIN];
+  my $is_active    = \$self->[IS_ACTIVE];
 
   # Read/write members.  These are done by reference, to avoid pushing
   # $self into the anonymous sub.  Extra copies of $self are bad and
@@ -503,7 +503,7 @@ sub _define_stdout_reader {
   my $self = shift;
 
   # Register the select-read handler for STDOUT.
-  if (defined $self->[EVENT_STDOUT]) {
+  if (defined $self->[HANDLE_STDOUT]) {
 
     # If any of these change, then the read state is invalidated and
     # needs to be redefined.
@@ -561,7 +561,7 @@ sub _define_stderr_reader {
   my $self = shift;
 
   # Register the select-read handler for STDERR.
-  if (defined $self->[EVENT_STDERR]) {
+  if (defined $self->[HANDLE_STDERR]) {
     # If any of these change, then the read state is invalidated and
     # needs to be redefined.
     my $unique_id     = $self->[UNIQUE_ID];
