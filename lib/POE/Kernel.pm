@@ -137,7 +137,7 @@ sub VEC_EX () { 2 }
 
 sub KR_SESSIONS       () {  0 } # [ \%kr_sessions,
 sub KR_VECTORS        () {  1 } #   \@kr_vectors,
-sub KR_FILENOS        () {  2 } #   \@kr_filenos,
+sub KR_FILENOS        () {  2 } #   \%kr_filenos,
 sub KR_SIGNALS        () {  3 } #   \%kr_signals,
 sub KR_ALIASES        () {  4 } #   \%kr_aliases,
 sub KR_ACTIVE_SESSION () {  5 } #   \$kr_active_session,
@@ -202,7 +202,7 @@ sub SS_POST_COUNT () { 11 } #    $pending_outbound_event_count,
 # handles can point to the same underlying fileno.  This is more
 # unique.
 
-my @kr_filenos;
+my %kr_filenos;
 
 sub FNO_VEC_RD       () { VEC_RD }  # [ [ (fileno read mode structure)
 # --- BEGIN SUB STRUCT 1 ---        #
@@ -517,10 +517,10 @@ macro collect_garbage (<session>) {
 
 macro validate_handle (<handle>,<vector>) {
   # Don't bother if the kernel isn't tracking the file.
-  return 0 unless defined $kr_filenos[fileno(<handle>)];
+  return 0 unless exists $kr_filenos{fileno(<handle>)};
 
   # Don't bother if the kernel isn't tracking the file mode.
-  return 0 unless $kr_filenos[fileno(<handle>)]->[<vector>]->[FVC_REFCOUNT];
+  return 0 unless $kr_filenos{fileno(<handle>)}->[<vector>]->[FVC_REFCOUNT];
 }
 
 macro remove_alias (<session>,<alias>) {
@@ -546,12 +546,11 @@ macro test_resolve (<name>,<resolved>) {
 }
 
 macro test_for_idle_poe_kernel {
-  my @filenos = grep { defined $_ } @kr_filenos;
   if (TRACE_REFCOUNT) {
     warn( ",----- Kernel Activity -----\n",
           "| Events : ", scalar(@kr_events), "\n",
-          "| Files  : ", scalar(@filenos), "\n",
-          "|   `--> : ", join(', ', sort { $a <=> $b } @filenos), "\n",
+          "| Files  : ", scalar(keys %kr_filenos), "\n",
+          "|   `--> : ", join(', ', sort { $a <=> $b } keys %kr_filenos), "\n",
           "| Extra  : $kr_extra_refs\n",
           "| Procs  : $kr_child_procs\n",
           "`---------------------------\n",
@@ -559,9 +558,9 @@ macro test_for_idle_poe_kernel {
          );
   }
 
-  unless ( @kr_events > 1    or  # > 1 for signal poll loop
-           @filenos          or
-           $kr_extra_refs    or
+  unless ( @kr_events > 1           or  # > 1 for signal poll loop
+           scalar(keys %kr_filenos) or
+           $kr_extra_refs           or
            $kr_child_procs
          ) {
     $poe_kernel->_enqueue_event
@@ -595,7 +594,7 @@ macro dispatch_due_events {
 macro enqueue_ready_selects (<fileno>,<vector>) {
   die "internal inconsistency: undefined fileno" unless defined <fileno>;
 
-  my $kr_fileno = $kr_filenos[<fileno>];
+  my $kr_fileno = $kr_filenos{<fileno>};
   die "internal inconsistency: fileno <fileno> is not known"
     unless defined $kr_fileno;
 
@@ -605,7 +604,7 @@ macro enqueue_ready_selects (<fileno>,<vector>) {
 
   my @selects =
     map( { values %$_ }
-         values %{ $kr_filenos[<fileno>]->[<vector>]-> [FVC_SESSIONS] }
+         values %{ $kr_filenos{<fileno>}->[<vector>]-> [FVC_SESSIONS] }
        );
 
   # Emit them.
@@ -787,7 +786,7 @@ sub new {
     my $self = $poe_kernel = bless
       [ \%kr_sessions,       # KR_SESSIONS
         \@kr_vectors,        # KR_VECTORS
-        \@kr_filenos,        # KR_FILENOS
+        \%kr_filenos,        # KR_FILENOS
         \%kr_signals,        # KR_SIGNALS
         \%kr_aliases,        # KR_ALIASES
         \$kr_active_session, # KR_ACTIVE_SESSION
@@ -951,8 +950,8 @@ sub _dispatch_event {
       my ($handle, $vector) = @$etc;
       my $fileno = fileno($handle);
 
-      if (defined $kr_filenos[$fileno]) {
-        my $kr_fileno  = $kr_filenos[$fileno];
+      if (exists $kr_filenos{$fileno}) {
+        my $kr_fileno  = $kr_filenos{$fileno};
         my $kr_fno_vec = $kr_fileno->[$vector];
 
         if (TRACE_SELECT) {
@@ -1396,12 +1395,7 @@ macro finalize_kernel {
     {% kernel_leak_array @kr_events     %}
     {% kernel_leak_hash  kr_session_ids %}
     {% kernel_leak_hash  kr_event_ids   %}
-
-    # Because undef values are okay here.  Destructive is okay too
-    # because we're not going to use these afterwards.
-
-    @kr_filenos = grep {defined} @kr_filenos;
-    {% kernel_leak_array @kr_filenos    %}
+    {% kernel_leak_hash  kr_filenos     %}
   }
 
   if (TRACE_PROFILE) {
@@ -1544,8 +1538,7 @@ sub _invoke_state {
 
   elsif ($event eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
-      my @filenos = grep { defined } @kr_filenos;
-      unless (@kr_events > 1 or @filenos) {
+      unless (@kr_events > 1 or scalar(keys %kr_filenos)) {
         $self->_enqueue_event
           ( $self, $self,
             EN_SIGNAL, ET_SIGNAL, [ 'ZOMBIE' ],
@@ -2564,13 +2557,13 @@ sub _internal_select {
     # However, the fileno is not known.  This is a new file.  Create
     # the data structure for it, and prepare the handle for use.
 
-    unless (defined $kr_filenos[$fileno]) {
+    unless (exists $kr_filenos{$fileno}) {
 
       if (TRACE_SELECT) {
         warn "!!! adding fileno (", $fileno, ")";
       }
 
-      $kr_filenos[$fileno] =
+      $kr_filenos{$fileno} =
         [ [ 0,          # FVC_REFCOUNT    VEC_RD
             undef,      # FVC_WATCHER
             HS_PAUSED,  # FVC_ST_ACTUAL
@@ -2628,7 +2621,7 @@ sub _internal_select {
     }
 
     # Cache some high-level lookups.
-    my $kr_fileno  = $kr_filenos[$fileno];
+    my $kr_fileno  = $kr_filenos{$fileno};
     my $kr_fno_vec = $kr_fileno->[$select_index];
 
     # The session is already watching this fileno in this mode.
@@ -2708,8 +2701,8 @@ sub _internal_select {
 
     # Make sure the handle is deregistered with the kernel.
 
-    if (defined $kr_filenos[$fileno]) {
-      my $kr_fileno  = $kr_filenos[$fileno];
+    if (exists $kr_filenos{$fileno}) {
+      my $kr_fileno  = $kr_filenos{$fileno};
       my $kr_fno_vec = $kr_fileno->[$select_index];
 
       # Make sure the handle was registered to the requested session.
@@ -2783,7 +2776,7 @@ sub _internal_select {
           if (TRACE_SELECT) {
             warn "!!! deleting fileno (", $fileno, ")";
           }
-          undef $kr_filenos[$fileno];
+          delete $kr_filenos{$fileno};
         }
       }
     }
@@ -2910,7 +2903,7 @@ sub select_pause_write {
   # combination, then we can go ahead and set the actual state now.
   # Otherwise it'll have to wait until the queue empties.
 
-  my $kr_fileno  = $kr_filenos[fileno($handle)];
+  my $kr_fileno  = $kr_filenos{fileno($handle)};
   my $kr_fno_vec = $kr_fileno->[VEC_WR];
   if (TRACE_SELECT) {
     warn( "=== pause test: fileno(" . fileno($handle) . ") vector(VEC_WR) " .
@@ -2947,7 +2940,7 @@ sub select_resume_write {
   # combination, then we can go ahead and set the actual state now.
   # Otherwise it'll have to wait until the queue empties.
 
-  my $kr_fileno = $kr_filenos[fileno($handle)];
+  my $kr_fileno = $kr_filenos{fileno($handle)};
   my $kr_fno_vec = $kr_fileno->[VEC_WR];
   if (TRACE_SELECT) {
     warn( "=== resume test: fileno(" . fileno($handle) . ") vector(VEC_WR) " .
@@ -2984,7 +2977,7 @@ sub select_pause_read {
   # combination, then we can go ahead and set the actual state now.
   # Otherwise it'll have to wait until the queue empties.
 
-  my $kr_fileno = $kr_filenos[fileno($handle)];
+  my $kr_fileno = $kr_filenos{fileno($handle)};
   my $kr_fno_vec = $kr_fileno->[VEC_RD];
   if (TRACE_SELECT) {
     warn( "=== pause test: fileno(" . fileno($handle) . ") vector(VEC_RD) " .
@@ -3021,7 +3014,7 @@ sub select_resume_read {
   # combination, then we can go ahead and set the actual state now.
   # Otherwise it'll have to wait until the queue empties.
 
-  my $kr_fileno = $kr_filenos[fileno($handle)];
+  my $kr_fileno = $kr_filenos{fileno($handle)};
   my $kr_fno_vec = $kr_fileno->[VEC_RD];
   if (TRACE_SELECT) {
     warn( "=== resume test: fileno(" . fileno($handle) . ") vector(VEC_RD) " .

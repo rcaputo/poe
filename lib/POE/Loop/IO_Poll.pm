@@ -282,7 +282,7 @@ macro substrate_do_timeslice {
     }
   }
 
-  @filenos = %POE::Kernel::Poll::poll_fd_masks;
+  my @filenos = %POE::Kernel::Poll::poll_fd_masks;
 
   if (TRACE_SELECT) {
     foreach (sort { $a<=>$b} keys %POE::Kernel::Poll::poll_fd_masks) {

@@ -246,17 +246,13 @@ macro substrate_do_timeslice {
   # being watched.  What is a better way to find a 1 bit in any of the
   # vectors?
 
-  my $fileno = 0;
-  @filenos = ();
-  foreach (@kr_filenos) {
-    push(@filenos, $fileno)
-      if ( defined($_) and
-           ( vec($kr_vectors[VEC_RD], $fileno, 1) or
-             vec($kr_vectors[VEC_WR], $fileno, 1) or
-             vec($kr_vectors[VEC_EX], $fileno, 1)
-           )
+  my @filenos = ();
+  foreach (keys %kr_filenos) {
+    push(@filenos, $_)
+      if ( vec($kr_vectors[VEC_RD], $_, 1) or
+           vec($kr_vectors[VEC_WR], $_, 1) or
+           vec($kr_vectors[VEC_EX], $_, 1)
          );
-    $fileno++;
   }
 
   if (TRACE_SELECT) {
