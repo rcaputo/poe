@@ -169,7 +169,81 @@ it's bad for the general case.  Every component would need to agree
 whether it should or shouldn't catch signals in a particular program.
 That's madness.
 
-So this needs a redesign and a depreciation schedule.
+2001-07-24 - Signal Propagation
+
+In this design, signal dispatching happens in three passes.
+
+In the first pass, a given signal is dispatched to the sessions which
+registered handlers for it.  The dispatch occurs in the order in which
+handlers were registered, so older sessions get first crack at
+handling signals.
+
+In the second pass, every other session-- excluding the ones which
+have received the signal already-- receive a generic _signal event.
+Signal dispatch occurs from the root session (POE::Kernel) down
+through children and grandchildren until finally the leaf sessions
+(those without children) receive them.
+
+The final pass deals with side effects of signals.  If the signal was
+fatal and no session handled it, then every session is stopped so that
+the process can exit.
+
+2001-07-24 - Signal Handling
+
+Regardless how signals propagate, I do want to remove the significance
+of signal handlers' return values.  They are so easy to mess up,
+especially with _default handlers, and it's trivial to create
+processes that won't die without serious intervention.
+
+Flagging signals as handled will require a new Kernel method, perhaps
+$kernel->handle_signal(), which sets a flag that the dispatch function
+(_dispatch_state) checks after the event handler (state) has returned.
+
+handle_signal() could take a bitmask parameter to tell Kernel what to
+do next with a signal.  Here are some ideas for signal flags.
+
+  0x00: SIGNAL_UNHANDLED
+
+    A no-op, but it lets programmers explicitly say that a signal
+    isn't handled, if they so desire.
+
+  0x01: SIGNAL_HANDLED
+
+    Flag the signal as handled.  By default, signals won't be handled
+    even if handle_signal() is called while they're being dispatched.
+
+  0x02: SIGNAL_SQUELCH
+
+    Tells Kernel to stop propagating the signal beyond this session.
+    I'm not sure if this is desired, though.  Perhaps it stops the
+    dispatch at the end of the phase.  For example, all the sessions
+    that request SIGHUP would still receive a SIGHUP event even if the
+    first one called SIGNAL_SQUELCH, but then the second dispatch pass
+    would be bypassed.
+
+    In the dispatch design #1, the side-effects pass will be executed
+    even if a signal is squelched.  Squelching a signal just prevents
+    other sessions from seeing it.
+
+  0x04: SIGNAL_NONTERMINAL
+
+    Forces a signal to be treated as survivable.
+
+  0x08: SIGNAL_TERMINAL
+
+    Forces a signal to be treated as terminal in the final
+    side-effects dispatch pass.  This makes otherwise benign (possibly
+    fictitious) signals suddenly lethal.  Consider SIGBOGUS becoming
+    terminal.
+
+    Still, though, if the signal is handled with SIGNAL_HANDLED
+    anywhere, it won't actually kill anything even if it's flagged
+    SIGNAL_TERMINAL.
+
+  0x10: SIGNAL_UNMASKABLE
+
+    Flag the signal as terminal without any hope of handling it.
+    SIGZOMBIE is like that.
 
 -----------------------------------------
 Wheel::ReadWrite Needs Input Flow Control
@@ -513,14 +587,15 @@ returns immediately.
 
 These names have been suggested instead:
 
-  post_self    (2 votes)
-  post_me      (1 vote)
-  post_myself  (1 vote)
-  postal :)    (0 votes)
-  enqueue      (1 vote)
-  postpend     (1 vote)
-  continuation (1 vote)
-  continue     (0 votes)
+  post_self       (2 votes)
+  post_me         (1 vote)
+  post_myself     (1 vote)
+  postal :)       (0 votes)
+  enqueue         (1 vote)
+  postpend        (1 vote)
+  continuation    (1 vote)
+  continue        (0 votes)
+  $session->post  (2 votes)
 
 This is a pretty basic function, and it's one a lot of people are
 probably using.  This depreciation should have a longer than usual
