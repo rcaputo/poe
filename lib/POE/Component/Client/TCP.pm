@@ -185,6 +185,7 @@ sub new {
             if (defined $heap->{server}) {
               delete $heap->{server}
                 unless $heap->{server}->get_driver_out_octets();
+              $disc_callback->(@_);
             }
           }
           else {
