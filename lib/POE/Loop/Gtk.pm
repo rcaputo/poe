@@ -262,17 +262,34 @@ macro substrate_main_loop {
 }
 
 macro substrate_stop_main_loop {
-  $poe_main_window->destroy();
   Gtk->main_quit();
 }
 
 macro substrate_init_main_loop {
   Gtk->init;
+}
 
-  $poe_main_window = Gtk::Window->new('toplevel');
-  die "could not create a main Gk window" unless defined $poe_main_window;
+# This function sets us up a signal when whichever window is passed to
+# it closes.
+sub signal_ui_destroy {
+  my ($self, $window) = @_;
 
-  $poe_main_window->signal_connect( delete_event => \&_signal_ui_destroy );
+  # Don't bother posting the signal if there are no sessions left.  I
+  # think this is a bit of a kludge: the situation where a window
+  # lasts longer than POE::Kernel should never occur.
+  $window->signal_connect
+    ( delete_event =>
+      sub {
+        if (keys %{$self->[KR_SESSIONS]}) {
+          $self->_dispatch_state
+            ( $self, $self,
+              EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
+              time(), __FILE__, __LINE__, undef
+            );
+        }
+        return undef;
+      }
+    );
 }
 
 1;
