@@ -2,7 +2,7 @@
 ## Build POD docs from emacs outlines.
 ## $Id$
 
-all: ../POE.pod ../POE-TODO.pod
+all: ../POE.pod ../POE-TODO.pod ../POE-HINTS.pod
 
 ../POE.pod: ./POE.outline
 	./out-out.perl pod  ./POE.outline > ../POE.pod
