@@ -8,22 +8,22 @@ use lib qw(./mylib);
 
 use Module::Build;
 use PoeBuildInfo qw(
-  $dist_abstract
-  $dist_author
-  %core_requirements
-  %recommended_time_hires
+  CORE_REQUIREMENTS
+  DIST_ABSTRACT
+  DIST_AUTHOR
+  RECOMMENDED_TIME_HIRES
 );
 
 my $build = Module::Build->new(
-  dist_abstract     => $dist_abstract,
-  dist_author       => $dist_author,
+  dist_abstract     => DIST_ABSTRACT,
+  dist_author       => DIST_AUTHOR,
   dist_name         => 'POE',
   dist_version_from => 'lib/POE.pm',
   license           => 'perl',
   recommends        => {
-    %recommended_time_hires,
+    RECOMMENDED_TIME_HIRES,
   },
-  requires          => \%core_requirements,
+  requires          => { CORE_REQUIREMENTS },
 );
 
 $build->dispatch("distmeta");

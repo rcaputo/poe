@@ -7,11 +7,11 @@ use ExtUtils::MakeMaker;
 
 use lib qw(./mylib);
 use PoeBuildInfo qw(
-  $clean_files
-  $dist_abstract
-  $dist_author
-  %core_requirements
-  %recommended_time_hires
+  CLEAN_FILES
+  CORE_REQUIREMENTS
+  DIST_ABSTRACT
+  DIST_AUTHOR
+  RECOMMENDED_TIME_HIRES
 );
 
 ### Touch files that will be generated at "make dist" time.
@@ -45,10 +45,10 @@ if ($@) {
 
 ExtUtils::AutoInstall->import(
   -version => '0.50',
-  -core => [ %core_requirements ],
+  -core => [ CORE_REQUIREMENTS ],
   "Recommended modules to increase timer/alarm/delay accuracy." => [
       -default      => 0,
-      %recommended_time_hires,
+      RECOMMENDED_TIME_HIRES,
   ],
   "Optional modules to speed up large-scale clients/servers." => [
       -default   => 0,
@@ -135,8 +135,8 @@ WriteMakefile(
   (
     ($^O eq 'MacOS')
     ? ()
-    : ( AUTHOR   => $dist_author,
-        ABSTRACT => $dist_abstract,
+    : ( AUTHOR   => DIST_AUTHOR,
+        ABSTRACT => DIST_ABSTRACT,
       )
   ),
 
@@ -153,13 +153,13 @@ WriteMakefile(
   },
 
   clean => {
-    FILES => $clean_files,
+    FILES => CLEAN_FILES,
   },
 
   # More for META.yml than anything.
   PL_FILES       => { },
   NO_META        => 1,
-  PREREQ_PM      => \%core_requirements,
+  PREREQ_PM      => { CORE_REQUIREMENTS },
 );
 
 1;

@@ -7,11 +7,8 @@ use ExtUtils::MakeMaker;
 
 use lib qw(./mylib);
 use PoeBuildInfo qw(
-  $clean_files
-  $dist_abstract
-  $dist_author
-  %core_requirements
-  %recommended_time_hires
+  CLEAN_FILES
+  CORE_REQUIREMENTS
 );
 
 ### Touch files that will be generated at "make dist" time.
@@ -65,11 +62,11 @@ WriteMakefile(
   },
 
   clean => {
-    FILES => $clean_files,
+    FILES => CLEAN_FILES,
   },
 
   PL_FILES    => { },
-  PREREQ_PM => \%core_requirements,
+  PREREQ_PM => { CORE_REQUIREMENTS },
 );
 
 1;
