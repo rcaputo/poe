@@ -18,7 +18,6 @@ ok(
 );
 
 open(SAVE_STDERR, ">&STDERR") or die $!;
-open(STDERR, ">./sink") or die $!;
 close(STDERR) or die $!;
 
 eval {
@@ -26,7 +25,6 @@ eval {
 };
 
 open(STDERR, ">&SAVE_STDERR") or die $!;
-open(SAVE_STDERR, ">./sink") or die $!;
 close(SAVE_STDERR) or die $!;
 
 ok(
