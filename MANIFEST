@@ -92,3 +92,4 @@ t/19_filterchange.t
 t/20_accept.t
 t/21_gtk.t
 t/22_wheel_run.t
+t/23_nfa.t

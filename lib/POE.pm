@@ -15,7 +15,7 @@ sub import {
   my @sessions = grep(/^(Session|NFA)$/, @_);
   my @modules = grep(!/^(Kernel|Session|NFA)$/, @_);
 
-  croak "Can't load both POE::Session and POE::NFA at once"
+  croak "POE::Session and POE::NFA export conflicting constants"
     if grep(/^(Session|NFA)$/, @sessions) > 1;
 
   # Add Kernel back it, whether anybody wanted it or not.
