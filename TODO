@@ -125,63 +125,209 @@ SIGNALS
 
 Several issues grouped together.
 
-----------------------------------
-Fix Signal Event Dispatching (!!!)
-----------------------------------
+------------------------------------
+Make Signal Dispatching Useful (!!!)
+------------------------------------
 
-Signal propagation (and the _signal event) are vestigial design from a
-time when POE was to be the core for a multi-user object environment.
-They provide some extra features that make writing MUDs easier, but
-they hamper many general programming tasks that POE is now being used
-for.
+2001-09-02
 
-Signal handling needs a basic redesign to make it more conducive to
-generic programming, especially for components.  The problem is that
-handling a signal in one place does not prevent it from being
-delivered elsewhere.
+Signal events are not propagated to sessions in a useful way.
+Handling signals in one session does not provent them from being
+delivered elsewhere.  Side effects of unhandled signals include
+session termination, so some components may disappear even when others
+have handled signals.  This has proven to be bad.
 
-The example that brought this to my attention is an IRC client being
-written with POE::Component::IRC.  The main program traps SIGINT to
-prevent the user from accidentally killing the client.  Perhaps it
-will ask the user to confirm the kill, to prevent errant keystrokes
-from doing damage.
+The current plan is to break up signal dispatch into three passes:
 
-However, because SIGINT is delivered everywhere, POE::Component::IRC
-dies regardless whether the main program catches that signal.  This is
-bad because the back-end IRC connection goes away when the user
-interface doesn't necessarily want it to.
+Pass 1:
 
-While the current signal propagation scheme is useful in some cases,
-it's bad for the general case.  Every component would need to agree
-whether it should or shouldn't catch signals in a particular program.
-That's madness.
+Dispatch signal events to sessions that have registered specific
+handlers for them.  What if two sessions register a handler for the
+same signal?  How does the dispatcher resolve such conflicts?
 
-2001-07-26 - Signals Getting Better?
+a. Dispatch occurs in the order in which sessions were created.  The
+first session to handle SIGINT, for example, gets preference.  If it
+doesn't handle the signal, then the next one has an opportunity.
 
-Perl 5.7.2 or so has "safe" signals.  Signals are handled in C, and
-the main dispatch loop sets flags or something.  The upshot is that a
-really nasty hack I'd devised doesn't actually need to be implemented.
-Furthermore, the other nasty hack (SIGINT polling) can go away once
-everyone upgrades to the most bleeding edge perl release.
+b. Assign different roles to components.  User interface sessions get
+preference for some signals (such as SIGINT).  Back-end sessions (like
+PoCo::IRC or JobQueue) have low signal catching priority.
 
-Hmm... that may not be immediately useful.  Plan A goes on.
+c. Sessions specify a priority level when they register signal
+handlers.  High, normal, and low priority.  "Normal" is the default,
+"high" priority sessions receive signals earlier, and "low" priority
+sessions receive them later.  Within a priority stratum, dispatch
+could occur FIFO (as in a above) or based on roles (as in b above).
 
-2001-07-26 - Tentative Release Schedule
+Sessions are not terminated yet.
 
-1. Release a version with the new signal event dispatching semantics.
+Pass 2:
+
+To maintain compatibility, signals are dispatched to all the other
+sessions as a generic _signal event.  Dispatch occurs backwards,
+though, going from the root session (POE::Kernel) down to leaves on
+the parent/child hierarchy.  Because signals can be squelched, the
+reversed dispatch order allows manager sessions to prevent their
+children from receiving signals.
+
+Sessions are not terminated yet.
+
+Pass 3:
+
+Terminate sessions, if necessary, as a side effect of the signal's
+dispatch.  Sessions are only terminated when a fatal signal has not
+been handled by any session.
+
+By default, termination occurs from leaf sessions on the parent/child
+hierarchy up towards the root session.  This lets managed sessions die
+off before their managers.  For example, if a user interface is
+managing back-end sessions, the back-ends would die off first.  That
+lets the user interface display the cleanup before it too goes away.
+
+It can be useful to reverse the termination order for some branches on
+the parent/child tree.  This can be flagged from the signal handler
+(don't-handle, terminate-parents-first).  For example, a session that
+manages workers would want to die first, so it doesn't go crazy
+spawning new sessions as the children are terminated.
+
+2001-08-31
+
+It is much too easy to return a wrong value from a signal handler.
+The mistake is exacerbated by _default handlers, which act at a
+distance.  I would like to deprecate and remove the significance of
+signal handlers' return values.
+
+The deprecation would require a new method to tell the Kernel when a
+signal has been handled:
+
+  $kernel->signal_handle( $optional_flags );
+
+The optional flags would be a bitmask telling the Kernel how the
+signal has (or hasn't) been handled:
+
+  0x0000: SIGNAL_UNHANDLED
+
+    A no-op, but it lets programmers explicitly say that a signal
+    isn't handled, if that's what they want.
+
+  0x0001: SIGNAL_HANDLED
+
+    The signal has been handled.  If it was a fatal signal, then
+    sessions will not be terminated.
+
+  0x0002: SIGNAL_LOCAL
+
+    Creates a new signal handling scope that covers the current
+    session and its child sessions, if any.  It modifies the other
+    flags as followed:
+
+    SIGNAL_LOCAL | SIGNAL_UNHANDLED = Unhandle the signal for this
+    branch of the session tree.  Even if it is handled elsewhere, this
+    branch will die.  However, if a child session handles the signal,
+    then it's handled for the entire branch (unless that child also
+    specifies SIGNAL_LOCAL).
+
+    SIGNAL_LOCAL | SIGNAL_HANDLED = Handle the signal for this branch
+    of the session tree.  Even if it is unhandled elsewhere, this
+    branch will persist after the signal has been dispatched.
+    However, if a child session unhandles the signal, then it's
+    unhandled for the entire branch (unless that child also specifies
+    SIGNAL_LOCAL).
+
+    SIGNAL_LOCAL | SIGNAL_SQUELCH_NOW = Stop dispatching signals along
+    this branch of the session tree, but continue dispatching it to
+    other branches.  This is convenient for manager sessions that
+    don't want their children to receive signals.
+
+  0x0004: SIGNAL_SQUELCH_NOW
+
+    This is a bad name for the flag.  Please suggest alternatives.
+
+    Stop propagating signals now.  The signal event will not arrive at
+    sessions that have not already received it.
+
+    Side effects (session termination) still occurs, if applicable.
+
+  0x0008: SIGNAL_SQUELCH_PASS
+
+    This is a bad name for the flag.  Please suggest alternatives.
+
+    Stop propagating signals at the end of the current pass.  This
+    allows the other sessions in the same dispatch pass to receive
+    signals.
+
+    Side effects (session termination) still occurs, if applicable.
+
+  0x0010: SIGNAL_NONTERMINAL
+  0x0020: SIGNAL_TERMINAL
+  0x0040: SIGNAL_UNMASKABLE
+
+    Override a signal's default side effects.  This may be localized,
+    so a parent session can make SIGINT unmaskable in its children.
+
+    I'm not sure how useful these flags are, but I've documented them
+    for completeness.
+
+  0x0080: SIGNAL_TERMINATE_KIDS_FIRST
+  0x0100: SIGNAL_TERMINATE_PARENTS_FIRST
+
+    Changes the order in which sessions are terminated, if applicable.
+
+  0x0200: SIGNAL_DISPATCH_KIDS_FIRST
+  0x0400: SIGNAL_DISPATCH_PARENTS_FIRST
+
+    Changes the order in which signal events are dispatched, allowing
+    either children or parents to have precedence over the other.
+    Localizing signal handling will complicate this.
+
+    This needs to be thought out better, because by the time a signal
+    is handled, the parent (or child) has already received it.
+    Perhaps some of these flags should be made into Session options?
+
+2001-09-01
+
+Nothing better than the three-phase signal dispatch has come to mind
+yet, although the design continues to evolve.  The design should not
+break much code since signal dispatch and propagation already tends to
+be broken.  Most people who have significant signal handling code in
+POE tend to work around many of the problems by usurping signal
+handlers.
+
+The signal handler semantics will probably remain the same for now.
+That's the major area of interface breakage, and it will cause
+problems for people.  I need to devise a gradual replacement so people
+can make graceful transitions to the new design.
+
+2001-09-01
+
+An alternative design: Give sessions roles, each with a different
+signal handling semantic.
+
+User interface sessions get signals first.
+Back-end sessions get signals last.
+
+This allows user interfaces to decide whether guts code needs to die.
+The idea needs more thought.
+
+2001-09-01
+
+Tentative Release Schedule
+
+1. Release a version with the new signal dispatching semantics.
 
    a. The three-phase signal dispatch and side effects.
-   b. $kernel->handle_signal() works.
+   b. $kernel->signal_handle().
 
    For backward compatibility, signal handler return values are
-   significant unless $kernel->handle_signal() has been called.
+   significant unless $kernel->signal_handle() has been called.
 
    Documentation changes:
 
    a. Document the new signal handler dispatch phases.
    b. Deprecate (but leave documented) the significance of signal
-      handler return values.
-   c. Document $kernel->handle_signal() and say it's recommended.
+      handler return values.  Warn people to be careful.
+   c. Document $kernel->signal_handle() and warn people to use it
+      instead of return values.
 
 2. Wait at least 28 days after the release.  The next stage of
    breakage will fall on or after [to be determined].
@@ -189,13 +335,20 @@ Hmm... that may not be immediately useful.  Plan A goes on.
 3. Release a version that warns when signal handlers return true
    without calling $kernel->handle_signal().
 
-   There will be a number of false positives on the warning,
-   unfortunately, but there's definitelay a work-around, and it lets
-   people know for sure that things are changing.
+   This covers the major case where signals are accidentally handled
+   and programs never exit, even on SIGINT or SIGKILL.
+
+   There will be a number of false positives on the warning.  This is
+   an unfortunate side effect, but it lets people know for sure how to
+   fix their programs.
+
+   Maybe add a pragma that disables the warning for people who know
+   what they're doing.  However, once return values' significance is
+   removed, those programs will suddenly do the wrong thing.
 
    Docmentation changes:
 
-   a. Undocument the significance of signal handler return values.
+   a. Document that return values are in deep deprecation.
 
 4. Wait at least 28 days after the release.  The next stage of
    breakage will fall on or after [to be determined].
@@ -203,106 +356,38 @@ Hmm... that may not be immediately useful.  Plan A goes on.
 5. Release a version without warnings and without significant signal
    handler return values.
 
-2001-07-24 - Signal Propagation
+   This is a dangerous step.  Consider leaving the warnings in for
+   much longer than 28 days.
 
-In this design, signal dispatching happens in three passes.
+-------------------------
+Safe Signals in Old Perls
+-------------------------
 
-In the first pass, a given signal is dispatched to the sessions which
-registered handlers for it.  The dispatch occurs in the order in which
-handlers were registered, so older sessions get first crack at
-handling signals.
+I have code that safely polls for signals in plain perl.  It does not
+use signal handlers.  It does not use XS.
 
-In the second pass, every other session-- excluding the ones which
-have received the signal already-- receive a generic _signal event.
-Signal dispatch occurs from the root session (POE::Kernel) down
-through children and grandchildren until finally the leaf sessions
-(those without children) receive them.
+However, because it polls for signals, it can miss duplicates.  There
+also may be a small but nonzero chance that signals are missed
+entirely.
 
-The final pass deals with side effects of signals.  If the signal was
-fatal and no session handled it, then every session is stopped so that
-the process can exit.
+But it doesn't use signal handlers.  Perl will not be unduly
+interrupted, and programs polling for signals should be much more
+robust than ones using regular handlers.
 
-2001-07-24 - Signal Handling
+Bleadperl does signal polling internally, obviating the need for this
+code.  However, people using older versions of perl may find it
+useful.
 
-Regardless how signals propagate, I do want to remove the significance
-of signal handlers' return values.  They are so easy to mess up,
-especially with _default handlers, and it's trivial to create
-processes that won't die without serious intervention.
-
-Flagging signals as handled will require a new Kernel method, perhaps
-$kernel->handle_signal(), which sets a flag that the dispatch function
-(_dispatch_state) checks after the event handler (state) has returned.
-
-handle_signal() could take a bitmask parameter to tell Kernel what to
-do next with a signal.  Here are some ideas for signal flags.
-
-  0x00: SIGNAL_UNHANDLED
-
-    A no-op, but it lets programmers explicitly say that a signal
-    isn't handled, if they so desire.
-
-  0x01: SIGNAL_HANDLED
-
-    Flag the signal as handled.  By default, signals won't be handled
-    even if handle_signal() is called while they're being dispatched.
-
-  0x02: SIGNAL_SQUELCH
-
-    Tells Kernel to stop propagating the signal beyond this session.
-    I'm not sure if this is desired, though.  Perhaps it stops the
-    dispatch at the end of the phase.  For example, all the sessions
-    that request SIGHUP would still receive a SIGHUP event even if the
-    first one called SIGNAL_SQUELCH, but then the second dispatch pass
-    would be bypassed.
-
-    In the dispatch design #1, the side-effects pass will be executed
-    even if a signal is squelched.  Squelching a signal just prevents
-    other sessions from seeing it.
-
-  0x04: SIGNAL_NONTERMINAL
-
-    Forces a signal to be treated as survivable.
-
-  0x08: SIGNAL_TERMINAL
-
-    Forces a signal to be treated as terminal in the final
-    side-effects dispatch pass.  This makes otherwise benign (possibly
-    fictitious) signals suddenly lethal.  Consider SIGBOGUS becoming
-    terminal.
-
-    Still, though, if the signal is handled with SIGNAL_HANDLED
-    anywhere, it won't actually kill anything even if it's flagged
-    SIGNAL_TERMINAL.
-
-  0x10: SIGNAL_UNMASKABLE
-
-    Flag the signal as terminal without any hope of handling it.
-    SIGZOMBIE is like that.
-
-2001-08-08 - Ideas continue to gel.
-
-I'll probably go ahead with the three-phase dispatch but leave the
-return value alone.  This shouldn't break much code, since signal
-dispatch and propagation already tends to be broken.  Most people who
-deal with it seriously work around a whole host of problems.
-
-The signal handler semantics will probably remain the same for now.
-That's a big area of interface breakage, and it will cause problems
-for people.
-
-No... they both should change together.  If they don't, people will
-use more signal handlers once the dispatch is fixed.  There will be
-that much more breakage later when the public handler interface
-changes.
+Consider perl version dependent code changes.  Rather than checking
+for existing modules, check the perl version and use the appropriate
+signal handling mechanism.
 
 ----------------------------------
 SIGTSTP Does the Wrong Thing (???)
 ----------------------------------
 
-This change depends upon signal dispatching being fixed.
-
-This one's marked with "(???)" because I'm not really sure it'll break
-anything.
+This change depends upon signal dispatching being fixed.  It's flagged
+with question marks because I'm not sure whether it'll break anything.
 
 Gordon Matzigkeit writes 2001-02-16:
 
@@ -390,10 +475,10 @@ Several issues grouped together.
 Stream Paradigms
 ----------------
 
-I forsee the stream paradigm dictating how the API should be designed,
+I forsee the stream paradigm dictating how its API should be designed,
 so it's a separate section.  Otherwise I'd have to edit the API every
-time something was changed here.  At least as separate sections, they
-can evolve separately until it's time to combine them.
+time something was changed here.  At least as separate sections they
+can evolve apart until it's time to combine them.
 
 2001-08-12: Torvald Riegel writes...
 
@@ -471,9 +556,10 @@ Wheels Must Evolve
 ------------------
 
 First, I'd like to say that wheels won't die entirely.  For
-compatibility's sake, they may become stubs (thunks?) into some other
-kind of I/O abstraction.  Certainly it will be more efficient to use
-wheels' descendent(s), but at least old code won't die.
+compatibility's sake, they probably will become stubs (thunks?) into
+some other kind of I/O abstraction.  Certainly it will be more
+efficient to use wheels' descendent(s), but at least old code won't
+die.
 
 POE::IO::Stream is the abstraction's planned name.  Suggestions are
 welcome, and I'll document them here.
@@ -967,12 +1053,20 @@ There are some options here:
     Slow, tedious, flaky, and ugly.  About all it has going for it is
     a lot of users, which says something, but I'm not sure what.
 
+    2001-09-02
+
+    Tried SourceForge fora again, and I still don't like them.
+
   CVS
 
     Make the TODO file group-editable.  Again, this could be through
     SourceForge.  On the plus side, people won't need to go through
-    the web interface to make changes.  This may become the best
-    option, actually.
+    the web interface to make changes.  This may actually be the best
+    option.
+
+    2001-09-02
+
+    NNTP (news.perl.org?) sounds better.
 
   Wiki
 
@@ -985,12 +1079,36 @@ There are some options here:
     Server::HTTP, and I'd rather use that than reinvent it for my own
     server.
 
+    2001-09-02
+
+    Specialized revision of it?  Threads start as proposals, and
+    comments are appended to it.  As comments are addressed and
+    assimilated into the proposal, they're flagged as "addressed" and
+    become invisible.  Addressed comments can still be read, but they
+    don't show up by default.  In this way, someone can propose,
+    champion, and refine an idea based on diverse input.
+
+    Sort of a living document with one author and an associated
+    message board.  Topics can be closed?
+
+    Revision control.  Each document update starts a new thread branch
+    under the main one.
+
+    This is starting to sound like NNTP.  Each document revision is
+    posted as a new message.  Commentary is attached by replying to
+    the document.  The document is revised off-line and posted with a
+    new version number.
+
   Mailing List
 
     Guts talk on the main list?  I know Torvald is using the list that
     way, reading from here and posting there.  I get the impression,
     though, that it would be easier and more direct if he could add
     his comments directly to this file instead of waiting for me to.
+
+    2001-09-02
+
+    NNTP (news.perl.org?) sounds better.
 
   nntp.perl.org
 
@@ -1002,7 +1120,26 @@ There are some options here:
     of YASD is in order.  I'll work on a database design that models
     my interpretation of the ideal development model.
 
+    2001-09-02
+
+    Revisions to the proposal would need to be reposted.  This is not
+    necessarily a bad thing since the news archive can keep several
+    revisions of it, and people can refer back to older versions.
+
 Are there any other free, usable groupware things?
+
+2001-09-01
+
+A while ago I added sungo to the SourceForge project so he can update
+the components list.  The world hasn't ended yet, so it's less likely
+to hurt adding others.
+
+Need a second poe mailing list so developers can chat, or would the
+main poe list be okay for that?
+
+I'm still afraid of committers adding features that don't scale well
+over time.  It'll be a big pain backing them out.  How can the
+development model be designed so it doesn't happen?
 
 ---------------------------------------
 Give Exported Constants Some Prefix(es)
@@ -1724,7 +1861,7 @@ passes control back to the stack
 <coral> i *may* know enough B to get it done.
 
 <coral> it won't work under ithreads, because B::Genereate and
-ithreadGs (last i knew, 3 months approx.) are incompatible.
+ithreads (last i knew, 3 months approx.) are incompatible.
 
 <dngand> sky would be devastated.  but it also wouldn't be necessary
 under ithreads, so an adaptable design could switch between the two
@@ -1802,6 +1939,52 @@ p5p and/or p6-something in the past fortnight.  maybe the past week.
 
 <coral> we'll likely be using a custom peephole optimizer.
 
+2001-09-01
+
+Torvald Riegel writes:
+
+I'd like to comment once again. I don't know if it is already clear
+and said, but the only code that should block in POE is
+kernel->call. IO should be done with wheels anyway and sleeps with
+timers. You might have to provide call semantics for popular use
+cases, like reading data. And manage a stack maybe. This would make
+linear, blocking code possible.
+
+But synchornisation of sessions/subs will be needed. doing this
+automatically won't be easy with the current amount of information POE
+has about user code.  I use stacks in the script module and routines
+that either don't take time or are known to block (and are derived
+from code that is made non-blocking by use of POE features).
+
+2001-09-01
+
+I responded:
+
+I'm not sure what you're referring to, but it sounds like the idea to
+make regular code cooperate with POE.  I have been thinking about
+rewriting the dispatcher so it's more like a real operating system:
+each session gets a timeslice in order, regardless of the number of
+pending events.  That would let someone use B:: modules (B::Generate,
+B::Basic, and custom opcodes maybe) to rewrite linear code into state
+machines on the fly.
+
+It would also allow "call".  In a real task dispatcher, the caller can
+be flagged as "suspended" and skipped until the callee returns.
+
+2001-09-01
+
+Torvald responded:
+
+Yes I'm referring to the irc log (?) that was added to TODO. The
+problem is that this is really parallel code (it doesn't matter how it
+is scheduled). It's rather another way of threading, and therefor not
+as easy to use (in contrast to atomic POE event handlers). I had some
+other ideas on how to make grabbing results and using almost linear
+code easier. However I think it's the best to use other models like
+petri nets, state machines, transaktions and not stick. A disadvantage
+seems to be that their are either not popular, too complex or don't
+scale for lager programs.
+
 ---------------------------------------
 Work Around Windows NT Socket Stupidity
 ---------------------------------------
@@ -1837,6 +2020,20 @@ On 2000:
   Windows NT:gil:5.0:Build 2195 (Service Pack 2):x86 
 
 But it will suck.
+
+-------------
+Administrivia
+-------------
+
+Consider moving physical hosting to another system.  Philip Gwyn has
+offered web hosting, and the site can keep poe.perl.org.
+
+Matt Cashner says the modules list will forward poe issues (namespace
+registrations, etc.) to some other address.  It could be poe's regular
+mailing list.
+
+The mailing list at poe@perl.org seems to be well maintained, so it
+might not need to go anywhere.
 
 ===============================================================================
 ===============================================================================
