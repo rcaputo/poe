@@ -1247,10 +1247,10 @@ POE::Wheel::ReadLine - prompted terminal input with basic editing keys
   $heap->{wheel} = POE::Wheel::ReadLine->new( InputEvent => got_input );
 
   # Trigger the wheel to read a line of input.
-  $wheel->get( 'Prompt: ' );
+  $heap->{wheel}->get( 'Prompt: ' );
 
   # Add a line to the wheel's input history.
-  $wheel->addhistory( $input );
+  $heap->{wheel}->addhistory( $input );
 
   # Input handler.  If $input is defined, then it contains a line of
   # input.  Otherwise $exception contains a word describing some kind
@@ -1259,16 +1259,16 @@ POE::Wheel::ReadLine - prompted terminal input with basic editing keys
     my ($heap, $input, $exception) = @_[HEAP, ARG0, ARG1];
     if (defined $input) {
       $heap->{wheel}->addhistory($input);
-      print "\tGot: $input\n";
+      $heap->{wheel}->put("\tGot: $input");
       $heap->{wheel}->get('Prompt: '); # get another line
     }
     else {
-      print "\tException: $exception\n";
+      $heap->{wheel}->put("\tException: $exception");
     }
   }
 
   # Clear the terminal.
-  $wheel->clear();
+  $heap->{wheel}->clear();
 
 =head1 DESCRIPTION
 
