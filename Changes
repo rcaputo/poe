@@ -30,10 +30,9 @@ POE is due for a round of breakage to make things more consistent.
 
   1. In the wheels, rename /.*State/ to /.*Event/.  Wheels don't
      define states, they emit events.  Calling Wheels' parameters
-     /.*State/ is just confusing people who expect them to define
-     states.
+     /.*State/ is inconsintent and confusing.
 
-  2. ARG0..ARG9 in built-in events are silly.  The whole concept of
+  2. ARG0..ARG9 in built-in events are silly.  The whole point of
      using array slices and constant offsets is to avoid positional
      dependencies.  Using ARG0..ARG9 defeats most of this technique's
      benefits.  D'oh!
@@ -43,35 +42,38 @@ POE is due for a round of breakage to make things more consistent.
      subsets of POE as needed.  This may not happen, but it's listed
      here for others' consideration.
 
-  4. Whatever else I can break.  May as well get as much of it over at
-     once as I can.  Has anyone been holding off on requests because
+  4. Whatever else I can break.  I may as well break as much as I can
+     in one big lump.  Has anyone been holding off on requests because
      they'd break stuff?  Now's the time to speak up.
 
-I've come up with this depreciation schedule in the hopes it'll
-minimize people's grief.
+I've come up with this tentative depreciation schedule in the hopes
+it'll minimize people's grief.
 
-  0.13 - Release POE as/is with this depreciation schedule.  This is
-         the RFC phase, and people can step up and tell me I'm a bad
-         man for thinking about breaking their programs.
+  1. Release POE as/is with this depreciation schedule.  This is the
+     RFC phase, and interested people should comment on it.
 
-  0.14 - Release POE with new the new parameters/behaviors/etc. and
-         the depreciated ones side-by-side.  The documentation only
-         covers the new things; the depreciated ones are gone.
+  2. Release POE with new the new parameters/behaviors/etc. and the
+     depreciated ones side-by-side.  The documentation will be altered
+     to cover new things and briefly tell about the depreciated
+     things.
 
-  0.15 - Add warnings for depreciated things.  Try not to make them
-         too obnoxious.
+  3. Add warnings for depreciated things.  Try not to make them too
+     obnoxious.
 
-  0.16 - Remove the depreciated things altogether.
+  4. Remove the depreciated things altogether.
 
-The plan is to wait at least a month between each CPAN release.
+My plan is to wait at least a month between each CPAN release.
 Bleeding edge interim releases will start off as maintenance on the
 previous version and then become release candidates for the next one.
-If it all goes as planned, this will give people at least 1/4 year
-notice on changes.
+If it all goes as planned, this will give people at least 1/4 year to
+update their programs.
 
 
-0.1204 2000.??.??
+0.1204 2001.01.10
 -----------------
+
+Fletch pointed out that SunOS has a psrinfo command to describe a
+Sparc's processors.  Excellent!  Updated the README.
 
 Added IO::Pty support to Wheel::Run.  Skip the Pty tests if IO::Pty
 isn't available, so's not to break testing for people without it.
@@ -92,10 +94,17 @@ Added code to prevent session IDs from colliding after integer
 increment wraps.
 
 Devolped a depreciation schedule for some iffy current features and to
-unify some squirrelly ideas that need to be fixed.  Read it or weep.
+make the names of things more consistent.
 
 Added TRACE_RETURNS and ASSERT_RETURNS to generate warnings and/or
 hard errors whenever a Kernel function will return an error.
+
+Updated POE::Session's postback() documentation based on user
+feedback.  Thanks again to Rob Bloodgood.
+
+Rob Bloodgood sent in a patch for POE::Component::Server::TCP to let
+it bind to specific interface addresses.  The default behavior is the
+same as before: bind to INADDR_ANY.
 
 
 0.1203 2000.12.29
