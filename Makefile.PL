@@ -5,6 +5,7 @@ use ExtUtils::MakeMaker;
 use Config;
 
 # Switch to default behavior if STDIN isn't a tty.
+
 unless (-t STDIN) {
   warn(
     "\n",
@@ -17,6 +18,8 @@ unless (-t STDIN) {
   );
   push @ARGV, "--default";
 }
+
+# Remind the user she can use --default.
 
 unless (grep /^--default$/, @ARGV) {
   warn(
@@ -33,6 +36,7 @@ unless (grep /^--default$/, @ARGV) {
   );
 }
 
+# Should we skip the network tests?
 
 my $prompt = qq|
 POE's test suite requires a functional network.
@@ -61,6 +65,8 @@ if($ret =~ /^Y$/i) {
     open(TOUCH,"+>$marker") and close TOUCH;
 }
 
+# Which kind of makefile should we build?
+
 eval "use 5.005_04";
 if ($@) {
   warn(
@@ -82,6 +88,8 @@ if ($@) {
 else {
   require "./mylib/Makefile-5005.pm";
 }
+
+# And finally, ask the user to run a test report.
 
 print(
   "\n",
