@@ -4,17 +4,22 @@ Things to do to POE, many of which will break existing programs.
 Please use POE's mailing list (see the main POE manpage) to comment on
 proposed changes.
 
-=========================================
-Depreciations & Changes In Progress (!!!)
-=========================================
+As with the CHANGES file, things which may break existing programs
+will be marked with "(!!!)".  Since these are long-term plans,
+however, actual code breakage will not occur for at least a month
+after release.
+
+===================================
+Depreciations & Changes In Progress
+===================================
 
 These changes have begun, or will shortly.  Their remaining steps are
 still open to discussion, but the changes will go through in one form
 or another.
 
---------------------
-XyzState to XyzEvent
---------------------
+--------------------------
+XyzState to XyzEvent (!!!)
+--------------------------
 
 In the wheels, rename XyzState to XyzEvent everywhere.  Wheels don't
 define states, they emit events.  Callivg Wheels' parameters XyzState
@@ -44,9 +49,140 @@ To do:
 * Release version ?.??, and announce that the XyzState to XyzEvent
   depreciation has been completed.
 
-------------------------------------
-Signal Handler Return Values Must Go
-------------------------------------
+-----------------------
+Improve Alarm Interface
+-----------------------
+
+This change adds new features without changing the way old ones
+operate.
+
+To do:
+
+* Document new functions.
+
+* Optimize new functions.  Currently there are chunks of common code
+  which have been copied, pasted, and altered for their new
+  environments.  Some of this can be made into macros.
+
+* Port old functions to new functions.  That is, rewrite them so they
+  are a compatibility interface to the new alarm functions.
+
+* Release 0.15 with new interface.
+
+Notes:
+
+Swapped event/time in alarm_set() and event/seconds in delay_set()
+based on feedback from Kirill.
+
+Added alarm_remove_all() to clear all alarms, based on feedback from
+Kirill.  I'm not sure how useful this one will be.
+
+> From troc@netrus.net Thu Mar 18 09:20:36 1999
+> Message-Id: <199903181417.JAA09983@mail.netrus.net>
+> From: "Rocco Caputo" <troc@netrus.net>
+> To: "The POE Mailing List" <poe@vogon.se>
+> Date: Thu, 18 Mar 99 09:17:02 -0500
+> Subject: TODO: fix alarms
+>
+> [...]  If there are no objections, this will go into 0.07_01 or so,
+> depending on my schedule.  [...]
+>
+> | ***fix alarm semantics (in a way that does not break things)
+> |
+> | That's easy to say, anyway.  How about depreciating &Kernel::alarm
+> | and &Kernel::delay, and adding these functions?
+
+      $alarm_id = $kernel->alarm_set($event, $time, @etc);
+      $status = $kernel->alarm_adjust($alarm_id, $seconds_to_adjust);
+      $status = $kernel->alarm_remove($alarm_id);
+
+> | Also the delay shortcut, which would return an ID usable by
+> | &Kernel::alarm_adjust and &Kernel::alarm_remove:
+> | 
+> |   $alarm_id = $kernel->delay_set($event, $seconds, @etc);
+
+To remove all alarms for a given event or time.  I'm not sure how
+useful these are yet.
+
+[Removed alarm_remove_by_event.  Artur is against long method names,
+and I agree with that.  Plus alarm($event) already performs the same
+function.  If the old functions are aliases to the new ones, then the
+dependency should go only one way: new functions should not depend on
+older ones.  Leaving out the alias also reduces POE's memory use a
+bit.]
+
+[Removed alarm_remove_by_time($time).  Its need is not yet proven.]
+
+To remove all alarms for the current session:
+
+      $status = $kernel->alarm_remove_all();
+
+This should be fairly straightforward.
+
+Internally, I am maintaining yet another hash: %kr_alarm_ids, which is
+keyed on alarm ID and contains the corresponding alarm time for that
+ID.  The alarm_(set|adjust|remove) methods will manage %kr_alarm_ids,
+as well as the older alarm, alarm_add, delay, and delay_add methods.
+
+The implementation uses a simplified search taken from _enqueue_alarm.
+It uses %kr_alarm_ids to determine the time for any given alarm so
+that the binary seek can quickly get to it in a large queue.
+
+Ideally, it's possible to schedule delayed alarm removal.  I'd like to
+try that after some more planning.  See "Delay Garbage Collection"
+elsewhere in this file.
+
+Artur wants the old functions to remain.  I don't blame him, and they
+can be more convenient for timeouts and other one-shot timers.
+
+The alarm_adjust() method can be more efficient than alarm() since it
+will be coded to know that it's merely moving an alarm.  For one, it
+can stop messing with reference counts.  If alarm() is written to use
+alarm_adjust() when necessary, it may faster.
+
+------------------------------
+Depreciate queue_peek_alarms()
+------------------------------
+
+The new alarm functions let programs track their alarms by ID, so they
+no longer need to peek into POE's alarm queue.
+
+To do:
+
+* Remove documentation for this function.
+
+* Release version 0.15, and announce the depreciation.
+
+* Wait at least 28 days (until ????.??.??) before continuing this
+  change schedule.  This gives people time to adapt their production
+  code to the new parameters before warnings start.
+
+* Add depreciation warnings to queue_peek_alarms().  This will prompt
+  late developers to adapt their code.
+
+* Release ?.??, and announce the next phase of depreciation.
+
+* Wait at least 28 days (until ????.??.??) before continuing this
+  change schedule.  This gives people time to adapt their production
+  code to avoid the depreciation warnings and subsequent breakage.
+
+* Remove queue_peek_alarms() altogether.
+
+* Release version ?.??, and announce that the depreciation schedule is
+  complete.
+
+
+========================================
+Depreciations & Changes Being Considered
+========================================
+
+These changes are under consideration.  They have not begun, and they
+may not ever be made.  These are proto-plans being considered and made
+ready for deployment.
+
+------------------------------------------
+Signal Handler Return Values Must Go (!!!)
+------------------------------------------
 
 Signal handlers' return values are significant, determining whether
 the handler has handled a signal, which in turn determines whether the
@@ -98,83 +234,89 @@ To do:
 * Release version ?.??, and announce that signal handlers' return
   values have been completely depreciated.
 
-==================================================
-Depreciations & Changes Currently Being Considered
-==================================================
+----------------------
+Batch Remove Resources
+----------------------
 
-These changes are under consideration.  They have not begun, and they
-may not ever be made.  These are proto-plans being considered and made
-ready for deployment.
+Abigail wanted a clean way to stop all alarms in a session that was
+getting ready to go away.  alarm_remove_all() would do this.
+
+Peter J. Braam would like a way to flush all pending events for a
+session.  This would be FIFO events, since there would already be a
+method for alarms.
+
+Kirill would like a way to batch-remove all selects when it's time for
+a session to shut down.
+
+----------------------------------
+SIGTSTP Does the Wrong Thing (???)
+----------------------------------
+
+Gordon Matzigkeit writes (16 Feb 2001):
+
+| If you haven't already, would you please add TSTP as a signal that
+| should not be messed with in POE::Kernel:
+|
+|         if (POE_USES_EVENT) { # include
+|           # If Event is available, register a signal watcher with it.
+|           # Don't register a SIGKILL handler, though, because Event
+|           # doesn't like that.
+|           if ($signal ne 'KILL' and $signal ne 'STOP'
+|               and $signal ne 'TSTP' # <-- HERE
+|              ) {
+|             Event->signal( signal => $signal,
+|                            cb     => \&_event_signal_handler_generic
+|                          );
+|           }
+
+I responded:
+
+| I think a more correct implementation might set up TSTP and CONT
+| handlers like in _APUE_'s program 10.22.  That way, POE can
+| gracefully suspend and resume itself while also propagating TSTP and
+| CONT signals to sessions so they too can perform pause/resume tasks.
+
+The code hasn't been designed yet, but here's the code from program
+10.22 so I don't have to keep looking in the book.
+
+int main (void) {
+  int n;
+  char buf[BUFSIZE];
+
+  /* only catch SIGTSTP if we're running in a job-control shell */
+  if (signal(SIGTSTP, SIG_IGN) == SIG_DFL)
+      signal(SIGTSTP, sig_tstp);
+
+  /* ... code to do stuff ... */
+
+  exit(0);
+}
+
+static void sig_tstp(int signo) { /* signal handler for SIGTSTP */
+  sigset_t mask;
+
+  /* ... code to set up us the suspend ... */
+
+  /* unblock SIGTSTP, since it's blocked while we're handling it */
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGTSTP);
+  sigprocmask(SIG_UNBLOCK, &mask, null);
+
+  signal(SIGTSTP, SIG_DFL);  /* reset disposition to default */
+  kill(getpid(), SIGTSTP);   /* and send the signal to ourself */
+
+  /* kill won't return until we receive SIGCONT or something */
+
+  signal(SIGTSTP, sig_tstp); /* reestablish signal handler */
+
+  /* ... code to set up us the resume ... */
+
+  return;
+}
 
 -----------------------
-Improve Alarm Interface
+ARG0..ARG9 May Go (!!!)
 -----------------------
-
-Swapped event/time in alarm_set() and event/seconds in delay_set()
-based on feedback from Kirill.
-
-Added alarm_remove_all() to clear all alarms, based on feedback from
-Kirill.  I'm not sure how useful this one will be.
-
-> From troc@netrus.net Thu Mar 18 09:20:36 1999
-> Message-Id: <199903181417.JAA09983@mail.netrus.net>
-> From: "Rocco Caputo" <troc@netrus.net>
-> To: "The POE Mailing List" <poe@vogon.se>
-> Date: Thu, 18 Mar 99 09:17:02 -0500
-> Subject: TODO: fix alarms
->
-> [...]  If there are no objections, this will go into 0.07_01 or so,
-> depending on my schedule.  [...]
->
-> | ***fix alarm semantics (in a way that does not break things)
-> |
-> | That's easy to say, anyway.  How about depreciating &Kernel::alarm
-> | and &Kernel::delay, and adding these functions?
-
-      $alarm_id = $kernel->alarm_set($event, $time, @etc);
-      $status = $kernel->alarm_adjust($alarm_id, $seconds_to_adjust);
-      $status = $kernel->alarm_remove($alarm_id);
-
-> | Also the delay shortcut, which would return an ID usable by
-> | &Kernel::alarm_adjust and &Kernel::alarm_remove:
-> | 
-> |   $alarm_id = $kernel->delay_set($event, $seconds, @etc);
-
-To remove all alarms for a given event or time.  I'm not sure how
-useful these are yet.
-
-      $status = $kernel->alarm_remove_by_event($event);
-      $status = $kernel->alarm_remove_by_time($time);
-
-To remove all alarms for the current session:
-
-      $status = $kernel->alarm_remove_all();
-
-Should alarm_remove() be alarm_remove_by_id() ?
-
-Needless to say, this didn't make it into 0.07_01 (see the CHANGES
-file for what did).  Anyway, the interface seems to have survived the
-test of time: I still like it, and so do others who have seen it.
-
-Internally, I'd maintain yet another hash: %kr_alarm_id_to_time, which
-would be keyed on alarm ID and contain the corresponding alarm time
-for that ID.  The alarm_xyz() methods would manage the time: adjust
-would adjust it, etc., so it always matches the time in the queue.
-
-The implementation can reuse the linear/binary seek code from
-_enqueue_alarm to find alarms by time (id->time lookup above) and
-remove/add/adjust alarms relatively quickly.  Ideally, though, it's
-possible to schedule delayed alarm queue sweeps.  I'd like to try that
-after some more planning.  See "Delay Garbage Collection" elsewhere in
-this file.
-
-The old alarm interface would be depreciated.  Perhaps it would be
-reimplemented as a layer atop the new interface, for compatibility,
-and then be depreciated.
-
------------------
-ARG0..ARG9 May Go
------------------
 
 HEAP, KERNEL, SESSION, and the other event handler parameter constants
 were introduced to eliminate a dependence on their positions in @_.
@@ -272,18 +414,33 @@ branches that are currently tested all the time.  The existing
 dual-mode functions could remain as thunks for the single-purpose
 ones.
 
------------------------------------------------------------
-Evaluate Torvald Riegel's Throttled ReadWrite Wheel Patches
------------------------------------------------------------
+----------------------------------------------------------------
+Evaluate Torvald Riegel's Throttled ReadWrite Wheel Design (???)
+----------------------------------------------------------------
 
-Torvald has the code, but I'm not happy with the idea of ReadWrite
-buffering data.  Is there another way, or does Torvald's code really
-make the most sense?  Should this be beyond the scope of ReadWrite and
-something left for a better wheel?
+Torvald has patched POE::Wheel::ReadWrite to perform throttled reads,
+but I'm not happy with the idea of ReadWrite holding buffered data.
 
-------------------------
-Delay Garbage Collection
-------------------------
+To do:
+
+* Distill Torvald's e-mail on the subject and include a summary here.
+
+------------------------------------------------------
+Evaluate Torvald Riegel's Synchronous NFA Design (???)
+------------------------------------------------------
+
+Torvald wants POE::NFA to run entirely synchronously like a proper
+nondeterministic finite state machine ought to.  I'm against that
+because I haven't seen a proper need for it and it puts what I see as
+an artificial limit on the class.
+
+To do:
+
+* Distill Torvald's e-mail on the subject and include a summary here.
+
+------------------------------
+Delay Garbage Collection (???)
+------------------------------
 
 POE's garbage collection can be slow.  It would be very cool to
 schedule this in the "dead" time between events.  Especially in
@@ -302,6 +459,14 @@ out the dead ones.
 
 It will take a fair amount of planning to pull this off correctly.
 I'm just documenting it for now so I don't forget.
+
+-----------------------------------
+Clean up ASSERT_* and TRACE_* Flags
+-----------------------------------
+
+Especially ASSERT_USAGE, ASSERT_RETURNS and TRACE_RETURNS which are
+getting silly.  Make this stuff macros, at the very least.
+
 
 ===
 EOT
