@@ -109,6 +109,11 @@ sub new {
   my $program = delete $params{Program};
   croak "$type needs a Program parameter" unless defined $program;
 
+  my $prog_args = delete $params{ProgramArgs};
+  $prog_args = [] unless defined $prog_args;
+  croak "ProgramArgs must be an ARRAY reference"
+    unless ref($prog_args) eq "ARRAY";
+
   my $priority_delta = delete $params{Priority};
   $priority_delta = 0 unless defined $priority_delta;
 
@@ -357,7 +362,8 @@ sub new {
 
     # Exec the program depending on its form.
     if (ref($program) eq 'ARRAY') {
-      exec(@$program) or die "can't exec (@$program) in child pid $$: $!";
+      exec(@$program, @$prog_args)
+        or die "can't exec (@$program) in child pid $$: $!";
     }
     elsif (ref($program) eq 'CODE') {
 
@@ -366,7 +372,7 @@ sub new {
         POSIX::close($_) for $^F+1..MAX_OPEN_FDS;
       }
 
-      $program->();
+      $program->(@$prog_args);
 
       # In case flushing them wasn't good enough.
       close STDOUT if defined fileno(STDOUT);
@@ -377,7 +383,8 @@ sub new {
       exit(0);
     }
     else {
-      exec($program) or die "can't exec ($program) in child pid $$: $!";
+      exec(join(" ", $program, @$prog_args))
+        or die "can't exec ($program) in child pid $$: $!";
     }
 
     die "insanity check passed";
@@ -993,6 +1000,7 @@ POE::Wheel::Run - event driven fork/exec with added value
 
   $wheel = POE::Wheel::Run->new(
     Program     => $program,
+    ProgramArgs => \@program_args,     # Parameters for $program.
     Priority    => +5,                 # Adjust priority.  May need to be root.
     User        => getpwnam('nobody'), # Adjust UID. May need to be root.
     Group       => getgrnam('nobody'), # Adjust GID. May need to be root.
@@ -1176,6 +1184,14 @@ services are effectively disabled in the child process.
 
 L<perlfunc> has more information about exec() and the different ways
 to call it.
+
+=item ProgramArgs => ARRAY
+
+If specified, C<ProgramArgs> should refer to a list of parameters for
+the program being run.
+
+  my @parameters = qw(foo bar baz);  # will be passed to Program
+  ProgramArgs => \@parameters;
 
 =back
 

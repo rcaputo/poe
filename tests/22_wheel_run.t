@@ -141,11 +141,13 @@ my $tty_flush_count = 0;
 my $program =
   ( "$^X -we '" .
     '$/ = q(!); select STDERR; $| = 1; select STDOUT; $| = 1; ' .
+    'my $out = shift; '.
+    'my $err = shift; '.
     'OUTER: while (1) { ' .
     '  while (<STDIN>) { ' .
     '    last OUTER if /^bye/; ' .
-    '    print(STDOUT qq(out: $_)) if s/^out //; ' .
-    '    print(STDERR qq(err: $_)) if s/^err //; ' .
+    '    print(STDOUT qq($out: $_)) if s/^out //; ' .
+    '    print(STDERR qq($err: $_)) if s/^err //; ' .
     '  } ' .
     '} ' .
     'exit 0;\''
@@ -159,6 +161,7 @@ my $program =
           # Run a child process.
           $heap->{wheel} = POE::Wheel::Run->new
             ( Program      => $program,
+              ProgramArgs  => [ "out", "err" ],
               StdioFilter  => POE::Filter::Line->new( Literal => "!" ),
               StderrFilter => POE::Filter::Line->new( Literal => "!" ),
               StdoutEvent  => 'stdout_nonexistent',
@@ -196,11 +199,13 @@ my $program =
 
         # Got a stdout response.  Ask for something on stderr.
         stdout => sub { &ok_if(17, $_[ARG0] eq 'out: test-out');
+                        DEBUG and warn $_[ARG0];
                         $_[HEAP]->{wheel}->put( 'err test-err' );
                       },
 
         # Got a sterr response.  Tell the child to exit.
         stderr => sub { &ok_if(18, $_[ARG0] eq 'err: test-err');
+                        DEBUG and warn $_[ARG0];
                         $_[HEAP]->{wheel}->put( 'bye' );
                       },
       },
@@ -215,12 +220,13 @@ my $program =
 my $coderef_flush_count = 0;
 
 { my $program = sub {
+    my ($out, $err) = @_;
     local $/ = q(!);
     OUTER: while (1) {
       while (<STDIN>) {
         last OUTER if /^bye/;
-        print(STDOUT qq(out: $_)) if s/^out //;
-        print(STDERR qq(err: $_)) if s/^err //;
+        print(STDOUT qq($out: $_)) if s/^out //;
+        print(STDERR qq($err: $_)) if s/^err //;
       }
     }
   };
@@ -233,6 +239,7 @@ my $coderef_flush_count = 0;
           # Run a child process.
           $heap->{wheel} = POE::Wheel::Run->new
             ( Program      => $program,
+              ProgramArgs  => [ "out", "err" ],
               StdioFilter  => POE::Filter::Line->new( Literal => "!" ),
               StderrFilter => POE::Filter::Line->new( Literal => "!" ),
               StdoutEvent  => 'stdout_nonexistent',
@@ -270,11 +277,13 @@ my $coderef_flush_count = 0;
 
         # Got a stdout response.  Ask for something on stderr.
         stdout => sub { &ok_if(23, $_[ARG0] eq 'out: test-out');
+                        DEBUG and warn $_[ARG0];
                         $_[HEAP]->{wheel}->put( 'err test-err' );
                       },
 
         # Got a sterr response.  Tell the child to exit.
         stderr => sub { &ok_if(24, $_[ARG0] eq 'err: test-err');
+                        DEBUG and warn $_[ARG0];
                         $_[HEAP]->{wheel}->put( 'bye' );
                       },
       },
@@ -298,6 +307,7 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
           # Run a child process.
           $heap->{wheel} = POE::Wheel::Run->new
             ( Program      => $program,
+              ProgramArgs  => [ "out", "err" ],
               StdioFilter  => POE::Filter::Line->new( Literal => "!" ),
               StdoutEvent  => 'stdout_nonexistent',
               ErrorEvent   => 'error_nonexistent',
