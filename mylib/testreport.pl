@@ -117,7 +117,7 @@ foreach my $file (@test_files) {
     print "\n";
 }
 
-my $username = "(windows)";
+my $username = "(" . lc($^O) . "-user)";
 eval { $username = (getpwuid($<))[0]; };
 my $hostname = hostname();
 my $time = scalar gmtime(time());
