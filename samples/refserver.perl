@@ -82,21 +82,18 @@ sub _start {
 
 sub respond {
   my ($self,$kernel,$namespace,$from,$request) = @_;
-  print STDERR "Respond received: $request\n";
-  print STDERR "$request contains:\n";
+  print STDERR "Received at ", time, ": $request = ";
   if ($request =~ /(^|=)HASH\(/) {
-    foreach my $key (sort(keys(%$request))) {
-      print "    '$key' = '$request->{$key}'\n";
-    }
+    print STDERR "{ ", join(', ', %$request), " }\n";
   }
   elsif ($request =~ /(^|=)ARRAY\(/) {
-    print "    '", join("', '", @$request), "'\n";
+    print STDERR "( ", join(', ', @$request), " )\n";
   }
   elsif ($request =~ /(^|=)SCALAR\(/) {
-    print "    '", $$request, "'\n";
+    print STDERR "$$request\n";
   }
   else {
-    print "    (unknown reference type)\n";
+    print STDERR "(unknown reference type)\n";
   }
 }
 
