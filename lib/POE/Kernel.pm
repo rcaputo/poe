@@ -1482,7 +1482,10 @@ sub run {
 }
 
 #------------------------------------------------------------------------------
-# Tk support.
+# Tk support.  Tk's alarm callbacks seem to have the highest priority.
+# That is, if $widget->after is constantly scheduled for a period
+# smaller than the overhead of dispatching it, then no other events
+# are processed.  That includes afterIdle and even internal Tk events.
 
 # Tk idle callback to dispatch FIFO states.  This steals a big chunk
 # of code from POE::Kernel::run().  Make this function's guts a macro
@@ -1531,22 +1534,41 @@ sub _tk_alarm_callback {
 
   {% dispatch_due_alarms %}
 
+  # As was mentioned before, $widget->after() events can dominate a
+  # program's event loop, starving it of other events, including Tk's
+  # internal widget events.  To avoid this, we'll reset the alarm
+  # callback from an idle event.
+
   # Register the next timed callback if there are alarms left.
 
   if (@{$self->[KR_ALARMS]}) {
+
+    # Cancel the Tk alarm that handles alarms.
 
     if (defined $self->[KR_WATCHER_TIMER]) {
       $self->[KR_WATCHER_TIMER]->cancel();
       $self->[KR_WATCHER_TIMER] = undef;
     }
 
-    my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
-    $next_time = 0 if $next_time < 0;
+    # Replace it with an idle event that will reset the alarm.
 
     $self->[KR_WATCHER_TIMER] =
-      $poe_tk_main_window->after( $next_time * 1000,
-                                  \&_tk_alarm_callback
-                                );
+      $poe_tk_main_window->afterIdle
+        ( sub {
+            $self->[KR_WATCHER_TIMER]->cancel();
+            $self->[KR_WATCHER_TIMER] = undef;
+
+            if (@{$self->[KR_ALARMS]}) {
+              my $next_time = $self->[KR_ALARMS]->[0]->[ST_TIME] - time();
+              $next_time = 0 if $next_time < 0;
+
+              $self->[KR_WATCHER_TIMER] =
+                $poe_tk_main_window->after( $next_time * 1000,
+                                            \&_tk_alarm_callback
+                                          );
+            }
+          }
+        );
   }
 
   # Make sure the kernel can still run.
@@ -2000,7 +2022,6 @@ sub _enqueue_alarm {
     # If using Tk and the alarm queue now has only one event, then
     # register a Tk timed callback to dispatch it when it becomes due.
     if ( POE_HAS_TK and @{$self->[KR_ALARMS]} == 1 ) {
-
       if (defined $self->[KR_WATCHER_TIMER]) {
         $self->[KR_WATCHER_TIMER]->cancel();
         $self->[KR_WATCHER_TIMER] = undef;
@@ -2148,7 +2169,7 @@ sub alarm {
   # If using Tk and the alarm queue is empty, then discard the Tk
   # alarm callback.
   if (POE_HAS_TK and @{$self->[KR_ALARMS]} == 0) {
-    # -><- Remove the idle handler.
+    # -><- Remove the alarm handler.  Is this necessary?
   }
 
   # If using Event and the alarm queue is empty, then ensure that the

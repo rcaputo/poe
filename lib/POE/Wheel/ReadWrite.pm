@@ -152,7 +152,7 @@ sub _define_write_state {
   # Register the select-write handler.
 
   $poe_kernel->state
-    ( $self->[STATE_WRITE] = $self . ' -> select write',
+    ( $self->[STATE_WRITE] = $self . ' select write',
       sub {                             # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
@@ -231,7 +231,7 @@ sub _define_read_state {
     my $event_error  = \$self->[EVENT_ERROR];
 
     $poe_kernel->state
-      ( $self->[STATE_READ] = $self . ' -> select read',
+      ( $self->[STATE_READ] = $self . ' select read',
         sub {
                                         # prevents SEGV
           0 && CRIMSON_SCOPE_HACK('<');

@@ -73,7 +73,7 @@ sub _define_accept_state {
   my $handle       = $self->{handle};
                                         # register the select-read handler
   $poe_kernel->state
-    ( $self->{'state read'} =  $self . ' -> select read',
+    ( $self->{'state read'} =  $self . ' select read',
       sub {
                                         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');

@@ -86,7 +86,7 @@ sub _define_accept_state {
   my $failure_state = \$self->{state_failure};
 
   $poe_kernel->state
-    ( $self->{state_accept} = $self . ' -> select accept',
+    ( $self->{state_accept} = $self . ' select accept',
       sub {
         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
@@ -209,7 +209,7 @@ sub event {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
           $poe_kernel->state
-            ( $self->{state_success} = $self . ' -> success',
+            ( $self->{state_success} = $self . ' success',
               $event
             );
           $self->{mine_success} = 'yes';
@@ -230,7 +230,7 @@ sub event {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
           $poe_kernel->state
-            ( $self->{state_failure} = $self . ' -> failure',
+            ( $self->{state_failure} = $self . ' failure',
               $event
             );
           $self->{mine_failure} = 'yes';

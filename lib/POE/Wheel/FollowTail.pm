@@ -9,6 +9,23 @@ use POE;
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
+# Turn on tracing.  A lot of debugging occurred just after 0.11.
+sub TRACE () { 0 }
+
+# Tk doesn't provide a SEEK method, as of 800.022
+BEGIN {
+  if (exists $INC{'Tk.pm'}) {
+    eval <<'    EOE';
+      sub Tk::Event::IO::SEEK {
+        my $o = shift;
+        $o->wait(Tk::Event::IO::READABLE);
+        my $h = $o->handle;
+        sysseek($h, shift, shift);
+      }
+    EOE
+  }
+}
+
 #------------------------------------------------------------------------------
 
 sub new {
@@ -33,12 +50,13 @@ sub new {
                         : 1
                       );
 
-  my $seek_back = ( (exists $params{'SeekBack'})
-                    ? $params{'SeekBack'}
+  my $seek_back = ( ( exists($params{SeekBack})
+                      and defined($params{SeekBack})
+                    )
+                    ? $params{SeekBack}
                     : 4096
                   );
   $seek_back = 0 if $seek_back < 0;
-
 
   my $self = bless { handle      => $handle,
                      driver      => $driver,
@@ -57,9 +75,21 @@ sub new {
   $poe_kernel->select($handle, $self->{state_read});
 
   # Try to position the file pointer before the end of the file.  This
-  # is so we can "tail -f" an existing file.
+  # is so we can "tail -f" an existing file.  FreeBSD, at least,
+  # allows sysseek to go before the beginning of a file.  Trouble
+  # ensues at that point, causing the file never to be read again.
+  # This code does some extra work to prevent seeking beyond the start
+  # of a file.
 
-  eval { seek($handle, -$seek_back, SEEK_END); };
+  eval {
+    my $end = sysseek($handle, 0, SEEK_END);
+    if (defined($end) and ($end < $seek_back)) {
+      sysseek($handle, 0, SEEK_SET);
+    }
+    else {
+      sysseek($handle, -$seek_back, SEEK_END);
+    }
+  };
 
   # Discard partial input chunks unless a SeekBack was specified.
   unless (exists $params{SeekBack}) {
@@ -88,12 +118,14 @@ sub _define_states {
   my $driver        = $self->{driver};
   my $event_input   = \$self->{event_input};
   my $event_error   = \$self->{event_error};
-  my $state_wake    = $self->{state_wake} = $self . ' -> alarm';
-  my $state_read    = $self->{state_read} = $self . ' -> select read';
+  my $state_wake    = $self->{state_wake} = $self . ' alarm';
+  my $state_read    = $self->{state_read} = $self . ' select read';
   my $poll_interval = $self->{interval};
   my $handle        = $self->{handle};
 
   # Define the read state.
+
+  TRACE and do { warn $state_read; };
 
   $poe_kernel->state
     ( $state_read,
@@ -103,25 +135,35 @@ sub _define_states {
                                         # subroutine starts here
         my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
 
+        $k->select_read($hdl);
+
+        eval { sysseek($hdl, 0, SEEK_CUR); };
+        $! = 0;
+
+        TRACE and do { warn time . " read ok\n"; };
+
         if (defined(my $raw_input = $driver->get($hdl))) {
+          TRACE and do { warn time . " raw input\n"; };
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
+            TRACE and do { warn time . " cooked input\n"; };
             $k->call($ses, $$event_input, $cooked_input);
           }
         }
 
-        $k->select_read($hdl);
-
         if ($!) {
+          TRACE and do { warn time . " error: $!\n"; };
           $$event_error && $k->call($ses, $$event_error, 'read', ($!+0), $!);
         }
-        else {
-          $k->delay($state_wake, $poll_interval);
-        }
+
+        TRACE and do { warn time . " set delay\n"; };
+        $k->delay($state_wake, $poll_interval);
       }
     );
 
   # Define the alarm state that periodically wakes the wheel and
   # retries to read from the file.
+
+  TRACE and do { warn $state_wake; };
 
   $poe_kernel->state
     ( $state_wake,
@@ -130,6 +172,9 @@ sub _define_states {
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
         my $k = $_[KERNEL];
+
+        TRACE and do { warn time . " wake up and select the handle\n"; };
+
         $k->select_read($handle, $state_read);
       }
     );
@@ -206,8 +251,9 @@ POE::Wheel - POE FollowTail Protocol Logic
 This wheel follows the end of an ever-growing file, perhaps a log
 file, and generates events whenever new data appears.  It is a
 read-only wheel, so it does not include a put() method.  It uses
-tell() and seek() functions, so it's only suitable for plain files.
-It won't tail pipes or consoles.
+sysseek(2) wrapped in eval { }, so it should work okay on all sorts of
+files.  That is, if perl supports select(2)'ing them on the underlying
+operating system.
 
 =head1 PUBLIC METHODS
 
@@ -260,7 +306,9 @@ ErrorState
 
 The ErrorState event contains the name of the state that will be
 called when a file error occurs.  The FollowTail wheel knows what to
-do with EAGAIN, so it's not considered a true error.
+do with EAGAIN, so it's not considered a true error.  FollowTail will
+continue running even on an error, so it's up to the Session to stop
+things if that's what it wants.
 
 The ARG0 parameter contains the name of the function that failed.
 ARG1 and ARG2 contain the numeric and string versions of $! at the

@@ -4,8 +4,18 @@ Revision history for POE
 ========================
 
 Changes marked with "(!!!)" may break backward compatibility.
-Versions with "_xx" subversions are internal test releases.  Most
-subversions are available from <http://www.newts.org/~troc/poe.html>.
+
+Changes marked with "(???)" are informational.
+
+Version numbers have four fields: X.YYZZAA
+
+  X  is the interface version, currently 0 as public interfaces gel.
+  YY is the major revision number.
+  ZZ is the minor revision number.  It's 00 for public CPAN releases,
+     or nonzero for beta web site releases.
+  AA is a testing revision.  It's usually 00, which means the tarball
+     is a public release.  Nonzero versions are limited alpha level
+     releases (development snapshots) for specific testers.
 
 [ Hey, Rocco, don't forget to assign a tag to the release after you
   make dist on it!  0.0910 is ``v0_0910''!  For example:
@@ -16,24 +26,89 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 ,----- To Do -----
 |
-| After 0.11
+| Why does samples/tk.perl leak memory, and how can I fix it?
 |
-| Filter::HTTPD test.
-| Wheel::ListenAccept rewrite & tests.
+| caller() calls in POE::Kernel report POE::Kernel lines.  They
+| should follow the call chain out to someone else's code.
+|
+| Write a Filter::HTTPD test.
+|
+| Wheel::ListenAccept is way behind SocketFactory's listen/accept
+| code.  Migrate SocketFactory's code to ListenAccept, and write
+| a test based on IO::Socket::INET sockets.
 |
 | Add new newlines to Filter::Line.
 |
 | Split the samples out into a separate distribution.
+|
 | Revise the POE web pages.
 |
+| Move the POE mailing list, which seems to have fallen on hard times.
+|
 `-----------------
+
 
 0.1101 2000.??.??
 -----------------
 
-Added samples/neural-net.perl.  Someone on IRC was lamenting over
-perl's threads, and he needed parallel computing for a neural network
-he wanted to write, so I wrote this prototype/tutorial for him.  Not
+This public release also contains the changes found in private testing
+releases 0.110001 and 0.110002.  Please see the changes in those
+revisions as well.
+
+A peculiar sort of memory corruption is occurring when POE 0.11 is
+running under perl 5.6.0 (not perl-current, it seems) and Perl/Tk
+800.021 (and 800.022).  One specific string encounters a substitution,
+in the same place but at random times.  It seems that its "->"
+substring is being changed into "-<", which causes samples/tk.perl to
+fail quietly.  Changing the substring to "-!>" `fixes' the problem, as
+does removing the arrow altogether (which is what I eventually did).
+I don't know why it's happening, and close scrutiny seems to make the
+problem go away.
+
+
+0.110002 2000.07.23
+-------------------
+
+This is a private testing release for a single person.
+
+Tweak samples/tk.perl.  Add labels to the different fields, add a
+counter to run in the background when the window loses its focus, and
+add a _default state to catch misnamed events.  This is part of a bug
+hunt in Wheel::FollowTail.
+
+It seems to be a Bad Thing to set a Tk callback from a Tk callback of
+the same type.  I had discovered this early on with the Tk afterIdle()
+callback that drives POE's FIFO queue, but the problem didn't occur
+with the Tk after() callback that drives POE's alarms.  Well, the
+deadlock does occur for alarms, but it only happens when they're
+scheduled for sooner than the current callback returns.  I've changed
+the Tk after() callback to reset itself from a Tk afterIdle()
+callback, making this a two-phase sort of flip-flop thing like the
+afterIdle() callback.  (The afterIdle() callback resets itself from an
+after() callback scheduled for 0us hence.)
+
+Added debugging and coverage code to the MANIFEST: lib/Devel/Null.pm;
+lib/Devel/Trace.pm; lib/coverage.perl.
+
+
+0.110001 2000.07.21
+-------------------
+
+This is a private testing release for a single person.
+
+Supply a Tk::Event::IO::SEEK in Wheel::FollowTail, since FollowTail
+needs sysseek, which calls SEEK, and Tk::Event::IO doesn't include
+one.  Use sysseek in FollowTail to clear the eof indicator, but wrap
+it in a block eval for times when one oughtn't be seeking.
+
+sysseek(2) can seek back past the start of a file on some systems.  Do
+some extra gyrations in Wheel::FollowTail to prevent its SeekBack
+parameter (or the default) from seeking back farther than the file's
+start.
+
+Added samples/neural-net.perl.  Crysflame was lamenting over perl's
+threads, and he needed parallel computing for a neural network he
+wanted to write, so I wrote this prototype/tutorial for him.  Not
 knowing much about neural networks, it's pretty useless.  It does show
 off POE for pseudo-concurrency, though.
 

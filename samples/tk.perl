@@ -20,7 +20,7 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 # to POE at compile time, so it can adjust its behavior accordingly.
 # This technique can be extended to other event loops.
 use Tk;
-use POE qw( Wheel::ReadWrite Filter::Line Driver::SysRW );
+use POE qw( Wheel::ReadWrite Filter::Line Driver::SysRW Wheel::FollowTail );
 use Symbol;
 
 #==============================================================================
@@ -39,6 +39,7 @@ sub ui_start {
   my $fast_text = 0;
   my $slow_text = 0;
   my $idle_text = 0;
+  my $unfocus_text = 0;
 
   # A pipe.
 
@@ -56,23 +57,54 @@ sub ui_start {
         ErrorState   => 'ev_pipe_error',
       );
 
+  # A file.
+
+  $heap->{file_read}  = gensym();
+  $heap->{file_write} = gensym();
+  open $heap->{file_write}, ">/tmp/test-$$"
+    or die "can't write /tmp/test-$$: $!";
+  open $heap->{file_read}, "</tmp/test-$$"
+    or die "can't read /tmp/test-$$: $!";
+
+  $heap->{file_write_wheel} =
+    POE::Wheel::ReadWrite->new
+      ( Handle     => $heap->{file_write},
+        Filter     => POE::Filter::Line->new(),
+        Driver     => POE::Driver::SysRW->new(),
+        ErrorState => 'ev_file_error',
+      );
+
+  $heap->{file_read_wheel} =
+    POE::Wheel::FollowTail->new
+      ( Handle       => $heap->{file_read},
+        Filter       => POE::Filter::Line->new(),
+        Driver       => POE::Driver::SysRW->new(),
+        InputState   => 'ev_file_read',
+        ErrorState   => 'ev_file_error',
+        PollInterval => 0.3,
+      );
+
   # An entry field.  Things entered here are written to the writable
-  # end of the pipe.
+  # ends of the pipe and file.
+
+  $poe_tk_main_window->Label( -text => 'Entry Field' )->pack;
 
   $heap->{pipe_entry} = $poe_tk_main_window->Entry( -width => 30 );
   $heap->{pipe_entry}->insert( 0, scalar localtime() );
   $heap->{pipe_entry}->pack;
 
   # A button.  Pressing it writes what's in the entry field into the
-  # pipe.
+  # pipe and file.
 
   $poe_tk_main_window->Button
-    ( -text => 'Write Entry to Pipe',
+    ( -text => 'Write Entry to Pipe and File',
       -command => $session->postback( 'ev_pipe_write' )
     )->pack;
 
   # A listbox.  It contains the last 5 things fetched from the
   # readable end of the pipe.
+
+  $poe_tk_main_window->Label( -text => 'Pipe Tail (simple read)' )->pack;
 
   $heap->{pipe_tail_list} = $poe_tk_main_window->Listbox
     ( -height => 5, -width => 30
@@ -82,7 +114,22 @@ sub ui_start {
   }
   $heap->{pipe_tail_list}->pack;
 
+  # A listbox.  It contains the last 5 things fetched from the
+  # readable end of the file.
+
+  $poe_tk_main_window->Label( -text => 'File Tail (tail follow)' )->pack;
+
+  $heap->{file_tail_list} = $poe_tk_main_window->Listbox
+    ( -height => 5, -width => 30
+    );
+  for my $i (0..4) {
+    $heap->{file_tail_list}->insert( 'end', "starting line $i" );
+  }
+  $heap->{file_tail_list}->pack;
+
   # A fast timed counter.
+
+  $poe_tk_main_window->Label( -text => 'Fast Timed Counter' )->pack;
 
   $heap->{fast_text} = \$fast_text;
   $heap->{fast_widget} =
@@ -91,6 +138,8 @@ sub ui_start {
 
   # A slow timed counter.
 
+  $poe_tk_main_window->Label( -text => 'Slow Timed Counter' )->pack;
+
   $heap->{slow_text} = \$slow_text;
   $heap->{slow_widget} =
     $poe_tk_main_window->Label( -textvariable => $heap->{slow_text} );
@@ -98,19 +147,30 @@ sub ui_start {
 
   # An idle counter.
 
+  $poe_tk_main_window->Label( -text => 'Idle Foreground Counter' )->pack;
+
   $heap->{idle_text} = \$idle_text;
   $heap->{idle_widget} =
     $poe_tk_main_window->Label( -textvariable => $heap->{idle_text} );
   $heap->{idle_widget}->pack;
 
+  # Another idle counter, for when the window has no focus.
+
+  $poe_tk_main_window->Label( -text => 'Idle Background Counter' )->pack;
+
+  $heap->{unfocus_text} = \$unfocus_text;
+  $heap->{unfocus_widget} =
+    $poe_tk_main_window->Label( -textvariable => $heap->{unfocus_text} );
+  $heap->{unfocus_widget}->pack;
+
   # Buttons to start and stop the timed counters.
 
   $poe_tk_main_window->Button
-    ( -text => 'Begin Slow and Fast Alarm Counters',
+    ( -text => 'Begin Timed Counters',
       -command => $session->postback( 'ev_counters_begin' )
     )->pack;
   $poe_tk_main_window->Button
-    ( -text => 'Stop Slow and Fast Alarm Counters',
+    ( -text => 'Stop Timed Counters',
       -command => $session->postback( 'ev_counters_cease' )
     )->pack;
 
@@ -133,6 +193,17 @@ sub ui_start {
 }
 
 sub ui_stop {
+  my $heap = $_[HEAP];
+
+  delete $heap->{file_read_wheel};  delete $heap->{file_read};
+  delete $heap->{file_write_wheel}; delete $heap->{file_write};
+
+  delete $heap->{pipe_wheel};
+  delete $heap->{pipe_read};
+  delete $heap->{pipe_write};
+
+  unlink "/tmp/test-$$";
+
   print "Session ", $_[SESSION]->ID, " is stopped.\n";
 }
 
@@ -205,8 +276,11 @@ sub ui_focus_idle_counter_increment {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
   if ($heap->{has_focus}) {
     ${$heap->{idle_text}}++;
-    $kernel->yield( 'ev_idle_count' );
   }
+  else {
+    ${$heap->{unfocus_text}}++;
+  }
+  $kernel->yield( 'ev_idle_count' );
 }
 
 ### Select stuff.
@@ -217,6 +291,7 @@ sub ui_ev_pipe_write {
   $heap->{pipe_entry}->delete( 0, length($text) );
   $heap->{pipe_entry}->insert( 0, scalar localtime() );
   $heap->{pipe_wheel}->put($text);
+  $heap->{file_write_wheel}->put($text);
 }
 
 sub ui_ev_pipe_read {
@@ -229,7 +304,20 @@ sub ui_ev_pipe_read {
 sub ui_ev_pipe_error {
   my ($heap, $op, $en, $es) = @_[HEAP, ARG0..ARG2];
   $heap->{pipe_tail_list}->delete(0);
-  $heap->{pipe_tail_list}->insert( 'end', "pipe got $op error $en: $es" );
+  $heap->{pipe_tail_list}->insert( 'end', "$op error $en: $es" );
+}
+
+sub ui_ev_file_read {
+  my ($heap, $line) = @_[HEAP, ARG0];
+
+  $heap->{file_tail_list}->delete(0);
+  $heap->{file_tail_list}->insert( 'end', $line );
+}
+
+sub ui_ev_file_error {
+  my ($heap, $op, $en, $es) = @_[HEAP, ARG0..ARG2];
+  $heap->{file_tail_list}->delete(0);
+  $heap->{file_tail_list}->insert( 'end', "$op error $en: $es" );
 }
 
 ### Main loop, or something.
@@ -258,6 +346,22 @@ POE::Session->create
       ev_pipe_error => \&ui_ev_pipe_error,
       ev_pipe_read  => \&ui_ev_pipe_read,
       ev_pipe_write => \&ui_ev_pipe_write,
+
+      ### File watcher.
+
+      ev_file_error => \&ui_ev_file_error,
+      ev_file_read  => \&ui_ev_file_read,
+
+      ### Debugging info.
+
+      _default =>
+      sub {
+        print( $_[SESSION]->ID,
+               " _default caught unhandled event $_[ARG0] with (@{$_[ARG1]})\n"
+             );
+        return 0;
+      },
+
     }
   );
 

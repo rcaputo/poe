@@ -29,6 +29,9 @@ POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
 POE/Wheel/SocketFactory.pm
 README
+lib/coverage.perl
+lib/Devel/Null.pm
+lib/Devel/Trace.pm
 lib/MyOtherFreezer.pm
 lib/TestSetup.pm
 samples/create.perl

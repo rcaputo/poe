@@ -123,6 +123,20 @@ for my $j (0..9) {
                                         # just display the input
         print $line_of_input, "\n";
       },
+
+      # To catch strange events.
+      _default =>
+      sub {
+        warn "default caught $_[ARG0] with (@{$_[ARG1]})";
+        my $i = 0;
+        while (1) {
+          my @xyz = map { defined($_) ? $_ : '(undef)' } caller($i++);
+          $xyz[-1] = unpack 'B*', $xyz[-1];
+          last unless @xyz;
+          warn "$i: @xyz\n";
+        }
+        return 0;
+      },
     );
 }
 
