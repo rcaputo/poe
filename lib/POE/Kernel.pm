@@ -488,8 +488,8 @@ sub new {
         \$kr_active_session, # KR_ACTIVE_SESSION - should this be handled by POE::Resource::Sessions?
         \$kr_queue,          # KR_QUEUE - should this be extracted into a Resource ?
         undef,               # KR_ID 
-        undef,               # KR_SESSION_IDS - loaded from POE::Resource::Sessions
-        undef,               # KR_SID_SEQ - loaded from POE::Resource::SIDS
+        undef,               # KR_SESSION_IDS - loaded from POE::Resource::SIDS
+        undef,               # KR_SID_SEQ - lives in P:R:SIDS but is a lexical scalar. thoughts on if it should live inside the kernel?
       ], $type;
 
     POE::Resources->initialize();
