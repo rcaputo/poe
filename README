@@ -155,7 +155,7 @@ Event   : 0.81
 IO::Pty : 0.01
 
 All tests successful.
-Files=26, Tests=476, 86 wallclock secs ( 7.12 cusr +  0.56 csys =  7.68 CPU)
+Files=26, Tests=492, 86 wallclock secs ( 7.34 cusr +  0.59 csys =  7.93 CPU)
 
 ** POE 0.1401 on Solaris/SunOS 5.8 (dynweb)
 
