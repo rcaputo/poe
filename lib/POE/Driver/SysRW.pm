@@ -38,7 +38,7 @@ sub put {
 sub get {
   my ($self, $handle) = @_;
 
-  my $result = sysread($handle, my $buffer = '', 1024);
+  my $result = sysread($handle, my $buffer = '', 512);
   if ($result || ($! == EAGAIN)) {
     $! = 0;
     [ $buffer ];
@@ -53,14 +53,18 @@ sub get {
 sub flush {
   my ($self, $handle) = @_;
                                         # syswrite it, like we're supposed to
-  my $wrote_count = syswrite($handle,
-                             $self->{'out queue'}->[0],
-                             $self->{'bytes left'},
-                             $self->{'bytes done'}
-                            );
+  while (@{$self->{'out queue'}}) {
+    my $wrote_count = syswrite($handle,
+                               $self->{'out queue'}->[0],
+                               $self->{'bytes left'},
+                               $self->{'bytes done'}
+                              );
 
-  if ($wrote_count || ($! == EAGAIN)) {
-    $! = 0;
+    unless ($wrote_count) {
+      $! = 0 if ($! == EAGAIN);
+      last;
+    }
+
     $self->{'bytes done'} += $wrote_count;
     unless ($self->{'bytes left'} -= $wrote_count) {
       shift(@{$self->{'out queue'}});
