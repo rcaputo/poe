@@ -44,7 +44,7 @@ Version numbers have four fields: X.YYZZAA
 | things greatly...
 |
 | Samples, long term: Split them out and turn them into proper
-| tutorials.  They take up a good 300 kilobytes, uncompressed.
+| tutorials.  They take up something like half the distribution!
 |
 | POE::NFA test.
 |
@@ -61,8 +61,8 @@ Version numbers have four fields: X.YYZZAA
 `----------------------------------------------------
 
 
-0.1110 2000.11.11
------------------
+0.1110 2000.11.11 (!!!)
+-----------------------
 
 Added ARG1 to Wheel::ListenAccept's AcceptState parameter.  This
 contains the accept() call's return address.

@@ -3,6 +3,29 @@ $Id$
 
 The bulk of this README's information has migrated to the POE manpage.
 
+--------------------
+Distribution Details
+--------------------
+
+This distribution comes with several sample and tutorial programs in
+its samples/ directory.  These programs are NOT installed because they
+have limited use and take up about 400 kilobytes (around half of the
+total distribution).
+
+The lib/ directory includes a few useful utilities, including a
+relatively portable pipe creator.  It uses pipe() or falls back to
+INET domain sockets.  There's also a small test coverage tracer
+module, harness, and report.  The test coverage summary at the end of
+this file is part of the report.  These utilities aren't installed
+either.
+
+The test programs, in t/, may also be interesting examples, although
+they're more geared towards exercising POE's bits.  The tests also
+aren't installed.
+
+All in all, the actual installed bits of POE are probably around 1/4
+of the total distribution, and half of them are PODs.
+
 ------------------------------
 Compatibility Between Versions
 ------------------------------
@@ -10,7 +33,8 @@ Compatibility Between Versions
 As POE moves closer towards the Common Sense axis, it sometimes
 diverges away from the Backwards Compatible axis.  If this version is
 being installed over a previous one, please check the Changes file to
-see what it might break.  Interface changes usually are documented.
+see what it might break.  Interface changes usually are documented and
+set off with a little text icon.
 
 ------------------
 Basic Installation
@@ -61,7 +85,7 @@ Finally you can install it:
 Test Results and Coverage
 -------------------------
 
-These are the `make test' results for POE 0.1109 on OS/2:
+These are the `make test' results for POE 0.1110 on OS/2:
 
 Hardware: Cyrix P166+; 64MB RAM.
 Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no Event; no Gtk.
@@ -69,7 +93,7 @@ Software: OS/2 4, fix 13; perl 5.6.0; no Perl/Tk; no Event; no Gtk.
   All tests successful, 4 tests skipped.
   Files=22, Tests=374, 173 wallclock secs ( [line shortened] )
 
-These are the `make test' results for POE 0.1109 or FreeBSD:
+These are the `make test' results for POE 0.1110 or FreeBSD:
 
 Hardware: AMD 486-40; 16MB RAM.
 Software: FreeBSD 4.0-STABLE; perl 5.6.0; Perl/Tk 800.021; Event 0.79;
