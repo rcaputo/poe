@@ -53,6 +53,7 @@ t/08_errors.t     is data
 POE::Kernel::Tk        wants Tk                 800.021
 POE::Kernel            wants Time::HiRes
 POE::Filter::Reference wants FreezeThaw
+POE::Filter::Reference wants Storable
 POE::Filter::Reference wants Compress::Zlib
 *                      wants POE::NonExistent
 POE::Wheel::Run        wants IO::Pty
