@@ -97,7 +97,7 @@ sub receive {
   $response->push_header('Content-type', 'text/html');
   $response->content("hello: " . $request->as_string());
                                         # queue the response for output
-  $heap->{wheel}->put($response, 'HTTP');
+  $heap->{wheel}->put($response);
 }
 
 #------------------------------------------------------------------------------
