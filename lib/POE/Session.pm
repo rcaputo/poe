@@ -108,7 +108,8 @@ BEGIN {
 
 #------------------------------------------------------------------------------
 # Export constants into calling packages.  This is evil; perhaps
-# EXPORT_OK instead?
+# EXPORT_OK instead?  The parameters NFA has in common with SESSION
+# (and other sessions) must be kept at the same offsets as each-other.
 
 sub OBJECT  () {  0 }
 sub SESSION () {  1 }
@@ -116,16 +117,17 @@ sub KERNEL  () {  2 }
 sub HEAP    () {  3 }
 sub STATE   () {  4 }
 sub SENDER  () {  5 }
-sub ARG0    () {  6 }
-sub ARG1    () {  7 }
-sub ARG2    () {  8 }
-sub ARG3    () {  9 }
-sub ARG4    () { 10 }
-sub ARG5    () { 11 }
-sub ARG6    () { 12 }
-sub ARG7    () { 13 }
-sub ARG8    () { 14 }
-sub ARG9    () { 15 }
+# NFA keeps its state in 6.  unused in session so that args match up.
+sub ARG0    () {  7 }
+sub ARG1    () {  8 }
+sub ARG2    () {  9 }
+sub ARG3    () { 10 }
+sub ARG4    () { 11 }
+sub ARG5    () { 12 }
+sub ARG6    () { 13 }
+sub ARG7    () { 14 }
+sub ARG8    () { 15 }
+sub ARG9    () { 16 }
 
 sub import {
   my $package = caller();
@@ -563,6 +565,7 @@ sub _invoke_state {
         $self->[SE_NAMESPACE],          # heap
         $state,                         # state
         $source_session,                # sender
+        undef,                          # unused #6
         @$etc                           # args
       );
   }
@@ -577,6 +580,7 @@ sub _invoke_state {
         $self->[SE_NAMESPACE],          # heap
         $state,                         # state
         $source_session,                # sender
+        undef,                          # unused #6
         @$etc                           # args
       );
 }
