@@ -402,8 +402,11 @@ sub new {
       close STDOUT if defined fileno(STDOUT);
       close STDERR if defined fileno(STDERR);
 
-      eval { POSIX::_exit(0); };
-      eval { kill KILL => $$; };
+      # Try to exit without triggering END or object destructors.
+      # Give up with a plain exit if we must.
+      eval { POSIX::_exit(0);  };
+      eval { kill KILL => $$;  };
+      eval { exec("$^X -e 0"); };
       exit(0);
     }
     else {
@@ -1216,6 +1219,11 @@ services are effectively disabled in the child process.
 
 L<perlfunc> has more information about exec() and the different ways
 to call it.
+
+Note: Do not call exit() explicitly when executing a subroutine.
+POE::Wheel::Run takes special care to avoid object destructors and END
+blocks in the child process, and calling exit() will thwart that.  You
+may see "POE::Kernel's run() method was never called." or worse.
 
 =item ProgramArgs => ARRAY
 
