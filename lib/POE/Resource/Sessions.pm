@@ -198,14 +198,17 @@ sub _data_ses_move_child {
   }
 
   if (ASSERT_DATA) {
-    _trap() unless exists $kr_sessions{$session};
-    _trap() unless exists $kr_sessions{$new_parent};
+    _trap("moving nonexistent child to another parent")
+      unless exists $kr_sessions{$session};
+    _trap("moving child to a nonexistent parent")
+      unless exists $kr_sessions{$new_parent};
   }
 
   my $old_parent = $self->_data_ses_get_parent($session);
 
   if (ASSERT_DATA) {
-    _trap() unless exists $kr_sessions{$old_parent};
+    _trap("moving child from a nonexistent parent")
+      unless exists $kr_sessions{$old_parent};
   }
 
   # Remove the session from its old parent.
@@ -326,13 +329,9 @@ sub _data_ses_refcount_dec {
     );
   }
 
-  # -><- Why do we return if the session does not exist, but then confess
-  # that there is a problem if the session does not exist?  One of
-  # these must go!
-  return unless exists $kr_sessions{$session};
-
   if (ASSERT_DATA) {
-    _trap() unless exists $kr_sessions{$session};
+    _trap("decrementing refcount of a nonexistent session")
+      unless exists $kr_sessions{$session};
   }
 
   $kr_sessions{$session}->[SS_REFCOUNT]--;
@@ -390,7 +389,8 @@ sub _data_ses_collect_garbage {
   # what it's working around.
 
   if (ASSERT_DATA) {
-    _trap() unless exists $kr_sessions{$session};
+    _trap("collecting garbage for a nonexistent session")
+      unless exists $kr_sessions{$session};
   }
 
   if (TRACE_REFCNT) {
@@ -463,7 +463,8 @@ sub _data_ses_stop {
   }
 
   if (ASSERT_DATA) {
-    _trap unless exists $kr_sessions{$session};
+    _trap("stopping a nonexistent session")
+      unless exists $kr_sessions{$session};
   }
 
   # Maintain referential integrity between parents and children.
