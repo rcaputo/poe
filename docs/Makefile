@@ -11,3 +11,7 @@ all: ../POE.pod ../POE-TODO.pod
 ../POE-TODO.pod: ./POE-TODO.outline
 	./out-out.perl pod  ./POE-TODO.outline > ../POE-TODO.pod
 	./out-out.perl html ./POE-TODO.outline > ../POE-TODO.html
+
+../POE-HINTS.pod: ./POE-HINTS.outline
+	./out-out.perl pod  ./POE-HINTS.outline > ../POE-HINTS.pod
+	./out-out.perl html ./POE-HINTS.outline > ../POE-HINTS.html

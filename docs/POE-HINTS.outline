@@ -1,0 +1,40 @@
+*NAME #® -*- outline -*- ¯
+POE-HINTS - POE Hints
+*DESCRIPTION
+These are hints for using POE.  It's sort of like a faq, only without
+the questions.
+
+**Session Resources
+Session resources are things that the session and/or kernel manage
+with high-level functions.  These include alarms, selects and aliases.
+
+Wheels are also considered session resources, because they use
+first-order resources internally.
+
+***Notes About Session Resources
+B®Don't cross the streams.  It would be bad.¯
+
+Session resources are not designed to be manipulated from outside the
+sessions that own them.  One session may not set or remove alarms in
+another.  Nor may sessions set selects on behalf of others.
+
+In the case of wheels, one session may not directly call another's
+wheel's methods.  $some_other_sessions_wheel->put(...) will not work
+as expected.  Internally, the wheel will call &Kernel::select_write;
+this turns on/off a write select in the currently active session--
+which is the caller's session.
+
+The workaround for this is to create a "put" state in the wheel
+owner's session and &Kernel::post or &Kernel::call to that state.  The
+post or call changes the active session to the wheel owner.  The
+&Wheel::put call will then work as expected.
+
+Breaking session encapsulation was not considered during POE's design.
+*AUTHORS
+This document is the result of feedback from POE users.  If you have
+questions or comments that aren't covered by this hints file, please
+contact the author.  Even better, subscribe to the POE mailing list.
+
+This document is Copyright 1999 Rocco Caputo <troc@netrus.net>.  All
+rights reserved.  This document is free text; you may redistribute it
+and/or modify it under the same terms as Perl itself.
