@@ -42,6 +42,8 @@ README
 TODO
 lib/Devel/Null.pm
 lib/Devel/Trace.pm
+lib/Makefile-5004.pm
+lib/Makefile-5005.pm
 lib/MyOtherFreezer.pm
 lib/TestSetup.pm
 lib/coverage.perl
