@@ -115,13 +115,18 @@ macro alias_resolve (<name>) {
 
 macro collect_garbage (<session>) {
   if (<session> != $self) {
-    TRACE_GARBAGE and $self->trace_gc_refcount(<session>);
-    ASSERT_GARBAGE and $self->assert_gc_refcount(<session>);
+    # The next line is necessary for some strange reason.  This feels
+    # like a kludge, but I'm currently not smart enough to figure out
+    # what it's working around.
+    if (exists $self->[KR_SESSIONS]->{<session>}) {
+      TRACE_GARBAGE and $self->trace_gc_refcount(<session>);
+      ASSERT_GARBAGE and $self->assert_gc_refcount(<session>);
 
-    if ( (exists $self->[KR_SESSIONS]->{<session>})
-         and (!$self->[KR_SESSIONS]->{<session>}->[SS_REFCOUNT])
-       ) {
-      $self->session_free(<session>);
+      if ( (exists $self->[KR_SESSIONS]->{<session>})
+           and (!$self->[KR_SESSIONS]->{<session>}->[SS_REFCOUNT])
+         ) {
+        $self->session_free(<session>);
+      }
     }
   }
 }
@@ -163,9 +168,19 @@ macro test_resolve (<name>,<resolved>) {
 }
 
 macro test_for_idle_poe_kernel {
+  TRACE_REFCOUNT and do {
+    warn( ",----- Kernel Activity -----\n",
+           "| States : ", scalar(@{$self->[KR_STATES]}), "\n",
+           "| Alarms : ", scalar(@{$self->[KR_ALARMS]}), "\n",
+           "| Handles: ", scalar(keys(%{$self->[KR_HANDLES]})), "\n",
+           "| Extra  : ", $self->[KR_EXTRA_REFS], "\n",
+           "`---------------------------\n"
+         );
+  };
+
   unless ( @{$self->[KR_STATES]} or
            @{$self->[KR_ALARMS]} or
-           %{$self->[KR_HANDLES]} or
+           keys(%{$self->[KR_HANDLES]}) or
            $self->[KR_EXTRA_REFS]
          ) {
     $self->_enqueue_state( $self, $self,
@@ -191,7 +206,6 @@ macro dispatch_one_from_fifo {
     my $event = shift @{ $self->[KR_STATES] };
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
     $self->_dispatch_state(@$event);
-    {% collect_garbage $event->[ST_SESSION] %}
   }
 }
 
@@ -204,7 +218,6 @@ macro dispatch_due_alarms {
     my $event = shift @{ $self->[KR_ALARMS] };
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
     $self->_dispatch_state(@$event);
-    {% collect_garbage $event->[ST_SESSION] %}
   }
 }
 
@@ -219,7 +232,6 @@ macro dispatch_ready_selects {
         [ $select->[HSS_HANDLE] ],
         time(), __FILE__, __LINE__, undef
       );
-    {% collect_garbage $select->[HSS_SESSION] %}
   }
 }
 
@@ -282,6 +294,7 @@ BEGIN {
   {% define_trace QUEUE    %}
   {% define_trace REFCOUNT %}
   {% define_trace SELECT   %}
+  {% define_trace REFCOUNT %}
 
   # See the notes for TRACE_DEFAULT, except read ASSERT and assert
   # where you see TRACE and trace.
@@ -383,16 +396,17 @@ const EN_SCPOLL '_sigchld_poll'
 # preferred over names because bitmask tests tend to be faster than
 # string equality checks.
 
-const ET_USER   0x0000
-const ET_START  0x0001
-const ET_STOP   0x0002
-const ET_SIGNAL 0x0004
-const ET_GC     0x0008
-const ET_PARENT 0x0010
-const ET_CHILD  0x0020
-const ET_SCPOLL 0x0040
-const ET_ALARM  0x0080
-const ET_SELECT 0x0100
+const ET_USER     0x0001
+const ET_CALL     0x0002
+const ET_START    0x0004
+const ET_STOP     0x0008
+const ET_SIGNAL   0x0010
+const ET_GC       0x0020
+const ET_PARENT   0x0040
+const ET_CHILD    0x0100
+const ET_SCPOLL   0x0280
+const ET_ALARM    0x0400
+const ET_SELECT   0x0800
 
 # The amount of time to spend dispatching FIFO events.  Increasing
 # this value will improve POE's FIFO dispatch performance by
@@ -638,6 +652,7 @@ sub new {
         1,                              # KR_ID_INDEX
         undef,                          # KR_WATCHER_TIMER
         undef,                          # KR_WATCHER_IDLE
+        0,                              # KR_EXTRA_REFS
       ], $type;
 
     # If POE uses Event to drive its queues, then one-time initialize
@@ -651,7 +666,7 @@ sub new {
           parked => 1,
         );
 
-      $self->[KR_WATCHER_IDLE ] = Event->idle
+      $self->[KR_WATCHER_IDLE] = Event->idle
         ( cb     => \&_event_fifo_callback,
           repeat => 1,
           min    => 0,
@@ -824,7 +839,7 @@ sub _dispatch_state {
 
   # Pre-dispatch processing.
 
-  if ($type) {
+  unless ($type & (ET_USER | ET_CALL)) {
 
     # The _start state is dispatched immediately as part of allocating
     # a session.  Set up the kernel's tables for this session.
@@ -903,7 +918,6 @@ sub _dispatch_state {
 
       # Tell the departing session's parent that the departing session
       # is departing.
-
       if (defined $parent) {
         $self->_dispatch_state( $parent, $self,
                                 EN_CHILD, ET_CHILD,
@@ -989,201 +1003,221 @@ sub _dispatch_state {
     warn "<<< ", {% ssid %}, " -> $state returns ($return)\n";
   };
 
-  # Post-dispatch processing.
+  # Post-dispatch processing.  This is a user event (but not a call),
+  # so garbage collect it.
 
-  if ($type) {
+  if ($type & ET_USER) {
+    {% collect_garbage $session %}
+  }
 
-    # A new session has started.  Tell its parent.  Incidental _start
-    # events are fired after the dispatch.  Garbage collection is
-    # delayed until ET_GC.
+  # A new session has started.  Tell its parent.  Incidental _start
+  # events are fired after the dispatch.  Garbage collection is
+  # delayed until ET_GC.
 
-    if ($type & ET_START) {
-      $self->_dispatch_state( $sessions->{$session}->[SS_PARENT], $self,
-                              EN_CHILD, ET_CHILD,
-                              [ 'create', $session, $return ],
-                              time(), $file, $line, undef
-                            );
-    }
+  if ($type & ET_START) {
+    $self->_dispatch_state( $sessions->{$session}->[SS_PARENT], $self,
+                            EN_CHILD, ET_CHILD,
+                            [ 'create', $session, $return ],
+                            time(), $file, $line, undef
+                          );
+  }
 
-    # This session has stopped.  Clean up after it.  There's no
-    # garbage collection necessary since the session's stopped.
+  # This session has stopped.  Clean up after it.  There's no
+  # garbage collection necessary since the session's stopped.
 
-    elsif ($type & ET_STOP) {
+  elsif ($type & ET_STOP) {
 
-      # Remove the departing session from its parent.
+    # Remove the departing session from its parent.
 
-      my $parent = $sessions->{$session}->[SS_PARENT];
-      if (defined $parent) {
+    my $parent = $sessions->{$session}->[SS_PARENT];
+    if (defined $parent) {
 
-        ASSERT_RELATIONS and do {
-          die {% ssid %}, " is its own parent\a" if ($session == $parent);
-          die {% ssid %}, " is not a child of ", {% sid $parent %}, "\a"
-            unless ( ($session == $parent) or
-                     exists($sessions->{$parent}->[SS_CHILDREN]->{$session})
-                   );
-        };
-
-        delete $sessions->{$parent}->[SS_CHILDREN]->{$session};
-        {% ses_refcount_dec $parent %}
-      }
-
-      # Give the departing session's children to its parent.
-
-      my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
-      foreach (@children) {
-        ASSERT_RELATIONS and do {
-          die {% sid $_ %}, " is already a child of ", {% sid $parent %}, "\a"
-            if (exists $sessions->{$parent}->[SS_CHILDREN]->{$_});
-        };
-
-        $sessions->{$_}->[SS_PARENT] = $parent;
-        if (defined $parent) {
-          $sessions->{$parent}->[SS_CHILDREN]->{$_} = $_;
-          {% ses_refcount_inc $parent %}
-        }
-
-        delete $sessions->{$session}->[SS_CHILDREN]->{$_};
-        {% ses_refcount_dec $session %}
-      }
-
-      # Free any signals that the departing session allocated.
-
-      my @signals = keys %{$sessions->{$session}->[SS_SIGNALS]};
-      foreach (@signals) {
-        {% sig_remove $session, $_ %}
-      }
-
-      # Free any events that the departing session has in the queue.
-
-      my $states = $self->[KR_STATES];
-      my $index = @$states;
-      while ($index-- && $sessions->{$session}->[SS_EVCOUNT]) {
-        if ($states->[$index]->[ST_SESSION] == $session) {
-          {% ses_refcount_dec2 $session, SS_EVCOUNT %}
-          splice(@$states, $index, 1);
-        }
-      }
-
-      # Free any alarms that the departing session has in its queue.
-
-      my $alarms = $self->[KR_ALARMS];
-      $index = @$alarms;
-      while ($index-- && $sessions->{$session}->[SS_ALCOUNT]) {
-        if ($alarms->[$index]->[ST_SESSION] == $session) {
-          {% ses_refcount_dec2 $session, SS_ALCOUNT %}
-          splice(@$alarms, $index, 1);
-        }
-      }
-
-      # Close any selects that the session still has open.  -><- This
-      # is heavy handed; it does work it doesn't need to do.  There
-      # must be a better way.
-
-      my @handles = values %{$sessions->{$session}->[SS_HANDLES]};
-      foreach (@handles) {
-        $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_RD);
-        $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_WR);
-        $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_EX);
-      }
-
-      # Close any lingering extra references.
-      my @extra_refs = keys %{$sessions->{$session}->[SS_EXTRA_REFS]};
-      foreach (@extra_refs) {
-        {% remove_extra_reference $session, $_ %}
-      }
-
-      # Release any aliases still registered to the session.
-
-      my @aliases = keys %{$sessions->{$session}->[SS_ALIASES]};
-      foreach (@aliases) {
-        {% remove_alias $session, $_ %}
-      }
-
-      # Clear the session ID.  The undef part is completely
-      # gratuitous; I don't know why I put it there.  -><- The defined
-      # test is a kludge; it appears to be undefined when running in
-      # Tk mode.
-
-      delete $self->[KR_SESSION_IDS]->{$sessions->{$session}->[SS_ID]}
-        if defined $sessions->{$session}->[SS_ID];
-      $session->[SS_ID] = undef;
-
-      # And finally, check all the structures for leakage.  POE's
-      # pretty complex internally, so this is a happy fun check.
-
-      ASSERT_GARBAGE and do {
-        my $errors = 0;
-
-        if (my $leaked = $sessions->{$session}->[SS_REFCOUNT]) {
-          warn {% ssid %}, " has a refcount leak: $leaked\a\n";
-          $errors++;
-        }
-
-        foreach my $l (sort keys %{$sessions->{$session}->[SS_EXTRA_REFS]}) {
-          my $count = $sessions->{$session}->[SS_EXTRA_REFS]->{$l};
-          if ($count) {
-            warn( {% ssid %}, " leaked an extra reference: ",
-                  "(tag=$l) (count=$count)\a\n"
-                );
-            $errors++;
-          }
-        }
-
-        {% ses_leak_hash SS_CHILDREN %}
-        {% ses_leak_hash SS_HANDLES  %}
-        {% ses_leak_hash SS_SIGNALS  %}
-        {% ses_leak_hash SS_ALIASES  %}
-
-        die "\a" if ($errors);
+      ASSERT_RELATIONS and do {
+        die {% ssid %}, " is its own parent\a" if ($session == $parent);
+        die {% ssid %}, " is not a child of ", {% sid $parent %}, "\a"
+          unless ( ($session == $parent) or
+                   exists($sessions->{$parent}->[SS_CHILDREN]->{$session})
+                 );
       };
 
-      # Remove the session's structure from the kernel's structure.
-      delete $sessions->{$session};
+      delete $sessions->{$parent}->[SS_CHILDREN]->{$session};
+      {% ses_refcount_dec $parent %}
+    }
 
-      # See if the parent should leave, too.
+    # Give the departing session's children to its parent.
 
+    my @children = values %{$sessions->{$session}->[SS_CHILDREN]};
+    foreach (@children) {
+      ASSERT_RELATIONS and do {
+        die {% sid $_ %}, " is already a child of ", {% sid $parent %}, "\a"
+          if (exists $sessions->{$parent}->[SS_CHILDREN]->{$_});
+      };
+
+      $sessions->{$_}->[SS_PARENT] = $parent;
       if (defined $parent) {
-        {% collect_garbage $parent %}
+        $sessions->{$parent}->[SS_CHILDREN]->{$_} = $_;
+        {% ses_refcount_inc $parent %}
       }
 
-      # Finally, if there are no more sessions, stop the main loop.
-      unless (keys %$sessions) {
-        # Stop Tk's loop.
-        if (POE_HAS_TK) {
-          $self->[KR_WATCHER_IDLE]  = undef;
-          $self->[KR_WATCHER_TIMER] = undef;
-          $poe_tk_main_window->destroy();
-        }
+      delete $sessions->{$session}->[SS_CHILDREN]->{$_};
+      {% ses_refcount_dec $session %}
+    }
 
-        # Stop Event's loop.
-        if (POE_HAS_EVENT) {
-          $self->[KR_WATCHER_IDLE]->stop();
-          $self->[KR_WATCHER_TIMER]->stop();
-          Event::unloop_all(0);
-        }
+    # Free any signals that the departing session allocated.
 
-        # POE's own loop stops on its own.
+    my @signals = keys %{$sessions->{$session}->[SS_SIGNALS]};
+    foreach (@signals) {
+      {% sig_remove $session, $_ %}
+    }
+
+    # Free any events that the departing session has in the queue.
+
+    my $states = $self->[KR_STATES];
+    my $index = @$states;
+    while ($index-- && $sessions->{$session}->[SS_EVCOUNT]) {
+      if ($states->[$index]->[ST_SESSION] == $session) {
+        {% ses_refcount_dec2 $session, SS_EVCOUNT %}
+        splice(@$states, $index, 1);
       }
     }
 
-    # Check for death by terminal signal.
+    # Free any alarms that the departing session has in its queue.
 
-    elsif ($type & ET_SIGNAL) {
-      my $signal = $etc->[0];
-
-      # Determine if the signal is fatal and some junk.
-      if ( ($signal eq 'ZOMBIE') or
-           ($signal eq 'TKDESTROY') or
-           (!$return && exists($_terminal_signals{$signal}))
-         ) {
-        $self->session_free($session);
-      }
-
-      # Otherwise just garbage collect.  -><- Is this necessary?
-      else {
-        {% collect_garbage $session %}
+    my $alarms = $self->[KR_ALARMS];
+    $index = @$alarms;
+    while ($index-- && $sessions->{$session}->[SS_ALCOUNT]) {
+      if ($alarms->[$index]->[ST_SESSION] == $session) {
+        {% ses_refcount_dec2 $session, SS_ALCOUNT %}
+        splice(@$alarms, $index, 1);
       }
     }
+
+    # Close any selects that the session still has open.  -><- This is
+    # heavy handed; it does work it doesn't need to do.  There must be
+    # a better way.
+
+    my @handles = values %{$sessions->{$session}->[SS_HANDLES]};
+    foreach (@handles) {
+      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_RD);
+      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_WR);
+      $self->_internal_select($session, $_->[SH_HANDLE], undef, VEC_EX);
+    }
+
+    # Close any lingering extra references.
+    my @extra_refs = keys %{$sessions->{$session}->[SS_EXTRA_REFS]};
+    foreach (@extra_refs) {
+      {% remove_extra_reference $session, $_ %}
+    }
+
+    # Release any aliases still registered to the session.
+
+    my @aliases = keys %{$sessions->{$session}->[SS_ALIASES]};
+    foreach (@aliases) {
+      {% remove_alias $session, $_ %}
+    }
+
+    # Clear the session ID.  The undef part is completely gratuitous;
+    # I don't know why I put it there.  -><- The defined test is a
+    # kludge; it appears to be undefined when running in Tk mode.
+
+    delete $self->[KR_SESSION_IDS]->{$sessions->{$session}->[SS_ID]}
+      if defined $sessions->{$session}->[SS_ID];
+    $session->[SS_ID] = undef;
+
+    # And finally, check all the structures for leakage.  POE's pretty
+    # complex internally, so this is a happy fun check.
+
+    ASSERT_GARBAGE and do {
+      my $errors = 0;
+
+      if (my $leaked = $sessions->{$session}->[SS_REFCOUNT]) {
+        warn {% ssid %}, " has a refcount leak: $leaked\a\n";
+        $errors++;
+      }
+
+      foreach my $l (sort keys %{$sessions->{$session}->[SS_EXTRA_REFS]}) {
+        my $count = $sessions->{$session}->[SS_EXTRA_REFS]->{$l};
+        if ($count) {
+          warn( {% ssid %}, " leaked an extra reference: ",
+                "(tag=$l) (count=$count)\a\n"
+              );
+          $errors++;
+        }
+      }
+
+      {% ses_leak_hash SS_CHILDREN %}
+      {% ses_leak_hash SS_HANDLES  %}
+      {% ses_leak_hash SS_SIGNALS  %}
+      {% ses_leak_hash SS_ALIASES  %}
+
+      die "\a" if ($errors);
+    };
+
+    # Remove the session's structure from the kernel's structure.
+    delete $sessions->{$session};
+
+    # See if the parent should leave, too.
+
+    if (defined $parent) {
+      {% collect_garbage $parent %}
+    }
+
+    # Finally, if there are no more sessions, stop the main loop.
+    unless (keys %$sessions) {
+      # Stop Tk's loop.
+      if (POE_HAS_TK) {
+        $self->[KR_WATCHER_IDLE]  = undef;
+        $self->[KR_WATCHER_TIMER] = undef;
+        $poe_tk_main_window->destroy();
+      }
+
+      # Stop Event's loop.
+      if (POE_HAS_EVENT) {
+        $self->[KR_WATCHER_IDLE]->stop();
+        $self->[KR_WATCHER_TIMER]->stop();
+        Event::unloop_all(0);
+      }
+
+      # POE's own loop stops on its own.
+    }
+  }
+
+  # Check for death by terminal signal.
+
+  elsif ($type & ET_SIGNAL) {
+    my $signal = $etc->[0];
+
+    # Determine if the signal is fatal and some junk.
+    if ( ($signal eq 'ZOMBIE') or
+         ($signal eq 'TKDESTROY') or
+         (!$return && exists($_terminal_signals{$signal}))
+       ) {
+      $self->session_free($session);
+    }
+
+    # It's not fatal.  Collect garbage.
+    else {
+      {% collect_garbage $session %}
+    }
+  }
+
+  # It's a parent losing a child.
+
+#    elsif ($type & ET_PARENT) {
+#      if ($etc->[0] eq 'lose') {
+#        {% collect_garbage $session %}
+#      }
+#    }
+
+  # It's an alarm being dispatched.
+
+  elsif ($type & ET_ALARM) {
+    {% collect_garbage $session %}
+  }
+
+  # It's a select being dispatched.
+  elsif ($type & ET_SELECT) {
+    {% collect_garbage $session %}
   }
 
   # Return what the state did.  This is used for call().
@@ -1370,7 +1404,6 @@ sub run {
                 [ $select->[HSS_HANDLE] ],
                 time(), __FILE__, __LINE__, undef
               );
-            {% collect_garbage $select->[HSS_SESSION] %}
           }
         }
       }
@@ -1782,8 +1815,8 @@ sub session_free {
 sub trace_gc_refcount {
   my ($self, $session) = @_;
 
-my ($package, $file, $line) = caller;
-warn "tracing gc refcount from $file at $line\n";
+  my ($package, $file, $line) = caller;
+  warn "tracing gc refcount from $file at $line\n";
 
   my $ss = $self->[KR_SESSIONS]->{$session};
   warn "+----- GC test for ", {% ssid %}, " ($session) -----\n";
@@ -2069,7 +2102,7 @@ sub call {
 
   my $return_value =
     $self->_dispatch_state( $session, $self->[KR_ACTIVE_SESSION],
-                            $state_name, ET_USER,
+                            $state_name, ET_CALL,
                             \@etc,
                             time(), (caller)[1,2], undef
                           );

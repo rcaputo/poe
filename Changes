@@ -35,6 +35,12 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 Added t/17_filter_ref.t: 80 tests for Filter::Reference.
 
+Removed an errant diagnostic from t/11_signals_poe.t; thanks a-mused.
+
+The garbage collection tidy in 0.1008 had broken GC in certain
+instances.  The problem didn't show up anywhere but the queue.perl
+sample, as far as I can tell.  I think it's corrected now.
+
 
 0.1010 2000.06.20 (!!!)
 -----------------------

@@ -29,7 +29,6 @@ eval {
 
 my $delay_per_child = time() - $^T;
 $delay_per_child = 5 if $delay_per_child < 5;
-warn "delaying $delay_per_child per child";
 
 POE::Session->create
   ( inline_states =>
