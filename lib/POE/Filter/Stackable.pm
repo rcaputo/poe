@@ -187,6 +187,8 @@ Stackable filter, in order from near to far.
 
 See POE::Filter.
 
+=back
+
 =head1 SEE ALSO
 
 POE::Filter; POE::Filter::HTTPD; POE::Filter::Reference;

@@ -1422,7 +1422,7 @@ Clear the screen and repaint the prompt and current input line.
 
 =item Enter / Return
 
-C-m is the newline keystroke on Unix-y systems.  It ends text entry,
+C-m is the newline keystroke on DOSsy systems.  It ends text entry,
 firing an InputEvent with C<ARG0> containing the entered text (without
 the terminating newline).  C<ARG1> is undefined because there is no
 exception.
@@ -1703,10 +1703,6 @@ A: You probably are using print or printf to write screen output.
    ReadLine doesn't track STDOUT itself, so it doesn't know when to
    refresh the prompt after you do this.  Use ReadLine's put() method
    to write lines to the console.
-
-=head1 BUGS
-
-I am not sure how well this supports unicode.
 
 =head1 AUTHORS & COPYRIGHTS
 

@@ -140,6 +140,8 @@ to use.
 
 See POE::Filter.
 
+=back
+
 =head1 SEE ALSO
 
 POE::Filter; POE::Filter::Grep; POE::Filter::Line;

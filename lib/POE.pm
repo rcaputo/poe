@@ -377,6 +377,8 @@ writing TCP clients.
 The Server::TCP component provides the most common core features for
 writing TCP servers.  A simple echo server is about 20 lines.
 
+=back
+
 =head1 Support Modules
 
 Finally, there are some files which POE uses but aren't required
@@ -401,6 +403,8 @@ can make up for it over time.
 POE::Component, POE::Driver and POE::Filter exist to document their
 classes of objects.  POE::Wheel contains some base functions for
 tracking unique wheel IDs.
+
+=back
 
 =head1 SAMPLE PROGRAMS
 

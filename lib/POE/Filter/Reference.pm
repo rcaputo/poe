@@ -309,21 +309,27 @@ The new() method will try to require any packages it needs.
 The default behavior is to try Storable first, FreezeThaw second, YAML
 third, and finally fail.
 
-=item *
+=item get [ FROZEN_DATA ]
 
-POE::Filter::Reference::get($frozen_data)
+The get() method thaws a referenced list of FROZEN_DATA chunks back
+into references.  References will be blessed, if necessary.  If the
+references points to an object, be sure the receiving end has used the
+appropriate modules before calling their methods.
 
-The get() method thaws streamed, frozen data into references.
-References will be blessed, if necessary.  If the reference points to
-an object, be sure the receiving end has use'd it before calling its
-methods.
+  $thingrefs = $filter_reference->get(\@stream_chunks);
+  foreach (@$thingrefs) {
+    ...;
+  }
 
-=item *
+=item put [ REFERENCES ]
 
-POE::Filter::Reference::put($reference)
+The put() method freezes one or more REFERENCES and returns their
+serialized, streamable representations as a list reference.
 
-The put() method freezes references and returns their serialized,
-streamable representations.
+  $listref = $filter_reference->put([ \%thing_one, \@thing_two ]);
+  foreach (@$listref) {
+    ...;
+  }
 
 =back
 

@@ -413,7 +413,7 @@ see L<POE::Loop> for its documentation.
 
 =head1 SEE ALSO
 
-L<POE>, L<POE::Loop>, L<select(2)>
+L<POE>, L<POE::Loop>, L<select>
 
 =head1 AUTHORS & LICENSING
 

@@ -3967,13 +3967,7 @@ arguments to EVENT_NAME's handler.
 The post() method returns a boolean value indicating whether the event
 was enqueued successfully.  $! will explain why the post() failed:
 
-=over 2
-
-=item ESRCH
-
-SESSION did not exist at the time of the post() call.
-
-=back
+ESRCH: The SESSION did not exist at the time of the post() call.
 
 Posted events keep both the sending and receiving session alive until
 they're dispatched.
@@ -4037,11 +4031,7 @@ was dispatched.
 
 Reasons why call() might fail:
 
-=over 2
-
-=item ESRCH
-
-SESSION did not exist at the time call() was called.
+ESRCH: The SESSION did not exist at the time call() was called.
 
 =back
 
@@ -4363,18 +4353,11 @@ once they are removed.
 
 alias_remove() returns 0 on success or a reason for its failure:
 
-=over 2
+ESRCH: The Kernel's dictionary does not include the ALIAS being
+removed.
 
-=item ESRCH
-
-The Kernel's dictionary does not include the ALIAS being removed.
-
-=item EPERM
-
-ALIAS belongs to some other session, and the current one does not have
-the authority to clear it.
-
-=back
+EPERM: ALIAS belongs to some other session, and the current one does
+not have the authority to clear it.
 
 =item alias_resolve ALIAS
 
@@ -4397,13 +4380,7 @@ A numeric session ID:
 alias_resolve() returns undef upon failure, setting $! to explain the
 error:
 
-=over 2
-
-=item ESRCH
-
-The Kernel's dictionary does not include ALIAS.
-
-=back
+ESRCH: The Kernel's dictionary does not include ALIAS.
 
 These functions work directly with session IDs.  They are faster than
 alias_resolve() in the specific cases where they're useful.
@@ -4416,15 +4393,9 @@ session ID.
   $session_reference = ID_id_to_session( $session_id );
 
 It returns undef if a lookup fails, and it sets $! to explain why the
-lookup failed.
+lookup failed:
 
-=over 2
-
-=item ESRCH
-
-The session ID does not refer to a running session.
-
-=back
+ESRCH: The session ID does not refer to a running session.
 
 =item alias_list SESSION
 
@@ -4453,14 +4424,8 @@ work, provided that the session exists:
 ID_session_to_id() returns undef if a lookup fails, and it sets $! to
 explain why the lookup failed.
 
-=over 2
-
-=item ESRCH
-
-The session reference does not describe a session which is currently
-running.
-
-=back
+ESRCH: The session reference does not describe a session which is
+currently running.
 
 =back
 
@@ -4892,12 +4857,8 @@ The sixth form maps an event to a function with a different name.
 POE::Kernel's state() method returns 0 on success or a nonzero code
 explaining why it failed:
 
-=over 2
-
-=item ESRCH
-
-The Kernel doesn't recognize the currently active session.  This
-happens when state() is called when no session is active.
+ESRCH: The Kernel doesn't recognize the currently active session.
+This happens when state() is called when no session is active.
 
 =back
 
@@ -4930,13 +4891,7 @@ returning the reference count after the decrement.
 Both methods return undef on failure and set $! to explain the
 failure.
 
-=over 2
-
-=item ESRCH
-
-There is no session SESSION_ID currently active.
-
-=back
+ESRCH: There is no session SESSION_ID currently active.
 
 =back
 
