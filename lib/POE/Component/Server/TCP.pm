@@ -35,6 +35,7 @@ sub new {
   croak "$mi needs an Acceptor parameter" unless exists $param{Acceptor};
 
   # Extract parameters.
+  my $alias           = delete $param{Alias};
   my $address         = delete $param{Address};
   my $port            = delete $param{Port};
   my $accept_callback = delete $param{Acceptor};
@@ -57,6 +58,11 @@ sub new {
     # sockets.
     ( _start =>
       sub {
+        if (defined $alias) {
+          $_[HEAP]->{alias} = $alias;
+          $_[KERNEL]->alias_set( $alias );
+        }
+
         $_[HEAP]->{listener} = POE::Wheel::SocketFactory->new
           ( BindPort     => $port,
             BindAddress  => $address,
@@ -74,6 +80,13 @@ sub new {
 
       # We accepted a connection.  Do something with it.
       got_connection => $accept_callback,
+
+      # Shut down.
+      shutdown => sub {
+        delete $_[HEAP]->{listener};
+        $_[KERNEL]->alias_remove( $_[HEAP]->{alias} )
+          if defined $_[HEAP]->{alias};
+      },
     );
 
   # Return undef so nobody can use the POE::Session reference.  This
@@ -146,6 +159,17 @@ it can be in whatever form SocketFactory supports.  At the time of
 this writing, that's a dotted quad, a host name, or a packed Internet
 address.
 
+=item Alias
+
+Alias is an optional name by which this server may be referenced.
+It's used to pass events to a TCP server from other sessions.
+
+  Alias => 'chargen'
+
+Later on, the 'chargen' service can be shut down with:
+
+  $kernel->post( chargen => 'shutdown' );
+
 =item Port
 
 Port is the port the listening socket will be bound to.
@@ -167,6 +191,22 @@ socket errors.  The coderef is used as POE::Wheel::SocketFactory's
 FailureState, so it accepts the same parameters.  If it is omitted, a
 default error handler will be provided.  The default handler will log
 the error to STDERR and shut down the server.
+
+=back
+
+=head1 EVENTS
+
+It's possible to manipulate a TCP server component from some other
+session.  This is useful for shutting them down, and little else so
+far.
+
+=over 2
+
+=item shutdown
+
+Shuts down the TCP server.  This entails destroying the SocketFactory
+that's listening for connections and removing the TCP server's alias,
+if one is set.
 
 =back
 
