@@ -1201,14 +1201,6 @@ sub _dispatch_state {
     }
   }
 
-  # It's a parent losing a child.
-
-#    elsif ($type & ET_PARENT) {
-#      if ($etc->[0] eq 'lose') {
-#        {% collect_garbage $session %}
-#      }
-#    }
-
   # It's an alarm being dispatched.
 
   elsif ($type & ET_ALARM) {

@@ -135,53 +135,61 @@ sub _define_connect_state {
   $poe_kernel->state
     ( $self->{state_connect} = $self . ' -> select connect',
       sub {
-                                        # prevents SEGV
+        # This prevents SEGV in older versions of Perl.
         0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
+
+        # Grab some values and stop watching the socket.
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
         $k->select($handle);
-                                        # acquire and dispatch connect error
-        $! = 0;
-        my $error = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
-        $error && ($! = $error);
 
-        # There is an error.
+        # Throw a failure if the connection failed.
+        $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
         if ($!) {
           (defined $$failure_state) and
             $k->call($me, $$failure_state, 'connect', ($!+0), $!);
+          return;
         }
 
-        # No error; this is a successful connection.
+        # Get the remote address, or throw an error if that fails.
+        my $peer = getpeername($handle);
+        if ($!) {
+          (defined $$failure_state) and
+            $k->call($me, $$failure_state, 'getpeername', ($!+0), $!);
+          return;
+        }
+
+        # Parse the remote address according to the socket's domain.
+        my ($peer_addr, $peer_port);
+
+        # UNIX sockets have some trouble with peer addresses.
+        if ($domain eq DOM_UNIX) {
+          if (defined $peer) {
+            eval {
+              $peer_addr = unpack_sockaddr_un($peer);
+            };
+            undef $peer_addr if length $@;
+          }
+        }
+
+        # INET socket stacks tend not to.
+        elsif ($domain eq DOM_INET) {
+          if (defined $peer) {
+            eval {
+              ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
+            };
+            if (length $@) {
+              $peer_port = $peer_addr = undef;
+            }
+          }
+        }
+
+        # What are we doing here?
         else {
-          my $peer = getpeername($handle);
-          my ($peer_addr, $peer_port);
-
-          # getpeername's return value in undefined for unbound peer
-          # sockets in the Unix domain.  Take precautions against
-          # evil undefined behavior.
-
-          if ($domain eq DOM_UNIX) {
-            $peer_addr = $peer_port = undef;
-            if (defined $peer) {
-              eval {
-                $peer_addr = unpack_sockaddr_un($peer);
-              };
-              if ($@) {
-                $peer_addr = undef;
-              }
-            }
-            else {
-              $peer_addr = undef;
-            }
-          }
-          elsif ($domain eq DOM_INET) {
-            ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
-          }
-          else {
-            die "sanity failure: socket domain == $domain";
-          }
-          $k->call( $me, $$success_state, $handle, $peer_addr, $peer_port );
+          die "sanity failure: socket domain == $domain";
         }
+
+        # Tell the session it went okay.
+        $k->call( $me, $$success_state, $handle, $peer_addr, $peer_port );
       }
     );
 

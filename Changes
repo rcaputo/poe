@@ -29,6 +29,16 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 |
 `-----------------
 
+0.1012 2000.??.??
+-----------------
+
+Changed SocketFactory's connect code to throw a FailureEvent if
+getpeername() fails on a connected socket.  Also made the code
+surrounding unpack_sockaddr_in a little more robust while I was at it.
+Thanks to a-mused for spotting the getpeername() failure.  FYI, he
+only saw it happen on Rehdat 6.0 with Perl 5.005_03.  The same test on
+a SPARC box with Solaris 7 and Perl 5.005_02 ran fine.
+
 
 0.1011 2000.06.29
 -----------------
