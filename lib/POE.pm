@@ -258,7 +258,7 @@ POE comes with six wheels.
 
 The Curses wheel handles non-blocking input for programs using the
 curses text interface.  It requires the Curses perl module and a
-familiarity with curses programming.
+familiarity with curses programming.q
 
 =item POE::Wheel::FollowTail
 
@@ -451,43 +451,11 @@ No known problems.  POE has no OS/2 tester starting with version
 
 =item Windows
 
-Windows support lapsed in version 0.0806 when I took out some code I
-wasn't sure was working.  Well, it was working, and removing it broke
-POE on Windows.
-
-Douglas Couch reported that POE worked with the latest stable
-ActivePerl prior to version 5.6.0-RC1.  He said that RC1 supported
-fork and other Unix compatibilities, but it still seemed like beta
-level code.  This seems to have changed with the release of 5.6.0-GA.
-
-Douglas writes:
-
-  I've done some preliminary testing of the 0.0903 version and the
-  re-addition of the Win32 support seems to be a success.  I'll do
-  some more intensive testing in the next few days to make sure
-  nothing else is broken that I haven't missed.
-
-And later:
-
-  After testing out my own program and having no problems with the
-  newest version (with Win32 support), I thought I'd test out some of
-  the samples and relay my results.
-
-  filterchange.perl and preforkedserver.perl both contain fork
-  commands which are still unsupported by ActiveState's port of Perl,
-  so they were both unsuccessful.  (this was anticipated for anything
-  containing fork)
-
-  ref-type.perl, refsender.perl, thrash.perl and wheels2.perl all ran
-  up against the same unsupported POSIX macro.  According to the error
-  message, my vendor's POSIX doesn't support the macro EINPROGRESS.
-
-  [EINPROGRESS is fixed as of version 0.1003; see the Changes]
-
-  Other than those particular problems all of the other sample scripts
-  ran fine.
-
-As far as I know, POE works okay on Windows these days.
+Windows support lapsed between version 0.0806 and 0.0903 when Sean
+Puckett ran out of time to pursue it and Douglas Couch found time for
+it.  Douglas now maintains POE's Windows code, as well as the
+ActiveState PPM and HTML documentation available at
+<http://poe.sourceforge.net/>.
 
 =item MacOS
 
@@ -531,6 +499,9 @@ upgrade to the latest versions.
 Filter::HTTPD uses a small world of modules including HTTP::Status;
 HTTP::Request; HTTP::Date and URI::URL.  The httpd.perl sample program
 uses Filter::HTTPD, which uses all that other stuff.
+
+Wheel::Curses requires the Curses module, which in turn requires some
+sort of curses library.
 
 =head1 SUPPORT RESOURCES
 
