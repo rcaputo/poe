@@ -205,8 +205,11 @@ sub new {
 
   croak 'SuccessState required' unless (exists $params{'SuccessState'});
   croak 'FailureState required' unless (exists $params{'FailureState'});
-  croak 'SocketDomain required' unless (exists $params{'SocketDomain'});
-  croak 'SocketType required'   unless (exists $params{'SocketType'});
+
+  $params{'SocketDomain'} = AF_INET
+    unless (exists $params{'SocketDomain'});
+  $params{'SocketType'} = SOCK_STREAM
+    unless (exists $params{'SocketType'});
 
   my $self = bless { 'event success' => $params{'SuccessState'},
                      'event failure' => $params{'FailureState'},
@@ -301,8 +304,11 @@ sub new {
 
   elsif (($socket_domain == AF_INET) || ($socket_domain == PF_INET)) {
 
-    croak 'SocketProtocol required' unless (exists $params{'SocketProtocol'});
+    $params{'SocketProtocol'} = 'tcp'
+      unless (exists $params{'SocketProtocol'});
+
     my $socket_protocol = $params{'SocketProtocol'};
+
     if ($socket_protocol !~ /^\d+$/) {
       unless ($socket_protocol = getprotobyname($socket_protocol)) {
         $poe_kernel->yield($failure_event, 'getprotobyname', $!+0, $!);
