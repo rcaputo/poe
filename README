@@ -129,7 +129,7 @@ Test Results
 All the tests have been made to run unattended, and testing has been
 automated across the systems.
 
-** POE 0.13 on FreeBSD (home-bsd)
+** POE 0.14 on FreeBSD (home-bsd)
 
 Hardware: Athlon-1000; 512MB RAM
 System  : FreeBSD 4.3-RC
@@ -142,7 +142,19 @@ IO::Pty : 0.01
 All tests successful.
 Files=25, Tests=467, 85 wallclock secs ( 6.77 cusr +  0.62 csys =  7.39 CPU)
 
-** POE 0.1206 on Linux (titanic)
+** POE 0.14 on Solaris/SunOS 5.8 (dynweb)
+
+Hardware: SPARCstation-80; 2x UltraSparc II-450; 1GB RAM
+System  : SunOS 5.7
+Perl    : 5.6.0
+Gtk     : (not installed)
+Tk      : (not installed)
+Event   : 0.80
+
+All tests successful, 2 tests skipped.
+Files=25, Tests=450, 77 wallclock secs (10.87 cusr +  1.40 csys = 12.27 CPU)
+
+** POE 0.14 on Linux (titanic)
 
 Hardware: dual Celeron 500; 265MB RAM
 System  : Linux 2.2.15 SMP
@@ -153,7 +165,7 @@ Event   : 0.79
 IO::Pty : 0.01
 
 All tests successful, 2 tests skipped.
-Files=24, Tests=438, 75 wallclock secs (15.56 cusr +  0.83 csys = 16.39 CPU)
+Files=25, Tests=450, 80 wallclock secs (15.99 cusr +  0.85 csys = 16.84 CPU)
 
 ** POE 0.1205 on Solaris/SunOS 5.7 (hfb)
 
@@ -179,18 +191,6 @@ Event   : (installed; unknown version)
 
 All tests successful, 2 tests skipped.
 Files=23, Tests=415, 98 wallclock secs (14.22 cusr + 0.63 csys = 14.85 CPU)
-
-** POE 0.1203 on Solaris/SunOS 5.8 (dynweb)
-
-Hardware: SPARCstation-80; 2x UltraSparc II-450; 1GB RAM
-System  : SunOS 5.7
-Perl    : 5.6.0
-Gtk     : (not installed)
-Tk      : (not installed)
-Event   : 0.80
-
-All tests successful, 2 tests skipped.
-Files=23, Tests=415, 98 wallclock secs (14.03 cusr + 0.99 csys = 15.02 CPU)
 
 -------------
 Test Coverage
