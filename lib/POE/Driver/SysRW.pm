@@ -80,7 +80,7 @@ sub get {
 
   my $result = sysread($handle, my $buffer = '', $self->[BLOCK_SIZE]);
 
-  # sysread() was sucessful.  Return whatever was read.
+  # sysread() was successful.  Return whatever was read.
   return [ $buffer ] if $result;
 
   # 18:01 <dngor> sysread() clears $! when it returns 0 for eof?

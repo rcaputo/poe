@@ -50,7 +50,7 @@ sub new {
   else {
     my $codec = delete $params{LengthCodec};
     if ($codec) {
-      croak "LengthCodec must be an arrray reference"
+      croak "LengthCodec must be an array reference"
         unless ref($codec) eq "ARRAY";
       croak "LengthCodec must contain two items"
         unless @$codec == 2;

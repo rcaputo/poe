@@ -88,7 +88,7 @@ sub new {
     ($freeze, $thaw)=_get_methods($freezer);
   }
 
-  # Now get the methodes we want
+  # Now get the methods we want
   carp "$freezer doesn't have a freeze or nfreeze method" unless $freeze;
   carp "$freezer doesn't have a thaw method" unless $thaw;
   # Rocco, shouldn't ->new() return undef() it if fails to find the methods
@@ -248,7 +248,7 @@ new() creates and initializes a reference filter.  It accepts two
 optional parameters: A serializer and a flag that determines whether
 Compress::Zlib will be used to compress serialized data.
 
-Serializers are modelled after Storable.  Storable has a nfreeze()
+Serializers are modeled after Storable.  Storable has a nfreeze()
 function which translates referenced data into strings suitable for
 shipping across sockets.  It also contains a freeze() method which is
 less desirable since it doesn't take network byte ordering into
@@ -259,7 +259,7 @@ SERIALIZER may be a package name or an object reference, or it may be
 omitted altogether.
 
 If SERIALIZER is a package name, it is assumed that the package will
-have a thaw() function as well as etither an nfreeze() or a freeze()
+have a thaw() function as well as either an nfreeze() or a freeze()
 function.
 
   # Use Storable explicitly, specified by package name.

@@ -84,7 +84,7 @@ nothing else.
 get_one() takes no parameters and returns an ARRAYREF of zero or more
 complete records from the filter's buffer.  Unlike the plain get()
 method, get_one() is not greedy.  It returns as few records as
-possible, preferrably just zero or one.
+possible, preferably just zero or one.
 
 get_one_start() and get_one() reduce or eliminate race conditions when
 switching filters in a wheel.

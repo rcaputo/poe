@@ -29,7 +29,7 @@ BEGIN {
 
 my $kr_queue;
 
-### Fileno structure.  This tracks the sessions that are watchin a
+### Fileno structure.  This tracks the sessions that are watching a
 ### file, by its file number.  It used to track by file handle, but
 ### several handles can point to the same underlying fileno.  This is
 ### more unique.

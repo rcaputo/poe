@@ -585,7 +585,7 @@ sub import {
                 @{$macros{$package_name}->{$name}->[MAC_PARAMETERS]};
 
               if (@use_params != @mac_params) {
-                warn( "macro $name paramter count (",
+                warn( "macro $name parameter count (",
                       scalar(@use_params),
                       ") doesn't match defined count (",
                       scalar(@mac_params),
@@ -775,7 +775,7 @@ The C<const> command defines a constant.
   const CONSTANT_NAME    'constant value'
   const ANOTHER_CONSTANT 23
 
-Enumerations are defined with the C<emun> command.  Enumerations start
+Enumerations are defined with the C<enum> command.  Enumerations start
 from zero by default:
 
   enum ZEROTH FIRST SECOND ...
@@ -828,7 +828,7 @@ they are.
 
 This method of calling Preprocessor causes the macros and constants of
 C<POE::SomeModule> to be imported for use in the current namespace.
-These macros and constants can be overriden simply by defining items
+These macros and constants can be overridden simply by defining items
 in the current namespace of the same name.
 
 Note: if the macros in C<POE::SomeModule> require additional perl

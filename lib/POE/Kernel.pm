@@ -83,7 +83,7 @@ BEGIN {
 }
 
 #==============================================================================
-# Globals, or at least package-scoped things.  Data structurse were
+# Globals, or at least package-scoped things.  Data structures were
 # moved into lexicals in 0.1201.
 
 # A flag determining whether there are child processes.  Starts true
@@ -170,7 +170,7 @@ sub EN_STOP   () { '_stop'            }
 # names themselves, but they can encompass a large group of events.
 # For example, ET_ALARM describes anything enqueued as by an alarm
 # call.  Types are preferred over names because bitmask tests are
-# faster than sring equality tests.
+# faster than string equality tests.
 
 sub ET_POST   () { 0x0001 }  # User events (posted, yielded).
 sub ET_CALL   () { 0x0002 }  # User events that weren't enqueued.
@@ -195,7 +195,7 @@ sub ET_SIGNAL_EXPLICIT   () { 0x0800 }  # Explicitly requested signal.
 sub ET_SIGNAL_COMPATIBLE () { 0x1000 }  # Backward-compatible semantics.
 
 # A hash of reserved names.  It's used to test whether someone is
-# trying to use an internal event directoly.  XXX - These are not fat
+# trying to use an internal event directly.  XXX - These are not fat
 # commas, otherwise the symbolic constants would be stringified.
 
 my %poes_own_events = (
@@ -2828,7 +2828,7 @@ To enqueue additional delays for 'do_this':
   $kernel->delay_add( 'do_this', $after_this_much_time, @with_these );
   $kernel->delay_add( 'do_this', $after_this_much_time );
 
-Additional alarms cas be cleared with POE::Kernel's delay() method.
+Additional alarms can be cleared with POE::Kernel's delay() method.
 
 delay_add() returns 0 on success or a reason for failure: EINVAL if
 EVENT_NAME or SECONDS is undefined.
@@ -3194,7 +3194,7 @@ select_expedite() starts or stops the kernel from watching to see if a
 filehandle can be read from "out-of-band".  This is most useful for
 datagram sockets where an out-of-band condition is meaningful.  In
 most cases it can be ignored.  An EVENT_NAME event will be enqueued
-whetever the filehandle can be read from out-of-band.
+whatever the filehandle can be read from out-of-band.
 
 Out of band data is called "expedited" because it's often available
 ahead of a file or socket's normal data.  It's also used in socket
@@ -3264,7 +3264,7 @@ This method does not return a meaningful value.
 First some general notes about signal events and handling them.
 
 Sessions only receive signal events that have been registered with
-C<sig()>.  In the past, they also would recevie "_signal" events, but
+C<sig()>.  In the past, they also would receive "_signal" events, but
 this is no longer the case.
 
 Child sessions are the ones created by another session.  Signals are
@@ -3272,7 +3272,7 @@ dispatched to children before their parents.  By the time a parent
 receives a signal, all its children have already had a chance to
 handle it.
 
-The Kernel acts as the parent of every session.  Signalling it causes
+The Kernel acts as the parent of every session.  Signaling it causes
 every interested session to receive the signal.  This is how operating
 system signals are implemented.
 
@@ -3297,7 +3297,7 @@ The sig_handled() method is used to mark signals as handled.
 
 POE also recognizes "non-maskable" signals.  These will terminate a
 program even when they are handled.  For example, POE sends a
-non-maskable UIDESTROY signal to indicate when teh program's user
+non-maskable UIDESTROY signal to indicate when the program's user
 interface has been shut down.
 
 Signal handling in older versions of Perl is not safe by itself.  POE
@@ -3421,7 +3421,7 @@ meaningful within event handlers that are triggered by signals.
 =item signal SESSION, SIGNAL_NAME
 
 signal() posts a signal event to a particular session (and its
-children) through POE::Kernel rather than actually signalling the
+children) through POE::Kernel rather than actually signaling the
 process through the operating system.  Because it injects signal
 events directly into POE's Kernel, its SIGNAL_NAME doesn't have to be
 one the operating system understands.
@@ -3472,7 +3472,7 @@ information about _parent and _child events.
 Detaches the current session from it parent.  The parent session stops
 owning the current one.  The current session is instead made a child
 of POE::Kernel.  detach_child() returns 1 on success.  If it fails, it
-returns 0 and sets $! to EPERM to indicate that the currest session
+returns 0 and sets $! to EPERM to indicate that the current session
 already is a child of POE::Kernel and cannot be detached from it.
 
 This call may generate corresponding _parent and/or _child events.
@@ -3742,7 +3742,7 @@ traces are enabled.
 =item TRACE_DESTROY
 
 Enable TRACE_DESTROY to receive a dump of the contents of Session
-heaps when they finally DESTROY.  It is indispensible for finding
+heaps when they finally DESTROY.  It is indispensable for finding
 memory leaks, which often hide in Session heaps.
 
 =item TRACE_EVENTS

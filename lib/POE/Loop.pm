@@ -324,7 +324,7 @@ It is often empty in bridges that implement their own event loops.
 
 =item loop_reset_time_watcher NEXT_EVENT_TIME
 
-Reset a time watcher, often by stoping or destroying an existing one
+Reset a time watcher, often by stopping or destroying an existing one
 and creating a new one in its place.  This function has the same
 semantics as (and is often implemented in terms of)
 loop_resume_time_watcher().  It is usually more expensive than that

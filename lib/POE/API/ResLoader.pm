@@ -16,7 +16,7 @@ sub import {
 
 =head1 NAME
 
-POE::API::ResLoader - provides initalization interface for POE::Resources
+POE::API::ResLoader - provides initialization interface for POE::Resources
 
 =head1 SYNOPSIS
 

@@ -90,7 +90,7 @@ sub loop_pause_time_watcher {
 # @immediate, new ones go into a different list.  Once @immediate is
 # exhausted, the second list is copied in.
 #
-# The double bufered queue means that @immediate is alternately
+# The double buffered queue means that @immediate is alternately
 # exhausted and filled.  It's impossible to fill @immediate while it's
 # being processed, so sub handle_foo { yield("foo") } won't run
 # forever.
@@ -106,7 +106,7 @@ my $last_time = time();
 sub _loop_event_callback {
   if (TRACE_STATISTICS) {
     # TODO - I'm pretty sure the startup time will count as an unfair
-    # amout of idleness.
+    # amount of idleness.
     #
     # TODO - Introducing many new time() syscalls.  Bleah.
     $poe_kernel->_data_stat_add('idle_seconds', time() - $last_time);

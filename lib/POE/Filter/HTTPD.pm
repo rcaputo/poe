@@ -3,7 +3,7 @@
 # Filter::HTTPD Copyright 1998 Artur Bergman <artur@vogon.se>.
 
 # Thanks go to Gisle Aas for his excellent HTTP::Daemon.  Some of the
-# get code was copied out if, unfournatly HTTP::Daemon is not easily
+# get code was copied out if, unfortunately HTTP::Daemon is not easily
 # subclassed for POE because of the blocking nature.
 
 # 2001-07-27 RCC: This filter will not support the newer get_one()

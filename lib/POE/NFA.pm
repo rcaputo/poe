@@ -916,7 +916,7 @@ information.
 =item RUNSTATE
 
 C<RUNSTATE> is equivalent to Session's C<HEAP> field.  It holds an
-anoymous hash reference which POE is guaranteed not to touch.  See
+anonymous hash reference which POE is guaranteed not to touch.  See
 POE::Session's C<HEAP> field for more information.
 
 =item STATE

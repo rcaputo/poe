@@ -574,7 +574,7 @@ time.  Please be careful.
 The SeekBack parameter tells FollowTail how far back from the end of
 the file to start reading.  Its value is specified in bytes, and
 values greater than the file's current size will quietly cause
-FollowTail to ltart from the file's beginning.
+FollowTail to start from the file's beginning.
 
 A SeekBack parameter of 0 starts FollowTail at the end of the file.
 It's recommended to omit Seek and SeekBack to start from the end of a

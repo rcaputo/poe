@@ -1016,7 +1016,7 @@ IDs may collide after about 4.29 billion sessions have been created.
 =item create LOTS_OF_STUFF
 
 create() is the recommended Session constructor.  It binds states to
-their corresponding event names, initalizes other parts of the
+their corresponding event names, initializes other parts of the
 session, and then fires off its C<_start> state, possibly with some
 parameters.
 
@@ -1154,7 +1154,7 @@ method.
   [ Package => [ 'event_ten', 'event_eleven' ],
   ];
 
-The second form associates a hashref to each package n ame.  In turn,
+The second form associates a hashref to each package name.  In turn,
 the hashref maps each event name to a method in the package.  In this
 form, the package's method names needn't match the event names they'll
 handle.  For example, C<event_twelve> is handled by C<Package>'s
@@ -1693,7 +1693,7 @@ return false if the signals are expected to stop a program.  Otherwise
 only SIGKILL will work.
 
 L<POE::Kernel> discusses signal handlers in "Signal Watcher Methods".
-It also covers the pitfals of C<_default> states in more detail
+It also covers the pitfalls of C<_default> states in more detail
 
 =item _parent
 
@@ -1763,7 +1763,7 @@ Signal handlers' return values are significant.  L<POE::Kernel>'s
 
 States may not return references to objects in the "POE" namespace.
 The Kernel will stringify these references to prevent them from
-lingering and beraking its own garbage collection.
+lingering and breaking its own garbage collection.
 
 =head2 Resource Tracking
 

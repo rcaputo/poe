@@ -874,7 +874,7 @@ LowEvent will not be emitted again until HighEvent is.  ReadWrite
 always starts in a low-water state.
 
 Sessions which stream output are encouraged to use these events for
-flow control.  Sessions can redure their transmission rates or stop
+flow control.  Sessions can reduce their transmission rates or stop
 transmitting altogether upon receipt of a HighEvent, and they can
 resume full-speed transmission once LowEvent arrives.
 

@@ -1178,7 +1178,7 @@ session if any errors occur.  The event receives 5 parameters as
 follows: ARG0 = the return value of syscall(), ARG1 = errno() - the
 numeric value of the error generated, ARG2 = error() - a descriptive
 for the given error, ARG3 = the wheel id, and ARG4 = the handle on
-which the error ocurred (stdout, stderr, etc.)
+which the error occurred (stdout, stderr, etc.)
 
 Wheel::Run requires at least one of the following three events:
 

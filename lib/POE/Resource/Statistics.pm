@@ -23,8 +23,8 @@ use strict;
 my $_stat_metrics     = []; # the data itself
 my $_stat_interval    = 30; # how frequently we take readings
 my $_stat_window_size = 4;  # how many readings we average across
-my $_stat_wpos        = 0;  # where to currrently write metrics (circ. buffer)
-my $_stat_rpos        = 0;  # where to currrently write metrics (circ. buffer)
+my $_stat_wpos        = 0;  # where to currently write metrics (circ. buffer)
+my $_stat_rpos        = 0;  # where to currently write metrics (circ. buffer)
 my %average;
 
 # This is for collecting event frequencies if TRACE_PROFILE is
@@ -184,7 +184,7 @@ This module tracks runtime statistics for a POE program and provides
 accessors to them.  To enable this monitoring, the TRACE_STATISTICS
 flag must be true.  Otherwise no statistics will be gathered.
 
-The statistics counters are totalled every 30 seconds and a rolling
+The statistics counters are totaled every 30 seconds and a rolling
 average is maintained for the last two minutes worth of data. At any
 time the data can be retrieved using the stat_getdata() method of the
 POE::Kernel. On conclusion of the program, the statistics will be

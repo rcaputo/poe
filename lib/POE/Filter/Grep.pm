@@ -51,7 +51,7 @@ sub get {
 
 #------------------------------------------------------------------------------
 # 2001-07-27 RCC: The get_one variant of get() allows Wheel::Xyz to
-# retrieven one filtered record at a time.  This is necessary for
+# retrieve one filtered record at a time.  This is necessary for
 # filter changing and proper input flow control.
 
 sub get_one_start {

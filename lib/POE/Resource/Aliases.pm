@@ -33,7 +33,7 @@ sub _data_ses_initialize {
 }
 use POE::API::ResLoader \&_data_ses_initialize;
 
-### End-run leak checking.  Returns true if finazilation was ok, or
+### End-run leak checking.  Returns true if finalization was ok, or
 ### false if it failed.
 
 sub _data_alias_finalize {

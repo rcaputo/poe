@@ -699,7 +699,7 @@ sub global_init {
     $termcap = Term::Cap->Tgetent( { TERM => $term, OSPEED => $ospeed } );
     die "could not find termcap entry for ``$term'': $!" unless defined $termcap;
 
-    # Require certain capabilites.
+    # Require certain capabilities.
     $termcap->Trequire( qw( cl ku kd kl kr) );
 
     # Cursor movement.
@@ -2039,7 +2039,7 @@ sub rl_capitalize_word {
 sub rl_upcase_word {
     my ($self, $key) = @_;
     # Uppercase from cursor on.
-    # Modelled after capitalize.
+    # Modeled after capitalize.
     if (substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\s*)(\S+)/) {
 	my $space = $1; $space = '' unless defined $space;
 	my $word  = uc($2);
@@ -2058,7 +2058,7 @@ sub rl_upcase_word {
 sub rl_downcase_word {
     my ($self, $key) = @_;
     # Lowercase from cursor on.
-    # Modelled after capitalize.
+    # Modeled after capitalize.
     if (substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\s*)(\S+)/) {
 	my $space = $1; $space = '' unless defined $space;
 	my $word  = lc($2);
@@ -2956,7 +2956,7 @@ sub bind_key {
 	do {
 	    $orig = $seq;
 	    $seq =~ s{(\w*)$}{$self->decode($1)}ge;
-	    # 'orrible regex, coz we need to work backwards, to allow
+	    # horrible regex, coz we need to work backwards, to allow
 	    # for things like C-M-r, or C-xC-x
 	    $seq =~ s{C(ontrol)?-(.)([^-]*)$}{control($2).$3}ge;
 	    $seq =~ s{M(eta)?-(.)([^-]*)$}{meta($2).$3}ge;
@@ -3098,7 +3098,7 @@ Clears the terminal.
 =item terminal_size
 
 Returns what ReadLine thinks are the current dimensions of the
-terminal. The retun value is a list of two elements: the number of
+terminal. The return value is a list of two elements: the number of
 columns and number of rows respectively.
 
 =item get PROMPT
@@ -3170,7 +3170,7 @@ When PutMode is "after", all C<put()> text is held until after the
 user enters or cancels (See C-g) her input.
 
 PutMode can also be "idle".  In this mode, text is displayed right
-away if the keyboard has been idle for a certian period (see the
+away if the keyboard has been idle for a certain period (see the
 IdleTime parameter).  Otherwise it's held as in "after" mode until
 input is completed or canceled, or until the keyboard becomes idle for
 at least IdleTime seconds.  This is ReadLine's default mode.
@@ -3230,7 +3230,7 @@ This is the only form of completion currently supported.
 
 =head1 IMPLEMENTATION DIFFERENCES
 
-Although modelled after the readline(3) library, there are some areas
+Although modeled after the readline(3) library, there are some areas
 which have not been implemented. The only option settings which have
 effect in this implementation are: bell-style, editing-mode,
 isearch-terminators, comment-begin, print-completions-horizontally,

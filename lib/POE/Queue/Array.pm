@@ -442,7 +442,7 @@ sub _reinsert_item {
     return $new_priority;
   }
 
-  # Special case: The item blenogs at the head of the queue.
+  # Special case: The item belongs at the head of the queue.
   if ($new_priority < $self->[0]->[ITEM_PRIORITY]) {
     unshift @$self, $item;
     DEBUG and warn $self->_dump_splice(0);

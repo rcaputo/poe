@@ -31,7 +31,7 @@ sub loop_initialize {
   # Must Gnome->init() yourselves, as it takes parameters.
   unless (exists $INC{'Gnome.pm'}) {
     # Gtk can only be initialized once. 
-    # So if we've initalized it already, skip the whole deal.
+    # So if we've initialized it already, skip the whole deal.
     unless($gtk_init_check) {
       $gtk_init_check++;
 
@@ -218,7 +218,7 @@ sub _loop_event_callback {
 
   if (TRACE_STATISTICS) {
     # TODO - I'm pretty sure the startup time will count as an unfair
-    # amout of idleness.
+    # amount of idleness.
     #
     # TODO - Introducing many new time() syscalls.  Bleah.
     $self->_data_stat_add('idle_seconds', time() - $last_time);
