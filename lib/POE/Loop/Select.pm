@@ -202,6 +202,16 @@ macro substrate_main_loop {
           );
     }
 
+    # Ensure that the alarm queue remains in time order.
+    if (ASSERT_ALARMS and @kr_alarms) {
+      my $previous_time = $kr_alarms[0]->[ST_TIME];
+      foreach (@kr_alarms) {
+        die "alarm $_->[ST_SEQ] is out of order"
+          if $_->[ST_TIME] < $previous_time;
+        $previous_time = $_->[ST_TIME];
+      }
+    }
+
     if (TRACE_SELECT) {
       warn ",----- SELECT BITS IN -----\n";
       warn "| READ    : ", unpack('b*', $kr_vectors[VEC_RD]), "\n";
