@@ -617,16 +617,31 @@ sub postback {
   my ($self, $event, @etc) = @_;
   my $id = $POE::Kernel::poe_kernel->ID_session_to_id(shift);
 
-  my $postback = bless
-    sub {
-      $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
-      0;
-    }, 'POE::NFA::Postback';
+  my $postback = bless sub {
+    $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
+    0;
+  }, 'POE::NFA::Postback';
 
   $postback_parent_id{$postback} = $id;
   $POE::Kernel::poe_kernel->refcount_increment( $id, 'postback' );
 
   $postback;
+}
+
+# Create a synchronous callback closure.  The return value will be
+# passed to whatever is handed the callback.
+#
+# TODO - Should callbacks hold reference counts like postbacks do?
+
+sub callback {
+  my ($self, $event, @etc) = @_;
+  my $id = $POE::Kernel::poe_kernel->ID_session_to_id($self);
+
+  my $callback = sub {
+    return $POE::Kernel::poe_kernel->call( $id, $event, [ @etc ], [ @_ ] );
+  };
+
+  $callback;
 }
 
 #==============================================================================
@@ -790,6 +805,10 @@ C<options>.  Others will be added as necessary.
 See POE::Session.
 
 =item postback
+
+See POE::Session.
+
+=item callback
 
 See POE::Session.
 

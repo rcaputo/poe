@@ -12,7 +12,7 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-test_setup(29);
+test_setup(30);
 
 use POE;
 
@@ -178,6 +178,10 @@ POE::Session->create
         $_[KERNEL]->alias_set( 'server' );
         $_[HEAP]->{response} = 0;
       },
+      sync_query =>
+      sub {
+        $_[ARG0]->( ++$_[HEAP]->{response} );
+      },
       query =>
       sub {
         $_[ARG0]->( ++$_[HEAP]->{response} );
@@ -189,6 +193,7 @@ POE::Session->create
 # Its magic is that it passes a postback for the response.
 
 my $postback_test = 1;
+my $callback_test = 1;
 
 POE::Session->create
   ( inline_states =>
@@ -199,16 +204,28 @@ POE::Session->create
       },
       query =>
       sub {
-        $_[KERNEL]->post( server =>
-                          query =>
-                          $_[SESSION]->postback( response =>
-                                                 ++$_[HEAP]->{cookie}
-                                               )
-                        );
+        $_[KERNEL]->post(
+          server =>
+          query  => $_[SESSION]->postback(response => ++$_[HEAP]->{cookie})
+        );
+        $_[HEAP]->{sync_called_back} = 0;
+        $_[KERNEL]->call(
+          server     =>
+          sync_query =>
+          $_[SESSION]->callback(sync_response => ++$_[HEAP]->{cookie})
+        );
+        $callback_test = 0 unless $_[HEAP]->{sync_called_back};
+      },
+      sync_response =>
+      sub {
+        my ($req, $rsp) = ($_[ARG0]->[0], $_[ARG1]->[0] + 1);
+        $callback_test = 0 unless $req == $rsp;
+        $_[HEAP]->{sync_called_back} = 1;
       },
       response =>
       sub {
-        $postback_test = 0 if $_[ARG0]->[0] != $_[ARG1]->[0];
+        my ($req, $rsp) = ($_[ARG0]->[0], $_[ARG1]->[0] - 1);
+        $postback_test = 0 unless $req == $rsp;
         if ($_[HEAP]->{cookie} < 5) {
           $_[KERNEL]->yield( 'query' );
         }
@@ -419,19 +436,22 @@ else {
 print 'not ' unless $postback_test;
 print "ok 13\n";
 
-# Were the various get_active_session() calls correct?
-print 'not ' unless $get_active_session_within;
+print 'not ' unless $callback_test;
 print "ok 14\n";
 
-print 'not ' unless $get_active_session_before;
+# Were the various get_active_session() calls correct?
+print 'not ' unless $get_active_session_within;
 print "ok 15\n";
 
-print 'not ' unless $get_active_session_after;
+print 'not ' unless $get_active_session_before;
 print "ok 16\n";
+
+print 'not ' unless $get_active_session_after;
+print "ok 17\n";
 
 # Was the get_heap() call correct?
 print 'not ' unless $get_active_session_heap;
-print "ok 17\n";
+print "ok 18\n";
 
 # Gratuitous tests to appease the coverage gods.
 print 'not ' unless
@@ -439,21 +459,21 @@ print 'not ' unless
     ARG4 == ARG3+1 and ARG5 == ARG4+1 and ARG6 == ARG5+1 and
     ARG7 == ARG6+1 and ARG8 == ARG7+1 and ARG9 == ARG8+1
   );
-print "ok 18\n";
-
-print 'not ' unless $sender_count == $machine_count * $event_count;
 print "ok 19\n";
 
-print 'not ' unless $default_count == ($machine_count * $event_count) / 2;
+print 'not ' unless $sender_count == $machine_count * $event_count;
 print "ok 20\n";
 
-print 'not ' unless $got_heap_count == $machine_count / 2;
+print 'not ' unless $default_count == ($machine_count * $event_count) / 2;
 print "ok 21\n";
+
+print 'not ' unless $got_heap_count == $machine_count / 2;
+print "ok 22\n";
 
 # Object/package sessions.
 for (0..7) {
   print 'not ' unless $objpack[$_] == $event_count;
-  print 'ok ', $_ + 22, "\n";
+  print 'ok ', $_ + 23, "\n";
 }
 
 exit;

@@ -859,16 +859,31 @@ sub postback {
   my ($self, $event, @etc) = @_;
   my $id = $POE::Kernel::poe_kernel->ID_session_to_id($self);
 
-  my $postback = bless
-    sub {
-      $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
-      return POSTBACK_RETVAL;
-    }, 'POE::Session::Postback';
+  my $postback = bless sub {
+    $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] );
+    return POSTBACK_RETVAL;
+  }, 'POE::Session::Postback';
 
   $postback_parent_id{$postback} = $id;
   $POE::Kernel::poe_kernel->refcount_increment( $id, 'postback' );
 
   $postback;
+}
+
+# Create a synchronous callback closure.  The return value will be
+# passed to whatever is handed the callback.
+#
+# TODO - Should callbacks hold reference counts like postbacks do?
+
+sub callback {
+  my ($self, $event, @etc) = @_;
+  my $id = $POE::Kernel::poe_kernel->ID_session_to_id($self);
+
+  my $callback = sub {
+    return $POE::Kernel::poe_kernel->call( $id, $event, [ @etc ], [ @_ ] );
+  };
+
+  $callback;
 }
 
 ###############################################################################
@@ -950,7 +965,11 @@ Other methods:
   # Create a postback, then invoke it and pass back additional
   # information.
   $postback_coderef = $session->postback( $state_name, @state_args );
-  &{ $postback_coderef }( @additional_args );
+  $postback_coderef->( @additional_args );
+
+  # Or do the same thing synchronously
+  $callback_coderef = $session->callback( $state_name, @state_args );
+  $retval = $callback_coderef->( @additional_args );
 
 =head1 DESCRIPTION
 
@@ -1350,6 +1369,19 @@ sends requests to Servlet and eventually receives its responses.
     print "Session ", $session->ID, " requested: @$request\n";
     print "Session ", $session->ID, " received : @$response\n";
   }
+
+=item callback EVENT_NAME, PARAMETER_LIST
+
+callback() creates anonymous coderefs just like postback(), but
+instead of using $poe_kernel->post() it uses $poe_kernel->call() so
+that the event occurs synchronously, i.e. without any delay.  This is
+helpful when the data you're dealing with can change immediately after
+the callback is called.  By the time a postback() event is dispatched,
+the underlying data is long gone.
+
+callback() may also be used when your callback needs to return a
+value.  For instance, GUIs often expect a true value from a callback
+to indicate an event was handled, and a false value otherwise.
 
 =item get_heap
 
