@@ -24,8 +24,8 @@ POE::Driver - POE Read/Write Abstraction
 
   $driver = new POE::Driver::Something();
   $arrayref_of_data_chunks = $driver->get($filehandle);
-  $queue_size = $driver->put($arrayref_of_data_chunks);
-  $queue_size = $driver->flush($filehandle);
+  $queue_octets = $driver->put($arrayref_of_data_chunks);
+  $queue_octets = $driver->flush($filehandle);
 
 =head1 DESCRIPTION
 
@@ -68,8 +68,8 @@ POE::Driver::put($arrayref_of_data_chunks)
 
 The put() method places raw data into the driver's output queue.  Some
 drivers may flush data from the put() method.  It accepts a reference
-to an array of writable chunks, and it returns the number of elements
-it its output queue.
+to an array of writable chunks, and it returns the number of octets in
+its output queue.
 
 Wheels usually call the put() method from their own put() methods.
 
@@ -78,7 +78,7 @@ Wheels usually call the put() method from their own put() methods.
 POE::Driver::flush($filehandle)
 
 The flush() method attempts to flush some data from the driver's
-output queue to the file.  It returns the number of elements remaining
+output queue to the file.  It returns the number of octets remaining
 in the output queue after the flush.
 
 Wheels usually call the flush() method from their write select states.

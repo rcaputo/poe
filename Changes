@@ -8,16 +8,22 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0903 2000.02.08
------------------
+0.0903 2000.02.08 (!!!)
+-----------------------
 
 Put the incomplete, experimental Win32 code back.  It appears to have
-been working all along!
+been working all along!  Please note, this is only for making
+filehandles non-blocking; it doesn't fix signals or fork or anything.
 
 Add Artur's high/low watermark patches to Wheel::ReadWrite.  This is a
-higher level watermark not confined to a particular driver.  It
-implements high- and low-water callbacks instead of performing its own
-flow control.
+higher level watermark than previous patches, and it's not confined to
+a particular driver (which is moot at this point, since there's only
+one driver).  It implements high- and low-water callbacks instead of
+performing its own flow control.
+
+(!!!) Changed drivers' flush() and put() methods' return values.  They
+now return pending octets instead of objects.  ReadWrite's water marks
+rely on this to make the marks meaningful.  Updated documentation.
 
 
 0.0902 2000.02.07

@@ -18,6 +18,7 @@ sub new {
                      'bytes done' => 0,
                      'bytes left' => 0,
                      BlockSize    => 512,
+                     bytes_queued => 0,
                    }, $type;
 
   if (@_) {
@@ -42,13 +43,19 @@ sub new {
 
 sub put {
   my ($self, $chunks) = @_;
-  my $old_queue_length = @{$self->{'out queue'}};
-  my $new_queue_length = push @{$self->{'out queue'}}, @$chunks;
-  if ($new_queue_length && (!$old_queue_length)) {
+  my $old_queue_length = $self->{bytes_queued};
+
+  foreach (grep { length } @$chunks) {
+    $self->{bytes_queued} += length;
+    push @{$self->{'out queue'}}, $_;
+  }
+
+  if ($self->{bytes_queued} && (!$old_queue_length)) {
     $self->{'bytes left'} = length($self->{'out queue'}->[0]);
     $self->{'bytes done'} = 0;
   }
-  $new_queue_length;
+
+  $self->{bytes_queued};
 }
 
 #------------------------------------------------------------------------------
@@ -84,6 +91,7 @@ sub flush {
     }
 
     $self->{'bytes done'} += $wrote_count;
+    $self->{bytes_queued} -= $wrote_count;
     unless ($self->{'bytes left'} -= $wrote_count) {
       shift(@{$self->{'out queue'}});
       if (@{$self->{'out queue'}}) {
@@ -96,7 +104,7 @@ sub flush {
     }
   }
 
-  scalar(@{$self->{'out queue'}});
+  $self->{bytes_queued};
 }
 
 ###############################################################################
@@ -112,8 +120,8 @@ POE::Driver::SysRW - POE sysread/syswrite Abstraction
 
   $driver = new POE::Driver::SysRW();
   $arrayref_of_data_chunks = $driver->get($filehandle);
-  $queue_size = $driver->put($arrayref_of_data_chunks);
-  $queue_size = $driver->flush($filehandle);
+  $queue_octets = $driver->put($arrayref_of_data_chunks);
+  $queue_octets = $driver->flush($filehandle);
 
 =head1 DESCRIPTION
 
