@@ -71,7 +71,7 @@ If it all goes as planned, this will give people at least 1/4 year to
 update their programs.
 
 
-0.1205 2001.??.??
+0.1205 2001.02.12
 -----------------
 
 Added TRACE_RESULTS to lib/TestSetup.  One of the tests in 0.1204 hung
