@@ -131,7 +131,6 @@ POE::Session->create
       ev_idle_increment  => \&io_idle_increment,
       ev_timer_increment => \&io_timer_increment,
     },
-    options => { trace => 1 },
   );
 
 # Main loop.

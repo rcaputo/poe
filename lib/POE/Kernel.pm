@@ -735,7 +735,7 @@ sub new {
         # If Event is available, register a signal watcher with it.
         # Don't register a SIGKILL handler, though, because Event
         # doesn't like that.
-        if (POE_HAS_EVENT and $signal ne 'KILL') {
+        if (POE_HAS_EVENT and $signal ne 'KILL' and $signal ne 'STOP') {
           Event->signal( signal => $signal,
                          cb     => \&_event_signal_handler_generic
                        );
