@@ -21,7 +21,7 @@ use Carp;
 # signals:  { $signal => [ [ $session, $state ], ... ] }
 #
 # sessions: { $session => [ $parent, \@children, $states, $selects, $session,
-#                           $running, $signals,
+#                           $signals,
 #                         ]
 #           }
 #------------------------------------------------------------------------------
@@ -78,14 +78,16 @@ sub new {
 #------------------------------------------------------------------------------
 # Checks the resources for a session.  If it has no queued states, and it
 # has no registered selects, then the session will never again be called.
-# These "zombie" sessions are culled.
+# These "zombie" sessions are culled.  New in 0.02: Sessions will linger
+# until their children all exit.
 
 sub _check_session_resources {
   my ($self, $session) = @_;
 
   if ($session ne $self) {
     unless ($self->{'sessions'}->{$session}->[2] ||
-            $self->{'sessions'}->{$session}->[3]
+            $self->{'sessions'}->{$session}->[3] ||
+            @{$self->{'sessions'}->{$session}->[1]}
     ) {
       $self->session_free($session);
     }
@@ -98,92 +100,76 @@ sub _check_session_resources {
 
 sub _dispatch_state {
   my ($self, $session, $source_session, $state, $etc) = @_;
-
+                                        # add this session to kernel tables
   if ($state eq '_start') {
     $self->{'sessions'}->{$session} =
-      [ $source_session, [ ], 0, 0, $session, 0, 0 ];
+      [ $source_session, [ ], 0, 0, $session, 0, ];
     push(@{$self->{'sessions'}->{$source_session}->[1]}, $session);
   }
-
-  if (exists $self->{'sessions'}->{$session}) {
-    if ($state eq '_stop') {
-                                        # remove the session from its parent
-      my $old_parent = $self->{'sessions'}->{$session}->[0];
-      if (exists $self->{'sessions'}->{$old_parent}) {
-        my $regexp = quotemeta($session);
-        @{$self->{'sessions'}->{$old_parent}->[1]} =
-          grep(!/^$regexp$/, @{$self->{'sessions'}->{$old_parent}->[1]});
-      }
-      else {
-        warn "state($state)  old parent($old_parent) nonexistent";
-      }
+                                        # if stopping, tell other sessions
+  if ($state eq '_stop') {
+                                        # tell children they have new parents
+    my $parent = $self->{'sessions'}->{$session}->[0];
+    foreach my $child (@{$self->{'sessions'}->{$session}->[1]}) {
+      $self->_dispatch_state($child, $parent, '_parent', []);
+    }
                                         # tell the parent its child is gone
-      $self->_dispatch_state($old_parent, $session, '_child', []);
-                                        # give custody of kid sto new parent
-      foreach my $child_session (@{$self->{'sessions'}->{$session}->[1]}) {
-        $self->{'sessions'}->{$child_session}->[0] = $old_parent;
-        push(@{$self->{'sessions'}->{$old_parent}->[1]}, $child_session);
-        $self->_dispatch_state($child_session, $old_parent, '_parent', []);
-      }
-      $self->{'sessions'}->{$session}->[1] = [ ];
-    }
-    elsif ($state eq '_start') {
-      $self->{'sessions'}->{$session}->[5] = 1;
-    }
-
-    if ($self->{'sessions'}->{$session}->[5]) {
-      my $hold_active_session = $self->{'active session'};
-      $self->{'active session'} = $session;
-      $session->_invoke_state($self, $source_session, $state, $etc);
-      $self->{'active session'} = $hold_active_session;
-
-      if ($state eq '_stop') {
-        $self->{'sessions'}->{$session}->[5] = 0;
-                                        # free lingering signals
-        foreach my $signal (@{$self->{'blocked signals'}}) {
-          $self->_internal_sig($session, $signal);
-        }
-                                        # free lingering states (if leaking?)
-        my $index = scalar(@{$self->{'states'}});
-        while ($index--) {
-          if ($self->{'states'}->[$index]->[0] eq $session) {
-            $self->{'sessions'}->{$session}->[2]--;
-            splice(@{$self->{'states'}}, $index, 1);
-          }
-        }
-                                        # free lingering selects
-        my @handles = keys(%{$self->{'selects'}});
-        foreach my $handle (@handles) {
-          $self->_kernel_select($session, $self->{'selects'}->{$handle}->[3]);
-        }
-                                        # check for leaks -><- debugging only
-        if (my $leaked = @{$self->{'sessions'}->{$session}->[1]}) {
-          print "*** $session - leaking children ($leaked)\n";
-        }
-        if (my $leaked = $self->{'sessions'}->{$session}->[2]) {
-          print "*** $session - leaking states ($leaked)\n";
-        }
-        if (my $leaked = $self->{'sessions'}->{$session}->[3]) {
-          print "*** $session - leaking selects ($leaked)\n";
-        }
-        if (my $leaked = $self->{'sessions'}->{$session}->[6]) {
-          print "*** $session - leaking signals ($leaked)\n";
-        }
-
-        delete $self->{'sessions'}->{$session};
-      }
-    }
-    else {
-      warn "session($session) isn't running; can't accept state($state)\n";
-    }
-
-    if (exists $self->{'sessions'}->{$session}) {
-      $self->_check_session_resources($session);
-    }
+    $self->_dispatch_state($parent, $session, '_child', []);
   }
-  else {
-                                        # warning because it should not happen
-    warn "session($session) does not exist - state($state) not dispatched";
+                                        # dispatch this object's state
+  my $hold_active_session = $self->{'active session'};
+  $self->{'active session'} = $session;
+  $session->_invoke_state($self, $source_session, $state, $etc);
+  $self->{'active session'} = $hold_active_session;
+                                        # if _stop, fix up tables
+  if ($state eq '_stop') {
+                                        # remove us from our parent
+    my $parent = $self->{'sessions'}->{$session}->[0];
+    my $regexp = quotemeta($session);
+    @{$self->{'sessions'}->{$parent}->[1]} =
+      grep(!/^$regexp$/, @{$self->{'sessions'}->{$parent}->[1]});
+                                        # give our children to our parent
+    foreach my $child (@{$self->{'sessions'}->{$session}->[1]}) {
+      $self->{'sessions'}->{$child}->[0] = $parent;
+      push(@{$self->{'sessions'}->{$parent}->[1]}, $child);
+    }
+    $self->{'sessions'}->{$session}->[1] = [ ];
+                                        # free lingering signals
+    foreach my $signal (@{$self->{'blocked signals'}}) {
+      $self->_internal_sig($session, $signal);
+    }
+                                        # free lingering states (if leaking?)
+    my $index = scalar(@{$self->{'states'}});
+    while ($index--) {
+      if ($self->{'states'}->[$index]->[0] eq $session) {
+        $self->{'sessions'}->{$session}->[2]--;
+        splice(@{$self->{'states'}}, $index, 1);
+      }
+    }
+                                        # free lingering selects
+    my @handles = keys(%{$self->{'selects'}});
+    foreach my $handle (@handles) {
+      $self->_kernel_select($session, $self->{'selects'}->{$handle}->[3]);
+    }
+                                        # check for leaks -><- debugging only
+    if (my $leaked = @{$self->{'sessions'}->{$session}->[1]}) {
+      print "*** $session - leaking children ($leaked)\n";
+    }
+    if (my $leaked = $self->{'sessions'}->{$session}->[2]) {
+      print "*** $session - leaking states ($leaked)\n";
+    }
+    if (my $leaked = $self->{'sessions'}->{$session}->[3]) {
+      print "*** $session - leaking selects ($leaked)\n";
+    }
+    if (my $leaked = $self->{'sessions'}->{$session}->[5]) {
+      print "*** $session - leaking signals ($leaked)\n";
+    }
+                                        # remove this session (should be empty)
+    delete $self->{'sessions'}->{$session};
+  }
+                                        # check for death by starvation
+  elsif (exists $self->{'sessions'}->{$session}) {
+    $self->_check_session_resources($session);
   }
 }
 
@@ -257,7 +243,7 @@ sub run {
     }
   }
                                         # buh-bye!
-  print "Kernel stopped.\n";
+  print "POE stopped.\n";
                                         # oh, by the way...
   if (my $leaked = @{$self->{'states'}}) {
     print "*** $self - leaking states ($leaked)\n";
@@ -465,7 +451,7 @@ sub _internal_sig {
     }
     unless ($written) {
       push(@{$self->{'signals'}->{$signal}}, [ $session, $state ]);
-      $self->{'sessions'}->{$session}->[6]++;
+      $self->{'sessions'}->{$session}->[5]++;
     }
   }
   else {
@@ -473,7 +459,7 @@ sub _internal_sig {
     while ($index--) {
       if ($self->{'signals'}->{$signal}->[$index]->[0] eq $session) {
         splice(@{$self->{'signals'}->{$signal}}, $index, 1);
-        $self->{'sessions'}->{$session}->[6]--;
+        $self->{'sessions'}->{$session}->[5]--;
         last;
       }
     }
