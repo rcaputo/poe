@@ -78,7 +78,7 @@ sub _define_accept_state {
         if ($peer) {
           my ($peer_addr, $peer_port);
           if ( ($self->{'socket domain'} == AF_UNIX) ||
-               ($SELF->{'socket domain'} == PF_UNIX)
+               ($self->{'socket domain'} == PF_UNIX)
           ) {
             $peer_addr = $peer_port = undef;
           }
