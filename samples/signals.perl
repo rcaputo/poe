@@ -16,7 +16,7 @@ new POE::Session
    {
      my ($k, $me, $from) = @_;
      $k->sig('INT', 'signal handler');
-     print "Signal watcher started.  Send SIGINT: ";
+     print "Signal watcher started.  Send SIGINT or SIGTERM: ";
      $k->post($me, 'set an alarm');
    },
    '_stop' => sub
@@ -29,6 +29,7 @@ new POE::Session
      my ($k, $me, $from, $state, @etc) = @_;
      print "Signal watcher _default gets state ($state) from ($from) ",
            "parameters(", join(', ', @etc), ")\n";
+     return 0;
    },
    'set an alarm' => sub
    {
