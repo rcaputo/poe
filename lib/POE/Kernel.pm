@@ -3,13 +3,20 @@
 package POE::Kernel;
 
 use strict;
-use POSIX qw(errno_h fcntl_h sys_wait_h uname signal_h);
-use Carp;
+use POSIX qw(errno_h fcntl_h sys_wait_h signal_h);
+use Carp qw(carp croak confess);
+use Sys::Hostname qw(hostname);
+
 use vars qw( $poe_kernel $poe_main_window );
 
-use Exporter;
-@POE::Kernel::ISA = qw(Exporter);
-@POE::Kernel::EXPORT = qw( $poe_kernel $poe_main_window );
+#------------------------------------------------------------------------------
+
+sub import {
+  my $package = caller();
+  no strict 'refs';
+  *{ $package . '::poe_kernel'      } = \$poe_kernel;
+  *{ $package . '::poe_main_window' } = \$poe_main_window;
+}
 
 use POE::Preprocessor;
 
@@ -122,72 +129,125 @@ my %kr_sessions;
 # aliases: { $alias => $session };
 my %kr_aliases;
 
+# Extra references.
+my $kr_extra_refs;
+
+# Session ID index.
+my $kr_id_index = 1;
+
+# Currently active session.
+my $kr_active_session;
+
+# A flag determining whether the program has already run the main loop
+# once.
+my $poe_kernel_ran = 0;
+
 #------------------------------------------------------------------------------
 
 # Handles and vectors sub-fields.
-enum VEC_RD VEC_WR VEC_EX
+sub VEC_RD () { 0 }
+sub VEC_WR () { 1 }
+sub VEC_EX () { 2 }
 
 # Session structure
-enum   SS_SESSION SS_REFCOUNT SS_EVCOUNT SS_PARENT SS_CHILDREN SS_HANDLES
-enum + SS_SIGNALS SS_ALIASES  SS_PROCESSES SS_ID SS_EXTRA_REFS SS_ALCOUNT
+sub SS_SESSION    () {  0 }
+sub SS_REFCOUNT   () {  1 }
+sub SS_EVCOUNT    () {  2 }
+sub SS_PARENT     () {  3 }
+sub SS_CHILDREN   () {  4 }
+sub SS_HANDLES    () {  5 }
+sub SS_SIGNALS    () {  6 }
+sub SS_ALIASES    () {  7 }
+sub SS_PROCESSES  () {  8 }
+sub SS_ID         () {  9 }
+sub SS_EXTRA_REFS () { 10 }
+sub SS_ALCOUNT    () { 11 }
 
 # session handle structure
-enum   SH_HANDLE SH_REFCOUNT SH_VECCOUNT
+sub SH_HANDLE   () { 0 }
+sub SH_REFCOUNT () { 1 }
+sub SH_VECCOUNT () { 2 }
 
 # The Kernel object.  KR_SIZE goes last (it's the index count).
-enum   KR_SESSIONS KR_VECTORS KR_HANDLES KR_STATES KR_SIGNALS KR_ALIASES
-enum + KR_ACTIVE_SESSION KR_PROCESSES KR_ALARMS KR_ID KR_SESSION_IDS
-enum + KR_ID_INDEX KR_WATCHER_TIMER KR_WATCHER_IDLE KR_EXTRA_REFS KR_SIZE
+sub KR_SESSIONS       () {  0 }
+sub KR_VECTORS        () {  1 }
+sub KR_HANDLES        () {  2 }
+sub KR_STATES         () {  3 }
+sub KR_SIGNALS        () {  4 }
+sub KR_ALIASES        () {  5 }
+sub KR_ACTIVE_SESSION () {  6 }
+sub KR_PROCESSES      () {  7 }
+sub KR_ALARMS         () {  8 }
+sub KR_ID             () {  9 }
+sub KR_SESSION_IDS    () { 10 }
+sub KR_ID_INDEX       () { 11 }
+sub KR_WATCHER_TIMER  () { 12 }
+sub KR_WATCHER_IDLE   () { 13 }
+sub KR_EXTRA_REFS     () { 14 }
+sub KR_SIZE           () { 15 }
 
 # Handle structure.
-enum HND_HANDLE HND_REFCOUNT HND_VECCOUNT HND_SESSIONS HND_WATCHERS
+sub HND_HANDLE   () { 0 }
+sub HND_REFCOUNT () { 1 }
+sub HND_VECCOUNT () { 2 }
+sub HND_SESSIONS () { 3 }
+sub HND_WATCHERS () { 4 }
 
 # Handle session structure.
-enum HSS_HANDLE HSS_SESSION HSS_STATE
+sub HSS_HANDLE  () { 0 }
+sub HSS_SESSION () { 1 }
+sub HSS_STATE   () { 2 }
 
 # State transition events.
-enum ST_SESSION ST_SOURCE ST_NAME ST_TYPE ST_ARGS
+sub ST_SESSION () { 0 }
+sub ST_SOURCE  () { 1 }
+sub ST_NAME    () { 2 }
+sub ST_TYPE    () { 3 }
+sub ST_ARGS    () { 4 }
 
 # These go towards the end, in this order, because they're optional
 # parameters in some cases.
-enum + ST_TIME ST_OWNER_FILE ST_OWNER_LINE ST_SEQ
+sub ST_TIME       () { 5 }
+sub ST_OWNER_FILE () { 6 }
+sub ST_OWNER_LINE () { 7 }
+sub ST_SEQ        () { 8 }
 
 # These are names of internal events.
-const EN_START  '_start'
-const EN_STOP   '_stop'
-const EN_SIGNAL '_signal'
-const EN_GC     '_garbage_collect'
-const EN_PARENT '_parent'
-const EN_CHILD  '_child'
-const EN_SCPOLL '_sigchld_poll'
+sub EN_START  () { '_start'           }
+sub EN_STOP   () { '_stop'            }
+sub EN_SIGNAL () { '_signal'          }
+sub EN_GC     () { '_garbage_collect' }
+sub EN_PARENT () { '_parent'          }
+sub EN_CHILD  () { '_child'           }
+sub EN_SCPOLL () { '_sigchld_poll'    }
 
 # These are ways a child may come or go.
-const CHILD_GAIN   'gain'
-const CHILD_LOSE   'lose'
-const CHILD_CREATE 'create'
+sub CHILD_GAIN   () { 'gain'   }
+sub CHILD_LOSE   () { 'lose'   }
+sub CHILD_CREATE () { 'create' }
 
 # These are event classes (types).  They often shadow actual event
 # names, but they can encompass a large group of events.  For example,
 # ET_ALARM describes anything posted by an alarm call.  Types are
 # preferred over names because bitmask tests tend to be faster than
 # string equality checks.
-const ET_USER     0x0001
-const ET_CALL     0x0002
-const ET_START    0x0004
-const ET_STOP     0x0008
-const ET_SIGNAL   0x0010
-const ET_GC       0x0020
-const ET_PARENT   0x0040
-const ET_CHILD    0x0080
-const ET_SCPOLL   0x0100
-const ET_ALARM    0x0200
-const ET_SELECT   0x0400
+sub ET_USER   () { 0x0001 }
+sub ET_CALL   () { 0x0002 }
+sub ET_START  () { 0x0004 }
+sub ET_STOP   () { 0x0008 }
+sub ET_SIGNAL () { 0x0010 }
+sub ET_GC     () { 0x0020 }
+sub ET_PARENT () { 0x0040 }
+sub ET_CHILD  () { 0x0080 }
+sub ET_SCPOLL () { 0x0100 }
+sub ET_ALARM  () { 0x0200 }
+sub ET_SELECT () { 0x0400 }
 
 # The amount of time to spend dispatching FIFO events.  Increasing
 # this value will improve POE's FIFO dispatch performance by
 # increasing the time between select and alarm checks.  It's only
 # meaningful when Time::HiRes is available.
-const FIFO_DISPATCH_TIME 0.01
+sub FIFO_DISPATCH_TIME () { 0.01 }
 
 #------------------------------------------------------------------------------
 # Debugging and configuration constants.  Uses two macros to assist.
@@ -309,10 +369,10 @@ macro remove_extra_reference (<session>,<tag>) {
 
   {% ses_refcount_dec <session> %}
 
-  $self->[KR_EXTRA_REFS]--;
+  $kr_extra_refs--;
   if (ASSERT_REFCOUNT) { # include
     die( "--- ", {% ssid %}, " refcounts for kernel dropped below 0")
-      if $self->[KR_EXTRA_REFS] < 0;
+      if $kr_extra_refs < 0;
   } # include
 }
 
@@ -404,7 +464,7 @@ macro test_for_idle_poe_kernel {
                                values(%kr_handles)
                              ),
           "\n",
-          "| Extra  : ", $self->[KR_EXTRA_REFS], "\n",
+          "| Extra  : $kr_extra_refs\n",
           "`---------------------------\n",
           " ..."
          );
@@ -413,23 +473,23 @@ macro test_for_idle_poe_kernel {
   unless ( @kr_states or
            @kr_alarms or
            keys(%kr_handles) or
-           $poe_kernel->[KR_EXTRA_REFS]
+           $kr_extra_refs
          ) {
-    $poe_kernel->_enqueue_state( $poe_kernel, $poe_kernel,
-                                 EN_SIGNAL, ET_SIGNAL,
-                                 [ 'IDLE' ],
-                                 time(), __FILE__, __LINE__
-                               )
-      if keys %kr_sessions;
+    $poe_kernel->_enqueue_state
+      ( $poe_kernel, $poe_kernel,
+        EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
+        time(), __FILE__, __LINE__
+      )
+        if keys %kr_sessions;
   }
 }
 
 macro post_plain_signal (<destination>,<signal_name>) {
-  $poe_kernel->_enqueue_state( <destination>, $poe_kernel,
-                               EN_SIGNAL, ET_SIGNAL,
-                               [ <signal_name> ],
-                               time(), __FILE__, __LINE__
-                             );
+  $poe_kernel->_enqueue_state
+    ( <destination>, $poe_kernel,
+      EN_SIGNAL, ET_SIGNAL, [ <signal_name> ],
+      time(), __FILE__, __LINE__
+    );
 }
 
 # Pull an event off the queue, and dispatch it.
@@ -457,8 +517,7 @@ macro dispatch_ready_selects {
   foreach my $select (@selects) {
     $poe_kernel->_dispatch_state
       ( $select->[HSS_SESSION], $select->[HSS_SESSION],
-        $select->[HSS_STATE], ET_SELECT,
-        [ $select->[HSS_HANDLE] ],
+        $select->[HSS_STATE], ET_SELECT, [ $select->[HSS_HANDLE] ],
         time(), __FILE__, __LINE__, undef
       );
   }
@@ -526,17 +585,17 @@ my %_terminal_signals =
 sub sig {
   my ($self, $signal, $state) = @_;
   if (defined $state) {
-    my $session = $self->[KR_ACTIVE_SESSION];
+    my $session = $kr_active_session;
     $kr_sessions{$session}->[SS_SIGNALS]->{$signal} = $state;
     $kr_signals{$signal}->{$session} = $state;
   }
   else {
-    {% sig_remove $self->[KR_ACTIVE_SESSION], $signal %}
+    {% sig_remove $kr_active_session, $signal %}
   }
 }
 
-# Public interface for posting signal events.  5.6.0 places a signal
-# symbol in our table; the BEGIN block deletes it to prevent
+# Public interface for posting signal events.  5.6.0 places a
+# C<signal> symbol in our table; the BEGIN block deletes it to prevent
 # "Subroutine signal redefined" warnings.
 
 BEGIN { delete $POE::Kernel::{signal}; }
@@ -546,11 +605,11 @@ sub POE::Kernel::signal {
   my $session = {% alias_resolve $destination %};
   {% test_resolve $destination, $session %}
 
-  $self->_enqueue_state( $session, $self->[KR_ACTIVE_SESSION],
-                         EN_SIGNAL, ET_SIGNAL,
-                         [ $signal ],
-                         time(), (caller)[1,2]
-                       );
+  $self->_enqueue_state
+    ( $session, $kr_active_session,
+      EN_SIGNAL, ET_SIGNAL, [ $signal ],
+      time(), (caller)[1,2]
+    );
 }
 
 #==============================================================================
@@ -583,21 +642,21 @@ sub new {
   unless (defined $poe_kernel) {
 
     my $self = $poe_kernel = bless
-      [ \%kr_sessions,     # KR_SESSIONS
-        \@kr_vectors,      # KR_VECTORS
-        \%kr_handles,      # KR_HANDLES
-        \@kr_states,       # KR_STATES
-        \%kr_signals,      # KR_SIGNALS
-        \%kr_aliases,      # KR_ALIASES
-        undef,             # KR_ACTIVE_SESSION
-        \%kr_processes,    # KR_PROCESSES
-        \@kr_alarms,       # KR_ALARMS
-        undef,             # KR_ID
-        \%kr_session_ids,  # KR_SESSION_IDS
-        1,                 # KR_ID_INDEX
-        undef,             # KR_WATCHER_TIMER
-        undef,             # KR_WATCHER_IDLE
-        0,                 # KR_EXTRA_REFS
+      [ \%kr_sessions,       # KR_SESSIONS
+        \@kr_vectors,        # KR_VECTORS
+        \%kr_handles,        # KR_HANDLES
+        \@kr_states,         # KR_STATES
+        \%kr_signals,        # KR_SIGNALS
+        \%kr_aliases,        # KR_ALIASES
+        \$kr_active_session, # KR_ACTIVE_SESSION
+        \%kr_processes,      # KR_PROCESSES
+        \@kr_alarms,         # KR_ALARMS
+        undef,               # KR_ID
+        \%kr_session_ids,    # KR_SESSION_IDS
+        \$kr_id_index,       # KR_ID_INDEX
+        undef,               # KR_WATCHER_TIMER
+        undef,               # KR_WATCHER_IDLE
+        \$kr_extra_refs,     # KR_EXTRA_REFS
       ], $type;
 
     # Some personalities allow us to set up static watchers and
@@ -605,30 +664,17 @@ sub new {
     # watchers.  This also starts main windows where applicable.
     {% substrate_init_main_loop %}
 
-    # Kernel ID, based on Philip Gwyn's code.  I hope he still can
-    # recognize it.  KR_SESSION_IDS is a hash because it will almost
-    # always be sparse.
-    $self->[KR_ID] = ( (uname)[1] . '-' .
-                       unpack 'H*', pack 'N*', time, $$
-                     );
-    $kr_session_ids{$self->[KR_ID]} = $self;
-
-    # Initialize the vectors as vectors.
-    vec($kr_vectors[VEC_RD], 0, 1) = 0;
-    vec($kr_vectors[VEC_WR], 0, 1) = 0;
-    vec($kr_vectors[VEC_EX], 0, 1) = 0;
-
     # Register all known signal handlers, except the troublesome ones.
     foreach my $signal (keys(%SIG)) {
 
       # Some signals aren't real, and the act of setting handlers for
       # them can have strange, even fatal side effects.
       next if ($signal =~ /^( NUM\d+
-                              |__[A-Z0-9]+__
-                              |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
-                              |RTMIN|RTMAX|SETS
-                              |SEGV
-                              |
+                            |__[A-Z0-9]+__
+                            |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
+                            |RTMIN|RTMAX|SETS
+                            |SEGV
+                            |
                             )$/x
               );
 
@@ -646,8 +692,16 @@ sub new {
       $kr_signals{$signal} = { };
     }
 
+    # Kernel ID, based on Philip Gwyn's code.  I hope he still can
+    # recognize it.  KR_SESSION_IDS is a hash because it will almost
+    # always be sparse.
+    $self->[KR_ID] = ( hostname . '-' .
+                       unpack 'H*', pack 'N*', time, $$
+                     );
+    $kr_session_ids{$self->[KR_ID]} = $self;
+
     # The kernel is a session, sort of.
-    $self->[KR_ACTIVE_SESSION] = $self;
+    $kr_active_session = $self;
     $kr_sessions{$self} =
       [ $self,                          # SS_SESSION
         0,                              # SS_REFCOUNT
@@ -702,12 +756,10 @@ sub _dispatch_state {
 
       # Get a new session ID.  Prevent collisions.  Prevent integer
       # wraparound to a negative number.
-      my $next_session_id = $self->[KR_ID_INDEX];
       while (1) {
-        $next_session_id = 0 if ++$next_session_id < 0;
-        last unless exists $kr_session_ids{$next_session_id};
+        $kr_id_index = 0 if ++$kr_id_index < 0;
+        last unless exists $kr_session_ids{$kr_id_index};
       }
-      $self->[KR_ID_INDEX] = $next_session_id;
 
       my $new_session = $kr_sessions{$session} =
         [ $session,         # SS_SESSION
@@ -719,13 +771,13 @@ sub _dispatch_state {
           { },              # SS_SIGNALS
           { },              # SS_ALIASES
           { },              # SS_PROCESSES
-          $next_session_id, # SS_ID
+          $kr_id_index,     # SS_ID
           { },              # SS_EXTRA_REFS
           0,                # SS_ALCOUNT
         ];
 
       # For the ID to session reference lookup.
-      $kr_session_ids{$next_session_id} = $session;
+      $kr_session_ids{$kr_id_index} = $session;
 
       if (ASSERT_RELATIONS) { # include
         # Ensure sanity.
@@ -768,27 +820,27 @@ sub _dispatch_state {
       my $parent   = $kr_sessions{$session}->[SS_PARENT];
       my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
       foreach my $child (@children) {
-        $self->_dispatch_state( $parent, $self,
-                                EN_CHILD, ET_CHILD,
-                                [ CHILD_GAIN, $child ],
-                                time(), $file, $line, undef
-                              );
-        $self->_dispatch_state( $child, $self,
-                                EN_PARENT, ET_PARENT,
-                                [ $kr_sessions{$child}->[SS_PARENT], $parent,
-                                ],
-                                time(), $file, $line, undef
-                              );
+        $self->_dispatch_state
+          ( $parent, $self,
+            EN_CHILD, ET_CHILD, [ CHILD_GAIN, $child ],
+            time(), $file, $line, undef
+          );
+        $self->_dispatch_state
+          ( $child, $self,
+            EN_PARENT, ET_PARENT,
+            [ $kr_sessions{$child}->[SS_PARENT], $parent, ],
+            time(), $file, $line, undef
+          );
       }
 
       # Tell the departing session's parent that the departing session
       # is departing.
       if (defined $parent) {
-        $self->_dispatch_state( $parent, $self,
-                                EN_CHILD, ET_CHILD,
-                                [ CHILD_LOSE, $session ],
-                                time(), $file, $line, undef
-                              );
+        $self->_dispatch_state
+          ( $parent, $self,
+            EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
+            time(), $file, $line, undef
+          );
       }
     }
 
@@ -805,11 +857,11 @@ sub _dispatch_state {
 
       my @children = values %{$kr_sessions{$session}->[SS_CHILDREN]};
       foreach (@children) {
-        $self->_dispatch_state( $_, $self,
-                                $state, ET_SIGNAL,
-                                $etc,
-                                time(), $file, $line, undef
-                              );
+        $self->_dispatch_state
+          ( $_, $self,
+            $state, ET_SIGNAL, $etc,
+            time(), $file, $line, undef
+          );
       }
 
       # Translate the '_signal' state to its handler's name.
@@ -841,8 +893,8 @@ sub _dispatch_state {
 
   # Prepare to call the appropriate state.  Push the current active
   # session on Perl's call stack.
-  my $hold_active_session = $self->[KR_ACTIVE_SESSION];
-  $self->[KR_ACTIVE_SESSION] = $session;
+  my $hold_active_session = $kr_active_session;
+  $kr_active_session = $session;
 
   # Dispatch the event, at long last.
   my $return =
@@ -863,7 +915,7 @@ sub _dispatch_state {
   }
 
   # Pop the active session, now that it's not active anymore.
-  $self->[KR_ACTIVE_SESSION] = $hold_active_session;
+  $kr_active_session = $hold_active_session;
 
   if (TRACE_EVENTS) { # include
     warn "<<< ", {% ssid %}, " -> $state returns ($return)\n";
@@ -881,11 +933,11 @@ sub _dispatch_state {
   # delayed until ET_GC.
 
   if ($type & ET_START) {
-    $self->_dispatch_state( $kr_sessions{$session}->[SS_PARENT], $self,
-                            EN_CHILD, ET_CHILD,
-                            [ CHILD_CREATE, $session, $return ],
-                            time(), $file, $line, undef
-                          );
+    $self->_dispatch_state
+      ( $kr_sessions{$session}->[SS_PARENT], $self,
+        EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
+        time(), $file, $line, undef
+      );
   }
 
   # This session has stopped.  Clean up after it.  There's no
@@ -1023,7 +1075,6 @@ sub _dispatch_state {
     delete $kr_sessions{$session};
 
     # See if the parent should leave, too.
-
     if (defined $parent) {
       {% collect_garbage $parent %}
     }
@@ -1074,7 +1125,16 @@ sub _dispatch_state {
 sub run {
   my $self = shift;
 
+  croak "can't rerun POE::Kernel" if $poe_kernel_ran;
+
   {% substrate_main_loop %}
+
+  $poe_kernel_ran++;
+
+  # Disable signal watching, since there's now no place for them to
+  # go.
+  my @signals = keys %SIG;
+  @SIG{@signals} = (('DEFAULT') x @signals);
 
   # The main loop is done, no matter which event library ran it.
   # Let's make sure POE isn't leaking things.
@@ -1159,11 +1219,11 @@ sub _invoke_state {
         # Enqueue the signal event. -><- No way to determine whether
         # the child left via exit or a signal. Add another parameter?
 
-        $self->_enqueue_state( $parent_session, $self,
-                               EN_SIGNAL, ET_SIGNAL,
-                               [ 'CHLD', $pid, $? ],
-                               time(), __FILE__, __LINE__
-                             );
+        $self->_enqueue_state
+          ( $parent_session, $self,
+            EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
+            time(), __FILE__, __LINE__
+          );
       }
 
       # Enqueue an immediate subsequent wait in case another child
@@ -1171,8 +1231,7 @@ sub _invoke_state {
 
       $self->_enqueue_state
         ( $poe_kernel, $poe_kernel,
-          EN_SCPOLL, ET_SCPOLL,
-          [ ],
+          EN_SCPOLL, ET_SCPOLL, [ ],
           time(), __FILE__, __LINE__
         );
 
@@ -1187,8 +1246,7 @@ sub _invoke_state {
       if ($! == EINTR) {
         $self->_enqueue_state
           ( $poe_kernel, $poe_kernel,
-            EN_SCPOLL, ET_SCPOLL,
-            [ ],
+            EN_SCPOLL, ET_SCPOLL, [ ],
             time(), __FILE__, __LINE__
           );
       }
@@ -1216,11 +1274,11 @@ sub _invoke_state {
   elsif ($state eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
       unless (@kr_states || keys(%kr_handles)) {
-        $self->_enqueue_state( $self, $self,
-                               EN_SIGNAL, ET_SIGNAL,
-                               [ 'ZOMBIE' ],
-                               time(), __FILE__, __LINE__
-                             );
+        $self->_enqueue_state
+          ( $self, $self,
+            EN_SIGNAL, ET_SIGNAL, [ 'ZOMBIE' ],
+            time(), __FILE__, __LINE__
+          );
       }
     }
   }
@@ -1237,23 +1295,22 @@ sub _invoke_state {
 
 sub session_alloc {
   my ($self, $session, @args) = @_;
-  my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
   if (ASSERT_RELATIONS) { # include
     die {% ssid %}, " already exists\a"
       if (exists $kr_sessions{$session});
   } # include
 
-  $self->_dispatch_state( $session, $kr_active_session,
-                          EN_START, ET_START,
-                          \@args,
-                          time(), __FILE__, __LINE__, undef
-                        );
-  $self->_enqueue_state( $session, $kr_active_session,
-                         EN_GC, ET_GC,
-                         [],
-                         time(), __FILE__, __LINE__
-                       );
+  $self->_dispatch_state
+    ( $session, $kr_active_session,
+      EN_START, ET_START, \@args,
+      time(), __FILE__, __LINE__, undef
+    );
+  $self->_enqueue_state
+    ( $session, $kr_active_session,
+      EN_GC, ET_GC, [],
+      time(), __FILE__, __LINE__
+    );
 }
 
 # Dispatch _stop to a session, removing it from the kernel's data
@@ -1267,11 +1324,11 @@ sub session_free {
       unless (exists $kr_sessions{$session});
   } # include
 
-  $self->_dispatch_state( $session, $self->[KR_ACTIVE_SESSION],
-                          EN_STOP, ET_STOP,
-                          [],
-                          time(), __FILE__, __LINE__, undef
-                        );
+  $self->_dispatch_state
+    ( $session, $kr_active_session,
+      EN_STOP, ET_STOP, [],
+      time(), __FILE__, __LINE__, undef
+    );
 }
 
 # Debugging subs for reference count checks.
@@ -1335,7 +1392,7 @@ sub assert_gc_refcount {
 
 sub get_active_session {
   my $self = shift;
-  return $self->[KR_ACTIVE_SESSION];
+  return $kr_active_session;
 }
 
 #==============================================================================
@@ -1492,11 +1549,11 @@ sub post {
   # Enqueue the state for "now", which simulates FIFO in our
   # time-ordered queue.
 
-  $self->_enqueue_state( $session, $self->[KR_ACTIVE_SESSION],
-                         $state_name, ET_USER,
-                         \@etc,
-                         time(), (caller)[1,2]
-                       );
+  $self->_enqueue_state
+    ( $session, $kr_active_session,
+      $state_name, ET_USER, \@etc,
+      time(), (caller)[1,2]
+    );
   return 1;
 }
 
@@ -1506,12 +1563,11 @@ sub post {
 sub yield {
   my ($self, $state_name, @etc) = @_;
 
-  my $kr_active_session = $self->[KR_ACTIVE_SESSION];
-  $self->_enqueue_state( $kr_active_session, $kr_active_session,
-                         $state_name, ET_USER,
-                         \@etc,
-                         time(), (caller)[1,2]
-                       );
+  $self->_enqueue_state
+    ( $kr_active_session, $kr_active_session,
+      $state_name, ET_USER, \@etc,
+      time(), (caller)[1,2]
+    );
 
   undef;
 }
@@ -1540,11 +1596,11 @@ sub call {
   # programmers set some base rules and stick to them.
 
   my $return_value =
-    $self->_dispatch_state( $session, $self->[KR_ACTIVE_SESSION],
-                            $state_name, ET_CALL,
-                            \@etc,
-                            time(), (caller)[1,2], undef
-                          );
+    $self->_dispatch_state
+      ( $session, $kr_active_session,
+        $state_name, ET_CALL, \@etc,
+        time(), (caller)[1,2], undef
+      );
   $! = 0;
   return $return_value;
 }
@@ -1556,7 +1612,6 @@ sub queue_peek_alarms {
   my ($self) = @_;
   my @pending_alarms;
 
-  my $kr_active_session = $self->[KR_ACTIVE_SESSION];
   my $alarm_count = $kr_sessions{$kr_active_session}->[SS_ALCOUNT];
 
   foreach my $alarm (@kr_alarms) {
@@ -1576,7 +1631,6 @@ sub queue_peek_alarms {
 
 sub alarm {
   my ($self, $state, $time, @etc) = @_;
-  my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
   unless (defined $state) {
     TRACE_RETURNS and carp "invalid parameter to alarm() call";
@@ -1603,11 +1657,11 @@ sub alarm {
 
   # Add the new alarm if it includes a time.
   if (defined $time) {
-    $self->_enqueue_alarm( $kr_active_session, $kr_active_session,
-                           $state, ET_ALARM,
-                           [ @etc ],
-                           $time, (caller)[1,2]
-                         );
+    $self->_enqueue_alarm
+      ( $kr_active_session, $kr_active_session,
+        $state, ET_ALARM, [ @etc ],
+        $time, (caller)[1,2]
+      );
   }
 
   return 0;
@@ -1623,12 +1677,11 @@ sub alarm_add {
     return EINVAL;
   }
 
-  my $kr_active_session = $self->[KR_ACTIVE_SESSION];
-  $self->_enqueue_alarm( $kr_active_session, $kr_active_session,
-                         $state, ET_ALARM,
-                         [ @etc ],
-                         $time, (caller)[1,2]
-                       );
+  $self->_enqueue_alarm
+    ( $kr_active_session, $kr_active_session,
+      $state, ET_ALARM, [ @etc ],
+      $time, (caller)[1,2]
+    );
 
   return 0;
 }
@@ -1745,7 +1798,6 @@ sub _internal_select {
       # its select bit on.
 
       if ($kr_handle->[HND_VECCOUNT]->[$select_index] == 1) {
-        vec($kr_vectors[$select_index], fileno($handle), 1) = 1;
         {% substrate_watch_filehandle %}
       }
 
@@ -1815,16 +1867,7 @@ sub _internal_select {
         # handle.
 
         unless ($kr_handle->[HND_VECCOUNT]->[$select_index]) {
-          vec($kr_vectors[$select_index], fileno($handle), 1) = 0;
-
           {% substrate_ignore_filehandle %}
-
-          # Shrink the bit vector by chopping zero octets from the
-          # end.  Octets because that's the minimum size of a bit
-          # vector chunk that Perl manages.  Always keep at least one
-          # octet around, even if it's 0.  -><- Why?
-
-          $kr_vectors[$select_index] =~ s/(.)\000+$/$1/;
         }
 
         # Decrement the kernel record's handle reference count.  If
@@ -1881,31 +1924,30 @@ sub _internal_select {
 # together.
 sub select {
   my ($self, $handle, $state_r, $state_w, $state_e) = @_;
-  my $session = $self->[KR_ACTIVE_SESSION];
-  $self->_internal_select($session, $handle, $state_r, VEC_RD);
-  $self->_internal_select($session, $handle, $state_w, VEC_WR);
-  $self->_internal_select($session, $handle, $state_e, VEC_EX);
+  $self->_internal_select($kr_active_session, $handle, $state_r, VEC_RD);
+  $self->_internal_select($kr_active_session, $handle, $state_w, VEC_WR);
+  $self->_internal_select($kr_active_session, $handle, $state_e, VEC_EX);
   return 0;
 }
 
 # Only manipulate the read select.
 sub select_read {
   my ($self, $handle, $state) = @_;
-  $self->_internal_select($self->[KR_ACTIVE_SESSION], $handle, $state, VEC_RD);
+  $self->_internal_select($kr_active_session, $handle, $state, VEC_RD);
   return 0;
 }
 
 # Only manipulate the write select.
 sub select_write {
   my ($self, $handle, $state) = @_;
-  $self->_internal_select($self->[KR_ACTIVE_SESSION], $handle, $state, VEC_WR);
+  $self->_internal_select($kr_active_session, $handle, $state, VEC_WR);
   return 0;
 }
 
 # Only manipulate the expedite select.
 sub select_expedite {
   my ($self, $handle, $state) = @_;
-  $self->_internal_select($self->[KR_ACTIVE_SESSION], $handle, $state, VEC_EX);
+  $self->_internal_select($kr_active_session, $handle, $state, VEC_EX);
   return 0;
 }
 
@@ -1913,16 +1955,8 @@ sub select_expedite {
 # garbage-collection things.
 sub select_pause_write {
   my ($self, $handle) = @_;
-
   {% validate_handle $handle, VEC_WR %}
-
-  # Turn off the select vector's write bit for us.  We don't do any
-  # housekeeping since we're only pausing the handle.  It's assumed
-  # that we'll resume it again at some point.
-
-  vec($kr_vectors[VEC_WR], fileno($handle), 1) = 0;
   {% substrate_pause_filehandle_write_watcher %}
-
   return 0;
 }
 
@@ -1930,13 +1964,8 @@ sub select_pause_write {
 # things.
 sub select_resume_write {
   my ($self, $handle) = @_;
-
   {% validate_handle $handle, VEC_WR %}
-
-  # Turn the select vector's write bit back on.
-  vec($kr_vectors[VEC_WR], fileno($handle), 1) = 1;
   {% substrate_resume_filehandle_write_watcher %}
-
   return 1;
 }
 
@@ -1944,16 +1973,8 @@ sub select_resume_write {
 # things.
 sub select_pause_read {
   my ($self, $handle) = @_;
-
   {% validate_handle $handle, VEC_RD %}
-
-  # Turn off the select vector's read bit for us.  We don't do any
-  # housekeeping since we're only pausing the handle.  It's assumed
-  # that we'll resume it again at some point.
-
-  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 0;
   {% substrate_pause_filehandle_read_watcher %}
-
   return 0;
 }
 
@@ -1961,13 +1982,8 @@ sub select_pause_read {
 # things.
 sub select_resume_read {
   my ($self, $handle) = @_;
-
   {% validate_handle $handle, VEC_RD %}
-
-  # Turn the select vector's read bit back on.
-  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 1;
   {% substrate_resume_filehandle_read_watcher %}
-
   return 1;
 }
 
@@ -1977,7 +1993,6 @@ sub select_resume_read {
 
 sub alias_set {
   my ($self, $name) = @_;
-  my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
   # Don't overwrite another session's alias.
   if (exists $kr_aliases{$name}) {
@@ -2000,7 +2015,6 @@ sub alias_set {
 # Public interface for removing aliases.
 sub alias_remove {
   my ($self, $name) = @_;
-  my $kr_active_session = $self->[KR_ACTIVE_SESSION];
 
   unless (exists $kr_aliases{$name}) {
     TRACE_RETURNS and carp "alias does not exist";
@@ -2105,10 +2119,10 @@ sub refcount_increment {
              );
       } # include
 
-      $self->[KR_EXTRA_REFS]++;
+      $kr_extra_refs++;
 
       if (TRACE_REFCOUNT) { # include
-        carp( "+++ session refcounts in kernel: ", $self->[KR_EXTRA_REFS] );
+        carp( "+++ session refcounts in kernel: $kr_extra_refs" );
       } # include
 
     }
@@ -2175,15 +2189,10 @@ sub state {
   my ($self, $state_name, $state_code, $state_alias) = @_;
   $state_alias = $state_name unless defined $state_alias;
 
-  if ( (ref($self->[KR_ACTIVE_SESSION]) ne '') &&
-       # -><- breaks subclasses... sky has fix
-       (ref($self->[KR_ACTIVE_SESSION]) ne 'POE::Kernel')
+  if ( (ref($kr_active_session) ne '') &&
+       (ref($kr_active_session) ne 'POE::Kernel')
   ) {
-    $self->[KR_ACTIVE_SESSION]->register_state
-      ( $state_name,
-        $state_code,
-        $state_alias
-      );
+    $kr_active_session->register_state($state_name, $state_code, $state_alias);
     return 0;
   }
 

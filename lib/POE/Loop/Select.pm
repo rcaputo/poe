@@ -104,27 +104,42 @@ macro substrate_pause_alarm_watcher {
 }
 
 macro substrate_watch_filehandle {
-  # does nothing
+  vec($kr_vectors[$select_index], fileno($handle), 1) = 1;
 }
 
 macro substrate_ignore_filehandle {
-  # does nothing
+  vec($kr_vectors[$select_index], fileno($handle), 1) = 0;
+
+  # Shrink the bit vector by chopping zero octets from the end.
+  # Octets because that's the minimum size of a bit vector chunk that
+  # Perl manages.  Always keep at least one octet around, even if it's
+  # 0.  -><- Why?
+
+  $kr_vectors[$select_index] =~ s/(.)\000+$/$1/;
 }
 
 macro substrate_pause_filehandle_write_watcher {
-  # does nothing
+  # Turn off the select vector's write bit for us.  We don't do any
+  # housekeeping since we're only pausing the handle.  It's assumed
+  # that we'll resume it again at some point.
+  vec($kr_vectors[VEC_WR], fileno($handle), 1) = 0;
 }
 
 macro substrate_resume_filehandle_write_watcher {
-  # does nothing
+  # Turn the select vector's write bit back on.
+  vec($kr_vectors[VEC_WR], fileno($handle), 1) = 1;
 }
 
 macro substrate_pause_filehandle_read_watcher {
-  # does nothing
+  # Turn off the select vector's read bit for us.  We don't do any
+  # housekeeping since we're only pausing the handle.  It's assumed
+  # that we'll resume it again at some point.
+  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 0;
 }
 
 macro substrate_resume_filehandle_read_watcher {
-  # does nothing
+  # Turn the select vector's read bit back on.
+  vec($kr_vectors[VEC_RD], fileno($handle), 1) = 1;
 }
 
 macro substrate_define_callbacks {
@@ -135,7 +150,10 @@ macro substrate_define_callbacks {
 # Main loop management.
 
 macro substrate_init_main_loop {
-  # does nothing
+  # Initialize the vectors as vectors.
+  vec($kr_vectors[VEC_RD], 0, 1) = 0;
+  vec($kr_vectors[VEC_WR], 0, 1) = 0;
+  vec($kr_vectors[VEC_EX], 0, 1) = 0;
 }
 
 macro substrate_main_loop {

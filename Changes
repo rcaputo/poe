@@ -78,7 +78,28 @@ Enhance POE::Preprocessor to track macros and constants per package.
 Now multiple files sharing the same package also share the same macros
 and constants.
 
-Split event substrates into other modules.
+Split event substrates into other modules.  It seems like the right
+thing to do at the moment.
+
+Karsten Sperling found that POSIX::uname wasn't supported back on
+5.005_02 for Win32, but Sys::Hostname is.  Applied Karsten's patch to
+use Sys::Hostname, which uses POSIX::uname internally wherever
+possible, instead.
+
+Removed the object layer; files are being restructured as a separate
+component.  This is ahead of schedule.
+
+Replaced many enum/const statements with constant subs.  Fewer of
+these mean less regexps to run against the source code, so startup
+should be a little peppier.
+
+Made more Kernel data structures package lexicals.  Runtime should be
+slightly quicker.
+
+Remove Exporter use from Kernel and Session, although other modules
+like Carp already use it, so it gets loaded no matter what.  I'm about
+tapped for startup-optimizing ideas that don't involve rewriting
+POE::Preprocessor.
 
 
 0.1205 2001.02.12
@@ -224,7 +245,8 @@ at the moment: SF is experiencing severe growing/moving pains, and all
 sorts of things have been broken.
 
 Documented the object layer depreciation.  The object layer will be
-moved to a separate component after 0.13 is released.
+moved to a separate component after 0.13 is released.  [note: Decided
+to remove it early.]
 
 Documented the samples depreciation.  They will be moved to a separate
 distribution after 0.13 is released.

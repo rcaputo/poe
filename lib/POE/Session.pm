@@ -3,7 +3,7 @@
 package POE::Session;
 
 use strict;
-use Carp;
+use Carp qw(carp croak);
 use POSIX qw(ENOSYS);
 
 use POE::Preprocessor;
@@ -96,11 +96,26 @@ sub ARG7    () { 13 }
 sub ARG8    () { 14 }
 sub ARG9    () { 15 }
 
-use Exporter;
-@POE::Session::ISA = qw(Exporter);
-@POE::Session::EXPORT = qw( OBJECT SESSION KERNEL HEAP STATE SENDER
-                            ARG0 ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9
-                          );
+sub import {
+  my $package = caller();
+  no strict 'refs';
+  *{ $package . '::OBJECT'  } = \&OBJECT;
+  *{ $package . '::SESSION' } = \&SESSION;
+  *{ $package . '::KERNEL'  } = \&KERNEL;
+  *{ $package . '::HEAP'    } = \&HEAP;
+  *{ $package . '::STATE'   } = \&STATE;
+  *{ $package . '::SENDER'  } = \&SENDER;
+  *{ $package . '::ARG0'    } = \&ARG0;
+  *{ $package . '::ARG1'    } = \&ARG1;
+  *{ $package . '::ARG2'    } = \&ARG2;
+  *{ $package . '::ARG3'    } = \&ARG3;
+  *{ $package . '::ARG4'    } = \&ARG4;
+  *{ $package . '::ARG5'    } = \&ARG5;
+  *{ $package . '::ARG6'    } = \&ARG6;
+  *{ $package . '::ARG7'    } = \&ARG7;
+  *{ $package . '::ARG8'    } = \&ARG8;
+  *{ $package . '::ARG9'    } = \&ARG9;
+}
 
 #------------------------------------------------------------------------------
 # Classic style constructor.  This is unofficially depreciated in

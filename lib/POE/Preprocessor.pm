@@ -161,7 +161,7 @@ sub import {
           ### are hardcoded and always handled.
 
           # Only do the conditionals if there's a flag present.
-          if (/include/) {
+          if (/\#\s*include/) {
 
             # if (...) { # include
             if (/^(\s*)if\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
@@ -517,7 +517,7 @@ sub import {
   }
 }
 
-# Used for testing, to clear a package's macros.
+# Clear a package's macros.  Used for destructive testing.
 sub clear_package {
   my ($self, $package) = @_;
   delete $constants{$package};
@@ -548,11 +548,11 @@ POE::Preprocessor - a macro/const/enum preprocessor
 
   print "PI\n";  # Substitutions don't grok Perl!
 
-  enum ONE TWO THREE
+  enum ZERO ONE TWO
   enum 12 TWELVE THIRTEEN FOURTEEN
   enum + FIFTEEN SIXTEEN SEVENTEEN
 
-  print "ONE TWO THREE TWELVE THIRTEEN FOURTEEN FIFTEEN SIXTEEN SEVENTEEN\n";
+  print "ZERO ONE TWO TWELVE THIRTEEN FOURTEEN FIFTEEN SIXTEEN SEVENTEEN\n";
 
   if ($expression) {      # include
      ... lines of code ...
@@ -569,7 +569,8 @@ POE::Preprocessor - a macro/const/enum preprocessor
 =head1 DESCRIPTION
 
 POE::Preprocessor is a Perl source filter that implements a simple
-macro substitution language.
+macro substitution language.  Think of it like compile-time code
+templates.
 
 =head2 Macros
 
