@@ -189,7 +189,7 @@ examples, documentation, and more.
 
 The developers of POE strive to make it as portable as possible.  If
 you discover a problem, please e-mail a report to
-<bug-POE@rt.cpan.org>.  If you can, include error messages, perl -V
+<bug-POE@rt.cpan.org>.  If you can, include error messages, C<perl -V>
 output, and/or test cases.  The more information you can provide, the
 quicker we can turn around a fix.  Patches are also welcome, of
 course.

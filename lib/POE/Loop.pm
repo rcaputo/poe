@@ -105,7 +105,7 @@ Bridges often employ private functions as callbacks from their event
 loops.  The Event, Gtk, and Tk bridges do this.
 
 Developers should look at existing bridges to get a feel for things.
-The -m flag for perldoc will show a module in its entirety.
+The C<-m> flag for perldoc will show a module in its entirety.
 
   perldoc -m POE::Loop::Select
   perldoc -m POE::Loop::Gtk
