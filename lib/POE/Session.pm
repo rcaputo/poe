@@ -19,17 +19,18 @@ sub OBJECT  () {  0 }
 sub SESSION () {  1 }
 sub KERNEL  () {  2 }
 sub HEAP    () {  3 }
-sub SENDER  () {  4 }
-sub ARG0    () {  5 }
-sub ARG1    () {  6 }
-sub ARG2    () {  7 }
-sub ARG3    () {  8 }
-sub ARG4    () {  9 }
-sub ARG5    () { 10 }
-sub ARG6    () { 11 }
-sub ARG7    () { 12 }
-sub ARG8    () { 13 }
-sub ARG9    () { 14 }
+sub STATE   () {  4 }
+sub SENDER  () {  5 }
+sub ARG0    () {  6 }
+sub ARG1    () {  7 }
+sub ARG2    () {  8 }
+sub ARG3    () {  9 }
+sub ARG4    () { 10 }
+sub ARG5    () { 11 }
+sub ARG6    () { 12 }
+sub ARG7    () { 13 }
+sub ARG8    () { 14 }
+sub ARG9    () { 15 }
 
 #------------------------------------------------------------------------------
 # AUTOLOAD to translate regular calls into method invocations.
@@ -151,7 +152,8 @@ sub _invoke_state {
                                             $self,                    # session
                                             $POE::Kernel::poe_kernel, # kernel
                                             $self->{'namespace'},     # heap
-                                            $source_session,          # from
+                                            $state,                   # state
+                                            $source_session,          # sender
                                             @$etc                     # args
                                            );
     }
@@ -162,14 +164,18 @@ sub _invoke_state {
                                             $self,                    # session
                                             $POE::Kernel::poe_kernel, # kernel
                                             $self->{'namespace'},     # heap
-                                            $source_session,          # from
+                                            $state,                   # state
+                                            $source_session,          # sender
                                             @$etc                     # args
                                            );
     }
   }
                                         # recursive, so it does the right thing
   elsif (exists $self->{'states'}->{'_default'}) {
-    return $self->_invoke_state($source_session, '_default', [ $state, $etc ]);
+    return $self->_invoke_state( $source_session,
+                                 '_default',
+                                 [ $state, $etc ]
+                               );
   }
                                         # whoops!  no _default?
   elsif (exists $self->{'options'}->{'default'}) {
