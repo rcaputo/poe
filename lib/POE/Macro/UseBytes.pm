@@ -27,12 +27,10 @@ BEGIN { eval "use bytes; sub HAS_BYTES () { 1 }";
 
 if (HAS_BYTES) { # include
 macro use_bytes {
-  print "use_bytes is functional\n";
   use bytes;
 }
 } else { # include
 macro use_bytes {
-  print "use_bytes is no-op\n";
 }
 } # include
 
