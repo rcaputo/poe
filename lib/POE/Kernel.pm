@@ -5034,7 +5034,9 @@ code in large scale clients and servers.
 =item Tk's Event Loop
 
 This loop allows POE to work in graphical programs using the Tk-Perl
-library.
+library.  When using Tk with POE, POE supplies an already-created
+$poe_main_window variable to use for your main window.  Calling Tk's
+MainWindow->new() often has an undesired outcome.
 
   use Tk;
   use POE;
