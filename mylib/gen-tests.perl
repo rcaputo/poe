@@ -69,7 +69,8 @@ my $test_base = "tests";
           "\n" .
           "BEGIN {\n" .
           "  unless (\$ENV{DISPLAY}) {\n" .
-          "    print qq(1..0 # SKIP $module needs a DISPLAY (set one today, okay?)\\n);\n" .
+          "    print qq(1..0 # " .
+          "SKIP $module needs a DISPLAY (set one today, okay?)\\n);\n" .
           "    exit 0;\n" .
           "  }\n" .
           "}\n"
