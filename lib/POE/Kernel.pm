@@ -309,12 +309,17 @@ sub _die {
 
 sub LOOP_EVENT  () { 'Event.pm' }
 sub LOOP_GTK    () { 'Gtk.pm'   }  # Gtk and Gnome support
+sub LOOP_GTK2   () { 'Gtk2.pm'  }
 sub LOOP_POLL   () { 'Poll.pm'  }
 sub LOOP_SELECT () { 'select()' }
 sub LOOP_TK     () { 'Tk.pm'    }
 
 BEGIN {
-  if (exists $INC{'Gtk.pm'}) {
+  if (exists $INC{'Gtk2.pm'}) {
+    require POE::Loop::Gtk2;
+    POE::Loop::Gtk2->import();
+  }
+  elsif (exists $INC{'Gtk.pm'}) {
     require POE::Loop::Gtk;
     POE::Loop::Gtk->import();
   }
@@ -556,7 +561,7 @@ sub new {
         undef,               # KR_SIGNALS - loaded from POE::Resource::Signals
         undef,               # KR_ALIASES - loaded from POE::Resource::Aliases
         \$kr_active_session, # KR_ACTIVE_SESSION - should this be handled by POE::Resource::Sessions?
-        $kr_queue,          # KR_QUEUE - should this be extracted into a Resource ?
+        $kr_queue,           # KR_QUEUE - should this be extracted into a Resource ?
         undef,               # KR_ID 
         undef,               # KR_SESSION_IDS - loaded from POE::Resource::SIDS
         undef,               # KR_SID_SEQ - loaded from POE::Resource::SIDS - is a scalar ref
