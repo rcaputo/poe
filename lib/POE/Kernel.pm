@@ -160,6 +160,19 @@ macro test_resolve (<name>,<resolved>) {
   }
 }
 
+macro test_for_idle_poe_kernel {
+  unless ( @{$self->[KR_STATES]} or
+           @{$self->[KR_ALARMS]} or
+           %{$self->[KR_HANDLES]}
+         ) {
+    $self->_enqueue_state( $self, $self,
+                           EN_SIGNAL, ET_SIGNAL,
+                           [ 'IDLE' ],
+                           time(), __FILE__, __LINE__
+                         );
+  }
+}
+
 # MACROS END <-- search tag for editing
 
 #------------------------------------------------------------------------------
@@ -262,10 +275,11 @@ BEGIN {
   }
   else {
     eval <<'    EOE';
-      sub POE_HAS_EVENT () { 0 }
-      sub Event::loop   () { 0 }
-      sub Event::idle   () { 0 }
-      sub Event::timer  () { 0 }
+      sub POE_HAS_EVENT     ()  { 0 }
+      sub Event::loop       ()  { 0 }
+      sub Event::unloop_all ($) { 0 }
+      sub Event::idle       ()  { 0 }
+      sub Event::timer      ()  { 0 }
     EOE
   }
 }
@@ -1084,6 +1098,21 @@ sub _dispatch_state {
       if (defined $parent) {
         {% collect_garbage $parent %}
       }
+
+      # Finally, if there are no more sessions, stop the main loop.
+      unless (%{$self->[KR_SESSIONS]}) {
+        # Stop Tk's loop.
+        if (POE_HAS_TK) {
+          Tk::exit(0);
+        }
+
+        # Stop Event's loop.
+        if (POE_HAS_EVENT) {
+          Event::unloop_all(0);
+        }
+
+        # POE's own loop stops on its own.
+      }
     }
 
     # Check for death by terminal signal.
@@ -1145,23 +1174,8 @@ sub run {
 
     while (keys %$kr_sessions) {
 
-      # If the FIFO is empty, and there are no pending alarms, and
-      # there are no event generators (such as filehandles), then the
-      # main loop may be ready to end.  Broadcast a SIGIDLE to begin a
-      # graceful shutdown.  Sessions may react to this in ways that
-      # prevent the shutdown from completing.
-
-      # -><- It may be more efficient to manage a kernel reference
-      # count when states, alarms and handles are added or removed.
-      # This then would become a single scalar reference check.
-
-      unless (@$kr_states || @$kr_alarms || keys(%$kr_handles)) {
-        $self->_enqueue_state( $self, $self,
-                               EN_SIGNAL, ET_SIGNAL,
-                               [ 'IDLE' ],
-                               time(), __FILE__, __LINE__
-                             );
-      }
+      # Check for a hung kernel.
+      {% test_for_idle_poe_kernel %}
 
       # Set the select timeout based on current queue conditions.  If
       # there are FIFO events, then the timeout is zero to poll select
@@ -1420,7 +1434,6 @@ sub tk_fifo_callback {
 
     $self->_dispatch_state(@$event);
     {% collect_garbage $event->[ST_SESSION] %}
-
   }
 
   # Perpetuate the dispatch loop as long as there are states enqueued.
@@ -1446,6 +1459,9 @@ sub tk_fifo_callback {
         }
       );
   }
+
+  # Make sure the kernel can still run.
+  {% test_for_idle_poe_kernel %}
 }
 
 # Tk timer callback to dispatch alarm states.  Same caveats about
@@ -1492,6 +1508,8 @@ sub tk_alarm_callback {
                                 );
   }
 
+  # Make sure the kernel can still run.
+  {% test_for_idle_poe_kernel %}
 }
 
 # Tk filehandle callback to dispatch selects.
@@ -2391,7 +2409,6 @@ sub _internal_select {
         unless ($kr_handle->[HND_REFCOUNT]) {
           delete $kr_handles->{$handle};
         }
-
       }
     }
 

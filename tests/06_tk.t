@@ -11,8 +11,6 @@ use lib '/usr/mysrc/Tk800.021/blib/lib';
 use lib '/usr/mysrc/Tk800.021/blib/arch';
 use Symbol;
 
-use TestSetup qw(5);
-
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
@@ -20,13 +18,11 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 BEGIN {
   eval 'use Tk';
   unless (exists $INC{'Tk.pm'}) {
-    for (my $test=1; $test <= 1; $test++) {
-      print "skip $test # no Tk support\n";
-    }
-    exit 0;
+    eval 'use TestSetup 0, "no tk support"';
   }
 }
 
+use TestSetup 5;
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);
 
 # Congratulate ourselves for getting this far.
