@@ -1,15 +1,14 @@
-###############################################################################
-# Kernel.pm - Documentation and Copyright are after __END__.
-###############################################################################
-
 package POE::Kernel;
+
+# POD documentation exists after __END__
+
+my $VERSION = 1.0;
+my $rcs = '$Id$';
 
 use strict;
 use POSIX qw(EINPROGRESS EINTR);
 use IO::Select;
 use Carp;
-
-use POE::Session;
 
 #------------------------------------------------------------------------------
 # states  : [ [ $session, $source_session, $state, $time, \@etc ], ... ]
@@ -29,9 +28,10 @@ use POE::Session;
 #           }
 #------------------------------------------------------------------------------
 
-# these signals will stop the kernel; all others won't
+# a list of signals that will terminate all sessions (and stop the kernel)
 my @_terminal_signals = qw(QUIT INT KILL TERM ZOMBIE);
 
+# global signal handler
 sub _signal_handler {
   if (defined $_[0]) {
     foreach my $kernel (@POE::Kernel::instances) {
@@ -80,7 +80,7 @@ sub new {
 #------------------------------------------------------------------------------
 # Checks the resources for a session.  If it has no queued states, and it
 # has no registered selects, then the session will never again be called.
-# These "zombie" sessions need to be culled.
+# These "zombie" sessions are culled.
 
 sub _check_session_resources {
   my ($self, $session) = @_;
@@ -160,16 +160,16 @@ sub _dispatch_state {
         }
                                         # check for leaks -><- debugging only
         if (my $leaked = @{$self->{'sessions'}->{$session}->[1]}) {
-          print "*** $session - leaking children ($leaked)\a\n";
+          print "*** $session - leaking children ($leaked)\n";
         }
         if (my $leaked = $self->{'sessions'}->{$session}->[2]) {
-          print "*** $session - leaking states ($leaked)\a\n";
+          print "*** $session - leaking states ($leaked)\n";
         }
         if (my $leaked = $self->{'sessions'}->{$session}->[3]) {
-          print "*** $session - leaking selects ($leaked)\a\n";
+          print "*** $session - leaking selects ($leaked)\n";
         }
         if (my $leaked = $self->{'sessions'}->{$session}->[6]) {
-          print "*** $session - leaking signals ($leaked)\a\n";
+          print "*** $session - leaking signals ($leaked)\n";
         }
 
         delete $self->{'sessions'}->{$session};
@@ -262,13 +262,13 @@ sub run {
   print "Kernel stopped.\n";
                                         # oh, by the way...
   if (my $leaked = @{$self->{'states'}}) {
-    print "*** $self - leaking states ($leaked)\a\n";
+    print "*** $self - leaking states ($leaked)\n";
   }
   if (my $leaked = keys(%{$self->{'selects'}})) {
-    print "*** $self - leaking selects ($leaked)\a\n";
+    print "*** $self - leaking selects ($leaked)\n";
   }
   if (my $leaked = keys(%{$self->{'sessions'}})) {
-    print "*** $self - leaking sessions ($leaked)\a\n";
+    print "*** $self - leaking sessions ($leaked)\n";
   }
 }
 
@@ -585,8 +585,199 @@ sub state {
 1;
 __END__
 
-Documentation: to be
+=head1 NAME
 
-Copyright 1998 Rocco Caputo <troc@netrus.net>.  All rights reserved.
-This is a pre-release version.  Redistribution and modification are
-prohibited.
+POE::Kernel - manage events, selects and signals for C<POE::Session> instances
+
+=head1 SYNOPSIS
+
+  use POE::Kernel;
+  use POE::Session;
+
+  $kernel = new POE::Kernel;
+
+  new POE::Session(...);   # one or more starting sessions
+
+  $kernel->run();          # run sessions; serve events, selects, signals
+  exit;
+
+=head1 DESCRIPTION
+
+C<POE::Kernel> in a nutshell.
+
+=over 2
+
+=item *
+
+It queues and delivers events to instances of C<POE::Session>.  Alarms
+are implemented as delayed events.
+
+=item *
+
+It offers select(2) services for files based on IO::Handle.  They are
+implemented as immediate events, allowing sessions to bypass the queue
+entirely.
+
+=item *
+
+It catches signals and passes them as events to C<POE::Session> instances.
+
+=item *
+
+It allows sessions to modify their event handlers.  Extensions add and
+remove features by altering code in the caller.
+
+=back
+
+=head1 PUBLIC METHODS
+
+=over 4
+
+=item new POE::Kernel;
+
+Creates a self-contained C<POE::Kernel> object, and returns a reference
+to it.  (Untested:  It should be possible to run one Kernel per thread.)
+
+=item $kernel->run()
+
+Starts the kernel, and will not return until all its C<POE::Session>
+instances have completed.
+
+=item $kernel->select($handle, $state_r, $state_w, $state_e)
+
+Manages read, write and exception bits for a C<IO::Handle> object owned by
+the currently active C<POE::Session>.  Defined states are added, and
+undefined ones are removed.  When select(2) unblocks, the named event
+handlers (states) are invoked with C<$handle> to take care of file activity.
+
+=item $kernel->select_read($handle, $state)
+
+Manages just the "read" select(2) vector for a C<$handle> owned by the
+currently active C<POE::Session>.  Works like 1/3 of C<$kernel->select()>.
+
+=item $kernel->select_write($handle, $state)
+
+Manages just the "write" select(2) vector for a C<$handle> owned by the
+currently active C<POE::Session>.  Works like 1/3 of C<$kernel->select()>.
+
+=item $kernel->select_exception($handle, $state)
+
+Manages just the "exception" select(2) vector for a C<$handle>. owned by the
+currently active C<POE::Session>.  Works like 1/3 of C<$kernel->select()>.
+
+=item $kernel->sig($signal, $state)
+
+Add or remove an event handler for the signal named in C<$signal}> (same
+names as with C<%SIG>).  If C<$state> is defined, then that state will be
+invoked when a specified signal.  If C<$state> is undefined, then the
+C<$SIG{$signal}> handler is removed.
+
+=item $kernel->post($destination_session, $state_name, @etc)
+
+Enqueues an event (C<$state>) for the C<$destination_session>.  Additional
+parameters (C<@etc>) can be passed along.
+
+=item $kernel->state($state_name, $state_code)
+
+Registers a CODE reference (C<$state_code>) for the event C<$state_name> in
+the currently active C<POE::Session>.  If C<$state_code> is undefined, then
+the named state will be removed.
+
+=back
+
+=head1 PROTECTED METHODS
+
+Not for general use.
+
+=over 4
+
+=item $kernel->session_alloc($session)
+
+Enqueues a C<_start> event for a session.  The session is added to the
+kernel just before the event is dispatched.
+
+=item $kernel->session_free($session)
+
+Enqueues a C<_stop> event for a session.  The kernel will deallocate and
+destroy the session and all its related resources after C<_stop> has been
+dispatched to the session.
+
+=back
+
+=head1 PRIVATE METHODS
+
+Not for general use.
+
+=over 4
+
+=item DESTROY
+
+Destroy the Kernel, and all associated resources.  Nothing implemented yet.
+
+=item _signal_handler
+
+Registered as a handle for allmost all the signals in %SIG.  It enqueues
+C<_signal> events for every active C<POE::Kernel>.  The kernels relay
+C<_signal> events to every C<POE::Session> registered for them.
+
+=item $kernel->_check_session_resources($session)
+
+Called after an event has been dispatched.  This function stops sessions
+that have run out of things to do.
+
+=item $kernel->_dispatch_state($session, $source_session, $state, \@etc)
+
+Immediately dispatches an event (state transition) from a source session
+to a destination session.  C<\@etc> is an optional array reference that
+holds additional information that the session expects.
+
+=item $kernel->_dispatch_selects($select_handles, $selects_index)
+
+This helper checks C<IO::Select> objects for activity.  It uses
+C<_dispatch_state> to notify C<POE::Session> instances immediately.
+
+=item $kernel->_enqueue_state($session, $source_session, $state, $time, \@etc)
+
+Combines the parameters into an event (state transition), and enqueues it
+to be delivered at a particular time.  Alarms are implemented as events that
+are scheduled to happen at a future time.
+
+C<$time> is clipped to C<time()>.
+
+=item $kernel->_internal_select($session, $handle, $state, $select, $select_index)
+
+The guts of select(2) management.  Registers or removes a select bit for
+C<IO::Handle>.  When select unblocks, an event (C<$state>) will be immediately
+dispatched to C<$session>, along with the C<$handle> so it can be taken care
+of.
+
+=item $kernel->_maybe_add_handle($handle)
+
+Register a handle resource (C<$handle>) with this kernel, if one is not
+already there.
+
+=item $kernel->_maybe_remove_handle($handle)
+
+Remove a handle resource (C<$handle>) from this kernel, if one exists.
+
+=item $kernel->_kernel_select($session, $handle, $state_r, $state_w, $state_e)
+
+Register or remove read, write and exception states for a handle all at once.
+
+=back
+
+=head1 EXAMPLES
+
+Please see the tests directory that comes with the POE bundle.
+
+=head1 BUGS
+
+DESTROY is not implemented.  This has not been a problem so far.
+
+=head1 CONTACT AND COPYRIGHT
+
+Copyright 1998 Rocco Caputo E<lt>troc@netrus.netE<gt>.  All rights reserved.
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
