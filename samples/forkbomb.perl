@@ -164,14 +164,17 @@ sub fetch_id {
 # This is a helper function that creates a new forkbomber session.
 
 sub create_new_forkbomber {
-  POE::Session->new( '_start'         => \&_start,
-                     '_stop'          => \&_stop,
-                     '_child'         => \&_child,
-                     '_parent'        => \&_parent,
-                     'signal_handler' => \&signal_handler,
-                     'fork'           => \&fork,
-                     'fetch_id'       => \&fetch_id,
-                   );
+  POE::Session->create(
+    inline_states => {
+      '_start'         => \&_start,
+      '_stop'          => \&_stop,
+      '_child'         => \&_child,
+      '_parent'        => \&_parent,
+      'signal_handler' => \&signal_handler,
+      'fork'           => \&fork,
+      'fetch_id'       => \&fetch_id,
+    }
+  );
 }
 
 #==============================================================================

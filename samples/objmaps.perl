@@ -126,13 +126,16 @@ sub poe_runtime_state {
 package main;
 
 foreach my $name (qw(one two three four five six seven eight nine ten)) {
-  POE::Session->new( new Counter($name) =>
-                     { _start    => 'poe_start',
-                       _stop     => 'poe_stop',
-                       increment => 'poe_increment',
-                       sigint    => 'poe_sigint',
-                     },
-                   );
+  POE::Session->create(
+    object_states => [
+      Counter->new($name) => {
+        _start    => 'poe_start',
+        _stop     => 'poe_stop',
+        increment => 'poe_increment',
+        sigint    => 'poe_sigint',
+      },
+    ],
+  );
 }
 
 $poe_kernel->run();

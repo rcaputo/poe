@@ -3,7 +3,7 @@
 
 # A simple socket client that uses a two-handle wheel to pipe between
 # a socket and the console.  It's hardcoded to talk with wheels.perl's
-# rot13 server on localhost port 32000.
+# rot13 server on localhost port 32100.
 
 use strict;
 use lib '../lib';
@@ -11,7 +11,7 @@ use POSIX;
 
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Stream);
 
-my $rot13_port = 32000;
+my $rot13_port = 32100;
 
 #==============================================================================
 # A client socket session that pipes between a connected socket and
@@ -27,12 +27,12 @@ sub session_start {
 
   print "Connecting...\n";
 
-  $heap->{connector} = POE::Wheel::SocketFactory->new
-    ( RemoteAddress => '127.0.0.1',
-      RemotePort    => $rot13_port,
-      SuccessEvent  => 'connect_success',
-      FailureEvent  => 'connect_failure',
-    );
+  $heap->{connector} = POE::Wheel::SocketFactory->new(
+    RemoteAddress => '127.0.0.1',
+    RemotePort    => $rot13_port,
+    SuccessEvent  => 'connect_success',
+    FailureEvent  => 'connect_failure',
+  );
 }
 
 #------------------------------------------------------------------------------
@@ -46,22 +46,22 @@ sub session_connect_success {
 
   delete $heap->{connector};
 
-  $heap->{console_wheel} = POE::Wheel::ReadWrite->new
-    ( InputHandle  => \*STDIN,
-      OutputHandle => \*STDOUT,
-      Driver => POE::Driver::SysRW->new,
-      Filter => POE::Filter::Stream->new,
-      InputEvent => 'console_input',
-      ErrorEvent => 'console_error',
-    );
+  $heap->{console_wheel} = POE::Wheel::ReadWrite->new(
+    InputHandle  => \*STDIN,
+    OutputHandle => \*STDOUT,
+    Driver => POE::Driver::SysRW->new,
+    Filter => POE::Filter::Stream->new,
+    InputEvent => 'console_input',
+    ErrorEvent => 'console_error',
+  );
 
-  $heap->{socket_wheel} = POE::Wheel::ReadWrite->new
-    ( Handle => $connected_socket,
-      Driver => POE::Driver::SysRW->new,
-      Filter => POE::Filter::Stream->new,
-      InputEvent => 'socket_input',
-      ErrorEvent => 'socket_error',
-    );
+  $heap->{socket_wheel} = POE::Wheel::ReadWrite->new(
+    Handle => $connected_socket,
+    Driver => POE::Driver::SysRW->new,
+    Filter => POE::Filter::Stream->new,
+    InputEvent => 'socket_input',
+    ErrorEvent => 'socket_error',
+  );
 
   $heap->{console_wheel}->put("Begun terminal session.");
 }
@@ -135,8 +135,9 @@ sub session_socket_error {
 # Start the Session, which will fire off the _start event and begin
 # the connection.
 
-POE::Session->new
-  ( _start => \&session_start,
+POE::Session->create(
+  inline_states => {
+    _start => \&session_start,
     _stop  => \&session_stop,
 
     connect_success => \&session_connect_success,
@@ -147,7 +148,8 @@ POE::Session->new
 
     socket_input    => \&session_socket_input,
     socket_error    => \&session_socket_error,
-  );
+  },
+);
 
 $poe_kernel->run();
 

@@ -148,14 +148,16 @@ sub main_start {
   foreach my $name (qw(one two three four five six seven eight nine ten)) {
                                         # stupid scope trick, part 3 of 3 parts
     $session_name = $name;
-    my $session = POE::Session->new
-      ( _start      => \&child_start,
+    my $session = POE::Session->create(
+      inline_states => {
+        _start      => \&child_start,
         _stop       => \&child_stop,
         increment   => \&child_increment,
         display_one => \&child_display_one,
         display_two => \&child_display_two,
         fetch_name  => \&child_fetch_name,
-      );
+      }
+    );
 
     # Normally, sessions are stopped if they have nothing to do.  The
     # only exception to this rule is newly created sessions.  Their
@@ -197,11 +199,13 @@ sub main_child {
 # Start the main (parent) session, and begin processing events.
 # Kernel::run() will continue until there is nothing left to do.
 
-POE::Session->new
-  ( _start => \&main_start,
+POE::Session->create(
+  inline_states => {
+    _start => \&main_start,
     _stop  => \&main_stop,
     _child => \&main_child,
-  );
+  }
+);
 
 $poe_kernel->run();
 

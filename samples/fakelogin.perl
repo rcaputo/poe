@@ -10,9 +10,10 @@ use strict;
 use lib '../lib';
 use IO::Socket;
 
-use POE qw( Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW
-            Filter::Line Filter::Stream
-          );
+use POE qw(
+  Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW
+  Filter::Line Filter::Stream
+);
 
 #==============================================================================
 # This is the login state group.
@@ -80,9 +81,10 @@ sub login_error {
 
   $errstr = 'Client closed connection' unless $errnum;
 
-  print( "Session ", $session->ID,
-         ": login: $operation error $errnum: $errstr\n"
-       );
+  print(
+    "Session ", $session->ID,
+    ": login: $operation error $errnum: $errstr\n"
+  );
 
   delete $heap->{wheel};
 }
@@ -97,12 +99,12 @@ sub login_session_start {
   print "Session ", $session->ID, " - received connection\n";
 
                                         # start reading and writing
-  $heap->{wheel} = POE::Wheel::ReadWrite->new
-    ( 'Handle'     => $handle,
-      'Driver'     => POE::Driver::SysRW->new,
-      'Filter'     => POE::Filter::Line->new,
-      'ErrorEvent' => 'error',
-    );
+  $heap->{wheel} = POE::Wheel::ReadWrite->new(
+    'Handle'     => $handle,
+    'Driver'     => POE::Driver::SysRW->new,
+    'Filter'     => POE::Filter::Line->new,
+    'ErrorEvent' => 'error',
+  );
                                         # hello, world!\n
   $heap->{wheel}->put('FreeBSD (localhost) (ttyp2)', '', '');
   $kernel->yield('login_start');
@@ -111,18 +113,21 @@ sub login_session_start {
 sub login_session_create {
   my ($handle, $peer_addr, $peer_port) = @_[ARG0, ARG1, ARG2];
 
-  POE::Session->new( _start => \&login_session_start,
-                                        # start parameters
-                     [ $handle, $peer_addr, $peer_port],
-                                        # general error handler
-                     error => \&login_error,
-                                        # login prompt states
-                     login_start => \&login_login_start,
-                     login_input => \&login_login_input,
-                                        # password prompt states
-                     password_start => \&login_password_start,
-                     password_input => \&login_password_input
-                   );
+  POE::Session->create(
+    inline_states => {
+      _start => \&login_session_start,
+                        # general error handler
+      error => \&login_error,
+                        # login prompt states
+      login_start => \&login_login_start,
+      login_input => \&login_login_input,
+                        # password prompt states
+      password_start => \&login_password_start,
+      password_input => \&login_password_input,
+    },
+                        # start parameters
+    args => [ $handle, $peer_addr, $peer_port],
+  );
   undef;
 }
 
@@ -132,36 +137,40 @@ package main;
 
 my $port = shift;
 if (not defined $port) {
-  print( "*** This program listens on port 23 by default.  You can change\n",
-         "*** the port by putting a new one on the command line.  For\n",
-         "*** example, to listen on port 10023:\n",
-         "*** $0 10023\n",
-       );
+  print(
+    "*** This program listens on port 23 by default.  You can change\n",
+    "*** the port by putting a new one on the command line.  For\n",
+    "*** example, to listen on port 10023:\n",
+    "*** $0 10023\n",
+  );
   $port = 23;
 }
 
-POE::Session->new
-  ( '_start' => sub
-    { my $heap = $_[HEAP];
+POE::Session->create(
+  inline_states => {
+    '_start' => sub {
+      my $heap = $_[HEAP];
 
-      $heap->{wheel} = POE::Wheel::SocketFactory->new
-        ( BindPort       => $port,
-          SuccessEvent   => 'socket_ok',
-          FailureEvent   => 'socket_error',
-          Reuse          => 'yes',
-        );
+      $heap->{wheel} = POE::Wheel::SocketFactory->new(
+        BindPort       => $port,
+        SuccessEvent   => 'socket_ok',
+        FailureEvent   => 'socket_error',
+        Reuse          => 'yes',
+      );
     },
 
-    'socket_error' => sub
-    { my ($session, $heap, $operation, $errnum, $errstr) =
+    'socket_error' => sub {
+      my ($session, $heap, $operation, $errnum, $errstr) =
         @_[SESSION, HEAP, ARG0, ARG1, ARG2];
-      print( "Session ", $session->ID,
-             ": listener: $operation error $errnum: $errstr\n"
-           );
+      print(
+        "Session ", $session->ID,
+        ": listener: $operation error $errnum: $errstr\n"
+      );
     },
 
     'socket_ok' => \&login_session_create,
-  );
+  },
+);
 
 $poe_kernel->run();
 
