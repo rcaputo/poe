@@ -4,6 +4,8 @@
 # Rerun t/04_selects.t but with IO::Poll instead.
 
 use strict;
+use lib qw(./lib ../lib);
+use TestSetup;
 
 BEGIN {
   eval 'use IO::Poll';
