@@ -428,19 +428,34 @@ sub DESTROY {
 }
 
 #------------------------------------------------------------------------------
+# TODO - We set the high/low watermark state here, but we don't fire
+# events for it.  My assumption is that the return value tells us
+# all we want to know.
 
 sub put {
   my ($self, @chunks) = @_;
-  if ( $self->[DRIVER_BUFFERED_OUT_OCTETS] =
-       $self->[DRIVER_BOTH]->put($self->[FILTER_OUTPUT]->put(\@chunks))
-  ) {
+
+  my $old_buffered_out_octets = $self->[DRIVER_BUFFERED_OUT_OCTETS];
+  my $new_buffered_out_octets =
+    $self->[DRIVER_BUFFERED_OUT_OCTETS] =
+    $self->[DRIVER_BOTH]->put($self->[FILTER_OUTPUT]->put(\@chunks));
+
+  # Resume write-ok if the output buffer gets data.  This avoids
+  # redundant calls to select_resume_write(), which is probably a good
+  # thing.
+  if ($new_buffered_out_octets and !$old_buffered_out_octets) {
     $poe_kernel->select_resume_write($self->[HANDLE_OUTPUT]);
   }
 
-  # Return true if the high watermark has been reached.
-  ( $self->[WATERMARK_WRITE_MARK_HIGH] &&
-    $self->[DRIVER_BUFFERED_OUT_OCTETS] >= $self->[WATERMARK_WRITE_MARK_HIGH]
-  );
+  # If the high watermark has been reached, return true.
+  if (
+    $self->[WATERMARK_WRITE_MARK_HIGH] and
+    $new_buffered_out_octets >= $self->[WATERMARK_WRITE_MARK_HIGH]
+  ) {
+    return $self->[WATERMARK_WRITE_STATE] = 1;
+  }
+
+  return $self->[WATERMARK_WRITE_STATE] = 0;
 }
 
 #------------------------------------------------------------------------------
