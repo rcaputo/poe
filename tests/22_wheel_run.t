@@ -250,7 +250,7 @@ $poe_kernel->run();
 
 ### Post-run tests.
 &ok_if( 16, $tty_flush_count == 3 );
-&ok_if( 19, $pty_flush_count == 3 ) if Wheel::Run::PTY_AVAILABLE;
+&ok_if( 19, $pty_flush_count == 3 ) if POE::Wheel::Run::PTY_AVAILABLE;
 
 &results();
 

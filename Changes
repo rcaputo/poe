@@ -72,6 +72,8 @@ the name of the machine's current state.
 Added a get_current_state() method to POE::NFA.  It returns the
 machine's current state's name.
 
+Added t/23_nfa.t to exercise bits of POE::NFA.
+
 
 0.1203 2000.12.29
 -----------------
