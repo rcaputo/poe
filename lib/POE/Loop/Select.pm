@@ -99,6 +99,10 @@ macro substrate_resume_alarm_watcher {
   # does nothing
 }
 
+macro substrate_reset_alarm_watcher {
+  # does nothing
+}
+
 macro substrate_pause_alarm_watcher {
   # does nothing
 }

@@ -103,6 +103,13 @@ macro substrate_resume_alarm_watcher {
     Gtk->timeout_add( $next_time, \&_substrate_alarm_callback );
 }
 
+macro substrate_reset_alarm_watcher {
+  # Should always be defined, right?
+  Gtk->timeout_remove( $self->[KR_WATCHER_TIMER] );
+  $self->[KR_WATCHER_TIMER] = undef;
+  {% substrate_resume_alarm_watcher %}
+}
+
 macro substrate_pause_alarm_watcher {
   # does nothing
 }

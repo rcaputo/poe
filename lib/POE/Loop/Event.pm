@@ -98,6 +98,11 @@ macro substrate_resume_alarm_watcher {
   $self->[KR_WATCHER_TIMER]->start();
 }
 
+macro substrate_reset_alarm_watcher {
+  {% substrate_pause_alarm_watcher %}
+  {% substrate_resume_alarm_watcher %}
+}
+
 macro substrate_pause_alarm_watcher {
   $self->[KR_WATCHER_TIMER]->stop();
 }

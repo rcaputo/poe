@@ -118,6 +118,10 @@ macro substrate_resume_alarm_watcher {
     $poe_main_window->after( $next_time * 1000, \&_substrate_alarm_callback );
 }
 
+macro substrate_reset_alarm_watcher {
+  {% substrate_resume_alarm_watcher %}
+}
+
 macro substrate_pause_alarm_watcher {
   $self->[KR_WATCHER_TIMER]->stop()
     if defined $self->[KR_WATCHER_TIMER];
