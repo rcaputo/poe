@@ -228,14 +228,14 @@ sub _data_handle_enqueue_ready {
     # Emit them.
 
     foreach my $select (@selects) {
-      $self->_data_ev_enqueue
-        ( $select->[HSS_SESSION], $select->[HSS_SESSION],
-          $select->[HSS_STATE], ET_SELECT,
-          [ $select->[HSS_HANDLE],  # EA_SEL_HANDLE
-            $mode,                  # EA_SEL_MODE
-          ],
-          __FILE__, __LINE__, time(),
-        );
+      $self->_data_ev_enqueue(
+        $select->[HSS_SESSION], $select->[HSS_SESSION],
+        $select->[HSS_STATE], ET_SELECT,
+        [ $select->[HSS_HANDLE],  # EA_SEL_HANDLE
+          $mode,                  # EA_SEL_MODE
+        ],
+        __FILE__, __LINE__, time(),
+      );
 
       # Count the enqueued event.  This increments FMO_EV_COUNT
       # because an event has just been enqueued.  This makes sense.

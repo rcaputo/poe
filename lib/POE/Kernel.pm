@@ -895,8 +895,9 @@ sub _dispatch_event {
   }
   my $return;
   if (wantarray) {
-    $return =
-      [ $session->_invoke_state($source_session, $event, $etc, $file, $line) ];
+    $return = [
+      $session->_invoke_state($source_session, $event, $etc, $file, $line)
+    ];
   }
   else {
     $return =
@@ -924,14 +925,19 @@ sub _dispatch_event {
   # Pop the active session, now that it's not active anymore.
   $kr_active_session = $hold_active_session;
 
+  # Recover the event being processed.
+  $kr_active_event = $hold_active_event;
+
   if (TRACE_EVENTS) {
     my $string_ret = $return;
     $string_ret = "undef" unless defined $string_ret;
     _warn("<ev> event $seq ``$event'' returns ($string_ret)\n");
   }
 
-  # Post-dispatch processing.
-  #
+  # Bail out of post-dispatch processing if the session has been
+  # stopped.  -><- This is extreme overhead.
+  return unless $self->_data_ses_exists($session);
+
   # If this invocation is a user event, see if the destination session
   # needs to be garbage collected.  Also check the source session if
   # it's different from the destination.
@@ -969,9 +975,6 @@ sub _dispatch_event {
   elsif ($type & (ET_ALARM | ET_SELECT)) {
     $self->_data_ses_collect_garbage($session);
   }
-
-  # Recover the event being processed.
-  $kr_active_event = $hold_active_event;
 
   # Return what the handler did.  This is used for call().
   return @$return if wantarray;
@@ -1049,8 +1052,9 @@ sub run {
 
 # Stops the kernel cold.  XXX Experimental!
 # No events happen as a result of this, all structures are cleaned up
-# except the current session which will be cleaned up when the current
-# state handler returns.
+# except the kernel's.  Even the current session is cleaned up, which
+# may introduce inconsistencies in the current session... as
+# _dispatch_event() attempts to clean up for a defunct session.
 sub stop {
   # So stop() can be called as a class method.
   my $self = $poe_kernel;
