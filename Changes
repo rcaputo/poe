@@ -62,6 +62,16 @@ minimize people's grief.
 Added IO::Pty support to Wheel::Run.  Skip the Pty tests if IO::Pty
 isn't available, so's not to break testing for people without it.
 
+Torvald Riegel pointed out that POE::NFA's goto_state() method
+required an entry event.  The documentation says it's not mandatory,
+so I added his patch to make it optional.
+
+Added a STATE parameter to POE::NFA event handlers.  STATE contains
+the name of the machine's current state.
+
+Added a get_current_state() method to POE::NFA.  It returns the
+machine's current state's name.
+
 
 0.1203 2000.12.29
 -----------------

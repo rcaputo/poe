@@ -58,20 +58,21 @@ sub KERNEL   () {  2 }
 sub RUNSTATE () {  3 }
 sub EVENT    () {  4 }
 sub SENDER   () {  5 }
-sub ARG0     () {  6 }
-sub ARG1     () {  7 }
-sub ARG2     () {  8 }
-sub ARG3     () {  9 }
-sub ARG4     () { 10 }
-sub ARG5     () { 11 }
-sub ARG6     () { 12 }
-sub ARG7     () { 13 }
-sub ARG8     () { 14 }
-sub ARG9     () { 15 }
+sub STATE    () {  6 }
+sub ARG0     () {  7 }
+sub ARG1     () {  8 }
+sub ARG2     () {  9 }
+sub ARG3     () { 10 }
+sub ARG4     () { 11 }
+sub ARG5     () { 12 }
+sub ARG6     () { 13 }
+sub ARG7     () { 14 }
+sub ARG8     () { 15 }
+sub ARG9     () { 16 }
 
 use Exporter;
 @POE::NFA::ISA = qw(Exporter);
-@POE::NFA::EXPORT = qw( OBJECT MACHINE KERNEL RUNSTATE EVENT SENDER
+@POE::NFA::EXPORT = qw( OBJECT MACHINE KERNEL RUNSTATE EVENT SENDER STATE
                         ARG0 ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9
                       );
 
@@ -199,8 +200,10 @@ sub _invoke_state {
          " tried to invoke nonexistent enter event '$enter_event' ",
          "in state '$new_state'\n"
        )
-      unless ( defined $enter_event and length $enter_event and
-               exists $self->[SELF_STATES]->{$new_state}->{$enter_event}
+      unless ( not defined $enter_event or
+               ( length $enter_event and 
+                 exists $self->[SELF_STATES]->{$new_state}->{$enter_event}
+               )
              );
 
     # Invoke the current state's leave event, if one exists.
@@ -212,7 +215,8 @@ sub _invoke_state {
     $self->[SELF_CURRENT_NAME] = $new_state;
 
     # Invoke the new state's enter event, if requested.
-    $self->_invoke_state( $self, $enter_event, \@enter_args, undef, undef );
+    $self->_invoke_state( $self, $enter_event, \@enter_args, undef, undef )
+      if defined $enter_event;
 
     return undef;
   }
@@ -305,6 +309,7 @@ sub _invoke_state {
         $self->[SELF_RUNSTATE],     # RUNSTATE
         $event,                     # EVENT
         $sender,                    # SENDER
+        $self->[SELF_CURRENT_NAME], # STATE
         @$args                      # ARG0..
       );
   }
@@ -319,6 +324,7 @@ sub _invoke_state {
         $self->[SELF_RUNSTATE],     # RUNSTATE
         $event,                     # EVENT
         $sender,                    # SENDER
+        $self->[SELF_CURRENT_NAME], # STATE
         @$args                      # ARG0..
       );
   }
@@ -396,6 +402,14 @@ sub register_state {
 
 sub ID {
   {% fetch_id shift %}
+}
+
+#------------------------------------------------------------------------------
+# Return the session's current state's name.
+
+sub get_current_state {
+  my $self = shift;
+  return $self->[SELF_CURRENT_NAME];
 }
 
 #------------------------------------------------------------------------------
@@ -606,6 +620,13 @@ See POE::Session.
 
 POE::NFA does not have a create() constructor.
 
+=item get_current_state
+
+C<get_current_state()> returns the name of the machine's current
+state.  This method is mainly used for getting the state of some other
+machine.  In the machine's own event handlers, it's easier to just
+access C<$_[STATE]>.
+
 =item new
 
 POE::NFA does not have a new() constructor.
@@ -734,6 +755,11 @@ information.
 C<RUNSTATE> is equivalent to Session's C<HEAP> field.  It holds an
 anoymous hash reference which POE is guaranteed not to touch.  See
 POE::Session's C<HEAP> field for more information.
+
+=item STATE
+
+C<STATE> contains the name of the machine's current state.  It is not
+equivalent to anything from POE::Session.
 
 =item EVENT
 
