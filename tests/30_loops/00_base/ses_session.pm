@@ -622,7 +622,11 @@ print "ok 36 # dest $sessions_destroyed sessions (expected $expected)\n";
 my $expected;
 if($] >= '5.006') {
   $expected = 4;
-} else {
+}
+elsif ($] == 5.005_04) {
+  $expected = 3;
+}
+else {
   $expected = 4;
 }
 
