@@ -131,10 +131,9 @@ sub EV_ARGS       () { 4 }  #   \@event_parameters_arg0_etc,
                             #
 sub EV_OWNER_FILE () { 5 }  #   $caller_filename_where_enqueued,
 sub EV_OWNER_LINE () { 6 }  #   $caller_line_where_enqueued,
+sub EV_TIME       () { 7 }  #   Maintained by POE::Queue (create time)
+sub EV_SEQ        () { 8 }  #   Maintained by POE::Queue (unique event ID)
                             # ]
-
-sub EV_TIME       () { 7 }  # Maintained by POE::Queue
-sub EV_SEQ        () { 8 }  # Maintained by POE::Queue
 
 # These are the names of POE's internal events.  They're in constants
 # so we don't mistype them again.
@@ -424,17 +423,16 @@ BEGIN {
   foreach my $file (keys %INC) {
     # Remove IO/ so we can load POE::Loop::Poll instead of
     # POE::Loop::IO/Poll.
-    #
-    # TODO - A better convention would be to replace the path
-    # separators with hyphens and rename Loop/Poll.pm to
-    # Loop/IO-Poll.pm.
+    # TODO - Have the CVS people at SourceForge move
+    # lib/POE/Loop/Poll.pm to lib/POE/Loop/IO-Poll.pm and remove this
+    # silly step.
 
     my @split_dirs = File::Spec->splitdir($file);
     shift @split_dirs if $split_dirs[0] eq "IO";
-    next if @split_dirs != 1;
 
-    # Create a module name by removing ".pm"
-    my $module = $split_dirs[0];
+    # Create a module name by replacing the path separators with
+    # dashes and removing ".pm"
+    my $module = join("-", @split_dirs);
     substr($module, -3) = "";
 
     # Skip the module name if it isn't legal.
@@ -620,17 +618,17 @@ sub sig {
 # Public interface for posting signal events.
 
 sub signal {
-  my ($self, $destination, $signal, @etc) = @_;
+  my ($self, $dest_session, $signal, @etc) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined destination in signal()"
-      unless defined $destination;
+      unless defined $dest_session;
     _confess "<us> undefined signal in signal()" unless defined $signal;
   };
 
-  my $session = $self->_resolve_session($destination);
+  my $session = $self->_resolve_session($dest_session);
   unless (defined $session) {
-    $self->_explain_resolve_failure($destination);
+    $self->_explain_resolve_failure($dest_session);
     return;
   }
 
@@ -1429,11 +1427,11 @@ sub get_next_event_time {
 # Post an event to the queue.
 
 sub post {
-  my ($self, $destination, $event_name, @etc) = @_;
+  my ($self, $dest_session, $event_name, @etc) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> destination is undefined in post()"
-      unless defined $destination;
+      unless defined $dest_session;
     _confess "<us> event is undefined in post()" unless defined $event_name;
     _carp(
       "<us> The '$event_name' event is one of POE's own.  Its " .
@@ -1444,9 +1442,9 @@ sub post {
   # Attempt to resolve the destination session reference against
   # various things.
 
-  my $session = $self->_resolve_session($destination);
+  my $session = $self->_resolve_session($dest_session);
   unless (defined $session) {
-    $self->_explain_resolve_failure($destination);
+    $self->_explain_resolve_failure($dest_session);
     return;
   }
 
@@ -1487,11 +1485,11 @@ sub yield {
 # Call an event handler directly.
 
 sub call {
-  my ($self, $destination, $event_name, @etc) = @_;
+  my ($self, $dest_session, $event_name, @etc) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> destination is undefined in call()"
-      unless defined $destination;
+      unless defined $dest_session;
     _confess "<us> event is undefined in call()" unless defined $event_name;
     _carp(
       "<us> The '$event_name' event is one of POE's own.  Its " .
@@ -1502,9 +1500,9 @@ sub call {
   # Attempt to resolve the destination session reference against
   # various things.
 
-  my $session = $self->_resolve_session($destination);
+  my $session = $self->_resolve_session($dest_session);
   unless (defined $session) {
-    $self->_explain_resolve_failure($destination);
+    $self->_explain_resolve_failure($dest_session);
     return;
   }
 
