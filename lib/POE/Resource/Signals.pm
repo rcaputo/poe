@@ -193,6 +193,15 @@ sub _data_sig_explicitly_watched {
   return exists $kr_signals{$signal};
 }
 
+### Return the signals watched by a session and the events they
+### generate.  -><- Used mainly for testing, but may also be useful
+### for introspection.
+
+sub _data_sig_watched_by_session {
+  my ($self, $session) = @_;
+  return %{$kr_sessions_to_signals{$session}};
+}
+
 ### Which sessions are watching a signal?
 
 sub _data_sig_watchers {
@@ -200,15 +209,29 @@ sub _data_sig_watchers {
   return %{$kr_signals{$signal}};
 }
 
+### Return the current signal's handled status.  -><- Used for
+### testing.
+
+sub _data_sig_handled_status {
+  return(
+    $kr_signal_handled_explicitly,
+    $kr_signal_handled_implicitly,
+    $kr_signal_total_handled,
+    $kr_signal_type,
+    \@kr_signaled_sessions,
+  );
+}
+
 ### Determine if a given session is watching a signal.  This uses a
 ### two-step exists so that the longer one does not autovivify keys in
 ### the shorter one.
 
-sub _data_sig_watched_by_session {
+sub _data_sig_is_watched_by_session {
   my ($self, $signal, $session) = @_;
-  return( exists($kr_signals{$signal}) &&
-          exists($kr_signals{$signal}->{$session})
-        )
+  return(
+    exists($kr_signals{$signal}) &&
+    exists($kr_signals{$signal}->{$session})
+  );
 }
 
 ### Clear the flags that determine if/how a session handled a signal.
@@ -230,7 +253,6 @@ sub _data_sig_free_terminated_sessions {
      ) {
     foreach my $dead_session (@kr_signaled_sessions) {
       next unless $self->_data_ses_exists($dead_session);
-
       if (TRACE_SIGNALS) {
         warn( "<sg> stopping signaled session ",
               $self->_data_alias_loggable($dead_session)
@@ -241,6 +263,9 @@ sub _data_sig_free_terminated_sessions {
     }
   }
   else {
+    # -><- Implicit signal reaping.  This is deprecated behavior and
+    # will eventually be removed.  See the commented out tests in
+    # t/res/signals.t.
     foreach my $touched_session (@kr_signaled_sessions) {
       next unless $self->_data_ses_exists($touched_session);
       $self->_data_ses_collect_garbage($touched_session);
