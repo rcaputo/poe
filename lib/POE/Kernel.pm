@@ -60,7 +60,7 @@ sub new {
 
   push(@POE::Kernel::instances, $self);
 
-  $self->{'running'} = $self;
+  $self->{'active session'} = $self;
   $self->session_alloc($self);
 
   $self;
@@ -111,12 +111,10 @@ sub _dispatch_state {
       }
     }
 
-    $self->{'running'} = $session;
+    $self->{'active session'} = $session;
     $session->_invoke_state($self, $source_session, $state, $etc);
-    $self->{'running'} = $self;
 
     if ($state eq '_stop') {
-      $self->{'running'} = $session;
                                         # free lingering signals
       my @signals = $self->{'signals'};
       foreach my $signal (@signals) {
@@ -126,8 +124,6 @@ sub _dispatch_state {
       my $index = scalar(@{$self->{'states'}});
       while ($index--) {
         if ($self->{'states'}->[$index]->[0] eq $session) {
-          print "??? Lingering state(", $self->{'states'}->[$index]->[2],
-                ") for session($session)\n";
           splice(@{$self->{'states'}}, $index, 1);
         }
       }
@@ -136,12 +132,15 @@ sub _dispatch_state {
       foreach my $handle (@handles) {
         $self->select($handle);
       }
-      $self->{'running'} = $self;
 
-      # test if everything really went away?
-      
+      if ($session eq $self) {
+        $self->{'running'} = 0;
+      }
+
       delete $self->{'sessions'}->{$session};
     }
+
+    $self->{'active session'} = $self;
 
     if (exists $self->{'sessions'}->{$session}) {
       $self->_check_session_resources($session);
@@ -178,9 +177,10 @@ sub _dispatch_selects {
 
 sub run {
   my $self = shift;
+  $self->{'running'} = 'yes';
 
-  while (1) {
-                                        # SIGZOMBIE sent to remaining tasks
+  while (keys(%{$self->{'sessions'}})) {
+                                        # SIGZOMBIE sent if no states/signals
     unless (@{$self->{'states'}} || keys(%{$self->{'selects'}})) {
       $self->_enqueue_state($self, $self, '_signal', time(), [ 'ZOMBIE' ]);
     }
@@ -222,7 +222,8 @@ sub run {
     }
   }
                                         # check things after all done
-  print "*** End stats (tests garbage collection):\n";
+  print "Kernel stopped.\n";
+  print "Resources leaked (if any):\n";
   print "states  : ", scalar(@{$self->{'states'}}), "\n";
   print "selects : ", scalar(keys %{$self->{'selects'}}), "\n";
   print "sessions: ", scalar(keys %{$self->{'sessions'}}), "\n";
@@ -269,7 +270,7 @@ sub _enqueue_state {
 
 sub session_alloc {
   my ($self, $session) = @_;
-  my $active_session = $self->{'running'};
+  my $active_session = $self->{'active session'};
 
   warn "session $session already exists"
     if (exists $self->{'sessions'}->{$session});
@@ -286,14 +287,16 @@ sub session_free {
   warn "session $session doesn't exist"
     unless (exists $self->{'sessions'}->{$session});
 
-  $self->_enqueue_state($session, $self->{'running'}, '_stop', time(), []);
+  $self->_enqueue_state($session, $self->{'active session'},
+                        '_stop', time(), []
+                       );
 }
 
 #------------------------------------------------------------------------------
 
 sub alarm {
   my ($self, $state, $name, $time, @etc) = @_;
-  my $active_session = $self->{'running'};
+  my $active_session = $self->{'active session'};
 
   if ($time < (my $now = time())) {
     $time = $now;
@@ -352,7 +355,7 @@ sub _internal_select {
 
 sub select {
   my ($self, $handle, $state_r, $state_w, $state_e) = @_;
-  my $active_session = $self->{'running'};
+  my $active_session = $self->{'active session'};
                                         # condition the handle
   if ($state_r || $state_w || $state_e) {
     binmode($handle);
@@ -399,17 +402,13 @@ sub _invoke_state {
       $self->session_free($self);
     }
   }
-  elsif ($state eq '_stop') {
-    print "Kernel stopped.\n";
-    exit;
-  }
 }
 
 #------------------------------------------------------------------------------
 
 sub sig {
   my ($self, $signal, $state) = @_;
-  my $active_session = $self->{'running'};
+  my $active_session = $self->{'active session'};
 
   if ($signal) {
     my $written = 0;
@@ -440,7 +439,7 @@ sub sig {
 
 sub post_state {
   my ($self, $destination_session, $state_name, @etc) = @_;
-  my $active_session = $self->{'running'};
+  my $active_session = $self->{'active session'};
                                         # external -> internal representation
   if ($destination_session eq $active_session->{'namespace'}) {
     $destination_session = $active_session;
