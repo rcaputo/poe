@@ -17,6 +17,7 @@ new POE::Session
      my ($k, $me, $from) = @_;
      $k->sig('INT', 'signal handler');
      print "Signal watcher started.  Send SIGINT or SIGTERM: ";
+     $me->{'done'} = '';
      $k->post($me, 'set an alarm');
    },
    '_stop' => sub
@@ -35,12 +36,14 @@ new POE::Session
    {
      my ($k, $me, $from) = @_;
      print ".";
-     $k->alarm('set an alarm', time()+1);
+     $k->delay('set an alarm', 0.5);
    },
    'signal handler' => sub
    {
      my ($k, $me, $from, $signal_name) = @_;
      print "\nSignal watcher caught SIG$signal_name.\n";
+                                        # remove the delay; stops session
+     $k->delay('set an alarm');
    },
   );
 
