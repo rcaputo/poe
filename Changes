@@ -7,6 +7,31 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.06_07 1999.05.12
+------------------
+
+"Crunch time" is sort of over.  An emergency in April put everything
+on hold.  I had a lot of time away from working on POE, and I came
+back refreshed and with some funky new ideas.  Unfortunately, it sort
+of ruined my plans for releasing 0.07, and 0.07 is delayed until I
+move development over to CVS.
+
+&POE::Kernel::post() now returns undef for error.  The "success"
+return value currently is 1, but this may change.  It's better right
+now to check for definedness as success.  On error, $! will be set as
+per &POE::Kernel::alias_resolve().
+
+&POE::Kernel::call() has improved return values, similar to &post's.
+See the docs.
+
+&POE::Session::create is a new constructor, with some type checking.
+It uses a completely different call signature.  See the docs.
+
+Philip Gwyn's patches for hot-swappable filters are in.  They are
+highly experimental and untested.  No guarantees, not even that
+they'll exist in future releases.  Feedback would be appreciated.
+
+
 0.06_06 1999.04.28
 ------------------
 
