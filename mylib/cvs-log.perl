@@ -199,13 +199,26 @@ foreach my $file (keys %file) {
 
 while (my ($tag, $time) = each %last_tag_times) {
   if (exists $tags_by_time{$time}) {
-    die( "There are two tags for the same time stamp.\n",
-         "That is not yet supported.\n",
-         "The time stamp: $time\n",
-         "The tags are ``$tag'' and ``$tags_by_time{$time}''.\n",
-         "You may need to use ``cvs tag -d <tag>'' to delete one of them.\n",
-         "Be careful!  There is no undo for this.\n",
-       );
+    warn( "There are two tags for the same time stamp.\n",
+          "That is not yet supported.\n",
+          "The time stamp: $time\n",
+          "The tags are ``$tag'' and ``$tags_by_time{$time}''.\n",
+          "You may need to use ``cvs tag -d <tag>'' to delete one of them.\n",
+          "Be careful!  There is no undo for this.\n",
+        );
+
+    if (lc($tag) eq "start") {
+      warn( "Ignoring tag ``$tags_by_time{$time}'' ",
+            "which coincides with ``$tag''\n"
+          );
+      delete $tags_by_time{$time};
+    }
+    elsif (lc($tags_by_time{$time}) eq "start") {
+      warn( "Ignoring tag ``$tag'' ",
+            "which coincides with ``$tags_by_time{$time}''\n"
+          );
+      next;
+    }
   }
 
   $tags_by_time{$time} = $tag;
