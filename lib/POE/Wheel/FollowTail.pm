@@ -11,6 +11,8 @@ use Carp;
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END);
 use POE;
 
+sub CRIMSON_SCOPE_HACK ($) { 0 }
+
 #------------------------------------------------------------------------------
 
 sub new {
@@ -28,6 +30,11 @@ sub new {
   my ($handle, $driver, $filter, $state_in, $state_error) =
     @params{ qw(Handle Driver Filter InputState ErrorState) };
 
+  my $poll_interval = ( (exists $params{'PollInterval'})
+                        ? $params{'PollInterval'}
+                        : 1
+                      );
+
   my $self = bless { 'handle' => $handle,
                      'driver' => $driver,
                      'filter' => $filter,
@@ -39,6 +46,9 @@ sub new {
   $poe_kernel->state
     ( $self->{'state read'},
       sub {
+                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
         my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
         
         while (defined(my $raw_input = $driver->get($hdl))) {
@@ -54,7 +64,7 @@ sub new {
             && $k->call($ses, $state_error, 'read', ($!+0), $!);
         }
         else {
-          $k->delay($self->{'state wake'}, 1);
+          $k->delay($self->{'state wake'}, $poll_interval);
         }
       }
     );
@@ -62,6 +72,9 @@ sub new {
   $poe_kernel->state
     ( $self->{'state wake'},
       sub {
+                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
         my $k = $_[KERNEL];
         $k->select_read($handle, $self->{'state read'});
       }
