@@ -163,26 +163,27 @@ sub spawn {
   $options = { } unless defined $options;
 
   # States are required.
-  croak "$type constructor requires a SPAWN_INLINES parameter"
+  croak "$type constructor requires a " . SPAWN_INLINES . " parameter"
     unless exists $params{+SPAWN_INLINES};
   my $states = delete $params{+SPAWN_INLINES};
 
   # These are unknown.
-  croak( "$type constructor does not recognize these parameter names: ",
-         join(', ', sort(keys(%params)))
-       ) if keys %params;
+  croak(
+    "$type constructor does not recognize these parameter names: ",
+    join(', ', sort(keys(%params)))
+  ) if keys %params;
 
   # Build me.
-  my $self =
-    bless [ { },        # SELF_RUNSTATE
-            $options,   # SELF_OPTIONS
-            $states,    # SELF_STATES
-            undef,      # SELF_CURRENT
-            [ ],        # SELF_STATE_STACK
-            { },        # SELF_INTERNALS
-            '(undef)',  # SELF_CURRENT_NAME
-            0,          # SELF_IS_IN_INTERNAL
-          ], $type;
+  my $self = bless [
+    { },        # SELF_RUNSTATE
+    $options,   # SELF_OPTIONS
+    $states,    # SELF_STATES
+    undef,      # SELF_CURRENT
+    [ ],        # SELF_STATE_STACK
+    { },        # SELF_INTERNALS
+    '(undef)',  # SELF_CURRENT_NAME
+    0,          # SELF_IS_IN_INTERNAL
+  ], $type;
 
   # Register the machine with the POE kernel.
   $POE::Kernel::poe_kernel->session_alloc($self);
@@ -276,8 +277,9 @@ sub _invoke_state {
     $self->[SELF_CURRENT_NAME] = $new_state;
 
     # Invoke the new state's enter event, if requested.
-    $self->_invoke_state( $self, $enter_event, \@enter_args, undef, undef, undef )
-      if defined $enter_event;
+    $self->_invoke_state(
+      $self, $enter_event, \@enter_args, undef, undef, undef
+    ) if defined $enter_event;
 
     return undef;
   }
@@ -286,12 +288,15 @@ sub _invoke_state {
   if ($event eq NFA_EN_PUSH_STATE) {
 
     my @args = @$args;
-    push( @{$self->[SELF_STATE_STACK]},
-          [ $self->[SELF_CURRENT_NAME], # STACK_STATE
-            shift(@args),               # STACK_EVENT
-          ]
-        );
-    $self->_invoke_state( $self, NFA_EN_GOTO_STATE, \@args, undef, undef, undef );
+    push(
+      @{$self->[SELF_STATE_STACK]},
+      [ $self->[SELF_CURRENT_NAME], # STACK_STATE
+        shift(@args),               # STACK_EVENT
+      ]
+    );
+    $self->_invoke_state(
+      $self, NFA_EN_GOTO_STATE, \@args, undef, undef, undef
+    );
 
     return undef;
   }
@@ -305,12 +310,14 @@ sub _invoke_state {
     )
     unless @{ $self->[SELF_STATE_STACK] };
 
-    my ($previous_state, $previous_event) =
-      @{ pop @{ $self->[SELF_STATE_STACK] } };
-    $self->_invoke_state( $self, NFA_EN_GOTO_STATE,
-                          [ $previous_state, $previous_event, @$args ],
-                          undef, undef, undef
-                        );
+    my ($previous_state, $previous_event) = @{
+      pop @{ $self->[SELF_STATE_STACK] }
+    };
+    $self->_invoke_state(
+      $self, NFA_EN_GOTO_STATE,
+      [ $previous_state, $previous_event, @$args ],
+      undef, undef, undef
+    );
 
     return undef;
   }
@@ -367,37 +374,37 @@ sub _invoke_state {
 
   my $return;
   if (ref($handler) eq 'CODE') {
-    $return = $handler->
-      ( undef,                      # OBJECT
-        $self,                      # MACHINE
-        $POE::Kernel::poe_kernel,   # KERNEL
-        $self->[SELF_RUNSTATE],     # RUNSTATE
-        $event,                     # EVENT
-        $sender,                    # SENDER
-        $self->[SELF_CURRENT_NAME], # STATE
-        $file,                      # CALLER_FILE_NAME
-        $line,                      # CALLER_FILE_LINE
-        $fromstate,                 # CALLER_STATE
-        @$args                      # ARG0..
-      );
+    $return = $handler->(
+      undef,                      # OBJECT
+      $self,                      # MACHINE
+      $POE::Kernel::poe_kernel,   # KERNEL
+      $self->[SELF_RUNSTATE],     # RUNSTATE
+      $event,                     # EVENT
+      $sender,                    # SENDER
+      $self->[SELF_CURRENT_NAME], # STATE
+      $file,                      # CALLER_FILE_NAME
+      $line,                      # CALLER_FILE_LINE
+      $fromstate,                 # CALLER_STATE
+      @$args                      # ARG0..
+    );
   }
 
   # Package and object handlers are invoked this way.
 
   else {
     my ($object, $method) = @$handler;
-    $return = $object->$method      # OBJECT (package, implied)
-      ( $self,                      # MACHINE
-        $POE::Kernel::poe_kernel,   # KERNEL
-        $self->[SELF_RUNSTATE],     # RUNSTATE
-        $event,                     # EVENT
-        $sender,                    # SENDER
-        $self->[SELF_CURRENT_NAME], # STATE
-        $file,                      # CALLER_FILE_NAME
-        $line,                      # CALLER_FILE_LINE
-        $fromstate,                 # CALLER_STATE
-        @$args                      # ARG0..
-      );
+    $return = $object->$method(   # OBJECT (package, implied)
+      $self,                      # MACHINE
+      $POE::Kernel::poe_kernel,   # KERNEL
+      $self->[SELF_RUNSTATE],     # RUNSTATE
+      $event,                     # EVENT
+      $sender,                    # SENDER
+      $self->[SELF_CURRENT_NAME], # STATE
+      $file,                      # CALLER_FILE_NAME
+      $line,                      # CALLER_FILE_LINE
+      $fromstate,                 # CALLER_STATE
+      @$args                      # ARG0..
+    );
   }
 
   $self->[SELF_IS_IN_INTERNAL]-- if $is_in_internal;
@@ -431,7 +438,7 @@ sub register_state {
       "| The _signal event is deprecated.  Please use sig() to register\n",
       "| an explicit signal handler instead.\n",
       "`-----------------------------\n",
-   );
+    );
   }
   # There is a handler, so try to define the state.  This replaces an
   # existing state.
@@ -566,11 +573,11 @@ sub option {
 
   if (@_) {
     my $flag = lc(shift);
-    $return_values{$flag} =
-      ( exists($self->[SELF_OPTIONS]->{$flag})
-        ? $self->[SELF_OPTIONS]->{$flag}
-        : undef
-      );
+    $return_values{$flag} = (
+      exists($self->[SELF_OPTIONS]->{$flag})
+      ? $self->[SELF_OPTIONS]->{$flag}
+      : undef
+    );
   }
 
   # If only one option was set or fetched, then return it as a scalar.
@@ -673,14 +680,16 @@ sub goto_state {
   my ($self, $new_state, $entry_event, @entry_args) = @_;
 
   if (defined $self->[SELF_CURRENT]) {
-    $POE::Kernel::poe_kernel->post( $self, NFA_EN_GOTO_STATE,
-                                    $new_state, $entry_event, @entry_args
-                                  );
+    $POE::Kernel::poe_kernel->post(
+      $self, NFA_EN_GOTO_STATE,
+      $new_state, $entry_event, @entry_args
+    );
   }
   else {
-    $POE::Kernel::poe_kernel->call( $self, NFA_EN_GOTO_STATE,
-                                    $new_state, $entry_event, @entry_args
-                                  );
+    $POE::Kernel::poe_kernel->call(
+      $self, NFA_EN_GOTO_STATE,
+      $new_state, $entry_event, @entry_args
+    );
   }
 }
 
@@ -691,10 +700,11 @@ sub stop {
 
 sub call_state {
   my ($self, $return_event, $new_state, $entry_event, @entry_args) = @_;
-  $POE::Kernel::poe_kernel->post( $self, NFA_EN_PUSH_STATE,
-                                  $return_event,
-                                  $new_state, $entry_event, @entry_args
-                                );
+  $POE::Kernel::poe_kernel->post(
+    $self, NFA_EN_PUSH_STATE,
+    $return_event,
+    $new_state, $entry_event, @entry_args
+  );
 }
 
 sub return_state {
@@ -718,23 +728,24 @@ POE::NFA - event driven nondeterministic finite automaton
 
   # Define a machine's states, each state's events, and the coderefs
   # that handle each event.
-  my %states =
-    ( start =>
-      { event_one => \&handler_one,
-        event_two => \&handler_two,
-        ...,
-      },
-      other_state =>
-      { event_n          => \&handler_n,
-        event_n_plus_one => \&handler_n_plus_one,
-        ...,
-      },
+  my %states = (
+    start => {
+      event_one => \&handler_one,
+      event_two => \&handler_two,
       ...,
-    );
+    },
+    other_state => {
+      event_n          => \&handler_n,
+      event_n_plus_one => \&handler_n_plus_one,
+      ...,
+    },
+    ...,
+  );
 
   # Spawn an NFA and enter its initial state.
-  POE::NFA->spawn( inline_states => \%states
-                 )->goto_state( $start_state, $start_event );
+  POE::NFA->spawn(
+    inline_states => \%states
+  )->goto_state( $start_state, $start_event );
 
   # Move to a new state.
   $machine->goto_state( $new_state, $new_event, @args );
@@ -800,16 +811,16 @@ that new state machines are spawned like threads or processes.  The
 machine itself is defined as a list of state names and hashrefs
 mapping events to handlers within each state.
 
-  my %machine =
-    ( state_1 =>
-      { event_1 => \&handler_1,
-        event_2 => \&handler_2,
-      },
-      state_2 =>
-      { event_1 => \&handler_3,
-        event_2 => \&handler_4,
-      },
-    );
+  my %machine = (
+    state_1 => {
+      event_1 => \&handler_1,
+      event_2 => \&handler_2,
+    },
+    state_2 => {
+      event_1 => \&handler_3,
+      event_2 => \&handler_4,
+    },
+  );
 
 Each state may define the same events.  The proper handler will be
 called depending on the machine's current state.  For example, if
@@ -995,6 +1006,8 @@ See POE::Session's documentation.
 
 Object and package states aren't implemented.  Some other stuff is
 just lashed together with twine.  POE::NFA needs some more work.
+Please send comments and suggestions to bug-poe@rt.cpan.org.  Thank
+you.
 
 =head1 AUTHORS & COPYRIGHTS
 
