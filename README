@@ -35,7 +35,7 @@ index to the others.  See the "SEE ALSO" section in "man POE", or your
 system's equivalent.
 
 The CHANGES file lists all the changes in the past year.  Changes back
-to August 1998 are available on the web.
+to August 1998 are available on POE's web site.
 
 --------------------
 Distribution Details
@@ -43,7 +43,8 @@ Distribution Details
 
 This distribution includes several sample and tutorial programs.  They
 are in the "samples" directory.  These programs take up a considerable
-chunk of POE's download size, but they are NOT installed.
+chunk of POE's download size, but they are NOT installed.  Better
+examples can be found on POE's web site.
 
 The test programs, in directory "t", may also be interesting examples,
 but they're aimed more at exercising POE than illustrating good coding
@@ -83,6 +84,7 @@ Test Results
 ------------
 
 http://poe.perl.org/?POE%27s_test_results
+http://testers.cpan.org/search?request=dist&dist=POE
 
 POE's test results are large and constantly changing.  They have been
 moved to the web site for easier maintenance.  POE is tested severely
