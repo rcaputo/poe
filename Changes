@@ -7,6 +7,12 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.0704 1999.11.14
+-----------------
+
+Include some modules that were mistakenly left out of 0.0703.
+
+
 0.0703 1999.08.20
 -----------------
 
