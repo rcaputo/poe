@@ -2153,7 +2153,7 @@ sub alarm_remove {
 
   # Ensure that the alarm belongs to this session, eh?
   if ($kr_events[$alarm_index]->[ST_SESSION] != $kr_active_session) {
-    TRACE RETURNS and carp "alarm $alarm_id is not for the session";
+    TRACE_RETURNS and carp "alarm $alarm_id is not for the session";
     ASSERT_RETURNS and croak "alarm $alarm_id is not for the session";
     $! = EPERM;
     return;
@@ -2206,7 +2206,7 @@ sub alarm_adjust {
 
   # Ensure that the alarm belongs to this session, eh?
   if ($kr_events[$alarm_index]->[ST_SESSION] != $kr_active_session) {
-    TRACE RETURNS and carp "alarm $alarm_id is not for the session";
+    TRACE_RETURNS and carp "alarm $alarm_id is not for the session";
     ASSERT_RETURNS and croak "alarm $alarm_id is not for the session";
     $! = EPERM;
     return;
@@ -3664,6 +3664,14 @@ alarms and delays by unique IDs, allowing existing alarms to be moved
 around, added, and removed with greater accuracy than the original
 interface.
 
+The June 2001 interface provides a different set of functions for
+alarms, but their underlying semantics are the same.  Foremost, they
+are always set for the current session.  That's why they don't require
+a SESSION parameter.
+
+For more information, see the previous section about the older alarms
+interface.
+
 =over 2
 
 =item alarm_adjust ALARM_ID, DELTA
@@ -3700,9 +3708,9 @@ See: alarm_remove,
 
 =item alarm_remove ALARM_ID
 
-Removes an alarm, but first you must know its ID.  The ID comes from a
-previous alarm_set() call, or you could hunt at random for alarms to
-remove.
+Removes an alarm from the current session, but first you must know its
+ID.  The ID comes from a previous alarm_set() call, or you could hunt
+at random for alarms to remove.
 
 Upon success, alarm_remove() returns something true based on its
 context.  In a list context, it returns three things: The removed
@@ -3740,7 +3748,7 @@ session owns that alarm.
 
 =item alarm_remove_all
 
-alarm_remove_all() removes all alarms for the current session.  It
+alarm_remove_all() removes all alarms from the current session.  It
 obviates the need for queue_peek_alarms(), which has been deprecated.
 
 This function takes no arguments.  In scalar context, it returns a
