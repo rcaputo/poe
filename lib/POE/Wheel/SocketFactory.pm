@@ -31,17 +31,16 @@ sub MY_SOCKET_SELECTED () { 11 }
 # this, to extend add stuff BEFORE MY_SOCKET_SELECTED or let Fletch
 # know you've broken his module.
 
-# Provide a dummy EINPROGRESS for systems that don't have one.  Give
-# it a documented value.
+# Provide dummy POSIX constants for systems that don't have them.  Use
+# http://support.microsoft.com/support/kb/articles/Q150/5/37.asp for
+# the POSIX error numbers.
 BEGIN {
-  # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
-  # defines EINPROGRESS as 10035.  We provide it here because some
-  # Win32 users report POSIX::EINPROGRESS is not vendor-supported.
   if ($^O eq 'MSWin32') {
-    eval '*EINPROGRESS = sub { 10036 };';
-    eval '*EWOULDBLOCK = sub { 10035 };';
-    eval '*F_GETFL     = sub {     0 };';
-    eval '*F_SETFL     = sub {     0 };';
+    eval '*EADDRNOTAVAIL = sub { 10049 };';
+    eval '*EINPROGRESS   = sub { 10036 };';
+    eval '*EWOULDBLOCK   = sub { 10035 };';
+    eval '*F_GETFL       = sub {     0 };';
+    eval '*F_SETFL       = sub {     0 };';
   }
 }
 
