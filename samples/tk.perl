@@ -28,14 +28,12 @@ use Symbol;
 # gradually migrating to POE/Tk as POE's feature set engorges itself
 # with the blood of its enemies.  Or something.
 
-# Two timed counters.
-
-my $timers_are_running = 0;
-
 # A POE session that embodies the UI.
 
 sub ui_start {
   my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+
+  $heap->{timers_running} = 0;
 
   # Some scalars from which we'll be making anonymous references.
   my $fast_text = 0;
@@ -159,6 +157,7 @@ sub ui_fast_counter_increment {
 
 sub ui_timed_counters_begin {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
+  print "counters' begin button pressed\n";
   unless ($heap->{timers_running}) {
     $heap->{timers_running} = 1;
     $kernel->delay( 'ev_fast_count', 0.1 );
@@ -168,6 +167,7 @@ sub ui_timed_counters_begin {
 
 sub ui_timed_counters_cease {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
+  print "counters' cease button pressed\n";
   if ($heap->{timers_running}) {
     $heap->{timers_running} = 0;
     $kernel->delay( 'ev_fast_count' );
