@@ -25,7 +25,7 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
     &ok_if( 2, $uni_input eq 'whee pipe' );
   }
   else {
-    &many_not_ok(1, 2, "Skip: pipe not supported");
+    &many_ok(1, 2, "skipped: pipe not supported");
   }
 }
 
@@ -40,7 +40,7 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
     &ok_if( 4, $uni_input eq 'whee socketpair' );
   }
   else {
-    &many_not_ok(3, 4, "Skip: socketpair not supported");
+    &many_ok(3, 4, "skipped: socketpair not supported");
   }
 }
 
@@ -55,7 +55,7 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
     &ok_if( 6, $uni_input eq 'whee inet' );
   }
   else {
-    &many_not_ok(5, 6, "Skip: inet sockets not supported");
+    &many_ok(5, 6, "skipped: inet sockets not supported");
   }
 }
 
@@ -75,7 +75,7 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
     &ok_if(9, $a_input eq 'b wr inet');
   }
   else {
-    &many_not_ok(7, 9, "Skip: pipe not supported");
+    &many_ok(7, 9, "skipped: pipe not supported");
   }
 }
 
@@ -95,7 +95,7 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
     &ok_if(12, $a_input eq 'b wr inet');
   }
   else {
-    &many_not_ok(10, 12, "Skip: socketpair not supported");
+    &many_ok(10, 12, "skipped: socketpair not supported");
   }
 }
 
@@ -115,7 +115,7 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
     &ok_if(15, $a_input eq 'b wr inet');
   }
   else {
-    &many_not_ok(13, 15, "Skip: inet sockets not supported");
+    &many_ok(13, 15, "skipped: inet sockets not supported");
   }
 }
 

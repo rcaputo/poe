@@ -36,7 +36,6 @@ README
 lib/Devel/Null.pm
 lib/Devel/Trace.pm
 lib/MyOtherFreezer.pm
-lib/TestPipe.pm
 lib/TestSetup.pm
 lib/coverage.perl
 lib/deptest.perl

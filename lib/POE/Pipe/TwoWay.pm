@@ -26,6 +26,35 @@ sub new {
   my $b_read  = gensym();
   my $b_write = gensym();
 
+  # Try UNIX-domain socketpair if no preferred conduit type is
+  # specified, or if the specified conduit type is 'socketpair'.
+  if ( (not defined $conduit_type) or
+       ($conduit_type eq 'socketpair')
+     ) {
+    eval {
+      socketpair($a_read, $b_read, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
+        or die "socketpair 1 failed: $!";
+    };
+
+    # Socketpair succeeded.
+    unless (length $@) {
+      DEBUG and do {
+        warn"using UNIX domain socketpairs\n";
+        warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+      };
+
+      # It's two-way, so each reader is also a writer.
+      $a_write = $a_read;
+      $b_write = $b_read;
+
+      # Turn off buffering.  POE::Kernel does this for us, but someone
+      # might want to use the pipe class elsewhere.
+      select((select($a_write), $| = 1)[0]);
+      select((select($b_write), $| = 1)[0]);
+      return($a_read, $b_write);
+    }
+  }
+
   # Try the pipe if no preferred conduit type is specified, or if the
   # specified conduit type is 'pipe'.
   if ( (not defined $conduit_type) or
@@ -55,35 +84,6 @@ sub new {
         select((select($b_write), $| = 1)[0]);
         return($a_read, $a_write, $b_read, $b_write);
       }
-    }
-  }
-
-  # Try UNIX-domain socketpair if no preferred conduit type is
-  # specified, or if the specified conduit type is 'socketpair'.
-  if ( (not defined $conduit_type) or
-       ($conduit_type eq 'socketpair')
-     ) {
-    eval {
-      socketpair($a_read, $b_read, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
-        or die "socketpair 1 failed: $!";
-    };
-
-    # Socketpair succeeded.
-    unless (length $@) {
-      DEBUG and do {
-        warn"using UNIX domain socketpairs\n";
-        warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
-      };
-
-      # It's two-way, so each reader is also a writer.
-      $a_write = $a_read;
-      $b_write = $b_read;
-
-      # Turn off buffering.  POE::Kernel does this for us, but someone
-      # might want to use the pipe class elsewhere.
-      select((select($a_write), $| = 1)[0]);
-      select((select($b_write), $| = 1)[0]);
-      return($a_read, $b_write);
     }
   }
 

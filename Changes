@@ -30,18 +30,28 @@ Version numbers have four fields: X.YYZZAA
 Very minor optimization to Gtk read/write resuming.  Replace Gtk's
 noisy warning about resuming unpaused handles with quiet acceptance.
 
-Added POE::Pipe::Unidirectional, a portable way to create one-way
-pipes.  It tries pipe first, then socketpair, then inet sockets before
-failing.
+Added POE::Pipe::OneWay, a portable way to create one-way pipes.  It
+tries pipe first, then socketpair, then inet sockets before failing.
 
-Added POE::Pipe::Bidirectional, which does pretty much the same as
-Unidirectional, but it's designet to make two-way pipes.  It's more
-efficient with filehandles, since socketpair() and inet sockets
-already are bidirectional.
+Added POE::Pipe::TwoWay, which does pretty much the same as OneWay,
+but it's designet to make two-way pipes.  It can be more efficient
+with filehandles, since socketpair() and inet sockets already are
+bidirectional.  It tries socketpair() before dual pipe() calls because
+that's more frugal.
 
 Added Wheel::Run, an open2/open3 style wheel that lets sessions spawn
 off spawn off background processes.  It takes care of the whole pipe,
 fork, exec deal.
+
+Removed lib/TestPipe and replaced all its uses with either
+Pipe::OneWay or Pipe::TwoWay.
+
+Added &many_ok to TestSetup so that lots of tests can be marked ok at
+once.  More importantly, lots of them can be marked as skipped in one
+swell foop.
+
+Added t/22_wheel_run.t to test uni- and bidirectional pipes, plus the
+Wheel::Run wheel which uses them.
 
 
 0.1202 2000.12.26
