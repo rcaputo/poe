@@ -50,17 +50,19 @@ I've come up with this tentative depreciation schedule in the hopes
 it'll minimize people's grief.
 
   1. Release POE as/is with this depreciation schedule.  This is the
-     RFC phase, and interested people should comment on it.
+     RFC phase, and interested people should comment on it.  This
+     may be version 0.13.
 
   2. Release POE with new the new parameters/behaviors/etc. and the
      depreciated ones side-by-side.  The documentation will be altered
      to cover new things and briefly tell about the depreciated
-     things.
+     things.  This may be version 0.14.
 
   3. Add warnings for depreciated things.  Try not to make them too
-     obnoxious.
+     obnoxious.  This may be version 0.15.
 
-  4. Remove the depreciated things altogether.
+  4. Remove the depreciated things altogether.  This may be version
+     0.16.
 
 My plan is to wait at least a month between each CPAN release.
 Bleeding edge interim releases will start off as maintenance on the
