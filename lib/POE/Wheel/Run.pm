@@ -14,7 +14,7 @@ use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 
 BEGIN {
   die "$^O does not support fork()\n" if $^O eq 'MacOS';
-  die "$^O does not fully support fork/exec\n" if $^O eq 'MSWin32';
+  die "$^O does not fully support fork+exec\n" if $^O eq 'MSWin32';
 
   local $SIG{'__DIE__'} = 'DEFAULT';
   eval    { require IO::Pty; };
