@@ -31,6 +31,11 @@ awakened, then SIGZOMBIE is broadcast to reap things.
 
 Fixed names.perl to show SIGIDLE being caught.
 
+Reordered the lookups in &POE::Kernel::alias_resolve, placing the more
+common ones first.  Forced a look-up, even for Session references, so
+that it would return ESRCH errors on sessions that disappeared but
+were still being referenced.
+
 
 0.08 1999.11.26
 ---------------
