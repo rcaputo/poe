@@ -248,7 +248,7 @@ initialize POE::Runtime Curator => $curator;
 # session.  This bootstraps the object environment.
 
 #$curator->object('main')->spawn('bootstrap');
-$curator->object('storetest')->spawn('test');
+$curator->object('counter')->spawn('start', 'one');
 
 # Start the POE kernel.
 

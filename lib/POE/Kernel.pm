@@ -3,7 +3,7 @@
 package POE::Kernel;
 
 use strict;
-use POSIX qw(errno_h fcntl_h sys_wait_h);
+use POSIX qw(errno_h fcntl_h sys_wait_h uname);
 use Carp;
 use vars qw($poe_kernel);
 
@@ -100,19 +100,23 @@ sub SS_HANDLES   () { 5 }
 sub SS_SIGNALS   () { 6 }
 sub SS_ALIASES   () { 7 }
 sub SS_PROCESSES () { 8 }
+sub SS_ID        () { 9 }
                                         # session handle structure
-sub SH_HANDLE   () { 0 }
-sub SH_REFCOUNT () { 1 }
-sub SH_VECCOUNT () { 2 }
+sub SH_HANDLE    () { 0 }
+sub SH_REFCOUNT  () { 1 }
+sub SH_VECCOUNT  () { 2 }
                                         # the Kernel object itself
-sub KR_SESSIONS       () { 0 }
-sub KR_VECTORS        () { 1 }
-sub KR_HANDLES        () { 2 }
-sub KR_STATES         () { 3 }
-sub KR_SIGNALS        () { 4 }
-sub KR_ALIASES        () { 5 }
-sub KR_ACTIVE_SESSION () { 6 }
-sub KR_PROCESSES      () { 7 }
+sub KR_SESSIONS       () { 0  }
+sub KR_VECTORS        () { 1  }
+sub KR_HANDLES        () { 2  }
+sub KR_STATES         () { 3  }
+sub KR_SIGNALS        () { 4  }
+sub KR_ALIASES        () { 5  }
+sub KR_ACTIVE_SESSION () { 6  }
+sub KR_PROCESSES      () { 7  }
+sub KR_ID             () { 9  }
+sub KR_SESSION_IDS    () { 10 }
+sub KR_ID_INDEX       () { 11 }
                                         # handle structure
 sub HND_HANDLE   () { 0 }
 sub HND_REFCOUNT () { 1 }
@@ -146,6 +150,10 @@ sub EN_SCPOLL () { '_sigchld_poll'    }
 #
 # processes: { $pid => $parent_session, ... }
 #
+# kernel ID: { $kernel_id }
+#
+# session IDs: { $id => $session, ... }
+#
 # handles: { $handle => [ $handle, $refcount, [$ref_r, $ref_w, $ref_x ],
 #                         [ { $session => [ $handle, $session, $state ], .. },
 #                           { $session => [ $handle, $session, $state ], .. },
@@ -167,6 +175,7 @@ sub EN_SCPOLL () { '_sigchld_poll'    }
 #                           { $signal => $state, ... },
 #                           { $name => 1, ... },
 #                           { $pid => 1, ... },   # child processes
+#                           $session_id,  # session ID
 #                         ]
 #           };
 #
@@ -266,6 +275,16 @@ sub new {
     $self->[KR_SIGNALS  ] = { };
     $self->[KR_ALIASES  ] = { };
     $self->[KR_PROCESSES] = { };
+
+    # Kernel ID, based on Philip Gwyn's code.  I hope he still can
+    # recognize it.  KR_SESSION_IDS is a hash because it will almost
+    # always be sparse.
+    $self->[KR_ID         ] = ( (uname)[1] . '-' .
+                                unpack 'H*', pack 'N*', time, $$
+                              );
+    $self->[KR_SESSION_IDS] = { };
+    $self->[KR_ID_INDEX]    = 1;
+
                                         # initialize the vectors *as* vectors
     vec($self->[KR_VECTORS]->[VEC_RD], 0, 1) = 0;
     vec($self->[KR_VECTORS]->[VEC_WR], 0, 1) = 0;
@@ -321,6 +340,7 @@ sub new {
     $kernel_session->[SS_HANDLES ] = { };
     $kernel_session->[SS_SIGNALS ] = { };
     $kernel_session->[SS_ALIASES ] = { };
+    $kernel_session->[SS_ID      ] = $self->[KR_ID];
   }
                                         # return the global instance
   $poe_kernel;
@@ -345,6 +365,8 @@ sub _dispatch_state {
     $new_session->[SS_HANDLES ] = { };
     $new_session->[SS_SIGNALS ] = { };
     $new_session->[SS_ALIASES ] = { };
+    $new_session->[SS_ID      ] = $self->[KR_ID_INDEX]++;
+    $self->[KR_SESSION_IDS]->{$new_session->[SS_ID]} = $session;
                                         # add to parent's children
     if (DEB_RELATION) {
       die "$session is its own parent\a" if ($session eq $source_session);
@@ -518,6 +540,9 @@ sub _dispatch_state {
     foreach (@aliases) {
       $self->_internal_alias_remove($session, $_);
     }
+                                        # remove session ID
+    delete $self->[KR_SESSION_IDS]->{$sessions->{$session}->[SS_ID]};
+    $session->[SS_ID] = undef;
                                         # check for leaks
     if (DEB_GC) {
       my $errors = 0;
@@ -1286,6 +1311,35 @@ sub alias_resolve {
 }
 
 #==============================================================================
+# Kernel ID
+#==============================================================================
+
+sub ID {
+  my $self = shift;
+  $self->[KR_ID];
+}
+
+sub ID_id_to_session {
+  my ($self, $id) = @_;
+  if (exists $self->[KR_SESSION_IDS]->{$id}) {
+    $! = 0;
+    return $self->[KR_SESSION_IDS]->{$id};
+  }
+  $! = ESRCH;
+  return undef;
+}
+
+sub ID_session_to_id {
+  my ($self, $session) = @_;
+  if (exists $self->[KR_SESSIONS]->{$session}) {
+    $! = 0;
+    return $self->[KR_SESSIONS]->{$session}->[SS_ID];
+  }
+  $! = ESRCH;
+  return undef;
+}
+
+#==============================================================================
 # Safe fork and SIGCHLD.
 #==============================================================================
 
@@ -1380,6 +1434,7 @@ POE::Kernel - POE Event Queue and Resource Manager
   #!/usr/bin/perl -w
   use strict;
   use POE;                 # Includes POE::Kernel and POE::Session
+  print $poe_kernel->ID(); # This process' unique ID.
   new POE::Session( ... ); # Bootstrap sessions are here.
   $poe_kernel->run();      # Run the kernel.
   exit;                    # Exit when the kernel's done.
@@ -1422,6 +1477,11 @@ POE::Kernel - POE Event Queue and Resource Manager
   $kernel->state( $state_name, $code_reference );    # Inline state
   $kernel->state( $method_name, $object_reference ); # Object state
   $kernel->state( $function_name, $package_name );   # Package state
+
+  # IDs:
+  $kernel->ID();                       # Return the Kernel's unique ID.
+  $kernel->ID_id_to_session($id);      # Return undef, or the ID's session.
+  $kernel->ID_session_to_id($session); # Return undef, or the session's ID.
 
 =head1 DESCRIPTION
 
@@ -1874,6 +1934,46 @@ removed.  Any pending events destined for $function_name will be
 redirected to _default.
 
 =back
+
+=back
+
+=head2 ID Management Methods
+
+POE generates a unique ID for the process, and it maintains unique
+serial numbers for every session.  These functions retrieve various ID
+values.
+
+=over 4
+
+=item *
+
+POE::Kernel::ID()
+
+Returns a unique ID for this POE process.
+
+  my $process_id = $kernel->ID();
+
+=item *
+
+POE::Kernel::ID_id_to_session( $id );
+
+Returns a session reference for the given ID.  It returns undef if the
+ID doesn't exist.  This allows programs to uniquely identify a
+particular Session (or detect that it's gone) even if Perl reuses the
+Session reference later.
+
+=item *
+
+POE::Kernel::ID_session_to_id( $session );
+
+Returns an ID for the given POE::Session reference, or undef ith the
+session doesn't exist.
+
+Perl reuses Session references fairly frequently, but Session IDs are
+unique.  Because of this, the ID of a given reference (stringified, so
+Perl can release the referenced Session) may appear to change.  If it
+does appear to have changed, then the Session reference is probably
+invalid.
 
 =back
 

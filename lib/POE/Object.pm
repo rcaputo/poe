@@ -24,7 +24,7 @@ sub CS_ID        () { 0 } # -><- same as POE::Curator::CS_ID
 sub _fetch_other_parameters {
   my $heap = do {
     package DB;
-    # @BD::args isn't populated without the assign to @x :(
+    # @DB::args isn't populated without the assign to @x :(
     my @x = caller(2);
     $DB::args[POE::Session::HEAP];
   };

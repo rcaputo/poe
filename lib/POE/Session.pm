@@ -47,7 +47,11 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $POE::Kernel::poe_kernel);
 
-  my $self = bless [ { }, { } ], $type;
+  my $self = bless [ ], $type;
+  $self->[SE_NAMESPACE] = { };
+  $self->[SE_OPTIONS  ] = { };
+  $self->[SE_KERNEL   ] = undef;
+  $self->[SE_STATES   ] = { };
 
   while (@states) {
                                         # handle arguments
@@ -132,7 +136,11 @@ sub create {
 
   my %params = @params;
 
-  my $self = bless [ { }, { } ], $type;
+  my $self = bless [ ], $type;
+  $self->[SE_NAMESPACE] = { };
+  $self->[SE_OPTIONS  ] = { };
+  $self->[SE_KERNEL   ] = undef;
+  $self->[SE_STATES   ] = { };
 
   if (exists $params{'args'}) {
     if (ref($params{'args'}) eq 'ARRAY') {
@@ -287,6 +295,13 @@ sub register_state {
   else {
     delete $self->[SE_STATES]->{$state};
   }
+}
+
+#------------------------------------------------------------------------------
+
+sub ID {
+  my $self = shift;
+  $POE::Kernel::poe_kernel->ID_session_to_id($self);
 }
 
 #------------------------------------------------------------------------------
@@ -545,6 +560,13 @@ session has a B<_default> state, because then every event can be
 dispatched.
 
 =back
+
+=item *
+
+ID
+
+POE::Session::ID() returns this session's unique ID, as maintained by
+POE::Kernel.  It's a shortcut for $kernel->ID_session_to_id($session).
 
 =back
 

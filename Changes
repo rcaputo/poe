@@ -8,7 +8,17 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.0801 1999.12.23
+0.0802 1999.12.25
+-----------------
+
+Fixed the date for revision 0.0801 in the changes.
+
+Added Kernel and Session IDs, at Philip Gwyn's insistence.  Each
+session has a serial number, accessible by $session->ID().  POE's
+kernel itself has a fairly unique ID, accessible by $poe_kernel->ID().
+
+
+0.0801 1999.12.24
 -----------------
 
 Added &POE::Kernel::fork() to provide safe child reaping.  This fork()

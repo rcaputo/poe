@@ -33,13 +33,14 @@ my $session_name;
 # every new session a _start event to tell them when they may begin.
 
 sub child_start {
-  my ($kernel, $heap) = @_[KERNEL, HEAP];
+  my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
                                         # stupid scope trick, part 2 of 3 parts
   $heap->{'name'} = $session_name;
   $kernel->sig('INT', 'sigint');
-  print "Session $heap->{'name'} started.\n";
 
-  return "i am $heap->{'name'}";
+  my $sid = $session->ID();
+  print "Session $heap->{'name'} (SID $sid) started.\n";
+  return "i am $heap->{'name'} (SID $sid)";
 }
 
 #------------------------------------------------------------------------------
@@ -47,8 +48,9 @@ sub child_start {
 # from memory.  This allows sessions to perform last-minute cleanup.
 
 sub child_stop {
-  my $heap = $_[HEAP];
-  print "Session ", $heap->{'name'}, " stopped.\n";
+  my ($session, $heap) = @_[SESSION, HEAP];
+  my $sid = $session->ID();
+  print "Session $heap->{'name'} (SID $sid) stopped.\n";
 }
 
 #------------------------------------------------------------------------------
@@ -58,7 +60,7 @@ sub child_stop {
 # another "increment" message.
 
 sub child_increment {
-  my ($kernel, $me, $name, $count) =
+  my ($kernel, $session, $name, $count) =
     @_[KERNEL, SESSION, ARG0, ARG1];
 
   $count++;
@@ -70,16 +72,17 @@ sub child_increment {
     $kernel->state('runtime_state');
   }
 
-  print "Session $name, iteration $count...\n";
+  my $sid = $session->ID();
+  print "Session $name (SID $sid), iteration $count...\n";
 
-  my $ret = $kernel->call($me, 'display_one', $name, $count);
+  my $ret = $kernel->call($session, 'display_one', $name, $count);
   print "\t(display one returns: $ret)\n";
 
-  $ret = $kernel->call($me, 'display_two', $name, $count);
+  $ret = $kernel->call($session, 'display_two', $name, $count);
   print "\t(display two returns: $ret)\n";
 
   if ($count < 5) {
-    $kernel->post($me, 'increment', $name, $count);
+    $kernel->post($session, 'increment', $name, $count);
     $kernel->yield('runtime_state', $name, $count);
   }
 }
@@ -178,10 +181,11 @@ sub main_stop {
 # the session (respectively).
 
 sub main_child {
-  my ($kernel, $me, $direction, $child, $return) =
+  my ($kernel, $session, $direction, $child, $return) =
     @_[KERNEL, SESSION, ARG0, ARG1, ARG2];
 
-  print( "*** Main session ${direction}s child ",
+  my $sid = $session->ID();
+  print( "*** Main session (SID $sid) ${direction}s child ",
          $kernel->call($child, 'fetch_name'),
          (($direction eq 'create') ? " (child returns: $return)" : ''),
          "\n"

@@ -131,13 +131,17 @@ sub attribute_fetch {
 
   if (ref($att_value) eq 'HASH') {
     my %return_att;
-    tie %return_att, 'POE::Attribute::Hash', $repository, $attribute, $id, $att_owner;
+    tie( %return_att, 'POE::Attribute::Hash',
+         $repository, $attribute, $id, $att_owner
+       );
     return (0, \%return_att);
   }
 
   if (ref($att_value) eq 'ARRAY') {
     my @return_att;
-    tie @return_att, 'POE::Attribute::Array', $repository, $attribute, $id, $att_owner;
+    tie( @return_att, 'POE::Attribute::Array',
+         $repository, $attribute, $id, $att_owner
+       );
     return (0, \@return_att);
   }
 
