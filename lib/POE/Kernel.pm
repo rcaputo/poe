@@ -581,7 +581,6 @@ sub test_for_idle_poe_kernel {
 
 sub post_plain_signal {
   my ($destination, $signal_name) = @_;
-die;
   $poe_kernel->_enqueue_event
     ( $destination, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL, [ $signal_name ],
@@ -718,6 +717,14 @@ sub sig_handled {
   $kr_signal_total_handled = 1;
   $kr_signal_handled_explicitly = 1;
 }
+
+# Attach a window or widget's destroy/closure to the UIDESTROY signal.
+
+sub signal_ui_destroy {
+  my ($self, $window) = @_;
+  loop_attach_uidestroy($self, $window);
+}
+
 
 #==============================================================================
 # KERNEL

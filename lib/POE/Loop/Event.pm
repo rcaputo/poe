@@ -88,10 +88,6 @@ sub _loop_signal_handler_child {
     );
 }
 
-sub signal_ui_destroy {
-  # does nothing
-}
-
 #------------------------------------------------------------------------------
 # Signal handler maintenance functions.
 
@@ -154,6 +150,10 @@ sub loop_ignore_signal {
     $signal_watcher{$signal}->stop();
     delete $signal_watcher{$signal};
   }
+}
+
+sub loop_attach_uidestroy {
+  # does nothing
 }
 
 #------------------------------------------------------------------------------

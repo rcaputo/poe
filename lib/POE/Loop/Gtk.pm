@@ -151,7 +151,7 @@ sub loop_ignore_signal {
 
 # This function sets us up a signal when whichever window is passed to
 # it closes.
-sub signal_ui_destroy {
+sub loop_attach_uidestroy {
   my ($self, $window) = @_;
 
   # Don't bother posting the signal if there are no sessions left.  I

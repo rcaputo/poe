@@ -141,7 +141,7 @@ sub loop_ignore_signal {
   $SIG{$signal} = "DEFAULT";
 }
 
-sub signal_ui_destroy {
+sub loop_attach_uidestroy {
   my ($poe_kernel, $window) = @_;
   $window->OnDestroy
     ( sub {
