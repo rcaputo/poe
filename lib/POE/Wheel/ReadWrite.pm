@@ -28,6 +28,8 @@ sub new {
                      'kernel' => $kernel,
                      'driver' => $driver,
                      'filter' => $filter,
+                     'state error' => $state_error,
+                     'state flushed' => $state_flushed,
                    }, $type;
                                         # register the select-read handler
   $kernel->state
@@ -93,7 +95,32 @@ sub DESTROY {
 sub put {
   my $self = shift;
   if ($self->{'driver'}->put($self->{'filter'}->put(@_))) {
-    $self->{'kernel'}->select_write($self->{'handle'}, $self->{'state write'});
+
+    $self->{'kernel'}->select_write($self->{'handle'},
+                                    $self->{'state write'}
+                                   );
+
+#     my $writes_pending = $self->{'driver'}->flush($self->{'handle'});
+#     if (defined $writes_pending) {
+#       if ($writes_pending) {
+#         $self->{'kernel'}->select_write($self->{'handle'},
+#                                         $self->{'state write'}
+#                                        );
+#       }
+#       else {
+#         $self->{'kernel'}->select_write($self->{'handle'});
+#         (defined $self->{'state flushed'})
+#           && $self->{'kernel'}->yield($self->{'state flushed'});
+#       }
+#     }
+#     elsif ($!) {
+#       $self->{'state error'}
+#         && $self->{'kernel'}->yield($self->{'state error'},
+#                                     'write', ($!+0), $!
+#                                    );
+#       $self->{'kernel'}->select_write($self->{'handle'});
+#     }
+
   }
 }
 
