@@ -39,6 +39,8 @@ use IO::Poll qw(
 
 # Define POLLRDBAND if we don't have one.
 BEGIN {
+  eval "sub IO::Poll::POLLRDBAND () { 128 }"
+    unless defined &IO::Poll::POLLRDBAND;
   eval "sub POLLRDBAND () { 128 }" unless defined &POLLRDBAND;
   die if $@;
 }
