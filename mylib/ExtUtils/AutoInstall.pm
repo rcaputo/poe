@@ -2,7 +2,7 @@
 # $Revision$ $Change: 10538 $ $DateTime: 2004/04/29 17:55:36 $ vim: expandtab shiftwidth=4
 
 package ExtUtils::AutoInstall;
-$ExtUtils::AutoInstall::VERSION = '0.60';
+$ExtUtils::AutoInstall::VERSION = '0.61';
 
 use strict;
 use Cwd ();
@@ -14,8 +14,8 @@ ExtUtils::AutoInstall - Automatic install of dependencies via CPAN
 
 =head1 VERSION
 
-This document describes version 0.60 of B<ExtUtils::AutoInstall>,
-released September 19, 2004.
+This document describes version 0.61 of B<ExtUtils::AutoInstall>,
+released October 19, 2004.
 
 =head1 SYNOPSIS
 
