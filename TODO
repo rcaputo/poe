@@ -1449,6 +1449,14 @@ raise() and lower() methods.
 Constructor takes details of the event to fire.  Possibly acts as a
 postback or creates one internally.
 
+------------
+POE::Monitor
+------------
+
+Artur's hooks, plus Philip's work on this.  How can it be incorporated
+into Kernel and/or a base Session without big maintainability and/or
+performance penalties?
+
 ---------------------
 Session Relationships
 ---------------------
@@ -1552,6 +1560,134 @@ queues instead of FIFO, or something.  Possibly a POE2 kind of thing.
 
 Known interested people:  Lenzo
 
+---------------
+Simplify Kernel
+---------------
+
+POE::Kernel originally managed events with a single queue.  The queue
+was split in two: FIFO for messages and a priority queue for timed
+events.  The split requires extra work in the main dispatch loop: the
+loop must check two queues and dispatch events from each.  It also
+breaks determinism because timers and fifo messages can be dispatched
+slightly out of order.
+
+Steps to simplify queue management.
+
+1. Recombine the queues.
+
+This will reduce the amount of work needed to determine which event is
+dispatched next.
+
+The combine queue will be ordered by event time.  FIFO events are
+always enqueued for time().  Alarms and delays are enqueued for their
+requested times.
+
+2. Count pending FIFO events.
+
+Manage an accumulator; increment it as FIFO events are enqueued, and
+decrement it when they are dispatched.
+
+This counter will allow the FIFO "enqueue" function to skip the head
+of the queue.  The first $count events (at least) will be before the
+next FIFO slot.
+
+3. Use the alarm enqueue function's optimizations.
+
+The first, last, and middle-of-three checks short-circuit a lot of
+cases.  Binary seeking is O(log N) compares to find a place for the
+next event.  In the worst case, an insert will require O((log N)+3)
+compares.
+
+2001-08-21
+
+Binary seeking has a certain amount of overhead beyond linear seeking,
+so it may be faster in some cases.  Benchmark linear vs. binary
+searches to get a feel for the break-even point between these two
+styles.  It may turn out that binary seeking just sucks.
+
+---------------
+Fracture Kernel
+---------------
+
+Split subsystems into submodules.
+
+Programs can load only what they need.  AUTOLOAD like.
+
+Parts of POE can be replaced or overloaded, changing the way things
+are done.
+
+1. Find out if @ISA can be changed at runtime.
+
+2. Figure out the logistics of adding code to existing
+POE::Preprocessor macros.  Modules may "hook" into macros by adding
+new code at the end.
+
+----------------------------------------------
+Event Dispatch Optimization: Multiple Dispatch
+----------------------------------------------
+
+Multiple dispatch based on event type?  Rather than big if/then trees
+before and after the event is dispatched, break it into discrete
+functions by event type.  Create a dispatch table to call the proper
+pre- and post-dispatch code.
+
+  $pre_dispatch{+ET_STOP} = \&pre_stop;
+  $post_dispatch{+ET_STOP} = \&post_stop;
+
+It must be a hash because event types are bit flags.  They get very
+large, very fast, and I'm fairly certain perl doesn't do sparse arrays
+yet.
+
+Actually, they're bit flags because of the comparisons in the pre- and
+post-dispatch if/then trees.  The types can become an enumeration if
+we switch to a dispatch table.
+
+Instances where the caller knows what kind of event is being
+dispatched (where _dispatch_state is called directly: call, and select
+dispatches), the caller can call the proper pre- and post-dispatch
+code itself.  That will save a function call and two table lookups.
+Macros will help keep this sort of thing maintainable.
+
+-----------------------
+Give Up 5.004 and 5.005
+-----------------------
+
+Perl 5.6.1 was released AGES ago, and there's talk of releasing a new
+version.  It's time to test the 5.6 waters.  Try out new features, see
+which hold water and which break and/or leak like nuts, and determine
+how they can help.
+
+Unfortunately, POE's used in production on 5.004 and/or 5.005 systems.
+Adopting newer features will leave people behind.  How can POE move on
+without totally abandoning people?
+
+---------------------------------------
+Work Around Windows NT Socket Stupidity
+---------------------------------------
+
+Non-blocking connect() fails on Windows NT 4.0 and 5.0 (Windows 2000).
+This is a departure from previous Windows sockets APIs, probably
+related to the "overlapped" IO flag needing to be set.
+
+People tell me I'm on crack when I mention that, though, despite the
+symptoms matching exactly.  Whatever.  Meanwhile, I can skip
+non-blocking connect() on those systems that don't support it anymore.
+
+C:\>perl -MPOSIX -e "print join ':', uname()"
+
+On 98:
+
+  Windows:bochs.homenet:4.10:Build 2222 ( A ):x86
+
+On NT 4.0:
+
+  Windows NT:poeny:4.0:Build 1381 (Service Pack 6):x86
+
+On 2000:
+
+  Windows NT:gil:5.0:Build 2195 (Service Pack 2):x86 
+
+But it will suck.
 
 ===============================================================================
 ===============================================================================
