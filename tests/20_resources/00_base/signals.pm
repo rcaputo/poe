@@ -360,14 +360,14 @@ ok(
 
   $poe_kernel->_data_sig_handled();
 
-  my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
+  my ($tot, $type, $touched_ses) = $poe_kernel->_data_sig_handled_status();
   ok($tot == 1, "SIGUIDESTROY handled by zero sessions");
   ok(
     $type == POE::Kernel::SIGTYPE_NONMASKABLE,
     "SIGUIDESTROY is not maskable"
   );
   ok(
-    eq_array($ses, [ $ses ]),
+    eq_array([ $ses ], $touched_ses),
     "SIGUIDESTROY touched session correct session"
   );
 
