@@ -45,12 +45,11 @@ sub sss_start {
   delete $heap->{wheel};
   $heap->{wheel} = POE::Wheel::ReadWrite->new
     ( Handle       => $socket,
-      Driver       => POE::Driver::SysRW->new(),
+      Driver       => POE::Driver::SysRW->new( BlockSize => 1 ),
       Filter       => POE::Filter::Line->new(),
       InputState   => 'got_line',
       ErrorState   => 'got_error',
       FlushedState => 'got_flush',
-      BlockSize    => 1,
     );
 
   &ok_if(2, defined $heap->{wheel});

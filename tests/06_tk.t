@@ -13,7 +13,7 @@ use lib '/usr/mysrc/Tk800.021/blib/arch';
 use Symbol;
 
 use TestSetup;
-&test_setup(5);
+&test_setup(8);
 
 # Skip if Tk isn't here.
 BEGIN {
@@ -107,12 +107,29 @@ sub io_start {
   $poe_tk_main_window->Label( -text => 'Timer Count' )->pack;
   $poe_tk_main_window->Label( -textvariable => $heap->{timer_count} )->pack;
   $kernel->delay( ev_timer_increment => 0.5 );
+
+  # Add default postback test results.  They fail if they aren't
+  # delivered.
+
+  $heap->{postback_tests} =
+  { 5 => "not ok 5\n",
+    6 => "not ok 6\n",
+    7 => "not ok 7\n",
+  };
 }
 
 sub io_pipe_write {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
   $heap->{pipe_wheel}->put( scalar localtime );
-  $kernel->delay( ev_pipe_write => 1 ) if ++${$heap->{write_count}} < 10;
+  if (++${$heap->{write_count}} < 10) {
+    $kernel->delay( ev_pipe_write => 1 );
+  }
+  else {
+    $poe_tk_main_window->after
+      ( 1000,
+        $_[SESSION]->postback( ev_postback => 5 );
+      );
+  }
 }
 
 sub io_pipe_read {
@@ -120,7 +137,15 @@ sub io_pipe_read {
   ${$heap->{read_count}}++;
 
   # Shut down the wheel if we're done.
-  delete $heap->{pipe_wheel} if ${$heap->{write_count}} == 10;
+  if ( ${$heap->{write_count}} == 10 ) {
+    delete $heap->{pipe_wheel};
+  }
+  else {
+    $poe_tk_main_window->after
+      ( 1000,
+        $_[SESSION]->postback( ev_postback => 6 )
+      );
+  }
 }
 
 sub io_idle_increment {
@@ -132,6 +157,18 @@ sub io_idle_increment {
 sub io_timer_increment {
   if (++${$_[HEAP]->{timer_count}} < 10) {
     $_[KERNEL]->delay( ev_timer_increment => 0.5 );
+  }
+
+  # After the last timer, do a postback to test that (1) postbacks do
+  # indeed post back, (2) that they keep a session alive for their
+  # duration, and (3) postbacks include the parameters they were
+  # given at creation time.
+
+  else {
+    $poe_tk_main_window->after
+      ( 1000,
+        $_[SESSION]->postback( ev_postback => 7 )
+      );
   }
 }
 
@@ -148,6 +185,17 @@ sub io_stop {
 
   print "not " unless ${$heap->{timer_count}};
   print "ok 4\n";
+
+  foreach (sort { $a <=> $b } keys %{$heap->{postback_tests}}) {
+    print $heap->{postback_tests}->{$_};
+  }
+}
+
+# Collect postbacks and cache results.
+
+sub io_postback {
+  my ($session, $test_number) = @_[SESSION, ARG0];
+  $heap->{postback_tests}->{$test_number} = "ok $test_number\n";
 }
 
 # Start the I/O session.
@@ -160,6 +208,7 @@ POE::Session->create
       ev_pipe_write      => \&io_pipe_write,
       ev_idle_increment  => \&io_idle_increment,
       ev_timer_increment => \&io_timer_increment,
+      ev_postback        => \&io_postback,
     }
   );
 
@@ -169,6 +218,6 @@ $poe_kernel->run();
 
 # Congratulate ourselves on a job completed, regardless of how well it
 # was done.
-print "ok 5\n";
+print "ok 8\n";
 
 exit;
