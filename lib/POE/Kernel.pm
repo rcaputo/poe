@@ -4670,7 +4670,7 @@ code in large scale clients and servers.
 This loop allows POE to work in graphical programs using the Tk-Perl
 library.
 
-  use Event;
+  use Tk;
   use POE;
 
 =back
