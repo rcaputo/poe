@@ -163,12 +163,7 @@ sub server_start {
   DEBUG && print "Server starting.\n";
                                         # create a socket factory
   $heap->{wheel} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,        # in the INET domain/address family
-      SocketType     => SOCK_STREAM,    # create stream sockets
-      SocketProtocol => 'tcp',          # using the tcp protocol
-      BindAddress    => INADDR_ANY,     # bound to any address
-      BindPort       => '31338',        # on the eleet++ port
-      ListenQueue    => 5,              # listen, with a 5-connection queue
+    ( BindPort       => '31338',        # on the eleet++ port
       Reuse          => 'yes',          # and allow immediate reuse of the port
       SuccessState   => 'accept',       # generating this event on connection
       FailureState   => 'error'         # generating this event on error

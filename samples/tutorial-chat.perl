@@ -101,13 +101,8 @@ sub server_start {
   # little "close the socket" dance inside, and everything is tidy.
 
   $heap->{listener} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,         # create it in the AF_INET domain
-      SocketType     => SOCK_STREAM,     # create stream sockets
-      SocketProtocol => 'tcp',           # using the tcp protocol
-      BindAddress    => INADDR_ANY,      # bound to port 30023 of all addresses
-      BindPort       => 30023,
+    ( BindPort       => 30023,
       Reuse          => 'yes',           # reuse the port right away
-      ListenQueue    => 5,               # listen, with a 5-socket queue
       SuccessState   => 'event_success', # event to send on connection
       FailureState   => 'event_failure'  # event to send on error
     );

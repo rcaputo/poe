@@ -46,10 +46,7 @@ sub client_start {
   print "Client starting.\n";
                                         # create a socket factory
   $heap->{'wheel'} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,        # in the INET domain/address family
-      SocketType     => SOCK_STREAM,    # create stream sockets
-      SocketProtocol => 'tcp',          # using the tcp protocol
-      RemoteAddress  => '127.0.0.1',    # connect to this address
+    ( RemoteAddress  => '127.0.0.1',    # connect to this address
       RemotePort     => 31338,          # connect to this port (eleet++)
       SuccessState   => 'connected',    # generating this event on success
       FailureState   => 'error'         # generating this event on failure

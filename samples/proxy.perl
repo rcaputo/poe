@@ -243,12 +243,8 @@ sub server_start {
   $heap->{remote_port} = $remote_port;
                                         # create a socket factory
   $heap->{server_wheel} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,          # in the INET domain/address family
-      SocketType     => SOCK_STREAM,      # create stream sockets
-      SocketProtocol => 'tcp',            # using the tcp protocol
-      BindAddress    => $local_addr,      # bind to this address
+    ( BindAddress    => $local_addr,      # bind to this address
       BindPort       => $local_port,      # and bind to this port
-      ListenQueue    => 5,                # listen, with a 5-connection queue
       Reuse          => 'yes',            # reuse immediately
       SuccessState   => 'accept_success', # generate this event on connection
       FailureState   => 'accept_failure', # generate this event on error

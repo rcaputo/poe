@@ -60,10 +60,7 @@ sub client_start {
   $kernel->sig('INT', 'signals');
                                         # create a socket factory
   $heap->{'wheel'} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,        # in the INET domain/address family
-      SocketType     => SOCK_STREAM,    # create a stream socket
-      SocketProtocol => 'tcp',          # with the tcp protocol
-      RemoteAddress  => $server_addr,   # connecting to address $server_addr
+    ( RemoteAddress  => $server_addr,   # connecting to address $server_addr
       RemotePort     => $server_port,   # connecting to port $server_port
       SuccessState   => 'connected',    # generating this event when connected
       FailureState   => 'error',        # generating this event upon an error
@@ -386,12 +383,8 @@ sub server_start {
   $kernel->sig('QUIT', 'signals');
                                         # create a socket factory
   $heap->{'wheel'} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,        # in the INET domain/address family
-      SocketType     => SOCK_STREAM,    # create stream sockets
-      SocketProtocol => 'tcp',          # with the tcp protocol
-      BindAddress    => $server_addr,   # bind the listener to this address
+    ( BindAddress    => $server_addr,   # bind the listener to this address
       BindPort       => $server_port,   # bind the listener to this port
-      ListenQueue    => 5,              # listen, with a 5-connection queue
       Reuse          => 'yes',          # and reuse the socket right away
       SuccessState   => 'accept_success', # generate this event for connections
       FailureState   => 'accept_error',   # generate this event for errors
