@@ -73,3 +73,5 @@ t/11_signals_poe.t
 t/12_signals_ev.t
 t/13_wheels_udp.t
 t/14_wheels_ft.t
+t/15_filter_block.t
+t/16_filter_stream.t

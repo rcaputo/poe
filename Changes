@@ -18,19 +18,39 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 |
 | After 0.11
 |
-| Fix $kernel->fork() or take it out entirely.
 | Filter::HTTPD test.
 | Filter::Reference test.
-| Filter::Stream test.
 | Wheel::ListenAccept test.
 |
 | Add new newlines to Filter::Line.
-| Add variable-length capability to Filter::Block.
 |
 | Split the samples out into a separate distribution.
 | Revise the POE web pages.
 |
 `-----------------
+
+
+0.1010 2000.??.?? (!!!)
+-----------------------
+
+(!!!) I have nothing good to say about POE::Kernel's experimental
+fork() method, so I will refrain from saying anything more than "It
+has been removed."  Please use plain fork(2).
+
+(!!!) Added variable-length block support to Filter::Block.  In this
+mode, each item will be received the same as it was put().  This
+borrows heavily from Filter::Reference which did it first.  Oh, the
+"!!!" is because Filter::Block's new() method doesn't default to
+512-byte blocks anymore; an unspecified/undefined BlockSize enables
+variable-length blocks, and a <1 BlockSize is an error.
+
+Added a new test, t/15_filter_block.t to exercise the block filter.
+
+Made Filter::Stream's put() method copy the chunks it's given rather
+than pass them on by reference.  This seems to be the safest thing to
+do, but I'm not sure why I think so.
+
+Added a new test, t/16_filter_stream.t to exercise the stream filter.
 
 
 0.1009 2000.06.17 (!!!)

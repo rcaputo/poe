@@ -2718,83 +2718,6 @@ sub refcount_decrement {
 }
 
 #==============================================================================
-# Safe fork and SIGCHLD, theoretically.  In practice, they seem to be
-# broken.
-#==============================================================================
-
-sub fork {
-  my ($self) = @_;
-
-  # Disable the real signal handler.  How to warn the user this has
-  # occurred?
-  $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
-  $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
-
-  my $new_pid = fork();
-
-  # Error.
-  unless (defined $new_pid) {
-    return( undef, $!+0, $! ) if wantarray;
-    return undef;
-  }
-
-  # This is the parent process.
-  if ($new_pid) {
-
-    # Remember which session forked the process.  POE will post
-    # _signal CHLD at that session if it's still around when the child
-    # process exits.
-
-    $self->[KR_PROCESSES]->{$new_pid} = $self->[KR_ACTIVE_SESSION];
-
-    # Remember that the session has a child process.
-
-    $self->[KR_SESSIONS]->{ $self->[KR_ACTIVE_SESSION]
-                          }->[SS_PROCESSES]->{$new_pid} = 1;
-
-    # Went from 0 to 1 child processes; start a poll loop.  This uses
-    # a very raw, basic form of POE::Kernel::delay.
-
-    if (scalar(keys(%{$self->[KR_PROCESSES]})) == 1) {
-      $self->_enqueue_state( $self, $self,
-                             EN_SCPOLL, ET_SCPOLL,
-                             [],
-                             time() + 1, (caller)[1,2]
-                           );
-    }
-
-    return( $new_pid, 0, 0 ) if wantarray;
-    return $new_pid;
-  }
-
-  # This is the child process.
-  else {
-
-    # Build a unique list of sessions that have child processes.
-
-    my %sessions;
-    foreach (values %{$self->[KR_PROCESSES]}) {
-      $sessions{$_}++;
-    }
-
-    # Make these sessions forget that they have child processes.  This
-    # will ensure that the real parent process (the parent of this
-    # one) reaps the proper children.
-
-    foreach my $session (keys %sessions) {
-      $self->[KR_SESSIONS]->{$session}->[SS_PROCESSES] = { };
-    }
-
-    # Clean the POE::Kernel child-process table since this is a new
-    # process without any children yet.
-    $self->[KR_PROCESSES] = { };
-
-    return( 0, 0, 0 ) if wantarray;
-    return 0;
-  }
-}
-
-#==============================================================================
 # HANDLERS
 #==============================================================================
 
@@ -2864,12 +2787,6 @@ Methods to manage the process' global Kernel instance:
   # Run the event loop, only returning when it has no more sessions to
   # dispatche events to.
   $kernel->run( );
-
-  # "Safe" fork.  Safety comes from blocking SIGCHLD and starting an
-  # internal waitpid loop to reap children.  This is experimental and
-  # may better be served with a high level fork/exec function.
-  # Consider feedback to be solicited.
-  $pid = $kernel->fork( );
 
 FIFO event methods:
 
@@ -3202,15 +3119,6 @@ stopped.  It returns immediately if no sessions have yet been started.
   exit;
 
 The run() method does not return a meaningful value.
-
-=item fork
-
-POE::Kernel's fork mimics fork(2)'s semantics, returning the child's
-PID in the parent process, 0 in the child process, or undef if fork
-failed.
-
-It bypasses Perl's signal handling problems by polling for stopped
-children with waitpid(2).
 
 =back
 

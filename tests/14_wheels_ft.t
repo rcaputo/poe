@@ -36,7 +36,6 @@ sub sss_new {
   POE::Session->create
     ( inline_states =>
       { _start     => \&sss_start,
-        _stop      => \&sss_stop,
         got_block  => \&sss_block,
         got_flush  => \&sss_flush,
         ev_timeout => sub { delete $_[HEAP]->{wheel} },
@@ -65,10 +64,6 @@ sub sss_block {
   my ($kernel, $heap, $block) = @_[KERNEL, HEAP, ARG0];
   $heap->{read_count}++;
   $kernel->delay( ev_timeout => 2 );
-}
-
-sub sss_stop {
-  warn "session ", $_[SESSION]->ID, " read $_[HEAP]->{read_count} blocks";
 }
 
 ###############################################################################

@@ -7,7 +7,7 @@ use strict;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = 0.1009;
+$VERSION = 0.1010;
 
 sub import {
   my $self = shift;
@@ -407,13 +407,14 @@ continue with it.
 
 =head1 SAMPLE PROGRAMS
 
-The POE contains 28 sample programs as of this writing.  They reside
-in the archive's ./poe/samples directory.  The author is considering
-moving them to a separate distribution to cut back on the archive's
-size.
+The POE contains 28 sample programs as of this writing.  Please be
+advised that some of them date from the early days of POE's
+development and may not exhibit the best coding practices.
 
-Please contact the author or the POE mailing list if you'd like to see
-something that isn't here.
+The samples reside in the archive's ./samples directory.  The author
+is considering moving them to a separate distribution to cut back on
+the archive's size, but please contact him anyway if you'd like to see
+something that isn't there.
 
 =head2 Tutorials
 
