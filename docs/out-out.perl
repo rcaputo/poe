@@ -17,10 +17,11 @@ sub ST_BULLETLIST () { 'bullet list';  }
 sub ST_EOF        () { 'cease';        }
 sub ST_DOCUMENT   () { 'new document'; }
 sub ST_SECTION    () { 'new section';  }
+sub ST_BACKOUT    () { 'close head';   }
 
 my @list_counts;
 
-my @html_head = 
+my @html_head =
 ( [ '*', '+0' ],
   [ 'I', '+1' ], [ 'A', '+1' ], [ '1', '+1' ], [ 'a', '+0' ], [ 'i', '+0' ],
   [ 'a', '+0' ], [ 'i', '+0' ], [ 'a', '+0' ], [ 'i', '+0' ], [ 'a', '+0' ],
@@ -124,7 +125,7 @@ sub TWEEN () { 'tween' }
 my %formats =
 ( 'html' =>
   { &CEASE => 
-    { &ST_BQUOTE     => sub { "</font></p>\n" },
+    { &ST_BQUOTE     => sub { "</pre></p>\n" },
       &ST_PLAIN      => sub { "</p>\n" },
       &ST_PARAGRAPH  => sub { "" },
       &ST_ENUMLIST   => sub { "</ol>\n" },
@@ -202,6 +203,11 @@ sub format {
 sub format_outline {
   my $new_state = shift;
   my $text = shift;
+
+  if (($new_state eq ST_HEADING) and ($text eq '')) {
+    $new_state = ST_BACKOUT;
+  }
+
                                         # state transition
   if ($new_state ne $state) {
 
@@ -281,6 +287,31 @@ sub format_outline {
 
     $last_index = $index;
   }
+
+  elsif ($new_state eq ST_BACKOUT) {
+    my $new_index = $_[0];
+    my $pop_count = $last_index - $new_index;
+    if ($pop_count < 1) {
+      die "can't back out $pop_count levels at input line $.\n";
+    }
+
+    &format(CEASE, ST_ENUMLIST, $text) while ($pop_count--);
+
+    if ($new_index == 0) {
+      if ($last_index == 0) {
+        die "$0 should never reach the code";
+      }
+      else {
+        &format(START, ST_SECTION, $text);
+      }
+    }
+    else {
+      &format(START, ST_PARAGRAPH, $text, $new_index);
+    }
+
+    $last_index = $new_index;
+  }
+
   elsif ($new_state eq ST_EOF) {
     while ($last_index--) {
       &format(CEASE, ST_ENUMLIST, $text);
@@ -297,7 +328,7 @@ sub format_outline {
 while (<>) {
   1 while (chomp());
 
-  if (s/^(\*+)//) {
+  if (s/^(\*+)\s*//) {
     &format_outline(ST_HEADING, $_, length($1)-1);
   }
   elsif ($_ eq '') {

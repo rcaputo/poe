@@ -11,6 +11,11 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 0.0806 2000.01.23 (!!!)
 -----------------------
 
+Added the ability to compress referenced data passing through
+Filter::Reference.  This doesn't break backward compatibility, but it
+may mean strange behavior if both ends of a Filter::Reference
+connection don't agree on the compression mode.
+
 Added the ability to map package and object states to methods that are
 named differently.  This adds new syntax to POE::Session's new() and
 create() constructors, as well as POE::Kernel->state().  The new test
