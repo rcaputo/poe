@@ -10,6 +10,16 @@ states/event handlers.
 - Added Session aliases (symbolic references).  See tests/names.perl
 for an example.
 
+- Added Kernel::signal($session, $name).  This sends signals directly
+to POE::Sessions or POE::Kernels without going to the operating system
+(which would send the signal to every kernel and session).  The
+signals.perl test has been updated to test this.
+
+- Added Kernel::call().  Takes the same parameters as Kernel::post,
+but dispatches the state/event immediately.  Returns whatever the
+event handler did.  The sessions.perl test test has been updated to
+test this.
+
 
 *** 0.031 1998.11.24
 
