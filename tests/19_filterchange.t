@@ -435,7 +435,10 @@ sub streamed_start {
         $heap->{stream}->set_output_filter( POE::Filter::Line->new() ),
       }
       elsif ($current_mode eq REFERENCE) {
-        $heap->{stream}->set_output_filter( POE::Filter::Reference->new() ),
+        $heap->{stream}->set_output_filter( POE::Filter::Reference->new
+                                            ( 'MyOtherFreezer'
+                                            )
+                                          ),
       }
       elsif ($current_mode eq BLOCK) {
         $heap->{stream}->set_output_filter( POE::Filter::Block->new() ),
@@ -463,7 +466,10 @@ sub streamed_input {
       $heap->{stream}->set_input_filter( POE::Filter::Line->new() ),
     }
     elsif ($current_mode eq REFERENCE) {
-      $heap->{stream}->set_input_filter( POE::Filter::Reference->new() ),
+      $heap->{stream}->set_input_filter( POE::Filter::Reference->new
+                                         ( 'MyOtherFreezer'
+                                         )
+                                       ),
     }
     elsif ($current_mode eq BLOCK) {
       $heap->{stream}->set_input_filter( POE::Filter::Block->new() ),
