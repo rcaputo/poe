@@ -76,7 +76,23 @@ Software: FreeBSD 4.0-STABLE; perl 5.6.0; Perl/Tk 800.021; Event 0.79;
           Gtk/Perl 0.7000.
 
   All tests successful.
-  Files=22, Tests=398, 706 wallclock secs ( [line shortened] )
+  Files=22, Tests=399, 620 wallclock secs ( [line shortened] )
+
+These are the `make test' results for POE 0.1109 on Dave Paris' Linux
+system:
+
+Hardware: Unknown.
+Software: Linux (unknown); perl 5.005_03; Perl/Tk (unknown); Event (unknown);
+          Gtk/Perl (unknown).
+
+  All tests successful.
+  Files=22, Tests=399, 124 wallclock secs (20.75 cusr + 1.29 csys = 22.04 CPU)
+
+  <a-mused> that's really odd, I just had it spawn 80 children without
+            incident or hiccup
+  <a-mused> (using Linux & 5.005_03)
+  <a-mused> last test.. letting it run 120 forked children.
+  <a-mused> not even a hiccup using 120 forked children in test 11.
 
 These coverage results are for POE 0.1109 on the FreeBSD machine.
 This machine more thoroughly tests different POE options, so the
@@ -84,7 +100,7 @@ coverage results are more meaningful.  The results are misleading,
 however, even at their best.
 
   Source File                         =   Ran / Total = Covered
-  POE.pm                              =    19 /    19 = 100.00%
+  POE.pm                              =    23 /    24 =  95.83%
   POE/Component/Server/TCP.pm         =    23 /    23 = 100.00%
   POE/Driver/SysRW.pm                 =    42 /    54 =  77.78%
   POE/Filter/Block.pm                 =    37 /    37 = 100.00%
@@ -92,15 +108,16 @@ however, even at their best.
   POE/Filter/Line.pm                  =    77 /    82 =  93.90%
   POE/Filter/Reference.pm             =    60 /    66 =  90.91%
   POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-  POE/Kernel.pm                       =   642 /   814 =  78.87%
-  POE/Preprocessor.pm                 =   151 /   175 =  86.29%
-  POE/Session.pm                      =    85 /   178 =  47.75%
+  POE/Kernel.pm                       =   643 /   815 =  78.90%
+  POE/NFA.pm                          =     9 /   144 =   6.25%
+  POE/Preprocessor.pm                 =   146 /   166 =  87.95%
+  POE/Session.pm                      =    82 /   178 =  46.07%
   POE/Wheel.pm                        =     9 /    11 =  81.82%
   POE/Wheel/FollowTail.pm             =    69 /    87 =  79.31%
   POE/Wheel/ListenAccept.pm           =    33 /    47 =  70.21%
   POE/Wheel/ReadWrite.pm              =   111 /   184 =  60.33%
   POE/Wheel/SocketFactory.pm          =   181 /   216 =  83.80%
-  All Told                            =  1561 /  2092 =  74.62%
+  All Told                            =  1567 /  2233 =  70.17%
 
 
 Thanks for reading!
