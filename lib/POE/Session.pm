@@ -50,7 +50,7 @@ macro validate_kernel {
 
 macro validate_state {
   carp "redefining state($name) for session(", {% fetch_id $self %}, ")"
-    if ( (exists $self->[SE_OPTIONS]->{OPT_DEBUG}) &&
+    if ( $self->[SE_OPTIONS]->{OPT_DEBUG} &&
          (exists $self->[SE_STATES]->{$name})
        );
 }
@@ -481,7 +481,7 @@ sub _invoke_state {
 
   # Trace the state invocation if tracing is enabled.
 
-  if (exists($self->[SE_OPTIONS]->{OPT_TRACE})) {
+  if ($self->[SE_OPTIONS]->{OPT_TRACE}) {
     warn {% fetch_id $self %}, " -> $state (from $file at $line)\n";
   }
 
@@ -496,7 +496,7 @@ sub _invoke_state {
 
     unless (exists $self->[SE_STATES]->{EN_DEFAULT}) {
       $! = ENOSYS;
-      if (exists $self->[SE_OPTIONS]->{OPT_DEFAULT}) {
+      if ($self->[SE_OPTIONS]->{OPT_DEFAULT}) {
         warn( "a '$state' state was sent from $file at $line to session ",
               {% fetch_id $self %}, ", but session ", {% fetch_id $self %},
               " has neither that state nor a _default state to handle it\n"
@@ -508,7 +508,7 @@ sub _invoke_state {
     # If we get this far, then there's a _default state to redirect
     # the transition to.  Trace the redirection.
 
-    if (exists($self->[SE_OPTIONS]->{OPT_TRACE})) {
+    if ($self->[SE_OPTIONS]->{OPT_TRACE}) {
       warn {% fetch_id $self %}, " -> $state redirected to _default\n";
     }
 
@@ -582,7 +582,7 @@ sub register_state {
 
     else {
       if ( (ref($handler) eq 'CODE') and
-           exists($self->[SE_OPTIONS]->{OPT_TRACE})
+           $self->[SE_OPTIONS]->{OPT_TRACE}
          ) {
         carp( {% fetch_id $self %},
               " : state($name) is not a proper ref - not registered"
@@ -1401,9 +1401,6 @@ in cases where a single state handles several different events.
       ten => \&some_state,
     }
   );
-
-The most common use is in the C<_default> state, which can be invoked
-by almost anything.
 
 =back
 

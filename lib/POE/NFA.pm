@@ -76,11 +76,27 @@ sub ARG7     () { 14 }
 sub ARG8     () { 15 }
 sub ARG9     () { 16 }
 
-use Exporter;
-@POE::NFA::ISA = qw(Exporter);
-@POE::NFA::EXPORT = qw( OBJECT MACHINE KERNEL RUNSTATE EVENT SENDER STATE
-                        ARG0 ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9
-                      );
+sub import {
+  my $package = caller();
+  no strict 'refs';
+  *{ $package . '::OBJECT'   } = \&OBJECT;
+  *{ $package . '::MACHINE'  } = \&MACHINE;
+  *{ $package . '::KERNEL'   } = \&KERNEL;
+  *{ $package . '::RUNSTATE' } = \&RUNSTATE;
+  *{ $package . '::EVENT'    } = \&EVENT;
+  *{ $package . '::SENDER'   } = \&SENDER;
+  *{ $package . '::STATE'    } = \&STATE;
+  *{ $package . '::ARG0'     } = \&ARG0;
+  *{ $package . '::ARG1'     } = \&ARG1;
+  *{ $package . '::ARG2'     } = \&ARG2;
+  *{ $package . '::ARG3'     } = \&ARG3;
+  *{ $package . '::ARG4'     } = \&ARG4;
+  *{ $package . '::ARG5'     } = \&ARG5;
+  *{ $package . '::ARG6'     } = \&ARG6;
+  *{ $package . '::ARG7'     } = \&ARG7;
+  *{ $package . '::ARG8'     } = \&ARG8;
+  *{ $package . '::ARG9'     } = \&ARG9;
+}
 
 #------------------------------------------------------------------------------
 # Spawn a new state machine.
@@ -168,7 +184,7 @@ sub _invoke_state {
   # desynchronizes wheel callbacks to us.
   unless (EXPERIMENTAL_SYNCHRONOUS_STUFF) {
     if ($self->[SELF_IS_IN_INTERNAL]) {
-      if (exists($self->[SELF_OPTIONS]->{OPT_TRACE})) {
+      if ($self->[SELF_OPTIONS]->{OPT_TRACE}) {
         warn {% fetch_id $self %}, " -> $event (reposting to desynchronize)\n";
       }
 
@@ -179,7 +195,7 @@ sub _invoke_state {
 
   # Trace the state invocation if tracing is enabled.
 
-  if (exists($self->[SELF_OPTIONS]->{OPT_TRACE})) {
+  if ($self->[SELF_OPTIONS]->{OPT_TRACE}) {
     warn {% fetch_id $self %}, " -> $event\n";
   }
 
@@ -281,7 +297,7 @@ sub _invoke_state {
   elsif (exists $self->[SELF_CURRENT]->{EN_DEFAULT}) {
     # If we get this far, then there's a _default event to redirect
     # the event to.  Trace the redirection.
-    if (exists($self->[SELF_OPTIONS]->{OPT_TRACE})) {
+    if ($self->[SELF_OPTIONS]->{OPT_TRACE}) {
       warn( {% fetch_id $self %},
             " -> $event redirected to EN_DEFAULT in state ",
             "'$self->[SELF_CURRENT_NAME]'\n"
@@ -350,7 +366,7 @@ sub _invoke_state {
 
 macro validate_state {
   carp "redefining state($name) for session(", {% fetch_id $self %}, ")"
-    if ( (exists $self->[SELF_OPTIONS]->{OPT_DEBUG}) &&
+    if ( $self->[SELF_OPTIONS]->{OPT_DEBUG} &&
          (exists $self->[SELF_INTERNALS]->{$name})
        );
 }
@@ -384,7 +400,7 @@ sub register_state {
 
     else {
       if ( (ref($handler) eq 'CODE') and
-           exists($self->[SELF_OPTIONS]->{OPT_TRACE})
+           $self->[SELF_OPTIONS]->{OPT_TRACE}
          ) {
         carp( {% fetch_id $self %},
               " : state($name) is not a proper ref - not registered"
