@@ -23,9 +23,11 @@ eval { require Time::HiRes; import Time::HiRes qw(time sleep); };
 # signals:  { $signal => { $session => $state, ... } }
 #
 # sessions: { $session => [ $parent, \@children, $states, $selects, $session,
-#                           $signals,
+#                           \%signals, \%names
 #                         ]
 #           }
+#
+# names: { $name => $session }
 #------------------------------------------------------------------------------
 
 # a list of signals that will terminate all sessions (and stop the kernel)
@@ -56,6 +58,7 @@ sub new {
                     'states'   => [ ],
                     'signals'  => { },
                     'terminal' => { },
+                    'names'    => { },
                    }, $type;
                                         # these can't be up in the main bless?
   $self->{'sel_r'} = new IO::Select() || die $!;
@@ -88,7 +91,7 @@ sub _dispatch_state {
                                         # add this session to kernel tables
   if ($state eq '_start') {
     $self->{'sessions'}->{$session} =
-      [ $source_session, [ ], 0, 0, $session, 0, ];
+      [ $source_session, [ ], 0, 0, $session, { }, { }, ];
     unless ($session eq $source_session) {
       push(@{$self->{'sessions'}->{$source_session}->[1]}, $session);
     }
@@ -147,7 +150,7 @@ sub _dispatch_state {
     }
     $self->{'sessions'}->{$session}->[1] = [ ];
                                         # free lingering signals
-    foreach my $signal (@{$self->{'blocked signals'}}) {
+    foreach my $signal (keys(%{$self->{'sessions'}->{$session}->[5]})) {
       $self->_internal_sig($session, $signal);
     }
                                         # free lingering states (if leaking?)
@@ -163,6 +166,11 @@ sub _dispatch_state {
     foreach my $handle (@handles) {
       $self->_kernel_select($session, $self->{'selects'}->{$handle}->[3]);
     }
+                                        # free lingering names
+    foreach my $name (keys(%{$self->{'sessions'}->{$session}->[6]})) {
+      delete $self->{'names'}->{$name};
+    }
+    $self->{'sessions'}->{$session}->[6] = { };
                                         # check for leaks -><- debugging only
     if (my $leaked = @{$self->{'sessions'}->{$session}->[1]}) {
       print "*** $session - leaking children ($leaked)\n";
@@ -173,8 +181,12 @@ sub _dispatch_state {
     if (my $leaked = $self->{'sessions'}->{$session}->[3]) {
       print "*** $session - leaking selects ($leaked)\n";
     }
-    if (my $leaked = $self->{'sessions'}->{$session}->[5]) {
+    # number 4 is the session itself, blessed
+    if (my $leaked = keys(%{$self->{'sessions'}->{$session}->[5]})) {
       print "*** $session - leaking signals ($leaked)\n";
+    }
+    if (my $leaked = keys(%{$self->{'sessions'}->{$session}->[6]})) {
+      print "*** $session - leaking names ($leaked)\n";
     }
                                         # remove this session (should be empty)
     delete $self->{'sessions'}->{$session};
@@ -200,7 +212,8 @@ sub _dispatch_state {
 
     unless ($self->{'sessions'}->{$session}->[2] || # queued states
             $self->{'sessions'}->{$session}->[3] || # pending selects
-            @{$self->{'sessions'}->{$session}->[1]} # children
+            @{$self->{'sessions'}->{$session}->[1]} || # children
+            keys(%{$self->{'sessions'}->{$session}->[6]}) # registered names
     ) {
       $self->session_free($session);
     }
@@ -454,15 +467,11 @@ sub _internal_sig {
   my ($self, $session, $signal, $state) = @_;
 
   if ($state) {
-    unless (exists $self->{'signals'}->{$signal}->{$session}) {
-      $self->{'sessions'}->{$session}->[5]++;
-    }
+    $self->{'sessions'}->{$session}->[5]->{$signal} = $state;
     $self->{'signals'}->{$signal}->{$session} = $state;
   }
   else {
-    if (exists $self->{'signals'}->{$signal}->{$session}) {
-      $self->{'sessions'}->{$session}->[5]--;
-    }
+    delete $self->{'sessions'}->{$session}->[5]->{$signal};
     delete $self->{'signals'}->{$signal}->{$session};
   }
 }
@@ -500,7 +509,7 @@ sub delay {
     $self->alarm($state, time() + $delay, @etc);
   }
   else {
-    $self->alarm($state, 0, @etc);
+    $self->alarm($state, 0);
   }
 }
 
@@ -554,14 +563,20 @@ sub sig {
 # Post a state to the queue.
 
 sub post {
-  my ($self, $destination_session, $state_name, @etc) = @_;
+  my ($self, $destination, $state_name, @etc) = @_;
   my $active_session = $self->{'active session'};
                                         # external -> internal representation
-  if ($destination_session eq $active_session->{'namespace'}) {
-    $destination_session = $active_session;
+  if ($destination eq $active_session->{'namespace'}) {
+    $destination = $active_session;
+  }
+                                        # translate names to destinations
+  elsif ((ref($destination) eq '') &&
+         (exists $self->{'names'}->{$destination})
+  ){
+    $destination = $self->{'names'}->{$destination};
   }
 
-  $self->_enqueue_state($destination_session, $active_session,
+  $self->_enqueue_state($destination, $active_session,
                         $state_name, time(), \@etc
                        );
 }
@@ -574,6 +589,39 @@ sub state {
   my $active_session = $self->{'active session'};
                                         # invoke the session's
   $active_session->register_state($state_name, $state_code);
+}
+
+#------------------------------------------------------------------------------
+# Alias management.
+
+sub alias_set {
+  my ($self, $name) = @_;
+  my $active_session = $self->{'active session'};
+
+  if (exists $self->{'names'}->{$name}) {
+    if ($self->{'names'}->{$name} ne $active_session) {
+      carp "alias '$name' already exists for a different session";
+      return 0;
+    }
+  }
+  else {
+    $self->{'names'}->{$name} = $active_session;
+    $self->{'sessions'}->{$active_session}->[6]->{$name} = 1;
+  }
+}
+
+sub alias_remove {
+  my ($self, $name) = @_;
+  my $active_session = $self->{'active session'};
+
+  if (exists $self->{'names'}->{$name}) {
+    if ($self->{'names'}->{$name} ne $active_session) {
+      carp "alias '$name' does not refer to the current session";
+      return 0;
+    }
+    delete $self->{'names'}->{$name};
+    delete $self->{'sessions'}->{$active_session}->[6]->{$name};
+  }
 }
 
 ###############################################################################
@@ -707,6 +755,28 @@ The main benefit for having the alias within Kernel.pm is that it uses
 whichever C<time()> that POE::Kernel does.  Otherwise, POE::Session
 code may be using a different version of C<time()>, and subsecond
 delays may not be working as expected.
+
+=item $kernel->alias_set($alias)
+
+Sets a name (alias) for the current session.  This allows the session
+to be referenced by name instead of by Perl reference.  Sessions may
+have more than one alias.
+
+Sessions with one or more aliases are treated as daemons.  They will
+not be garbage-collected even if they have no states, selects or
+children.  This allows "service" sessions to be created without
+resorting to posting unnecessary "keep alive" events.
+
+An alias can only point to one Session per Kernel.  Aliases are case
+sensitive.
+
+Daemons will be garbage-collected during SIGZOMBIE processing, when
+there are no more events to process.
+
+=item $kernel->alias_remove($alias)
+
+Clears the name (alias) for the current session.  This "undaemonizes"
+the session.
 
 =back
 
