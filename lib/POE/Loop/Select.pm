@@ -322,7 +322,9 @@ macro substrate_main_loop {
         }
       }
 
-      # No filehandles to select on.  Try to sleep instead.
+      # No filehandles to select on.  Try to sleep instead.  Use
+      # sleep() itself on MSWin32.  Use a dummy four-argument select()
+      # everywhere else.
 
       else {
         if ($^O eq 'MSWin32') {
