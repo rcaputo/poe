@@ -76,8 +76,8 @@ sub _print {
 }
 
 my %test_results;
-my $width = Test::Harness::_leader_width(<t/*.t>);
-foreach my $file (<t/*.t>) {
+my $width = Test::Harness::_leader_width(<../t/*.t>);
+foreach my $file (<../t/*.t>) {
     ($leader, $ml) = Test::Harness::_mk_leader($file, $width);
     print $leader;
     my %result = $s->analyze_file($file);
