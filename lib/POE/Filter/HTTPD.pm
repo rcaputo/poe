@@ -123,7 +123,7 @@ sub get {
 
 sub put {
   my ($self, $responses) = @_;
-  my @raw = map { 'HTTP ' . $_->as_string(); } @$responses;
+  my @raw = map { $HTTP_1_0 . ' ' . $_->as_string(); } @$responses;
   \@raw;
 }
 
