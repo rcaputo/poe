@@ -86,8 +86,7 @@ sub _print {
 # Locate Makefile.  This allows the script to be run from POE's main
 # directory or from lib itself.
 
-my @test_files;
-my $directory = "";
+my $directory = ".";
 
 unless (-e "Makefile") {
   unless (-e "../Makefile") {
@@ -96,20 +95,22 @@ unless (-e "Makefile") {
   $directory = "../";
 }
 
-# Fetch from Makefile the tests POE has been configured with.  Prepend
-# $directory to each so they're found no matter where the report is
-# run.
+# Find the test files beneath the Makefile directory.
 
-open(MAKEFILE, "${directory}Makefile")
-  or die "Cannot read ${directory}Makefile: $!";
+use File::Find;
+use File::Spec;
 
-while (<MAKEFILE>) {
-  chomp;
-  next unless /^TEST_FILES\s*=\s*(.*?)\s*$/;
-  @test_files = map { $directory . $_ } split /\s+/, $1;
-  last;
-}
-close MAKEFILE;
+my %test_files;
+find(
+  sub {
+    return unless -f;
+    return unless /\.t$/;
+    $test_files{File::Spec->catfile($File::Find::dir, $_)} = 1;
+  },
+  $directory,
+);
+
+my @test_files = sort keys %test_files;
 
 # Require POE early, so we don't bother with the tests if something
 # catastrophic has occurred (like POE's library directory moves
@@ -123,8 +124,8 @@ foreach my $file (@test_files) {
     ($leader, $ml) = Test::Harness::_mk_leader($file, $width);
     print $leader;
     my %result = $s->analyze_file($file);
-    $file =~ s#^\.\./t/##;
-    $file =~ s#^t/##;
+    $file =~ s#^\.\.?/##;
+    $file =~ s#^tests/##;
     $test_results{$file} = \%result;
     $s->_display($result{passing} ? 'ok' : 'FAILED');
     print "\n";
