@@ -8,6 +8,18 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
+0.0805 2000.--.--
+-----------------
+
+Added a getsockname() method to SocketFactory.  This is used to find
+out which address and/or port a listening SocketFactory is bound to.
+Great for servers that create dynamic listening sockets, like DCC and
+FTP.
+
+Added code to samples/socketfactory.perl to display bind addresses
+using $wheel->getsockname().
+
+
 0.0804 1999.12.31
 -----------------
 

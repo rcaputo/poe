@@ -241,6 +241,14 @@ sub event {
 
 #------------------------------------------------------------------------------
 
+sub getsockname {
+  my $self = shift;
+  return undef unless defined $self->{handle};
+  return getsockname($self->{handle});
+}
+
+#------------------------------------------------------------------------------
+
 sub new {
   my $type = shift;
   my %params = @_;
@@ -262,8 +270,12 @@ sub new {
   my $self = bless { }, $type;
   my $socket_handle = gensym;
 
-  my ($socket_domain, $socket_type, $success_event, $failure_event)
-    = @params{ 'SocketDomain', 'SocketType', 'SuccessState', 'FailureState'};
+  my ( $socket_domain, $socket_type,
+       $success_event, $failure_event, $progress_state
+     ) = @params{ qw( SocketDomain SocketType
+                      SuccessState FailureState ProgressState
+                    )
+                };
 
   $self->{'socket domain'} = $socket_domain;
 
@@ -735,6 +747,17 @@ equivalent) database.
 POE::Wheel::SocketFactory::event(...)
 
 Please see POE::Wheel.
+
+=item *
+
+POE::Wheel::SocketFactory::getsockname()
+
+Returns the value of getsockname() as called with the SocketFactory's
+socket.
+
+This is useful for finding out what the SocketFactory's internal
+socket has bound to when it's been instructed to use BindAddress =>
+INADDR_ANY and/or BindPort => INADDR_ANY.
 
 =back
 

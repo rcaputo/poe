@@ -299,6 +299,9 @@ sub _start {
       SuccessState => 'got_client',     # sending this message when connected
       FailureState => 'got_error',      # sending this message upon failure
     );
+
+  my $bind_path = unpack_sockaddr_un($heap->{wheel}->getsockname());
+  print "********** $object wheel is bound to: $bind_path\n";
 }
 
 #------------------------------------------------------------------------------
@@ -512,6 +515,13 @@ sub _start {
       SuccessState   => 'got_client',   # sending this message when connected
       FailureState   => 'got_error',    # sending this message upon failure
     );
+
+  my ($bind_port, $bind_addr) =
+    unpack_sockaddr_in($heap->{wheel}->getsockname());
+  print( "********** $object wheel is bound to: ",
+         inet_ntoa($bind_addr), " : $bind_port\n"
+       );
+
 }
 
 #------------------------------------------------------------------------------
