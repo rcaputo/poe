@@ -559,20 +559,28 @@ sub DESTROY {
   my $self = shift;
 
   # Turn off the STDIN thing.
-  $poe_kernel->select($self->[HANDLE_STDIN]);
+  if ($self->[HANDLE_STDIN]) {
+    $poe_kernel->select($self->[HANDLE_STDIN]);
+    $self->[HANDLE_STDIN] = undef;
+  }
   if ($self->[STATE_STDIN]) {
     $poe_kernel->state($self->[STATE_STDIN]);
     $self->[STATE_STDIN] = undef;
   }
 
-  $poe_kernel->select($self->[HANDLE_STDOUT]);
+  if ($self->[HANDLE_STDOUT]) {
+    $poe_kernel->select($self->[HANDLE_STDOUT]);
+    $self->[HANDLE_STDOUT] = undef;
+  }
   if ($self->[STATE_STDOUT]) {
     $poe_kernel->state($self->[STATE_STDOUT]);
     $self->[STATE_STDOUT] = undef;
   }
 
-  $poe_kernel->select($self->[HANDLE_STDERR])
-    if defined $self->[HANDLE_STDERR];
+  if ($self->[HANDLE_STDERR]) {
+    $poe_kernel->select($self->[HANDLE_STDERR]);
+    $self->[HANDLE_STDERR] = undef;
+  }
   if ($self->[STATE_STDERR]) {
     $poe_kernel->state($self->[STATE_STDERR]);
     $self->[STATE_STDERR] = undef;
