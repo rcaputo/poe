@@ -401,25 +401,30 @@ sub _data_handle_add {
     # have something registered for it here.
 
     else {
-      foreach my $hdl_rec (
-        values %{$kr_fno_rec->[FMO_SESSIONS]->{$session}}
-      ) {
-        my $other_handle = $hdl_rec->[HSS_HANDLE];
-        unless (defined(fileno $other_handle)) {
-          _trap(
-            "can't watch $handle: $other_handle (closed) is still ",
-            "registered for that file descriptor in mode $mode"
-          );
+      foreach my $watch_session (keys %{$kr_fno_rec->[FMO_SESSIONS]}) {
+        foreach my $hdl_rec (
+          values %{$kr_fno_rec->[FMO_SESSIONS]->{$watch_session}}
+        ) {
+          my $other_handle = $hdl_rec->[HSS_HANDLE];
+          unless (defined(fileno $other_handle)) {
+            _trap(
+              $self->_data_alias_loggable($session),
+              " can't watch $handle in mode $mode: ",
+              $self->_data_alias_loggable($watch_session),
+              " is already watching it as $other_handle (closed)"
+            );
+          }
+          if (fileno($handle) == fileno($other_handle)) {
+            _trap(
+              $self->_data_alias_loggable($session),
+              " can't watch $handle in mode $mode: ",
+              $self->_data_alias_loggable($watch_session),
+              " is already watching it as $other_handle (still open)"
+            );
+          }
         }
-        if (fileno($handle) == fileno($other_handle)) {
-          _trap(
-            "can't watch $handle: $other_handle (open) is still ",
-            "registered for that descriptor in mode $mode"
-          );
-        }
-        _trap "internal inconsistency";
       }
-      _trap "can't watch the same handle in the same mode 2+ times yet";
+      _trap "internal inconsistency";
     }
   }
 
