@@ -370,4 +370,8 @@ macro substrate_stop_main_loop {
   # does nothing
 }
 
+sub signal_ui_destroy {
+  # does nothing
+}
+
 1;
