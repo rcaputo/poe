@@ -163,7 +163,7 @@ sub io_pipe_write {
 
 # This is a plain function; not an event handler.
 sub shut_down_if_done {
-  my $heap = shift;
+  my $heap = shift;  # It's ok.  It's a plain function, not an event handler.
 
   # Shut down both wheels if we're done.
   if ( ${$heap->{a_read_count}} == $write_max and
