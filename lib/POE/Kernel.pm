@@ -1317,7 +1317,7 @@ sub _dispatch_event {
     unless ($kr_signal_handled_explicitly) {
       if ($kr_signal_handled_implicitly) {
         # -><- DEPRECATION WARNING GOES HERE
-        # warn( {% ssid %} . " implicitly handled SIG$etc->[0]\n" );
+        # warn( { % ssid % } . " implicitly handled SIG$etc->[0]\n" );
       }
     }
 
