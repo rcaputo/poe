@@ -46,6 +46,9 @@ and Lynx were displaying the HTTP headers as part of the content.
 Bleah!  Stole HTTP::Response's as_string() method, and fixed the code
 up a bit.
 
+Addi pointed out that a "fixme" (comments indicating a bug) in
+samples/httpd.perl was fixed in 0.100201, so I removed it.
+
 
 0.11 2000.07.12
 ---------------

@@ -191,12 +191,7 @@ sub send_error {
     $status ||= RC_BAD_REQUEST;
     my $mess = status_message($status);
     $error  ||= "";
-    $mess = <<EOT;
-<title>$status $mess</title>
-<h1>$status $mess</h1>
-$error
-EOT
-
+    $mess = "<title>$status $mess</title><h1>$status $mess</h1>$error";
     $self->send_basic_header($status);
     $self->put("Content-Type: text/html");
     $self->put("Content-Length: " . length($mess));

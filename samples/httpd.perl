@@ -172,10 +172,6 @@ sub _start {
       FailureState   => 'accept_error'   # generating this event on error
     );
 
-  # -><- Bug here!  When binding to an existing port, it *should* be
-  # firing back a FailureState, but it isn't.  More correctly: it *is*
-  # firing one, but it doesn't seem to be delivered.  What's going on?
-
   DEBUG && print "Listening to port $port on all interfaces.\n";
 }
 
