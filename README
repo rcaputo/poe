@@ -1,41 +1,13 @@
 $Id$
 
+-----------
+What POE Is
+-----------
 
-The bulk of this README's information has migrated to the POE manpage.
-
---------------------
-Distribution Details
---------------------
-
-This distribution comes with several sample and tutorial programs in
-its samples/ directory.  These programs are NOT installed because they
-have limited use and take up about 400 kilobytes (around half of the
-total distribution).  They will be split into a separate distribution
-in the near future.
-
-The lib/ directory includes a few useful utilities, including a
-relatively portable pipe creator.  It uses pipe() or falls back to
-INET domain sockets.  There's also a small test coverage tracer
-module, harness, and report.  The test coverage summary at the end of
-this file is part of the report.  These utilities aren't installed
-either.
-
-The test programs, in t/, may also be interesting examples, although
-they're more geared towards exercising POE's bits.  The tests also
-aren't installed.
-
-All in all, the actual installed bits of POE are probably around 1/4
-of the total distribution, and half of them are PODs.
-
-------------------------------
-Compatibility Between Versions
-------------------------------
-
-As POE moves closer towards the Common Sense axis, it sometimes
-diverges away from the Backwards Compatible axis.  If this version is
-being installed over a previous one, please check the Changes file to
-see what it might break.  Interface changes usually are documented and
-set off with a little text icon.
+POE is an application kernel that uses event driven state machines as
+threads.  It includes a high-level I/O library that hides most of the
+usual client/server tediosity.  It has been developed and used in
+mission-critical systems since August 1998.
 
 ------------------
 Basic Installation
@@ -51,46 +23,106 @@ It involves a little more work if you have an older CPAN shell:
   perl -MCPAN -e shell
   install POE
 
--------------------
-Manual Installation
--------------------
+--------------------------
+Getting The Latest Version
+--------------------------
 
-POE can also be installed manually.  The latest CPAN version can be
-found at <ftp://ftp.cpan.org/pub/CPAN/authors/id/R/RC/RCAPUTO/> or in
-a similarly named directory at your favorite CPAN mirror.  The most
-recent development snapshot, which only rarely contains heinous
-showstopper bugs, is available from POE's web site at
-<http://poe.perl.org/>.
+POE can also be installed manually.  Tarballs are available from at
+least three sources:
+
+The most recent stable release can be found at your favorite CPAN
+mirror.  If you don't have a favorite CPAN mirror, there's always:
+
+  ftp://ftp.cpan.org/pub/CPAN/authors/id/R/RC/RCAPUTO/
+
+The most recent development snapshot is available from two locations:
+
+  http://poe.perl.org/
+  http://sourceforge.net/projects/poe/
+
+The SourceForge project includes a CVS repository browser, so you can
+look around to see what's new.  It also has facilities for people to
+submit bug reports, patches, and support requests.
+
+---------------------------
+Building The Latest Version
+---------------------------
 
 Downloading and unpacking the distribution are left as an exercise for
-the reader.  To "build" and test it afterwards:
+the reader.  See the previous section for tarball locations.
 
-  perl Makefile.PL
-  make test
-
-The POE manpage discusses system requirements and compatibility
-issues.  You can preview it with:
+System requirements and copatibility issues are covered in the main
+POE manpage.  You can preview them before building POE.
 
   perldoc ./POE.pm
 
-There are several sample programs in the samples subdirectory.  The
-POE manpage briefly explains them.
+Please read the Changes file if you already have programs which use
+POE.  Sometimes there are changes that break compatibility with older
+versions, and the Changes file can tell you about them before you
+install POE.
 
-  ls -l samples
+  less ./Changes
+
+If everything looks good, build POE.
+
+  perl Makefile.PL
+  make
+
+Then test the distribution.  This is an important step since it also
+ferrets out the modules POE needs.  It reports on the POE components
+which won't work because of missing dependencies, and it recommends
+things to install.  Please read the dependency report carefully.
+
+  make test
+
+Now you're ready to install POE, but first you may want to look at its
+samples.  All the programs in the samples subdirectory are written to
+run from the distribution directory without POE being installed yet.
+
+  cd ./samples
+  ls -l
+
+  [try some]
+
+  cd ..
 
 Finally you can install it:
 
   make install
 
+--------------------
+Distribution Details
+--------------------
+
+This distribution comes with several sample and tutorial programs in
+its samples/ directory.  These programs are NOT installed because they
+have limited use and take up a lot of space and have limited use.
+They will be split into a separate distribution in the near future.
+
+The lib/ directory includes a few useful utilities, including a
+relatively portable bidirectional pipe creator.  There's also a small
+test coverage module, harness, and report.  The test coverage summary
+at the end of this file was generated by that system.  These utilities
+aren't installed either.
+
+The test programs, in t/, may also be interesting examples, although
+they're more geared towards exercising POE.  The tests also aren't
+installed.
+
+All in all, the actual installed bits of POE are probably around a
+third of the total distribution, and about a quarter of B<that> is
+documentation.
+
 ------------
 Test Results
 ------------
 
-Note on test results: Some of the tests, like Tk's and Gtk's, are
-interactive, if only to place a window.  Times aren't included because
-some tests delay for robustness and X window toolkits.
+Some of the tests, like Tk's and Gtk's, can be interactive, if only to
+place a window.  Unfortunately, the time it takes to acknowledge these
+interactive tests skews test results.  Any results that include
+interactive tests will not include times.
 
-** POE 0.1201 on OS/2
+** POE 0.1202 on OS/2
 
 Hardware: Cyrix P166+; 64MB RAM
 System  : OS/2 4.0, Fix 13
@@ -99,8 +131,8 @@ Gtk     : (not installed)
 Tk      : (not installed)
 Event   : (not installed)
 
-  All tests successful, 4 tests skipped.
-  Files=22, Tests=388
+All tests successful, 4 tests skipped.
+Files=22, Tests=388, 130 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
 ** POE 0.1201 on FreeBSD
 
@@ -111,8 +143,8 @@ Gtk     : 0.7000
 Tk      : 800.021
 Event   : 0.79
 
-  All tests successful.
-  Files=22, Tests=413
+All tests successful.
+Files=22, Tests=413
 
 ** POE 0.1201 on Linux
 
@@ -123,8 +155,8 @@ Gtk     : (not installed)
 Tk      : (not installed)
 Event   : 0.79
 
-  All tests successful, 2 tests skipped.
-  Files=22, Tests=397
+All tests successful, 2 tests skipped.
+Files=22, Tests=397
 
 These coverage results are for POE 0.1111 on the FreeBSD machine.
 This machine more thoroughly tests different POE options, so the
