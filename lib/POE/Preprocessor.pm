@@ -8,6 +8,12 @@ use Filter::Util::Call;
 sub MAC_PARAMETERS () { 0 }
 sub MAC_CODE       () { 1 }
 
+sub STATE_PLAIN     () { 0x0000 }
+sub STATE_MACRO_DEF () { 0x0001 }
+
+sub COND_FLAG () { 0 }
+sub COND_LINE () { 1 }
+
 BEGIN {
   defined &DEBUG     or eval 'sub DEBUG     () { 0 }'; # preprocessor
   defined &DEBUG_ROP or eval 'sub DEBUG_ROP () { 0 }'; # regexp optimizer
@@ -105,14 +111,20 @@ sub optimum_match {
   $sub_expression;
 }
 
+sub COND_INCLUDE () { 1 }
+sub COND_EXCLUDE () { 0 }
+
+use vars qw(%conditional_stacks); # Must be global.
 
 sub import {
-
   # Outer closure to define a unique scope.
   { my $macro_name = '';
-    my ($macro_line, %macros, %constants, $const_regexp, $enum_index);
-    my ($file_name, $line_number) = (caller)[1,2];
+    my ( %macros, $macro_line, %constants, $const_regexp, $enum_index );
+    my ($package_name, $file_name, $line_number) = (caller)[0,1,2];
     my $const_regexp_dirty = 0;
+    my $state = STATE_PLAIN;
+
+    $conditional_stacks{$package_name} = [ ];
 
     my $set_const = sub {
       my ($name, $value) = @_;
@@ -137,16 +149,99 @@ sub import {
           my $status = filter_read();
           $line_number++;
 
-          # Handle errors or EOF.
-          return $status if $status <= 0;
+          ### Handle errors or EOF.
+          if ($status <= 0) {
+            if (@{$conditional_stacks{$package_name}}) {
+              die( "include block never closed.  It probably started " .
+                   "at $file_name line " .
+                   $conditional_stacks{$package_name}->[0]->[COND_LINE] . "\n"
+                 );
+            }
+            return $status;
+          }
 
-          # Inside a macro definition.
-          if ($macro_name ne '') {
+          ### Usurp modified Perl syntax for code inclusion.  These
+          ### are hardcoded and always handled.
+
+          # } else { # include
+          if (/^\s*\}\s*else\s*\{\s*\#\s*include\s*$/) {
+
+            $_ = "# $_";
+
+            unless (@{$conditional_stacks{$package_name}}) {
+              die( "else { # include ... without if or unless " .
+                   "at $file_name line $line_number\n"
+                 );
+              return -1;
+            }
+
+            $conditional_stacks{$package_name}->[-1]->[COND_FLAG] =
+              !$conditional_stacks{$package_name}->[-1]->[COND_FLAG];
+            return $status;
+          }
+
+          # } # include
+          if (/^\s*\}\s*\#\s*include\s*$/) {
+            $_ = "\# $_";
+            pop @{$conditional_stacks{$package_name}};
+            return $status;
+          }
+
+          # if (...) { # include
+          if (/^\s*if\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
+            $_ = ( "BEGIN { push( \@{\$" . __PACKAGE__ .
+                   "::conditional_stacks{'$package_name'}}, " .
+                   "[ !!$1, $line_number ] ) }; # $_"
+                 );
+            return $status;
+          }
+
+          # unless (...) { # include
+          if (/^\s*unless\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
+            $_ = ( "BEGIN { push( \@{\$" . __PACKAGE__ .
+                   "::conditional_stacks{'$package_name'}}, " .
+                   "[ !$1, $line_number ] ) }; # $_"
+                 );
+            return $status;
+          }
+
+          # } elsif (...) { # include
+          if (/^\s*\}\s*elsif\s*\((.+)\)\s*\{\s*\#\s*include\s*$/) {
+            unless (@{$conditional_stacks{$package_name}}) {
+              die( "Include elsif without include if or unless " .
+                   "at $file_name line $line_number\n"
+                 );
+              return -1;
+            }
+
+            $_ = ( "BEGIN { \$" . __PACKAGE__ .
+                   "::conditional_stacks{'$package_name'}->[-1] = " .
+                   "[ !!$1, $line_number ] }; # $_"
+                 );
+            return $status;
+          }
+
+          ### Not including code, so comment it out.
+          if ( @{$conditional_stacks{$package_name}}
+               and grep( { !$_->[COND_FLAG] }
+                         @{$conditional_stacks{$package_name}}
+                       )
+             ) {
+            DEBUG and warn sprintf "%4d C: %s", $line_number, $_;
+            $_ = "# $_\n";
+            return $status;
+          }
+        
+          ### From here on, we're including code.  Do everything to it.
+
+          ### Inside a macro definition.
+          if ($state & STATE_MACRO_DEF) {
 
             DEBUG and warn sprintf "%4d M: %s", $line_number, $_;
 
             # Close it!
             if (/^\}\s*$/) {
+              $state = STATE_PLAIN;
 
               DEBUG and
                 warn( ",-----\n",
@@ -174,29 +269,22 @@ sub import {
             }
 
             # Either way, the code must not go on.
-            $_ = "\n";
+            $_ = "# macro: $_";
             return $status;
           }
 
-          # The next two returns speed up multiple const/enum
-          # definitions in the same area.  They also eliminate the
-          # need to check for things in semantically nil lines.
+          ### Ignore comments and blank lines.
+          return $status if /^\s*\#/ or /^\s*$/;
 
-          # Ignore comments and blank lines.
-          if ( /^\s*\#/ or /^\s*$/ ) {
-            return $status;
-          }
-
-          # This return works around a bug where __END__ and __DATA__
-          # cause perl 5.005_61 through 5.6.0 to blow up with memory
-          # errors.  It detects these tags, replaces them with a blank
-          # line, and simulates EOF.
+          ### Ignore everything after __END__ or __DATA__.  This works
+          ### around a coredump in 5.005_61 through 5.6.0 at the
+          ### expense of preprocessing data and documentation.
           if (/^__(END|DATA)__\s*$/) {
             $_ = "\n";
             return 0;
           }
 
-          # Define an enum.
+          ### Define an enum.
           if (/^enum(?:\s+(\d+|\+))?\s+(.*?)\s*$/) {
             $enum_index = ( (defined $1)
                             ? ( ($1 eq '+')
@@ -212,15 +300,16 @@ sub import {
             return $status;
           }
 
-          # Define a constant.
+          ### Define a constant.
           if (/^const\s+([A-Z_][A-Z_0-9]+)\s+(.+?)\s*$/) {
             &{$set_const}($1, $2);
             $_ = "\n";
             return $status;
           }
 
-          # Define a macro.
+          ### Begin a macro definition.
           if (/^macro\s*(\w+)\s*(?:\((.*?)\))?\s*\{\s*$/) {
+            $state = STATE_MACRO_DEF;
 
             DEBUG and warn sprintf "%4d D: %s", $line_number, $_;
 
@@ -246,7 +335,7 @@ sub import {
             return $status;
           }
 
-          # Perform macro substitutions.
+          ### Perform macro substitutions.
           while (/^(.*?)\{\%\s+(\S+)\s*(.*?)\s*\%\}(.*)$/s) {
 
             DEBUG and warn sprintf "%4d S: %s", $line_number, $_;
@@ -256,6 +345,7 @@ sub import {
               warn ",-----\n| macro invocation: $name $params\n";
 
             if (exists $macros{$name}) {
+
               my @use_params = split /\s*\,\s*/, $params;
               my @mac_params = @{$macros{$name}->[MAC_PARAMETERS]};
 
@@ -352,10 +442,20 @@ POE::Preprocessor - A Macro Preprocessor
 
   print "ONE TWO THREE TWELVE THIRTEEN FOURTEEN FIFTEEN SIXTEEN SEVENTEEN\n";
 
+  +{ evaluated condition;
+     ... lines of code ...
+   };
+
+  -{ evaluated condition;
+     ... lines of code ...
+   };
+
 =head1 DESCRIPTION
 
 POE::Preprocessor is a Perl source filter that implements a simple
 macro substitution language.
+
+=head2 Macros
 
 The preprocessor defines a "macro" compile-time directive:
 
@@ -370,6 +470,8 @@ Macros are substituted into a program with a syntax borrowed from
 Iaijutsu and altered slightly to jive with Perl's native syntax.
 
   {% macro_name parameter_0, parameter_1 %}
+
+=head2 Constants and Enumerations
 
 Constants are defined this way:
 
@@ -388,6 +490,33 @@ Or continue where the previous one left off, which is necessary
 because an enumeration can't span lines:
 
   enum + THIRTEENTH FOURTEENTH FIFTEENTH ...
+
+=head2 Conditional Code Inclusion (#ifdef)
+
+The preprocessor supports something like cpp's #if/#else/#endif by
+usurping a bit of Perl's conditional syntax.  The following
+conditional statements will be evaluated at compile time if they are
+followed by the comment C<# include>:
+
+  if (EXPRESSION) {      # include
+    BLOCK;
+  } elsif (EXPRESSION) { # include
+    BLOCK;
+  } else {               # include
+    BLOCK;
+  }                      # include
+
+  unless (EXPRESSION) {  # include
+    BLOCK;
+  }                      # include
+
+The code in each conditional statement's BLOCK will be included or
+excluded in the compiled code depending on the outcome of its
+EXPRESSION.
+
+Conditional includes are nestable, but else and elsif must be on the
+same line as the previous block's closing brace.  This may change
+later.
 
 =head1 DEBUGGING
 

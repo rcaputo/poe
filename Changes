@@ -52,6 +52,19 @@ Version numbers have four fields: X.YYZZAA
 `-----------------
 
 
+0.1109 2000.??.??
+-----------------
+
+Revised large chunks of POE::Preprocessor.  Added conditional code
+inclusion on the assumption that not performing macro substitution and
+compiling code we don't use will be faster.  This could well be false.
+
+Revised POE::Kernel to use conditional code inclusion instead of
+optimized-away optrees.
+
+Revised t/05_macros.t to test conditional code inclusion.
+
+
 0.1108 2000.10.06
 -----------------
 

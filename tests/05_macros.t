@@ -6,7 +6,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(13);
+&test_setup(20);
 
 sub POE::Kernel::TRACE_DEFAULT () { 1 } # not needed though
 use POE::Preprocessor;
@@ -79,8 +79,43 @@ print "ok 11\n";
 print "not " unless {% lexical_min LEX_ONE, LEX_TWO %} eq 'one';
 print "ok 12\n";
 
-# And a gratuitious test to ensure we got this far.
+# Test conditional code.
 
-print "ok 13\n";
+unless (1) {                            # include
+  print 'not ';
+} else {                                # include
+  print "ok 13\n";
+}                                       # include
+
+if (0) {                                # include
+  print "not ok 14\n";
+} elsif (1) {                           # include
+  print "ok 14\n";
+} else {                                # include
+  print "not ok 15\n";
+}                                       # include
+
+print "ok 15\n";
+
+if (0) {                                # include
+  print "not ok 16\n";
+  unless (1) {                          # include
+    print "not ok 17\n";
+  } else {                              # include
+    print "not ok 18\n";
+  }                                     # include
+  print "not ok 19\n";
+} else {                                # include
+  print "ok 16\n";
+  unless (1) {                          # include
+    print "not ok 17\n";
+  } else {                              # include
+    print "ok 17\n";
+    print "ok 18\n";
+  }                                     # include
+  print "ok 19\n";
+}                                       # include
+
+print "ok 20\n";
 
 exit;
