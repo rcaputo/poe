@@ -72,7 +72,7 @@ sub loop_attach_uidestroy {
               __FILE__, __LINE__, time(), -__LINE__
             );
         }
-        return undef;
+        return 0;
       }
     );
 }
