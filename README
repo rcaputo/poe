@@ -14,7 +14,7 @@ What POE Is
 POE is a mature framework for creating multitasking programs in Perl.
 It has been actively developed for over three years.  It has been used
 in mission-critical systems such as internetworked financial markets,
-filesystems, and commerce servers.
+file systems, and commerce servers.
 
 POE is compatible with perl 5.005_03 through 5.6.1 and beyond.
 
@@ -30,7 +30,7 @@ takes fewer than 50 lines of code.
 Documentation Roadmap
 ---------------------
 
-POE includes so much documentation that the main manpage includes an
+POE includes so much documentation that the main man page includes an
 index to the others.  See the "SEE ALSO" section in "man POE", or your
 system's equivalent.
 
