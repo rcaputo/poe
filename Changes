@@ -3,6 +3,6 @@ $Id$
 Revision history for Perl extension POE.
 
 0.01  1998.08.15 @ 13:35
-        - original version; created by h2xs 1.18
+        - initial release, implemented Kernel, Session, Wheel, Driver, Filter
 0.02  1998.08.24 @ 16:26
-        - added Curator.pm and curator.perl
+        - added Curator; made signals work better; sessions wait for children
