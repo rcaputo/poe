@@ -431,8 +431,14 @@ sub register_state {
             )
       }
       else {
-        croak "object $handler does not have a '$method' method"
-          unless ($handler->can($method));
+        unless ($handler->can($method)) {
+          if (length ref($handler)) {
+            croak "object $handler does not have a '$method' method"
+          }
+          else {
+            croak "package $handler does not have a '$method' method";
+          }
+        }
       }
     }
   }
