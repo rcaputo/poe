@@ -7,6 +7,26 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
+-><- High/low watermark sample by 0.10
+-><- Incorporate Douglas' Win32 notes in 0.0906
+
+
+0.0905 2000.02.xx
+-----------------
+
+Changed Wheel::ReadWrite's baaaaad $self to be a listref instead of a
+hashref.  It should run marginally faster without having to look
+things up in a hash all the time.
+
+Added statistics accessors to Driver::SysRW (it's the only one so
+far), and added corresponding accesors to Wheel::ReadWrite.
+
+Added HighState and LowState to Wheel::ReadWrite->event, so these
+states can be redefined on the fly.
+
+Documented Wheel::ReadWrite->set_(high|low)_mark; they weren't
+documented up to 0.0904.
+
 
 0.0904 2000.02.16
 -----------------
@@ -99,7 +119,8 @@ Fixed samples/fakelogin.perl to test changing individual filters.
 
 Changed a bunch of diagnostics to print $session->ID instead of
 $session.  Debugging will be slower (that's debugging for you), but it
-will be also much more friendly.
+will also be friendlier.  Everybody needs a friend while debugging,
+right?
 
 
 0.09 2000.01.25

@@ -114,6 +114,12 @@ sub flush {
   $self->[TOTAL_OCTETS_LEFT];
 }
 
+#------------------------------------------------------------------------------
+
+sub get_out_messages_buffered {
+  scalar(@{$_[0]->[OUTPUT_QUEUE]});
+}
+
 ###############################################################################
 1;
 
@@ -129,6 +135,7 @@ POE::Driver::SysRW - POE sysread/syswrite Abstraction
   $arrayref_of_data_chunks = $driver->get($filehandle);
   $queue_octets = $driver->put($arrayref_of_data_chunks);
   $queue_octets = $driver->flush($filehandle);
+  $queue_messages = $driver->get_out_messages_buffered();
 
 =head1 DESCRIPTION
 

@@ -26,6 +26,7 @@ POE::Driver - POE Read/Write Abstraction
   $arrayref_of_data_chunks = $driver->get($filehandle);
   $queue_octets = $driver->put($arrayref_of_data_chunks);
   $queue_octets = $driver->flush($filehandle);
+  $queue_messages = $driver->get_out_messages_buffered();
 
 =head1 DESCRIPTION
 
@@ -82,6 +83,13 @@ output queue to the file.  It returns the number of octets remaining
 in the output queue after the flush.
 
 Wheels usually call the flush() method from their write select states.
+
+=item *
+
+POE::Driver::get_out_messages_buffered()
+
+Returns the number of messages in the driver's output buffer.  If the
+top message is partially flushed, it is still counted as a full one.
 
 =back
 

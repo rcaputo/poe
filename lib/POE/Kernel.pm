@@ -1018,8 +1018,8 @@ sub _enqueue_state {
 
     # Small queue.  Perform a reverse linear search on the assumption
     # that (a) a linear search is fast enough on small queues; and (b)
-    # most events will be posted for "now" which tends to be at the
-    # end of the queue.
+    # most events will be posted for "now" which tends to be towards
+    # the end of the queue.
     elsif (@$kr_states < 32) {
       my $index = @$kr_states;
       while ($index--) {

@@ -6,6 +6,23 @@ use strict;
 use Carp;
 use POE;
 
+# Offsets into $self.
+sub HANDLE_INPUT               () { 0 }
+sub HANDLE_OUTPUT              () { 1 }
+sub FILTER_INPUT               () { 2 }
+sub FILTER_OUTPUT              () { 3 }
+sub DRIVER_BOTH                () { 4 }
+sub EVENT_INPUT                () { 5 }
+sub EVENT_ERROR                () { 6 }
+sub EVENT_FLUSHED              () { 7 }
+sub WATERMARK_MARK_HIGH        () { 8 }
+sub WATERMARK_MARK_LOW         () { 9 }
+sub WATERMARK_EVENT_HIGH       () { 10 }
+sub WATERMARK_EVENT_LOW        () { 11 }
+sub DRIVER_BUFFERED_OUT_OCTETS () { 12 }
+sub STATE_WRITE                () { 13 }
+sub STATE_READ                 () { 14 }
+
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
 #------------------------------------------------------------------------------
@@ -61,6 +78,17 @@ sub new {
       carp "HighMark and LowMark parameters require each-other";
       $mark_errors++;
     }
+    # Then they both exist, and they must be checked.
+    elsif (exists $params{HighMark}) {
+      unless (defined($params{HighMark}) and defined($params{LowMark})) {
+        carp "HighMark and LowMark parameters must be defined";
+        $mark_errors++;
+      }
+      unless (($params{HighMark} > 0) and ($params{LowMark} > 0)) {
+        carp "HighMark and LowMark parameters must above 0";
+        $mark_errors++;
+      }
+    }
     if (exists($params{HighMark}) xor exists($params{HighState})) {
       carp "HighMark and HighState parameters require each-other";
       $mark_errors++;
@@ -72,21 +100,23 @@ sub new {
     croak "Water mark errors" if $mark_errors;
   }
 
-  my $self = bless { input_handle  => $in_handle,
-                     output_handle => $out_handle,
-                     driver        => $params{Driver},
-                     input_filter  => $in_filter,
-                     output_filter => $out_filter,
-                     event_input   => $params{InputState},
-                     event_error   => $params{ErrorState},
-                     event_flushed => $params{FlushedState},
-
-                     # watermarks
-                     high_mark     => $params{HighMark},
-                     low_mark      => $params{LowMark},
-                     event_high    => $params{HighState},
-                     event_low     => $params{LowState},
-                   }, $type;
+  my $self = bless
+    [ $in_handle,
+      $out_handle,
+      $in_filter,
+      $out_filter,
+      $params{Driver},
+      $params{InputState},
+      $params{ErrorState},
+      $params{FlushedState},
+      # Water marks.
+      $params{HighMark},
+      $params{LowMark},
+      $params{HighState},
+      $params{LowState},
+      # Driver statistics.
+      0,
+    ];
 
   $self->_define_read_state();
   $self->_define_write_state();
@@ -103,15 +133,13 @@ sub _define_write_state {
 
   # If any of these change, then the write state is invalidated and
   # needs to be redefined.
-
-  my $driver        = $self->{driver};
-  my $event_error   = $self->{event_error};
-  my $event_flushed = $self->{event_flushed};
-
-  my $high_mark     = $self->{high_mark};
-  my $low_mark      = $self->{low_mark};
-  my $event_high    = $self->{event_high};
-  my $event_low     = $self->{event_low};
+  my $driver        = $self->[DRIVER_BOTH];
+  my $event_error   = $self->[EVENT_ERROR];
+  my $event_flushed = $self->[EVENT_FLUSHED];
+  my $high_mark     = $self->[WATERMARK_MARK_HIGH];
+  my $low_mark      = $self->[WATERMARK_MARK_LOW];
+  my $event_high    = $self->[WATERMARK_EVENT_HIGH];
+  my $event_low     = $self->[WATERMARK_EVENT_LOW];
 
   # Closure poking into the redefined state.  This is used to detect
   # when the pending number of writes crosses
@@ -120,13 +148,13 @@ sub _define_write_state {
   # Register the select-write handler.
 
   $poe_kernel->state
-    ( $self->{state_write} = $self . ' -> select write',
+    ( $self->[STATE_WRITE] = $self . ' -> select write',
       sub {                             # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-        my $writes_pending = $driver->flush($handle);
+        $self->[DRIVER_BUFFERED_OUT_OCTETS] = $driver->flush($handle);
 
         # When you can't write, nothing else matters.
         if ($!) {
@@ -142,36 +170,37 @@ sub _define_write_state {
           # state will never be set if $event_low is undef, so don't
           # bother checking its definedness here.
           if ($is_in_high_water_state) {
-            if ( $writes_pending <= $low_mark ) {
+            if ( $self->[DRIVER_BUFFERED_OUT_OCTETS] <= $low_mark ) {
               $is_in_high_water_state = 0;
-              $k->call( $me, $event_low );
+              $k->call( $me, $event_low ) if defined $event_low;
             }
           }
 
           # Not in high water state.  Check for high water.  Needs to
-          # also check definedness of $writes_pending.  Although we
-          # know this ahead of time and could probably optimize it
-          # away with a second state definition, it would be best to
-          # wait until ReadWrite stabilizes.  That way there will be
-          # only half as much code to maintain.
-          elsif ( defined($event_high) and
-                  ($writes_pending >= $high_mark)
+          # also check definedness of
+          # $self->[DRIVER_BUFFERED_OUT_OCTETS].  Although we know
+          # this ahead of time and could probably optimize it away
+          # with a second state definition, it would be best to wait
+          # until ReadWrite stabilizes.  That way there will be only
+          # half as much code to maintain.
+          elsif ( $high_mark and
+                  ($self->[DRIVER_BUFFERED_OUT_OCTETS] >= $high_mark)
                 ) {
             $is_in_high_water_state = 1;
-            $k->call( $me, $event_high );
-          }
-
-          # All chunks written; fire off a "flushed" event.  This
-          # occurs independently, so it's possible to get a low-water
-          # call and a flushed call at the same time (if the low mark
-          # is 1).
-          unless ($writes_pending) {
-            $k->select_write($handle);
-            $event_flushed && $k->call($me, $event_flushed);
+            $k->call( $me, $event_high ) if defined $event_high;
           }
         }
+
+        # All chunks written; fire off a "flushed" event.  This
+        # occurs independently, so it's possible to get a low-water
+        # call and a flushed call at the same time (if the low mark
+        # is 1).
+        unless ($self->[DRIVER_BUFFERED_OUT_OCTETS]) {
+          $k->select_write($handle);
+          $event_flushed && $k->call($me, $event_flushed);
+        }
       }
-    );
+   );
 }
 
 #------------------------------------------------------------------------------
@@ -183,17 +212,16 @@ sub _define_read_state {
 
   # If any of these change, then the read state is invalidated and
   # needs to be redefined.
-
-  my $driver       = $self->{driver};
-  my $input_filter = $self->{input_filter};
-  my $event_input  = $self->{event_input};
-  my $event_error  = $self->{event_error};
+  my $driver       = $self->[DRIVER_BOTH];
+  my $input_filter = $self->[FILTER_INPUT];
+  my $event_input  = $self->[EVENT_INPUT];
+  my $event_error  = $self->[EVENT_ERROR];
 
   # Register the select-read handler.
 
-  if (defined $self->{event_input}) {
+  if (defined $self->[EVENT_INPUT]) {
     $poe_kernel->state
-      ( $self->{state_read} = $self . ' -> select read',
+      ( $self->[STATE_READ] = $self . ' -> select read',
         sub {
                                         # prevents SEGV
           0 && CRIMSON_SCOPE_HACK('<');
@@ -211,11 +239,11 @@ sub _define_read_state {
         }
       );
                                         # register the state's select
-    $poe_kernel->select_read($self->{input_handle}, $self->{state_read});
+    $poe_kernel->select_read($self->[HANDLE_INPUT], $self->[STATE_READ]);
   }
                                         # undefine the select, just in case
   else {
-    $poe_kernel->select_read($self->{input_handle})
+    $poe_kernel->select_read($self->[HANDLE_INPUT])
   }
 }
 
@@ -232,16 +260,34 @@ sub event {
     my ($name, $event) = splice(@_, 0, 2);
 
     if ($name eq 'InputState') {
-      $self->{event_input} = $event;
+      $self->[EVENT_INPUT] = $event;
       $redefine_read = 1;
     }
     elsif ($name eq 'ErrorState') {
-      $self->{event_error} = $event;
+      $self->[EVENT_ERROR] = $event;
       $redefine_read = $redefine_write = 1;
     }
     elsif ($name eq 'FlushedState') {
-      $self->{event_flushed} = $event;
+      $self->[EVENT_FLUSHED] = $event;
       $redefine_write = 1;
+    }
+    elsif ($name eq 'HighState') {
+      if (defined $self->[WATERMARK_MARK_HIGH]) {
+        $self->[WATERMARK_EVENT_HIGH] = $event;
+        $redefine_write = 1;
+      }
+      else {
+        carp "Ignoring HighState event (there is no high watermark set)";
+      }
+    }
+    elsif ($name eq 'LowState') {
+      if (defined $self->[WATERMARK_MARK_LOW]) {
+        $self->[WATERMARK_EVENT_LOW] = $event;
+        $redefine_write = 1;
+      }
+      else {
+        carp "Ignoring LowState event (there is no high watermark set)";
+      }
     }
     else {
       carp "ignoring unknown ReadWrite parameter '$name'";
@@ -257,18 +303,18 @@ sub event {
 sub DESTROY {
   my $self = shift;
                                         # remove tentacles from our owner
-  $poe_kernel->select($self->{input_handle});
+  $poe_kernel->select($self->[HANDLE_INPUT]);
 
-  if ($self->{state_read}) {
-    $poe_kernel->state($self->{state_read});
-    delete $self->{state_read};
+  if ($self->[STATE_READ]) {
+    $poe_kernel->state($self->[STATE_READ]);
+    $self->[STATE_READ] = undef;
   }
 
-  $poe_kernel->select($self->{output_handle});
+  $poe_kernel->select($self->[HANDLE_OUTPUT]);
 
-  if ($self->{state_write}) {
-    $poe_kernel->state($self->{state_write});
-    delete $self->{state_write};
+  if ($self->[STATE_WRITE]) {
+    $poe_kernel->state($self->[STATE_WRITE]);
+    $self->[STATE_WRITE] = undef;
   }
 }
 
@@ -276,8 +322,10 @@ sub DESTROY {
 
 sub put {
   my ($self, @chunks) = @_;
-  if ($self->{driver}->put($self->{output_filter}->put(\@chunks))) {
-    $poe_kernel->select_write($self->{output_handle}, $self->{state_write});
+  if ( $self->[DRIVER_BUFFERED_OUT_OCTETS] =
+       $self->[DRIVER_BOTH]->put($self->[FILTER_OUTPUT]->put(\@chunks))
+  ) {
+    $poe_kernel->select_write($self->[HANDLE_OUTPUT], $self->[STATE_WRITE]);
   }
 }
 
@@ -289,8 +337,8 @@ sub put {
 sub set_filter
 {
     my($self, $new_filter)=@_;
-    my $buf=$self->{input_filter}->get_pending();
-    $self->{input_filter}=$self->{output_filter}=$new_filter;
+    my $buf=$self->[FILTER_INPUT]->get_pending();
+    $self->[FILTER_INPUT]=$self->[FILTER_OUTPUT]=$new_filter;
 
     # Updates a closure dealing with the input filter.
     $self->_define_read_state();
@@ -299,7 +347,7 @@ sub set_filter
     {
         foreach my $cooked_input (@{$new_filter->get($buf)})
         {
-            $poe_kernel->yield($self->{event_input}, $cooked_input)
+            $poe_kernel->yield($self->[EVENT_INPUT], $cooked_input)
         }
     }
 }
@@ -308,8 +356,8 @@ sub set_filter
 
 sub set_input_filter {
     my($self, $new_filter)=@_;
-    my $buf=$self->{input_filter}->get_pending();
-    $self->{input_filter}=$new_filter;
+    my $buf=$self->[FILTER_INPUT]->get_pending();
+    $self->[FILTER_INPUT]=$new_filter;
 
     # Updates a closure dealing with the input filter.
     $self->_define_read_state();
@@ -318,7 +366,7 @@ sub set_input_filter {
     {
         foreach my $cooked_input (@{$new_filter->get($buf)})
         {
-            $poe_kernel->yield($self->{event_input}, $cooked_input)
+            $poe_kernel->yield($self->[EVENT_INPUT], $cooked_input)
         }
     }
 }
@@ -327,23 +375,66 @@ sub set_input_filter {
 # put stuff has been serialized already.
 sub set_output_filter {
     my($self, $new_filter)=@_;
-    $self->{output_filter}=$new_filter;
+    $self->[FILTER_OUTPUT]=$new_filter;
 }
 
 # Set the high water mark.
 
 sub set_high_mark {
   my ($self, $new_high_mark) = @_;
-  $self->{high_mark} = $new_high_mark;
-  $self->_define_write_state();
+  if (defined $self->[WATERMARK_MARK_HIGH]) {
+    if (defined $new_high_mark) {
+      if ($new_high_mark > $self->[WATERMARK_MARK_LOW]) {
+        $self->[WATERMARK_MARK_HIGH] = $new_high_mark;
+        $self->_define_write_state();
+      }
+      else {
+        carp "New high mark would not be greater than low mark.  Ignored";
+      }
+    }
+    else {
+      carp "New high mark is undefined.  Ignored";
+    }
+  }
+  else {
+    carp "Ignoring high mark (must be initialized in constructor first)";
+  }
 }
 
 sub set_low_mark {
   my ($self, $new_low_mark) = @_;
-  $self->{low_mark} = $new_low_mark;
-  $self->_define_write_state();
+  if (defined $self->[WATERMARK_MARK_LOW]) {
+    if (defined $new_low_mark) {
+      if ($new_low_mark > 0) {
+        if ($new_low_mark < $self->[WATERMARK_MARK_HIGH]) {
+          $self->[WATERMARK_MARK_LOW] = $new_low_mark;
+          $self->_define_write_state();
+        }
+        else {
+          carp "New low mark would not be less than high high mark.  Ignored";
+        }
+      }
+      else {
+        carp "New low mark would be less than one.  Ignored";
+      }
+    }
+    else {
+      carp "New low mark is undefined.  Ignored";
+    }
+  }
+  else {
+    carp "Ignoring low mark (must be initialized in constructor first)";
+  }
 }
 
+# Return driver statistics.
+sub get_driver_out_octets {
+  $_[0]->[DRIVER_BUFFERED_OUT_OCTETS];
+}
+
+sub get_driver_out_messages {
+  $_[0]->[DRIVER_BOTH]->get_out_messages_buffered();
+}
 
 ###############################################################################
 1;
@@ -404,6 +495,10 @@ POE::Wheel::ReadWrite - POE Read/Write Logic Abstraction
   $wheel->set_high_mark( $new_high_mark_octets );
   $wheel->set_low_mark( $new_low_mark_octets );
 
+  # To fetch driver statistics:
+  $pending_octets   = $wheel->get_driver_out_octets();
+  $pending_messages = $wheel->get_driver_out_messages();
+
 =head1 DESCRIPTION
 
 The ReadWrite wheel does buffered, select-based I/O on a filehandle.
@@ -450,16 +545,20 @@ that it sn't supported.
 =item *
 
 POE::Wheel::ReadWrite::set_input_filter( $poe_filter )
+POE::Wheel::ReadWrite::set_output_filter( $poe_filter )
 
-This performs a similar function to the &set_filter method, but it
-only changes the input filter.
+These perform similar functions to the &set_filter method, but they
+change the input or output filters separately.
 
 =item *
 
-POE::Wheel::ReadWrite::set_output_filter( $poe_filter )
+POE::Wheel::ReadWrite->set_high_mark( $high_mark_octets )
+POE::Wheel::ReadWrite->set_low_mark( $low_mark_octets )
 
-This performs a similar function to the &set_filter method, but it
-only changes the output filter.
+Sets the high and low watermark octet counts.  They will not take
+effect until the next $wheel->put() or internal buffer flush.
+POE::Wheel::ReadWrite->event() can change the high and low watermark
+events.
 
 =back
 
