@@ -19,6 +19,10 @@ POE/Filter/Line.pm
 POE/Filter/Reference.pm
 POE/Filter/Stream.pm
 POE/Kernel.pm
+POE/Kernel/Event.pm
+POE/Kernel/Gtk.pm
+POE/Kernel/Select.pm
+POE/Kernel/Tk.pm
 POE/NFA.pm
 POE/Object.pm
 POE/Pipe/OneWay.pm

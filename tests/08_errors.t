@@ -15,40 +15,75 @@ BEGIN {
 use POSIX qw(:errno_h);
 use Socket;
 
-# Test that errors occur when multiple event loops are enabled.
+my (@symbols_to_clean_up, @files_to_unuse);
+
 BEGIN {
-  # Tk + Event
-  $INC{'Tk.pm'} = 'whatever';
-  $INC{'Event.pm'} = 'whatever';
-  stderr_pause();
-  eval 'use POE::Kernel;';
-  stderr_resume();
-  print 'not ' unless defined $@ and length $@;
-  print "ok 1\n";
+  @symbols_to_clean_up =
+    qw( _signal_handler_generic _signal_handler_pipe
+        _signal_handler_child _watch_signal
+        _resume_watching_child_signals _resume_idle_watcher
+        _resume_alarm_watcher _pause_alarm_watcher _watch_filehandle
+        _ignore_filehandle _pause_filehandle_write_watcher
+        _resume_filehandle_write_watcher
+        _pause_filehandle_read_watcher _resume_filehandle_read_watcher
+        _idle_callback _alarm_callback _start_main_loop
+        _stop_main_loop _init_main_loop POE_USES_TIME_HIRES
+        PERSONALITY_NAME_EVENT PERSONALITY_NAME_GTK
+        PERSONALITY_NAME_SELECT PERSONALITY_NAME_TK PERSONALITY_EVENT
+        PERSONALITY_GTK PERSONALITY_SELECT PERSONALITY_TK
+        POE_PERSONALITY POE_PERSONALITY_NAME _test_for_idle_poe_kernel
+        _dispatch_one_from_fifo _dispatch_due_alarms
+        _dispatch_ready_selects _select_read_callback
+        _select_write_callback _select_expedite_callback
+      );
 
-  # Tk + Gtk
-  delete @INC{'POE/Kernel.pm', 'Event.pm'};
-  $INC{'Gtk.pm'} = 'whatever';
-  stderr_pause();
-  eval 'use POE::Kernel;';
-  stderr_resume();
-  print 'not ' unless defined $@ and length $@;
-  print "ok 2\n";
-
-  # Gtk + Event
-  delete @INC{'POE/Kernel.pm', 'Tk.pm'};
-  $INC{'Event.pm'} = 'whatever';
-  stderr_pause();
-  eval 'use POE::Kernel;';
-  stderr_resume();
-  print 'not ' unless defined $@ and length $@;
-  print "ok 3\n";
-
-  # Clean up after previous tests.
-  delete @INC{ 'POE/Kernel.pm', 'Tk.pm', 'Event.pm', 'Gtk.pm' };
+  @files_to_unuse =
+    qw( POE/Kernel.pm POE/Kernel/Event.pm POE/Kernel/Gtk.pm
+        POE/Kernel/Select.pm POE/Kernel/Tk.pm Event.pm Gtk.pm Tk.pm
+      );
 };
 
-use POE qw( Component::Server::TCP Wheel::SocketFactory );
+# Clean up after destructive tests.
+sub test_cleanup {
+  foreach my $symbol (@symbols_to_clean_up) {
+    delete $POE::Kernel::{$symbol};
+  }
+
+  delete @INC{ @files_to_unuse };
+}
+
+# Test that errors occur when multiple event loops are enabled.
+BEGIN {
+  # Event + Tk
+  @INC{'Event.pm', 'Tk.pm'} = (1,1);
+  eval 'use POE::Kernel';
+  print 'not ' unless defined $@ and length $@;
+  print "ok 1\n";
+  test_cleanup();
+
+  # Gtk + Tk
+  @INC{'Gtk.pm', 'Tk.pm'} = (1, 1);
+  eval 'use POE::Kernel';
+  print 'not ' unless defined $@ and length $@;
+  print "ok 2\n";
+  test_cleanup();
+
+  # Event + Gtk
+  @INC{'Event.pm', 'Gtk.pm'} = (1, 1);
+  eval 'use POE::Kernel';
+  print 'not ' unless defined $@ and length $@;
+  print "ok 3\n";
+  test_cleanup();
+};
+
+use POE::Kernel;
+use POE::Session;
+use POE::Component::Server::TCP;
+use POE::Wheel::SocketFactory;
+
+die if $@;
+
+#use POE qw( Component::Server::TCP Wheel::SocketFactory );
 
 # Test that errors occur when nonexistent modules are used.
 stderr_pause();

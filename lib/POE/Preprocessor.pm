@@ -7,6 +7,8 @@ use Filter::Util::Call;
 
 sub MAC_PARAMETERS () { 0 }
 sub MAC_CODE       () { 1 }
+sub MAC_NAME       () { 2 } # only used in temporary %macro
+sub MAC_LINE       () { 3 } # only used in temporary %macro
 
 sub STATE_PLAIN     () { 0x0000 }
 sub STATE_MACRO_DEF () { 0x0001 }
@@ -14,6 +16,10 @@ sub STATE_MACRO_DEF () { 0x0001 }
 sub COND_FLAG   () { 0 }
 sub COND_LINE   () { 1 }
 sub COND_INDENT () { 2 }
+
+#sub DEBUG () { 1 }
+#sub DEBUG_INVOKE () { 1 }
+#sub DEBUG_DEFINE () { 1 }
 
 BEGIN {
   defined &DEBUG        or eval 'sub DEBUG        () { 0 }'; # preprocessor
@@ -102,10 +108,12 @@ sub fix_exclude {
   }
 }
 
+my (%constants, %macros, %const_regexp, %macro);
+
 sub import {
   # Outer closure to define a unique scope.
   { my $macro_name = '';
-    my ( %macros, $macro_line, %constants, $const_regexp, $enum_index );
+    my ($macro_line, $enum_index);
     my ($package_name, $file_name, $line_number) = (caller)[0,1,2];
     my $const_regexp_dirty = 0;
     my $state = STATE_PLAIN;
@@ -116,11 +124,12 @@ sub import {
     my $set_const = sub {
       my ($name, $value) = @_;
 
-      if (exists $constants{$name}) {
-        warn "const $name redefined at $file_name line $line_number\n";
+      if (exists $constants{$package_name}->{$name}) {
+        warn "const $name redefined at $file_name line $line_number\n"
+          unless $constants{$package_name}->{$name} eq $value;
       }
 
-      $constants{$name} = $value;
+      $constants{$package_name}->{$name} = $value;
       $const_regexp_dirty++;
 
       DEBUG_DEFINE and
@@ -170,7 +179,7 @@ sub import {
                 local $_ = $_;
                 s/B/\# B/;
                 $macro_line++;
-                $macros{$macro_name}->[MAC_CODE] .= $_;
+                $macro{$package_name}->[MAC_CODE] .= $_;
                 DEBUG and
                   warn sprintf "%4d M: # mac 1: %s", $line_number, $_;
               }
@@ -229,7 +238,7 @@ sub import {
                 local $_ = $_;
                 s/B/\# B/;
                 $macro_line++;
-                $macros{$macro_name}->[MAC_CODE] .= $_;
+                $macro{$package_name}->[MAC_CODE] .= $_;
                 DEBUG and
                   warn sprintf "%4d M: # mac 2: %s", $line_number, $_;
               }
@@ -263,7 +272,7 @@ sub import {
                 local $_ = $_;
                 s/B/\# B/;
                 $macro_line++;
-                $macros{$macro_name}->[MAC_CODE] .= $_;
+                $macro{$package_name}->[MAC_CODE] .= $_;
                 DEBUG and
                   warn sprintf "%4d M: # mac 3: %s", $line_number, $_;
               }
@@ -298,18 +307,30 @@ sub import {
               $state = STATE_PLAIN;
 
               DEBUG_DEFINE and
-                warn( ",-----\n",
-                      "| Defined macro $macro_name\n",
-                      "| Parameters: ",
-                      @{$macros{$macro_name}->[MAC_PARAMETERS]}, "\n",
-                      "| Code: {\n",
-                      $macros{$macro_name}->[MAC_CODE],
-                      "| }\n",
-                      "`-----\n"
-                    );
+                warn
+                  ( ",-----\n",
+                    "| Defined macro $macro_name\n",
+                    "| Parameters: ",
+                    @{$macro{$package_name}->[MAC_PARAMETERS]}, "\n",
+                    "| Code: {\n",
+                    $macro{$package_name}->[MAC_CODE],
+                    "| }\n",
+                    "`-----\n"
+                  );
 
-              $macros{$macro_name}->[MAC_CODE] =~ s/^\s*//;
-              $macros{$macro_name}->[MAC_CODE] =~ s/\s*$//;
+              $macro{$package_name}->[MAC_CODE] =~ s/^\s*//;
+              $macro{$package_name}->[MAC_CODE] =~ s/\s*$//;
+
+              if (exists $macros{$package_name}->{$macro_name}) {
+                warn( "macro $macro_name redefined at ",
+                      "$file_name line $line_number\n"
+                    )
+                  if ( $macros{$package_name}->{$macro_name}->[MAC_CODE] ne
+                       $macro{$package_name}->[MAC_CODE]
+                     );
+              }
+
+              $macros{$package_name}->{$macro_name} = $macro{$package_name};
 
               $macro_name = '';
             }
@@ -317,7 +338,7 @@ sub import {
             # Otherwise append this line to the macro.
             else {
               $macro_line++;
-              $macros{$macro_name}->[MAC_CODE] .= $_;
+              $macro{$package_name}->[MAC_CODE] .= $_;
             }
 
             # Either way, the code must not go on.
@@ -382,15 +403,12 @@ sub import {
                 : ()
               );
 
-            if (exists $macros{$macro_name}) {
-              warn( "macro $macro_name redefined ",
-                    "at $file_name line $line_number\n"
-                  );
-            }
-
-            $macros{$macro_name} = [ ];
-            $macros{$macro_name}->[MAC_PARAMETERS] = \@macro_params;
-            $macros{$macro_name}->[MAC_CODE] = '';
+            $macro{$package_name} =
+              [ \@macro_params, # MAC_PARAMETERS
+                '',             # MAC_CODE
+                $macro_name,    # MAC_NAME
+                $line_number,   # MAC_LINE
+              ];
 
             $_ = "# $temp_line";
             DEBUG and warn sprintf "%4d D: %s", $line_number, $_;
@@ -409,10 +427,11 @@ sub import {
             DEBUG_INVOKE and
               warn ",-----\n| macro invocation: $name $params\n";
 
-            if (exists $macros{$name}) {
+            if (exists $macros{$package_name}->{$name}) {
 
               my @use_params = split /\s*\,\s*/, $params;
-              my @mac_params = @{$macros{$name}->[MAC_PARAMETERS]};
+              my @mac_params =
+                @{$macros{$package_name}->{$name}->[MAC_PARAMETERS]};
 
               if (@use_params != @mac_params) {
                 warn( "macro $name paramter count (",
@@ -425,7 +444,7 @@ sub import {
               }
 
               # Build a new bit of code here.
-              my $substitution = $macros{$name}->[MAC_CODE];
+              my $substitution = $macros{$package_name}->{$name}->[MAC_CODE];
 
               foreach my $mac_param (@mac_params) {
                 my $use_param = shift @use_params;
@@ -465,14 +484,18 @@ sub import {
           # prevents redundant regexp rebuilds when defining several
           # constants all together.
           if ($const_regexp_dirty) {
-            $const_regexp =
-              text_trie_as_regexp(text_trie_trie(keys %constants));
+            $const_regexp{$package_name} =
+              text_trie_as_regexp
+                ( text_trie_trie(keys %{$constants{$package_name}})
+                );
             $const_regexp_dirty = 0;
           }
 
           # Perform constant substitutions.
-          if (defined $const_regexp) {
-            $substitutions += s/\b($const_regexp)\b/$constants{$1}/sg;
+          if (defined $const_regexp{$package_name}) {
+            $substitutions +=
+              s[\b($const_regexp{$package_name})\b]
+               [$constants{$package_name}->{$1}]sg;
           }
 
           # Trace substitutions.
