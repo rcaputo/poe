@@ -36,9 +36,7 @@ sub _include_zlib {
   local $SIG{'__DIE__'} = 'DEFAULT';
 
   unless (defined $zlib_status) {
-    eval { require 'Compress::Zlib';
-           import Compress::Zlib qw(compress uncompress);
-         };
+    eval "use Compress::Zlib qw(compress uncompress)";
     if ($@) {
       $zlib_status = $@;
       eval <<'      EOE';
