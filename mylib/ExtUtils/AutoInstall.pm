@@ -1,8 +1,8 @@
 # $File: //member/autrijus/ExtUtils-AutoInstall/lib/ExtUtils/AutoInstall.pm $ 
-# $Revision$ $Change: 9532 $ $DateTime: 2004/01/01 06:47:30 $ vim: expandtab shiftwidth=4
+# $Revision$ $Change: 10538 $ $DateTime: 2004/04/29 17:55:36 $ vim: expandtab shiftwidth=4
 
 package ExtUtils::AutoInstall;
-$ExtUtils::AutoInstall::VERSION = '0.56';
+$ExtUtils::AutoInstall::VERSION = '0.60';
 
 use strict;
 use Cwd ();
@@ -14,70 +14,36 @@ ExtUtils::AutoInstall - Automatic install of dependencies via CPAN
 
 =head1 VERSION
 
-This document describes version 0.56 of B<ExtUtils::AutoInstall>,
-released January 1, 2004.
+This document describes version 0.60 of B<ExtUtils::AutoInstall>,
+released September 19, 2004.
 
 =head1 SYNOPSIS
 
-In F<Makefile.PL>:
+In F<Makefile.PL>, with L<Module::Install> available on the author's system:
 
-    # ExtUtils::AutoInstall Bootstrap Code, version 7.
-    BEGIN{my$p='ExtUtils::AutoInstall';my$v=0.45;$p->VERSION||0>=$v
-    or+eval"use $p $v;1"or+do{my$e=$ENV{PERL_EXTUTILS_AUTOINSTALL};
-    (!defined($e)||$e!~m/--(?:default|skip|testonly)/and-t STDIN or
-    eval"use ExtUtils::MakeMaker;WriteMakefile(PREREQ_PM=>{'$p',$v}
-    );1"and exit)and print"==> $p $v required. Install it from CP".
-    "AN? [Y/n] "and<STDIN>!~/^n/i and print"*** Installing $p\n"and
-    do{if (eval '$>' and lc(`sudo -V`) =~ /version/){system('sudo',
-    $^X,"-MCPANPLUS","-e","CPANPLUS::install $p");eval"use $p $v;1"
-    ||system('sudo', $^X, "-MCPAN", "-e", "CPAN::install $p")}eval{
-    require CPANPLUS;CPANPLUS::install$p};eval"use $p $v;1"or eval{
-    require CPAN;CPAN::install$p};eval"use $p $v;1"||die"*** Please
-    manually install $p $v from cpan.org first...\n"}}}
+    use inc::Module::Install;
 
-    # optional pre-install handler; takes $module_name and $version
-    # sub MY::preinstall  { return 1; } # return false to skip install
+    name        ('Joe-Hacker');
+    abstract    ('Perl Interface to Joe Hacker');
+    author      ('Joe Hacker <joe@hacker.org>');
+    include     ('ExtUtils::AutoInstall');
 
-    # optional post-install handler; takes $module_name, $version, $success
-    # sub MY::postinstall { return; }   # the return value doesn't matter
-
-    # the above handlers must be declared before the 'use' statement
-    use ExtUtils::AutoInstall (
-        -version        => '0.40',      # required AutoInstall version
-                                        # usually 0.40 is sufficient
+    requires    ('Module0');            # mandatory modules
+    features    (
         -config         => {
             make_args   => '--hello',   # option(s) for CPAN::Config
             force       => 1,           # pseudo-option to force install
             do_once     => 1,           # skip previously failed modules
         },
-        -core           => [            # core modules; may also be 'all'
-            Package0    => '',          # any version would do
+        'Feature1' => [
+            'Module2'   => '0.1',
         ],
-        'Feature1'      => [
-            # do we want to install this feature by default?
-            -default    => ( system('feature1 --version') == 0 ),
-            Package1    => '0.01',
+        'Feature2' => [
+            'Module3'   => '1.0',
         ],
-        'Feature2'      => [
-            # associate tests to be disabled if this feature is missing
-            -tests      => [ <t/feature2*.t> ],
-            # associate tests to be disabled if this feature is present
-            -skiptests  => [ <t/nofeature2*.t> ],
-            Package2    => '0.02',
-        ],
-        'Feature3'      => {            # hash reference works, too
-            # force installation even if tests fail
-            Package3    => '0.03',
-        }
     );
-
-    WriteMakefile(
-        AUTHOR          => 'Joe Hacker (joe@hacker.org)',
-        ABSTRACT        => 'Perl Interface to Joe Hacker',
-        NAME            => 'Joe::Hacker',
-        VERSION_FROM    => 'Hacker.pm',
-        DISTNAME        => 'Joe-Hacker',
-    );
+    auto_install();
+    &WriteAll;
 
 Invoking the resulting F<Makefile.PL>:
 
@@ -101,28 +67,10 @@ B<ExtUtils::AutoInstall> lets module writers to specify a more
 sophisticated form of dependency information than the C<PREREQ_PM>
 option offered by B<ExtUtils::MakeMaker>.
 
-B<Module::Install> users should consult L<Module::Install::AutoInstall>
-for an alternative (and arguably more elegant) syntax to specify
-features, as demonstrated by this module's own F<Makefile.PL>:
-
-    use inc::Module::Install;
-    name        ('ExtUtils-AutoInstall');
-    abstract    ('Automatic install of dependencies via CPAN');
-    author      ('Autrijus Tang (autrijus@autrius.org)');
-    version_from('lib/ExtUtils/AutoInstall.pm');
-    requires    ('Cwd');
-    features    (
-        'CPANPLUS Support' => [
-            -default        => 0,
-            'CPANPLUS'      => '0.043',
-        ],
-        'CPAN.pm support' => [
-            -default        => 0,
-            'CPAN'          => '1.0',
-        ],
-    );
-    auto_install();
-    &WriteAll;
+This module works best with the B<Module::Install> framework,
+a drop-in replacement for MakeMaker.  However, this module also
+supports F<Makefile.PL> files based on MakeMaker; see L</EXAMPLES>
+for instructions.
 
 =head2 Prerequisites and Features
 
@@ -193,9 +141,15 @@ this will prevent your module from going awry.
 
 =head2 User-Defined Hooks
 
-Starting from version 0.40, user-defined I<pre-installation> and
-I<post-installation> hooks are available via C<MY::preinstall> and
-C<MY::postinstall> subroutines.
+User-defined I<pre-installation> and I<post-installation> hooks are
+available via C<MY::preinstall> and C<MY::postinstall> subroutines,
+as shown below:
+
+    # pre-install handler; takes $module_name and $version
+    sub MY::preinstall  { return 1; } # return false to skip install
+
+    # post-install handler; takes $module_name, $version, $success
+    sub MY::postinstall { return; }   # the return value doesn't matter
 
 Note that since B<ExtUtils::AutoInstall> performs installation at the
 time of C<use> (i.e. before perl parses the remainder of
@@ -278,6 +232,78 @@ C<PERL_EXTUTILS_AUTOINSTALL>.  It is taken as the command line argument
 passed to F<Makefile.PL>; you could set it to either C<--defaultdeps> or
 C<--skipdeps> to avoid interactive behaviour.
 
+=head1 EXAMPLES
+
+=head2 Using MakeMaker with AutoInstall
+
+To use this module with L<ExtUtils::MakeMaker>, first make a
+F<inc/ExtUtils/> subdirectory in the directory containing your
+L<Makefile.PL>, and put a copy this module under it as
+F<inc/ExtUtils/AutoInstall.pm>.  You can find out where this module
+has been installed by typing C<perldoc -l ExtUtils::AutoInstall>
+in the command line.
+
+Your F<Makefile.PL> should look like this:
+
+    # pull in ExtUtils/AutoInstall.pm from 'inc'
+    use lib 'inc';
+    use ExtUtils::AutoInstall (
+        -core           => [            # mandatory modules
+            'Module0'   => '',          # any version would suffice
+        ],
+        'Feature1'      => [
+            # do we want to install this feature by default?
+            -default    => ( system('feature1 --version') == 0 ),
+            Module1     => '0.01',
+        ],
+        'Feature2'      => [
+            # associate tests to be disabled if this feature is missing
+            -tests      => [ <t/feature2*.t> ],
+            # associate tests to be disabled if this feature is present
+            -skiptests  => [ <t/nofeature2*.t> ],
+            Module2     => '0.02',
+        ],
+        'Feature3'      => {            # hash reference works, too
+            # force installation even if tests fail
+            Module2     => '0.03',
+        }
+    );
+
+    WriteMakefile(
+        AUTHOR          => 'Joe Hacker <joe@hacker.org>',
+        ABSTRACT        => 'Perl Interface to Joe Hacker',
+        NAME            => 'Joe::Hacker',
+        VERSION_FROM    => 'Hacker.pm',
+        DISTNAME        => 'Joe-Hacker',
+    );
+
+=head2 Self-Download Code
+
+If you do not wish to put a copy of L<ExtUtils::AutoInstall> under
+F<inc/>, and are confident that users will have internet access, you
+may replace the C<use lib 'inc';> line with this block of code:
+
+    # ExtUtils::AutoInstall Bootstrap Code, version 7.
+    BEGIN{my$p='ExtUtils::AutoInstall';my$v=0.45;$p->VERSION||0>=$v
+    or+eval"use $p $v;1"or+do{my$e=$ENV{PERL_EXTUTILS_AUTOINSTALL};
+    (!defined($e)||$e!~m/--(?:default|skip|testonly)/and-t STDIN or
+    eval"use ExtUtils::MakeMaker;WriteMakefile(PREREQ_PM=>{'$p',$v}
+    );1"and exit)and print"==> $p $v required. Install it from CP".
+    "AN? [Y/n] "and<STDIN>!~/^n/i and print"*** Installing $p\n"and
+    do{if (eval '$>' and lc(`sudo -V`) =~ /version/){system('sudo',
+    $^X,"-MCPANPLUS","-e","CPANPLUS::install $p");eval"use $p $v;1"
+    ||system('sudo', $^X, "-MCPAN", "-e", "CPAN::install $p")}eval{
+    require CPANPLUS;CPANPLUS::install$p};eval"use $p $v;1"or eval{
+    require CPAN;CPAN::install$p};eval"use $p $v;1"||die"*** Please
+    manually install $p $v from cpan.org first...\n"}}}
+
+If the user did not have L<ExtUtils::AutoInstall> installed, the
+block of code above will automatically download and install it.
+
+However, due to its space-compressed (and obfuscated) nature, you
+should think twice before employing this block of code; it is usually
+much more desirable to just use L<Module::Install> instead.
+
 =cut
 
 # special map on pre-defined feature sets
@@ -291,8 +317,12 @@ my (@Missing, @Existing, %DisabledTests, $UnderCPAN, $HasCPANPLUS);
 my ($Config, $CheckOnly, $SkipInstall, $AcceptDefault, $TestOnly);
 my ($PostambleActions, $PostambleUsed);
 
-$AcceptDefault = 1 unless -t STDIN; # non-interactive session
+_accept_default(!-t STDIN); # see if it's a non-interactive session
 _init();
+
+sub _accept_default {
+    $AcceptDefault = shift;
+}
 
 sub missing_modules {
     return @Missing;
@@ -550,7 +580,11 @@ sub _install_cpanplus {
     my $cp   = CPANPLUS::Backend->new;
     my $conf = $cp->configure_object;
 
-    return unless _can_write($conf->_get_build('base'));
+    return unless _can_write(
+        $conf->can('conf')
+            ? $conf->get_conf('base')       # 0.05x+
+            : $conf->_get_build('base')     # 0.04x
+    );
 
     # if we're root, set UNINST=1 to avoid trouble unless user asked for it.
     my $makeflags = $conf->get_conf('makeflags') || '';
@@ -564,6 +598,7 @@ sub _install_cpanplus {
             if ($makeflags !~ /\bUNINST\b/ and eval qq{ $> eq '0' });
     }
     $conf->set_conf(makeflags => $makeflags);
+    $conf->set_conf(prereqs => 1);
 
     while (my ($key, $val) = splice(@config, 0, 2)) {
         eval { $conf->set_conf($key, $val) };
@@ -635,6 +670,8 @@ sub _install_cpan {
         $CPAN::Config->{$opt} = $arg;
     }
 
+    local $CPAN::Config->{prerequisites_policy} = 'follow';
+
     while (my ($pkg, $ver) = splice(@modules, 0, 2)) {
         MY::preinstall($pkg, $ver) or next if defined &MY::preinstall;
 
@@ -652,7 +689,14 @@ sub _install_cpan {
 
             $obj->force('install') if $args{force};
 
-            if ($obj->install eq 'YES') {
+            my $rv = $obj->install || eval { 
+                $CPAN::META->instance(
+                    'CPAN::Distribution',
+                    $obj->cpan_file,
+                )->{install} if $CPAN::META
+            };
+
+            if ($rv eq 'YES') {
                 print "*** $pkg successfully installed.\n";
                 $success = 1;
             }
