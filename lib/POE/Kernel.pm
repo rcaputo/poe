@@ -2617,13 +2617,15 @@ sub _internal_select {
           confess "Tk does not support expedited filehandles"
             if $select_index == VEC_EX;
 
-          my $direction = ( $select_index == VEC_RD ) ? 'readable' : 'writable';
+          my $direction =
+            ( 
+            );
           Tk::Event::IO->fileevent
             ( $handle,
 
               # It can only be VEC_RD or VEC_WR here (VEC_EX is
               # checked a few lines up).
-              $direction,
+              ( $select_index == VEC_RD ) ? 'readable' : 'writable',
 
               [ \&_tk_select_callback, $handle, $select_index ],
             );
@@ -2742,17 +2744,36 @@ sub _internal_select {
             confess "Tk does not support expedited filehandles"
               if $select_index == VEC_EX;
 
-            Tk::Event::IO->fileevent
-              ( $handle,
+            # Handle refcount is 1; this handle is going away for
+            # good.  We can use fileevent to close it, which will do
+            # untie/undef within Tk.
+            if ($kr_handle->[HND_REFCOUNT] == 1) {
+              Tk::Event::IO->fileevent
+                ( $handle,
 
-                # It can only be VEC_RD or VEC_WR here (VEC_EX is
-                # checked a few lines up).
-                ( ( $select_index == VEC_RD ) ? 'readable' : 'writable' ),
+                  # It can only be VEC_RD or VEC_WR here (VEC_EX is
+                  # checked a few lines up).
+                  ( ( $select_index == VEC_RD ) ? 'readable' : 'writable' ),
 
-                # Nothing here!  Callback all gone!
-                ''
+                  # Nothing here!  Callback all gone!
+                  ''
+                );
+            }
 
-              );
+            # Otherwise we have other things watching the handle.  Go
+            # into Tk's undocumented guts to disable just this watcher
+            # without hosing the entire fileevent thing.
+            else {
+              my $tk_file_io = tied( *$handle );
+              die "whoops; no tk file io object" unless defined $tk_file_io;
+              $tk_file_io->handler
+                ( ( ( $select_index == VEC_RD )
+                    ? Tk::Event::IO::READABLE()
+                    : Tk::Event::IO::WRITABLE()
+                  ),
+                  ''
+                );
+            }
 
           } elsif (POE_USES_EVENT) { # include
 
@@ -2877,11 +2898,10 @@ sub select_pause_write {
 
   } elsif (POE_USES_TK) { # include
 
-    Tk::Event::IO->fileevent
-      ( $handle,
-        'writable',
-        ''
-      );
+    # Use an internal work-around to fileevent quirks.
+    my $tk_file_io = tied( *$handle );
+    die "whoops; no tk file io object" unless defined $tk_file_io;
+    $tk_file_io->handler( Tk::Event::IO::WRITABLE(), '' );
 
   } elsif (POE_USES_EVENT) { # include
 
@@ -2914,11 +2934,12 @@ sub select_resume_write {
 
   } elsif (POE_USES_TK) { # include
 
-    Tk::Event::IO->fileevent
-      ( $handle,
-        'writable',
-        [ \&_tk_select_callback, $handle, VEC_WR ],
-      );
+    # Use an internal work-around to fileevent quirks.
+    my $tk_file_io = tied( *$handle );
+    die "whoops; no tk file io object" unless defined $tk_file_io;
+    $tk_file_io->handler( Tk::Event::IO::WRITABLE(),
+                          [ \&_tk_select_callback, $handle, VEC_WR ]
+                        );
 
   } elsif (POE_USES_EVENT) { # include
 
@@ -2951,16 +2972,10 @@ sub select_pause_read {
 
   } elsif (POE_USES_TK) { # include
 
-    warn( "-----\n",
-          "paused read select for handle($handle)\n"
-        );
-
-    #$poe_main_window->fileevent
-    Tk::Event::IO->fileevent
-      ( $handle,
-        'readable',
-        ''
-      );
+    # Use an internal work-around to fileevent quirks.
+    my $tk_file_io = tied( *$handle );
+    die "whoops; no tk file io object" unless defined $tk_file_io;
+    $tk_file_io->handler( Tk::Event::IO::READABLE(), '' );
 
   } elsif (POE_USES_EVENT) { # include
 
@@ -2993,11 +3008,12 @@ sub select_resume_read {
 
   } elsif (POE_USES_TK) { # include
 
-    Tk::Event::IO->fileevent
-      ( $handle,
-        'readable',
-        [ \&_tk_select_callback, $handle, VEC_RD ],
-      );
+    # Use an internal work-around to fileevent quirks.
+    my $tk_file_io = tied( *$handle );
+    die "whoops; no tk file io object" unless defined $tk_file_io;
+    $tk_file_io->handler( Tk::Event::IO::READABLE(),
+                          [ \&_tk_select_callback, $handle, VEC_RD ]
+                        );
 
   } elsif (POE_USES_EVENT) { # include
 

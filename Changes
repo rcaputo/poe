@@ -97,6 +97,8 @@ which explains fileevent's pitfalls and provides their work-arounds.
 
 Oh.  I added a test to t/06_tk.t to exercise the fileevent bug.
 
+Added Tk workarounds to make the new failing tests pass.  Hooray!
+
 
 0.1204 2001.01.13
 -----------------
