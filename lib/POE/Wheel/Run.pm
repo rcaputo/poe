@@ -345,16 +345,16 @@ sub new {
       }
     }
 
-    # Fix the user ID.  -><- Add getpwnam so user IDs can be specified
-    # by name.  -><- Warn if not superuser to begin with.
-    if (defined $user_id) {
-      $< = $> = $user_id;
-    }
-
     # Fix the group ID.  -><- Add getgrnam so group IDs can be
     # specified by name.  -><- Warn if not superuser to begin with.
     if (defined $group_id) {
       $( = $) = $group_id;
+    }
+
+    # Fix the user ID.  -><- Add getpwnam so user IDs can be specified
+    # by name.  -><- Warn if not superuser to begin with.
+    if (defined $user_id) {
+      $< = $> = $user_id;
     }
 
     # Close what the child won't need.
