@@ -19,12 +19,12 @@ sub _default_freezer {
   local $SIG{'__DIE__'} = 'DEFAULT';
   my $ret;
 
-  foreach my $p (qw(Storable FreezeThaw)) {
+  foreach my $p (qw(Storable FreezeThaw YAML)) {
     eval { require "$p.pm"; import $p (); };
     warn $@ if $@;
     return $p if $@ eq '';
   }
-  die "Filter::Reference requires Storable or FreezeThaw";
+  die "Filter::Reference requires Storable, FreezeThaw, or YAML";
 }
 
 #------------------------------------------------------------------------------
@@ -263,10 +263,10 @@ method as well as either an nfreeze() or freeze() method.
   my $filter = POE::Filter::Reference->new($object);
 
 If SERIALIZER is omitted or undef, the Reference filter will try to
-use Storable.  If storable isn't found, it will try FreezeThaw.  And
-finally, if FreezeThaw is not found, it will die.
+use Storable, FreezeThaw, and YAML.  Filter::Reference will die if it
+cannot find one of these serializers.
 
-  # Use the default filter (either Storable or FreezeThaw).
+  # Use the default filter (either Storable, FreezeThaw, or YAML).
   my $filter = POE::Filter::Reference->new();
 
 Filter::Reference will try to compress frozen strings and uncompress
@@ -288,7 +288,7 @@ naming a serializer.
 
 For example:
 
-  # Use the default filter (either Storable or FreezeThaw).
+  # Use the default filter (either Storable, FreezeThaw, or YAML).
   my $filter = POE::Filter::Reference->new();
 
   # Use an object, with compression.
@@ -299,10 +299,8 @@ For example:
 
 The new() method will try to require any packages it needs.
 
-The default behavior is to try Storable first, FreezeThaw second, and
-fail if neither is present.  This is rapidly becoming moot because of
-the PM_PREREQ entry in Makefile.PL, which makes CPAN and ``make'' carp
-about requirements even when they aren't required.
+The default behavior is to try Storable first, FreezeThaw second, YAML
+third, and finally fail.
 
 =item *
 
