@@ -149,15 +149,23 @@ sub loop_do_timeslice {
   # Check for a hung kernel.
   $self->_test_if_kernel_is_idle();
 
+  # Determine which files are being watched.  This is a heavy
+  # operation; significant time will pass during it, so we do it
+  # before deciding on the timeout.
+  my @filenos = ();
+  while (my ($fd, $mask) = each(%loop_filenos)) {
+    push(@filenos, $fd) if $mask;
+  }
+
   # Set the select timeout based on current queue conditions.  If
   # there are FIFO events, then the timeout is zero to poll select and
   # move on.  Otherwise set the select timeout until the next pending
   # event, if there are any.  If nothing is waiting, set the timeout
   # for some constant number of seconds.
 
-  my $now = time();
   my $timeout = $self->get_next_event_time();
 
+  my $now = time();
   if (defined $timeout) {
     $timeout -= $now;
     $timeout = MINIMUM_SELECT_TIMEOUT if $timeout < MINIMUM_SELECT_TIMEOUT;
@@ -166,6 +174,8 @@ sub loop_do_timeslice {
     $timeout = 3600;
   }
 
+  # Tracing is relatively expensive, but it's not for live systems.
+  # We can get away with it being after the timeout calculation.
   if (TRACE_EVENTS) {
     POE::Kernel::_warn(
       '<ev> Kernel::run() iterating.  ' .
@@ -174,12 +184,6 @@ sub loop_do_timeslice {
         $now - $start_time, $timeout, ($now - $start_time) + $timeout
       )
     );
-  }
-
-  # Determine which files are being watched.
-  my @filenos = ();
-  while (my ($fd, $mask) = each(%loop_filenos)) {
-    push(@filenos, $fd) if $mask;
   }
 
   if (TRACE_FILES) {
@@ -331,7 +335,7 @@ __END__
 
 =head1 NAME
 
-POE::Loop::Event - a bridge that supports select(2) from POE
+POE::Loop::Select - a bridge that supports select(2) from POE
 
 =head1 SYNOPSIS
 
