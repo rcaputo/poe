@@ -1,9 +1,31 @@
 #!/usr/bin/perl
 # $Id$
 
+use strict;
+
 use ExtUtils::MakeMaker;
 
-# Add a new target.
+use lib qw(./mylib);
+use PoeBuildInfo qw(
+  $clean_files
+  $dist_abstract
+  $dist_author
+  %core_requirements
+  %recommended_time_hires
+);
+
+### Touch files that will be generated at "make dist" time.
+### ExtUtils::MakeMaker and Module::Build will complain about them if
+### they aren't present now.
+
+open(TOUCH, ">>CHANGES") and close TOUCH;
+open(TOUCH, ">>META.yml") and close TOUCH;
+
+### Generate dynamic test files.
+
+system($^X, "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
+
+### Generate Makefile.PL.
 
 sub MY::postamble {
     return <<EOF;
@@ -22,16 +44,12 @@ coverage: Makefile
 \cI$^X mylib/coverage.perl
 
 cover: coverage
+
+ppmdist:
+\cIecho Use a recent version of Perl to build the PPM distribution.
+\cIfalse
 EOF
 }
-
-# Generate dynamic test files.
-
-system($^X, "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
-
-# Touch generated files so they exist.
-open(TOUCH, ">>CHANGES") and close TOUCH;
-open(TOUCH, ">>META.yml") and close TOUCH;
 
 WriteMakefile(
   NAME           => 'POE',
@@ -40,38 +58,15 @@ WriteMakefile(
   dist           => {
     COMPRESS => 'gzip -9f',
     SUFFIX   => 'gz',
-    PREOP    => (
-      './mylib/cvs-log.perl | ' .
-      'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
-    ),
+    PREOP    => ( 'false' ),
   },
-  PREREQ_PM      => {
-    "Carp"               => 0,
-    "Exporter"           => 0,
-    "IO"                 => 1.20,
-    "POSIX"              => 1.02,
-    "Socket"             => 1.7,
-    "Filter::Util::Call" => 1.06,
-    "Test::More"         => 0.50,
-    "File::Spec"         => 3.01,
-    "Errno"              => 1.09,
-  },
-  PL_FILES    => { },
+
   clean => {
-    FILES => (
-      "coverage.report " .
-      "poe_report.xml " .
-      "run_network_tests " .
-      "tests/20_resources/10_perl/* " .
-      "tests/20_resources/20_xs/* " .
-      "tests/30_loops/10_select/* " .
-      "tests/30_loops/20_poll/* " .
-      "tests/30_loops/30_event/* " .
-      "tests/30_loops/40_gtk/* " .
-      "tests/30_loops/50_tk/* " .
-      "test-output.err "
-    ),
+    FILES => $clean_files,
   }
+
+  PL_FILES    => { },
+  PREREQ_PM => \%core_requirements,
 );
 
 1;
