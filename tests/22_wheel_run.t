@@ -12,7 +12,8 @@ use TestSetup;
 
 # Skip these tests if fork() is unavailable.
 BEGIN {
-  test_setup(0, "MacOS doesn't support fork") if $^O eq 'MacOS';
+  test_setup(0, "$^O does not support fork") if $^O eq 'MacOS';
+  test_setup(0, "$^O does not fully support fork/exec") if $^O eq 'Win32';
 }
 
 test_setup(24);

@@ -13,8 +13,8 @@ use POSIX;  # termios stuff
 use POE qw(Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW);
 
 BEGIN {
-  die "POE::Wheel::Run requires fork(), which is not supported on $^O\n"
-    if $^O eq 'MacOS';
+  die "$^O does not support fork()\n" if $^O eq 'MacOS';
+  die "$^O does not fully support fork/exec\n" if $^O eq 'MSWin32';
 
   local $SIG{'__DIE__'} = 'DEFAULT';
   eval    { require IO::Pty; };
