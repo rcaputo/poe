@@ -1067,10 +1067,10 @@ pairs of option names and their B<previous> values.
 
 =item postback EVENT_NAME, PARAMETER_LIST
 
-C<postback()> creates anonymous coderefs which, when called, post
-EVENT_NAME events back to the same session.  Postbacks hold external
-references on the sessions they're created for, so they keep their
-sessions alive.
+postback() creates anonymous coderefs which, when called, post
+EVENT_NAME events back to the session whose postback() method was
+called.  Postbacks hold external references on the sessions they're
+created for, so they keep their sessions alive.
 
 The EVENT_NAME event includes two fields.  C<ARG0> contains a
 reference to the PARAMETER_LIST passed to C<postback()>.  This is the
@@ -1088,22 +1088,29 @@ C<$session> whenever it's pressed.
 C<postback()> works wherever a callback does.  It's also possible to
 use postbacks for request/response protocols between sessions.
 
-  # The server session initializes and makes a name for itself.
+In the following code snippets, Servlet is a session that acts like a
+tiny daemon.  It receives requests from "client" sessions, performs
+som long-running task, and eventually posts responses back.  Client
+sends requests to Servlet and eventually receives its responses.
+
+  # Aliases are a common way for daemon sessions to advertise
+  # themselves.  They also provide convenient targets for posted
+  # requests.  Part of Servlet's initialization is setting its alias.
 
   sub Servlet::_start {
     ...;
     $_[KERNEL]->alias_set( 'server' );
   }
 
-  # The server accepts a request.  It creates a postback to respond to
-  # its client, and saves it until a response is known.
+  # This function accepts a request event.  It creates a postback
+  # based on the sender's information, and it saves the postback until
+  # it's ready to be used.  Postbacks keep their sessions alive, so
+  # this also ensures that the client will wait for a response.
 
   sub Servlet::accept_request_event {
     my ($heap, $sender, $reply_to, @request_args) =
       @_[HEAP, SENDER, ARG0, ARG1..$#_];
 
-    # Build a postback, which also keeps the sender alive until a
-    # response can be given back.
     $heap->{postback}->{$sender} =
       $sender->postback( $reply_to, @request_args );
 
@@ -1111,8 +1118,13 @@ use postbacks for request/response protocols between sessions.
     ...;
   }
 
-  # The server is ready to respond.  It retrieves the postback and
-  # calls it with the response values.
+  # When the server is ready to respond, it retrieves the postback and
+  # calls it with the response's values.  The postback acts like a
+  # "wormhole" back to the client session.  Letting the postback fall
+  # out of scope destroys it, so it will stop keeping the session
+  # alive.  The response event, however, will take up where the
+  # postback left off, so the client will still linger at least as
+  # long as it takes to receive its response.
 
   sub Servlet::ready_to_respond {
     my ($heap, $sender, @response_values) = @_[HEAP, ARG0, ARG1..$#_];
@@ -1121,14 +1133,18 @@ use postbacks for request/response protocols between sessions.
     $postback->( @response_values );
   }
 
-  # The client posts a request.
+  # This is the client's side of the transaction.  Here it posts a
+  # request to the "server" alias.
 
   sub Client::request {
     my $kernel = $_[KERNEL];
-    $kernel->post( servlet => accept_request_event => reply_to => 1, 2, 3 );
+    $kernel->post( server => accept_request_event => reply_to => 1, 2, 3 );
   }
 
-  # The client receives a response.
+  # Here's where the client receives its response.  Postback events
+  # have two parameters: a request block and a response block.  Both
+  # are array references containing the parameters given to the
+  # postback at construction time and at use time, respectively.
 
   sub Client::reply_to {
     my ($session, $request, $response) = @_[SESSION, ARG0, ARG1];
