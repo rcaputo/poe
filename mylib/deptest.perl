@@ -23,7 +23,7 @@ sub trace_gather {
 }
 
 sub trace_section {
-  TRACE_GATHER and print STDERR join('', @_), "\n";
+  TRACE_SECTION and print STDERR join('', @_), "\n";
 }
 
 #------------------------------------------------------------------------------
@@ -188,7 +188,7 @@ foreach my $manifest_filename (sort keys %$manifest) {
 #------------------------------------------------------------------------------
 # Expand the MANIFEST nodes into trees.
 
-&trace_section( 'Expanding dependency tree from MANIFEST files.' );
+&trace_section( 'Building dependency tree.' );
 
 my $test_package = 0;
 my $is_core_regexp = '^' . quotemeta($Config{installprivlib});
@@ -432,7 +432,7 @@ sub gather_leaves {
     next unless $parent->[NODE_TYPE] & FO_INTERNAL;
     next unless $parent->[NODE_TYPE] & $parent_must_be;
     next if     $parent->[NODE_TYPE] & FS_OK;
-    
+
     # Skip this node if all its bad dependents are internal.
     my @found_children;
 
@@ -457,60 +457,103 @@ sub gather_leaves {
 
 sub show_leaves {
   my $verb = shift;
+  my %dependents;
   foreach (@_) {
     my $children = join('; ', @{$_->[PARENT_CHILDREN]});
-    $children =~ s/^(.*)\;/$1; and/;
+    foreach my $child (@{$_->[PARENT_CHILDREN]}) {
+      $dependents{$child} = 1;
+    }
+    $children =~ s/^(.*)\;/$1 and/;
     print( STDERR
            "\n",
            wrap( '***     ', '***     ', "$_->[PARENT_KEY] $verb $children")
          );
   }
+  return sort keys %dependents;
 }
 
 my @critical_errors = &gather_leaves( FT_CORE, DT_NEEDS );
 if (@critical_errors) {
-  print( STDERR 
+  my ($parts, $need);
+  if (@critical_errors == 1) {
+    ($parts, $need) = ('A required part', 'needs');
+  }
+  else {
+    ($parts, $need) = ('Required parts', 'need');
+  }
+
+  print( STDERR
          "\n***\n",
          wrap
          ( '*** ', '*** ',
-           "At least one important module in this distribution needs " .
-           "another module which is not installed.  The distribution " .
-           "should not be installed until all these dependencies are " .
-           "resolved:"
+           "$parts of this distribution $need at least one additional " .
+           "module which isn't installed.  The distribution should not be " .
+           "installed until these dependencies are resolved:"
          ),
        );
-  &show_leaves('needs', @critical_errors);
+  my @summary = &show_leaves('needs', @critical_errors);
+  print( STDERR
+         "\n", wrap( '***   ', '***   ',
+                     "Please install: @summary" )
+       );
 }
 
 my @recoverable_errors = &gather_leaves( FT_EXTENSION, DT_NEEDS );
 if (@recoverable_errors) {
-  print( STDERR 
+  my ($parts, $need, $these_parts, $their);
+  if (@recoverable_errors == 1) {
+    ($parts, $need, $these_parts, $their) =
+      ('An optional part', 'needs', 'This part', 'its');
+  }
+  else {
+    ($parts, $need, $these_parts, $their) =
+      ('Optional parts', 'need', 'These parts', 'their');
+  }
+
+  print( STDERR
          "\n***\n",
          wrap
          ( '*** ', '*** ',
-           "One or more optional modules in this distribution needs at " .
-           "least one other module which is not installed.  The " .
-           "distribution will be installed, but the following parts " .
-           "probably will not work until their dependencies are resolved:"
+           "$parts of this distribution $need at least one additional " .
+           "module which isn't installed.  $these_parts will be installed, " .
+           "but $their features may not be usable until $their dependencies " .
+           "are resolved:"
          ),
        );
-  &show_leaves('wants', @recoverable_errors);
+  my @summary = &show_leaves('wants', @recoverable_errors);
+  print( STDERR
+         "\n", wrap( '***   ', '***   ',
+                     "Please consider installing: @summary"
+                   )
+       );
 }
 
 my @warnings = &gather_leaves( FS_IMPAIRED, DT_ANY );
 if (@warnings) {
-  print( STDERR 
+  my ($parts, $these_parts, $they, $their);
+  if (@warnings == 1) {
+    ($parts, $these_parts, $they, $their) =
+      ('An optional part', 'This part', 'it', 'its');
+  }
+  else {
+    ($parts, $these_parts, $they, $their) =
+      ('Optional parts', 'These parts', 'they', 'their');
+  }
+
+  print( STDERR
          "\n***\n",
          wrap
          ( '*** ', '*** ',
-           "One or more modules in this distribution are recommended to " .
-           "be used with additional modules which are not installed.  The " .
-           "distribution will be installed, but be aware that parts of it " .
-           "may not function as well as they could if these dependencies " .
-           "are installed:"
+           "$parts of this distribution may work better if at least one " .
+           "additional module is installed.  $these_parts will be " .
+           "installed, but $they may not work as well as $they could if " .
+           "$their dependencies are resolved:"
          ),
        );
-  &show_leaves('works better with', @warnings);
+  my @summary = &show_leaves('works better with', @warnings);
+  print( STDERR
+         "\n", wrap( '***   ', '***   ', "Please install: @summary" )
+       );
 }
 
 print STDERR "\n***\n"
