@@ -106,6 +106,54 @@ These changes are under consideration.  They have not begun, and they
 may not ever be made.  These are proto-plans being considered and made
 ready for deployment.
 
+-----------------------
+Improve Alarm Interface
+-----------------------
+
+> From troc@netrus.net Thu Mar 18 09:20:36 1999
+> Message-Id: <199903181417.JAA09983@mail.netrus.net>
+> From: "Rocco Caputo" <troc@netrus.net>
+> To: "The POE Mailing List" <poe@vogon.se>
+> Date: Thu, 18 Mar 99 09:17:02 -0500
+> Subject: TODO: fix alarms
+>
+> [...]  If there are no objections, this will go into 0.07_01 or so,
+> depending on my schedule.  [...]
+>
+> | ***fix alarm semantics (in a way that does not break things)
+> |
+> | That's easy to say, anyway.  How about depreciating &Kernel::alarm
+> | and &Kernel::delay, and adding these functions?
+> | 
+> |   $alarm_id = $kernel->alarm_set($time, $event, @etc);
+> |   $kernel->alarm_adjust($alarm_id, $seconds_to_adjust);
+> |   $kernel->alarm_remove($alarm_id);
+> | 
+> | Also the delay shortcut, which would return an ID usable by
+> | &Kernel::alarm_adjust and &Kernel::alarm_remove:
+> | 
+> |   $alarm_id = $kernel->delay_set($seconds, $event, @etc);
+
+Needless to say, this didn't make it into 0.07_01 (see the CHANGES
+file for what did).  Anyway, the interface seems to have survived the
+test of time: I still like it, and so do others who have seen it.
+
+Internally, I'd maintain yet another hash: %kr_alarm_id_to_time, which
+would be keyed on alarm ID and contain the corresponding alarm time
+for that ID.  The alarm_xyz() methods would manage the time: adjust
+would adjust it, etc., so it always matches the time in the queue.
+
+The implementation can reuse the linear/binary seek code from
+_enqueue_alarm to find alarms by time (id->time lookup above) and
+remove/add/adjust alarms relatively quickly.  Ideally, though, it's
+possible to schedule delayed alarm queue sweeps.  I'd like to try that
+after some more planning.  See "Delay Garbage Collection" elsewhere in
+this file.
+
+The old alarm interface would be depreciated.  Perhaps it would be
+reimplemented as a layer atop the new interface, for compatibility,
+and then be depreciated.
+
 -----------------
 ARG0..ARG9 May Go
 -----------------
@@ -215,4 +263,28 @@ buffering data.  Is there another way, or does Torvald's code really
 make the most sense?  Should this be beyond the scope of ReadWrite and
 something left for a better wheel?
 
-<EOT>
+------------------------
+Delay Garbage Collection
+------------------------
+
+POE's garbage collection can be slow.  It would be very cool to
+schedule this in the "dead" time between events.  Especially in
+instances where the next event is a timer and we have a few seconds of
+nothing to do.
+
+A lot of things rely on timely garbage collection, though.  _parent
+and _child events.  Referential integrity.  Things would be a mess
+between _stop and the delayed garbage collection.
+
+Delaying alarm GC might be doable.  We can flag alarms as "dead" in
+the ID->time hash and discard them as they come to the front of the
+queue.  In idle times when there are no FIFO events and the next alarm
+is more than 1/10 second away, we can sweep the alarm queue and pull
+out the dead ones.
+
+It will take a fair amount of planning to pull this off correctly.
+I'm just documenting it for now so I don't forget.
+
+===
+EOT
+===
