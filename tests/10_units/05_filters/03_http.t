@@ -208,7 +208,7 @@ SKIP: { # simple put {{{
 
     my $request = POST 'http://localhost/foo.mhtml', Content_Type => 'form-data',
                     content => [ 'I' => 'like', 'tasty' => 'pie',
-                                 file => [ 't/19_filterchange.t' ]
+                                 file => [ $0 ]
                                ];
     $request->protocol('HTTP/1.0');
 
