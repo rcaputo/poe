@@ -88,7 +88,14 @@ sub new {
   $self->{'sel_e'} = new IO::Select() || die $!;
 
   foreach my $signal (keys(%SIG)) {
-    next if ($signal =~ /^(NUM\d+|__[A-Z0-9]+__|)$/);
+                                        # skip fake and nonexistent signals
+    next if ($signal =~ /^(NUM\d+
+                          |__[A-Z0-9]+__
+                          |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
+                          |RTMIN|RTMAX|SETS
+                          |
+                          )$/x
+            );
     $SIG{$signal} = \&_signal_handler;
     $self->{'signals'}->{$signal} = { };
     push @{$self->{'blocked signals'}}, $signal;
