@@ -44,7 +44,6 @@ ExtUtils::AutoInstall->import
     "Optional modules for controlling full-screen programs (e.g. vi)." => [
         -default  => 0,
         'IO::Pty' => '1.02',
-        'IPC::Run' => '0.72',
     ],
     "Optional modules for marshaling/serializing data." => [
         -default   => 0,
