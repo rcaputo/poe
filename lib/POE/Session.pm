@@ -35,7 +35,9 @@ sub new {
 
 sub DESTROY {
   my $self = shift;
-  carp "destroying $self";              # is this necessary?
+  delete $self->{'kernel'};
+  delete $self->{'namespace'};
+  delete $self->{'states'};
 }
 
 #------------------------------------------------------------------------------
