@@ -4,7 +4,7 @@
 # Tests alarms.
 
 use strict;
-use lib qw(.. ../lib);
+use lib qw(./lib ../lib);
 use TestSetup qw(13);
 use POE;
 
