@@ -146,10 +146,11 @@ macro substrate_ignore_filehandle {
 
   # Shrink the bit vector by chopping zero octets from the end.
   # Octets because that's the minimum size of a bit vector chunk that
-  # Perl manages.  Always keep at least one octet around, even if it's
-  # 0.  -><- Why?
+  # Perl manages.  Always keep at least one octet around.
 
-  $kr_vectors[$select_index] =~ s/(.)\000+$/$1/;
+  # Removed 2001-10-10, RCC.  Requires \z, but that's not available in
+  # earlier versions of Perl.
+  # $kr_vectors[$select_index] =~ s/(.)\000+$/$1/;
 }
 
 macro substrate_pause_filehandle_write_watcher {
