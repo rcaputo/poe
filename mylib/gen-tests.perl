@@ -4,7 +4,7 @@ use strict;
 use File::Spec::Functions;
 use File::Path;
 
-my $test_base = "t";
+my $test_base = "tests";
 
 ### Resources, and their perl and XS implementations.
 

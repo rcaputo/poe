@@ -124,8 +124,6 @@ cover: coverage
 EOF
 }
 
-rename "t", "tests.tmp" or die "can't rename t -> tests.tmp";
-
 WriteMakefile(
   NAME           => 'POE',
 
@@ -155,13 +153,13 @@ WriteMakefile(
       "coverage.report " .
       "poe_report.xml " .
       "run_network_tests " .
-      "t/20_resources/10_perl/* " .
-      "t/20_resources/20_xs/* " .
-      "t/30_loops/10_select/* " .
-      "t/30_loops/20_poll/* " .
-      "t/30_loops/30_event/* " .
-      "t/30_loops/40_gtk/* " .
-      "t/30_loops/50_tk/* " .
+      "tests/20_resources/10_perl/* " .
+      "tests/20_resources/20_xs/* " .
+      "tests/30_loops/10_select/* " .
+      "tests/30_loops/20_poll/* " .
+      "tests/30_loops/30_event/* " .
+      "tests/30_loops/40_gtk/* " .
+      "tests/30_loops/50_tk/* " .
       "test-output.err "
     ),
   },
@@ -174,7 +172,5 @@ WriteMakefile(
     'Filter::Util::Call' => 1.04,
   },
 );
-
-rename "tests.tmp", "t" or die "can't rename tests.tmp -> t";
 
 1;

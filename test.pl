@@ -18,6 +18,15 @@ $ENV{PERL_DL_NONLAZY} = 1;
 my @test_files = gather_test_files();
 die "*** Can't find test files" unless @test_files;
 
+# Stop the tests at the one that crashes only when "make test" is
+# running.
+
+#my $x = @test_files;
+#while (@test_files) {
+#  last if $test_files[-1] eq "tests/30_loops/50_tk/ses_session.t";
+#  pop @test_files;
+#}
+
 runtests(@test_files);
 exit;
 
@@ -32,7 +41,7 @@ sub gather_test_files {
       return unless /\.t$/;
       $test_files{File::Spec->catfile($File::Find::dir, $_)} = 1;
     },
-    't/',
+    'tests',
   );
 
   return sort keys %test_files;
