@@ -18,11 +18,11 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 BEGIN {
   eval 'use Tk';
   unless (exists $INC{'Tk.pm'}) {
-    eval 'use TestSetup 0, "no tk support"';
+    eval 'use TestSetup qw(0 no tk support)';
   }
 }
 
-use TestSetup 5;
+use TestSetup qw(5);
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);
 
 # Congratulate ourselves for getting this far.

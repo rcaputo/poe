@@ -169,7 +169,8 @@ macro test_for_idle_poe_kernel {
                            EN_SIGNAL, ET_SIGNAL,
                            [ 'IDLE' ],
                            time(), __FILE__, __LINE__
-                         );
+                         )
+      if keys %{$self->[KR_SESSIONS]};
   }
 }
 
@@ -1055,9 +1056,12 @@ sub _dispatch_state {
       }
 
       # Clear the session ID.  The undef part is completely
-      # gratuitous; I don't know why I put it there.
+      # gratuitous; I don't know why I put it there.  -><- The defined
+      # test is a kludge; it appears to be undefined when running in
+      # Tk mode.
 
-      delete $self->[KR_SESSION_IDS]->{$sessions->{$session}->[SS_ID]};
+      delete $self->[KR_SESSION_IDS]->{$sessions->{$session}->[SS_ID]}
+        if defined $sessions->{$session}->[SS_ID];
       $session->[SS_ID] = undef;
 
       # And finally, check all the structures for leakage.  POE's
@@ -1100,14 +1104,18 @@ sub _dispatch_state {
       }
 
       # Finally, if there are no more sessions, stop the main loop.
-      unless (%{$self->[KR_SESSIONS]}) {
+      unless (keys %$sessions) {
         # Stop Tk's loop.
         if (POE_HAS_TK) {
-          Tk::exit(0);
+          $self->[KR_WATCHER_IDLE]  = undef;
+          $self->[KR_WATCHER_TIMER] = undef;
+          $poe_tk_main_window->destroy();
         }
 
         # Stop Event's loop.
         if (POE_HAS_EVENT) {
+          $self->[KR_WATCHER_IDLE]->stop();
+          $self->[KR_WATCHER_TIMER]->stop();
           Event::unloop_all(0);
         }
 
@@ -1148,13 +1156,13 @@ sub run {
   # Use Tk's main loop, if Tk is loaded.
 
   if (POE_HAS_TK) {
-    eval 'Tk::MainLoop';
+    Tk::MainLoop;
   }
 
   # Use Event's main loop, if Event is loaded.
 
   if (POE_HAS_EVENT) {
-    eval 'Event::loop()';
+    Event::loop();
   }
 
   # Otherwise use POE's main loop.
@@ -1530,6 +1538,9 @@ sub tk_select_callback {
       );
     {% collect_garbage $select->[HSS_SESSION] %}
   }
+
+  # Make sure the kernel can still run.
+  {% test_for_idle_poe_kernel %}
 }
 
 #------------------------------------------------------------------------------
@@ -1563,6 +1574,9 @@ sub event_fifo_callback {
 
   unless (@{$self->[KR_STATES]}) {
     $self->[KR_WATCHER_IDLE]->stop();
+
+    # Make sure the kernel can still run.
+    {% test_for_idle_poe_kernel %}
   }
 }
 
@@ -1589,13 +1603,16 @@ sub event_alarm_callback {
 
     $self->_dispatch_state(@$event);
     {% collect_garbage $event->[ST_SESSION] %}
-
   }
 
   # Register the next timed callback if there are alarms left.
 
   if (@{$self->[KR_ALARMS]}) {
     $self->[KR_WATCHER_TIMER]->at( $self->[KR_ALARMS]->[0]->[ST_TIME] );
+  }
+  else {
+    # Make sure the kernel can still run.
+    {% test_for_idle_poe_kernel %}
   }
 }
 
@@ -1630,6 +1647,9 @@ sub event_select_callback {
       );
     {% collect_garbage $select->[HSS_SESSION] %}
   }
+
+  # Make sure the kernel can still run.
+  {% test_for_idle_poe_kernel %}
 }
 
 #------------------------------------------------------------------------------

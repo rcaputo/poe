@@ -13,8 +13,8 @@ sub import {
     print "1..$count\n";
   }
   else {
-    my $reason = shift;
-    $reason = 'no reason' unless defined $reason;
+    my $reason = join(' ', @_);
+    $reason = 'no reason' unless defined $reason and length $reason;
     print "1..0 # skipped: $reason\n";
     exit 0;
   }
