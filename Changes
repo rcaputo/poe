@@ -7,6 +7,33 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
+[ Hey, Rocco, don't forget to assign a tag to the release after you
+make dist on it!  0.0910 is ``v0_0910''!  For example:
+
+  cvs tag -Rc v0_10 .
+]
+
+*** To Do:
+***   Redocument the debugging constants.
+***   Check the macro preprocessor documentation.
+
+0.1001 2000.??.?? (!!!)
+-----------------------
+
+POE::Kernel overhaul.  Commented more things, broke some monolithic
+subs apart.  Generally cleaned up the code.
+
+(!!!) Removed POE::Kernel::session_create, which was silly to begin
+with.
+
+Added POE::Preprocessor, a macro preprocessor.  Macroized some
+redundant bits of POE::Kernel.
+
+(!!!) Split the debugging constants between assertions which die
+noisily when POE detects internal inconsistencies; and traces that
+show ongoing activity.  The constans are renamed ASSERT_* and TRACE_*
+to reflect their function.
+
 
 0.10 2000.03.23 (!!!)
 ---------------------

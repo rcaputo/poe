@@ -3,12 +3,11 @@
 
 package POE;
 
-use vars qw($VERSION);
-
-$VERSION = 0.10_00;
-
 use strict;
 use Carp;
+
+use vars qw($VERSION);
+$VERSION = 0.10_01;
 
 sub import {
   my $self = shift;
@@ -39,6 +38,7 @@ sub new {
 
 #------------------------------------------------------------------------------
 1;
+
 __END__
 
 =head1 NAME

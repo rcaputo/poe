@@ -441,13 +441,35 @@ sub option {
   }
 }
 
+#------------------------------------------------------------------------------
+# Create an anonymous sub that, when called, posts
+
+my %postback_parent_id;
+
+sub POE::Session::Postback::DESTROY {
+  my $self = shift;
+  my $parent_id = delete $postback_parent_id{$self};
+  $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'postback' );
+}
+
+sub postback {
+  my ($self, $event, @etc) = @_;
+  my $postback = bless
+    ( sub { $POE::Kernel::poe_kernel->post( $self->ID, $event, \@etc, \@_ ); },
+      'POE::Session::Postback'
+    );
+  $postback_parent_id{$postback} = $self->ID;
+  $POE::Kernel::poe_kernel->refcount_increment( $self, 'postback' );
+  $postback;
+}
+
 ###############################################################################
 1;
 __END__
 
 =head1 NAME
 
-POE::Session - POE State Machine
+POE::Session - POE State Machine Instance
 
 =head1 SYNOPSIS
 
@@ -511,8 +533,8 @@ POE::Session - POE State Machine
 no longer support multiple kernels.  This made the $kernel parameter
 to session constructors obsolete, so it was removed.)
 
-POE::Session is a generic state machine class.  Session instances are
-driven by state transition events, dispatched by POE::Kernel.
+POE::Session is a generic state machine instance.  Session instances
+are driven by state transition events, dispatched by POE::Kernel.
 
 Sessions are POE's basic, self-contained units of program execution.
 They are equivalent to operating system processes or threads.  As part
@@ -814,9 +836,8 @@ _start
 
 Sessions can't start running until the kernel knows they exist.  After
 the kernel registers a session, it sends a B<_start> event to let it
-know it's okay to begin.  POE requires every state machine to have a
-special B<_start> state.  Otherwise, how would they know when to
-start?
+know it's okay to begin.  POE requires every session to have a special
+B<_start> state.  Otherwise, how would they know when to start?
 
 SENDER contains a reference to the new session's parent session.
 

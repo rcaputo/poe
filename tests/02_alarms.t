@@ -6,6 +6,10 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup qw(13);
+
+# Turn on all asserts.
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+
 use POE;
 
 ### Test parameters.
