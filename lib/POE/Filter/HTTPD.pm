@@ -61,7 +61,8 @@ sub get {
 
     # return [] unless @$stream and grep /\S/, @$stream;
 
-    my (@dump, $offset);
+    my @dump;
+    my $offset = 0;
     $stream = join("", @$stream);
     while (length $stream) {
       my $line = substr($stream, 0, 16);
