@@ -9,7 +9,9 @@ $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(croak);
 use Curses;
+use POSIX qw(fcntl_h);
 use POE qw(Wheel);
+
 
 sub SELF_STATE_READ  () { 0 }
 sub SELF_STATE_WRITE () { 1 }
@@ -101,6 +103,11 @@ sub _define_input_state {
 
     # Now start reading from it.
     $poe_kernel->select_read( \*STDIN, $self->[SELF_STATE_READ] );
+
+    # Turn blocking back on for STDIN.  Some Curses implementations
+    # don't deal well with non-blocking STDIN.
+    my $flags = fcntl(STDIN, F_GETFL, 0) or die $!;
+    fcntl(STDIN, F_SETFL, $flags & ~O_NONBLOCK) or die $!;
   }
   else {
     $poe_kernel->select_read( \*STDIN );
