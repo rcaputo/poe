@@ -119,7 +119,6 @@ sub loop_resume_filehandle {
 # watch and resume it as needed.
 
 sub _poll_for_io {
-warn;
   if (defined $_handle_poller) {
     $_handle_poller->cancel();
     undef $_handle_poller;
