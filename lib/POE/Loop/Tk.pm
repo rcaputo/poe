@@ -152,14 +152,18 @@ macro substrate_watch_filehandle {
   confess "Tk does not support expedited filehandles"
     if $select_index == VEC_EX;
 
-  Tk::Event::IO->fileevent
+  $poe_main_window->fileevent
     ( $handle,
 
       # It can only be VEC_RD or VEC_WR here (VEC_EX is checked a few
       # lines up).
       ( $select_index == VEC_RD ) ? 'readable' : 'writable',
 
-      [ \&_substrate_select_callback, $handle, $select_index ],
+      # The handle is wrapped in quotes here to stringify it.  For
+      # some reason, it seems to work as a filehandle anyway, and it
+      # breaks reference counting.  For filehandles, then, this is
+      # truly a safe (strict ok? warn ok? seems so!) weak reference.
+      [ \&_substrate_select_callback, "$handle", $select_index ],
     );
 }
 
@@ -172,7 +176,7 @@ macro substrate_ignore_filehandle {
   # Handle refcount is 1; this handle is going away for good.  We can
   # use fileevent to close it, which will do untie/undef within Tk.
   if ($kr_handle->[HND_REFCOUNT] == 1) {
-    Tk::Event::IO->fileevent
+    $poe_main_window->fileevent
       ( $handle,
 
         # It can only be VEC_RD or VEC_WR here (VEC_EX is checked a
