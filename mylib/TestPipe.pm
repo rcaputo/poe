@@ -6,7 +6,7 @@ use strict;
 use Symbol qw(gensym);
 use IO::Socket;
 
-sub DEBUG () { 1 }
+sub DEBUG () { 0 }
 
 sub new {
   my $type = shift;
@@ -17,8 +17,6 @@ sub new {
   my $a_write = gensym();
   my $b_read  = gensym();
   my $b_write = gensym();
-
-goto SKIP_PIPE;
 
   # Try a pair of pipes.  Avoid doing this on systems that don't
   # support non-blocking pipes.
@@ -36,8 +34,6 @@ goto SKIP_PIPE;
       return($a_read, $a_write, $b_read, $b_write);
     }
   }
-
-SKIP_PIPE:
 
   # Try traditional INET domain sockets.
   my $old_sig_alarm = $SIG{ALRM};
@@ -60,8 +56,8 @@ SKIP_PIPE:
 
     $b_read = $acceptor->accept() or die "accept";
 
-    open($a_write, "+<&=" . fileno($a_read)) or die "dup failed";
-    open($b_write, "+<&=" . fileno($b_read)) or die "dup failed";
+    $a_write = $a_read;
+    $b_write = $b_read;
   };
   alarm(0);
   $SIG{ALRM} = $old_sig_alarm;
