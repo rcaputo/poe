@@ -60,16 +60,18 @@ sub HS_RUNNING   () { 0x02 }   # The file is running and can generate events.
 
 my %kr_ses_to_handle;
 
-                            #    { $file_handle =>
-# --- BEGIN SUB STRUCT ---  #      [
-sub SH_HANDLE     () {  0 } #        $blessed_file_handle,
-sub SH_REFCOUNT   () {  1 } #        $total_reference_count,
-sub SH_MODECOUNT  () {  2 } #        [ $read_reference_count,     (MODE_RD)
-                            #          $write_reference_count,    (MODE_WR)
-                            #          $expedite_reference_count, (MODE_EX)
-# --- CEASE SUB STRUCT ---  #        ],
-                            #      ],
-                            #      ...
+                            #    { $session =>
+                            #      $handle =>
+# --- BEGIN SUB STRUCT ---  #        [
+sub SH_HANDLE     () {  0 } #          $blessed_file_handle,
+sub SH_REFCOUNT   () {  1 } #          $total_reference_count,
+sub SH_MODECOUNT  () {  2 } #          [ $read_reference_count,     (MODE_RD)
+                            #            $write_reference_count,    (MODE_WR)
+                            #            $expedite_reference_count, (MODE_EX)
+# --- CEASE SUB STRUCT ---  #          ],
+                            #        ],
+                            #        ...
+                            #      },
                             #    },
 
 ### Begin-run initialization.
@@ -641,9 +643,50 @@ sub _data_handle_clear_session {
 # -><- Testing accessors.  Maybe useful for introspection.  May need
 # modification before that.
 
-sub _data_handle_get_fileno_rec {
+sub _data_handle_fno_refcounts {
   my ($self, $fd) = @_;
-  return $kr_filenos{$fd};
+  return(
+    $kr_filenos{$fd}->[FNO_TOT_REFCOUNT],
+    $kr_filenos{$fd}->[FNO_MODE_RD]->[FMO_REFCOUNT],
+    $kr_filenos{$fd}->[FNO_MODE_WR]->[FMO_REFCOUNT],
+    $kr_filenos{$fd}->[FNO_MODE_EX]->[FMO_REFCOUNT],
+  )
+}
+
+sub _data_handle_fno_evcounts {
+  my ($self, $fd) = @_;
+  return(
+    $kr_filenos{$fd}->[FNO_MODE_RD]->[FMO_EV_COUNT],
+    $kr_filenos{$fd}->[FNO_MODE_WR]->[FMO_EV_COUNT],
+    $kr_filenos{$fd}->[FNO_MODE_EX]->[FMO_EV_COUNT],
+  )
+}
+
+sub _data_handle_fno_states {
+  my ($self, $fd) = @_;
+  return(
+    $kr_filenos{$fd}->[FNO_MODE_RD]->[FMO_ST_ACTUAL],
+    $kr_filenos{$fd}->[FNO_MODE_RD]->[FMO_ST_REQUEST],
+    $kr_filenos{$fd}->[FNO_MODE_WR]->[FMO_ST_ACTUAL],
+    $kr_filenos{$fd}->[FNO_MODE_WR]->[FMO_ST_REQUEST],
+    $kr_filenos{$fd}->[FNO_MODE_EX]->[FMO_ST_ACTUAL],
+    $kr_filenos{$fd}->[FNO_MODE_EX]->[FMO_ST_REQUEST],
+  );
+}
+
+sub _data_handle_fno_sessions {
+  my ($self, $fd) = @_;
+
+  return(
+    $kr_filenos{$fd}->[FNO_MODE_RD]->[FMO_SESSIONS],
+    $kr_filenos{$fd}->[FNO_MODE_WR]->[FMO_SESSIONS],
+    $kr_filenos{$fd}->[FNO_MODE_EX]->[FMO_SESSIONS],
+  );
+}
+
+sub _data_handle_handles {
+  my $self = shift;
+  return %kr_ses_to_handle;
 }
 
 1;
