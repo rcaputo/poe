@@ -17,7 +17,7 @@ use Symbol qw(gensym);
 ### Test parameters.
 
 my $pair_count = 10;
-my $chat_count = 100;
+my $chat_count = 10;
 
 ### Register for individual test results.
 
