@@ -107,7 +107,8 @@ ExtUtils::AutoInstall->import
 open(CHANGES, ">>CHANGES") and close CHANGES;
 
 sub MY::postamble {
-    return <<EOF;
+  return ExtUtils::AutoInstall::postamble() .
+    <<EOF;
 reportupload: poe_report.xml
 	$^X lib/reportupload.pl
 
