@@ -31,6 +31,7 @@ POE/Pipe.pm
 POE/Pipe/OneWay.pm
 POE/Pipe/TwoWay.pm
 POE/Preprocessor.pm
+POE/Queue/Array.pm
 POE/Session.pm
 POE/Wheel.pm
 POE/Wheel/Curses.pm
@@ -87,6 +88,7 @@ samples/udp.perl
 samples/watermarks.perl
 samples/wheels.perl
 samples/wheels2.perl
+t/001_queue.t
 t/00_coverage.t
 t/01_sessions.t
 t/02_alarms.t

@@ -29,7 +29,7 @@ my $_watcher_timer;
 my @fileno_watcher;
 my %signal_watcher;
 
-my ($kr_sessions, $kr_events);
+my ($kr_sessions, $kr_queue);
 
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
@@ -37,7 +37,7 @@ my ($kr_sessions, $kr_events);
 sub loop_initialize {
   my $kernel = shift;
   $kr_sessions = $kernel->_get_kr_sessions_ref();
-  $kr_events   = $kernel->_get_kr_events_ref();
+  $kr_queue    = $kernel->_get_kr_queue_ref();
 
   $_watcher_timer =
     Event->timer
@@ -60,31 +60,28 @@ sub loop_finalize {
 sub _loop_signal_handler_generic {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
-    ( $poe_kernel, $poe_kernel,
-      EN_SIGNAL, ET_SIGNAL,
-      [ $_[0]->w->signal ],
-      time(), __FILE__, __LINE__
+    ( time(),
+      $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
+      __FILE__, __LINE__
     );
 }
 
 sub _loop_signal_handler_pipe {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
-    ( $poe_kernel->[KR_ACTIVE_SESSION],
-      $poe_kernel,
-      EN_SIGNAL, ET_SIGNAL,
-      [ $_[0]->w->signal ],
-      time(), __FILE__, __LINE__
+    ( time(),
+      $poe_kernel->[KR_ACTIVE_SESSION], $poe_kernel,
+      EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
+      __FILE__, __LINE__
     );
 }
 
 sub _loop_signal_handler_child {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
-    ( $poe_kernel, $poe_kernel,
-      EN_SCPOLL, ET_SCPOLL,
-      [ ],
-      time(), __FILE__, __LINE__
+    ( time(),
+      $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+      __FILE__, __LINE__
     );
 }
 
@@ -101,10 +98,8 @@ sub loop_watch_signal {
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
     $poe_kernel->_enqueue_event
-      ( $poe_kernel, $poe_kernel,
-        EN_SCPOLL, ET_SCPOLL,
-        [ ],
-        time() + 1, __FILE__, __LINE__
+      ( time() + 1, $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+        __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
     return;
@@ -127,21 +122,6 @@ sub loop_watch_signal {
     Event->signal( signal => $signal,
                    cb     => \&_loop_signal_handler_generic
                  );
-}
-
-sub loop_resume_watching_child_signals {
-  # For SIGCHLD triggered polling loop.
-  # nothing to do
-
-  # For constant polling loop.
-  $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
-  $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
-  $poe_kernel->_enqueue_event
-    ( $poe_kernel, $poe_kernel,
-      EN_SCPOLL, ET_SCPOLL,
-      [ ],
-      time() + 1, __FILE__, __LINE__
-    ) if keys(%$kr_sessions) > 1;
 }
 
 sub loop_ignore_signal {
@@ -230,8 +210,8 @@ sub _loop_event_callback {
 
   # Register the next timed callback if there are events left.
 
-  if (@$kr_events) {
-    $_watcher_timer->at( $kr_events->[0]->[ST_TIME] );
+  if ($kr_queue->get_item_count()) {
+    $_watcher_timer->at($kr_queue->get_next_priority());
     $_watcher_timer->start();
 
     # POE::Kernel's signal polling loop always keeps oe event in the
@@ -240,7 +220,7 @@ sub _loop_event_callback {
     # vs. kernel events, and GC the kernel when the user events drop
     # to 0.
 
-    if (@$kr_events == 1) {
+    if ($kr_queue->get_item_count() == 1) {
       test_for_idle_poe_kernel();
     }
   }

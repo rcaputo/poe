@@ -35,7 +35,7 @@ BEGIN {
   eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
 };
 
-my ($kr_sessions, $kr_events, $kr_event_ids, $kr_filenos);
+my ($kr_sessions, $kr_queue, $kr_filenos);
 
 # select() vectors.  They're stored in an array so that the VEC_RD,
 # VEC_WR, and VEC_EX offsets work.  This saves some code, but it makes
@@ -54,8 +54,7 @@ sub loop_initialize {
   my $kernel = shift;
 
   $kr_sessions  = $kernel->_get_kr_sessions_ref();
-  $kr_events    = $kernel->_get_kr_events_ref();
-  $kr_event_ids = $kernel->_get_kr_event_ids_ref();
+  $kr_queue     = $kernel->_get_kr_queue_ref();
   $kr_filenos   = $kernel->_get_kr_filenos_ref();
 
   # Initialize the vectors as vectors.
@@ -89,10 +88,8 @@ sub loop_finalize {
 sub _loop_signal_handler_generic {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing generic SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
-    ( $poe_kernel, $poe_kernel,
-      EN_SIGNAL, ET_SIGNAL,
-      [ $_[0] ],
-      time(), __FILE__, __LINE__
+    ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
+      __FILE__, __LINE__
     );
   $SIG{$_[0]} = \&_loop_signal_handler_generic;
 }
@@ -100,10 +97,8 @@ sub _loop_signal_handler_generic {
 sub _loop_signal_handler_pipe {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing PIPE-like SIG$_[0] event...\n";
   $poe_kernel->_enqueue_event
-    ( $poe_kernel, $poe_kernel,
-      EN_SIGNAL, ET_SIGNAL,
-      [ $_[0] ],
-      time(), __FILE__, __LINE__
+    ( time(), $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
+      __FILE__, __LINE__
     );
     $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
@@ -114,9 +109,8 @@ sub _loop_signal_handler_child {
   TRACE_SIGNALS and warn "\%\%\% Enqueuing CHLD-like SIG$_[0] event...\n";
   $SIG{$_[0]} = 'DEFAULT';
   $poe_kernel->_enqueue_event
-    ( $poe_kernel, $poe_kernel,
-      EN_SCPOLL, ET_SCPOLL, [ ],
-      time(), __FILE__, __LINE__
+    ( time(), $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+      __FILE__, __LINE__
     );
 }
 
@@ -133,10 +127,8 @@ sub loop_watch_signal {
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
     $poe_kernel->_enqueue_event
-      ( $poe_kernel, $poe_kernel,
-        EN_SCPOLL, ET_SCPOLL,
-        [ ],
-        time() + 1, __FILE__, __LINE__
+      ( time() + 1, $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
+        __FILE__, __LINE__
       ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
     return;
@@ -156,16 +148,6 @@ sub loop_watch_signal {
 
   # Everything else.
   $SIG{$signal} = \&_loop_signal_handler_generic;
-}
-
-sub loop_resume_watching_child_signals {
-  $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
-  $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
-  $poe_kernel->_enqueue_event
-    ( $poe_kernel, $poe_kernel,
-      EN_SCPOLL, ET_SCPOLL, [ ],
-      time() + 1, __FILE__, __LINE__
-    ) if keys(%$kr_sessions) > 1;
 }
 
 sub loop_ignore_signal {
@@ -263,10 +245,10 @@ sub loop_do_timeslice {
   # for some constant number of seconds.
 
   my $now = time();
-  my $timeout;
+  my $timeout = $kr_queue->get_next_priority();
 
-  if (@$kr_events) {
-    $timeout = $kr_events->[0]->[ST_TIME] - $now;
+  if (defined $timeout) {
+    $timeout -= $now;
     $timeout = MINIMUM_SELECT_TIMEOUT if $timeout < MINIMUM_SELECT_TIMEOUT;
   }
   else {
@@ -279,25 +261,6 @@ sub loop_do_timeslice {
                   $now-$^T, $timeout, ($now-$^T)+$timeout
                  )
         );
-    warn( '*** Event times: ' .
-          join( ', ',
-                map { sprintf('%d=%.4f',
-                              $_->[ST_SEQ], $_->[ST_TIME] - $now
-                             )
-                    } @$kr_events
-              ) .
-          "\n"
-        );
-  }
-
-  # Ensure that the event queue remains in time order.
-  if (ASSERT_EVENTS and @$kr_events) {
-    my $previous_time = $kr_events->[0]->[ST_TIME];
-    foreach (@$kr_events) {
-      die "event $_->[ST_SEQ] is out of order"
-        if $_->[ST_TIME] < $previous_time;
-      $previous_time = $_->[ST_TIME];
-    }
   }
 
   # This is heavy.  It determines whether there are any files actually
