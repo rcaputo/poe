@@ -146,7 +146,9 @@ if (defined $compiled_regexp) {
 }
 else {
   for (0..5) {
-    print "ok ", $base+$_, " # skipped: compiled regexps not supported\n";
+    print( "ok ", $base+$_,
+           " # skipped: Perl $] does not support compiled regexps.\n"
+         );
   }
 }
 

@@ -27,7 +27,7 @@ use POE qw( Wheel::ReadWrite Driver::SysRW
 my ($master_read, $master_write, $slave_read, $slave_write) =
   POE::Pipe::TwoWay->new();
 unless (defined $master_read) {
-  &test_setup(0, "could not create a pipe in any form");
+  &test_setup(0, "Could not create a pipe in any form.");
 }
 
 # Set up tests, and go.

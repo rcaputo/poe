@@ -12,8 +12,9 @@ use TestSetup;
 
 # Skip these tests if fork() is unavailable.
 BEGIN {
-  test_setup(0, "$^O does not support fork") if $^O eq 'MacOS';
-  test_setup(0, "$^O does not fully support fork/exec") if $^O eq 'MSWin32';
+  test_setup(0, "$^O does not support fork.") if $^O eq 'MacOS';
+  test_setup(0, "$^O does not support fork/exec properly.")
+    if $^O eq 'MSWin32';
 }
 
 test_setup(24);
@@ -37,7 +38,7 @@ use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
     &ok_if( 2, $uni_input eq 'whee pipe' );
   }
   else {
-    &many_ok(1, 2, "skipped: pipe not supported");
+    &many_ok(1, 2, "skipped: $^O does not support pipe().");
   }
 }
 
@@ -52,7 +53,7 @@ use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
     &ok_if( 4, $uni_input eq 'whee socketpair' );
   }
   else {
-    &many_ok(3, 4, "skipped: socketpair not supported");
+    &many_ok(3, 4, "skipped: $^O does not support socketpair().");
   }
 }
 
@@ -67,7 +68,7 @@ use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
     &ok_if( 6, $uni_input eq 'whee inet' );
   }
   else {
-    &many_ok(5, 6, "skipped: inet sockets not supported");
+    &many_ok(5, 6, "skipped: $^O does not support inet sockets.");
   }
 }
 
@@ -87,7 +88,7 @@ use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
     &ok_if(9, $a_input eq 'b wr inet');
   }
   else {
-    &many_ok(7, 9, "skipped: pipe not supported");
+    &many_ok(7, 9, "skipped: $^O does not support pipe().");
   }
 }
 
@@ -107,7 +108,7 @@ use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
     &ok_if(12, $a_input eq 'b wr inet');
   }
   else {
-    &many_ok(10, 12, "skipped: socketpair not supported");
+    &many_ok(10, 12, "skipped: $^O does not support socketpair().");
   }
 }
 
@@ -127,7 +128,7 @@ use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
     &ok_if(15, $a_input eq 'b wr inet');
   }
   else {
-    &many_ok(13, 15, "skipped: inet sockets not supported");
+    &many_ok(13, 15, "skipped: $^O does not support inet sockets.");
   }
 }
 
@@ -360,7 +361,7 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
     );
 }
 else {
-  &many_ok( 19, 21, 'skipped: IO::Pty not installed' );
+  &many_ok( 19, 21, "skipped: IO::Pty is needed for this test.");
 }
 
 ### Run the main loop.

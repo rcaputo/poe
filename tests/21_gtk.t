@@ -14,7 +14,7 @@ use TestSetup;
 # Skip if Gtk isn't here.
 BEGIN {
   eval 'use Gtk';
-  &test_setup(0, 'need the Gtk module installed to run this test')
+  &test_setup(0, "Gtk is needed for these tests.")
     if ( length($@) or
          not exists($INC{'Gtk.pm'})
        );
@@ -24,7 +24,7 @@ BEGIN {
              defined $ENV{'DISPLAY'} and
              length $ENV{'DISPLAY'}
            ) {
-      &test_setup(0, "can't test Gtk without a DISPLAY (set one today, ok?)");
+      &test_setup(0, "Can't test Gtk without a DISPLAY. (Set one today, ok?)");
     }
   }
 };
@@ -33,7 +33,7 @@ BEGIN {
 
 warn( "\n",
       "***\n",
-      "*** Please note: This test will pop up a Gtk window.\n",
+      "*** Please note: This test will pop up a window.\n",
       "***\n",
     );
 
@@ -63,7 +63,7 @@ sub io_start {
 
   # Keep a copy of the unused handles so the pipes remain whole.
   unless (defined $a_read) {
-    print "skip 2 # $@\n";
+    print "ok 2 # skipped: Could not create a pipe in any form.\n";
   }
   else {
     # The wheel uses read and write file events internally, so they're

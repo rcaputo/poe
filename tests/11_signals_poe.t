@@ -9,8 +9,8 @@ use lib qw(./lib ../lib);
 use TestSetup;
 
 BEGIN {
-  test_setup(0, "Windows doesn't support signals") if $^O eq 'MSWin32';
-  test_setup(0, "MacOS doesn't support fork()") if $^O eq 'MacOS';
+  test_setup(0, "$^O does not support signals.") if $^O eq "MSWin32";
+  test_setup(0, "$^O does not support fork.") if $^O eq "MacOS";
 };
 
 &test_setup(3);
@@ -32,9 +32,9 @@ my $start_time = time();
 warn( "\n",
       "***\n",
       "*** This test tries to compensate for slow machines.  It times its\n",
-      "*** first test and uses that as its timeout for subsequent ones.\n",
-      "*** It may take a while on slow or resource-starved machines.\n",
-      "*** It may even fail if it guesses the time wrongly.\n",
+      "*** first test and uses that as its timeout for subsequent tests.\n",
+      "*** This test may take a while on slow or resource-starved machines.\n",
+      "*** It may even fail if it incorrectly estimates its timeouts.\n",
       "***\n"
     );
 

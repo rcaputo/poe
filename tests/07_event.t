@@ -13,7 +13,7 @@ use TestSetup;
 # Skip if Event isn't here.
 BEGIN {
   eval 'use Event';
-  &test_setup(0, 'need the Event module installed to run this test')
+  &test_setup(0, "Event is needed for these tests")
     if ( length($@) or
          not exists($INC{'Event.pm'})
        );

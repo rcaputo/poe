@@ -11,9 +11,9 @@ use TestSetup;
 
 BEGIN {
   eval 'use IO::Poll';
-  test_setup(0, "need IO::Poll to test POE's support for that module")
+  test_setup(0, "IO::Poll is needed for these tests")
     if length($@) or not exists $INC{'IO/Poll.pm'};
-  test_setup(0, "need IO::Poll 0.05 (you have version $IO::Poll::VERSION)")
+  test_setup(0, "IO::Poll 0.05 or newer is needed for these tests")
     if $IO::Poll::VERSION < 0.05;
 }
 

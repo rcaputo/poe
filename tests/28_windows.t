@@ -9,7 +9,7 @@ use lib qw(./lib ../lib);
 use TestSetup;
 
 BEGIN {
-  test_setup(0, "Windows tests aren't necessary or $^O")
+  test_setup(0, "Windows tests aren't necessary on $^O")
     if $^O eq 'MacOS';
 };
 

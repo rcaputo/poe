@@ -402,8 +402,8 @@ for (my $i=0; $i<$machine_count; $i++) {
 
 # Were all the signals caught?
 if ($^O eq 'MSWin32' or $^O eq 'MacOS') {
-  print "ok 11 # skipped: $^O doesn't support signals\n";
-  print "ok 12 # skipped: $^O doesn't support signals\n";
+  print "ok 11 # skipped: $^O does not support signals.\n";
+  print "ok 12 # skipped: $^O does not support signals.\n";
 }
 else {
   print 'not ' unless $sigalrm_caught == $event_count;
