@@ -110,6 +110,41 @@ These changes are under consideration.  They have not begun, and they
 may not ever be made.  These are proto-plans being considered and made
 ready for deployment.
 
+----------------------------------------
+Signal Handling Flawed As Designed (!!!)
+----------------------------------------
+
+This is a high priority task.
+
+Signal propagation (and the _signal event) are vestigial design from a
+time when POE was to be the core for a multi-user object environment.
+They provide some extra features that make writing MUDs easier, but
+they hamper many general programming tasks that POE is now being used
+for.
+
+Signal handling needs a basic redesign to make it more conducive to
+generic programming, especially for components.  The problem is that
+handling a signal in one place does not prevent it from being
+delivered elsewhere.
+
+The example that brought this to my attention is an IRC client being
+written with POE::Component::IRC.  The main program traps SIGINT to
+prevent the user from accidentally killing the client.  Perhaps it
+will ask the user to confirm the kill, to prevent errant keystrokes
+from doing damage.
+
+However, because SIGINT is delivered everywhere, POE::Component::IRC
+dies regardless whether the main program catches that signal.  This is
+bad because the back-end IRC connection goes away when the user
+interface doesn't necessarily want it to.
+
+While the current signal propagation scheme is useful in some cases,
+it's bad for the general case.  Every component would need to agree
+whether it should or shouldn't catch signals in a particular program.
+That's madness.
+
+So this needs a redesign and a depreciation schedule.
+
 ---------------------------------------
 Give Exported Constants Some Prefix(es)
 ---------------------------------------
@@ -562,6 +597,17 @@ Clean up ASSERT_* and TRACE_* Flags
 
 Especially ASSERT_USAGE, ASSERT_RETURNS and TRACE_RETURNS which are
 getting silly.  Make this stuff macros, at the very least.
+
+-------------------------------------
+Batch or Standalone POE::Preprocessor
+-------------------------------------
+
+ActiveState's perlapp (PDK) does not recognize source filters and so
+cannot "compile" POE programs into stand-alone applications.  Source
+filters may not be available elsewhere, so it would be useful to let
+developers statically preprocess applications into stand-alone files.
+
+Let Ilya Melamed know when this is done.  It's his request.
 
 
 ===
