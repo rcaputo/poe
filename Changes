@@ -26,8 +26,10 @@ Version numbers have four fields: X.YYZZAA
 `------------------------------------------------------------------------------
 
 
-0.1111 2000.??.??
------------------
+0.12 2000.11.19
+---------------
+
+This is a big shout out to all my homies on the CPAN.  Yo yo yo!
 
 Added nick collision prevention and a /quit command to
 tutorial-chat.perl.
