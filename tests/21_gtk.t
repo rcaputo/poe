@@ -83,6 +83,8 @@ sub io_start {
 
   # And counters to monitor read/write progress.
 
+  $poe_main_window->set_border_width(5);
+
   my $box = Gtk::VBox->new(0, 0);
   $poe_main_window->add($box);
   $box->show();
@@ -151,7 +153,7 @@ sub io_start {
   # this is a test, and I strongly feel that tests should run
   # unattended whenever possible.
   $poe_main_window->realize();
-  $poe_main_window->window->set_geometry_hints( 10, 10, 'pos' );
+  $poe_main_window->window->set_geometry_hints( 20, 20, 'pos' );
 
   $poe_main_window->show();
 }
