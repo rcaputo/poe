@@ -37,7 +37,7 @@ BEGIN {
   # POE runs better with Time::HiRes, but it also runs without it.
   eval {
     require Time::HiRes;
-    Time::HiRes->import qw(time sleep);
+    Time::HiRes->import(qw(time sleep));
   };
 
   # http://support.microsoft.com/support/kb/articles/Q150/5/37.asp
