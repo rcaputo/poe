@@ -113,17 +113,6 @@ macro alias_resolve (<name>) {
   )
 }
 
-macro gc_mark(<session>) {
-  $self->[KR_GC_MARKS]->{<session>} = $session;
-}
-
-macro gc_clear(<session>) {
-  delete $self->[KR_GC_MARKS]->{<session>};
-}
-
-macro gc_sweep {
-}
-
 macro collect_garbage (<session>) {
   if (<session> != $self) {
     TRACE_GARBAGE and $self->trace_gc_refcount(<session>);
@@ -196,49 +185,24 @@ macro post_plain_signal (<destination>,<signal_name>) {
                              );
 }
 
-macro post_child_signal(<destination>,<pid>,<exit_status>) {
-  # Determine if the child process is really exiting and not just
-  # stopping for some other reason.  This is per Perl Cookbook recipe
-  # 16.19.
-  if (WIFEXITED(<exit_status>)) {
-    $poe_kernel->_enqueue_state( <destination>, $poe_kernel,
-                                 EN_SIGNAL, ET_SIGNAL,
-                                 [ 'CHLD', <pid>, <exit_status> ],
-                                 time(), __FILE__, __LINE__
-                               );
-  }
-}
-
 macro dispatch_one_from_fifo {
+  # Pull an event off the queue, and dispatch it.
   if ( @{ $self->[KR_STATES] } ) {
-
-    # Pull an event off the queue.
-
     my $event = shift @{ $self->[KR_STATES] };
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
-
-    # Dispatch it, and see if that was the last thing the session
-    # needed to do.
-
     $self->_dispatch_state(@$event);
     {% collect_garbage $event->[ST_SESSION] %}
   }
 }
 
 macro dispatch_due_alarms {
+  # Pull due alarms off the queue, and dispatch them.
   my $now = time();
   while ( @{ $self->[KR_ALARMS] } and
           ($self->[KR_ALARMS]->[0]->[ST_TIME] <= $now)
         ) {
-
-    # Pull an alarm off the queue.
-
     my $event = shift @{ $self->[KR_ALARMS] };
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
-
-    # Dispatch it, and see if that was the last thing the session
-    # needed to do.
-
     $self->_dispatch_state(@$event);
     {% collect_garbage $event->[ST_SESSION] %}
   }
@@ -385,8 +349,7 @@ enum   SH_HANDLE SH_REFCOUNT SH_VECCOUNT
 # The Kernel object.  KR_SIZE goes last (it's the index count).
 enum   KR_SESSIONS KR_VECTORS KR_HANDLES KR_STATES KR_SIGNALS KR_ALIASES
 enum + KR_ACTIVE_SESSION KR_PROCESSES KR_ALARMS KR_ID KR_SESSION_IDS
-enum + KR_ID_INDEX KR_WATCHER_TIMER KR_WATCHER_IDLE KR_EXTRA_REFS
-enum + KR_GC_MARKS KR_SIZE
+enum + KR_ID_INDEX KR_WATCHER_TIMER KR_WATCHER_IDLE KR_EXTRA_REFS KR_SIZE
 
 # Handle structure.
 enum HND_HANDLE HND_REFCOUNT HND_VECCOUNT HND_SESSIONS HND_FILENO HND_WATCHERS
@@ -501,8 +464,6 @@ const FIFO_DISPATCH_TIME 0.01
 # };
 #
 # names: { $name => $session };
-#
-# gc marks: { $session => $session };
 #
 #------------------------------------------------------------------------------
 
@@ -1030,7 +991,8 @@ sub _dispatch_state {
   if ($type) {
 
     # A new session has started.  Tell its parent.  Incidental _start
-    # events are fired after the dispatch.
+    # events are fired after the dispatch.  Garbage collection is
+    # delayed until ET_GC.
 
     if ($type & ET_START) {
       $self->_dispatch_state( $sessions->{$session}->[SS_PARENT], $self,
@@ -1040,7 +1002,8 @@ sub _dispatch_state {
                             );
     }
 
-    # This session has stopped.  Clean up after it.
+    # This session has stopped.  Clean up after it.  There's no
+    # garbage collection necessary since the session's stopped.
 
     elsif ($type & ET_STOP) {
 
@@ -1174,9 +1137,8 @@ sub _dispatch_state {
       # Remove the session's structure from the kernel's structure.
       delete $sessions->{$session};
 
-      # Check the parent to see if it's time to garbage collect.  This
-      # is here because POE::Kernel is sort of a session, and it has
-      # no parent.
+      # See if the parent should leave, too.
+
       if (defined $parent) {
         {% collect_garbage $parent %}
       }
@@ -1396,7 +1358,6 @@ sub run {
           # seems to use them this way, though, not even the author.
 
           foreach my $select (@selects) {
-
             $self->_dispatch_state
               ( $select->[HSS_SESSION], $select->[HSS_SESSION],
                 $select->[HSS_STATE], ET_SELECT,
@@ -1422,14 +1383,10 @@ sub run {
               )
         };
 
-        # Pull an alarm off the queue.
+        # Pull an alarm off the queue, and dispatch it.
         my $event = shift @$kr_alarms;
         {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
-
-        # Dispatch it, and see if that was the last thing the session
-        # needed to do.
         $self->_dispatch_state(@$event);
-        {% collect_garbage $event->[ST_SESSION] %}
       }
 
       # Dispatch one or more FIFOs, if they are available.  There is a
@@ -1448,14 +1405,10 @@ sub run {
               )
         };
 
-        # Pull an event off the queue.
+        # Pull an event off the queue, and dispatch it.
         my $event = shift @$kr_states;
         {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
-
-        # Dispatch it, and see if that was the last thing the session
-        # needed to do.
         $self->_dispatch_state(@$event);
-        {% collect_garbage $event->[ST_SESSION] %}
 
         # If Time::HiRes isn't available, then the fairest thing to do
         # is loop immediately.
@@ -1735,8 +1688,10 @@ sub _invoke_state {
       # loop.  Warn if it's something unexpected.
 
       else {
-        $SIG{CHLD} = \&_poe_signal_handler_child if exists $SIG{CHLD};
-        $SIG{CLD}  = \&_poe_signal_handler_child if exists $SIG{CLD};
+        unless (POE_HAS_EVENT) {
+          $SIG{CHLD} = \&_poe_signal_handler_child if exists $SIG{CHLD};
+          $SIG{CLD}  = \&_poe_signal_handler_child if exists $SIG{CLD};
+        }
         warn $! if $! and $! != ECHILD;
       }
     }
@@ -1744,8 +1699,10 @@ sub _invoke_state {
     # Nothing is left to wait for.  Stop the wait loop.
 
     else {
-      $SIG{CHLD} = \&_poe_signal_handler_child if exists $SIG{CHLD};
-      $SIG{CLD}  = \&_poe_signal_handler_child if exists $SIG{CLD};
+      unless (POE_HAS_EVENT) {
+        $SIG{CHLD} = \&_poe_signal_handler_child if exists $SIG{CHLD};
+        $SIG{CLD}  = \&_poe_signal_handler_child if exists $SIG{CLD};
+      }
     }
   }
 

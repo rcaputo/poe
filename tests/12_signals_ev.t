@@ -22,6 +22,8 @@ use POE;
 
 &test_setup(2);
 
+my $fork_count = 16;
+
 # Everything past here should be identical to 11_signals_poe.t
 
 # Use Time::HiRes, if it's available.  This will get us super accurate
@@ -32,8 +34,6 @@ eval {
   require Time::HiRes;
   import Time::HiRes qw(time sleep);
 };
-
-my $fork_count = 16;
 
 # Set up a signal catching session.  This test uses plain fork(2) and
 # POE's $SIG{CHLD} handler.
@@ -57,7 +57,7 @@ POE::Session->create
             }
             else {
               sleep $wake_time - time();
-              dump;
+              exit;
             }
           }
           else {

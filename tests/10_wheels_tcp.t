@@ -45,7 +45,7 @@ sub sss_start {
   delete $heap->{wheel};
   $heap->{wheel} = POE::Wheel::ReadWrite->new
     ( Handle       => $socket,
-      Driver       => POE::Driver::SysRW->new( BlockSize => 1 ),
+      Driver       => POE::Driver::SysRW->new( BlockSize => 10 ),
       Filter       => POE::Filter::Line->new(),
       InputState   => 'got_line',
       ErrorState   => 'got_error',
@@ -109,12 +109,11 @@ sub client_tcp_connected {
   delete $heap->{wheel};
   $heap->{wheel} = POE::Wheel::ReadWrite->new
     ( Handle       => $server_socket,
-      Driver       => POE::Driver::SysRW->new(),
+      Driver       => POE::Driver::SysRW->new( BlockSize => 10 ),
       Filter       => POE::Filter::Line->new(),
       InputState   => 'got_line',
       ErrorState   => 'got_error',
       FlushedState => 'got_flush',
-      BlockSize    => 1,
     );
 
   &ok_if(7, defined $heap->{wheel});

@@ -13,6 +13,8 @@ use TestSetup;
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
 
+my $fork_count = 16;
+
 # Use Time::HiRes, if it's available.  This will get us super accurate
 # sleep times so all the child processes wake up close together.  The
 # idea is to have CHLD signals overlap.
@@ -21,8 +23,6 @@ eval {
   require Time::HiRes;
   import Time::HiRes qw(time sleep);
 };
-
-my $fork_count = 16;
 
 # Set up a signal catching session.  This test uses plain fork(2) and
 # POE's $SIG{CHLD} handler.

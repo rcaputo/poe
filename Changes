@@ -16,10 +16,6 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 ,----- To Do -----
 |
-| Before 0.1008
-|
-| Initialize KR_GC_MARKS as a hash.
-|
 | Before 0.11
 |
 | Test $kernel->fork() or replace it entirely.
@@ -37,12 +33,17 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 0.1008 2000.??.??
 -----------------
 
+Tidied Session garbage collection tests.
+
+Stopped setting $SIG{CH?LD} handlers when using Event.
+
+The wheels tests were failing on DOSISH systems because the 1-byte
+blocksize generated fake newlines.  CR and LF coming in separately and
+being interpreted as two newlines.  Increased the BlockSize so this
+won't happen.
+
 Prevented the TKDESTROY signal from being fired if POE finishes before
 Tk does.  There's nothing to receive the signal!
-
-Added the beginnings of a mark/sweep garbage collector for sessions.
-This is added mainly to avoid redundant garbage collections; if
-there's any performance benefit, it's purely accidental.
 
 Enhanced the "# line" directives that POE::Preprocessor injects into
 macros.  Now they're added when macros are used; this enables them to

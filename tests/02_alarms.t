@@ -10,7 +10,6 @@ use TestSetup;
 &test_setup(14);
 
 # Turn on all asserts.
-sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
 
