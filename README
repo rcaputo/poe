@@ -12,19 +12,19 @@ What POE Is
 -----------
 
 POE is a mature framework for creating multitasking programs in Perl.
-It has been actively developed for over three years.  It has been used
-in mission-critical systems such as internetworked financial markets,
-file systems, and commerce servers.
+It has been in active development since 1998.  It has been used in
+mission-critical systems such as internetworked financial markets,
+file systems, commerce and application servers.
 
 POE is compatible with perl 5.005_03 through 5.6.1 and beyond.
 
 POE includes functions for creating and using components.  Components
 are modular, reusable pieces of programs.  Several components have
-been published on the CPAN.
+been published on the CPAN, and more are listed on POE's web site.
 
 POE includes components and libraries for making quick work of network
-clients, servers, and peers.  A well "hello, world" web application
-takes fewer than 50 lines of code.
+clients, servers, and peers.  A "hello, world" web application takes
+fewer than 50 lines of code, most of which is configuration.
 
 ---------------------
 Documentation Roadmap
@@ -34,33 +34,32 @@ POE includes so much documentation that the main man page includes an
 index to the others.  See the "SEE ALSO" section in "man POE", or your
 system's equivalent.
 
-The CHANGES file lists all the changes in the past year.  Changes back
-to August 1998 are available on POE's web site.
+The CHANGES file lists all the changes in the past year.  A complete
+change history, back to August 1998, is available on POE's web site.
 
 --------------------
 Distribution Details
 --------------------
 
-This distribution includes several sample and tutorial programs.  They
-are in the "samples" directory.  These programs take up a considerable
-chunk of POE's download size, but they are NOT installed.  Better
-examples can be found on POE's web site.
+This distribution includes a samples directory that contains several
+well commented example programs.  These programs are NOT installed.
+Better examples are being written all the time and are available
+online in the POE Cookbook.
 
-The test programs, in directory "t", may also be interesting examples,
-but they're aimed more at exercising POE than illustrating good coding
-practices.  The tests also aren't installed, in case you were
-wondering.
+POE's test programs may also be interesting examples, but they're more
+for exercising POE than illustrating good coding practices.  The tests
+also aren't installed, in case you were wondering.
 
 All in all, the actual installed bits of POE are probably around a
-third of the total distribution, and about a quarter of B<that> is
-documentation.  Most of the installed code is optional, so the parts
-of POE people usually use tend to be relatively small.
+third of the total distribution, and about a quarter of POE's
+installed footprint is documentation.
 
 --------------
 Installing POE
 --------------
 
-See http://poe.perl.org/?Where_to_Get_POE for complete instructions.
+See http://poe.perl.org/?Where_to_Get_POE for download sites, Windows
+tips, and anonymous CVS instructions.
 
 POE may be installed through the CPAN shell in the usual CPAN shell
 manner.
@@ -70,39 +69,38 @@ manner.
 It involves a little more work if you have an older CPAN shell:
 
   perl -MCPAN -e shell
-  install POE
+  cpan> install POE
 
 To install on a Win32 machine using ActiveState's PPM:
 
   ppm install http://poe.sourceforge.net/packages/POE.ppd
 
 POE can also be installed manually, and the latest versions of things
-are available in CVS.  Instructions are on POE's web site.
+are available in CVS.
 
 ------------
 Test Results
 ------------
 
-http://poe.perl.org/?POE%27s_test_results
-http://testers.cpan.org/search?request=dist&dist=POE
-
 POE's test results are large and constantly changing.  They have been
 moved to the web site for easier maintenance.  POE is tested severely
 before even the limited-distribution development releases.
 
-In the unlikely event that POE's tests fail, please consider reporting
-the failure.  Open source has always relied on the kindness of
-strangers.
+  http://poe.perl.org/?POE%27s_test_results
+  http://testers.cpan.org/search?request=dist&dist=POE
+
+Please report test failures.  POE's ongoing improvement relies on
+feedback from its users.
 
 -------------
 Test Coverage
 -------------
 
-http://poe.perl.org/?POE%27s_test_coverage_report
-
 POE's test coverage report has also moved onto the 'web.  It gives a
 very rough idea of the amount of POE that's been at least cursorily
 tested, but it should not be used as an accurate gauge of quality.
+
+  http://poe.perl.org/?POE%27s_test_coverage_report
 
 ----
 Bye!
