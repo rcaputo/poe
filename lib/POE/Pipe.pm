@@ -191,7 +191,7 @@ sub make_socket {
       $! = unpack('i', getsockopt($connector, SOL_SOCKET, SO_ERROR));
       die "connect: $!" if $!;
 
-      vec($in_read, fileno($acceptor), 1) = 0;
+      vec($in_write, fileno($connector), 1) = 0;
       $done |= 0x01;
     }
   }
