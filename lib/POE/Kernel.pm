@@ -2443,28 +2443,31 @@ sub _internal_select {
           0,            # FNO_TOT_REFCOUNT
         ];
 
-      # For DOSISH systems like OS/2.  Not entirely harmless: Some
-      # tied-filehandle classes don't implement binmode.
-      eval { binmode($handle) };
+      unless (tied *$handle) {
 
-      # Make the handle stop blocking, the Windows way.
-      if (RUNNING_IN_HELL) {
-        my $set_it = "1";
+        # For DOSISH systems like OS/2.  Not entirely harmless: Some
+        # tied-filehandle classes don't implement binmode.
+        binmode(*$handle);
 
-        # 126 is FIONBIO (some docs say 0x7F << 16)
-        ioctl( $handle,
-               0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-               $set_it
-             ) or die "Can't set the handle non-blocking: $!";
-      }
+        # Make the handle stop blocking, the Windows way.
+        if (RUNNING_IN_HELL) {
+          my $set_it = "1";
 
-      # Make the handle stop blocking, the POSIX way.
-      else {
-        my $flags = fcntl($handle, F_GETFL, 0)
-          or croak "fcntl fails with F_GETFL: $!\n";
-        until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
-          croak "fcntl fails with F_SETFL: $!"
-            unless $! == EAGAIN or $! == EWOULDBLOCK;
+          # 126 is FIONBIO (some docs say 0x7F << 16)
+          ioctl( $handle,
+                 0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+                 $set_it
+               ) or die "Can't set the handle non-blocking: $!";
+        }
+
+        # Make the handle stop blocking, the POSIX way.
+        else {
+          my $flags = fcntl($handle, F_GETFL, 0)
+            or croak "fcntl($handle, F_GETFL, etc.) fails: $!\n";
+          until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
+            croak "fcntl($handle, FSETFL, etc) fails: $!"
+              unless $! == EAGAIN or $! == EWOULDBLOCK;
+          }
         }
       }
 
