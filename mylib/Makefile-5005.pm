@@ -23,7 +23,7 @@ if ($@) {
 }
 
 ExtUtils::AutoInstall->import
-  ( -version => '0.29',
+  ( -version => '0.32',
     -core => [
         Carp     => '',
         Exporter => '',
@@ -38,7 +38,8 @@ ExtUtils::AutoInstall->import
     ],
     'Optional Full-Screen Child Process Support' => [
         -default  => 0,
-        'IO::Pty' => '',
+        'IO::Pty' => '1.02',
+        'IPC::Run' => '0.72',
     ],
     'Optional Serialized Data Transfer Support' => [
         -default   => 0,
