@@ -349,6 +349,29 @@ Please see the documentation for HTTP::Request and HTTP::Response.
 
 Please see POE::Filter.
 
+=head1 CAVEATS
+
+It is possible to generate invalid HTTP using libwww. This is specifically a
+problem if you are talking to a Filter::HTTPD driven daemon using libwww. For
+example, the following code (taken almost verbatim from the
+HTTP::Request::Common documentation) will cause an error in a Filter::HTTPD
+daemon:
+
+    use HTTP::Request::Common;
+    use LWP::UserAgent;
+
+    my $ua = LWP::UserAgent->new();
+    $ua->request(POST 'http://some/poe/driven/site', [ foo => 'bar' ]);
+
+By default, HTTP::Request is HTTP version agnostic. It makes no attempt to add
+an HTTP version header unless you specifically declare a protocol using
+C<< $request->protocol('HTTP/1.0') >>. 
+
+According to the HTTP 1.0 RFC (1945), when faced with no HTTP version header,
+the parser is to default to HTTP/0.9. Filter::HTTPD follows this convention. In
+the transaction detailed above, the Filter::HTTPD based daemon will return a 400
+error since POST is not a valid HTTP/0.9 request type.  
+
 =head1 Streaming Media
 
 It is perfectly possible to use Filter::HTTPD for streaming output
@@ -369,7 +392,13 @@ the entire POE distribution.
 
 =head1 BUGS
 
-Keep-alive is not supported.
+=over 4
+
+=item * Keep-alive is not supported.
+
+=item * The full http 1.0 spec is not supported, specifically DELETE, LINK, and UNLINK.
+
+=back
 
 =head1 AUTHORS & COPYRIGHTS
 
