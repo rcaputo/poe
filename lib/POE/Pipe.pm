@@ -15,6 +15,44 @@ use Symbol qw(gensym);
 use IO::Socket;
 use POSIX qw(fcntl_h errno_h);
 
+# CygWin seems to have a problem with socketpair() and exec().  When
+# an exec'd process closes, any data on sockets created with
+# socketpair() is not flushed.  From irc.rhizomatic.net #poe:
+#
+# <dngnand>   Sounds like a lapse in cygwin's exec implementation.  It
+#             works ok under Unix-ish systems?
+# <jdeluise2> yes, it works perfectly
+# <jdeluise2> but, if we just use poe::Pipe::TwoWay->new("pipe") it
+#             always works fine on cygwin
+# <jdeluise2> by the way, it looks like the reason is that
+#             poe::Pipe::OneWay works because it tries to make a pipe
+#             first instead of a socketpair
+# <jdeluise2> this socketpair problem seems like a long-standing one
+#             with cygwin, according to searches on google, but never
+#             been fixed.
+
+# The order of pipe primitives depends on our platform.  Placed in the
+# base class and given accessors so we can use it from both OneWay and
+# TwoWay.
+my @preference;
+if ($^O eq "MSWin32" or $^O eq "MacOS") {
+  @preference = qw(inet socketpair pipe);
+}
+elsif ($^O eq "cygwin") {
+  @preference = qw(pipe inet socketpair);
+}
+else {
+  @preference = qw(socketpair pipe inet);
+}
+
+sub get_next_preference {
+  return $preference[0];
+}
+
+sub shift_preference {
+  shift @preference;
+}
+
 # Provide a dummy EINPROGRESS for systems that don't have one.  Give
 # it a documented value.  This code is stolen from
 # POE::Wheel::SocketFactory.
