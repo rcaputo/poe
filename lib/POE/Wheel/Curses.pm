@@ -44,20 +44,26 @@ sub new {
 
   initscr();
   start_color();
-  keypad(1);
+
   cbreak();
-  noecho();
   raw();
+  noecho();
   nonl();
-  intrflush(0);
+
+  # Both of these achieve nonblocking input.
   nodelay(1);
+  timeout(0);
+
+  keypad(1);
+  intrflush(0);
   meta(1);
+  typeahead(-1);
 
   my $old_mouse_events = 0;
   mousemask(ALL_MOUSE_EVENTS, $old_mouse_events);
 
-  noutrefresh();
-  doupdate();
+  clear();
+  refresh();
 
   # Define the input event.
   $self->_define_input_state();
