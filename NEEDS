@@ -36,11 +36,12 @@ POE::NFA          is core
 POE::Preprocessor is core
 
 *.pod             is data
-Changes           is data
-README            is data
+CHANGES           is data
 HISTORY           is data
 MANIFEST          is data
 NEEDS             is data
+README            is data
+TODO              is data
 
 # Test 8 uses a module which it knows doesn't exist.  Skip dependency
 # checking for that file.
