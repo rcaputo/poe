@@ -31,9 +31,10 @@ die "machine count must be even" if $machine_count & 1;
 
 ### Status registers for each state machine instance.
 
-my @completions;
+my ( @completions, @objpack );
 
-### Define a simple state machine.
+#------------------------------------------------------------------------------
+# Define a simple state machine.
 
 sub task_start {
   my ($kernel, $session, $heap, $id) = @_[KERNEL, SESSION, HEAP, ARG0];
@@ -86,9 +87,8 @@ sub task_stop {
        );
 }
 
-### Main loop.
-
-print "ok 1\n";
+#------------------------------------------------------------------------------
+# Test simple signals.
 
 # Spawn a quick state machine to test signals.  This is a classic
 # example of inline states being just that: inline anonymous coderefs.
@@ -156,9 +156,9 @@ for (my $i=0; $i<$machine_count; $i++) {
   }
 }
 
-print "ok 2\n";
-
-# A simple service session.  It returns an ever increasing count.
+#------------------------------------------------------------------------------
+# Simple client/server sessions using events as inter-session
+# communications.  Tests postbacks, too.
 
 POE::Session->create
   ( inline_states =>
@@ -173,8 +173,6 @@ POE::Session->create
       },
     },
   );
-
-print "ok 3\n";
 
 # A simple client session.  It requests five counts and then stops.
 # Its magic is that it passes a postback for the response.
@@ -214,14 +212,178 @@ POE::Session->create
     }
   );
 
-print "ok 4\n";
+#------------------------------------------------------------------------------
+# Unmapped package session.
+
+package UnmappedPackage;
+use POE::Session; # for constants
+
+sub _start {
+  $_[KERNEL]->yield( 'count' );
+  $_[HEAP]->{count} = 0;
+  $_[HEAP]->{id} = $_[ARG0];
+}
+
+sub count {
+  return unless $_[OBJECT] eq __PACKAGE__;
+  $_[KERNEL]->yield( 'count' ) if ++$_[HEAP]->{count} < $event_count;
+}
+
+sub _stop {
+  $objpack[$_[HEAP]->{id}] = $_[HEAP]->{count};
+}
+
+#------------------------------------------------------------------------------
+# Unmapped object session.
+
+package UnmappedObject;
+use POE::Session; # for constants
+
+# Trivial constructor.
+sub new { bless [ ], shift; }
+
+sub _start {
+  $_[KERNEL]->yield( 'count' );
+  $_[HEAP]->{count} = 0;
+  $_[HEAP]->{id} = $_[ARG0];
+}
+
+sub count {
+  return unless ref($_[OBJECT]) eq __PACKAGE__;
+  $_[KERNEL]->yield( 'count' ) if ++$_[HEAP]->{count} < $event_count;
+}
+
+sub _stop {
+  $objpack[$_[HEAP]->{id}] = $_[HEAP]->{count};
+}
+
+#------------------------------------------------------------------------------
+# Unmapped package session.
+
+package MappedPackage;
+use POE::Session; # for constants
+
+sub my_start {
+  $_[KERNEL]->yield( 'count' );
+  $_[HEAP]->{count} = 0;
+  $_[HEAP]->{id} = $_[ARG0];
+}
+
+sub my_count {
+  return unless $_[OBJECT] eq __PACKAGE__;
+  $_[KERNEL]->yield( 'count' ) if ++$_[HEAP]->{count} < $event_count;
+}
+
+sub my_stop {
+  $objpack[$_[HEAP]->{id}] = $_[HEAP]->{count};
+}
+
+#------------------------------------------------------------------------------
+# Unmapped object session.
+
+package MappedObject;
+use POE::Session; # for constants
+
+# Trivial constructor.
+sub new { bless [ ], shift; }
+
+sub my_start {
+  $_[KERNEL]->yield( 'count' );
+  $_[HEAP]->{count} = 0;
+  $_[HEAP]->{id} = $_[ARG0];
+}
+
+sub my_count {
+  return unless ref($_[OBJECT]) eq __PACKAGE__;
+  $_[KERNEL]->yield( 'count' ) if ++$_[HEAP]->{count} < $event_count;
+}
+
+sub my_stop {
+  $objpack[$_[HEAP]->{id}] = $_[HEAP]->{count};
+}
+
+#------------------------------------------------------------------------------
+# Test the Package and Object sessions.
+
+package main;
+
+# New style (create) object session without event to method name map.
+POE::Session->create
+  ( object_states =>
+    [ UnmappedObject->new => [ '_start', 'count', '_stop' ],
+    ],
+    args => [ 0 ],
+  );
+
+# New style (create) object session with event to method name map.
+POE::Session->create
+  ( object_states =>
+    [ MappedObject->new => { _start => 'my_start',
+                             count  => 'my_count',
+                             _stop  => 'my_stop',
+                           },
+    ],
+    args => [ 1 ],
+  );
+
+# Old style (new) object session without event to method name map.
+POE::Session->new
+  ( [ 2 ],
+    UnmappedObject->new => [ '_start', 'count', '_stop' ],
+  );
+
+# Old style (new) object session with event to method name map.
+POE::Session->new
+  ( [ 3 ],
+    MappedObject->new => { _start => 'my_start',
+                           count  => 'my_count',
+                           _stop  => 'my_stop',
+                         },
+  );
+
+# New style (create) package session without event to method name map.
+POE::Session->create
+  ( package_states =>
+    [ UnmappedPackage => [ '_start', 'count', '_stop' ],
+    ],
+    args => [ 4 ],
+  );
+
+# New style (create) package session with event to method name map.
+POE::Session->create
+  ( package_states =>
+    [ MappedPackage => { _start => 'my_start',
+                         count  => 'my_count',
+                         _stop  => 'my_stop',
+                       },
+    ],
+    args => [ 5 ],
+  );
+
+# Old style (new) package session without event to method name map.
+POE::Session->new
+  ( [ 6 ],
+    UnmappedPackage => [ '_start', 'count', '_stop' ],
+  );
+
+# Old style (new) package session with event to method name map.
+POE::Session->new
+  ( [ 7 ],
+    MappedPackage => { _start => 'my_start',
+                       count  => 'my_count',
+                       _stop  => 'my_stop',
+                     },
+  );
+
+#------------------------------------------------------------------------------
+# Main loop.
 
 $get_active_session_before = $poe_kernel->get_active_session() == $poe_kernel;
-
-# Now run them 'til they complete.
 $poe_kernel->run();
-
 $get_active_session_after = $poe_kernel->get_active_session() == $poe_kernel;
+
+#------------------------------------------------------------------------------
+# Final tests.
 
 # Now make sure they've run.
 for (my $i=0; $i<$machine_count; $i++) {
@@ -270,6 +432,12 @@ print "ok 24\n";
 
 print 'not ' unless $got_heap_count == $machine_count / 2;
 print "ok 25\n";
+
+# Object/package sessions.
+for (0..7) {
+  print 'not ' unless $objpack[$_] == $event_count;
+  print 'ok ', $_ + 26, "\n";
+}
 
 exit;
 

@@ -3332,7 +3332,8 @@ External reference count methods:
 
 Kernel data accessors:
 
-  # Return a reference to the currently active session, or undef.
+  # Return a reference to the currently active session, or to the
+  # kernel if called outside any session.
   $session = $kernel->get_active_session();
 
 Exported symbols:
@@ -4275,8 +4276,15 @@ internal data.
 =item get_active_session
 
 This function returns a reference to the session which is currently
-being invoked by the Kernel.  It returns undef if no session is being
-invoked at the time.
+being invoked by the Kernel.  When no session is currently being
+invoked, it returns a reference to the Kernel itself.  This is one of
+the times where the Kernel pretends its a session.
+
+Note, though, that the Kernel does not have a heap.  Attempting
+something like this will fail if get_active_session() returns a
+reference to the Kernel.
+
+  $kernel->get_active_session()->get_heap()->{key} = $value;
 
 =back
 

@@ -4,6 +4,7 @@
 package POE::Component;
 
 use strict;
+use Carp qw(croak);
 
 sub new {
   my $type = shift;

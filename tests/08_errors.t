@@ -9,7 +9,7 @@ use lib qw(./lib ../lib);
 use TestSetup;
 
 BEGIN {
-  &test_setup(23);
+  &test_setup(26);
 };
 
 use POSIX qw(:errno_h);
@@ -194,6 +194,26 @@ stderr_pause();
 $poe_kernel->run();
 stderr_resume();
 
+### Misuse of unusable modules.
+
+use POE::Wheel;
+eval 'POE::Wheel->new';
+print 'not ' unless defined $@ and length $@;
 print "ok 23\n";
+
+use POE::Component;
+eval 'POE::Component->new';
+print 'not ' unless defined $@ and length $@;
+print "ok 24\n";
+
+use POE::Driver;
+eval 'POE::Driver->new';
+print 'not ' unless defined $@ and length $@;
+print "ok 25\n";
+
+use POE::Filter;
+eval 'POE::Filter->new';
+print 'not ' unless defined $@ and length $@;
+print "ok 26\n";
 
 exit;

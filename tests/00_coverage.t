@@ -8,7 +8,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(13);
+&test_setup(17);
 
 sub load_optional_module {
   my ($test_number, $module) = @_;
@@ -56,8 +56,15 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 &load_optional_module(11, 'POE::Wheel::ListenAccept');
 &load_optional_module(12, 'POE::Filter::Block');
 
+# Seriously optional modules.
+
+&load_optional_module(13, 'POE::Component');
+&load_optional_module(14, 'POE::Driver');
+&load_optional_module(15, 'POE::Wheel');
+&load_optional_module(16, 'POE::Filter');
+
 # And one to grow on.
 
-print "ok 13\n";
+print "ok 17\n";
 
 exit;
