@@ -87,7 +87,7 @@ sub _define_accept_state {
         my $peer = accept($new_socket, $handle);
 
         if ($peer) {
-          $k->call($me, $$event_accept, $new_socket);
+          $k->call($me, $$event_accept, $new_socket, $peer);
         }
         elsif ($! != EWOULDBLOCK) {
           $$event_error &&
@@ -191,6 +191,8 @@ called when a new connection has been accepted.
 
 The ARG0 parameter contains the accepted connection's new socket
 handle.
+
+ARG1 contains C<accept()>'s return value.
 
 A sample AcceptState state:
 

@@ -238,8 +238,8 @@ my $repository =
 # storage.  This type of repository might be "POE::Repository::Array".
 # Another useful repository type might be "POE::Repository::DBI".
 
-my $curator = new POE::Curator
-  ( Repository => new POE::Repository::Array($repository)
+my $curator = POE::Curator->new
+  ( Repository => POE::Repository::Array->new($repository)
   );
 
 initialize POE::Runtime Curator => $curator;

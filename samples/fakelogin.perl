@@ -25,7 +25,7 @@ sub login_login_start {
 
   print "Session ", $session->ID, " - entering login state\n";
                                         # switch the output filter to stream
-  $heap->{wheel}->set_output_filter( new POE::Filter::Stream );
+  $heap->{wheel}->set_output_filter( POE::Filter::Stream->new );
                                         # switch the input event to login_input
   $heap->{wheel}->event( InputState => 'login_input' );
                                         # display the prompt
@@ -54,7 +54,7 @@ sub login_password_start {
   print "Session ", $session->ID, " - entering password state\n";
 
                                         # switch output filter to stream
-  $heap->{wheel}->set_output_filter( new POE::Filter::Stream );
+  $heap->{wheel}->set_output_filter( POE::Filter::Stream->new );
                                         # switch input event to password_input
   $heap->{wheel}->event( InputState => 'password_input' );
                                         # display the prompt
@@ -67,7 +67,7 @@ sub login_password_input {
   print "Session ", $session->ID, " - received password input\n";
 
                                         # switch output filter to line
-  $heap->{wheel}->set_output_filter( new POE::Filter::Line );
+  $heap->{wheel}->set_output_filter( POE::Filter::Line->new );
                                         # display the response
   $heap->{wheel}->put('Login incorrect');
                                         # move to the login state
@@ -97,10 +97,10 @@ sub login_session_start {
   print "Session ", $session->ID, " - received connection\n";
 
                                         # start reading and writing
-  $heap->{wheel} = new POE::Wheel::ReadWrite
+  $heap->{wheel} = POE::Wheel::ReadWrite->new
     ( 'Handle'     => $handle,
-      'Driver'     => new POE::Driver::SysRW,
-      'Filter'     => new POE::Filter::Line,
+      'Driver'     => POE::Driver::SysRW->new,
+      'Filter'     => POE::Filter::Line->new,
       'ErrorState' => 'error',
     );
                                         # hello, world!\n
@@ -111,18 +111,18 @@ sub login_session_start {
 sub login_session_create {
   my ($handle, $peer_addr, $peer_port) = @_[ARG0, ARG1, ARG2];
 
-  new POE::Session( _start => \&login_session_start,
+  POE::Session->new( _start => \&login_session_start,
                                         # start parameters
-                    [ $handle, $peer_addr, $peer_port],
+                     [ $handle, $peer_addr, $peer_port],
                                         # general error handler
-                    error => \&login_error,
+                     error => \&login_error,
                                         # login prompt states
-                    login_start => \&login_login_start,
-                    login_input => \&login_login_input,
+                     login_start => \&login_login_start,
+                     login_input => \&login_login_input,
                                         # password prompt states
-                    password_start => \&login_password_start,
-                    password_input => \&login_password_input
-                  );
+                     password_start => \&login_password_start,
+                     password_input => \&login_password_input
+                   );
   undef;
 }
 
@@ -130,13 +130,21 @@ sub login_session_create {
 
 package main;
 
-my $port = shift || 23;
+my $port = shift;
+if (not defined $port) {
+  print( "*** This program listens on port 23 by default.  You can change\n",
+         "*** the port by putting a new one on the command line.  For\n",
+         "*** example, to listen on port 10023:\n",
+         "*** $0 10023\n",
+       );
+  $port = 23;
+}
 
-new POE::Session
+POE::Session->new
   ( '_start' => sub
     { my $heap = $_[HEAP];
 
-      $heap->{wheel} = new POE::Wheel::SocketFactory
+      $heap->{wheel} = POE::Wheel::SocketFactory->new
         ( BindPort       => $port,
           SuccessState   => 'socket_ok',
           FailureState   => 'socket_error',

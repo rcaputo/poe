@@ -36,15 +36,16 @@ my $server_port = 31415;
 sub client_create {
   my $serial_number = shift;
                                         # create the session
-  new POE::Session( _start    => \&client_start,
-                    _stop     => \&client_stop,
-                    receive   => \&client_receive,
-                    error     => \&client_error,
-                    connected => \&client_connected,
-                    signals   => \&client_signals,
-                                        # ARG0
-                    [ $serial_number ]
-                  );
+  POE::Session->new( _start    => \&client_start,
+                     _stop     => \&client_stop,
+                     receive   => \&client_receive,
+                     error     => \&client_error,
+                     connected => \&client_connected,
+                     signals   => \&client_signals,
+
+                     # ARG0
+                     [ $serial_number ]
+                   );
 }
 
 #------------------------------------------------------------------------------
@@ -60,7 +61,7 @@ sub client_start {
                                         # watch for SIGINT
   $kernel->sig('INT', 'signals');
                                         # create a socket factory
-  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+  $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => $server_addr,   # connecting to address $server_addr
       RemotePort     => $server_port,   # connecting to port $server_port
       SuccessState   => 'connected',    # generating this event when connected
@@ -88,12 +89,12 @@ sub client_connected {
 
   DEBUG && print "Client $heap->{'serial'} is connected.\n";
                                         # switch to read/write behavior
-  $heap->{'wheel'} = new POE::Wheel::ReadWrite
-    ( Handle     => $socket,                  # read and write on this socket
-      Driver     => new POE::Driver::SysRW(), # using sysread and syswrite
-      Filter     => new POE::Filter::Line(),  # and parsing I/O as lines
-      InputState => 'receive',                # generating this event on input
-      ErrorState => 'error',                  # generating this event on error
+  $heap->{'wheel'} = POE::Wheel::ReadWrite->new
+    ( Handle     => $socket,                 # read and write on this socket
+      Driver     => POE::Driver::SysRW->new, # using sysread and syswrite
+      Filter     => POE::Filter::Line->new,  # and parsing I/O as lines
+      InputState => 'receive',               # generating this event on input
+      ErrorState => 'error',                 # generating this event on error
     );
 
   shutdown($socket, 1);
@@ -150,11 +151,12 @@ sub client_signals {
 
 sub pool_create {
                                         # create the server
-  new POE::Session( _start  => \&pool_start,
-                    _stop   => \&pool_stop,
-                    signals => \&pool_signals,
-                    _child  => \&pool_child,
-                  );
+  POE::Session->new
+    ( _start  => \&pool_start,
+      _stop   => \&pool_stop,
+      signals => \&pool_signals,
+      _child  => \&pool_child,
+    );
 }
 
 #------------------------------------------------------------------------------
@@ -258,15 +260,17 @@ sub pool_child {
 sub session_create {
   my ($handle, $peer_host, $peer_port) = @_;
                                         # create the session
-  new POE::Session( _start  => \&session_start,
-                    _stop   => \&session_stop,
-                    receive => \&session_receive,
-                    flushed => \&session_flushed,
-                    error   => \&session_error,
-                    signals => \&session_signals,
-                                        # ARG0, ARG1, ARG2
-                    [ $handle, $peer_host, $peer_port ]
-                  );
+  POE::Session->new
+    ( _start  => \&session_start,
+      _stop   => \&session_stop,
+      receive => \&session_receive,
+      flushed => \&session_flushed,
+      error   => \&session_error,
+      signals => \&session_signals,
+
+      # ARG0, ARG1, ARG2
+      [ $handle, $peer_host, $peer_port ]
+    );
 }
 
 #------------------------------------------------------------------------------
@@ -285,13 +289,13 @@ sub session_start {
   $heap->{'host'} = $peer_host;
   $heap->{'port'} = $peer_port;
                                         # start reading and writing
-  $heap->{'wheel'} = new POE::Wheel::ReadWrite
-    ( Handle       => $handle,                # on the client's socket
-      Driver       => new POE::Driver::SysRW, # using sysread and syswrite
-      Filter       => new POE::Filter::Line,  # and parsing I/O as lines
-      InputState   => 'receive',              # generating this event on input
-      ErrorState   => 'error',                # generating this event on error
-      FlushedState => 'flushed',              # generating this event on flush
+  $heap->{'wheel'} = POE::Wheel::ReadWrite->new
+    ( Handle       => $handle,                 # on the client's socket
+      Driver       => POE::Driver::SysRW->new, # using sysread and syswrite
+      Filter       => POE::Filter::Line->new,  # and parsing I/O as lines
+      InputState   => 'receive',               # generating this event on input
+      ErrorState   => 'error',                 # generating this event on error
+      FlushedState => 'flushed',               # generating this event on flush
     );
                                         # give the client the time of day
   $heap->{'wheel'}->put
@@ -363,12 +367,13 @@ sub session_signals {
 
 sub server_create {
                                         # create the server
-  new POE::Session( _start         => \&server_start,
-                    _stop          => \&server_stop,
-                    accept_success => \&server_accept,
-                    accept_error   => \&server_error,
-                    signals        => \&server_signals
-                  );
+  POE::Session->new
+    ( _start         => \&server_start,
+      _stop          => \&server_stop,
+      accept_success => \&server_accept,
+      accept_error   => \&server_error,
+      signals        => \&server_signals
+    );
 }
 
 #------------------------------------------------------------------------------
@@ -384,7 +389,7 @@ sub server_start {
   $kernel->sig('INT', 'signals');
   $kernel->sig('QUIT', 'signals');
                                         # create a socket factory
-  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+  $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( BindAddress    => $server_addr,   # bind the listener to this address
       BindPort       => $server_port,   # bind the listener to this port
       Reuse          => 'yes',          # and reuse the socket right away

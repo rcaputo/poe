@@ -36,11 +36,12 @@ sub new {
 
   print "$self is being created.\n";
                                         # wrap this object in a POE session
-  new POE::Session( $self,
-                    [ '_start', '_stop', 'got_line', 'got_error', 'flushed' ],
-                                        # ARG0, ARG1, ARG2
-                    [ $socket, $peer_addr, $peer_port ]
-                  );
+  POE::Session->new( $self,
+                     [ '_start', '_stop', 'got_line', 'got_error', 'flushed' ],
+
+                     # ARG0, ARG1, ARG2
+                     [ $socket, $peer_addr, $peer_port ]
+                   );
   undef;
 }
 
@@ -62,10 +63,10 @@ sub _start {
 
   print "$object received _start.  Hi!\n";
                                         # start the read/write wheel
-  $heap->{'wheel'} = new POE::Wheel::ReadWrite
+  $heap->{'wheel'} = POE::Wheel::ReadWrite->new
     ( Handle       => $socket,                  # on this socket handle
-      Driver       => new POE::Driver::SysRW(), # using sysread and syswrite
-      Filter       => new POE::Filter::Line(),  # and parsing streams as lines
+      Driver       => POE::Driver::SysRW->new,  # using sysread and syswrite
+      Filter       => POE::Filter::Line->new,   # and parsing streams as lines
       InputState   => 'got_line',   # generate this event upon receipt of input
       ErrorState   => 'got_error',  # and this event if an error occurs
       FlushedState => 'flushed'     # and this event when all output is sent
@@ -171,10 +172,11 @@ sub new {
 
   print "$self is being created.\n";
                                         # wrap this object in a POE session
-  new POE::Session( $self, [ '_start', '_stop', 'got_response', 'got_error' ],
-                                        # ARG0
-                    [ $socket, $addr, $port ]
-                  );
+  POE::Session->new( $self, [ '_start', '_stop', 'got_response', 'got_error' ],
+
+                     # ARG0
+                     [ $socket, $addr, $port ]
+                   );
   undef;
 }
 
@@ -192,12 +194,12 @@ sub DESTROY {
 sub _start {
   my ($object, $heap, $socket) = @_[OBJECT, HEAP, ARG0];
                                         # start the read/write wheel
-  $heap->{'wheel'} = new POE::Wheel::ReadWrite
-    ( Handle     => $socket,                # on this socket handle
-      Driver     => new POE::Driver::SysRW, # using sysread and syswrite
-      Filter     => new POE::Filter::Line,  # and parsing streams as lines
-      InputState => 'got_response',         # generate this event upon input
-      ErrorState => 'got_error'             # and this event in an error occurs
+  $heap->{'wheel'} = POE::Wheel::ReadWrite->new
+    ( Handle     => $socket,                 # on this socket handle
+      Driver     => POE::Driver::SysRW->new, # using sysread and syswrite
+      Filter     => POE::Filter::Line->new,  # and parsing streams as lines
+      InputState => 'got_response',          # generate this event upon input
+      ErrorState => 'got_error'              # and this one if an error occurs
     );
                                         # set up a query queue
   $heap->{'commands'} =
@@ -268,9 +270,9 @@ sub new {
 
   print "$self is being created.\n";
                                         # wrap this object in a POE session
-  new POE::Session( $self,
-                    [ '_start', '_stop', 'got_client', 'got_error' ]
-                  );
+  POE::Session->new( $self,
+                     [ '_start', '_stop', 'got_client', 'got_error' ]
+                   );
   undef;
 }
 
@@ -294,7 +296,7 @@ sub _start {
                                         # unlink the file, just in case
   unlink $unix_server;
                                         # start a socket factory
-  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+  $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( SocketDomain => AF_UNIX,          # in the Unix address family
       BindAddress  => $unix_server,     # bound to this Unix address
       SuccessState => 'got_client',     # sending this message when connected
@@ -329,7 +331,7 @@ sub got_client {
   my ($object, $socket, $peer_addr, $peer_port) = @_[OBJECT, ARG0, ARG1, ARG2];
   print "$object received a connection.\n";
                                         # spawn the server session
-  new StreamServerSession($socket, $peer_addr, $peer_port);
+  StreamServerSession->new($socket, $peer_addr, $peer_port);
 }
 
 #------------------------------------------------------------------------------
@@ -375,9 +377,9 @@ sub new {
 
   print "$self is being created.\n";
                                         # wrap this object in a POE session
-  new POE::Session( $self,
-                    [ '_start', '_stop', 'got_connection', 'got_error' ]
-                  );
+  POE::Session->new( $self,
+                     [ '_start', '_stop', 'got_connection', 'got_error' ]
+                   );
   undef;
 }
 
@@ -401,7 +403,7 @@ sub _start {
                                         # get a new socket
   $heap->{'socket'} = &get_next_client_address();
                                         # start a socket factory
-  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+  $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( SocketDomain  => AF_UNIX,           # in the Unix address family
       RemoteAddress => $unix_server,      # connected to that Unix address
       SuccessState  => 'got_connection',  # sending this message when connected
@@ -438,7 +440,7 @@ sub got_connection {
 
   print "$object has successfully connected to a server at $addr\n";
                                         # spawn the client session
-  new StreamClientSession($socket, $addr, $port);
+  StreamClientSession->new($socket, $addr, $port);
 
   # Having a child session causes this session to linger.  To prevent
   # this session from lingering beyond its useful lifetime, it sends
@@ -485,9 +487,9 @@ sub new {
 
   print "$self is being created.\n";
                                         # wrap this object in a POE session
-  new POE::Session( $self,
-                    [ '_start', '_stop', 'got_client', 'got_error' ]
-                  );
+  POE::Session->new( $self,
+                     [ '_start', '_stop', 'got_client', 'got_error' ]
+                   );
   undef;
 }
 
@@ -509,7 +511,7 @@ sub _start {
 
   print "$object received _start.  Hi!\n";
                                         # start a socket factory
-  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+  $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( BindAddress    => '127.0.0.1',    # bound to 127.0.0.1, port 30000
       BindPort       => 30000,
       Reuse          => 'yes',          # reusing the address and port
@@ -540,7 +542,7 @@ sub got_client {
   my ($object, $socket, $peer_addr, $peer_port) = @_[OBJECT, ARG0, ARG1, ARG2];
   print "$object received a connection.\n";
                                         # spawn the server session
-  new StreamServerSession($socket, $peer_addr, $peer_port);
+  StreamServerSession->new($socket, $peer_addr, $peer_port);
 }
 
 #------------------------------------------------------------------------------
@@ -572,9 +574,9 @@ sub new {
 
   print "$self is being created.\n";
                                         # wrap this object in a POE session
-  new POE::Session( $self,
-                    [ '_start', '_stop', 'got_connection', 'got_error' ]
-                  );
+  POE::Session->new( $self,
+                     [ '_start', '_stop', 'got_connection', 'got_error' ]
+                   );
   undef;
 }
 
@@ -595,7 +597,7 @@ sub _start {
 
   print "$object received _start.  Hi!\n";
                                         # start a socket factory
-  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+  $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( RemoteAddress   => '127.0.0.1',      # connected to 127.0.0.1, port 30000
       RemotePort      => 30000,
       Reuse           => 'yes',            # reusing the address and port
@@ -627,7 +629,7 @@ sub got_connection {
          "\n"
        );
                                         # spawn the client session
-  new StreamClientSession($socket, $addr, $port);
+  StreamClientSession->new($socket, $addr, $port);
 
   # Having a child session causes this session to linger.  To prevent
   # this session from lingering beyond its useful lifetime, it sends
@@ -667,11 +669,11 @@ sub new {
 
   print "$self is being created.\n";
                                         # wrap this object in a POE session
-  new POE::Session( $self,
-                    [ '_start', '_stop',
-                      'got_socket', 'got_message', 'got_error'
-                    ]
-                  );
+  POE::Session->new( $self,
+                     [ '_start', '_stop',
+                       'got_socket', 'got_message', 'got_error'
+                     ]
+                   );
   undef;
 }
 
@@ -680,7 +682,7 @@ sub _start {
 
   print "$object received _start.  Hi!\n";
 
-  $heap->{wheel} = new POE::Wheel::SocketFactory
+  $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( BindAddress    => '127.0.0.1',
       BindPort       => 30001,
       SocketProtocol => 'udp',
@@ -767,11 +769,11 @@ sub new {
 
   print "$self is being created.\n";
 
-  new POE::Session( $self,
-                    [ '_start', '_stop',
-                      'got_socket', 'got_message', 'got_error', 'send_message'
-                    ]
-                  );
+  POE::Session->new( $self,
+                     [ '_start', '_stop',
+                       'got_socket', 'got_message', 'got_error', 'send_message'
+                     ]
+                   );
   undef;
 }
 
@@ -780,7 +782,7 @@ sub _start {
 
   print "$object received _start.  Hi!\n";
 
-  $heap->{wheel} = new POE::Wheel::SocketFactory
+  $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => '127.0.0.1',
       RemotePort     => 30001,
       SocketProtocol => 'udp',
@@ -888,7 +890,7 @@ sub new {
 
   my $self = bless { }, $type;
 
-  new POE::Session( $self,
+  POE::Session->new( $self,
                     [ '_start', '_stop' ]
                   );
   undef;
@@ -901,17 +903,17 @@ sub _start {
 
   print "Bootstrap session is starting.\n";
                                         # start servers
-  new UnixServer();
-  new InetTcpServer();
-  new InetUdpServer();
+  UnixServer->new();
+  InetTcpServer->new();
+  InetUdpServer->new();
                                         # start single clients for testing
-  new UnixClient();
-  new InetTcpClient();
-  new InetUdpClient();
+  UnixClient->new();
+  InetTcpClient->new();
+  InetUdpClient->new();
                                         # start client pools
-  new ClientPool('UnixClient',    10);
-  new ClientPool('InetTcpClient', 10);
-  new ClientPool('InetUdpClient', 10);
+  ClientPool->new('UnixClient',    10);
+  ClientPool->new('InetTcpClient', 10);
+  ClientPool->new('InetUdpClient', 10);
 
   # The only thing keeping this session alive is the presence of child
   # sessions, but this session doesn't do anything with them.  Sending
@@ -941,7 +943,7 @@ sub DESTROY {
 
 package main;
 
-new Bootstrap();
+Bootstrap->new();
 $poe_kernel->run();
 
 exit;

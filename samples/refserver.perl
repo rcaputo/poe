@@ -27,9 +27,9 @@ sub DEBUG { 1 }
 # This is just a convenient way to create responders.
 
 sub responder_create {
-  new POE::Session( _start   => \&responder_start,
-                    respond  => \&responder_respond,
-                  );
+  POE::Session->new( _start   => \&responder_start,
+                     respond  => \&responder_respond,
+                   );
 }
 
 #------------------------------------------------------------------------------
@@ -77,13 +77,14 @@ sub daemon_create {
 
   DEBUG && print "Daemon session created.\n";
 
-  new POE::Session( _start => \&daemon_start,
-                    _stop  => \&daemon_shutdown,
-                    client => \&daemon_client,
-                    error  => \&daemon_error,
-                                        # ARG0
-                    [ $handle ]
-                  );
+  POE::Session->new( _start => \&daemon_start,
+                     _stop  => \&daemon_shutdown,
+                     client => \&daemon_client,
+                     error  => \&daemon_error,
+
+                     # ARG0
+                     [ $handle ]
+                   );
 }
 
 #------------------------------------------------------------------------------
@@ -92,10 +93,10 @@ sub daemon_create {
 sub daemon_start {
   my ($heap, $handle) = @_[HEAP, ARG0];
                                         # start reading and writing
-  $heap->{wheel_client} = new POE::Wheel::ReadWrite
+  $heap->{wheel_client} = POE::Wheel::ReadWrite->new
     ( Handle     => $handle,                    # on this handle
-      Driver     => new POE::Driver::SysRW,     # using sysread and syswrite
-      Filter     => new POE::Filter::Reference(undef,1), # parsing as refs
+      Driver     => POE::Driver::SysRW->new,    # using sysread and syswrite
+      Filter     => POE::Filter::Reference->new, # parsing as refs
       InputState => 'client',           # generate this event on input
       ErrorState => 'error',            # generate this event on error
     );
@@ -108,7 +109,8 @@ sub daemon_start {
 sub daemon_client {
   my ($kernel, $request) = @_[KERNEL, ARG0];
   DEBUG && print "Daemon received a reference.\n";
-                                        # call the Responder daemon to process
+
+  # call the Responder daemon to process
   $kernel->call('Responder', 'respond', $request);
 }
 
@@ -148,10 +150,10 @@ sub daemon_shutdown {
 # and port.
 
 sub server_create {
-  new POE::Session( _start   => \&server_start,
-                    error    => \&server_error,
-                    'accept' => \&server_accept
-                  );
+  POE::Session->new( _start   => \&server_start,
+                     error    => \&server_error,
+                     'accept' => \&server_accept
+                   );
 }
 
 #------------------------------------------------------------------------------
@@ -163,7 +165,7 @@ sub server_start {
 
   DEBUG && print "Server starting.\n";
                                         # create a socket factory
-  $heap->{wheel} = new POE::Wheel::SocketFactory
+  $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( BindPort       => 31338,          # on the eleet++ port
       Reuse          => 'yes',          # and allow immediate reuse of the port
       SuccessState   => 'accept',       # generating this event on connection
@@ -200,6 +202,10 @@ sub server_accept {
 
 &responder_create();
 &server_create();
+
+print( "*** If all goes well, the server will be listening on port 31338.\n",
+       "*** You should then run refsender.perl, which will connect to it.\n",
+     );
 
 $poe_kernel->run();
 

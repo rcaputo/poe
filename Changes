@@ -24,7 +24,7 @@ Version numbers have four fields: X.YYZZAA
   cvs tag -Rc v0_1009 .
 ]
 
-,----- To Do -----
+,----- To Do (actual changes appear afterwards) -----
 |
 | _enqueue_alarm has already tested against the first and last items
 | in the alarm queue by the time it gets to the small and large queue
@@ -43,18 +43,34 @@ Version numbers have four fields: X.YYZZAA
 | server and client.  Ow! Ow! Ow!  PoCo::Client::HTTP would simplify
 | things greatly...
 |
-| Split the samples out into a separate distribution.  POE's
-| distribution tree is over 800 kilobytes!  The samples take up to
-| half of that.
+| Samples, long term: Split them out and turn them into proper
+| tutorials.  They take up a good 300 kilobytes, uncompressed.
+|
+| POE::NFA test.
 |
 | Benchmark index vs. rindex vs. regexp for finding line terminators.
+| Use this to optimize Filter::Line.
 |
-| Real streams.
+| Real streams.  Wheels are getting in the way for more serious
+| applications.
 |
-| Macros and stuff are nice, but they're killing startup time.  What
-| can be done without losing POE's "pure Perl" aspect?
+| How can startup be sped up without going into C?  Macros and stuff
+| are nice, but they're killing startup time.  What can be done
+| without losing POE's "pure Perl" aspect?
 |
-`-----------------
+`----------------------------------------------------
+
+
+0.1110 2000.??.??
+-----------------
+
+Clean-up release, mainly to get ready for 0.12.
+
+Added ARG1 to Wheel::ListenAccept's AcceptState parameter.  This
+contains the accept() call's return address.
+
+Cleaned up and tested the samples.  They all should work with the
+latest version of POE.
 
 
 0.1109 2000.10.30

@@ -101,7 +101,7 @@ sub server_start {
   # count drops to zero, and Perl destroys it for us.  Then it does a
   # little "close the socket" dance inside, and everything is tidy.
 
-  $heap->{listener} = new POE::Wheel::SocketFactory
+  $heap->{listener} = POE::Wheel::SocketFactory->new
     ( BindPort       => 30023,
       Reuse          => 'yes',           # reuse the port right away
       SuccessState   => 'event_success', # event to send on connection
@@ -154,22 +154,23 @@ sub server_accept {
   # but it stays in the same process.  So it's more like threading, I
   # suppose.
 
-  new POE::Session( _start      => \&chat_start, # _start event handler
-                    _stop       => \&chat_stop,  # _stop event handler
-                    line_input  => \&chat_input, # input event handler
-                    io_error    => \&chat_error, # error event handler
-                    out_flushed => \&chat_flush, # flush event handler
-                    hear        => \&chat_heard, # someone said something
+  POE::Session->new
+    ( _start      => \&chat_start, # _start event handler
+      _stop       => \&chat_stop,  # _stop event handler
+      line_input  => \&chat_input, # input event handler
+      io_error    => \&chat_error, # error event handler
+      out_flushed => \&chat_flush, # flush event handler
+      hear        => \&chat_heard, # someone said something
 
-                    # To pass arguments to a session's _start handler,
-                    # include them in an array reference.  For
-                    # example, the following array reference causes
-                    # $accepted_handle, $peer_addr and $peer_port to
-                    # arrive at the chat session's _start event
-                    # handler as ARG0, ARG1 and ARG2, respectively.
+      # To pass arguments to a session's _start handler,
+      # include them in an array reference.  For
+      # example, the following array reference causes
+      # $accepted_handle, $peer_addr and $peer_port to
+      # arrive at the chat session's _start event
+      # handler as ARG0, ARG1 and ARG2, respectively.
 
-                    [ $accepted_socket, $peer_address, $peer_port ]
-                  );
+      [ $accepted_socket, $peer_address, $peer_port ]
+    );
 
   # That's all there is to it.  Take the handle, and start a session
   # to cope with it.  Easy stuff.
@@ -272,10 +273,10 @@ sub chat_start {
   # I/O as lines, and generating events for input, error, and output
   # flushed conditions.
 
-  $heap->{readwrite} = new POE::Wheel::ReadWrite
-    ( Handle       => $accepted_socket,       # read/write on this handle
-      Driver       => new POE::Driver::SysRW, # using sysread and syswrite
-      Filter       => new POE::Filter::Line,  # filtering I/O as lines
+  $heap->{readwrite} = POE::Wheel::ReadWrite->new
+    ( Handle       => $accepted_socket,        # read/write on this handle
+      Driver       => POE::Driver::SysRW->new, # using sysread and syswrite
+      Filter       => POE::Filter::Line->new,  # filtering I/O as lines
       InputState   => 'line_input',     # generate line_input on input
       ErrorState   => 'io_error',       # generate io_error on error
       FlushedState => 'out_flushed',    # geterate out_flushed on flush

@@ -37,12 +37,12 @@ sub session_start {
   my ($kernel, $heap, $accepted_handle, $peer_host, $peer_port) =
     @_[KERNEL, HEAP, ARG0, ARG1, ARG2];
                                         # sysread/syswrite/line-filter
-  $heap->{'wheel'} = new POE::Wheel::ReadWrite
-    ( Handle => $accepted_handle,         # read/write this handle
-      Driver => new POE::Driver::SysRW(), # with sysread and syswrite
-      Filter => new POE::Filter::Line(),  # and parse the data as lines
-      InputState => 'line_input',         # emitting this event for each line
-      ErrorState => 'line_error',         # and this event for each error
+  $heap->{'wheel'} = POE::Wheel::ReadWrite->new
+    ( Handle => $accepted_handle,        # read/write this handle
+      Driver => POE::Driver::SysRW->new, # with sysread and syswrite
+      Filter => POE::Filter::Line->new,  # and parse the data as lines
+      InputState => 'line_input',        # emitting this event for each line
+      ErrorState => 'line_error',        # and this event for each error
     );
                                         # remember the host/port for later
   $heap->{'host'} = $peer_host;
@@ -103,7 +103,7 @@ sub session_error {
 sub server_start {
   my $heap = $_[HEAP];
                                         # create the listening socket
-  my $listener = new IO::Socket::INET
+  my $listener = IO::Socket::INET->new
     ( LocalPort => $rot13_port,
       Listen    => 5,
       Proto     => 'tcp',
@@ -111,7 +111,7 @@ sub server_start {
     );
                                         # if okay, begin listening on it
   if ($listener) {
-    $heap->{'wheel'} = new POE::Wheel::ListenAccept
+    $heap->{'wheel'} = POE::Wheel::ListenAccept->new
       ( Handle      => $listener,
         AcceptState => 'accept_success',
         ErrorState  => 'accept_error'
@@ -151,28 +151,29 @@ sub server_error {
 sub server_accept {
   my $accepted_handle = $_[ARG0];
 
-  my ($peer_host, $peer_port) =
-    ( $accepted_handle->peerhost(),
-      $accepted_handle->peerport()
-    );
+  my ($peer_port, $peer_host) = unpack_sockaddr_in($_[ARG1]);
+  $peer_host = inet_ntoa($peer_host);
 
-  new POE::Session( _start => \&session_start,
-                    _stop => \&session_stop,
-                    line_input => \&session_input,
-                    line_error => \&session_error,
-                                        # ARG0, ARG1, ARG2
-                    [ $accepted_handle, $peer_host, $peer_port ]
-                  );
+  POE::Session->new
+    ( _start => \&session_start,
+      _stop => \&session_stop,
+      line_input => \&session_input,
+      line_error => \&session_error,
+
+      # ARG0, ARG1, ARG2
+      [ $accepted_handle, $peer_host, $peer_port ]
+    );
 }
 
 #==============================================================================
 # Start the server, and run the kernel until it's time to stop.
 
-new POE::Session( _start => \&server_start,
-                  _stop => \&server_stop,
-                  accept_success => \&server_accept,
-                  accept_error => \&server_error,
-                );
+POE::Session->new
+  ( _start => \&server_start,
+    _stop  => \&server_stop,
+    accept_success => \&server_accept,
+    accept_error   => \&server_error,
+  );
 
 $poe_kernel->run();
 

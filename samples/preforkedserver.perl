@@ -28,11 +28,11 @@ sub new {
   my ($type, $socket, $peer_addr, $peer_host) = @_;
   my $self = bless { }, $type;
 
-  new POE::Session( $self,
-                    [ qw( _start _stop command error flushed ) ],
-                                        # ARG0, ARG1, ARG2
-                    [ $socket, $peer_addr, $peer_host ]
-                  );
+  POE::Session->new( $self,
+                     [ qw( _start _stop command error flushed ) ],
+                     # ARG0, ARG1, ARG2
+                     [ $socket, $peer_addr, $peer_host ]
+                   );
   undef;
 }
 
@@ -46,13 +46,13 @@ sub _start {
   $heap->{addr} = $peer_addr;
   $heap->{port} = $peer_port;
                                         # become a reader/writer
-  $heap->{wheel} = new POE::Wheel::ReadWrite
-    ( Handle       => $socket,                # on this socket
-      Driver       => new POE::Driver::SysRW, # using sysread and syswrite
-      Filter       => new POE::Filter::Line,  # parsing I/O as lines
-      InputState   => 'command',              # generating this event on input
-      ErrorState   => 'error',                # generating this event on error
-      FlushedState => 'flushed'               # generating this event on flush
+  $heap->{wheel} = POE::Wheel::ReadWrite->new
+    ( Handle       => $socket,                 # on this socket
+      Driver       => POE::Driver::SysRW->new, # using sysread and syswrite
+      Filter       => POE::Filter::Line->new,  # parsing I/O as lines
+      InputState   => 'command',               # generating this event on input
+      ErrorState   => 'error',                 # generating this event on error
+      FlushedState => 'flushed'                # generating this event on flush
     );
 
   DEBUG &&
@@ -126,11 +126,11 @@ sub new {
   my ($type, $processes) = @_;
   my $self = bless { }, $type;
 
-  new POE::Session( $self,
-                    [ qw(_start _stop fork retry signal connection) ],
-                                        # ARG0
-                    [ $processes ]
-                  );
+  POE::Session->new( $self,
+                     [ qw(_start _stop fork retry signal connection) ],
+                     # ARG0
+                     [ $processes ]
+                   );
   undef;
 }
 
@@ -140,7 +140,7 @@ sub new {
 sub _start {
   my ($kernel, $heap, $processes) = @_[KERNEL, HEAP, ARG0];
                                         # create a socket factory
-  $heap->{wheel} = new POE::Wheel::SocketFactory
+  $heap->{wheel} = POE::Wheel::SocketFactory->new
     ( BindPort       => 8888,           # bind on this port
       SuccessState   => 'connection',   # generate this event for connections
       FailureState   => 'error'         # generate this event for errors
@@ -185,17 +185,17 @@ sub fork {
                                         # children should not honor this event
   return if ($heap->{'is a child'});
                                         # try to fork
-  my ($pid, $errno, $errstr) = $kernel->fork();
+  my $pid = fork();
                                         # did the fork fail?
   unless (defined($pid)) {
                                         # try again later, if a temporary error
-    if (($errno == EAGAIN) || ($errno == ECHILD)) {
+    if (($! == EAGAIN) || ($! == ECHILD)) {
       $heap->{'failed forks'}++;
       $kernel->delay('retry', 1);
     }
                                         # fail permanently, if fatal
     else {
-      warn "Can't fork: $errstr\n";
+      warn "Can't fork: $!\n";
       $kernel->yield('_stop');
     }
     return;
@@ -274,7 +274,7 @@ sub connection {
   DEBUG &&
     print "$$: server received a connection from $peer_addr : $peer_port\n";
 
-  new PreforkedSession($socket, $peer_addr, $peer_port);
+  PreforkedSession->new($socket, $peer_addr, $peer_port);
 
   # Stop child sessions after a certain number of connections have
   # been handled.  This enables the program to test SIGCHLD handling
@@ -294,7 +294,9 @@ sub connection {
 
 package main;
 
-new PreforkedServer(5);
+PreforkedServer->new(5);
+
+print "*** If all goes well, there should be an echo server on port 8888.\n";
 
 $poe_kernel->run();
 

@@ -28,13 +28,13 @@ use POE qw(Wheel::SocketFactory
 # This is a standardized way to create clients.
 
 sub client_create {
-  new POE::Session( _start    => \&client_start,
-                    _stop     => \&client_stop,
-                    connected => \&client_connected,
-                    error     => \&client_error,
-                    received  => \&client_receive,
-                    flushed   => \&client_flushed
-                  );
+  POE::Session->new( _start    => \&client_start,
+                     _stop     => \&client_stop,
+                     connected => \&client_connected,
+                     error     => \&client_error,
+                     received  => \&client_receive,
+                     flushed   => \&client_flushed
+                   );
 }
 
 #------------------------------------------------------------------------------
@@ -46,7 +46,7 @@ sub client_start {
 
   print "Client starting.\n";
                                         # create a socket factory
-  $heap->{'wheel'} = new POE::Wheel::SocketFactory
+  $heap->{'wheel'} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => '127.0.0.1',    # connect to this address
       RemotePort     => 31338,          # connect to this port (eleet++)
       SuccessState   => 'connected',    # generating this event on success
@@ -71,11 +71,14 @@ sub client_connected {
   my ($heap, $socket) = @_[HEAP, ARG0];
 
   print "Client connected.\n";
-                                        # become a reader/writer
-  $heap->{'wheel'} = new POE::Wheel::ReadWrite
+  
+  # Become a reader/writer.  It's important to destroy the old wheel
+  # before creating the new one.
+  delete $heap->{wheel};
+  $heap->{'wheel'} = POE::Wheel::ReadWrite->new
     ( Handle       => $socket,                    # read/write on this handle
-      Driver       => new POE::Driver::SysRW,     # using sysread and syswrite
-      Filter       => new POE::Filter::Reference(undef,1), # parsing refs
+      Driver       => POE::Driver::SysRW->new,    # using sysread and syswrite
+      Filter       => POE::Filter::Reference->new, # parsing refs
       InputState   => 'received',                 # generating this on input
       ErrorState   => 'error',                    # generating this on error
       FlushedState => 'flushed',                  # generating this on flush
@@ -160,6 +163,12 @@ sub client_flushed {
 # Create a client, and run things until it's time to stop.
 
 &client_create();
+
+print( "*** If all goes well, this will send some arbitrary Perl data to a\n",
+       "*** previously started refserver.perl process.  The refserver will\n",
+       "*** display what it receives.\n",
+     );
+
 $poe_kernel->run();
 
 exit;

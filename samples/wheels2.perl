@@ -27,11 +27,11 @@ sub session_start {
 
   print "Connecting...\n";
 
-  $heap->{connector} = new POE::Wheel::SocketFactory
+  $heap->{connector} = POE::Wheel::SocketFactory->new
     ( RemoteAddress => '127.0.0.1',
-      RemotePort => $rot13_port,
-      SuccessState => 'connect_success',
-      FailureState => 'connect_failure',
+      RemotePort    => $rot13_port,
+      SuccessState  => 'connect_success',
+      FailureState  => 'connect_failure',
     );
 }
 
@@ -46,19 +46,19 @@ sub session_connect_success {
 
   delete $heap->{connector};
 
-  $heap->{console_wheel} = new POE::Wheel::ReadWrite
-    ( InputHandle => \*STDIN,
+  $heap->{console_wheel} = POE::Wheel::ReadWrite->new
+    ( InputHandle  => \*STDIN,
       OutputHandle => \*STDOUT,
-      Driver => new POE::Driver::SysRW(),
-      Filter => new POE::Filter::Stream(),
+      Driver => POE::Driver::SysRW->new,
+      Filter => POE::Filter::Stream->new,
       InputState => 'console_input',
       ErrorState => 'console_error',
     );
 
-  $heap->{socket_wheel} = new POE::Wheel::ReadWrite
+  $heap->{socket_wheel} = POE::Wheel::ReadWrite->new
     ( Handle => $connected_socket,
-      Driver => new POE::Driver::SysRW(),
-      Filter => new POE::Filter::Stream(),
+      Driver => POE::Driver::SysRW->new,
+      Filter => POE::Filter::Stream->new,
       InputState => 'socket_input',
       ErrorState => 'socket_error',
     );
@@ -135,7 +135,7 @@ sub session_socket_error {
 # Start the Session, which will fire off the _start event and begin
 # the connection.
 
-new POE::Session
+POE::Session->new
   ( _start => \&session_start,
     _stop  => \&session_stop,
 

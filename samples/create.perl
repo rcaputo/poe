@@ -142,7 +142,7 @@ sub main_start {
   foreach my $name (qw(one two three four five)) {
                                         # stupid scope trick, part 3 of 3 parts
     $session_name = $name;
-    my $session = create POE::Session
+    my $session = POE::Session->create
       ( inline_states =>
         { _start      => \&child_start,
           _stop       => \&child_stop,
@@ -166,7 +166,7 @@ sub main_start {
     # stupid scope trick, part 4 of 3 parts (that just shows you how
     # stupid it is)
     $session_name = $name;
-    my $session = create POE::Session
+    my $session = POE::Session->create
       ( object_states =>
         [ new Counter, [ '_start', '_stop',
                          'increment', 'display_one', 'display_two',

@@ -148,7 +148,7 @@ sub main_start {
   foreach my $name (qw(one two three four five six seven eight nine ten)) {
                                         # stupid scope trick, part 3 of 3 parts
     $session_name = $name;
-    my $session = new POE::Session
+    my $session = POE::Session->new
       ( _start      => \&child_start,
         _stop       => \&child_stop,
         increment   => \&child_increment,
@@ -197,7 +197,7 @@ sub main_child {
 # Start the main (parent) session, and begin processing events.
 # Kernel::run() will continue until there is nothing left to do.
 
-new POE::Session
+POE::Session->new
   ( _start => \&main_start,
     _stop  => \&main_stop,
     _child => \&main_child,

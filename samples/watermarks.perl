@@ -186,7 +186,14 @@ sub poe_resume {
 
 package main;
 
-new Chargen::Server;
+print( "*** If all goes well, a watermarked (self-throttling) chargen\n",
+       "*** service will be listening on localhost port 32019.  You can\n",
+       "*** watch it perform flow control by connecting to it over a slow\n",
+       "*** connection or with a client you can pause.  The server will\n",
+       "*** throttle itself when its output buffer becomes too large, and\n",
+       "*** it will resume output when the client receives enough data.\n",
+     );
+Chargen::Server->new;
 $poe_kernel->run();
 
 exit;

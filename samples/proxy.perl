@@ -45,18 +45,19 @@ my @redirects =
 sub session_create {
   my ($handle, $peer_host, $peer_port, $remote_addr, $remote_port) = @_;
 
-  new POE::Session( _start         => \&session_start,
-                    _stop          => \&session_stop,
-                    client_input   => \&session_client_input,
-                    client_error   => \&session_client_error,
-                    server_connect => \&session_server_connect,
-                    server_input   => \&session_server_input,
-                    server_error   => \&session_server_error,
-                                        # ARG0, ARG1, ARG2, ARG3, ARG4
-                    [ $handle, $peer_host, $peer_port,
-                      $remote_addr, $remote_port
-                    ]
-                  );
+  POE::Session->new( _start         => \&session_start,
+                     _stop          => \&session_stop,
+                     client_input   => \&session_client_input,
+                     client_error   => \&session_client_error,
+                     server_connect => \&session_server_connect,
+                     server_input   => \&session_server_input,
+                     server_error   => \&session_server_error,
+
+                     # ARG0, ARG1, ARG2, ARG3, ARG4
+                     [ $handle, $peer_host, $peer_port,
+                       $remote_addr, $remote_port
+                     ]
+                   );
 }
 
 #------------------------------------------------------------------------------
@@ -80,15 +81,15 @@ sub session_start {
   $heap->{state} = 'connecting';
   $heap->{queue} = [];
 
-  $heap->{wheel_client} = new POE::Wheel::ReadWrite
+  $heap->{wheel_client} = POE::Wheel::ReadWrite->new
     ( Handle     => $socket,
-      Driver     => new POE::Driver::SysRW,
-      Filter     => new POE::Filter::Stream,
+      Driver     => POE::Driver::SysRW->new,
+      Filter     => POE::Filter::Stream->new,
       InputState => 'client_input',
       ErrorState => 'client_error',
     );
 
-  $heap->{wheel_server} = new POE::Wheel::SocketFactory
+  $heap->{wheel_server} = POE::Wheel::SocketFactory->new
     ( RemoteAddress  => $remote_addr,
       RemotePort     => $remote_port,
       SuccessState   => 'server_connect',
@@ -167,10 +168,10 @@ sub session_server_connect {
   # It might be cleaner just to have three different wheels in this
   # session, but I originally was trying to be clever.
 
-  $heap->{wheel_server} = new POE::Wheel::ReadWrite
+  $heap->{wheel_server} = POE::Wheel::ReadWrite->new
     ( Handle     => $socket,
-      Driver     => new POE::Driver::SysRW,
-      Filter     => new POE::Filter::Stream,
+      Driver     => POE::Driver::SysRW->new,
+      Filter     => POE::Filter::Stream->new,
       InputState => 'server_input',
       ErrorState => 'server_error',
     );
@@ -217,15 +218,16 @@ sub session_server_error {
 sub server_create {
   my ($local_address, $local_port, $remote_address, $remote_port) = @_;
 
-  new POE::Session( _start         => \&server_start,
-                    _stop          => \&server_stop,
-                    accept_success => \&server_accept_success,
-                    accept_failure => \&server_accept_failure,
-                                        # ARG0, ARG1, ARG2, ARG3
-                    [ $local_address,  $local_port,
-                      $remote_address, $remote_port
-                    ]
-                  );
+  POE::Session->new( _start         => \&server_start,
+                     _stop          => \&server_stop,
+                     accept_success => \&server_accept_success,
+                     accept_failure => \&server_accept_failure,
+
+                     # ARG0, ARG1, ARG2, ARG3
+                     [ $local_address,  $local_port,
+                       $remote_address, $remote_port
+                     ]
+                   );
 }
 
 #------------------------------------------------------------------------------
@@ -243,7 +245,7 @@ sub server_start {
   $heap->{remote_addr} = $remote_addr;
   $heap->{remote_port} = $remote_port;
                                         # create a socket factory
-  $heap->{server_wheel} = new POE::Wheel::SocketFactory
+  $heap->{server_wheel} = POE::Wheel::SocketFactory->new
     ( BindAddress    => $local_addr,      # bind to this address
       BindPort       => $local_port,      # and bind to this port
       Reuse          => 'yes',            # reuse immediately

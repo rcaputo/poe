@@ -26,9 +26,8 @@ sub udp_server_start {
   warn "server: starting\n";
 
   if (defined 
-      ($heap->{socket_handle} = new IO::Socket::INET( Proto => 'udp',
-                                                      LocalPort => UDP_PORT
-                                                    )
+      ($heap->{socket_handle} =
+       IO::Socket::INET->new( Proto => 'udp', LocalPort => UDP_PORT )
       )
      ) {
     $kernel->select_read($heap->{socket_handle}, 'select_read');
@@ -89,7 +88,7 @@ sub udp_client_start {
 
   warn "client: starting\n";
 
-  my $socket = new IO::Socket::INET( Proto => 'udp' );
+  my $socket = IO::Socket::INET->new( Proto => 'udp' );
 
   if (defined $socket) {
     $heap->{socket_handle} = $socket;
@@ -155,7 +154,7 @@ sub udp_client_error {
 # Main loop.
 
 # This is the server session.
-create POE::Session
+POE::Session->create
   ( inline_states =>
     { _start          => \&udp_server_start,
       _stop           => \&udp_server_stop,
@@ -168,7 +167,7 @@ create POE::Session
   );
 
 # This is the client session.
-create POE::Session
+POE::Session->create
   ( inline_states =>
     { _start            => \&udp_client_start,
       _stop             => \&udp_client_stop,

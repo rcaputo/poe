@@ -32,19 +32,19 @@ for my $j (0..9) {
                                         # track the names for later cleanup
   push @names, $name;
                                         ### create a log writer
-  new POE::Session
+  POE::Session->new
     ( '_start' => sub
       { my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
                                         # save my ID
         $heap->{'id'} = $i;
                                         # create the "log" file
-        my $handle = new IO::File(">$name");
+        my $handle = IO::File->new(">$name");
         if (defined $handle) {
                                         # create non-blocking write-only wheel
-          $heap->{'wheel'} = new POE::Wheel::ReadWrite
+          $heap->{'wheel'} = POE::Wheel::ReadWrite->new
             ( Handle     => $handle,                  # using this handle
-              Driver     => new POE::Driver::SysRW(), # using syswrite
-              Filter     => new POE::Filter::Line(),  # write lines
+              Driver     => POE::Driver::SysRW->new,  # using syswrite
+              Filter     => POE::Filter::Line->new,   # write lines
               ErrorState => 'log_error'               # acknowledge errors
             );
 
@@ -81,17 +81,17 @@ for my $j (0..9) {
       }
     );
                                         ### create a log follower
-  new POE::Session
+  POE::Session->new
     ( '_start' => sub
       { my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
         $heap->{'id'} = $i;
                                         # try to open the file
-        if (defined(my $handle = new IO::File("<$name"))) {
+        if (defined(my $handle = IO::File->new("<$name"))) {
                                         # start following the file's tail
-          $heap->{'wheel'} = new POE::Wheel::FollowTail
+          $heap->{'wheel'} = POE::Wheel::FollowTail->new
             ( 'Handle' => $handle,                  # follow this handle
-              'Driver' => new POE::Driver::SysRW(), # use sysread to read
-              'Filter' => new POE::Filter::Line(),  # file contains lines
+              'Driver' => POE::Driver::SysRW->new,  # use sysread to read
+              'Filter' => POE::Filter::Line->new,   # file contains lines
               'InputState' => 'got a line',         # input handler
               'ErrorState' => 'error reading',      # error handler
               'PollInterval' => 2,
@@ -145,8 +145,8 @@ for my $j (0..9) {
 # second.  It does this to ensure that the other twenty sessions are
 # not blocking while waiting for input.
 
-new POE::Session
-  ( '_start' => sub
+POE::Session->new
+  ( _start => sub
     { my ($kernel, $session) = @_[KERNEL, SESSION];
       $kernel->post($session, 'spin a wheel');
     },

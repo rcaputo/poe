@@ -9,6 +9,10 @@
 # forever.  Aliases are mainly useful for creating "daemon" sessions
 # that can be called upon by other sessions.
 
+# This example is kind of obsolete.  Session postbacks have been
+# created in the meantime, allowing it to totally avoid the kludgey
+# timer loops.
+
 use strict;
 use lib '..';
 use POE;
@@ -33,7 +37,7 @@ sub new {
                                         # hello, world!
   print "> $self created\n";
                                         # give this object to POE
-  new POE::Session($self, [ qw(_start _stop lock unlock sighandler) ]);
+  POE::Session->new($self, [ qw(_start _stop lock unlock sighandler) ]);
 
   # Don't let the caller have a reference.  It's not very nice, but it
   # also prevents the caller from holding onto the reference and
@@ -172,14 +176,14 @@ sub new {
                                         # hello, world!
   print "> $self created\n";
                                         # give this object to POE
-  new POE::Session( $self,
-                    [ qw(_start _stop
+  POE::Session->new( $self,
+                     [ qw(_start _stop
                          acquire_lock retry_acquire
                          release_lock retry_release
                          perform_locked_operation perform_unlocked_operation
                         )
-                    ]
-                  );
+                     ]
+                   );
                                         # it will manage itself, thank you
   undef;
 }
@@ -303,9 +307,9 @@ sub perform_unlocked_operation {
 
 package main;
                                         # start the lock daemon
-new LockDaemon();
+LockDaemon->new();
                                         # start the clients
-foreach (1..5) { new LockClient($_); }
+foreach (1..5) { LockClient->new($_); }
                                         # run until it's time to stop
 $poe_kernel->run();
 
