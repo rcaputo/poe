@@ -261,8 +261,14 @@ BEGIN {
   }
 
   if (exists $INC{'Tk.pm'}) {
-    require POE::Loop::Tk;
-    POE::Loop::Tk->import();
+    if ($^O eq 'MSWin32') {
+      require POE::Loop::TkActiveState;
+      POE::Loop::TkActiveState->import();
+    }
+    else {
+      require POE::Loop::Tk;
+      POE::Loop::Tk->import();
+    }
   }
 
   if (exists $INC{'Event.pm'}) {
