@@ -1,10 +1,11 @@
-# $Id$
 CHANGES
+HISTORY
 MANIFEST
 MANIFEST.SKIP
 Makefile.PL
 NEEDS
 POE.pm
+POE/API/ResLoader.pm
 POE/Component.pm
 POE/Component/Client/TCP.pm
 POE/Component/Server/TCP.pm
@@ -43,6 +44,7 @@ POE/Resource/FileHandles.pm
 POE/Resource/SIDs.pm
 POE/Resource/Sessions.pm
 POE/Resource/Signals.pm
+POE/Resources.pm
 POE/Session.pm
 POE/Wheel.pm
 POE/Wheel/Curses.pm
@@ -66,8 +68,10 @@ lib/Test/Harness/Iterator.pm
 lib/Test/Harness/Straps.pm
 lib/TestSetup.pm
 lib/coverage.perl
+lib/cpan-test.perl
 lib/cvs-log.perl
 lib/deptest.perl
+lib/events_per_second.pl
 lib/reportupload.pl
 lib/testreport.pl
 samples/create.perl
@@ -92,6 +96,7 @@ samples/selects.perl
 samples/sessions.perl
 samples/signals.perl
 samples/socketfactory.perl
+samples/tcp_watermarks.perl
 samples/thrash.perl
 samples/tk.perl
 samples/tutorial-chat.perl
@@ -132,3 +137,4 @@ t/28_windows.t
 t/29_sockfact6.t
 t/res/aliases.t
 t/res/extrefs.t
+t/res/sids.t
