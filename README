@@ -153,7 +153,7 @@ Event   : 0.79
 IO::Pty : 0.01
 
 All tests successful, 2 tests skipped.
-Files=24, Tests=438, 100 wallclock secs (15.85 cusr +  0.81 csys = 16.66 CPU)
+Files=24, Tests=438, 75 wallclock secs (15.56 cusr +  0.83 csys = 16.39 CPU)
 
 ** POE 0.1205 on Solaris/SunOS 5.7 (hfb)
 
@@ -213,23 +213,25 @@ libraries installed.
   POE/Driver/SysRW.pm                 =    42 /    54 =  77.78%
   POE/Filter.pm                       =     5 /     5 = 100.00%
   POE/Filter/Block.pm                 =    37 /    37 = 100.00%
-  POE/Filter/HTTPD.pm                 =    11 /    88 =  12.50%
-  POE/Filter/Line.pm                  =    77 /    82 =  93.90%
+  POE/Filter/HTTPD.pm                 =    11 /    89 =  12.36%
+  POE/Filter/Line.pm                  =    79 /    84 =  94.05%
   POE/Filter/Reference.pm             =    60 /    66 =  90.91%
   POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-  POE/Kernel.pm                       =   572 /   815 =  70.18%
-  POE/NFA.pm                          =    74 /   157 =  47.13%
+  POE/Kernel.pm                       =   664 /   867 =  76.59%
+  POE/Kernel/Event.pm                 =     1 /     9 =  11.11%
+  POE/Kernel/Select.pm                =     6 /    12 =  50.00%
+  POE/NFA.pm                          =    76 /   160 =  47.50%
   POE/Pipe/OneWay.pm                  =    20 /    39 =  51.28%
   POE/Pipe/TwoWay.pm                  =    23 /    43 =  53.49%
-  POE/Preprocessor.pm                 =   147 /   167 =  88.02%
-  POE/Session.pm                      =   126 /   181 =  69.61%
+  POE/Preprocessor.pm                 =   155 /   187 =  82.89%
+  POE/Session.pm                      =   148 /   203 =  72.91%
   POE/Wheel.pm                        =    11 /    11 = 100.00%
-  POE/Wheel/FollowTail.pm             =    75 /    96 =  78.12%
-  POE/Wheel/ListenAccept.pm           =    39 /    53 =  73.58%
-  POE/Wheel/ReadWrite.pm              =   111 /   188 =  59.04%
-  POE/Wheel/Run.pm                    =   141 /   239 =  59.00%
-  POE/Wheel/SocketFactory.pm          =   197 /   234 =  84.19%
-  All Told                            =  1838 /  2626 =  69.99%
+  POE/Wheel/FollowTail.pm             =    75 /    97 =  77.32%
+  POE/Wheel/ListenAccept.pm           =    39 /    55 =  70.91%
+  POE/Wheel/ReadWrite.pm              =   113 /   194 =  58.25%
+  POE/Wheel/Run.pm                    =   142 /   243 =  58.44%
+  POE/Wheel/SocketFactory.pm          =   203 /   241 =  84.23%
+  All Told                            =  1980 /  2767 =  71.56%
 
 Thanks for reading!
 
