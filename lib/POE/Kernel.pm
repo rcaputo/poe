@@ -523,6 +523,53 @@ my %_signal_types =
     UIDESTROY => SIGTYPE_NONMASKABLE,
   );
 
+# Build a list of useful, real signals.  Nonexistent signals, and ones
+# which are globally unhandled, usually cause segmentation faults if
+# perl was poorly configured.  Some signals aren't available in some
+# environments.
+
+my @_safe_signals;
+
+sub _data_sig_initialize {
+  my $self = shift;
+
+  # In case we're called multiple times.
+  unless (@_safe_signals) {
+    foreach my $signal (keys %SIG) {
+
+      # Nonexistent signals, and ones which are globally unhandled.
+      next if ($signal =~ /^( NUM\d+
+                              |__[A-Z0-9]+__
+                              |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
+                              |RTMIN|RTMAX|SETS
+                              |SEGV
+                              |
+                            )$/x
+              );
+
+      # Windows doesn't have a SIGBUS, but the debugger causes SIGBUS
+      # to be entered into %SIG.  It's fatal to register its handler.
+      next if $signal eq 'BUS' and RUNNING_IN_HELL;
+
+      # Apache uses SIGCHLD and/or SIGCLD itself, so we can't.
+      next if $signal =~ /^CH?LD$/ and exists $INC{'Apache.pm'};
+
+      push @_safe_signals, $signal;
+    }
+  }
+
+  # Regsiter handlers for all safe signals.
+  foreach (@_safe_signals) {
+    $self->loop_watch_signal($_);
+  }
+}
+
+### Return signals that are safe to manipulate.
+
+sub _data_sig_get_safe_signals {
+  return @_safe_signals;
+}
+
 ### End-run leak checking.
 
 sub _data_sig_finalize {
@@ -2226,7 +2273,7 @@ sub new {
 
     # Start the Kernel's session.
     $self->_initialize_kernel_session();
-    $self->_initialize_kernel_signals();
+    $self->_data_sig_initialize();
   }
 
   # Return the global instance.
@@ -2549,46 +2596,14 @@ sub _initialize_kernel_session {
   $self->_data_ses_allocate($self, $self->[KR_ID], undef);
 }
 
-# Regsiter all known signal handlers, except the troublesome ones.
-# "Troublesome" signals are the ones which aren't really signals, are
-# uncatchable, are improperly implemented on a given platform, or are
-# already being handled by the runtime environment.
-
-sub _initialize_kernel_signals {
-  my $self = shift;
-
-  foreach my $signal (keys(%SIG)) {
-
-    # Nonexistent signals, and ones which are globally unhandled.
-    next if ($signal =~ /^( NUM\d+
-                            |__[A-Z0-9]+__
-                            |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
-                            |RTMIN|RTMAX|SETS
-                            |SEGV
-                            |
-                          )$/x
-            );
-
-    # Windows doesn't have a SIGBUS, but the debugger causes SIGBUS to
-    # be entered into %SIG.  It's fatal to register its handler.
-    next if $signal eq 'BUS' and RUNNING_IN_HELL;
-
-    # Apache uses SIGCHLD and/or SIGCLD itself, so we can't.
-    next if $signal =~ /^CH?LD$/ and exists $INC{'Apache.pm'};
-
-    # The signal is good.  Register a handler for it with the loop.
-    $self->loop_watch_signal($signal);
-  }
-}
-
 # Do post-run cleanup.
 
 sub finalize_kernel {
   my $self = shift;
 
   # Disable signal watching since there's now no place for them to go.
-  foreach my $signal (keys %SIG) {
-    $self->loop_ignore_signal($signal);
+  foreach ($self->_data_sig_get_safe_signals()) {
+    $self->loop_ignore_signal($_);
   }
 
   # The main loop is done, no matter which event library ran it.
@@ -2784,7 +2799,7 @@ sub session_alloc {
   if ($kr_run_warning & KR_RUN_DONE) {
     $kr_run_warning &= ~KR_RUN_DONE;
     $self->_initialize_kernel_session();
-    $self->_initialize_kernel_signals();
+    $self->_data_sig_initialize();
   }
 
   confess "<ss> ", $self->_data_alias_loggable($session), " already exists\a"

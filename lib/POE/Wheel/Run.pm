@@ -290,7 +290,8 @@ sub new {
     # Reset all signals in the child process.  POE's own handlers are
     # silly to keep around in the child process since POE won't be
     # using them.
-    @SIG{keys %SIG} = ("DEFAULT") x (keys %SIG);
+    my @safe_signals = $poe_kernel->_data_sig_get_safe_signals();
+    @SIG{@safe_signals} = ("DEFAULT") x @safe_signals;
 
     # -><- How to pass events to the parent process?  Maybe over a
     # expedited (OOB) filehandle.
