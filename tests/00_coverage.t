@@ -55,6 +55,12 @@ sub load_required_module {
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
 &load_required_module( 1, 'POE'); # includes POE::Kernel and POE::Session
+
+# Avoid two warnings.  First, that run() wasn't called; second, that
+# $POE::Kernel::poe_kernel was only used once.
+$POE::Kernel::poe_kernel->run();
+$POE::Kernel::poe_kernel->run();
+
 &load_required_module( 2, 'POE::NFA');
 &load_required_module( 3, 'POE::Filter::Line');
 &load_required_module( 4, 'POE::Filter::Stream');
