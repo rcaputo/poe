@@ -1896,6 +1896,9 @@ sub alarm_set {
 # outright if there's a problem because its parameters have been
 # verified good before it's called.  Failure is not an option here.
 
+# A lot of the code here is duplicated in _enqueue_event.  Macro-ize
+# it, or otherwise combine the two functions.
+
 # THIS IS A STATIC FUNCTION!
 
 sub _event_find {
