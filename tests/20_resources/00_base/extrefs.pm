@@ -3,7 +3,7 @@
 use strict;
 
 use lib qw(./mylib ./lib);
-use Test::More qw(no_plan);
+use Test::More tests => 29;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
