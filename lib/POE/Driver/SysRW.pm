@@ -32,7 +32,7 @@ sub new {
       croak "$type requires an even number of parameters, if any";
     }
     my %args = @_;
-    if (exists $args{BlockSize}) {
+    if (defined $args{BlockSize}) {
       $self->[BLOCK_SIZE] = delete $args{BlockSize};
       croak "$type BlockSize must be greater than 0"
         if ($self->[BLOCK_SIZE]<1);

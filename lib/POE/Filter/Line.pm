@@ -25,22 +25,22 @@ sub new {
   my %params = @_;
 
   croak "$type cannot have both Regexp and Literal line endings"
-    if exists $params{Regexp} and exists $params{Literal};
+    if defined $params{Regexp} and defined $params{Literal};
 
   my ($input_regexp, $output_literal);
   my $autodetect = AUTO_STATE_DONE;
 
   # Literal newline for both incoming and outgoing.  Every other known
   # parameter conflicts with this one.
-  if (exists $params{Literal}) {
+  if (defined $params{Literal}) {
     croak "Literal must be defined and have a nonzero length"
       unless defined($params{Literal}) and length($params{Literal});
     $input_regexp   = quotemeta $params{Literal};
     $output_literal = $params{Literal};
     croak "$type cannot have Literal with any other parameter"
-      if ( exists $params{InputLiteral } or
-           exists $params{InputRegexp  } or
-           exists $params{OutputLiteral}
+      if ( exists $params{InputLiteral} or # undef means something
+           defined $params{InputRegexp} or
+           defined $params{OutputLiteral}
          );
   }
 
@@ -63,18 +63,18 @@ sub new {
       }
 
       croak "$type cannot have both InputLiteral and InputRegexp"
-        if exists $params{InputRegexp};
+        if defined $params{InputRegexp};
     }
-    elsif (exists $params{InputRegexp}) {
+    elsif (defined $params{InputRegexp}) {
       $input_regexp = $params{InputRegexp};
       croak "$type cannot have both InputLiteral and InputRegexp"
-        if exists $params{InputLiteral};
+        if defined $params{InputLiteral};
     }
     else {
       $input_regexp = "(\\x0D\\x0A?|\\x0A\\x0D?)";
     }
 
-    if (exists $params{OutputLiteral}) {
+    if (defined $params{OutputLiteral}) {
       $output_literal = $params{OutputLiteral};
     }
     else {

@@ -61,16 +61,31 @@ Version numbers have four fields: X.YYZZAA
 `----------------------------------------------------
 
 
-0.1110 2000.??.??
+0.1110 2000.11.11
 -----------------
-
-Clean-up release, mainly to get ready for 0.12.
 
 Added ARG1 to Wheel::ListenAccept's AcceptState parameter.  This
 contains the accept() call's return address.
 
 Cleaned up and tested the samples.  They all should work with the
 latest version of POE.
+
+The InterMezzo team contributed &POE::Kernel::select_pause_read() and
+&POE::Kernel::select_resume_read().  Added and documented them.
+
+The InterMezzo team contributed &POE::Kernel::get_active_session() and
+&POE::Session::get_heap().  Added and documented them.
+
+(!!!) The InterMezzo team suggested replacing exists() parameter
+checks with defined().  The change will make undefined parameters (in
+the form C<Parameter => undef>) look like they were not passed.  This
+simplifies code in some cases while not complicating it anywhere.  In
+most cases, this change should not alter the way existing code
+behaves.  It's sweeping enough, however, than I've marked it
+compatibility-breaking just in case.  Modules affected: FollowTail.pm;
+ListenAccept.pm; ReadWrite.pm; SocketFactory.pm; Block.pm; Line.pm;
+SysRW.pm.  Note, however, than undefined InputLiteral in the Line
+filter has a special meaning, so its exists() check was retained.
 
 
 0.1109 2000.10.30

@@ -17,7 +17,7 @@ sub new {
   my %params = @_;
 
   my $block_size = $params{BlockSize};
-  if (exists($params{BlockSize}) and defined($block_size)) {
+  if (defined($params{BlockSize}) and defined($block_size)) {
     croak "$type doesn't support zero or negative block sizes"
       if $block_size < 1;
   }

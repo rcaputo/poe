@@ -22,8 +22,8 @@ sub new {
 
   croak "$type requires a working Kernel" unless defined $poe_kernel;
 
-  croak "Handle required"      unless exists $params{Handle};
-  croak "AcceptState required" unless exists $params{AcceptState};
+  croak "Handle required"      unless defined $params{Handle};
+  croak "AcceptState required" unless defined $params{AcceptState};
 
   my $self = bless { handle        => $params{Handle},
                      event_accept  => $params{AcceptState},

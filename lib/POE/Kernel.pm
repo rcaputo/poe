@@ -528,8 +528,8 @@ sub _poe_signal_handler_pipe {
 # SIGCH?LD are normalized to SIGCHLD and include the child process'
 # PID and return code.  Philip Gwyn rewrote most of the SIGCH?LD code
 # for version 0.1006; it got rewritten again while the patches were
-# manually applied.  I expect it to be rewritten a few more times to
-# fix Philip's code back the way it ought to be.
+# manually applied.  I expect it to be rewritten a few more times as
+# it approaches Philip's original code.
 
 sub _poe_signal_handler_child {
   if (defined $_[0]) {
@@ -2039,6 +2039,11 @@ sub assert_gc_refcount {
   }
 }
 
+sub get_active_session {
+  my $self = shift;
+  return $self->[KR_ACTIVE_SESSION];
+}
+
 #==============================================================================
 # EVENTS
 #==============================================================================
@@ -2873,6 +2878,84 @@ sub select_resume_write {
   return 1;
 }
 
+# Turn off a handle's read vector bit without doing garbage-collection
+# things.
+sub select_pause_read {
+  my ($self, $handle) = @_;
+
+  {% validate_handle $handle, VEC_RD %}
+
+  # Turn off the select vector's read bit for us.  We don't do any
+  # housekeeping since we're only pausing the handle.  It's assumed
+  # that we'll resume it again at some point.
+
+  vec($self->[KR_VECTORS]->[VEC_RD], fileno($handle), 1) = 0;
+
+  if (POE_USES_GTK) { # include
+
+    my $kr_handle = $self->[KR_HANDLES]->{$handle};
+
+    Gtk::Gdk->input_remove( $kr_handle->[HND_WATCHERS]->[VEC_RD] );
+    $kr_handle->[HND_WATCHERS]->[VEC_RD] = undef;
+
+  } elsif (POE_USES_TK) { # include
+
+    $poe_main_window->fileevent
+      ( $handle,
+        'readable',
+        ''
+      );
+
+  } elsif (POE_USES_EVENT) { # include
+
+    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD]->stop();
+
+  } # include
+
+  return 0;
+}
+
+# Turn on a handle's read vector bit without doing garbage-collection
+# things.
+sub select_resume_read {
+  my ($self, $handle) = @_;
+
+  {% validate_handle $handle, VEC_RD %}
+
+  # Turn the select vector's read bit back on.  Resume whatever
+  # watcher whichever event loop needs.
+
+  vec($self->[KR_VECTORS]->[VEC_RD], fileno($handle), 1) = 1;
+
+  if (POE_USES_GTK) { # include
+
+    my $kr_handle = $self->[KR_HANDLES]->{$handle};
+
+    confess "resuming unpaused handle"
+      if defined $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD];
+
+    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD] =
+      Gtk::Gdk->input_add( fileno($handle), 'read',
+                           \&_gtk_select_read_callback, $handle
+                         );
+
+  } elsif (POE_USES_TK) { # include
+
+    $poe_main_window->fileevent
+      ( $handle,
+        'readable',
+        [ \&_tk_select_callback, $handle, VEC_RD ],
+      );
+
+  } elsif (POE_USES_EVENT) { # include
+
+    $self->[KR_HANDLES]->{$handle}->[HND_WATCHERS]->[VEC_RD]->start();
+
+  } # include
+
+  return 1;
+}
+
 #==============================================================================
 # ALIASES
 #==============================================================================
@@ -3245,6 +3328,11 @@ External reference count methods:
 
   # Decrement a session's external reference count.
   $kernel->refcount_decrement( $session_id, $refcount_name );
+
+Kernel data accessors:
+
+  # Return a reference to the currently active session, or undef.
+  $session = $kernel->get_active_session();
 
 Exported symbols:
 
@@ -4173,6 +4261,21 @@ The session formerly known as SESSION_ID no longer (or perhaps never
 did) exist.
 
 =back
+
+=back
+
+=head2 Kernel Data Accessors
+
+These functions provide a consistent interface to the Kernel's
+internal data.
+
+=over 2
+
+=item get_active_session
+
+This function returns a reference to the session which is currently
+being invoked by the Kernel.  It returns undef if no session is being
+invoked at the time.
 
 =back
 

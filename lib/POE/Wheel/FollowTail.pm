@@ -38,21 +38,19 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $poe_kernel);
 
-  croak "Handle required"     unless (exists $params{'Handle'});
-  croak "Driver required"     unless (exists $params{'Driver'});
-  croak "Filter required"     unless (exists $params{'Filter'});
-  croak "InputState required" unless (exists $params{'InputState'});
+  croak "Handle required"     unless defined $params{'Handle'};
+  croak "Driver required"     unless defined $params{'Driver'};
+  croak "Filter required"     unless defined $params{'Filter'};
+  croak "InputState required" unless defined$params{'InputState'};
 
   my ($handle, $driver, $filter) = @params{ qw(Handle Driver Filter) };
 
-  my $poll_interval = ( (exists $params{'PollInterval'})
+  my $poll_interval = ( (defined $params{'PollInterval'})
                         ? $params{'PollInterval'}
                         : 1
                       );
 
-  my $seek_back = ( ( exists($params{SeekBack})
-                      and defined($params{SeekBack})
-                    )
+  my $seek_back = ( (defined $params{SeekBack})
                     ? $params{SeekBack}
                     : 4096
                   );
@@ -93,7 +91,7 @@ sub new {
   };
 
   # Discard partial input chunks unless a SeekBack was specified.
-  unless (exists $params{SeekBack}) {
+  unless (defined $params{SeekBack}) {
     while (defined(my $raw_input = $driver->get($handle))) {
       # Skip out if there's no more input.
       last unless @$raw_input;

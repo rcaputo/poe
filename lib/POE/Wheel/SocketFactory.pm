@@ -300,8 +300,8 @@ sub new {
 
   # Ensure some of the basic things are present.
   croak "$type requires a working Kernel" unless (defined $poe_kernel);
-  croak 'SuccessState required' unless (exists $params{SuccessState});
-  croak 'FailureState required' unless (exists $params{FailureState});
+  croak 'SuccessState required' unless (defined $params{SuccessState});
+  croak 'FailureState required' unless (defined $params{FailureState});
   my $state_success = $params{SuccessState};
   my $state_failure = $params{FailureState};
 
@@ -314,7 +314,7 @@ sub new {
                    }, $type;
 
   # Default to Internet sockets.
-  $self->{socket_domain} = ( (exists $params{SocketDomain})
+  $self->{socket_domain} = ( (defined $params{SocketDomain})
                              ? $params{SocketDomain}
                              : AF_INET
                            );
@@ -341,7 +341,7 @@ sub new {
   # PF_UNSPEC.
   if ($abstract_domain eq DOM_UNIX) {
     carp 'SocketProtocol ignored for Unix socket'
-      if exists $params{SocketProtocol};
+      if defined $params{SocketProtocol};
     $self->{socket_protocol} = PF_UNSPEC;
     $protocol_name = 'none';
   }
@@ -350,7 +350,7 @@ sub new {
   # and try to resolve it.
   elsif ($abstract_domain eq DOM_INET) {
     my $socket_protocol =
-      (exists $params{SocketProtocol}) ? $params{SocketProtocol} : 'tcp';
+      (defined $params{SocketProtocol}) ? $params{SocketProtocol} : 'tcp';
 
     if ($socket_protocol !~ /^\d+$/) {
       unless ($socket_protocol = getprotobyname($socket_protocol)) {
@@ -372,7 +372,7 @@ sub new {
       return $self;
     }
 
-    unless (exists $supported_protocol{$abstract_domain}->{$protocol_name}) {
+    unless (defined $supported_protocol{$abstract_domain}->{$protocol_name}) {
       croak "SocketFactory does not support Internet $protocol_name sockets";
     }
 
@@ -383,11 +383,11 @@ sub new {
   }
 
   # If no SocketType, default it to something appropriate.
-  if (exists $params{SocketType}) {
+  if (defined $params{SocketType}) {
     $self->{socket_type} = $params{SocketType};
   }
   else {
-    unless (exists $default_socket_type{$abstract_domain}->{$protocol_name}) {
+    unless (defined $default_socket_type{$abstract_domain}->{$protocol_name}) {
       croak "SocketFactory does not support $abstract_domain $protocol_name";
     }
     $self->{socket_type} =
@@ -454,7 +454,7 @@ sub new {
   }
 
   # Make the socket reusable, if requested.
-  if ( (exists $params{Reuse})
+  if ( (defined $params{Reuse})
        and ( (lc($params{Reuse}) eq 'yes')
              or ( ($params{Reuse} =~ /\d+/)
                   and $params{Reuse}
@@ -483,10 +483,10 @@ sub new {
   if ($abstract_domain eq DOM_INET) {
 
     # Don't bind if the creator doesn't specify a related parameter.
-    if ((exists $params{BindAddress}) or (exists $params{BindPort})) {
+    if ((defined $params{BindAddress}) or (defined $params{BindPort})) {
 
       # Set the bind address, or default to INADDR_ANY.
-      $bind_address = ( (exists $params{BindAddress})
+      $bind_address = ( (defined $params{BindAddress})
                         ? $params{BindAddress}
                         : INADDR_ANY
                       );
@@ -504,7 +504,7 @@ sub new {
 
       # Set the bind port, or default to 0 (any) if none specified.
       # Resolve it to a number, if at all possible.
-      my $bind_port = (exists $params{BindPort}) ? $params{BindPort} : 0;
+      my $bind_port = (defined $params{BindPort}) ? $params{BindPort} : 0;
       if ($bind_port =~ /[^0-9]/) {
         $bind_port = getservbyname($bind_port, $protocol_name);
         unless (defined $bind_port) {
@@ -529,11 +529,11 @@ sub new {
   # Check SocketFactory /Bind.*/ parameters in a Unix context, and
   # translate them into parameters bind() understands.
   elsif ($abstract_domain eq DOM_UNIX) {
-    carp 'BindPort ignored for Unix socket' if exists $params{BindPort};
+    carp 'BindPort ignored for Unix socket' if defined $params{BindPort};
 
-    if (exists $params{BindAddress}) {
+    if (defined $params{BindAddress}) {
       # Is this necessary, or will bind() return EADDRINUSE?
-      if (exists $params{RemotePort}) {
+      if (defined $params{RemotePort}) {
         $! = EADDRINUSE;
         $poe_kernel->yield( $state_failure,
                             'bind', $!+0, $!, $self->{unique_id}
@@ -576,15 +576,15 @@ sub new {
 
   my $connect_address;
 
-  if (exists $params{RemoteAddress}) {
+  if (defined $params{RemoteAddress}) {
 
     # Check SocketFactory /Remote.*/ parameters in an Internet socket
     # context, and translate them into parameters that connect()
     # understands.
     if ($abstract_domain eq DOM_INET) {
                                         # connecting if RemoteAddress
-      croak 'RemotePort required' unless (exists $params{RemotePort});
-      carp 'ListenQueue ignored' if (exists $params{ListenQueue});
+      croak 'RemotePort required' unless (defined $params{RemotePort});
+      carp 'ListenQueue ignored' if (defined $params{ListenQueue});
 
       my $remote_port = $params{RemotePort};
       if ($remote_port =~ /[^0-9]/) {
@@ -640,7 +640,7 @@ sub new {
 
   else {
     carp "RemotePort ignored without RemoteAddress"
-      if exists $params{RemotePort};
+      if defined $params{RemotePort};
   }
 
   # Perform the actual connection, if a connection was requested.  If
@@ -703,7 +703,7 @@ sub new {
     }
     else {
       carp "Ignoring ListenQueue parameter for non-listening socket"
-        if exists $params{ListenQueue};
+        if defined $params{ListenQueue};
       if ($protocol_op eq SVROP_NOTHING) {
         # Do nothing.  Duh.  Fire off a success event immediately, and
         # return.

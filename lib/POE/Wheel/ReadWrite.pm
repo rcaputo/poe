@@ -39,48 +39,48 @@ sub new {
   croak "$type requires a working Kernel" unless defined $poe_kernel;
 
   my ($in_handle, $out_handle);
-  if (exists $params{Handle}) {
+  if (defined $params{Handle}) {
     carp "Ignoring InputHandle parameter (Handle parameter takes precedence)"
-      if exists $params{InputHandle};
+      if defined $params{InputHandle};
     carp "Ignoring OutputHandle parameter (Handle parameter takes precedence)"
-      if exists $params{OutputHandle};
+      if defined $params{OutputHandle};
     $in_handle = $out_handle = delete $params{Handle};
   }
   else {
     croak "Handle or InputHandle required"
-      unless exists $params{InputHandle};
+      unless defined $params{InputHandle};
     croak "Handle or OutputHandle required"
-      unless exists $params{OutputHandle};
+      unless defined $params{OutputHandle};
     $in_handle  = delete $params{InputHandle};
     $out_handle = delete $params{OutputHandle};
   }
 
   my ($in_filter, $out_filter);
-  if (exists $params{Filter}) {
+  if (defined $params{Filter}) {
     carp "Ignoring InputFilter parameter (Filter parameter takes precedence)"
-      if (exists $params{InputFilter});
+      if (defined $params{InputFilter});
     carp "Ignoring OUtputFilter parameter (Filter parameter takes precedence)"
-      if (exists $params{OutputFilter});
+      if (defined $params{OutputFilter});
     $in_filter = $out_filter = delete $params{Filter};
   }
   else {
     croak "Filter or InputFilter required"
-      unless exists $params{InputFilter};
+      unless defined $params{InputFilter};
     croak "Filter or OutputFilter required"
-      unless exists $params{OutputFilter};
+      unless defined $params{OutputFilter};
     $in_filter  = delete $params{InputFilter};
     $out_filter = delete $params{OutputFilter};
   }
 
-  croak "Driver required" unless exists $params{Driver};
+  croak "Driver required" unless defined $params{Driver};
 
   { my $mark_errors = 0;
-    if (exists($params{HighMark}) xor exists($params{LowMark})) {
+    if (defined($params{HighMark}) xor defined($params{LowMark})) {
       carp "HighMark and LowMark parameters require each-other";
       $mark_errors++;
     }
     # Then they both exist, and they must be checked.
-    elsif (exists $params{HighMark}) {
+    elsif (defined $params{HighMark}) {
       unless (defined($params{HighMark}) and defined($params{LowMark})) {
         carp "HighMark and LowMark parameters must be defined";
         $mark_errors++;
@@ -90,11 +90,11 @@ sub new {
         $mark_errors++;
       }
     }
-    if (exists($params{HighMark}) xor exists($params{HighState})) {
+    if (defined($params{HighMark}) xor defined($params{HighState})) {
       carp "HighMark and HighState parameters require each-other";
       $mark_errors++;
     }
-    if (exists($params{LowMark}) xor exists($params{LowState})) {
+    if (defined($params{LowMark}) xor defined($params{LowState})) {
       carp "LowMark and LowState parameters require each-other";
       $mark_errors++;
     }

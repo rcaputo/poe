@@ -645,6 +645,15 @@ sub option {
   }
 }
 
+# Fetch the session's heap.  In rare cases, libraries may need to
+# break encapsulation this way, probably also using
+# $kernel->get_current_session as an accessory to the crime.
+
+sub get_heap {
+  my $self = shift;
+  return $self->[SE_NAMESPACE];
+}
+
 #------------------------------------------------------------------------------
 # Create an anonymous sub that, when called, posts an event back to a
 # session.  This is highly experimental code to support Tk widgets and
@@ -784,6 +793,9 @@ Other methods:
 
   # Retrieve a session's unique identifier.
   $session_id = $session->ID;
+
+  # Retrieve a reference to the session's heap.
+  $session_heap = $session->get_heap;
 
   # Set or clear session options.
   $session->option( trace => 1, default => 1 );
@@ -1427,6 +1439,38 @@ Event->flawor gives its callback.
     ( cb   => $session->postback( 'ev_flavor', 'vanilla' ),
       desc => 'post ev_flavor when Event->flavor occurs',
     );
+
+=item get_heap
+
+Returns a reference to the session's heap.  This is the same value
+that's passed to the session in $_[HEAP].  The difference is that this
+method may be used by functions which are expected to be called by a
+session but which don't want the heap to be passed to them.  In those
+cases, the function would use $poe_kernel->get_active_session() first
+to determine the session context in which it was called:
+
+  sub use_a_wheel {
+    my @stuff_to_put = @_;
+    $poe_kernel->get_active_session()->heap()->{wheel}->put(@stuff_to_put);
+  }
+
+It probably is more efficient for sessions to pass $_[HEAP] along:
+
+  sub use_a_wheel {
+    my ($heap, @stuff_to_put) = @_;
+    $heap->{wheel}->put(@stuff_to_put);
+  }
+
+Or even:
+
+  sub use_a_wheel {
+    my $heap = shift;
+    $heap->{wheel}->put(@_);
+  }
+
+Although if you expect to have a lot of calls to &put_a_wheel() in
+your program, you may want to optimize for programmer efficiency by
+using the first form.
 
 =back
 
