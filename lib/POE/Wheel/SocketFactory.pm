@@ -982,7 +982,13 @@ sub new {
 
     if ($protocol_op eq SVROP_LISTENS) {
       my $listen_queue = $params{ListenQueue} || SOMAXCONN;
-      ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
+      # <rmah> In SocketFactory, you limit the ListenQueue parameter
+      #        to SOMAXCON (or is it SOCONNMAX?)...why?
+      # <rmah> ah, here's czth, he'll have more to say on this issue
+      # <czth> not really.  just that SOMAXCONN can lie, notably on
+      #        Solaris and reportedly on BSDs too
+      # 
+      # ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
       unless (listen($socket_handle, $listen_queue)) {
         $poe_kernel->yield( $event_failure,
                             'listen', $!+0, $!, $self->[MY_UNIQUE_ID]
