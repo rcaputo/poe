@@ -25,7 +25,6 @@ POE/Kernel/Gtk.pm
 POE/Kernel/Poll.pm
 POE/Kernel/Select.pm
 POE/Kernel/Tk.pm
-POE/Macro/UseBytes.pm
 POE/NFA.pm
 POE/Pipe.pm
 POE/Pipe/OneWay.pm
