@@ -16,15 +16,19 @@ BEGIN {
     IO::Pty->import();
     eval 'sub PTY_AVAILABLE () { 1 }';
   }
-  if (PTY_AVAILABLE) {
-    require IO::Tty;
-    IO::Tty->import();
-    IO::Tty::Constant->import();
+  # How else can I get them out?!
+  if (eval '&IO::Tty::Constant::TIOCSCTTY') {
+    *TIOCSCTTY = *IO::Tty::Constant::TIOCSCTTY;
   }
-  else {
-    eval 'sub TIOCSCTTY () { undef; }';
-    eval 'sub CIBAUD    () { undef; }';
+  else { eval 'sub TIOCSCTTY () { undef }'; }
+  if (eval '&IO::Tty::Constant::CIBAUD') {
+    *CIBAUD = *IO::Tty::Constant::CIBAUD;
   }
+  else { eval 'sub CIBAUD () { undef; }'; }
+  if (eval '&IO::Tty::Constant::TIOCSWINSZ') {
+    *TIOCSWINSZ = *IO::Tty::Constant::TIOCSWINSZ;
+  }
+  else { eval 'sub TIOCSWINSZ () { undef; }'; }
 };
 
 # Offsets into $self.
@@ -188,11 +192,10 @@ sub new {
 
       # Acquire a controlling terminal.  Program 19.3, APITUE.
       if (defined TIOCSCTTY and not defined CIBAUD) {
-warn "yay";
         ioctl( $stdin_read, TIOCSCTTY, 0 );
       }
 
-      # Turn off echo for slave pty.  Program 19.4, APITUE.
+      # Turn off echo and canonical input in the slave.  APITUE 19.4.
       my $tio = POSIX::Termios->new();
       $tio->getattr(fileno($stdin_read));
       my $lflag = $tio->getlflag;
