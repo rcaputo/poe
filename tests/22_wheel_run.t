@@ -13,7 +13,7 @@ use TestSetup;
 # Skip these tests if fork() is unavailable.
 BEGIN {
   test_setup(0, "$^O does not support fork") if $^O eq 'MacOS';
-  test_setup(0, "$^O does not fully support fork/exec") if $^O eq 'Win32';
+  test_setup(0, "$^O does not fully support fork/exec") if $^O eq 'MSWin32';
 }
 
 test_setup(24);
@@ -24,7 +24,7 @@ sub DEBUG () { 0 }
 # Turn on all asserts, and use POE and other modules.
 #sub POE::Kernel::TRACE_GARBAGE () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
+use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
 
 ### Test one-way pipe() pipe.
 { my ($uni_read, $uni_write) = POE::Pipe::OneWay->new('pipe');
