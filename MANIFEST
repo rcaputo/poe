@@ -12,6 +12,7 @@ POE/Curator.pm
 POE/Driver.pm
 POE/Driver/SysRW.pm
 POE/Filter.pm
+POE/Filter/Block.pm
 POE/Filter/HTTPD.pm
 POE/Filter/Line.pm
 POE/Filter/Reference.pm

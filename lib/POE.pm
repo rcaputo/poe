@@ -297,6 +297,13 @@ Filters next:
 
 =item *
 
+POE::Filter::Block
+
+This filter parses input as fixed-length blocks.  The output side
+merely passes data through unscathed.
+
+=item *
+
 POE::Filter::HTTPD
 
 This filter parses input as HTTP requests, translating them into
@@ -984,6 +991,14 @@ subtle (and not so subtle) timing problems.  The pre-forking server
 was his idea.  Versions 0.06 and later should scale to higher loads
 because of his work.  His intangible contributions include lots of
 testing and feedback, some of which is visible in the Changes file.
+
+=item *
+
+Dieter Pearcey is <dieter@bullfrog.perlhacker.org>.  He goes by
+several Japanese nicknames.
+
+Dieter patched Wheel::FollowTail to be more useful and has contributed
+the basic Filter::Block, along with documentation!
 
 =item *
 

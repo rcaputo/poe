@@ -71,6 +71,8 @@ POE::Filter::Line - POE Line Protocol Abstraction
     $filter->put($arrayref_of_lines);
   $arrayref_of_streamable_chunks_for_driver =
     $filter->put($single_line);
+  $arrayref_of_leftovers =
+    $filter->get_pending();
 
 =head1 DESCRIPTION
 

@@ -33,6 +33,13 @@ sub new {
                         : 1
                       );
 
+  my $seek_back = ( (exists $params{'SeekBack'})
+                    ? $params{'SeekBack'}
+                    : 4096
+                  );
+  $seek_back = 0 if $seek_back < 0;
+
+
   my $self = bless { handle      => $handle,
                      driver      => $driver,
                      filter      => $filter,
@@ -46,10 +53,13 @@ sub new {
   # Try to position the file pointer before the end of the file.  This
   # is so we can "tail -f" an existing file.
 
-  eval { seek($handle, -4096, SEEK_END); };
-                                        # discard partial input chunks
-  while (defined(my $raw_input = $driver->get($handle))) {
-    $filter->get($raw_input);
+  eval { seek($handle, -$seek_back, SEEK_END); };
+
+  # Discard partial input chunks unless a SeekBack was specified.
+  unless (exists $params{SeekBack}) {
+    while (defined(my $raw_input = $driver->get($handle))) {
+      $filter->get($raw_input);
+    }
   }
                                         # nudge the wheel into action
   $poe_kernel->select($handle, $self->{state_read});
@@ -89,7 +99,7 @@ sub _define_states {
 
         while (defined(my $raw_input = $driver->get($hdl))) {
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            $k->call($ses, $$event_input, $cooked_input)
+            $k->call($ses, $$event_input, $cooked_input);
           }
         }
 
@@ -216,6 +226,16 @@ PollInterval
 PollInterval is the number of seconds to wait between file checks.
 Once FollowTail re-reaches the end of the file, it waits this long
 before checking again.
+
+=item *
+
+SeekBack
+
+SeekBack is the number of bytes to seek back from the current end of
+file before reading.  By default, this is 4096, and data read up to
+the end of file is not returned.  (This is used to frame lines before
+returning actual data.)  If SeekBack is specified, then existing data
+up until EOF is returned, and then the wheel begins following tail.
 
 =item *
 

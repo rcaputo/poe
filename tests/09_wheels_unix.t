@@ -12,7 +12,7 @@ use Socket;
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Wheel::SocketFactory
             Wheel::ReadWrite
-            Filter::Line Filter::Stream
+            Filter::Line
             Driver::SysRW
           );
 
