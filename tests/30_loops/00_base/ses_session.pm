@@ -14,7 +14,7 @@ BEGIN {
   sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 }
 
-test_setup(43);
+test_setup(39);
 
 use POE;
 
@@ -138,31 +138,17 @@ POE::Session->create(
 # Spawn ten state machines.
 for (my $i=0; $i<$machine_count; $i++) {
 
-  # Odd instances, try POE::Session->create
-  if ($i & 1) {
-    POE::Session->create(
-      inline_states => {
-        _start     => \&task_start,
-        _stop      => \&task_stop,
-        count      => \&task_run,
-        next_count => \&task_next_count,
-        _default   => \&task_default,
-      },
-      args => [ $i ],
-      heap => { got_heap => $i },
-    );
-  }
-
-  # Even instances, try POE::Session->new
-  else {
-    POE::Session->new (
+  POE::Session->create(
+    inline_states => {
       _start     => \&task_start,
       _stop      => \&task_stop,
       count      => \&task_run,
       next_count => \&task_next_count,
-      [ $i ],
-    );
-  }
+      _default   => \&task_default,
+    },
+    args => [ $i ],
+    heap => { got_heap => $i },
+  );
 }
 
 #------------------------------------------------------------------------------
@@ -347,28 +333,12 @@ POE::Session->create(
   args => [ 1 ],
 );
 
-# Old style (new) object session without event to method name map.
-POE::Session->new(
-  [ 2 ],
-  UnmappedObject->new => [ '_start', 'count', '_stop' ],
-);
-
-# Old style (new) object session with event to method name map.
-POE::Session->new(
-  [ 3 ],
-  MappedObject->new => {
-    _start => 'my_start',
-    count  => 'my_count',
-    _stop  => 'my_stop',
-  },
-);
-
 # New style (create) package session without event to method name map.
 POE::Session->create(
   package_states => [
     UnmappedPackage => [ '_start', 'count', '_stop' ],
   ],
-  args => [ 4 ],
+  args => [ 2 ],
 );
 
 # New style (create) package session with event to method name map.
@@ -380,23 +350,7 @@ POE::Session->create(
       _stop  => 'my_stop',
     },
   ],
-  args => [ 5 ],
-);
-
-# Old style (new) package session without event to method name map.
-POE::Session->new(
-  [ 6 ],
-  UnmappedPackage => [ '_start', 'count', '_stop' ],
-);
-
-# Old style (new) package session with event to method name map.
-POE::Session->new(
-  [ 7 ],
-  MappedPackage => {
-    _start => 'my_start',
-    count  => 'my_count',
-    _stop  => 'my_stop',
-  },
+  args => [ 3 ],
 );
 
 #------------------------------------------------------------------------------
@@ -460,14 +414,14 @@ print "ok 19\n";
 print 'not ' unless $sender_count == $machine_count * $event_count;
 print "ok 20\n";
 
-print 'not ' unless $default_count == ($machine_count * $event_count) / 2;
+print 'not ' unless $default_count == ($machine_count * $event_count);
 print "ok 21\n";
 
-print 'not ' unless $got_heap_count == $machine_count / 2;
+print 'not ' unless $got_heap_count == $machine_count;
 print "ok 22\n";
 
 # Object/package sessions.
-for (0..7) {
+for (0..3) {
   print 'not ' unless $objpack[$_] == $event_count;
   print 'ok ', $_ + 23, "\n";
 }
@@ -497,31 +451,50 @@ sub DESTROY { $objects_destroyed++ }
 
 package main;
 
-POE::MySession->new(
-  _start => sub {
-    $_[HEAP]->{object} = MyObject->new;
-    POE::MySession->new(
-      _start => sub {
-        $_[HEAP]->{object} = MyObject->new;
-        POE::MySession->new(
+POE::MySession->create(
+  inline_states => {
+    _start => sub {
+      $_[HEAP]->{object} = MyObject->new;
+      POE::MySession->create(
+        inline_states => {
           _start => sub {
             $_[HEAP]->{object} = MyObject->new;
-            POE::MySession->new(
-              _start => sub {
-                $_[HEAP]->{object} = MyObject->new;
-                $_[KERNEL]->delay(nonexistent => 3600);
-                $_[KERNEL]->alias_set('test4');
+            POE::MySession->create(
+              inline_states => {
+                _start => sub {
+                  $_[HEAP]->{object} = MyObject->new;
+                  POE::MySession->create(
+                    inline_states => {
+                      _start => sub {
+                        $_[HEAP]->{object} = MyObject->new;
+                        $_[KERNEL]->delay(nonexistent => 3600);
+                        $_[KERNEL]->alias_set('test4');
+                      },
+                      _parent => sub {
+                        $parent_called++;
+                      },
+                      _child => sub { }, # To shush ASSERT
+                      _stop => sub {
+                        $stop_called++;
+                      },
+                    },
+                  );
+                  $_[KERNEL]->delay(nonexistent => 3600);
+                  $_[KERNEL]->alias_set('test3');
+                },
+                _parent => sub {
+                  $parent_called++;
+                },
+                _child => sub {
+                  $child_called++ if $_[ARG0] eq 'lose';
+                },
+                _stop => sub {
+                  $stop_called++;
+                },
               },
-              _parent => sub {
-                $parent_called++;
-              },
-              _child => sub { }, # To shush ASSERT
-              _stop => sub {
-                $stop_called++;
-              },
-            ),
+            );
             $_[KERNEL]->delay(nonexistent => 3600);
-            $_[KERNEL]->alias_set('test3');
+            $_[KERNEL]->alias_set('test2');
           },
           _parent => sub {
             $parent_called++;
@@ -532,73 +505,62 @@ POE::MySession->new(
           _stop => sub {
             $stop_called++;
           },
-        ),
-        $_[KERNEL]->delay(nonexistent => 3600);
-        $_[KERNEL]->alias_set('test2');
-      },
-      _parent => sub {
-        $parent_called++;
-      },
-      _child => sub {
-        $child_called++ if $_[ARG0] eq 'lose';
-      },
-      _stop => sub {
-        $stop_called++;
-      },
-    ),
-    $_[KERNEL]->delay(nonexistent => 3600);
-    $_[KERNEL]->alias_set('test1');
-    $_[KERNEL]->yield("stop");
-  },
-  _parent => sub {
-    $parent_called++;
-  },
-  _child => sub {
-    $child_called++ if $_[ARG0] eq 'lose';
-  },
-  _stop => sub {
-    $stop_called++;
-  },
-  stop => sub {
-    POE::Kernel->stop();
-
-    my $expected;
-    if ($] >= 5.004 and $] < 5.005) {
-      warn(
-        "# Note: Perl 5.004-ish appears to leak sessions.\n",
-        "#       Consider upgrading to Perl 5.005_04 or beyond.\n",
+        },
       );
-      $expected = 0;
-    }
-    else {
-      $expected = 3;
-    }
+      $_[KERNEL]->delay(nonexistent => 3600);
+      $_[KERNEL]->alias_set('test1');
+      $_[KERNEL]->yield("stop");
+    },
+    _parent => sub {
+      $parent_called++;
+    },
+    _child => sub {
+      $child_called++ if $_[ARG0] eq 'lose';
+    },
+    _stop => sub {
+      $stop_called++;
+    },
+    stop => sub {
+      POE::Kernel->stop();
 
-    print 'not ' unless $sessions_destroyed == $expected;
-    print "ok 31 # dest $sessions_destroyed sessions (expected $expected)\n";
+      my $expected;
+      if ($] >= 5.004 and $] < 5.005) {
+        warn(
+          "# Note: Perl 5.004-ish appears to leak sessions.\n",
+          "#       Consider upgrading to Perl 5.005_04 or beyond.\n",
+        );
+        $expected = 0;
+      }
+      else {
+        $expected = 3;
+      }
 
-    # 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
-    # data inside the heap is surviving the session DESTROY. This
-    # isnt possible in a sane and normal world. So if this is giving
-    # you fits, please consider upgrading perl to at least 5.6.1.
-    my $expected;
-    if($] >= 5.006 or ($] >= 5.004 and $] < 5.005)) {
-      $expected = 3;
-    } else {
-      $expected = 2;
+      print 'not ' unless $sessions_destroyed == $expected;
+      print "ok 27 # dest $sessions_destroyed sessions (expected $expected)\n";
+
+      # 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
+      # data inside the heap is surviving the session DESTROY. This
+      # isnt possible in a sane and normal world. So if this is giving
+      # you fits, please consider upgrading perl to at least 5.6.1.
+      my $expected;
+      if($] >= 5.006 or ($] >= 5.004 and $] < 5.005)) {
+        $expected = 3;
+      } else {
+        $expected = 2;
+      }
+      print 'not ' unless $objects_destroyed == $expected;
+      print "ok 28 # dest $objects_destroyed objects (expected $expected)\n";
     }
-    print 'not ' unless $objects_destroyed == $expected;
-    print "ok 32 # dest $objects_destroyed objects (expected $expected)\n";
   }
 );
 
 $poe_kernel->run;
 print 'not ' unless $stop_called == 0;
-print "ok 33\n";
+print "ok 29\n";
 print 'not ' unless $child_called == 0;
-print "ok 34\n";
+print "ok 30\n";
 print 'not ' unless $parent_called == 0;
-print "ok 35\n";
+print "ok 31\n";
 
 my $expected;
 if ($] >= 5.004 and $] < 5.005) {
@@ -613,7 +575,7 @@ else {
 }
 
 print 'not ' unless $sessions_destroyed == $expected;
-print "ok 36 # dest $sessions_destroyed sessions (expected $expected)\n";
+print "ok 32 # dest $sessions_destroyed sessions (expected $expected)\n";
 
 # 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
 # data inside the heap is surviving the session DESTROY. This
@@ -631,7 +593,7 @@ else {
 }
 
 print "not " unless $objects_destroyed == $expected;
-print "ok 37 # dest $objects_destroyed objects (expected $expected)\n";
+print "ok 33 # dest $objects_destroyed objects (expected $expected)\n";
 
 # This simple session just makes sure we can start another Session and
 # another Kernel.  If all goes well, it'll dispatch some events and
@@ -655,7 +617,7 @@ if (
   exists $INC{"Tk.pm"} and
   !$Config{useithreads}
 ) {
-  foreach (38..43) {
+  foreach (34..39) {
     print(
       "not ok $_ # Skip: Restarting Tk dumps core in single-threaded perl $]\n"
     );
@@ -666,25 +628,25 @@ else {
     options => { trace => 1, default => 1, debug => 1 },
     inline_states => {
       _start => sub {
-        print "ok 38\n";
+        print "ok 34\n";
         $_[KERNEL]->yield("woot");
         $_[KERNEL]->delay(narf => 1);
       },
       woot => sub {
-        print "ok 40\n";
+        print "ok 36\n";
       },
       narf => sub {
-        print "ok 41\n";
+        print "ok 37\n";
       },
       _stop => sub {
-        print "ok 42\n";
+        print "ok 38\n";
       },
     }
   );
 
-  print "ok 39\n";
+  print "ok 35\n";
   POE::Kernel->run();
-  print "ok 43\n";
+  print "ok 39\n";
 }
 
 1;

@@ -348,7 +348,7 @@ print "1..0 # skipped: most of these should move into other tests\n";
 #print 'not ' unless defined $@ and length $@;
 #print "ok 40\n";
 #
-#eval 'POE::Session->new( 1 )';
+#eval 'POE::Session->new( 1 )';  ### DEPRECATED
 #print 'not ' unless defined $@ and length $@;
 #print "ok 41\n";
 #

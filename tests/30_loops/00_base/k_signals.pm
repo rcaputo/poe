@@ -165,26 +165,30 @@ POE::Session->create(
 # case here.
 
 sub spawn_server {
-  POE::Session->new(
-    _start => sub {
-      $_[KERNEL]->alias_set("server");
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->alias_set("server");
+      },
+      do_thing => sub {
+        $_[KERNEL]->post($_[SENDER], thing_done => $_[ARG0]);
+      },
+      _child  => sub { 0 },
+      _stop   => sub { 0 },
     },
-    do_thing => sub {
-      $_[KERNEL]->post($_[SENDER], thing_done => $_[ARG0]);
-    },
-    _child  => sub { 0 },
-    _stop   => sub { 0 },
   );
 }
 
-POE::Session->new(
-  _start => sub {
-    spawn_server();
-    $_[KERNEL]->post(server => do_thing => 1);
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      spawn_server();
+      $_[KERNEL]->post(server => do_thing => 1);
+    },
+    thing_done => sub { 0 },
+    _child  => sub { 0 },
+    _stop   => sub { 0 },
   },
-  thing_done => sub { 0 },
-  _child  => sub { 0 },
-  _stop   => sub { 0 },
 );
 
 # Run the tests.

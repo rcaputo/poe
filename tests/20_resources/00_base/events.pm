@@ -28,7 +28,7 @@ sub BOGUS_SESSION () { 31415 }
       [],           # etc
       __FILE__,     # file
       __LINE__,     # line
-	  "called_from",# caller state
+      "called_from",# caller state
       0,            # time (beginning thereof)
     );
 
@@ -98,7 +98,7 @@ for (1..4) {
       [],                    # etc
       __FILE__,              # file
       __LINE__,              # line
-	  undef,                 # called from state
+      undef,                 # called from state
       $_,                    # time
     )
   );
@@ -205,7 +205,7 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
       [],                     # etc
       __FILE__,               # file
       __LINE__,               # line
-	  undef,                  # called from state
+      undef,                  # called from state
       1,                      # due time
     );
   };
@@ -218,7 +218,11 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
 { # Exercise _data_ev_clear_session when events are sent from one
   # session to another.
 
-  my $session = POE::Session->new( _start => sub { } );
+  my $session = POE::Session->create(
+    inline_states => {
+      _start => sub { }
+    }
+  );
 
   $poe_kernel->_data_ev_enqueue(
     $session,               # dest session
@@ -228,7 +232,7 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
     [],                     # etc
     __FILE__,               # file
     __LINE__,               # line
-	undef,                  # called from state
+    undef,                  # called from state
     1,                      # due time
   );
 
@@ -240,7 +244,7 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
     [],                     # etc
     __FILE__,               # file
     __LINE__,               # line
-	undef,                  # called from state
+    undef,                  # called from state
     2,                      # due time
   );
 
