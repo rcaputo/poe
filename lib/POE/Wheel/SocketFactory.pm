@@ -113,7 +113,7 @@ sub _define_accept_state {
   my $unique_id     =  $self->[MY_UNIQUE_ID];
 
   $poe_kernel->state
-    ( $self->[MY_STATE_ACCEPT] = $self . ' select accept',
+    ( $self->[MY_STATE_ACCEPT] = $self . ' -> select accept',
       sub {
         # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
@@ -265,7 +265,7 @@ sub event {
                 "deprecated (and will go away after version 0.13)"
               );
           $poe_kernel->state
-            ( $self->[MY_EVENT_SUCCESS] = $self . ' success',
+            ( $self->[MY_EVENT_SUCCESS] = $self . ' -> success',
               $event
             );
           $self->[MY_MINE_SUCCESS] = 'yes';
@@ -289,7 +289,7 @@ sub event {
                 "deprecated (and will go away after version 0.13)"
               );
           $poe_kernel->state
-            ( $self->[MY_EVENT_FAILURE] = $self . ' failure',
+            ( $self->[MY_EVENT_FAILURE] = $self . ' -> failure',
               $event
             );
           $self->[MY_MINE_FAILURE] = 'yes';

@@ -276,7 +276,7 @@ sub _define_idle_state {
 
   # This handler is called when input has become idle.
   $poe_kernel->state
-    ( $self->[SELF_STATE_IDLE] = $self . ' input timeout',
+    ( $self->[SELF_STATE_IDLE] = $self . ' -> input timeout',
       sub {
         # Prevents SEGV in older Perls.
         0 && CRIMSON_SCOPE_HACK('<');
@@ -330,7 +330,7 @@ sub _define_read_state {
     my $unique_id      = $self->[SELF_UNIQUE_ID];
 
     $poe_kernel->state
-      ( $self->[SELF_STATE_READ] = $self . ' select read',
+      ( $self->[SELF_STATE_READ] = $self . ' -> select read',
         sub {
 
           # Prevents SEGV in older Perls.

@@ -224,7 +224,7 @@ sub _define_write_state {
   # Register the select-write handler.
 
   $poe_kernel->state
-    ( $self->[STATE_WRITE] = $self . ' select write',
+    ( $self->[STATE_WRITE] = $self . ' -> select write',
       sub {                             # prevents SEGV
         0 && CRIMSON_SCOPE_HACK('<');
                                         # subroutine starts here
@@ -313,7 +313,7 @@ sub _define_read_state {
          $$input_filter->can('get_one_start')
        ) {
       $poe_kernel->state
-        ( $self->[STATE_READ] = $self . ' select read',
+        ( $self->[STATE_READ] = $self . ' -> select read',
           sub {
 
             # Protects against coredump on older perls.
@@ -345,7 +345,7 @@ sub _define_read_state {
 
     else {
       $poe_kernel->state
-        ( $self->[STATE_READ] = $self . ' select read',
+        ( $self->[STATE_READ] = $self . ' -> select read',
           sub {
 
             # Protects against coredump on older perls.

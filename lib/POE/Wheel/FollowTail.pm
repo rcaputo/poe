@@ -170,8 +170,8 @@ sub _define_states {
   my $event_input   = \$self->[SELF_EVENT_INPUT];
   my $event_error   = \$self->[SELF_EVENT_ERROR];
   my $event_reset   = \$self->[SELF_EVENT_RESET];
-  my $state_wake    = $self->[SELF_STATE_WAKE] = $self . ' alarm';
-  my $state_read    = $self->[SELF_STATE_READ] = $self . ' select read';
+  my $state_wake    = $self->[SELF_STATE_WAKE] = $self . ' -> alarm';
+  my $state_read    = $self->[SELF_STATE_READ] = $self . ' -> select read';
   my $poll_interval = $self->[SELF_INTERVAL];
   my $handle        = $self->[SELF_HANDLE];
   my $filename      = $self->[SELF_FILENAME];
