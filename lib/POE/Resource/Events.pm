@@ -103,6 +103,9 @@ sub _data_ev_clear_session {
     ($_[0]->[EV_SESSION] == $session) || ($_[0]->[EV_SOURCE] == $session)
   };
 
+  # TODO - This is probably incorrect.  The total event count will be
+  # artificially inflated for events from/to the same session.  That
+  # is, a yield() will count twice.
   my $total_event_count =
     ( ($event_count{$session} || 0) +
       ($post_count{$session} || 0)
