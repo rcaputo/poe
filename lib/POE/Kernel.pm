@@ -5,7 +5,7 @@
 package POE::Kernel;
 
 use strict;
-use POSIX;                              # for EINPROGRESS, whee!
+use POSIX qw(EINPROGRESS EINTR);
 use IO::Select;
 use Carp;
 
@@ -30,7 +30,7 @@ use POE::Session;
 #------------------------------------------------------------------------------
 
 # these signals will stop the kernel; all others won't
-my @_terminal_signals = qw(QUIT INT KILL TERM);
+my @_terminal_signals = qw(QUIT INT KILL TERM ZOMBIE);
 
 sub _signal_handler {
   if (defined $_[0]) {
@@ -62,7 +62,7 @@ sub new {
   $self->{'sel_e'} = new IO::Select() || die $!;
 
   foreach my $signal (keys(%SIG)) {
-    next if ($signal =~ /^NUM\d+$/);
+    next if ($signal =~ /^(NUM\d+|__WARN__|__DIE__)$/);
     $SIG{$signal} = \&_signal_handler;
     $self->{'signals'}->{$signal} = [ ];
     push @{$self->{'blocked signals'}}, $signal;
@@ -71,6 +71,7 @@ sub new {
   push(@POE::Kernel::instances, $self);
 
   $self->{'active session'} = $self;
+
   $self->session_alloc($self);
 
   $self;
@@ -134,6 +135,9 @@ sub _dispatch_state {
 
     if ($self->{'sessions'}->{$session}->[5]) {
       my $hold_active_session = $self->{'active session'};
+
+      print ">>> invoking $source_session -> $state\n";
+
       $self->{'active session'} = $session;
       $session->_invoke_state($self, $source_session, $state, $etc);
       $self->{'active session'} = $hold_active_session;
@@ -386,22 +390,19 @@ sub _internal_select {
 
 #------------------------------------------------------------------------------
 
-sub _kernel_select {
-  my ($self, $session, $handle, $state_r, $state_w, $state_e) = @_;
-                                        # condition the handle
-  if ($state_r || $state_w || $state_e) {
+sub _maybe_add_handle {
+  my ($self, $handle) = @_;
+
+  unless (exists $self->{'selects'}->{$handle}) {
+    $self->{'selects'}->{$handle} = [ [], [], [], $handle ];
     binmode($handle);
     $handle->blocking(0);
     $handle->autoflush();
   }
+}
 
-  unless (exists $self->{'selects'}->{$handle}) {
-    $self->{'selects'}->{$handle} = [ [], [], [], $handle ];
-  }
-
-  $self->_internal_select($session, $handle, $state_r, 'sel_r', 0);
-  $self->_internal_select($session, $handle, $state_w, 'sel_w', 1);
-  $self->_internal_select($session, $handle, $state_e, 'sel_e', 2);
+sub _maybe_remove_handle {
+  my ($self, $handle) = @_;
 
   unless (@{$self->{'selects'}->{$handle}->[0]} ||
           @{$self->{'selects'}->{$handle}->[1]} ||
@@ -409,6 +410,17 @@ sub _kernel_select {
   ) {
     delete $self->{'selects'}->{$handle};
   }
+}
+
+#------------------------------------------------------------------------------
+
+sub _kernel_select {
+  my ($self, $session, $handle, $state_r, $state_w, $state_e) = @_;
+  $self->_maybe_add_handle($handle);
+  $self->_internal_select($session, $handle, $state_r, 'sel_r', 0);
+  $self->_internal_select($session, $handle, $state_w, 'sel_w', 1);
+  $self->_internal_select($session, $handle, $state_e, 'sel_e', 2);
+  $self->_maybe_remove_handle($handle);
 }
 
 #------------------------------------------------------------------------------
@@ -505,10 +517,38 @@ sub alarm {
 
 sub select {
   my ($self, $handle, $state_r, $state_w, $state_e) = @_;
+
   $self->_kernel_select($self->{'active session'}, $handle,
                         $state_r, $state_w, $state_e
                        );
 }
+
+sub select_read {
+  my ($self, $handle, $state) = @_;
+  $self->_maybe_add_handle($handle);
+  $self->_internal_select($self->{'active session'},
+                          $handle, $state, 'sel_r', 0
+                         );
+  $self->_maybe_remove_handle($handle);
+};
+
+sub select_write {
+  my ($self, $handle, $state) = @_;
+  $self->_maybe_add_handle($handle);
+  $self->_internal_select($self->{'active session'},
+                          $handle, $state, 'sel_w', 1
+                         );
+  $self->_maybe_remove_handle($handle);
+};
+
+sub select_exception {
+  my ($self, $handle, $state) = @_;
+  $self->_maybe_add_handle($handle);
+  $self->_internal_select($self->{'active session'},
+                          $handle, $state, 'sel_e', 2
+                         );
+  $self->_maybe_remove_handle($handle);
+};
 
 #------------------------------------------------------------------------------
 # Signal management.
@@ -532,6 +572,16 @@ sub post {
   $self->_enqueue_state($destination_session, $active_session,
                         $state_name, time(), \@etc
                        );
+}
+
+#------------------------------------------------------------------------------
+# State management.
+
+sub state {
+  my ($self, $state_name, $state_code) = @_;
+  my $active_session = $self->{'active session'};
+                                        # invoke the session's
+  $active_session->register_state($state_name, $state_code);
 }
 
 ###############################################################################
