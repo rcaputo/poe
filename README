@@ -15,24 +15,24 @@ POE includes a lot of documentation.  The main POE man page includes
 references to everything else.
 
 The CHANGES file lists all the changes in the past year.  POE's web
-site (http://poe.perl.org/) includes a complete change history,
-separated by version number, going back to its first public release.
+site (http://poe.perl.org/) includes a complete change history broken
+down by release.
 
 --------------
 Installing POE
 --------------
 
 See http://poe.perl.org/?Where_to_Get_POE for download sites, Windows
-tips, and anonymous CVS instructions.
+installation tips, and anonymous CVS instructions.
 
-POE may be installed through the CPAN shell in the usual CPAN shell
-manner.
+POE may be installed through the CPAN shell in the usual manner.
 
   % perl -MCPAN -e shell
   cpan> install POE
 
 To install on a Win32 machine using ActiveState's PPM.  If PPM fails,
-try PPM3:
+try PPM3.  We hope starting with version 0.27 that this won't be
+necessary.
 
   > ppm install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
 
@@ -61,7 +61,10 @@ POE.
 
 That will generate poe_report.xml and upload it to eekeek.org.  If it
 fails, you can upload it manually from the form at
-http://eekeek.org/poe-tests/ .
+<http://eekeek.org/poe-tests/>.
+
+You can also file bug reports, feature requests, and even success
+stories by e-mailing <bug-POE@rt.cpan.org>.
 
 -------------
 Test Coverage
@@ -87,7 +90,8 @@ financial markets, file systems, commerce and application servers.  It
 has been used in projects ranging from a few lines of code to tens of
 thousands.
 
-POE is compatible with perl versions as old as 5.005_03.
+POE is compatible with perl versions as old as 5.005_03.  This may
+change in the future.
 
 POE includes an evolving component framework.  Components are
 high-level, modular, reusable pieces of programs.  Several components
