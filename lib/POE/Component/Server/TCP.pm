@@ -4,6 +4,9 @@ package POE::Component::Server::TCP;
 
 use strict;
 
+use vars qw($VERSION);
+$VERSION = (qw($Revision$ ))[1];
+
 use Carp qw(carp croak);
 use Socket qw(INADDR_ANY inet_ntoa);
 
