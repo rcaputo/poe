@@ -746,11 +746,12 @@ sometimes.  If I've forgotten someone, please let me know.
 
 =over 2
 
-=item Arnar M. Hrafnkelsson
+=item Ann Barcomb
 
-Arnar is <addi@umich.edu>.  Addi tested POE and POE::Component::IRC on
-Windows, finding bugs and testing fixes.  He appears throughout the
-Changes file.
+Ann Barcomb is <kudra@domaintje.com>, aka C<kudra>.  Ann contributed
+large portions of poesimple and the code that became the ReadWrite
+support in POE::Component::Server::TCP.  Her ideas were also used in
+the Client::TCP component introduced in version 0.1702.
 
 =item Artur Bergman
 
@@ -763,11 +764,44 @@ bits and pieces throughout POE.  His intangible contributions include
 feedback, testing, conceptual planning and inspiration.  POE would
 never have come this far without his support.
 
+Artur is investing his time heavily into perl 5's ithreads at the
+moment.  This project has far-reaching implications for POE's future.
+
+=item Jos Boumans
+
+Jos Boumans is <boumans@frg.eur.nl>, aka C<Co-Kane>.  Jos is a major
+driving force behind the POE::Simple movement and is one of the POE
+idea fairies.  Jos is almost always available on IRC for the wizards
+to bounce ideas off or for a fresh perspective.
+
+=item Matt Cashner
+
+Matt Cashner is <eek@eekeek.org>, aka C<sungo>.  Matt is a POE
+ambassador, or something, between Rocco's point of view and people who
+haven't had the benefit of knowing the system since its conception.
+He's spearheaded the movement to smiplify POE for new users,
+flattening the learning curve and making the system more accessible to
+everyone.  He's almost singlehandedly rewriting POE's documentation.
+He uses the system in mission critical applications, folding feedback
+and features back into the distribution for everyone's enjoyment.
+
+=item Andrew Chen
+
+Andrew Chen is <achen-poe@micropixel.com>.  Andrew contributes much
+needed testing for Solaris on the SPARC and Windows 2000 platforms.
+
 =item Douglas Couch
 
 Douglas Couch is <dscouch@purdue.edu>.  Douglas maintains POE for
 Windows, as well as the latest PPM and online documentation at
 <http://poe.sourceforge.net/>.  Rockin'!
+
+=item Jeffrey Goff
+
+Jeffrey Goff is <jgoff@blackboard.com>.  Jeffrey is the author of
+several POE modules, including a tokenizing filter and a component for
+managing user information, PoCo::UserBase.  He's also co-author of "A
+Beginner's Introduction to POE" at www.perl.com.
 
 =item Philip Gwyn
 
@@ -780,6 +814,12 @@ Philip also enhanced Filter::Reference to support different
 serialization methods.  His intangible contributions include the
 discovery and/or destruction of several bugs (see the Changes file)
 and a thorough code review around version 0.06.
+
+=item Arnar M. Hrafnkelsson
+
+Arnar is <addi@umich.edu>.  Addi tested POE and POE::Component::IRC on
+Windows, finding bugs and testing fixes.  He appears throughout the
+CHANGES file.
 
 =item Dave Paris
 
@@ -815,13 +855,18 @@ problem relating to anonymous subs, scope and @{} processing.
 
 In short, he squashed a coredump with a reliable work-around.
 
+=item Richard Soderberg
+
+Richard Soderberg is <poe@crystalflame.net>, aka C<coral>.  Richard is
+a collaborator on several side projects involving POE.  His work
+provides valuable testing and feedback from a user's point of view.
+
 =item Dennis Taylor
 
 Dennis Taylor is <dennis@funkplanet.com>.  Dennis has been testing,
 debugging and patching bits here and there, such as Filter::Line which
 he improved by leaps in 0.1102.  He's also the author of
-POE::Component::IRC, which isn't included here but may be found at
-either <http://www.infobot.org/dev/POE/>.
+POE::Component::IRC.
 
 =item Others?
 
