@@ -282,9 +282,9 @@ sub new {
     select STDOUT;  $| = 1;
 
     # Tell the parent that the stdio has been set up.
-    close $sem_pipe_read;
+    close $sem_pipe_read unless $^O eq 'MSWin32';
     print $sem_pipe_write "go\n";
-    close $sem_pipe_write;
+    close $sem_pipe_write unless $^O eq 'MSWin32';
 
     # Exec the program depending on its form.
     if (ref($program) eq 'ARRAY') {
@@ -339,9 +339,9 @@ sub new {
     ], $type;
 
   # Wait here while the child sets itself up.
-  close $sem_pipe_write;
-  <$sem_pipe_read>;
   close $sem_pipe_read;
+  <$sem_pipe_read>;
+  close $sem_pipe_write;
 
   $self->_define_stdin_flusher();
   $self->_define_stdout_reader() if defined $stdout_event;
