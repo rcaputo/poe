@@ -428,14 +428,14 @@ sub _data_ses_collect_garbage {
 
   if (ASSERT_DATA) {
     my $ss = $kr_sessions{$session};
-    my $calc_ref =
-      ( $self->_data_ev_get_count_to($session) +
-        $self->_data_ev_get_count_from($session) +
-        scalar(keys(%{$ss->[SS_CHILDREN]})) +
-        $self->_data_handle_count_ses($session) +
-        $self->_data_extref_count_ses($session) +
-        $self->_data_alias_count_ses($session)
-      );
+    my $calc_ref = (
+      $self->_data_ev_get_count_to($session) +
+      $self->_data_ev_get_count_from($session) +
+      scalar(keys(%{$ss->[SS_CHILDREN]})) +
+      $self->_data_handle_count_ses($session) +
+      $self->_data_extref_count_ses($session) +
+      $self->_data_alias_count_ses($session)
+    );
 
     # The calculated reference count really ought to match the one
     # POE's been keeping track of all along.
@@ -460,6 +460,8 @@ sub _data_ses_count {
 
 ### Close down a session by force.
 
+# Stop a session, dispatching _stop, _parent, and _child as necessary.
+#
 # Dispatch _stop to a session, removing it from the kernel's data
 # structures as a side effect.
 
@@ -474,11 +476,45 @@ sub _data_ses_stop {
     _trap unless exists $kr_sessions{$session};
   }
 
-  $self->_dispatch_event
-    ( $session, $self->get_active_session(),
-      EN_STOP, ET_STOP, [],
+  # Maintain referential integrity between parents and children.
+  # First move the children of the stopping session up to its parent.
+  my $parent = $self->_data_ses_get_parent($session);
+
+  foreach my $child ($self->_data_ses_get_children($session)) {
+    $self->_dispatch_event(
+      $parent, $self,
+      EN_CHILD, ET_CHILD, [ CHILD_GAIN, $child ],
       __FILE__, __LINE__, time(), -__LINE__
     );
+    $self->_dispatch_event(
+      $child, $self,
+      EN_PARENT, ET_PARENT,
+      [ $self->_data_ses_get_parent($child), $parent, ],
+      __FILE__, __LINE__, time(), -__LINE__
+    );
+  }
+
+  # If the departing session has a parent, notify it that the session
+  # is being lost.
+
+  if (defined $parent) {
+    $self->_dispatch_event(
+      $parent, $self,
+      EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
+      __FILE__, __LINE__, time(), -__LINE__
+    );
+  }
+
+  # Referential integrity has been dealt with.  Now notify the session
+  # that it has been stopped.
+  $self->_dispatch_event(
+    $session, $self->get_active_session(),
+    EN_STOP, ET_STOP, [],
+    __FILE__, __LINE__, time(), -__LINE__
+  );
+
+  # Finally, deallocate the session.
+  $self->_data_ses_free($session);
 }
 
 1;

@@ -653,6 +653,8 @@ sub _dispatch_event {
 
   my $local_event = $event;
 
+  # TODO - Consider using times() or the POSIX equivalent to actually
+  # benchmark session vs. kernel time.
   if (TRACE_PROFILE) {
     $profile{$event}++;
   }
@@ -660,7 +662,6 @@ sub _dispatch_event {
   # Pre-dispatch processing.
 
   unless ($type & (ET_USER | ET_CALL)) {
-
 
     # A "select" event has just come out of the queue.  Reset its
     # actual state to its requested state before handling the event.
@@ -679,44 +680,6 @@ sub _dispatch_event {
     elsif ($type & ET_GC) {
       $self->_data_ses_collect_garbage($session);
       return 0;
-    }
-
-    # A session's about to stop.  Notify its parents and children of
-    # the impending change in their relationships.  Incidental _stop
-    # events are handled before the dispatch.
-
-    elsif ($type & ET_STOP) {
-
-      # Tell child sessions that they have a new parent (the departing
-      # session's parent).  Tell the departing session's parent that
-      # it has new child sessions.
-
-      my $parent = $self->_data_ses_get_parent($session);
-
-      foreach my $child ($self->_data_ses_get_children($session)) {
-        $self->_dispatch_event
-          ( $parent, $self,
-            EN_CHILD, ET_CHILD, [ CHILD_GAIN, $child ],
-            $file, $line, time(), -__LINE__
-          );
-        $self->_dispatch_event
-          ( $child, $self,
-            EN_PARENT, ET_PARENT,
-            [ $self->_data_ses_get_parent($child), $parent, ],
-            $file, $line, time(), -__LINE__
-          );
-      }
-
-      # Tell the departing session's parent that the departing session
-      # is departing.
-
-      if (defined $parent) {
-        $self->_dispatch_event(
-          $parent, $self,
-          EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
-          $file, $line, time(), -__LINE__
-        );
-      }
     }
 
     # Preprocess signals.  This is where _signal is translated into
@@ -901,16 +864,9 @@ sub _dispatch_event {
       if $self->_data_ses_exists($session);
   }
 
-  # This session has stopped.  Clean up after it.  There's no
-  # garbage collection necessary since the session's stopped.
-
-  if ($type & ET_STOP) {
-    $self->_data_ses_free($session);
-  }
-
   # Step 3: Check for death by terminal signal.
 
-  elsif ($type & (ET_SIGNAL | ET_SIGNAL_EXPLICIT | ET_SIGNAL_COMPATIBLE)) {
+  if ($type & (ET_SIGNAL | ET_SIGNAL_EXPLICIT | ET_SIGNAL_COMPATIBLE)) {
     $self->_data_sig_touched_session($session, $event, $return, $etc->[0]);
 
     if ($type & ET_SIGNAL) {
@@ -918,14 +874,10 @@ sub _dispatch_event {
     }
   }
 
-  # It's an alarm being dispatched.
+  # These types of events require garbage collection afterwards, but
+  # they don't need any other processing.
 
-  elsif ($type & ET_ALARM) {
-    $self->_data_ses_collect_garbage($session);
-  }
-
-  # It's a select being dispatched.
-  elsif ($type & ET_SELECT) {
+  elsif ($type & (ET_ALARM | ET_SELECT)) {
     $self->_data_ses_collect_garbage($session);
   }
 
