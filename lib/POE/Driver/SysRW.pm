@@ -113,7 +113,8 @@ sub get {
 
 sub flush {
   my ($self, $handle) = @_;
-                                        # syswrite it, like we're supposed to
+
+  # syswrite() it, like we're supposed to
   while (@{$self->[OUTPUT_QUEUE]}) {
     my $wrote_count = syswrite($handle,
                                $self->[OUTPUT_QUEUE]->[0],
@@ -179,14 +180,36 @@ This driver implements an abstract interface to sysread and syswrite.
 =item new
 
 new() creates a new SysRW driver.  It accepts one optional named
-parameter, BlockSize, which tells it how much information to read and
-write at a time.  BlockSize defaults to 512 if it's omitted.
+parameter, BlockSize, which tells it how much information to read at a
+time.  BlockSize defaults to 512 if it is omitted.
 
   my $driver = POE::Driver::SysRW->new( BlockSize => $block_size );
 
   my $driver = POE::Driver::SysRW->new;
 
+syswrite() size defaults to the size of whatever is given to put().
+
 =back
+
+=head1 DESIGN NOTES
+
+Driver::SysRW uses a queue of output messages.  This means that
+BLOCK_SIZE is not used for writing.  Rather, each message put()
+through the driver is written in its entirety (or not, if it fails).
+This often means more syswrite() calls than necessary, however it
+makes memory management much easier.
+
+If the driver used a scalar buffer for output, it would be necessary
+to use substr() to remove the beginning of it after it was written.
+Each substr() call requires the end of the string be moved down to its
+beginning.  That is a lot of memory copying.
+
+The buffer could be allowed to grow until it has flushed entirely.
+This would be eliminate extra memory copies entirely, but it would
+then be possible to create programs where the buffer was not allowed
+to shrink at all.  That would quickly become bad.
+
+Better ideas are welcome.
 
 =head1 SEE ALSO
 
