@@ -5,24 +5,55 @@
 package POE::Kernel;
 
 use strict;
-use POSIX;                              # for EINPROGRESS
+use POSIX;                              # for EINPROGRESS, whee!
 use IO::Select;
+use Carp;
 
+use POE::Session;
+
+# states  : [ [ $session, $source_session, $state, $time, \@etc ], ... ]
+#
+# selects:  { $handle  => [ [ [ $r_sess, $r_state ], ... ],
+#                           [ [ $w_sess, $w_state ], ... ],
+#                           [ [ $x_sess, $x_state ], ... ],
+#                         ],
+#           }
+#
+# sessions: { $session => [ $parent, \@children, $states, $selects ] }
 
 sub new {
   my $type = shift;
   my $self = bless {
-                    'sessions'          => { },
-                    'selects'           => { },
-                    'states'            => [ ],
-                    'running'           => undef,
+                    'sessions' => { },
+                    'selects'  => { },
+                    'states'   => [ ],
                    }, $type;
                                         # these can't be up in the main bless?
   $self->{'sel_r'} = new IO::Select() || die $!;
   $self->{'sel_w'} = new IO::Select() || die $!;
   $self->{'sel_e'} = new IO::Select() || die $!;
 
+  $self->{'running'} = $self;
+  $self->session_alloc($self);
+
   $self;
+}
+
+#------------------------------------------------------------------------------
+# Checks the resources for a session.  If it has no queued states, and it
+# has no registered selects, then the session will never again be called.
+# These "zombie" sessions need to be culled.
+
+sub _check_session_resources {
+  my ($self, $session) = @_;
+
+  if ($session ne $self) {
+    unless ($self->{'sessions'}->{$session}->[2] ||
+            $self->{'sessions'}->{$session}->[3]
+    ) {
+      $self->session_free($session);
+    }
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -31,23 +62,38 @@ sub new {
 
 sub _dispatch_state {
   my ($self, $session, $source_session, $state, $etc) = @_;
-
-  my $sessions = $self->{'sessions'};
-
-  if (exists $sessions->{$session}) {
-    if (($state) eq '_parent') {
-      $sessions->{$session}->[0] = $source_session;
-      my $children = $sessions->{$source_session}->[1];
-      @$children = grep(!/^$session$/, @$children);
+  if (exists $self->{'sessions'}->{$session}) {
+    if ($state eq '_stop') {
+                                        # remove the session from its parent
+      my $old_parent = $self->{'sessions'}->{$session}->[0];
+      if (exists $self->{'sessions'}->{$old_parent}) {
+        my $regexp = quotemeta($session);
+        @{$self->{'sessions'}->{$old_parent}->[1]} =
+          grep(!/^$regexp$/, @{$self->{'sessions'}->{$old_parent}->[1]});
+      }
+      else {
+        warn "state($state)  old parent($old_parent) nonexistent";
+      }
+                                        # tell the parent its child is gone
+      $self->_dispatch_state($old_parent, $session, '_child', []);
+                                        # give custody of kid sto new parent
+      foreach my $child_session (@{$self->{'sessions'}->{$session}->[1]}) {
+        $self->{'sessions'}->{$child_session}->[0] = $old_parent;
+        push(@{$self->{'sessions'}->{$old_parent}->[1]}, $child_session);
+        $self->_dispatch_state($child_session, $old_parent, '_parent', []);
+      }
     }
 
     $self->{'running'} = $session;
     $session->_invoke_state($self, $source_session, $state, $etc);
-    $self->{'running'} = undef;
+    $self->{'running'} = $self;
 
-    if (($state) eq '_stop') {
-      warn "session still has children" if (@{$sessions->{$session}->[1]});
-      delete $sessions->{$session};
+    if ($state eq '_stop') {
+      delete $self->{'sessions'}->{$session};
+    }
+
+    if (exists $self->{'sessions'}->{$session}) {
+      $self->_check_session_resources($session);
     }
   }
   else {
@@ -82,7 +128,7 @@ sub run {
   my ($sessions, $selects, $states, $sel_r, $sel_w, $sel_e) =
     @$self{qw(sessions selects states sel_r sel_w sel_e)};
 
-  while (keys(%$sessions) && (@$states || keys(%$selects))) {
+  while (@$states || keys(%$selects)) {
                                         # select, if necessary
     my $timeout = (@$states) ? ($states->[0]->[3] - time()) : 60;
     $timeout = 0 if ($timeout < 0);
@@ -105,10 +151,16 @@ sub run {
       if ($states->[0]->[3] <= time()) {
         my ($session, $source_session, $state, $time, $etc)
           = @{shift @$states};
+        $sessions->{$session}->[2]--;
         $self->_dispatch_state($session, $source_session, $state, $etc);
       }
     }
   }
+                                        # check things after all done
+  print "*** End stats (tests garbage collection):\n";
+  print "states  : ", scalar(@{$self->{'states'}}), "\n";
+  print "selects : ", scalar(keys %{$self->{'selects'}}), "\n";
+  print "sessions: ", scalar(keys %{$self->{'sessions'}}), "\n";
 }
 
 #------------------------------------------------------------------------------
@@ -124,80 +176,62 @@ sub _enqueue_state {
   my ($self, $session, $source_session, $state, $time, $etc) = @_;
   my $state_to_queue = [ $session, $source_session, $state, $time, $etc ];
 
-  my $states = $self->{'states'};
-  if (@$states) {
-    my $index = scalar(@$states);
-    while ($index--) {
-      if ($time >= $states->[$index]->[3]) {
-        splice(@$states, $index+1, 0, $state_to_queue);
-        last;
-      }
-      elsif (!$index) {
-        splice(@$states, $index, 0, $state_to_queue);
-        last;
+  if (exists $self->{'sessions'}->{$session}) {
+    if (@{$self->{'states'}}) {
+      my $index = scalar(@{$self->{'states'}});
+      while ($index--) {
+        if ($time >= $self->{'states'}->[$index]->[3]) {
+          splice(@{$self->{'states'}}, $index+1, 0, $state_to_queue);
+          last;
+        }
+        elsif (!$index) {
+          splice(@{$self->{'states'}}, $index, 0, $state_to_queue);
+          last;
+        }
       }
     }
+    else {
+      @{$self->{'states'}} = ($state_to_queue);
+    }
+    $self->{'sessions'}->{$session}->[2]++;
   }
   else {
-    $self->{'states'} = [ $state_to_queue ];
+    carp "can't enqueue state($state) for nonexistent session($session)";
   }
 }
 
 #------------------------------------------------------------------------------
 
-# states  : [ [ $session, $source_session, $state, $time, \@etc ], ... ]
-#
-# selects:  { $handle  => [ [ [ $r_sess, $r_state ], ... ],
-#                           [ [ $w_sess, $w_state ], ... ],
-#                           [ [ $x_sess, $x_state ], ... ],
-#                         ],
-#           }
-#
-# sessions: { $session => [ $parent, [ @children ] ] }
-
 sub session_alloc {
   my ($self, $session) = @_;
   my $sessions = $self->{'sessions'};
-  my $active_session = $self->{'running'} || warn "no active session";
+  my $active_session = $self->{'running'};
 
   warn "session $session already exists" if (exists $sessions->{$session});
-
-  $sessions->{$session} = [ $active_session, [ ] ];
-
+  
+  $sessions->{$session} = [ $active_session, [ ], 0, 0 ];
   push(@{$sessions->{$active_session}->[1]}, $session);
 
+#  $self->_dispatch_state($session, $active_session, '_start', []);
   $self->_enqueue_state($session, $active_session, '_start', time(), []);
 }
 
 sub session_free {
   my ($self, $session) = @_;
   my $sessions = $self->{'sessions'};
-  my $active_session = $self->{'running'} || warn "no active session";
+  my $active_session = $self->{'running'};
 
   warn "session $session doesn't exist" unless (exists $sessions->{$session});
 
-  my $parent_session = $sessions->{'session'}->[0];
-  my @children = @{$sessions->{'session'}->[1]};
-                                        # tell object it's dead
+#  $self->_dispatch_state($session, $active_session, '_stop', []);
   $self->_enqueue_state($session, $active_session, '_stop', time(), []);
-                                        # tell parent
-  $self->_enqueue_state($parent_session, $session, '_child', time(), []);
-                                        # tell children
-  foreach my $child_session (@children) {
-    $self->_enqueue_state(
-                          $child_session, $parent_session, '_parent',
-                          time(), []
-                         );
-  }
 }
-
-#------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
 
 sub alarm {
   my ($self, $state, $name, $time, @etc) = @_;
-  my $active_session = $self->{'running'} || warn "no active session";
+  my $active_session = $self->{'running'};
   $self->_enqueue_state($active_session, $active_session,
                         $state, $time, $name, \@etc
                        );
@@ -208,19 +242,69 @@ sub alarm {
 sub select {
   my ($self, $handle, $state_read, $state_write, $state_exception) = @_;
   my $selects = $self->{'selects'};
-  my $active_session = $self->{'running'} || warn "no active session";
+  my $sessions = $self->{'sessions'};
+  my $active_session = $self->{'running'};
 
-  (($state_read)
-   && ($selects->{$handle}->[0]->{$active_session} = $state_read)
-  ) || (delete $selects->{$handle}->[0]->{$active_session});
+  $handle->binmode(1);
+  $handle->blocking(0);
+  $handle->autoflush();
 
-  (($state_write)
-   && ($selects->{$handle}->[1]->{$active_session} = $state_write)
-  ) || (delete $selects->{$handle}->[1]->{$active_session});
+  if ($state_read) {
+    if (exists $selects->{$handle}->[0]->{$active_session}) {
+      carp "redefining session($active_session), read state";
+    }
+    else {
+      $sessions->{$active_session}->[3]++;
+    }
+    $selects->{$handle}->[0]->{$active_session} = $state_read;
+  }
+  else {
+    if (exists $selects->{$handle}->[0]->{$active_session}) {
+      $sessions->{$active_session}->[3]--;
+    }
+    delete $selects->{$handle}->[0]->{$active_session};
+  }
 
-  (($state_exception) &&
-   ($selects->{$handle}->[2]->{$active_session} = $state_exception)
-  ) || (delete $selects->{$handle}->[2]->{$active_session});
+  if ($state_write) {
+    if (exists $selects->{$handle}->[1]->{$active_session}) {
+      carp "redefining session($active_session), write state";
+    }
+    else {
+      $sessions->{$active_session}->[3]++;
+    }
+    $selects->{$handle}->[1]->{$active_session} = $state_read;
+  }
+  else {
+    if (exists $selects->{$handle}->[1]->{$active_session}) {
+      $sessions->{$active_session}->[3]--;
+    }
+    delete $selects->{$handle}->[1]->{$active_session};
+  }
+
+  if ($state_exception) {
+    if (exists $selects->{$handle}->[2]->{$active_session}) {
+      carp "redefining session($active_session), exception state";
+    }
+    else {
+      $sessions->{$active_session}->[3]++;
+    }
+    $selects->{$handle}->[2]->{$active_session} = $state_exception;
+  }
+  else {
+    if (exists $selects->{$handle}->[2]->{$active_session}) {
+      $sessions->{$active_session}->[3]--;
+    }
+    delete $selects->{$handle}->[2]->{$active_session};
+  }
+}
+
+#------------------------------------------------------------------------------
+# Dummy _invoke_state, so the Kernel can exist in its own 'sessions' table
+# as a parent for root-level sessions.
+
+sub _invoke_state {
+  my ($self, $kernel, $source_session, $state, $etc) = @_;
+  # print "kernel caught state($state)\n";
 }
 
 #------------------------------------------------------------------------------
@@ -228,7 +312,7 @@ sub select {
 
 sub post_state {
   my ($self, $destination_session, $state_name, @etc) = @_;
-  my $active_session = $self->{'running'} || warn "no active session";
+  my $active_session = $self->{'running'};
                                         # external -> internal representation
   if ($destination_session eq $active_session->{'namespace'}) {
     $destination_session = $active_session;
