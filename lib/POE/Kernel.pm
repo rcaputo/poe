@@ -425,7 +425,7 @@ BEGIN {
 
     # Create a module name by replacing the path separators with
     # dashes and removing ".pm"
-    my $module = join("-", @split_dirs);
+    my $module = join("_", @split_dirs);
     substr($module, -3) = "";
 
     # Skip the module name if it isn't legal.
@@ -439,10 +439,10 @@ BEGIN {
     # Try for the XS version first.  If it fails, try the plain
     # version.  If that fails, we're up a creek.
     my $mod = "POE::XS::Loop::$module";
-    eval "require $mod";
+    eval "use $mod";
     if ($@ =~ /^Can't locate/) {
       $mod = "POE::Loop::$module";
-      eval "require $mod";
+      eval "use $mod";
     }
 
     next if $@ =~ /^Can't locate/;

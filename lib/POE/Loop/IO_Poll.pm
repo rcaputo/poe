@@ -5,7 +5,7 @@
 # contributed by Matt Sergeant (baud).
 
 # Empty package to appease perl.
-package POE::Loop::Poll;
+package POE::Loop::IO_Poll;
 
 use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
@@ -370,7 +370,7 @@ __END__
 
 =head1 NAME
 
-POE::Loop::Event - a bridge that supports IO::Poll from POE
+POE::Loop::IO_Poll - a bridge that supports IO::Poll from POE
 
 =head1 SYNOPSIS
 
