@@ -26,7 +26,7 @@ sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_GTK }
 # Signal handlers.
 
 sub _substrate_signal_handler_generic {
-  $poe_kernel->_enqueue_state
+  $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
       [ $_[0] ],
@@ -36,7 +36,7 @@ sub _substrate_signal_handler_generic {
 }
 
 sub _substrate_signal_handler_pipe {
-  $poe_kernel->_enqueue_state
+  $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
       [ $_[0] ],
@@ -49,7 +49,7 @@ sub _substrate_signal_handler_pipe {
 # that polls for them.
 sub _substrate_signal_handler_child {
   $SIG{$_[0]} = 'DEFAULT';
-  $poe_kernel->_enqueue_state
+  $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SCPOLL, ET_SCPOLL,
       [ ],
@@ -70,7 +70,7 @@ macro substrate_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $poe_kernel->_enqueue_alarm
+    $poe_kernel->_enqueue_event
       ( $poe_kernel, $poe_kernel,
         EN_SCPOLL, ET_SCPOLL,
         [ ],
@@ -104,7 +104,7 @@ macro substrate_resume_watching_child_signals () {
   # For constant polling loop.
   $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
   $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
-  $poe_kernel->_enqueue_alarm
+  $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SCPOLL, ET_SCPOLL,
       [ ],
@@ -120,21 +120,21 @@ macro substrate_resume_idle_watcher {
     unless defined $poe_kernel->[KR_WATCHER_IDLE];
 }
 
-macro substrate_resume_alarm_watcher {
-  my $next_time = ($kr_alarms[0]->[ST_TIME] - time()) * 1000;
+macro substrate_resume_time_watcher {
+  my $next_time = ($kr_events[0]->[ST_TIME] - time()) * 1000;
   $next_time = 0 if $next_time < 0;
   $poe_kernel->[KR_WATCHER_TIMER] =
-    Gtk->timeout_add( $next_time, \&_substrate_alarm_callback );
+    Gtk->timeout_add( $next_time, \&_substrate_event_callback );
 }
 
-macro substrate_reset_alarm_watcher {
+macro substrate_reset_time_watcher {
   # Should always be defined, right?
   Gtk->timeout_remove( $self->[KR_WATCHER_TIMER] );
   $self->[KR_WATCHER_TIMER] = undef;
-  {% substrate_resume_alarm_watcher %}
+  {% substrate_resume_time_watcher %}
 }
 
-macro substrate_pause_alarm_watcher {
+macro substrate_pause_time_watcher {
   # does nothing
 }
 
@@ -210,37 +210,23 @@ macro substrate_resume_filehandle_read_watcher {
 }
 
 macro substrate_define_callbacks {
-  # Idle callback to dispatch FIFO states.
-  sub _substrate_idle_callback {
+
+  # Event callback to dispatch pending events.
+  sub _substrate_event_callback {
     my $self = $poe_kernel;
 
-    {% dispatch_one_from_fifo %}
-    {% test_for_idle_poe_kernel %}
-
-    # Perpetuate the Gtk idle callback if there's more to do.
-    return 1 if @kr_states;
-
-    # Otherwise stop it.
-    $self->[KR_WATCHER_IDLE] = undef;
-    return 0;
-  }
-
-  # Alarm callback to dispatch pending alarm states.
-  sub _substrate_alarm_callback {
-    my $self = $poe_kernel;
-
-    {% dispatch_due_alarms %}
+    {% dispatch_due_events %}
     {% test_for_idle_poe_kernel %}
 
     Gtk->timeout_remove( $self->[KR_WATCHER_TIMER] );
     $self->[KR_WATCHER_TIMER] = undef;
 
-    # Register the next timeout if there are alarms left.
-    if (@kr_alarms) {
-      my $next_time = ($kr_alarms[0]->[ST_TIME] - time()) * 1000;
+    # Register the next timeout if there are events left.
+    if (@kr_events) {
+      my $next_time = ($kr_events[0]->[ST_TIME] - time()) * 1000;
       $next_time = 0 if $next_time < 0;
       $self->[KR_WATCHER_TIMER] =
-        Gtk->timeout_add( $next_time, \&_substrate_alarm_callback );
+        Gtk->timeout_add( $next_time, \&_substrate_event_callback );
     }
 
     # Return false to stop.
@@ -287,6 +273,11 @@ macro substrate_define_callbacks {
 
 #------------------------------------------------------------------------------
 # The event loop itself.
+
+# ???
+macro substrate_do_timeslice {
+  die "doing timeslices currently not supported in the Gtk substrate";
+}
 
 macro substrate_main_loop {
   Gtk->main;

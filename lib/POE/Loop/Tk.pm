@@ -36,7 +36,7 @@ sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_TK }
 # Signal handlers.
 
 sub _substrate_signal_handler_generic {
-  $poe_kernel->_enqueue_state
+  $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
       [ $_[0] ],
@@ -46,7 +46,7 @@ sub _substrate_signal_handler_generic {
 }
 
 sub _substrate_signal_handler_pipe {
-  $poe_kernel->_enqueue_state
+  $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL,
       [ $_[0] ],
@@ -59,7 +59,7 @@ sub _substrate_signal_handler_pipe {
 # that polls for them.
 sub _substrate_signal_handler_child {
   $SIG{$_[0]} = 'DEFAULT';
-  $poe_kernel->_enqueue_state
+  $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SCPOLL, ET_SCPOLL,
       [ ],
@@ -80,7 +80,7 @@ macro substrate_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $poe_kernel->_enqueue_alarm
+    $poe_kernel->_enqueue_event
       ( $poe_kernel, $poe_kernel,
         EN_SCPOLL, ET_SCPOLL,
         [ ],
@@ -114,7 +114,7 @@ macro substrate_resume_watching_child_signals () {
   # For constant polling loop.
   $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
   $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
-  $poe_kernel->_enqueue_alarm
+  $poe_kernel->_enqueue_event
     ( $poe_kernel, $poe_kernel,
       EN_SCPOLL, ET_SCPOLL,
       [ ],
@@ -130,23 +130,23 @@ macro substrate_resume_idle_watcher {
     $poe_main_window->afterIdle( \&_substrate_idle_callback );
 }
 
-macro substrate_resume_alarm_watcher {
+macro substrate_resume_time_watcher {
   if (defined $self->[KR_WATCHER_TIMER]) {
     $self->[KR_WATCHER_TIMER]->cancel();
     $self->[KR_WATCHER_TIMER] = undef;
   }
 
-  my $next_time = $kr_alarms[0]->[ST_TIME] - time();
+  my $next_time = $kr_events[0]->[ST_TIME] - time();
   $next_time = 0 if $next_time < 0;
   $self->[KR_WATCHER_TIMER] =
-    $poe_main_window->after( $next_time * 1000, \&_substrate_alarm_callback );
+    $poe_main_window->after( $next_time * 1000, \&_substrate_event_callback );
 }
 
-macro substrate_reset_alarm_watcher {
-  {% substrate_resume_alarm_watcher %}
+macro substrate_reset_time_watcher {
+  {% substrate_resume_time_watcher %}
 }
 
-macro substrate_pause_alarm_watcher {
+macro substrate_pause_time_watcher {
   $self->[KR_WATCHER_TIMER]->stop()
     if defined $self->[KR_WATCHER_TIMER];
 }
@@ -243,57 +243,20 @@ macro substrate_define_callbacks {
   # than the overhead of dispatching it, then no other events are
   # processed.  That includes afterIdle and even internal Tk events.
 
-  # This is the idle callback to dispatch FIFO states.
-  sub _substrate_idle_callback {
+  # Tk timer callback to dispatch events.
+  sub _substrate_event_callback {
     my $self = $poe_kernel;
 
-    {% dispatch_one_from_fifo %}
-
-    # Perpetuate the dispatch loop as long as there are states
-    # enqueued.
-
-    if (defined $self->[KR_WATCHER_IDLE]) {
-      $self->[KR_WATCHER_IDLE]->cancel();
-      $self->[KR_WATCHER_IDLE] = undef;
-    }
-
-    # This nasty little hack is required because setting an afterIdle
-    # from a running afterIdle effectively blocks OS/2 Presentation
-    # Manager events.  This locks up its notion of a window manager.
-    # I couldn't get anyone to test it on other platforms... (Hey,
-    # this could trash yoru desktop! Wanna try it?) :)
-
-    if (@kr_states) {
-      $poe_main_window->after
-        ( 0,
-          sub {
-            $self->[KR_WATCHER_IDLE] =
-              $poe_main_window->afterIdle( \&_substrate_idle_callback )
-                unless defined $self->[KR_WATCHER_IDLE];
-          }
-        );
-    }
-
-    # Make sure the kernel can still run.
-    else {
-      {% test_for_idle_poe_kernel %}
-    }
-  }
-
-  # Tk timer callback to dispatch alarm states.
-  sub _substrate_alarm_callback {
-    my $self = $poe_kernel;
-
-    {% dispatch_due_alarms %}
+    {% dispatch_due_events %}
 
     # As was mentioned before, $widget->after() events can dominate a
     # program's event loop, starving it of other events, including
     # Tk's internal widget events.  To avoid this, we'll reset the
-    # alarm callback from an idle event.
+    # event callback from an idle event.
 
-    # Register the next timed callback if there are alarms left.
+    # Register the next timed callback if there are events left.
 
-    if (@kr_alarms) {
+    if (@kr_events) {
 
       # Cancel the Tk alarm that handles alarms.
 
@@ -310,13 +273,13 @@ macro substrate_define_callbacks {
               $self->[KR_WATCHER_TIMER]->cancel();
               $self->[KR_WATCHER_TIMER] = undef;
 
-              if (@kr_alarms) {
-                my $next_time = $kr_alarms[0]->[ST_TIME] - time();
+              if (@kr_events) {
+                my $next_time = $kr_events[0]->[ST_TIME] - time();
                 $next_time = 0 if $next_time < 0;
 
                 $self->[KR_WATCHER_TIMER] =
                   $poe_main_window->after( $next_time * 1000,
-                                           \&_substrate_alarm_callback
+                                           \&_substrate_event_callback
                                          );
               }
             }
@@ -339,6 +302,11 @@ macro substrate_define_callbacks {
 
 #------------------------------------------------------------------------------
 # The event loop itself.
+
+# ???
+macro substrate_do_timeslice {
+  die "doing timeslices currently not supported in the Tk substrate";
+}
 
 macro substrate_main_loop {
   Tk::MainLoop();

@@ -60,27 +60,19 @@ BEGIN {
 # only one active kernel; sorry
 $poe_kernel = undef;
 
-# states:
+# events:
 # [ [ $session, $source_session, $state, $type, \@etc, $time,
 #     $poster_file, $poster_line, $sequence_number
 #   ],
 #   ...
 # ]
-my @kr_states;
+my @kr_events;
 
-# alarms:
-# [ [ $session, $source_session, $state, $type, \@etc, $time,
-#     $poster_file, $poster_line, $sequence_number
-#   ],
-#   ...
-# ]
-my @kr_alarms;
-
-# more alarms. this is for id->time lookup in the Jun 2001 functions:
+# alarm IDs. this is for id->time lookup in the Jun 2001 functions:
 # { $alarm_id =>
 #   $alarm_time
 # }
-my %kr_alarm_ids;
+my %kr_event_ids;
 
 # processes: { $pid => $parent_session, ... }
 my %kr_processes;
@@ -127,7 +119,6 @@ my %kr_signals;
 #     { $pid => 1, ... },          # child processes
 #     $session_id,                 # session ID
 #     { $tag => $count, ... },     # extra reference counts
-#     $alarm_count,                # alarm count
 #   ]
 # };
 my %kr_sessions;
@@ -170,7 +161,6 @@ sub SS_ALIASES    () {  7 }
 sub SS_PROCESSES  () {  8 }
 sub SS_ID         () {  9 }
 sub SS_EXTRA_REFS () { 10 }
-sub SS_ALCOUNT    () { 11 }
 
 # session handle structure
 sub SH_HANDLE   () { 0 }
@@ -181,20 +171,19 @@ sub SH_VECCOUNT () { 2 }
 sub KR_SESSIONS       () {  0 }
 sub KR_VECTORS        () {  1 }
 sub KR_HANDLES        () {  2 }
-sub KR_STATES         () {  3 }
-sub KR_SIGNALS        () {  4 }
-sub KR_ALIASES        () {  5 }
-sub KR_ACTIVE_SESSION () {  6 }
-sub KR_PROCESSES      () {  7 }
-sub KR_ALARMS         () {  8 }
-sub KR_ID             () {  9 }
-sub KR_SESSION_IDS    () { 10 }
-sub KR_ID_INDEX       () { 11 }
-sub KR_WATCHER_TIMER  () { 12 }
-sub KR_WATCHER_IDLE   () { 13 }
-sub KR_EXTRA_REFS     () { 14 }
-sub KR_ALARM_IDS      () { 15 }
-sub KR_SIZE           () { 16 }
+sub KR_SIGNALS        () {  3 }
+sub KR_ALIASES        () {  4 }
+sub KR_ACTIVE_SESSION () {  5 }
+sub KR_PROCESSES      () {  6 }
+sub KR_EVENTS         () {  7 }
+sub KR_ID             () {  8 }
+sub KR_SESSION_IDS    () {  9 }
+sub KR_ID_INDEX       () { 10 }
+sub KR_WATCHER_TIMER  () { 11 }
+sub KR_WATCHER_IDLE   () { 12 }
+sub KR_EXTRA_REFS     () { 13 }
+sub KR_EVENT_IDS      () { 14 }
+sub KR_SIZE           () { 15 }
 
 # Handle structure.
 sub HND_HANDLE   () { 0 }
@@ -253,16 +242,8 @@ sub ET_SCPOLL () { 0x0100 }
 sub ET_ALARM  () { 0x0200 }
 sub ET_SELECT () { 0x0400 }
 
-# The amount of time to spend dispatching FIFO events.  Increasing
-# this value will improve POE's FIFO dispatch performance by
-# increasing the time between select and alarm checks.  It's only
-# meaningful when Time::HiRes is available.
-sub FIFO_DISPATCH_TIME () { 0.01 }
-
 # Queues with this many events (or more) are considered to be "large",
 # and different strategies are used to find elements within them.
-# This is mainly for the alarm queue, which is ordered by time and
-# often accessed at random.
 sub LARGE_QUEUE_SIZE () { 32 }
 
 #------------------------------------------------------------------------------
@@ -303,7 +284,7 @@ BEGIN {
 
   defined &ASSERT_DEFAULT or eval 'sub ASSERT_DEFAULT () { 0 }';
 
-  {% define_assert ALARMS    %}
+  {% define_assert EVENTS    %}
   {% define_assert GARBAGE   %}
   {% define_assert REFCOUNT  %}
   {% define_assert RELATIONS %}
@@ -476,8 +457,7 @@ macro test_resolve (<name>,<resolved>) {
 macro test_for_idle_poe_kernel {
   if (TRACE_REFCOUNT) { # include
     warn( ",----- Kernel Activity -----\n",
-          "| States : ", scalar(@kr_states), "\n",
-          "| Alarms : ", scalar(@kr_alarms), "\n",
+          "| Events : ", scalar(@kr_events), "\n",
           "| Files  : ", scalar(keys(%kr_handles)), "\n",
           "|   `--> : ", join( ', ',
                                sort { $a <=> $b }
@@ -491,12 +471,11 @@ macro test_for_idle_poe_kernel {
          );
   } # include
 
-  unless ( @kr_states        or
-           @kr_alarms > 1    or  # > 1 for signal poll loop
+  unless ( @kr_events > 1    or  # > 1 for signal poll loop
            keys(%kr_handles) or
            $kr_extra_refs
          ) {
-    $poe_kernel->_enqueue_state
+    $poe_kernel->_enqueue_event
       ( $poe_kernel, $poe_kernel,
         EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
         time(), __FILE__, __LINE__
@@ -505,29 +484,20 @@ macro test_for_idle_poe_kernel {
 }
 
 macro post_plain_signal (<destination>,<signal_name>) {
-  $poe_kernel->_enqueue_state
+  $poe_kernel->_enqueue_event
     ( <destination>, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL, [ <signal_name> ],
       time(), __FILE__, __LINE__
     );
 }
 
-# Pull an event off the queue, and dispatch it.
-macro dispatch_one_from_fifo {
-  if (@kr_states) {
-    my $event = shift @kr_states;
-    {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
-    $poe_kernel->_dispatch_state(@$event);
-  }
-}
-
-macro dispatch_due_alarms {
-  # Pull due alarms off the queue, and dispatch them.
+macro dispatch_due_events {
+  # Pull due events off the queue, and dispatch them.
   my $now = time();
-  while ( @kr_alarms and ($kr_alarms[0]->[ST_TIME] <= $now) ) {
-    my $event = shift @kr_alarms;
-    delete $kr_alarm_ids{$event->[ST_SEQ]};
-    {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
+  while ( @kr_events and ($kr_events[0]->[ST_TIME] <= $now) ) {
+    my $event = shift @kr_events;
+    delete $kr_event_ids{$event->[ST_SEQ]};
+    {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
     $poe_kernel->_dispatch_state(@$event);
   }
 }
@@ -636,7 +606,7 @@ sub POE::Kernel::signal {
   my $session = {% alias_resolve $destination %};
   {% test_resolve $destination, $session %}
 
-  $self->_enqueue_state
+  $self->_enqueue_event
     ( $session, $kr_active_session,
       EN_SIGNAL, ET_SIGNAL, [ $signal ],
       time(), (caller)[1,2]
@@ -662,19 +632,18 @@ sub new {
       [ \%kr_sessions,       # KR_SESSIONS
         \@kr_vectors,        # KR_VECTORS
         \%kr_handles,        # KR_HANDLES
-        \@kr_states,         # KR_STATES
         \%kr_signals,        # KR_SIGNALS
         \%kr_aliases,        # KR_ALIASES
         \$kr_active_session, # KR_ACTIVE_SESSION
         \%kr_processes,      # KR_PROCESSES
-        \@kr_alarms,         # KR_ALARMS
+        \@kr_events,         # KR_EVENTS
         undef,               # KR_ID
         \%kr_session_ids,    # KR_SESSION_IDS
         \$kr_id_index,       # KR_ID_INDEX
         undef,               # KR_WATCHER_TIMER
         undef,               # KR_WATCHER_IDLE
         \$kr_extra_refs,     # KR_EXTRA_REFS
-        \%kr_alarm_ids,      # KR_ALARM_IDS
+        \%kr_event_ids,      # KR_EVENT_IDS
       ], $type;
 
     # Kernel ID, based on Philip Gwyn's code.  I hope he still can
@@ -710,7 +679,6 @@ sub new {
         { },                            # SS_PROCESSES
         $self->[KR_ID],                 # SS_ID
         { },                            # SS_EXTRA_REFS
-        0,                              # SS_ALCOUNT
       ];
 
     # Register all known signal handlers, except the troublesome ones.
@@ -795,7 +763,6 @@ sub _dispatch_state {
           { },              # SS_PROCESSES
           $kr_id_index,     # SS_ID
           { },              # SS_EXTRA_REFS
-          0,                # SS_ALCOUNT
         ];
 
       # For the ID to session reference lookup.
@@ -1015,24 +982,14 @@ sub _dispatch_state {
       {% sig_remove $session, $_ %}
     }
 
-    # Free any events that the departing session has in the queue.
+    # Free any events that the departing session has in its queue.
 
-    my $index = @kr_states;
+    my $index = @kr_events;
     while ($index-- && $kr_sessions{$session}->[SS_EVCOUNT]) {
-      if ($kr_states[$index]->[ST_SESSION] == $session) {
+      if ($kr_events[$index]->[ST_SESSION] == $session) {
         {% ses_refcount_dec2 $session, SS_EVCOUNT %}
-        splice(@kr_states, $index, 1);
-      }
-    }
-
-    # Free any alarms that the departing session has in its queue.
-
-    $index = @kr_alarms;
-    while ($index-- && $kr_sessions{$session}->[SS_ALCOUNT]) {
-      if ($kr_alarms[$index]->[ST_SESSION] == $session) {
-        {% ses_refcount_dec2 $session, SS_ALCOUNT %}
-        my $removed_alarm = splice(@kr_alarms, $index, 1);
-        delete $kr_alarm_ids{$removed_alarm->[ST_SEQ]};
+        my $removed_event = splice(@kr_events, $index, 1);
+        delete $kr_event_ids{$removed_event->[ST_SEQ]};
       }
     }
 
@@ -1149,14 +1106,9 @@ sub _dispatch_state {
 #------------------------------------------------------------------------------
 # POE's main loop!  Now with Tk and Event support!
 
-sub run {
-  my $self = shift;
+# Do post-run cleanup.
 
-  # See the notes near $poe_kernel_ran's definition.
-  # croak "can't rerun POE::Kernel" if $poe_kernel_ran;
-
-  {% substrate_main_loop %}
-
+macro finalize_kernel {
   # See the notes near $poe_kernel_ran's definition.
   # $poe_kernel_ran++;
 
@@ -1174,13 +1126,12 @@ sub run {
     {% kernel_leak_vec   VEC_WR          %}
     {% kernel_leak_vec   VEC_EX          %}
     {% kernel_leak_hash  %kr_handles     %}
-    {% kernel_leak_array @kr_states      %}
     {% kernel_leak_hash  %kr_signals     %}
     {% kernel_leak_hash  %kr_aliases     %}
     {% kernel_leak_hash  %kr_processes   %}
-    {% kernel_leak_array @kr_alarms      %}
+    {% kernel_leak_array @kr_events      %}
     {% kernel_leak_hash  %kr_session_ids %}
-    {% kernel_leak_hash  %kr_alarm_ids   %}
+    {% kernel_leak_hash  %kr_event_ids   %}
   }
 
   if (TRACE_PROFILE) {
@@ -1190,7 +1141,27 @@ sub run {
     }
     print STDERR '`', ('-' x 73), "'\n";
   }
+}
 
+sub run_one_timeslice {
+  my $self = shift;
+  return undef unless %kr_sessions;
+  {% substrate_do_timeslice %}
+  unless (%kr_sessions) {
+    {% finalize_kernel %}
+  }
+}
+
+sub run {
+  my $self = shift;
+
+  # See the notes near $poe_kernel_ran's definition.
+  # croak "can't rerun POE::Kernel" if $poe_kernel_ran;
+
+  {% substrate_main_loop %}
+
+  # Clean up afterwards.
+  {% finalize_kernel %}
 }
 
 #------------------------------------------------------------------------------
@@ -1246,7 +1217,7 @@ sub _invoke_state {
         # Enqueue the signal event. -><- No way to determine whether
         # the child left via exit or a signal. Add another parameter?
 
-        $self->_enqueue_state
+        $self->_enqueue_event
           ( $parent_session, $self,
             EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
             time(), __FILE__, __LINE__
@@ -1256,7 +1227,7 @@ sub _invoke_state {
       # Enqueue an immediate subsequent wait in case another child
       # process is waiting.
 
-      $self->_enqueue_state
+      $self->_enqueue_event
         ( $poe_kernel, $poe_kernel,
           EN_SCPOLL, ET_SCPOLL, [ ],
           time(), __FILE__, __LINE__
@@ -1271,7 +1242,7 @@ sub _invoke_state {
       # waitpid(2) was interrupted.  Retry immediately.
 
       if ($! == EINTR) {
-        $self->_enqueue_state
+        $self->_enqueue_event
           ( $poe_kernel, $poe_kernel,
             EN_SCPOLL, ET_SCPOLL, [ ],
             time(), __FILE__, __LINE__
@@ -1300,8 +1271,8 @@ sub _invoke_state {
 
   elsif ($state eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
-      unless (@kr_states || keys(%kr_handles)) {
-        $self->_enqueue_state
+      unless (@kr_events > 1 || keys(%kr_handles)) {
+        $self->_enqueue_event
           ( $self, $self,
             EN_SIGNAL, ET_SIGNAL, [ 'ZOMBIE' ],
             time(), __FILE__, __LINE__
@@ -1333,7 +1304,7 @@ sub session_alloc {
       EN_START, ET_START, \@args,
       time(), __FILE__, __LINE__, undef
     );
-  $self->_enqueue_state
+  $self->_enqueue_event
     ( $session, $kr_active_session,
       EN_GC, ET_GC, [],
       time(), __FILE__, __LINE__
@@ -1476,7 +1447,6 @@ sub trace_gc_refcount {
   warn "+----- GC test for ", {% ssid %}, " ($session) -----\n";
   warn "| total refcnt  : $ss->[SS_REFCOUNT]\n";
   warn "| event count   : $ss->[SS_EVCOUNT]\n";
-  warn "| alarm count   : $ss->[SS_ALCOUNT]\n";
   warn "| child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n";
   warn "| handles in use: ", scalar(keys(%{$ss->[SS_HANDLES]})), "\n";
   warn "| aliases in use: ", scalar(keys(%{$ss->[SS_ALIASES]})), "\n";
@@ -1499,7 +1469,6 @@ sub assert_gc_refcount {
 
   my $calc_ref =
     ( $ss->[SS_EVCOUNT] +
-      $ss->[SS_ALCOUNT] +
       scalar(keys(%{$ss->[SS_CHILDREN]})) +
       scalar(keys(%{$ss->[SS_HANDLES]})) +
       scalar(keys(%{$ss->[SS_EXTRA_REFS]})) +
@@ -1532,101 +1501,74 @@ sub get_active_session {
 # EVENTS
 #==============================================================================
 
+# This is actually used by a macro that occurs earlier in the file, so
+# you won't find a reference to $queue_seqnum after here.
+
 my $queue_seqnum = 0;
 
-# Internal function to enqueue a state transition event.
-
-sub _enqueue_state {
+sub _enqueue_event {
   my ( $self, $session, $source_session, $state, $type, $etc, $time,
        $file, $line
      ) = @_;
 
   if (TRACE_EVENTS) { # include
-    warn "}}} enqueuing state '$state' for ", {% ssid %}, "\n";
-  } # include
-
-  # These things are FIFO; just enqueue it.
-
-  if (exists $kr_sessions{$session}) {
-    push @kr_states, {% state_to_enqueue %};
-    {% ses_refcount_inc2 $session, SS_EVCOUNT %}
-    {% substrate_resume_idle_watcher %}
-  }
-  else {
-    warn( ">>>>> sessions=", join('; ', keys(%kr_sessions)), "\n",
-          ">>>>> session=$session\n",
-          ">>>>> state=$state\n",
-          ">>>>> type=$type\n",
-          ">>>>> args=@$etc\n",
-          ">>>>> location=$file @ $line\n",
-        );
-    croak "can't enqueue state($state) for nonexistent session($session)\a\n";
-  }
-}
-
-sub _enqueue_alarm {
-  my ( $self, $session, $source_session, $state, $type, $etc, $time,
-       $file, $line
-     ) = @_;
-
-  if (TRACE_EVENTS) { # include
-    warn "}}} enqueuing alarm '$state' for ", {% ssid %}, " at $time\n";
+    warn "}}} enqueuing event '$state' for ", {% ssid %}, " at $time\n";
   } # include
 
   if (exists $kr_sessions{$session}) {
 
     my $state_to_enqueue = {% state_to_enqueue %};
 
-    # Special case: No alarms in the queue.  Put the new alarm in the
+    # Special case: No events in the queue.  Put the new event in the
     # queue, and be done with it.
-    unless (@kr_alarms) {
-      $kr_alarms[0] = $state_to_enqueue;
+    unless (@kr_events) {
+      $kr_events[0] = $state_to_enqueue;
 
-      # This alarm restarts the substrate's watcher.
-      {% substrate_resume_alarm_watcher %}
+      # This event restarts the substrate's time watcher.
+      {% substrate_resume_time_watcher %}
     }
 
     # Special case: New state belongs at the end of the queue.  Push
     # it, and be done with it.
-    elsif ($time >= $kr_alarms[-1]->[ST_TIME]) {
-      push @kr_alarms, $state_to_enqueue;
+    elsif ($time >= $kr_events[-1]->[ST_TIME]) {
+      push @kr_events, $state_to_enqueue;
     }
 
     # Special case: New state comes before earliest state.  Unshift
     # it, and be done with it.
-    elsif ($time < $kr_alarms[0]->[ST_TIME]) {
-      unshift @kr_alarms, $state_to_enqueue;
+    elsif ($time < $kr_events[0]->[ST_TIME]) {
+      unshift @kr_events, $state_to_enqueue;
 
-      # This alarm refreshes the substrate's watcher.
-      {% substrate_reset_alarm_watcher %}
+      # This event refreshes the substrate's watcher.
+      {% substrate_reset_time_watcher %}
     }
 
-    # Special case: Two alarms in the queue.  The new state enters
+    # Special case: Two events in the queue.  The new state enters
     # between them, because it's not before the first one or after the
     # last one.
-    elsif (@kr_alarms == 2) {
-      splice @kr_alarms, 1, 0, $state_to_enqueue;
+    elsif (@kr_events == 2) {
+      splice @kr_events, 1, 0, $state_to_enqueue;
     }
 
     # Small queue.  Perform a reverse linear search on the assumption
     # that (a) a linear search is fast enough on small queues; and (b)
     # most events will be posted for "now" or some future time, which
     # tends to be towards the end of the queue.
-    elsif (@kr_alarms < LARGE_QUEUE_SIZE) {
-      my $index = @kr_alarms;
+    elsif (@kr_events < LARGE_QUEUE_SIZE) {
+      my $index = @kr_events;
       $index--
         while ( $index and
-                $time < $kr_alarms[$index-1]->[ST_TIME]
+                $time < $kr_events[$index-1]->[ST_TIME]
               );
-      splice @kr_alarms, $index, 0, $state_to_enqueue;
+      splice @kr_events, $index, 0, $state_to_enqueue;
     }
 
     # And finally, we have this large queue, and the program has
     # already wasted enough time.  -><- It would be neat for POE to
-    # determine the break-even point between "large" and "small" alarm
+    # determine the break-even point between "large" and "small" event
     # queues at start-up and tune itself accordingly.
     else {
-      my $upper = @kr_alarms - 1;
+      my $upper = @kr_events - 1;
       my $lower = 0;
       while ('true') {
         my $midpoint = ($upper + $lower) >> 1;
@@ -1634,20 +1576,20 @@ sub _enqueue_alarm {
         # Upper and lower bounds crossed.  No match; insert at the
         # lower bound point.
         if ($upper < $lower) {
-          splice @kr_alarms, $lower, 0, $state_to_enqueue;
+          splice @kr_events, $lower, 0, $state_to_enqueue;
           last;
         }
 
         # The key at the midpoint is too high.  The element just below
         # the midpoint becomes the new upper bound.
-        if ($time < $kr_alarms[$midpoint]->[ST_TIME]) {
+        if ($time < $kr_events[$midpoint]->[ST_TIME]) {
           $upper = $midpoint - 1;
           next;
         }
 
         # The key at the midpoint is too low.  The element just above
         # the midpoint becomes the new lower bound.
-        if ($time > $kr_alarms[$midpoint]->[ST_TIME]) {
+        if ($time > $kr_events[$midpoint]->[ST_TIME]) {
           $lower = $midpoint + 1;
           next;
         }
@@ -1656,32 +1598,32 @@ sub _enqueue_alarm {
         # higher keys until the midpoint points to an element with a
         # higher key.  Insert the new state before it.
         $midpoint++
-          while ( ($midpoint < @kr_alarms)
-                  and ($time == $kr_alarms[$midpoint]->[ST_TIME])
+          while ( ($midpoint < @kr_events)
+                  and ($time == $kr_events[$midpoint]->[ST_TIME])
                 );
-        splice @kr_alarms, $midpoint, 0, $state_to_enqueue;
+        splice @kr_events, $midpoint, 0, $state_to_enqueue;
         last;
       }
     }
 
     # Manage reference counts.
-    {% ses_refcount_inc2 $session, SS_ALCOUNT %}
+    {% ses_refcount_inc2 $session, SS_EVCOUNT %}
 
-    # Track the new alarm's ID and time.  This is used later if we
-    # want to remove an alarm with a specific ID.  The ID->time lookup
-    # is used so we can seek into the time-ordered alarm queue and
-    # quickly find the alarm to fiddle with.
-    my $new_alarm_id = $state_to_enqueue->[ST_SEQ];
-    $kr_alarm_ids{$new_alarm_id} = $time;
+    # Track the new event's ID and time.  This is used later if we
+    # want to remove an event with a specific ID.  The ID->time lookup
+    # is used so we can seek into the time-ordered event queue and
+    # quickly find the event to fiddle with.
+    my $new_event_id = $state_to_enqueue->[ST_SEQ];
+    $kr_event_ids{$new_event_id} = $time;
 
-    # Return the new alarm ID.  Man, this rocks.  I forgot POE was
+    # Return the new event ID.  Man, this rocks.  I forgot POE was
     # maintaining event sequence numbers.
-    return $new_alarm_id;
+    return $new_event_id;
   }
 
   # This function already has returned if everything went well.
   warn ">>>>> ", join('; ', keys(%kr_sessions)), " <<<<<\n";
-  croak "can't enqueue alarm($state) for nonexistent session($session)\a\n";
+  croak "can't enqueue event($state) for nonexistent session($session)\a\n";
 }
 
 #------------------------------------------------------------------------------
@@ -1704,7 +1646,7 @@ sub post {
   # Enqueue the state for "now", which simulates FIFO in our
   # time-ordered queue.
 
-  $self->_enqueue_state
+  $self->_enqueue_event
     ( $session, $kr_active_session,
       $state_name, ET_USER, \@etc,
       time(), (caller)[1,2]
@@ -1722,7 +1664,7 @@ sub yield {
     croak "event name is undefined in yield()" unless defined $state_name;
   };
 
-  $self->_enqueue_state
+  $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
       $state_name, ET_USER, \@etc,
       time(), (caller)[1,2]
@@ -1789,9 +1731,9 @@ sub queue_peek_alarms {
   my ($self) = @_;
   my @pending_alarms;
 
-  my $alarm_count = $kr_sessions{$kr_active_session}->[SS_ALCOUNT];
+  my $alarm_count = $kr_sessions{$kr_active_session}->[SS_EVCOUNT];
 
-  foreach my $alarm (@kr_alarms) {
+  foreach my $alarm (@kr_events) {
     last unless $alarm_count;
     next unless $alarm->[ST_SESSION] == $kr_active_session;
     next unless $alarm->[ST_TYPE] & ET_ALARM;
@@ -1819,31 +1761,31 @@ sub alarm {
     return EINVAL;
   }
 
-  my $index = @kr_alarms;
+  my $index = @kr_events;
   while ($index--) {
-    if ( ($kr_alarms[$index]->[ST_TYPE] & ET_ALARM) &&
-         ($kr_alarms[$index]->[ST_SESSION] == $kr_active_session) &&
-         ($kr_alarms[$index]->[ST_NAME] eq $state)
+    if ( ($kr_events[$index]->[ST_TYPE] & ET_ALARM) &&
+         ($kr_events[$index]->[ST_SESSION] == $kr_active_session) &&
+         ($kr_events[$index]->[ST_NAME] eq $state)
     ) {
-      {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
-      my $removed_alarm = splice(@kr_alarms, $index, 1);
-      delete $kr_alarm_ids{$removed_alarm->[ST_SEQ]};
+      {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
+      my $removed_alarm = splice(@kr_events, $index, 1);
+      delete $kr_event_ids{$removed_alarm->[ST_SEQ]};
     }
   }
 
-  # Add the new alarm if it includes a time.  Calling _enqueue_alarm
+  # Add the new alarm if it includes a time.  Calling _enqueue_event
   # directly is faster than calling alarm_set to enqueue it.
   if (defined $time) {
-    $self->_enqueue_alarm
+    $self->_enqueue_event
       ( $kr_active_session, $kr_active_session,
         $state, ET_ALARM, [ @etc ],
         $time, (caller)[1,2]
       );
   }
   else {
-    # The alarm queue has become empty?  Stop the alarm watcher.
-    unless (@kr_alarms) {
-      {% substrate_pause_alarm_watcher %}
+    # The event queue has become empty?  Stop the time watcher.
+    unless (@kr_events) {
+      {% substrate_pause_time_watcher %}
     }
   }
 
@@ -1865,7 +1807,7 @@ sub alarm_add {
     return EINVAL;
   }
 
-  $self->_enqueue_alarm
+  $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
       $state, ET_ALARM, [ @etc ],
       $time, (caller)[1,2]
@@ -1944,88 +1886,90 @@ sub alarm_set {
     return;
   }
 
-  return $self->_enqueue_alarm
+  return $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
       $state, ET_ALARM, [ @etc ],
       $time, (caller)[1,2]
     );
 }
 
-# This is an alarm helper: it finds an alarm in the queue.  Special
-# cases don't count here because we assume the alarm exists.  It dies
+# This is an event helper: it finds an event in the queue.  Special
+# cases don't count here because we assume the event exists.  It dies
 # outright if there's a problem because its parameters have been
 # verified good before it's called.  Failure is not an option here.
 
 # THIS IS A STATIC FUNCTION!
 
-sub _alarm_find {
+sub _event_find {
   my ($time, $id) = @_;
 
-  # Small queue.  Find the alarm with a linear seek on the assumption
+  # Small queue.  Find the event with a linear seek on the assumption
   # that the overhead of a binary seek would be more than a linear
   # search at this point.  The actual break-even point is unknown, and
   # it probably varies from system to system.
-  if (@kr_alarms < LARGE_QUEUE_SIZE) {
-    my $index = @kr_alarms;
+  if (@kr_events < LARGE_QUEUE_SIZE) {
+    my $index = @kr_events;
     while ($index--) {
-      return $index if $id == $kr_alarms[$index]->[ST_SEQ];
+      return $index if $id == $kr_events[$index]->[ST_SEQ];
     }
-    die "internal inconsistency: alarm should have been found";
+    die "internal inconsistency: event should have been found";
   }
 
-  # Use a binary seek to find alarms in a large queue.
+  # Use a binary seek to find events in a large queue.
 
   else {
-    my $upper = @kr_alarms - 1;
+    my $upper = @kr_events - 1;
     my $lower = 0;
     while ('true') {
       my $midpoint = ($upper + $lower) >> 1;
 
       # The streams have crossed.  That's bad.
-      die "internal inconsistency: alarm should have been found"
+      die "internal inconsistency: event should have been found"
         if $upper < $lower;
 
       # The key at the midpoint is too high.  The element just below
       # the midpoint becomes the new upper bound.
-      if ($time < $kr_alarms[$midpoint]->[ST_TIME]) {
+      if ($time < $kr_events[$midpoint]->[ST_TIME]) {
         $upper = $midpoint - 1;
         next;
       }
 
       # The key at the midpoint is too low.  The element just above
       # the midpoint becomes the new lower bound.
-      if ($time > $kr_alarms[$midpoint]->[ST_TIME]) {
+      if ($time > $kr_events[$midpoint]->[ST_TIME]) {
         $lower = $midpoint + 1;
         next;
       }
 
       # The key (time) matches the one at the midpoint.  This may be
-      # in the middle of a pocket of alarms with the same time, so
+      # in the middle of a pocket of events with the same time, so
       # we'll have to search back and forth for one with the ID we're
       # looking for.  Unfortunately.
       my $linear_point = $midpoint;
       while ( $linear_point and
-              $time == $kr_alarms[$linear_point]->[ST_TIME]
+              $time == $kr_events[$linear_point]->[ST_TIME]
             ) {
-        return $linear_point if $kr_alarms[$linear_point]->[ST_SEQ] == $id;
+        return $linear_point if $kr_events[$linear_point]->[ST_SEQ] == $id;
         $linear_point--;
       }
       $linear_point = $midpoint;
-      while ( (++$linear_point < @kr_alarms) and
-              ($time == $kr_alarms[$linear_point]->[ST_TIME])
+      while ( (++$linear_point < @kr_events) and
+              ($time == $kr_events[$linear_point]->[ST_TIME])
             ) {
-        return $linear_point if $kr_alarms[$linear_point]->[ST_SEQ] == $id;
+        return $linear_point if $kr_events[$linear_point]->[ST_SEQ] == $id;
       }
 
-      # If we get this far, then the alarm hasn't been found.
-      die "internal inconsistency: alarm should have been found";
+      # If we get this far, then the event hasn't been found.
+      die "internal inconsistency: event should have been found";
     }
   }
 
   die "this message should never be reached";
 }
 
-# Remove an alarm by its ID.
+# Remove an alarm by its ID.  -><- Now that alarms and events have
+# been recombined, this will remove an event by its ID.  However,
+# nothing returns an event ID, so nobody knows what to remove.
 
 sub alarm_remove {
   my ($self, $alarm_id) = @_;
@@ -2036,7 +1980,7 @@ sub alarm_remove {
     return;
   }
 
-  my $alarm_time = $kr_alarm_ids{$alarm_id};
+  my $alarm_time = $kr_event_ids{$alarm_id};
   unless (defined $alarm_time) {
     TRACE_RETURNS and carp "unknown alarm id in alarm_remove()";
     ASSERT_RETURNS and croak "unknown alarm id in alarm_remove()";
@@ -2045,19 +1989,19 @@ sub alarm_remove {
   }
 
   # Find the alarm by time.
-  my $alarm_index = _alarm_find( $alarm_time, $alarm_id );
+  my $alarm_index = _event_find( $alarm_time, $alarm_id );
 
   # Ensure that the alarm belongs to this session, eh?
-  if ($kr_alarms[$alarm_index]->[ST_SESSION] != $kr_active_session) {
+  if ($kr_events[$alarm_index]->[ST_SESSION] != $kr_active_session) {
     TRACE RETURNS and carp "alarm $alarm_id is not for the session";
     ASSERT_RETURNS and croak "alarm $alarm_id is not for the session";
     $! = EPERM;
     return;
   }
 
-  {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
-  my $old_alarm = splice( @kr_alarms, $alarm_index, 1 );
-  delete $kr_alarm_ids{$old_alarm->[ST_SEQ]};
+  {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
+  my $old_alarm = splice( @kr_events, $alarm_index, 1 );
+  delete $kr_event_ids{$old_alarm->[ST_SEQ]};
 
   # In a list context, return the alarm that was removed.  In a scalar
   # context, return a reference to the alarm that was removed.  In a
@@ -2088,7 +2032,7 @@ sub alarm_adjust {
     return;
   }
 
-  my $alarm_time = $kr_alarm_ids{$alarm_id};
+  my $alarm_time = $kr_event_ids{$alarm_id};
   unless (defined $alarm_time) {
     TRACE_RETURNS and carp "unknown alarm id in alarm_adjust()";
     ASSERT_RETURNS and croak "unknown alarm id in alarm_adjust()";
@@ -2097,10 +2041,10 @@ sub alarm_adjust {
   }
 
   # Find the alarm by time.
-  my $alarm_index = _alarm_find( $alarm_time, $alarm_id );
+  my $alarm_index = _event_find( $alarm_time, $alarm_id );
 
   # Ensure that the alarm belongs to this session, eh?
-  if ($kr_alarms[$alarm_index]->[ST_SESSION] != $kr_active_session) {
+  if ($kr_events[$alarm_index]->[ST_SESSION] != $kr_active_session) {
     TRACE RETURNS and carp "alarm $alarm_id is not for the session";
     ASSERT_RETURNS and croak "alarm $alarm_id is not for the session";
     $! = EPERM;
@@ -2108,60 +2052,60 @@ sub alarm_adjust {
   }
 
   # Nothing to do if the delta is zero.
-  return $kr_alarms[$alarm_index]->[ST_TIME] unless $delta;
+  return $kr_events[$alarm_index]->[ST_TIME] unless $delta;
 
   # Remove the old alarm and adjust its time.
-  my $old_alarm = splice( @kr_alarms, $alarm_index, 1 );
+  my $old_alarm = splice( @kr_events, $alarm_index, 1 );
   my $new_time = $old_alarm->[ST_TIME] += $delta;
-  $kr_alarm_ids{$alarm_id} = $new_time;
+  $kr_event_ids{$alarm_id} = $new_time;
 
   # Now insert it back.
 
-  # Special case: No alarms in the queue.  Put the new alarm in the
+  # Special case: No events in the queue.  Put the new alarm in the
   # queue, and be done with it.
-  unless (@kr_alarms) {
-    $kr_alarms[0] = $old_alarm;
+  unless (@kr_events) {
+    $kr_events[0] = $old_alarm;
   }
 
   # Special case: New state belongs at the end of the queue.  Push
   # it, and be done with it.
-  elsif ($new_time >= $kr_alarms[-1]->[ST_TIME]) {
-    push @kr_alarms, $old_alarm;
+  elsif ($new_time >= $kr_events[-1]->[ST_TIME]) {
+    push @kr_events, $old_alarm;
   }
 
   # Special case: New state comes before earliest state.  Unshift
   # it, and be done with it.
-  elsif ($new_time < $kr_alarms[0]->[ST_TIME]) {
-    unshift @kr_alarms, $old_alarm;
+  elsif ($new_time < $kr_events[0]->[ST_TIME]) {
+    unshift @kr_events, $old_alarm;
   }
 
-  # Special case: Two alarms in the queue.  The new state enters
+  # Special case: Two events in the queue.  The new state enters
   # between them, because it's not before the first one or after the
   # last one.
-  elsif (@kr_alarms == 2) {
-    splice @kr_alarms, 1, 0, $old_alarm;
+  elsif (@kr_events == 2) {
+    splice @kr_events, 1, 0, $old_alarm;
   }
 
   # Small queue.  Perform a reverse linear search on the assumption
   # that (a) a linear search is fast enough on small queues; and (b)
   # most events will be posted for "now" or some future time, which
   # tends to be towards the end of the queue.
-  elsif ($delta > 0 and (@kr_alarms - $alarm_index) < LARGE_QUEUE_SIZE) {
+  elsif ($delta > 0 and (@kr_events - $alarm_index) < LARGE_QUEUE_SIZE) {
     my $index = $alarm_index;
     $index++
-      while ( $index < @kr_alarms and
-              $new_time >= $kr_alarms[$index]->[ST_TIME]
+      while ( $index < @kr_events and
+              $new_time >= $kr_events[$index]->[ST_TIME]
             );
-    splice @kr_alarms, $index, 0, $old_alarm;
+    splice @kr_events, $index, 0, $old_alarm;
   }
 
   elsif ($delta < 0 and $alarm_index < LARGE_QUEUE_SIZE) {
     my $index = $alarm_index;
     $index--
       while ( $index and
-              $new_time < $kr_alarms[$index-1]->[ST_TIME]
+              $new_time < $kr_events[$index-1]->[ST_TIME]
             );
-    splice @kr_alarms, $index, 0, $old_alarm;
+    splice @kr_events, $index, 0, $old_alarm;
   }
 
   # And finally, we have this large queue, and the program has already
@@ -2171,7 +2115,7 @@ sub alarm_adjust {
   else {
     my ($upper, $lower);
     if ($delta > 0) {
-      $upper = @kr_alarms - 1;
+      $upper = @kr_events - 1;
       $lower = $alarm_index;
     }
     else {
@@ -2185,20 +2129,20 @@ sub alarm_adjust {
       # Upper and lower bounds crossed.  No match; insert at the
       # lower bound point.
       if ($upper < $lower) {
-        splice @kr_alarms, $lower, 0, $old_alarm;
+        splice @kr_events, $lower, 0, $old_alarm;
         last;
       }
 
       # The key at the midpoint is too high.  The element just below
       # the midpoint becomes the new upper bound.
-      if ($new_time < $kr_alarms[$midpoint]->[ST_TIME]) {
+      if ($new_time < $kr_events[$midpoint]->[ST_TIME]) {
         $upper = $midpoint - 1;
         next;
       }
 
       # The key at the midpoint is too low.  The element just above
       # the midpoint becomes the new lower bound.
-      if ($new_time > $kr_alarms[$midpoint]->[ST_TIME]) {
+      if ($new_time > $kr_events[$midpoint]->[ST_TIME]) {
         $lower = $midpoint + 1;
         next;
       }
@@ -2207,10 +2151,10 @@ sub alarm_adjust {
       # higher keys until the midpoint points to an element with a
       # higher key.  Insert the new state before it.
       $midpoint++
-        while ( ($midpoint < @kr_alarms) and
-                ($new_time == $kr_alarms[$midpoint]->[ST_TIME])
+        while ( ($midpoint < @kr_events) and
+                ($new_time == $kr_events[$midpoint]->[ST_TIME])
               );
-      splice @kr_alarms, $midpoint, 0, $old_alarm;
+      splice @kr_events, $midpoint, 0, $old_alarm;
       last;
     }
   }
@@ -2241,7 +2185,7 @@ sub delay_set {
     return;
   }
 
-  return $self->_enqueue_alarm
+  return $self->_enqueue_event
     ( $kr_active_session, $kr_active_session,
       $state, ET_ALARM, [ @etc ],
       time() + $seconds, (caller)[1,2]
@@ -2262,12 +2206,14 @@ sub alarm_remove_all {
   # from the _stop code to flush everything.  Perhaps it can be made a
   # macro.
 
-  my $index = @kr_alarms;
-  while ($index-- && $kr_sessions{$kr_active_session}->[SS_ALCOUNT]) {
-    if ($kr_alarms[$index]->[ST_SESSION] == $kr_active_session) {
-      {% ses_refcount_dec2 $kr_active_session, SS_ALCOUNT %}
-      my $removed_alarm = splice(@kr_alarms, $index, 1);
-      delete $kr_alarm_ids{$removed_alarm->[ST_SEQ]};
+  my $index = @kr_events;
+  while ($index-- && $kr_sessions{$kr_active_session}->[SS_EVCOUNT]) {
+    if ( $kr_events[$index]->[ST_SESSION] == $kr_active_session and
+         $kr_events[$index]->[ST_TYPE] & ET_ALARM
+       ) {
+      {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
+      my $removed_alarm = splice(@kr_events, $index, 1);
+      delete $kr_event_ids{$removed_alarm->[ST_SEQ]};
       push( @removed,
             ( @$removed_alarm[ST_NAME, ST_TIME], @{$removed_alarm->[ST_ARGS]} )
           );
