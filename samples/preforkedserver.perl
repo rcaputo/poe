@@ -296,6 +296,8 @@ sub connection {
 # Start a pre-forked server, with a pool of 5 processes, and run them
 # until it's time to exit.
 
+package main;
+
 new PreforkedServer(5);
 
 $poe_kernel->run();
