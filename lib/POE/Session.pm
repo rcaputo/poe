@@ -244,6 +244,7 @@ sub _invoke_state {
     $! = ENOSYS;
     if (exists $self->[SE_OPTIONS]->{'default'}) {
       warn "\t$self -> $state does not exist (and no _default)\n";
+      confess;
     }
     return undef;
   }
@@ -538,7 +539,7 @@ trace of events as they're dispatched to states.
 default
 
 Accepts a logical true/false value.  When the "default" option is
-enabled, POE will carp and confess about events that arrive but can't
+enabled, POE will warn and confess about events that arrive but can't
 be dispatched.  Note: The "default" option will not do anything if the
 session has a B<_default> state, because then every event can be
 dispatched.

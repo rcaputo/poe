@@ -15,6 +15,9 @@ directory.  My ISP was down, so I hacked this together, "borrowing" a
 lot of code from Net::Ping.  As such, it's neither friendly to
 configure nor commented.
 
+Sessions' "default" option didn't confess, contrary to the
+documentation.
+
 
 0.0702 1999.07.30
 -----------------
