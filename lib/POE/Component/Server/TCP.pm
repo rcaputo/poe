@@ -88,7 +88,7 @@ sub new {
       $client_filter      = shift @client_filter_args;
     }
 
-    $client_error  = \&_default_client_error  unless defined $client_error;
+    $client_error  = \&_default_client_error unless defined $client_error;
     $client_connected    = sub {} unless defined $client_connected;
     $client_disconnected = sub {} unless defined $client_disconnected;
     $client_flushed      = sub {} unless defined $client_flushed;
@@ -144,24 +144,17 @@ sub new {
               _signal => sub { 0 },
 
               tcp_server_got_input => sub {
-                my $heap = $_[HEAP];
-                return if $heap->{shutdown};
+                return if $_[HEAP]->{shutdown};
                 $client_input->(@_);
               },
               tcp_server_got_error => sub {
-                my ($heap, $operation, $errnum) = @_[HEAP, ARG0, ARG1];
-
-                $heap->{shutdown} = 1;
-
-                # Read error 0 is disconnect.
-                if ($operation eq 'read' and $errnum == 0) {
-                  $client_disconnected->(@_);
+                $client_error->(@_);
+                if ($_[ARG0] eq 'read') {
+                  $_[KERNEL]->yield("shutdown");
                 }
                 else {
-                  $client_error->(@_);
+                  delete $_[HEAP]->{client};
                 }
-
-                delete $heap->{client};
               },
               tcp_server_got_flush => sub {
                 my $heap = $_[HEAP];
@@ -177,11 +170,6 @@ sub new {
                 }
               },
               _stop => $client_disconnected,
-
-              tcp_server_got_flushed => sub {
-                my ($kernel, $heap) = @_[KERNEL, HEAP];
-                delete $heap->{client} if $heap->{shutdown};
-              },
 
               # User supplied states.
               %$inline_states
@@ -264,7 +252,6 @@ sub _default_client_error {
   warn( 'Client ', $_[SESSION]->ID,
         " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
       );
-  delete $_[HEAP]->{client};
 }
 
 1;
@@ -416,7 +403,7 @@ parameters, but nothing special is included.
 =item ClientDisconnected
 
 ClientDisconnected is a coderef that will be called for each client
-disconnection.  ClientDisconnected callbacks receive the usual POE
+that disconnects.  ClientDisconnected callbacks receive the usual POE
 parameters, but nothing special is included.
 
 =item ClientError

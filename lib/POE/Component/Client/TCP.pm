@@ -96,7 +96,7 @@ sub new {
   }
 
   $conn_error_callback = \&_default_error unless defined $conn_error_callback;
-  $error_callback      = \&_default_error unless defined $error_callback;
+  $error_callback      = \&_default_io_error unless defined $error_callback;
 
   $disc_callback  = sub {} unless defined $disc_callback;
   $conn_callback  = sub {} unless defined $conn_callback;
@@ -157,19 +157,13 @@ sub new {
         },
 
         got_server_error => sub {
-          my ($heap, $operation, $errnum) = @_[HEAP, ARG0, ARG1];
-
-          $heap->{connected} = 0;
-
-          # Read error 0 is disconnect.
-          if ($operation eq 'read' and $errnum == 0) {
-            $disc_callback->(@_);
+          $error_callback->(@_);
+          if ($_[ARG0] eq 'read') {
+            $_[KERNEL]->yield("shutdown");
           }
           else {
-            $error_callback->(@_);
+            delete $_[HEAP]->{server};
           }
-
-          delete $heap->{server};
         },
 
         got_server_input => sub {
@@ -217,6 +211,13 @@ sub _default_error {
         " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
       );
   delete $_[HEAP]->{server};
+}
+
+sub _default_io_error {
+  warn( 'Client ', $_[SESSION]->ID,
+        " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
+      );
+  $_[KERNEL]->yield("shutdown");
 }
 
 1;
