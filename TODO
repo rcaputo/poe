@@ -53,92 +53,24 @@ To do:
 Improve Alarm Interface
 -----------------------
 
-This change adds new features without changing the way old ones
-operate.
+This change adds new features without breaking the way old ones work.
 
 To do:
 
-* Document new functions.
+* Release 0.15 with new interface.
 
 * Optimize new functions.  Currently there are chunks of common code
   which have been copied, pasted, and altered for their new
   environments.  Some of this can be made into macros.
 
-* Port old functions to new functions.  That is, rewrite them so they
-  are a compatibility interface to the new alarm functions.
-
-* Release 0.15 with new interface.
-
 Notes:
 
-Swapped event/time in alarm_set() and event/seconds in delay_set()
-based on feedback from Kirill.
++ alarm_set(), alarm_adjust(), and alarm_remove() are done
++ delay_set() is done
++ alarm_remove_all() is done
 
-Added alarm_remove_all() to clear all alarms, based on feedback from
-Kirill.  I'm not sure how useful this one will be.
-
-> From troc@netrus.net Thu Mar 18 09:20:36 1999
-> Message-Id: <199903181417.JAA09983@mail.netrus.net>
-> From: "Rocco Caputo" <troc@netrus.net>
-> To: "The POE Mailing List" <poe@vogon.se>
-> Date: Thu, 18 Mar 99 09:17:02 -0500
-> Subject: TODO: fix alarms
->
-> [...]  If there are no objections, this will go into 0.07_01 or so,
-> depending on my schedule.  [...]
->
-> | ***fix alarm semantics (in a way that does not break things)
-> |
-> | That's easy to say, anyway.  How about depreciating &Kernel::alarm
-> | and &Kernel::delay, and adding these functions?
-
-      $alarm_id = $kernel->alarm_set($event, $time, @etc);
-      $status = $kernel->alarm_adjust($alarm_id, $seconds_to_adjust);
-      $status = $kernel->alarm_remove($alarm_id);
-
-> | Also the delay shortcut, which would return an ID usable by
-> | &Kernel::alarm_adjust and &Kernel::alarm_remove:
-> | 
-> |   $alarm_id = $kernel->delay_set($event, $seconds, @etc);
-
-To remove all alarms for a given event or time.  I'm not sure how
-useful these are yet.
-
-[Removed alarm_remove_by_event.  Artur is against long method names,
-and I agree with that.  Plus alarm($event) already performs the same
-function.  If the old functions are aliases to the new ones, then the
-dependency should go only one way: new functions should not depend on
-older ones.  Leaving out the alias also reduces POE's memory use a
-bit.]
-
-[Removed alarm_remove_by_time($time).  Its need is not yet proven.]
-
-To remove all alarms for the current session:
-
-      $status = $kernel->alarm_remove_all();
-
-This should be fairly straightforward.
-
-Internally, I am maintaining yet another hash: %kr_alarm_ids, which is
-keyed on alarm ID and contains the corresponding alarm time for that
-ID.  The alarm_(set|adjust|remove) methods will manage %kr_alarm_ids,
-as well as the older alarm, alarm_add, delay, and delay_add methods.
-
-The implementation uses a simplified search taken from _enqueue_alarm.
-It uses %kr_alarm_ids to determine the time for any given alarm so
-that the binary seek can quickly get to it in a large queue.
-
-Ideally, it's possible to schedule delayed alarm removal.  I'd like to
-try that after some more planning.  See "Delay Garbage Collection"
-elsewhere in this file.
-
-Artur wants the old functions to remain.  I don't blame him, and they
-can be more convenient for timeouts and other one-shot timers.
-
-The alarm_adjust() method can be more efficient than alarm() since it
-will be coded to know that it's merely moving an alarm.  For one, it
-can stop messing with reference counts.  If alarm() is written to use
-alarm_adjust() when necessary, it may faster.
+- decided against alarm_remove_by_event(); use alarm() instead
+- decided against alarm_remove_by time(); it's not very useful
 
 ------------------------------
 Depreciate queue_peek_alarms()
@@ -148,8 +80,6 @@ The new alarm functions let programs track their alarms by ID, so they
 no longer need to peek into POE's alarm queue.
 
 To do:
-
-* Remove documentation for this function.
 
 * Release version 0.15, and announce the depreciation.
 
@@ -179,6 +109,27 @@ Depreciations & Changes Being Considered
 These changes are under consideration.  They have not begun, and they
 may not ever be made.  These are proto-plans being considered and made
 ready for deployment.
+
+-------------------------------------------
+Change Internal Helpers To Static Functions
+-------------------------------------------
+
+Despite recent optimizations in perl 5, object methods are still a wee
+bit slower than function calls.  Furthermore, those changes aren't in
+older versions of perl where POE still runs fine.
+
+Because of Kernel restructuring in 0.05_02 (1999.01.12) prohibiting
+multiple Kernel instances, we can finally make POE::Kernel's private
+methods static functions.
+
+What do we get?  Better performance (by a factor of 3 or so) in older
+versions of perl.  Less argument passing internally (no $self; the
+lexical $poe_kernel instead).  Greater encapsulation, but who cares
+about that?
+
+This is a relatively easy change, and it would make a good starter
+project for someone who wants to get familiar with Kernel.pm and
+Kernel/*.pm.
 
 ------------------------------------------
 Signal Handler Return Values Must Go (!!!)
@@ -238,15 +189,33 @@ To do:
 Batch Remove Resources
 ----------------------
 
-Abigail wanted a clean way to stop all alarms in a session that was
-getting ready to go away.  alarm_remove_all() would do this.
-
 Peter J. Braam would like a way to flush all pending events for a
 session.  This would be FIFO events, since there would already be a
 method for alarms.
 
 Kirill would like a way to batch-remove all selects when it's time for
 a session to shut down.
+
++ alarm_remove_all() is done
+
+To do:
+
+* Add select_remove_all()
+
+* Add event_remove_all()
+
+Notes:
+
+Other resources which keep a session alive: extra reference counts,
+and aliases.  Should there be batch remove functions for these as
+well?
+
+I'm starting to worry about the side effects of stopping sessions
+willy-nilly.  Is there a good example of stopping a session while it's
+busy processing events?  "Good" means the session won't corrupt
+anything by not handling whatever is in its queue.
+
+What of everything_remove_all() ?
 
 ----------------------------------
 SIGTSTP Does the Wrong Thing (???)
@@ -398,12 +367,16 @@ This is a quick, inexpensive change.  Driver::SysRW is the only driver
 to be developed/used over the course of like three years.  Make it a
 default so people can stop typing it.
 
+This should be an easy fix, but it involves tweaking several wheels.
+
 ----------------------------------------
 Make Filter::Line the Default for Wheels
 ----------------------------------------
 
 This is an inexpensive change, but it has dubious value.  Think about
 it some more first.
+
+This should be an easy fix, but it involves tweaking several wheels.
 
 ----------------------------------------------------
 Split Dual-Mode Functions into xyz_set and xyz_clear
@@ -413,6 +386,9 @@ This would make the functions' purposes more clear and eliminate some
 branches that are currently tested all the time.  The existing
 dual-mode functions could remain as thunks for the single-purpose
 ones.
+
+The "June 2001" alarms functions already do this.  What about
+select_xyz and the others?
 
 ----------------------------------------------------------------
 Evaluate Torvald Riegel's Throttled ReadWrite Wheel Design (???)
@@ -424,6 +400,9 @@ but I'm not happy with the idea of ReadWrite holding buffered data.
 To do:
 
 * Distill Torvald's e-mail on the subject and include a summary here.
+
+* Determine whether his changes are extensible or will force ReadWrite
+  development into a dead end.
 
 ------------------------------------------------------
 Evaluate Torvald Riegel's Synchronous NFA Design (???)
@@ -437,6 +416,10 @@ an artificial limit on the class.
 To do:
 
 * Distill Torvald's e-mail on the subject and include a summary here.
+
+* Determine whether his design can be implemented in a way that
+  doesn't limit NFA to a strictly correct NFA design.  Asynchronous
+  NFA events are useful and should also be supported.
 
 ------------------------------
 Delay Garbage Collection (???)
