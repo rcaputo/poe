@@ -245,7 +245,7 @@ print "ok 19\n";
 
   # Grar!  No UNIX sockets on Windows.
   if ($^O eq 'MSWin32') {
-    print "ok 22 # skipped: Windows doesn't see mo to UNIX sockets\n";
+    print "ok 22 # skipped: Windows doesn't seem to UNIX sockets\n";
   }
   else {
     # Any protocol on UNIX sockets.
