@@ -14,6 +14,8 @@ BEGIN {
 };
 
 # Turn on all asserts.
+#sub POE::Kernel::TRACE_DEFAULT () { 1 }
+#sub POE::Kernel::TRACE_SELECT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw( Wheel::SocketFactory
             Wheel::ReadWrite
