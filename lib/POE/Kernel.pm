@@ -3221,8 +3221,8 @@ this is no longer the case.
 
 Child sessions are the ones created by another session.  Signals are
 dispatched to children before their parents.  By the time a parent
-receives a signal, all its interested children have already had a
-chance to handle it.
+receives a signal, all its children have already had a chance to
+handle it.
 
 The Kernel acts as the parent of every session.  Signalling it causes
 every interested session to receive the signal.  This is how operating
@@ -3230,17 +3230,22 @@ system signals are implemented.
 
 It is possible to post signals in POE that don't exist in the
 operating system.  They are placed into the queue as if they came from
-the operating system, but they are not limited to signals that the
-system recognizes.  POE uses a few of these "fictitious" signals to
-notify programs about certain global events.
+the operating system, but they are not limited to signals recognized
+by kill().  POE uses a few of these "fictitious" signals to notify
+programs about certain global events.
 
-Some signals have the side effect of terminating sessions if they are
-not handled.  Many of the signals that usually stop a program in UNIX
-are terminal in POE.  Handling a signal is simple: Call the
-sig_handled() method from within your signal handler.
+It is also possible to post signals to particular sessions.  In those
+cases, POE only calls the handlers for that session and its children.
 
-Handling a signal does not stop it from being dispatched to other
-sessions.
+Some signals are considered terminal.  They will terminate the
+sessions they touch if they are not marked as "handled".  A signal is
+considered handled (or not) for all the sessions it touches.
+Therefore, one session can handle a signal for the entire program.
+All the other sessions will still receive notice of the signal, but
+none of them will be terminated if it's handled by the time it's fully
+dispatched.
+
+The sig_handled() method is used to mark signals as handled.
 
 POE also recognizes "non-maskable" signals.  These will terminate a
 program even when they are handled.  For example, POE sends a
@@ -3253,7 +3258,7 @@ may occur.  SIGCHLD is a special exception: POE polls for child
 process exits using waitpid() instead of a signal handler.  Spawning
 child processes should be completely safe.
 
-Here is a summary of the three signal levelss.
+Here is a summary of the three signal levels.
 
 =over 2
 
