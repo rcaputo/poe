@@ -3,7 +3,7 @@
 use strict;
 
 use lib qw(./mylib ./lib);
-use Test::More tests => 63;
+use Test::More tests => 46;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
@@ -180,11 +180,8 @@ ok(
 # Test the signal handling flag things.
 
 $poe_kernel->_data_sig_reset_handled("QUIT");
-$poe_kernel->_data_sig_clear_handled_flags();
 
-{ my ($ex, $im, $tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
-  ok(!$ex, "SIGQUIT not handled explicitly");
-  ok(!$im, "SIGQUIT not handled implicitly");
+{ my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok(!defined($tot), "SIGQUIT handled by zero sessions");
   ok($type == POE::Kernel::SIGTYPE_TERMINAL, "SIGQUIT is terminal");
   ok( eq_array($ses, []), "no sessions touched by SIGQUIT" );
@@ -199,9 +196,7 @@ $poe_kernel->_data_sig_touched_session(
   "QUIT",       # signal
 );
 
-{ my ($ex, $im, $tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
-  ok(!$ex, "SIGQUIT not handled explicitly");
-  ok(!$im, "SIGQUIT not handled implicitly");
+{ my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok($tot == 0, "SIGQUIT handled by zero sessions");
   ok($type == POE::Kernel::SIGTYPE_TERMINAL, "SIGQUIT is terminal");
   ok( eq_array($ses, [ $ses_2 ]), "SIGQUIT touched correct session" );
@@ -209,19 +204,13 @@ $poe_kernel->_data_sig_touched_session(
 
 $poe_kernel->_data_sig_handled();
 
-{ my ($ex, $im, $tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
-  ok($ex, "SIGQUIT handled explicitly");
-  ok(!$im, "SIGQUIT not handled implicitly");
+{ my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok($tot == 1, "SIGQUIT handled by one session");
   ok($type == POE::Kernel::SIGTYPE_TERMINAL, "SIGQUIT is terminal");
   ok( eq_array($ses, [ $ses_2 ]), "SIGQUIT touched correct session" );
 }
 
-$poe_kernel->_data_sig_clear_handled_flags();
-
-{ my ($ex, $im, $tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
-  ok(!$ex, "SIGQUIT not handled explicitly");
-  ok(!$im, "SIGQUIT not handled implicitly");
+{ my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok($tot == 1, "SIGQUIT handled by one session");
   ok($type == POE::Kernel::SIGTYPE_TERMINAL, "SIGQUIT is terminal");
   ok( eq_array($ses, [ $ses_2 ]), "SIGQUIT touched correct session" );
@@ -229,9 +218,7 @@ $poe_kernel->_data_sig_clear_handled_flags();
 
 $poe_kernel->_data_sig_reset_handled("nonexistent");
 
-{ my ($ex, $im, $tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
-  ok(!$ex, "reset signal status = not handled explicitly");
-  ok(!$im, "reset signal status = not handled implicitly");
+{ my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok(!defined($tot), "reset signal status = handled by zero sessions");
   ok(
     $type == POE::Kernel::SIGTYPE_BENIGN,
@@ -253,26 +240,9 @@ TODO: {
   my ($session, $sid) = create_session();
 
   $poe_kernel->_data_sig_reset_handled("nonexistent");
-  $poe_kernel->_data_sig_clear_handled_flags();
-
-  # Implicitly handle the signal.  This should cause death, since it's
-  # heavily deprecated behavior.
-  eval {
-    $poe_kernel->_data_sig_touched_session(
-      $session,      # session
-      "some event",  # event
-      1,             # handler retval (did not handle)
-      "nonexistent", # signal
-    )
-  };
-  ok(
-    $@ && $@ =~ /DEPRECATION ERROR/,
-    "hard error for using deprecated signal handling semantics"
-  );
 
   # Clear the implicit handling.
   $poe_kernel->_data_sig_reset_handled("nonexistent");
-  $poe_kernel->_data_sig_clear_handled_flags();
 
   # Touch it again, but don't handle it.
   $poe_kernel->_data_sig_touched_session(
@@ -282,9 +252,7 @@ TODO: {
     "nonexistent", # signal
   );
 
-  my ($ex, $im, $tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
-  ok(!$ex, "nonexistent signal not handled explicitly");
-  ok(!$im, "nonexistent signal not handled implicitly");
+  my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok($tot == 0, "nonexistent signal handled by zero sessions");
   ok(
     $type == POE::Kernel::SIGTYPE_BENIGN,
@@ -314,7 +282,6 @@ TODO: {
 
 TODO: {
   $poe_kernel->_data_sig_reset_handled("QUIT");
-  $poe_kernel->_data_sig_clear_handled_flags();
 
   $poe_kernel->_data_sig_touched_session(
     $ses_2,        # session
@@ -351,7 +318,6 @@ TODO: {
 # Try to free it.  Make sure it is freed.
 
 $poe_kernel->_data_sig_reset_handled("QUIT");
-$poe_kernel->_data_sig_clear_handled_flags();
 
 $poe_kernel->_data_sig_touched_session(
   $ses_2,        # session
@@ -360,9 +326,7 @@ $poe_kernel->_data_sig_touched_session(
   "QUIT",        # signal
 );
 
-{ my ($ex, $im, $tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
-  ok(!$ex, "SIGQUIT not handled explicitly");
-  ok(!$im, "SIGQUIT not handled implicitly");
+{ my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok($tot == 0, "SIGQUIT handled by zero sessions");
   ok($type == POE::Kernel::SIGTYPE_TERMINAL, "SIGQUIT is terminal");
   ok( eq_array($ses, [ $ses_2 ]), "SIGQUIT touched session 2" );
@@ -386,7 +350,6 @@ ok(
   );
 
   $poe_kernel->_data_sig_reset_handled("UIDESTROY");
-  $poe_kernel->_data_sig_clear_handled_flags();
 
   $poe_kernel->_data_sig_touched_session(
     $ses,          # session
@@ -397,9 +360,7 @@ ok(
 
   $poe_kernel->_data_sig_handled();
 
-  my ($ex, $im, $tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
-  ok($ex, "SIGUIDESTROY handled explicitly");
-  ok(!$im, "SIGUIDESTROY not handled implicitly");
+  my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok($tot == 1, "SIGUIDESTROY handled by zero sessions");
   ok(
     $type == POE::Kernel::SIGTYPE_NONMASKABLE,

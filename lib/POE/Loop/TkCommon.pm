@@ -28,17 +28,17 @@ my $_watcher_timer;
 sub loop_attach_uidestroy {
   my ($self, $window) = @_;
 
-  $window->OnDestroy
-    ( sub {
-        if ($self->_data_ses_count()) {
-          $self->_dispatch_event
-            ( $self, $self,
-              EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-              __FILE__, __LINE__, time(), -__LINE__
-            );
-        }
+  $window->OnDestroy(
+    sub {
+      if ($self->_data_ses_count()) {
+        $self->_dispatch_event(
+          $self, $self,
+          EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
+          __FILE__, __LINE__, time(), -__LINE__
+        );
       }
-    );
+    }
+  );
 }
 
 #------------------------------------------------------------------------------
@@ -163,11 +163,11 @@ sub Tk::Error {
   POE::Kernel::_warn "Tk::Error: $error\n " . join("\n ",@_)."\n";
 
   if ($poe_kernel->_data_ses_count()) {
-    $poe_kernel->_dispatch_event
-      ( $poe_kernel, $poe_kernel,
-        EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-        __FILE__, __LINE__, time(), -__LINE__
-      );
+    $poe_kernel->_dispatch_event(
+      $poe_kernel, $poe_kernel,
+      EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
+      __FILE__, __LINE__, time(), -__LINE__
+    );
   }
 }
 

@@ -26,10 +26,10 @@ sub _loop_signal_handler_generic {
     POE::Kernel::_warn "<sg> Enqueuing generic SIG$_[0] event";
   }
 
-  $poe_kernel->_data_ev_enqueue
-    ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
-      __FILE__, __LINE__, time()
-    );
+  $poe_kernel->_data_ev_enqueue(
+    $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
+    __FILE__, __LINE__, time()
+  );
   $SIG{$_[0]} = \&_loop_signal_handler_generic;
 }
 
@@ -38,11 +38,11 @@ sub _loop_signal_handler_pipe {
     POE::Kernel::_warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
   }
 
-  $poe_kernel->_data_ev_enqueue
-    ( $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
-      __FILE__, __LINE__, time()
-    );
-    $SIG{$_[0]} = \&_loop_signal_handler_pipe;
+  $poe_kernel->_data_ev_enqueue(
+    $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
+    __FILE__, __LINE__, time()
+  );
+  $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
 
 #------------------------------------------------------------------------------
@@ -57,10 +57,10 @@ sub loop_watch_signal {
     # Begin constant polling loop.  Only start it on CHLD or on CLD if
     # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
-    $self->_data_ev_enqueue
-      ( $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-        __FILE__, __LINE__, time() + 1
-      ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
+    $self->_data_ev_enqueue(
+      $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+      __FILE__, __LINE__, time() + 1
+    ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
     return;
   }

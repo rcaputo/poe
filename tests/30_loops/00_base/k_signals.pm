@@ -15,7 +15,7 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 BEGIN {
   plan skip_all => "$^O does not support signals." if $^O eq "MSWin32";
-  plan skip_all => "$^O does not support fork." if $^O eq "MacOS";
+  plan skip_all => "$^O does not support fork."    if $^O eq "MacOS";
   plan tests => 8;
 }
 

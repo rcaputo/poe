@@ -86,10 +86,10 @@ sub task_next_count {
 
 sub task_stop {
   $completions[$_[HEAP]->{id}] = $_[HEAP]->{count};
-  $got_heap_count++
-    if ( defined($_[HEAP]->{got_heap}) and
-         $_[HEAP]->{got_heap} == $_[HEAP]->{id}
-       );
+  $got_heap_count++ if (
+    defined($_[HEAP]->{got_heap}) and
+    $_[HEAP]->{got_heap} == $_[HEAP]->{id}
+  );
 }
 
 #------------------------------------------------------------------------------
@@ -98,74 +98,70 @@ sub task_stop {
 # Spawn a quick state machine to test signals.  This is a classic
 # example of inline states being just that: inline anonymous coderefs.
 # It makes quick hacks quicker!
-POE::Session->create
-  ( inline_states =>
-    { _start =>
-      sub {
-        $_[HEAP]->{kills_to_go} = $event_count;
-        $_[KERNEL]->sig( ALRM => 'sigalrm_target' );
-        $_[KERNEL]->sig( PIPE => 'sigpipe_target' );
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      $_[HEAP]->{kills_to_go} = $event_count;
+      $_[KERNEL]->sig( ALRM => 'sigalrm_target' );
+      $_[KERNEL]->sig( PIPE => 'sigpipe_target' );
+      $_[KERNEL]->delay( fire_signals => 0.5 );
+    },
+    fire_signals => sub {
+      if ($_[HEAP]->{kills_to_go}--) {
         $_[KERNEL]->delay( fire_signals => 0.5 );
-      },
-      fire_signals =>
-      sub {
-        if ($_[HEAP]->{kills_to_go}--) {
-          $_[KERNEL]->delay( fire_signals => 0.5 );
-          if ($^O eq 'MSWin32') {
-            $_[KERNEL]->signal( $_[KERNEL], 'ALRM' );
-            $_[KERNEL]->signal( $_[KERNEL], 'PIPE' );
-          }
-          else {
-            kill ALRM => $$;
-            kill PIPE => $$;
-          }
+        if ($^O eq 'MSWin32') {
+          $_[KERNEL]->signal( $_[KERNEL], 'ALRM' );
+          $_[KERNEL]->signal( $_[KERNEL], 'PIPE' );
         }
-        # One last timer so the session lingers long enough to catch
-        # the final signal.
         else {
-          $_[KERNEL]->delay( nonexistent_state => 1 );
+          kill ALRM => $$;
+          kill PIPE => $$;
         }
-      },
-      sigalrm_target =>
-      sub {
-        $sigalrm_caught++ if $_[ARG0] eq 'ALRM';
-        $_[KERNEL]->sig_handled();
-      },
-      sigpipe_target =>
-      sub {
-        $sigpipe_caught++ if $_[ARG0] eq 'PIPE';
-        $_[KERNEL]->sig_handled();
-      },
-    }
-  );
+      }
+      # One last timer so the session lingers long enough to catch
+      # the final signal.
+      else {
+        $_[KERNEL]->delay( nonexistent_state => 1 );
+      }
+    },
+    sigalrm_target => sub {
+      $sigalrm_caught++ if $_[ARG0] eq 'ALRM';
+      $_[KERNEL]->sig_handled();
+    },
+    sigpipe_target => sub {
+      $sigpipe_caught++ if $_[ARG0] eq 'PIPE';
+      $_[KERNEL]->sig_handled();
+    },
+  }
+);
 
 # Spawn ten state machines.
 for (my $i=0; $i<$machine_count; $i++) {
 
   # Odd instances, try POE::Session->create
   if ($i & 1) {
-    POE::Session->create
-      ( inline_states =>
-        { _start     => \&task_start,
-          _stop      => \&task_stop,
-          count      => \&task_run,
-          next_count => \&task_next_count,
-          _default   => \&task_default,
-        },
-        args => [ $i ],
-        heap => { got_heap => $i },
-      );
+    POE::Session->create(
+      inline_states => {
+        _start     => \&task_start,
+        _stop      => \&task_stop,
+        count      => \&task_run,
+        next_count => \&task_next_count,
+        _default   => \&task_default,
+      },
+      args => [ $i ],
+      heap => { got_heap => $i },
+    );
   }
 
   # Even instances, try POE::Session->new
   else {
-    POE::Session->new
-      ( _start     => \&task_start,
-        _stop      => \&task_stop,
-        count      => \&task_run,
-        next_count => \&task_next_count,
-        [ $i ],
-      );
+    POE::Session->new (
+      _start     => \&task_start,
+      _stop      => \&task_stop,
+      count      => \&task_run,
+      next_count => \&task_next_count,
+      [ $i ],
+    );
   }
 }
 
@@ -173,23 +169,20 @@ for (my $i=0; $i<$machine_count; $i++) {
 # Simple client/server sessions using events as inter-session
 # communications.  Tests postbacks, too.
 
-POE::Session->create
-  ( inline_states =>
-    { _start =>
-      sub {
-        $_[KERNEL]->alias_set( 'server' );
-        $_[HEAP]->{response} = 0;
-      },
-      sync_query =>
-      sub {
-        $_[ARG0]->( ++$_[HEAP]->{response} );
-      },
-      query =>
-      sub {
-        $_[ARG0]->( ++$_[HEAP]->{response} );
-      },
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      $_[KERNEL]->alias_set( 'server' );
+      $_[HEAP]->{response} = 0;
     },
-  );
+    sync_query => sub {
+      $_[ARG0]->( ++$_[HEAP]->{response} );
+    },
+    query => sub {
+      $_[ARG0]->( ++$_[HEAP]->{response} );
+    },
+  },
+);
 
 # A simple client session.  It requests five counts and then stops.
 # Its magic is that it passes a postback for the response.
@@ -197,50 +190,47 @@ POE::Session->create
 my $postback_test = 1;
 my $callback_test = 1;
 
-POE::Session->create
-  ( inline_states =>
-    { _start =>
-      sub {
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      $_[KERNEL]->yield( 'query' );
+      $_[HEAP]->{cookie} = 0;
+    },
+    query => sub {
+      $_[KERNEL]->post(
+        server =>
+        query  => $_[SESSION]->postback(response => ++$_[HEAP]->{cookie})
+      );
+      $_[HEAP]->{sync_called_back} = 0;
+      $_[KERNEL]->call(
+        server     =>
+        sync_query =>
+        $_[SESSION]->callback(sync_response => ++$_[HEAP]->{cookie})
+      );
+      $callback_test = 0 unless $_[HEAP]->{sync_called_back};
+    },
+    sync_response => sub {
+      my ($req, $rsp) = ($_[ARG0]->[0], $_[ARG1]->[0] + 1);
+      $callback_test = 0 unless $req == $rsp;
+      $_[HEAP]->{sync_called_back} = 1;
+    },
+    response => sub {
+      my ($req, $rsp) = ($_[ARG0]->[0], $_[ARG1]->[0] - 1);
+      $postback_test = 0 unless $req == $rsp;
+      if ($_[HEAP]->{cookie} < 5) {
         $_[KERNEL]->yield( 'query' );
-        $_[HEAP]->{cookie} = 0;
-      },
-      query =>
-      sub {
-        $_[KERNEL]->post(
-          server =>
-          query  => $_[SESSION]->postback(response => ++$_[HEAP]->{cookie})
-        );
-        $_[HEAP]->{sync_called_back} = 0;
-        $_[KERNEL]->call(
-          server     =>
-          sync_query =>
-          $_[SESSION]->callback(sync_response => ++$_[HEAP]->{cookie})
-        );
-        $callback_test = 0 unless $_[HEAP]->{sync_called_back};
-      },
-      sync_response =>
-      sub {
-        my ($req, $rsp) = ($_[ARG0]->[0], $_[ARG1]->[0] + 1);
-        $callback_test = 0 unless $req == $rsp;
-        $_[HEAP]->{sync_called_back} = 1;
-      },
-      response =>
-      sub {
-        my ($req, $rsp) = ($_[ARG0]->[0], $_[ARG1]->[0] - 1);
-        $postback_test = 0 unless $req == $rsp;
-        if ($_[HEAP]->{cookie} < 5) {
-          $_[KERNEL]->yield( 'query' );
-        }
-      },
-      _stop =>
-      sub {
-        $get_active_session_within =
-          ($_[KERNEL]->get_active_session() == $_[SESSION]);
-        $get_active_session_heap =
-          ($_[KERNEL]->get_active_session()->get_heap() == $_[HEAP]);
-      },
-    }
-  );
+      }
+    },
+    _stop => sub {
+      $get_active_session_within = (
+        $_[KERNEL]->get_active_session() == $_[SESSION]
+      );
+      $get_active_session_heap = (
+        $_[KERNEL]->get_active_session()->get_heap() == $_[HEAP]
+      );
+    },
+  }
+);
 
 #------------------------------------------------------------------------------
 # Unmapped package session.
@@ -338,72 +328,76 @@ sub my_stop {
 package main;
 
 # New style (create) object session without event to method name map.
-POE::Session->create
-  ( object_states =>
-    [ UnmappedObject->new => [ '_start', 'count', '_stop' ],
-    ],
-    args => [ 0 ],
-  );
+POE::Session->create(
+  object_states => [
+    UnmappedObject->new() => [ '_start', 'count', '_stop' ],
+  ],
+  args => [ 0 ],
+);
 
 # New style (create) object session with event to method name map.
-POE::Session->create
-  ( object_states =>
-    [ MappedObject->new => { _start => 'my_start',
-                             count  => 'my_count',
-                             _stop  => 'my_stop',
-                           },
-    ],
-    args => [ 1 ],
-  );
+POE::Session->create(
+  object_states => [
+    MappedObject->new => {
+      _start => 'my_start',
+      count  => 'my_count',
+      _stop  => 'my_stop',
+    },
+  ],
+  args => [ 1 ],
+);
 
 # Old style (new) object session without event to method name map.
-POE::Session->new
-  ( [ 2 ],
-    UnmappedObject->new => [ '_start', 'count', '_stop' ],
-  );
+POE::Session->new(
+  [ 2 ],
+  UnmappedObject->new => [ '_start', 'count', '_stop' ],
+);
 
 # Old style (new) object session with event to method name map.
-POE::Session->new
-  ( [ 3 ],
-    MappedObject->new => { _start => 'my_start',
-                           count  => 'my_count',
-                           _stop  => 'my_stop',
-                         },
-  );
+POE::Session->new(
+  [ 3 ],
+  MappedObject->new => {
+    _start => 'my_start',
+    count  => 'my_count',
+    _stop  => 'my_stop',
+  },
+);
 
 # New style (create) package session without event to method name map.
-POE::Session->create
-  ( package_states =>
-    [ UnmappedPackage => [ '_start', 'count', '_stop' ],
-    ],
-    args => [ 4 ],
-  );
+POE::Session->create(
+  package_states => [
+    UnmappedPackage => [ '_start', 'count', '_stop' ],
+  ],
+  args => [ 4 ],
+);
 
 # New style (create) package session with event to method name map.
-POE::Session->create
-  ( package_states =>
-    [ MappedPackage => { _start => 'my_start',
-                         count  => 'my_count',
-                         _stop  => 'my_stop',
-                       },
-    ],
-    args => [ 5 ],
-  );
+POE::Session->create(
+  package_states => [
+    MappedPackage => {
+      _start => 'my_start',
+      count  => 'my_count',
+      _stop  => 'my_stop',
+    },
+  ],
+  args => [ 5 ],
+);
 
 # Old style (new) package session without event to method name map.
-POE::Session->new
-  ( [ 6 ],
-    UnmappedPackage => [ '_start', 'count', '_stop' ],
-  );
+POE::Session->new(
+  [ 6 ],
+  UnmappedPackage => [ '_start', 'count', '_stop' ],
+);
 
 # Old style (new) package session with event to method name map.
-POE::Session->new
-  ( [ 7 ],
-    MappedPackage => { _start => 'my_start',
-                       count  => 'my_count',
-                       _stop  => 'my_stop',
-                     },
-  );
+POE::Session->new(
+  [ 7 ],
+  MappedPackage => {
+    _start => 'my_start',
+    count  => 'my_count',
+    _stop  => 'my_stop',
+  },
+);
 
 #------------------------------------------------------------------------------
 # Main loop.
@@ -610,6 +604,7 @@ print "ok 37\n";
 # exit normally.
 
 POE::Session->create(
+  options => { trace => 1, default => 1, debug => 1 },
   inline_states => {
     _start => sub {
       print "ok 38\n";

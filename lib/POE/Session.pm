@@ -658,6 +658,11 @@ sub register_state {
   $method = $name unless defined $method;
 
   # Deprecate _signal.
+  # RC 2004-09-07 - Decided to leave this in because it blames
+  # problems with _signal on the user for using it.  It should
+  # probably go away after a little while, but not during the other
+  # deprecations.
+
   if ($name eq EN_SIGNAL) {
 
     # Report the problem outside POE.
@@ -1698,35 +1703,6 @@ in the process of changing.  It is the complement to C<_child>.
 C<ARG0> contains the session's previous parent, and C<ARG1> contains
 its new parent.
 
-=item _signal
-
-C<_signal> is a session's default signal handler.  Every signal not
-specified with C<sig()> will be delivered as a C<_signal> event.
-
-The C<_signal> event is deprecated as of POE 0.1901.  Programs should
-use C<sig()> to generate explicit events for the signals they are
-interested in.
-
-In all signal events...
-
-C<ARG0> contains the signal's name as it appears in Perl's %SIG hash.
-That is, it is the root name of the signal without the SIG prefix.
-
-Unhandled C<_signal> events will be forwarded to C<_default>.  In this
-case, the C<_default> handler's return value becomes significant.  Be
-careful: It's possible to accidentally write unkillable programs this
-way.  This is one of the reasons why C<_signal> is deprecated, as are
-signal handler return values.
-
-If C<_signal> and C<_default> handlers do not exist, then signals will
-always be unhandled.
-
-The "Signal Watcher Methods" section in L<POE::Kernel> is recommended
-reading before using C<_signal> or C<_default>.  It discusses the
-different signal levels, the mechanics of signal propagation, and why
-it is important to return an explicit value from a signal handler,
-among other things.
-
 =item _start
 
 C<_start> is a session's initialization event.  It tells a session
@@ -1760,6 +1736,17 @@ Because a session is destroyed after a C<_stop> handler returns, any
 POE things done from a C<_stop> handler may not work.  For example,
 posting events from C<_stop> will be ineffective since part of the
 Session cleanup is removing posted events.
+
+=item Signal Events
+
+C<ARG0> contains the signal's name as it appears in Perl's %SIG hash.
+That is, it is the root name of the signal without the SIG prefix.
+POE::Kernel discusses exceptions to this, namely that CLD will be
+presented as CHLD.
+
+The "Signal Watcher Methods" section in L<POE::Kernel> is recommended
+reading before using signal events.  It discusses the different signal
+levels and the mechanics of signal propagation.
 
 =back
 
