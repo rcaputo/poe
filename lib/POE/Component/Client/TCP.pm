@@ -40,14 +40,16 @@ sub new {
     unless exists $param{RemotePort};
 
   # Extract parameters.
-  my $alias        = delete $param{Alias};
-  my $address      = delete $param{RemoteAddress};
-  my $port         = delete $param{RemotePort};
-  my $domain       = delete $param{Domain};
-  my $bind_address = delete $param{BindAddress};
-  my $bind_port    = delete $param{BindPort};
-  my $ctimeout     = delete $param{ConnectTimeout};
-  my $args         = delete $param{Args};
+  my $alias           = delete $param{Alias};
+  my $address         = delete $param{RemoteAddress};
+  my $port            = delete $param{RemotePort};
+  my $domain          = delete $param{Domain};
+  my $bind_address    = delete $param{BindAddress};
+  my $bind_port       = delete $param{BindPort};
+  my $ctimeout        = delete $param{ConnectTimeout};
+  my $args            = delete $param{Args};
+  my $session_type    = delete $param{SessionType};
+  my $session_params  = delete $param{SessionParams};
 
   $args = [] unless defined $args;
   croak "Args must be an array reference" unless ref($args) eq "ARRAY";
@@ -95,6 +97,17 @@ sub new {
 
   # Defaults.
 
+  $session_type = 'POE::Session' unless defined $session_type;
+  if (defined($session_params) && ref($session_params)) {
+    if (ref($session_params) ne 'ARRAY') {
+      croak "SessionParams must be an array reference";
+    } else {
+      $session_params = [ ];
+    }    
+  } else {
+    $session_params = [ ];
+  }
+
   my @filter_args;
   $address = '127.0.0.1' unless defined $address;
   unless (defined $filter) {
@@ -116,8 +129,9 @@ sub new {
   # Spawn the session that makes the connection and then interacts
   # with what was connected to.
 
-  POE::Session->create
-    ( inline_states =>
+  $session_type->create
+    ( @$session_params,
+      inline_states =>
       { _start => sub {
           my ($kernel, $heap) = @_[KERNEL, HEAP];
           $heap->{shutdown_on_error} = 1;
@@ -298,6 +312,9 @@ POE::Component::Client::TCP - a simplified TCP client
       Domain         => AF_INET,  # Optional.
       ConnectTimeout => 5,        # Seconds; optional.
 
+      SessionType   => "POE::Session::Abc",           # Optional.
+      SessionParams => [ options => { debug => 1 } ], # Optional.
+
       Started        => \&handle_starting,   # Optional.
       Args           => [ "arg0", "arg1" ],  # Optional.  Started args.
 
@@ -382,6 +399,28 @@ Alias is an optional component alias.  It's used to post events to the
 TCP client component from other sessions.  The most common use of
 Alias is to allow a client component to receive "shutdown" and
 "reconnect" events from a user interface session.
+
+=item SessionType
+
+SessionType specifies what type of sessions will be created within
+the TCP server.  It must be a scalar value.
+
+  SessionType => "POE::Session::MultiDispatch"
+
+SessionType is optional.  The component will supply a "POE::Session"
+type if none is specified.
+
+=item SessionParams
+
+Initialize parameters to be passed to the SessionType when it is created.
+This must be an array reference.
+
+  SessionParams => [ options => { debug => 1, trace => 1 } ],
+
+It is important to realize that some of the arguments to SessionHandler
+may get clobbered when defining them for your SessionHandler.  It is
+advised that you stick to defining arguments in the "options" hash such
+as trace and debug. See L<POE::Session> for an example list of options.
 
 =item Args LISTREF
 
