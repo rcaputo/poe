@@ -34,7 +34,7 @@ foreach my $session_name
       '_child' => sub
       {
         my ($k, $me, $child_session) = @_;
-        print "Child session ($child_session) had stopped.\n";
+        print "Child session ($child_session) has stopped.\n";
       },
       '_parent' => sub
       {
