@@ -8,7 +8,7 @@ use Carp;
 # Used to generate unique IDs for wheels.  This is static data, shared
 # by all.
 my $next_id = 1;
-my %active_socketfactory_ids;
+my %active_wheel_ids;
 
 sub new {
   my $type = shift;
@@ -17,13 +17,14 @@ sub new {
 
 sub allocate_wheel_id {
   while (1) {
-    last unless exists $active_socketfactory_ids{ $next_id++ };
+    last unless exists $active_wheel_ids{ ++$next_id };
   }
-  return $active_socketfactory_ids{$next_id} = $next_id;
+  return $active_wheel_ids{$next_id} = $next_id;
 }
 
 sub free_wheel_id {
-  delete $active_socketfactory_ids{shift};
+  my $id = shift;
+  delete $active_wheel_ids{$id};
 }
 
 #------------------------------------------------------------------------------
