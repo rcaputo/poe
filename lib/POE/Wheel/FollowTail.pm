@@ -58,24 +58,22 @@ sub new {
 
   # STATE-EVENT
   if (exists $params{InputState}) {
+    carp "InputState is deprecated.  Use InputEvent";
     if (exists $params{InputEvent}) {
-      carp "InputEvent takes precedence over deprecated InputState";
       delete $params{InputState};
     }
     else {
-      # deprecation warning goes here
       $params{InputEvent} = delete $params{InputState};
     }
   }
 
   # STATE-EVENT
   if (exists $params{ErrorState}) {
+    carp "ErrorState is deprecated.  Use ErrorEvent";
     if (exists $params{ErrorEvent}) {
-      carp "ErrorEvent takes precedence over deprecated ErrorState";
       delete $params{ErrorState};
     }
     else {
-      # deprecation warning goes here
       $params{ErrorEvent} = delete $params{ErrorState};
     }
   }
@@ -294,7 +292,7 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      # deprecation warning goes here
+      carp "$name is deprecated.  Use $1Event";
       $name = $1 . 'Event';
     }
 

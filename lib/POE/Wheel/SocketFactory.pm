@@ -259,29 +259,18 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      # deprecation warning goes here
+      my $pkg = ref($self);
+      carp "$name is deprecated.  Use $1Event";
       $name = $1 . 'Event';
     }
 
     if ($name eq 'SuccessEvent') {
       if (defined $event) {
-        if (ref($event) eq 'CODE') {
-          carp( "using a coderef for SuccessEvent (or SuccessState) is " .
-                "deprecated (and will go away after version 0.13)"
-              );
-          $poe_kernel->state
-            ( $self->[MY_EVENT_SUCCESS] = $self . ' -> success',
-              $event
-            );
-          $self->[MY_MINE_SUCCESS] = 'yes';
+        if (ref($event)) {
+          carp "reference for SuccessEvent will be treated as an event name"
         }
-        else {
-          if (ref($event) ne '') {
-            carp "Strange reference used as SuccessEvent";
-          }
-          $self->[MY_EVENT_SUCCESS] = $event;
-          undef $self->[MY_MINE_SUCCESS];
-        }
+        $self->[MY_EVENT_SUCCESS] = $event;
+        undef $self->[MY_MINE_SUCCESS];
       }
       else {
         carp "SuccessEvent requires an event name.  ignoring undef";
@@ -289,23 +278,11 @@ sub event {
     }
     elsif ($name eq 'FailureEvent') {
       if (defined $event) {
-        if (ref($event) eq 'CODE') {
-          carp( "using a coderef for FailureEvent (or FailureState) is " .
-                "deprecated (and will go away after version 0.13)"
-              );
-          $poe_kernel->state
-            ( $self->[MY_EVENT_FAILURE] = $self . ' -> failure',
-              $event
-            );
-          $self->[MY_MINE_FAILURE] = 'yes';
+        if (ref($event)) {
+          carp "reference for FailureEvent will be treated as an event name";
         }
-        else {
-          if (ref($event) ne '') {
-            carp "Strange reference used as FailureEvent event (ignored)"
-          }
-          $self->[MY_EVENT_FAILURE] = $event;
-          undef $self->[MY_MINE_FAILURE];
-        }
+        $self->[MY_EVENT_FAILURE] = $event;
+        undef $self->[MY_MINE_FAILURE];
       }
       else {
         carp "FailureEvent requires an event name.  ignoring undef";
@@ -360,24 +337,23 @@ sub new {
 
   # STATE-EVENT
   if (exists $params{SuccessState}) {
+    carp "SuccessState is deprecated.  Use SuccessEvent";
+
     if (exists $params{SuccessEvent}) {
-      carp "SuccessEvent takes precedence over deprecated SuccessState";
       delete $params{SuccessState};
     }
     else {
-      # deprecation warning goes here
       $params{SuccessEvent} = delete $params{SuccessState};
     }
   }
 
   # STATE-EVENT
   if (exists $params{FailureState}) {
+    carp "FailureState is deprecated.  Use FailureEvent";
     if (exists $params{FailureEvent}) {
-      carp "FailureEvent takes precedence over deprecated FailureState";
       delete $params{FailureState};
     }
     else {
-      # deprecation warning goes here
       $params{FailureEvent} = delete $params{FailureState};
     }
   }

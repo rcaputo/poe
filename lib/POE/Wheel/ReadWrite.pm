@@ -83,60 +83,55 @@ sub new {
 
   # STATE-EVENT
   if (exists $params{HighState}) {
+    carp "HighState is deprecated.  Use HighEvent";
     if (exists $params{HighEvent}) {
-      carp "HighEvent parameter takes precedence over deprecated HighState";
       delete $params{HighState};
     }
     else {
-      # deprecation warning goes here
       $params{HighEvent} = delete $params{HighState};
     }
   }
 
   # STATE-EVENT
   if (exists $params{LowState}) {
+    carp "LowState is deprecated.  Use LowEvent.";
     if (exists $params{LowEvent}) {
-      carp "LowEvent parameter takes precedence over deprecated LowState";
       delete $params{LowState};
     }
     else {
-      # deprecation warning goes here
       $params{LowEvent} = delete $params{LowState};
     }
   }
 
   # STATE-EVENT
   if (exists $params{InputState}) {
+    carp "InputState is deprecated.  Use InputEvent";
     if (exists $params{InputEvent}) {
-      carp "InputEvent takes precedence over deprecated InputState";
       delete $params{InputState};
     }
     else {
-      # deprecation warning goes here
       $params{InputEvent} = delete $params{InputState};
     }
   }
 
   # STATE-EVENT
   if (exists $params{ErrorState}) {
+    carp "ErrorState is deprecated.  Use ErrorEvent";
     if (exists $params{ErrorEvent}) {
-      carp "ErrorEvent takes precedence over deprecated ErrorState";
       delete $params{ErrorState};
     }
     else {
-      # deprecation warning goes here
       $params{ErrorEvent} = delete $params{ErrorState};
     }
   }
 
   # STATE-EVENT
   if (exists $params{FlushedState}) {
+    carp "FlushedState is deprecated.  Use FlushedEvent";
     if (exists $params{FlushedEvent}) {
-      carp "FlushedEvent takes precedence over deprecated FlushedState";
       delete $params{FlushedState};
     }
     else {
-      # deprecation warning goes here
       $params{FlushedEvent} = delete $params{FlushedState};
     }
   }
@@ -396,7 +391,7 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      # deprecation warning goes here
+      carp "$name is deprecated.  Use $1Event";
       $name = $1 . 'Event';
     }
 
