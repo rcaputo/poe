@@ -24,15 +24,12 @@ eval {
   import Time::HiRes qw(time sleep);
 };
 
-my $delay_per_child = time() - $^T;
-$delay_per_child = 5 if $delay_per_child < 5;
-my $time_to_wait = $delay_per_child * $fork_count;
-
 # Let the user know what in heck is going on.
+my $start_time = time();
 warn( "\n",
       "***\n",
-      "*** This test will run for around $time_to_wait seconds.\n",
-      "*** The delay ensures that all child processes are accounted for.\n",
+      "*** This test may run for up to two minutes.\n",
+      "*** This delay compensates for testing on slow machines.\n",
       "***\n"
       );
 
@@ -46,7 +43,7 @@ POE::Session->create
         $_[HEAP]->{forked} = $_[HEAP]->{reaped} = 0;
         $_[KERNEL]->sig( CHLD => 'catch_sigchld' );
 
-        my $wake_time = time() + $time_to_wait;
+	my $time_to_wake = time() + 60;
 
         # Fork some child processes, all to exit at the same time.
         for (my $child = 0; $child < $fork_count; $child++) {
@@ -58,7 +55,7 @@ POE::Session->create
               $_[HEAP]->{children}->{$child_pid} = 1;
             }
             else {
-              sleep $wake_time - time();
+              sleep $time_to_wake - time();
               exit;
             }
           }
@@ -74,14 +71,14 @@ POE::Session->create
           print "not ok 1 # forked $_[HEAP]->{forked} out of $fork_count\n";
         }
 
-        $_[KERNEL]->delay( time_is_up => $time_to_wait );
+        $_[KERNEL]->delay( time_is_up => 90 );
       },
 
       _stop =>
       sub {
         my $heap = $_[HEAP];
         if ($heap->{reaped} == $fork_count) {
-          print "ok 2 # after ", (time() - $^T), " seconds\n";
+          print "ok 2 # after ", time() - $start_time, " seconds\n";
         }
         else {
           print "not ok 2 # reaped $heap->{reaped} out of $fork_count\n";
@@ -91,7 +88,6 @@ POE::Session->create
       catch_sigchld =>
       sub {
         $_[HEAP]->{reaped}++;
-        $_[KERNEL]->delay( time_is_up => $delay_per_child );
       },
 
       time_is_up =>
