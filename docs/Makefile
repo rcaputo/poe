@@ -5,9 +5,9 @@
 all: ../POE.pod ../POE-TODO.pod
 
 ../POE.pod: ./POE.outline
-	out-out pod  ./POE.outline > ../POE.pod
-	out-out html ./POE.outline > ../POE.html
+	out-out.perl pod  ./POE.outline > ../POE.pod
+	out-out.perl html ./POE.outline > ../POE.html
 
 ../POE-TODO.pod: ./POE-TODO.outline
-	out-out pod  ./POE-TODO.outline > ../POE-TODO.pod
-	out-out html ./POE-TODO.outline > ../POE-TODO.html
+	out-out.perl pod  ./POE-TODO.outline > ../POE-TODO.pod
+	out-out.perl html ./POE-TODO.outline > ../POE-TODO.html
