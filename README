@@ -11,7 +11,8 @@ Testing; The Future
 ABOUT POE
 =========
 
-"POE" is an acronym for Perl Object Environment.
+"POE" is an acronym for Perl Object Environment.  This may change to
+Persistent Object Environment.
 
 First and foremost, it is a programming framework for event-driven
 state machines.

@@ -27,7 +27,8 @@ sub task_start {
 
 sub task_run {
   my ($kernel, $session, $heap, $id) = @_[KERNEL, SESSION, HEAP, ARG0];
-  if (++$heap->{count} < $event_count) {
+
+  if ( $kernel->call( $session, next_count => $id ) < $event_count ) {
 
     if ($heap->{count} & 1) {
       $kernel->yield( count => $id );
@@ -40,6 +41,11 @@ sub task_run {
   else {
     $heap->{id} = $id;
   }
+}
+
+sub task_next_count {
+  my ($kernel, $session, $heap, $id) = @_[KERNEL, SESSION, HEAP, ARG0];
+  ++$heap->{count};
 }
 
 sub task_stop {
@@ -57,9 +63,10 @@ for (my $i=0; $i<$machine_count; $i++) {
   if ($i & 1) {
     POE::Session->create
       ( inline_states =>
-        { _start => \&task_start,
-          _stop  => \&task_stop,
-          count  => \&task_run,
+        { _start     => \&task_start,
+          _stop      => \&task_stop,
+          count      => \&task_run,
+          next_count => \&task_next_count,
         },
         args => [ $i ],
       );
@@ -68,9 +75,10 @@ for (my $i=0; $i<$machine_count; $i++) {
   # Even instances, try POE::Session->new
   else {
     POE::Session->new
-      ( _start => \&task_start,
-        _stop  => \&task_stop,
-        count  => \&task_run,
+      ( _start     => \&task_start,
+        _stop      => \&task_stop,
+        count      => \&task_run,
+        next_count => \&task_next_count,
         [ $i ],
       );
   }

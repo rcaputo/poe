@@ -27,7 +27,7 @@ Removed the place-holder test that suggested people trie the samples
 directory.
 
 Added t/01_sessions.t to test sessions (new and inline create) and
-basic events (post and yield);
+basic events (post, yield and call);
 
 Added t/02_alarms.t to test delayed events (alarm, delay, alarm_add
 and delay_add).
@@ -38,6 +38,10 @@ the case that ActiveState adds this constant to POSIX.pm.
 Added POE::Kernel::(alarm|delay)_add to post additional alarms to a
 particular state.  Unlike POE::Kernel::(alarm|delay), these don't
 clear existing alarms for the destination state.
+
+Kicked off the POE::Component heirarchy with
+POE::Component::Server::TCP (POE::Component is frequently abbreviated
+as P::C in conversation but not in code).
 
 
 0.0907 2000.03.02
