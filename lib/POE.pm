@@ -3,7 +3,7 @@
 
 package POE;
 
-$VERSION = "0.02";
+$VERSION = "0.03";
 
 use strict;
 use Carp;
@@ -92,6 +92,12 @@ occasionally quit).  A counter limits this test to about 150 total sessions,
 and the kernel will respond to SIGINT by killing everything and exiting.
 
 This is an excellent shakedown of parent/child relationships and signals.
+
+=item * F<tests/objsessions.perl>
+
+This is a version of F<tests/sessions.perl> (see below) that uses a
+blessed object's methods as event handlers.  Thanks to sky_GOD for the
+idea and original code.
 
 =item * F<tests/proxy.perl>
 
