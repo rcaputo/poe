@@ -92,6 +92,15 @@ If it all goes as planned, this will give people at least 1/4 year to
 update their programs.
 
 
+0.14 2001.04.21
+---------------
+
+Fix POE::Kernel::Tk.pm so that it doesn't kill CPAN.pm's "r" command.
+
+Fix lib/deptest.perl: out of date dependencies were not correctly
+reported on, and dependency version checking was broken.
+
+
 0.13 2001.04.20
 ---------------
 

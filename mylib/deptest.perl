@@ -272,6 +272,9 @@ sub build_dependency_tree {
           my $dependency_version = eval "\$" . $file_key . '::VERSION';
           $dependency_version = 0
             unless defined $dependency_version and length $dependency_version;
+          { local $^W = 0;
+            $dependency_version += 0;
+          }
 
           if ($dependency_version < dep_version($file_key)) {
             $file_type |= FS_OUTDATED;
@@ -505,7 +508,14 @@ sub show_leaves {
   my $verb = shift;
   my %dependents;
   foreach (@_) {
-    my $children = join('; ', @{$_->[PARENT_CHILDREN]});
+    my @children = @{$_->[PARENT_CHILDREN]};
+    foreach my $child (@children) {
+      my $child_version = dep_version($child);
+      if (defined $child_version and $child_version > 0) {
+        $child .= " ($child_version)";
+      }
+    }
+    my $children = join('; ', @children);
     foreach my $child (@{$_->[PARENT_CHILDREN]}) {
       $dependents{$child} = 1;
     }
@@ -532,15 +542,17 @@ if (@critical_errors) {
          "\n***\n",
          wrap
          ( '*** ', '*** ',
+
            "$parts of this distribution $need at least one additional " .
-           "module which isn't installed.  The distribution should not be " .
-           "installed until these dependencies are resolved:"
+           "module which is either outdated or not installed.  The " .
+           "distribution should not be installed until these modules " .
+           "are installed or updated:"
          ),
        );
   my @summary = &show_leaves('needs', @critical_errors);
   print( STDERR
          "\n", wrap( '***   ', '***   ',
-                     "Please install: @summary" )
+                     "Please install the most recent: @summary" )
        );
 }
 
@@ -561,15 +573,15 @@ if (@recoverable_errors) {
          wrap
          ( '*** ', '*** ',
            "$parts of this distribution $need at least one additional " .
-           "module which isn't installed.  $these_parts will be installed, " .
-           "but $their features may not be usable until $their dependencies " .
-           "are resolved:"
+           "module which is either outdated or not installed.  " .
+           "$these_parts will be installed, but $their features may not " .
+           "be usable until $their dependencies are installed or updated:"
          ),
        );
   my @summary = &show_leaves('wants', @recoverable_errors);
   print( STDERR
          "\n", wrap( '***   ', '***   ',
-                     "Please consider installing: @summary"
+                     "Please consider installing the most recent: @summary"
                    )
        );
 }
@@ -591,14 +603,16 @@ if (@warnings) {
          wrap
          ( '*** ', '*** ',
            "$parts of this distribution may work better if at least one " .
-           "additional module is installed.  $these_parts will be " .
-           "installed, but $they may not work as well as $they could if " .
-           "$their dependencies are resolved:"
+           "additional module is installed or updated.  $these_parts " .
+           "will be installed, but $they may not work as well as $they " .
+           "could if $their dependencies are installed or updated:"
          ),
        );
   my @summary = &show_leaves('works better with', @warnings);
   print( STDERR
-         "\n", wrap( '***   ', '***   ', "Please install: @summary" )
+         "\n", wrap( '***   ', '***   ',
+                     "Please install the most recent: @summary"
+                   )
        );
 }
 
