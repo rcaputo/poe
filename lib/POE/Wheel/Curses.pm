@@ -119,4 +119,113 @@ sub DESTROY {
 
 __END__
 
-... todo: documentation ...
+=head1 NAME
+
+POE::Wheel::Curses - non-blocking Curses.pm input for full-screen console apps
+
+=head1 SYNOPSIS
+
+  use POE;
+  use Curses;  # for unctrl, etc
+  use POE::Wheel::Curses;
+
+  # Generate events from console input.  Sets up Curses, too.
+  $heap->{console} = POE::Wheel::Curses->new(
+    InputEvent => 'got_keystroke',
+  );
+
+  # A keystroke handler.  This is the body of the program's main input
+  # loop.
+  sub keystroke_handler {
+    my ($keystroke, $wheel_id) = @_[ARG0, ARG1];
+
+    # Control characters.  Change them into something printable via
+    # Curses' unctrl function.
+
+    if ($keystroke lt ' ') {
+      $keystroke = '<' . uc(unctrl($keystroke)) . '>';
+    }
+
+    # Extended keys get translated into their names via Curses'
+    # keyname function.
+
+    elsif ($keystroke =~ /^\d{2,}$/) {
+      $keystroke = '<' . uc(keyname($keystroke)) . '>';
+    }
+
+    # Just display it.
+    addstr( $heap->{some_window}, $keystroke );
+    noutrefresh( $heap->{some_window} );
+    doupdate;
+  }
+
+=head1 DESCRIPTION
+
+Many console programs work best with full-screen input: top, systat,
+nethack, and various text editors.  POE::Wheel::Curses provides a
+simple way to add full-screen interfaces to POE programs.
+
+Whenever something occurs on a recognized input device-- usually just
+the keyboard, but also sometimes the mouse, as in the case of
+ncurses-- the Curses wheel will emit a predetermined event to tell the
+program about it.  This lets the program do other non-blocking things
+in between keystrokes, like interact on sockets or watch log files or
+move monsters or highlight text or something.
+
+=head1 PUBLIC METHODS
+
+=over 2
+
+=item new NOT_SO_MANY_THINGS
+
+new() creates a new Curses wheel.  Note, though, that there can be
+only one Curses wheel in any given program, since they glom onto
+*STDIN real hard.  Maybe this will change.
+
+new() always returns a Curses wheel reference, even if there is a
+problem glomming onto *STDIN or otherwise initializing curses.
+
+new() accepts only one parameter so far: InputEvent.  InputEvent
+contains the name of the event that the Curses wheel will emit
+whenever there is input on the console or terminal.
+
+=back
+
+=head1 EVENTS AND PARAMETERS
+
+=over 2
+
+=item InputEvent
+
+InputEvent defines the event that will be emitted when the Curses
+wheel detects and receives input.
+
+InputEvent is accompanied by two parameters:
+
+C<ARG0> contains the raw keystroke as received by Curses' getch()
+function.  It may be passed to Curses' unctrl() and keyname()
+functions for further processing.
+
+C<ARG1> contains the ID of the Curses wheel.
+
+=back
+
+=head1 SEE ALSO
+
+curses, Curses, POE::Wheel.
+
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
+
+=head1 BUGS
+
+Curses implementations vary widely, and Wheel::Curses was written on a
+system sporting ncurses.  The functions used may not be the same as
+those used on systems with other curses implementations, and Bad
+Things might happen.  Please send patches.
+
+=head1 AUTHORS & COPYRIGHTS
+
+Please see L<POE> for more information about authors and contributors.
+
+=cut

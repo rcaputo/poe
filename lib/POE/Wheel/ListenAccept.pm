@@ -28,12 +28,36 @@ sub new {
 
   croak "$type requires a working Kernel" unless defined $poe_kernel;
 
+  # STATE-EVENT
+  if (exists $params{AcceptState}) {
+    if (exists $params{AcceptEvent}) {
+      carp "AcceptEvent takes precedence over depreciated AcceptState";
+      delete $params{AcceptState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{AcceptEvent} = delete $params{AcceptState};
+    }
+  }
+
+  # STATE-EVENT
+  if (exists $params{ErrorState}) {
+    if (exists $params{ErrorEvent}) {
+      carp "ErrorEvent takes precedence over depreciated ErrorState";
+      delete $params{ErrorState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{ErrorEvent} = delete $params{ErrorState};
+    }
+  }
+
   croak "Handle required"      unless defined $params{Handle};
-  croak "AcceptState required" unless defined $params{AcceptState};
+  croak "AcceptEvent required" unless defined $params{AcceptEvent};
 
   my $self = bless [ $params{Handle},                  # SELF_HANDLE
-                     $params{AcceptState},             # SELF_EVENT_ACCEPT
-                     $params{ErrorState},              # SELF_EVENT_ERROR
+                     delete $params{AcceptEvent},      # SELF_EVENT_ACCEPT
+                     delete $params{ErrorEvent},       # SELF_EVENT_ERROR
                      &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
                      undef,                            # SELF_STATE_ACCEPT
                    ], $type;
@@ -50,18 +74,24 @@ sub event {
   my $self = shift;
   push(@_, undef) if (scalar(@_) & 1);
 
+  # STATE-EVENT
+  if ($name =~ /^(.*?)State$/) {
+    # depreciation warning goes here
+    $name = $1 . 'Event';
+  }
+
   while (@_) {
     my ($name, $event) = splice(@_, 0, 2);
 
-    if ($name eq 'AcceptState') {
+    if ($name eq 'AcceptEvent') {
       if (defined $event) {
         $self->[SELF_EVENT_ACCEPT] = $event;
       }
       else {
-        carp "AcceptState requires an event name.  ignoring undef";
+        carp "AcceptEvent requires an event name.  ignoring undef";
       }
     }
-    elsif ($name eq 'ErrorState') {
+    elsif ($name eq 'ErrorEvent') {
       $self->[SELF_EVENT_ERROR] = $event;
     }
     else {
@@ -139,12 +169,12 @@ POE::Wheel::ListenAccept - accept connections from regular listening sockets
 
   $wheel = POE::Wheel::ListenAccept->new(
     Handle      => $socket_handle,      # Listening socket
-    AcceptState => $accept_state_name,  # Success state
-    ErrorState  => $error_state_name,   # Failure state
+    AcceptEvent => $accept_event_name,  # Event to emit on successful accept
+    ErrorEvent  => $error_event_name,   # Event to emit on some kind of error
   );
 
-  $wheel->event( AcceptState => $new_state_name ); # Add/change state
-  $wheel->event( ErrorState  => undef );           # Remove state
+  $wheel->event( AcceptEvent => $new_event_name ); # Add/change event
+  $wheel->event( ErrorEvent  => undef );           # Remove event
 
 =head1 DESCRIPTION
 
@@ -167,7 +197,7 @@ This wheel neither needs nor includes a put() method.
 
 event() is covered in the POE::Wheel manpage.
 
-ListenAccept's event types are C<AcceptState> and C<ErrorState>.
+ListenAccept's event types are C<AcceptEvent> and C<ErrorEvent>.
 
 =item ID
 
@@ -184,16 +214,16 @@ are included with each.
 
 =over 2
 
-=item AcceptState
+=item AcceptEvent
 
-The AcceptState event is generated whenever a new connection has been
-successfully accepted.  AcceptState's event is accompanied by three
+An AcceptEvent is generated whenever a new connection has been
+successfully accepted.  AcceptEvent is accompanied by three
 parameters: C<ARG0> contains the accepted socket handle.  C<ARG1>
 contains the accept() call's return value, which often is the address
 of the other end of the socket.  C<ARG2> contains the wheel's unique
 ID.
 
-A sample AcceptState event handler:
+A sample AcceptEvent handler:
 
   sub accept_state {
     my ($accepted_handle, $remote_address, $wheel_id) = @_[ARG0..ARG2];
@@ -210,9 +240,9 @@ A sample AcceptState event handler:
     &create_server_session($handle);
   }
 
-=item ErrorState
+=item ErrorEvent
 
-The ErrorState event is generated whenever a new connection could not
+The ErrorEvent event is generated whenever a new connection could not
 be successfully accepted.  Its event is accompanied by four
 parameters.
 
@@ -225,7 +255,7 @@ will never return that error.
 
 C<ARG3> contains the wheel's unique ID.
 
-A sample ErrorState event handler:
+A sample ErrorEvent event handler:
 
   sub error_state {
     my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];

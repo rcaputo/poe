@@ -15,8 +15,8 @@ sub DEBUG () { 0 }
 
 sub MY_SOCKET_HANDLE   () {  0 }
 sub MY_UNIQUE_ID       () {  1 }
-sub MY_STATE_SUCCESS   () {  2 }
-sub MY_STATE_FAILURE   () {  3 }
+sub MY_EVENT_SUCCESS   () {  2 }
+sub MY_EVENT_FAILURE   () {  3 }
 sub MY_SOCKET_DOMAIN   () {  4 }
 sub MY_STATE_ACCEPT    () {  5 }
 sub MY_STATE_CONNECT   () {  6 }
@@ -95,8 +95,8 @@ sub _define_accept_state {
 
   my $domain = $map_family_to_domain{ $self->[MY_SOCKET_DOMAIN] };
   $domain = '(undef)' unless defined $domain;
-  my $success_state = \$self->[MY_STATE_SUCCESS];
-  my $failure_state = \$self->[MY_STATE_FAILURE];
+  my $success_state = \$self->[MY_EVENT_SUCCESS];
+  my $failure_state = \$self->[MY_EVENT_FAILURE];
   my $unique_id     =  $self->[MY_UNIQUE_ID];
 
   $poe_kernel->state
@@ -151,8 +151,8 @@ sub _define_connect_state {
 
   my $domain = $map_family_to_domain{ $self->[MY_SOCKET_DOMAIN] };
   $domain = '(undef)' unless defined $domain;
-  my $success_state   = \$self->[MY_STATE_SUCCESS];
-  my $failure_state   = \$self->[MY_STATE_FAILURE];
+  my $success_state   = \$self->[MY_EVENT_SUCCESS];
+  my $failure_state   = \$self->[MY_EVENT_FAILURE];
   my $unique_id       =  $self->[MY_UNIQUE_ID];
   my $socket_selected = \$self->[MY_SOCKET_SELECTED];
 
@@ -239,52 +239,58 @@ sub event {
   while (@_) {
     my ($name, $event) = splice(@_, 0, 2);
 
-    if ($name eq 'SuccessState') {
+    # STATE-EVENT
+    if ($name =~ /^(.*?)State$/) {
+      # depreciation warning goes here
+      $name = $1 . 'Event';
+    }
+
+    if ($name eq 'SuccessEvent') {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
-          carp( "SuccessState coderefs are depreciated " .
+          carp( "SuccessEvent coderefs are depreciated " .
                 "(and will go away after version 0.13)"
               );
           $poe_kernel->state
-            ( $self->[MY_STATE_SUCCESS] = $self . ' success',
+            ( $self->[MY_EVENT_SUCCESS] = $self . ' success',
               $event
             );
           $self->[MY_MINE_SUCCESS] = 'yes';
         }
         else {
           if (ref($event) ne '') {
-            carp "Strange reference used as SuccessState event";
+            carp "Strange reference used as SuccessEvent";
           }
-          $self->[MY_STATE_SUCCESS] = $event;
+          $self->[MY_EVENT_SUCCESS] = $event;
           undef $self->[MY_MINE_SUCCESS];
         }
       }
       else {
-        carp "SuccessState requires an event name.  ignoring undef";
+        carp "SuccessEvent requires an event name.  ignoring undef";
       }
     }
-    elsif ($name eq 'FailureState') {
+    elsif ($name eq 'FailureEvent') {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
-          carp( "FailureState coderefs are depreciated " .
+          carp( "FailureEvent coderefs are depreciated " .
                 "(and will go away after version 0.13)"
               );
           $poe_kernel->state
-            ( $self->[MY_STATE_FAILURE] = $self . ' failure',
+            ( $self->[MY_EVENT_FAILURE] = $self . ' failure',
               $event
             );
           $self->[MY_MINE_FAILURE] = 'yes';
         }
         else {
           if (ref($event) ne '') {
-            carp "Strange reference used as FailureState event (ignored)"
+            carp "Strange reference used as FailureEvent event (ignored)"
           }
-          $self->[MY_STATE_FAILURE] = $event;
+          $self->[MY_EVENT_FAILURE] = $event;
           undef $self->[MY_MINE_FAILURE];
         }
       }
       else {
-        carp "FailureState requires an event name.  ignoring undef";
+        carp "FailureEvent requires an event name.  ignoring undef";
       }
     }
     else {
@@ -330,20 +336,44 @@ sub new {
   croak "wheels no longer require a kernel reference as their first parameter"
     if (@_ && (ref($_[0]) eq 'POE::Kernel'));
 
+  # STATE-EVENT
+  if (exists $params{SuccessState}) {
+    if (exists $params{SuccessEvent}) {
+      carp "SuccessEvent takes precedence over depreciated SuccessState";
+      delete $params{SuccessState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{SuccessEvent} = delete $params{SuccessState};
+    }
+  }
+
+  # STATE-EVENT
+  if (exists $params{FailureState}) {
+    if (exists $params{FailureEvent}) {
+      carp "FailureEvent takes precedence over depreciated FailureState";
+      delete $params{FailureState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{FailureEvent} = delete $params{FailureState};
+    }
+  }
+
   # Ensure some of the basic things are present.
   croak "$type requires a working Kernel" unless (defined $poe_kernel);
-  croak 'SuccessState required' unless (defined $params{SuccessState});
-  croak 'FailureState required' unless (defined $params{FailureState});
-  my $state_success = $params{SuccessState};
-  my $state_failure = $params{FailureState};
+  croak 'SuccessEvent required' unless (defined $params{SuccessEvent});
+  croak 'FailureEvent required' unless (defined $params{FailureEvent});
+  my $event_success = $params{SuccessEvent};
+  my $event_failure = $params{FailureEvent};
 
   # Create the SocketServer.  Cache a copy of the socket handle.
   my $socket_handle = gensym();
   my $self = bless
     ( [ $socket_handle,                   # MY_SOCKET_HANDLE
         &POE::Wheel::allocate_wheel_id(), # MY_UNIQUE_ID
-        $params{SuccessState},            # MY_STATE_SUCCESS
-        $params{FailureState},            # MY_STATE_FAILURE
+        $event_success,                   # MY_EVENT_SUCCESS
+        $event_failure,                   # MY_EVENT_FAILURE
         undef,                            # MY_SOCKET_DOMAIN
         undef,                            # MY_STATE_ACCEPT
         undef,                            # MY_STATE_CONNECT
@@ -707,8 +737,8 @@ sub new {
 
     $self->[MY_SOCKET_HANDLE] = $socket_handle;
     $self->_define_connect_state();
-    $self->event( SuccessState => $params{SuccessState},
-                  FailureState => $params{FailureState},
+    $self->event( SuccessEvent => $params{SuccessEvent},
+                  FailureEvent => $params{FailureEvent},
                 );
     return $self;
   }
@@ -739,8 +769,8 @@ sub new {
 
       $self->[MY_SOCKET_HANDLE] = $socket_handle;
       $self->_define_accept_state();
-      $self->event( SuccessState => $params{SuccessState},
-                    FailureState => $params{FailureState},
+      $self->event( SuccessEvent => $params{SuccessEvent},
+                    FailureEvent => $params{FailureEvent},
                   );
       return $self;
     }
@@ -788,13 +818,13 @@ sub DESTROY {
   }
 
   if (defined $self->[MY_MINE_SUCCESS]) {
-    $poe_kernel->state($self->[MY_STATE_SUCCESS]);
-    undef $self->[MY_STATE_SUCCESS];
+    $poe_kernel->state($self->[MY_EVENT_SUCCESS]);
+    undef $self->[MY_EVENT_SUCCESS];
   }
 
   if (defined $self->[MY_MINE_FAILURE]) {
-    $poe_kernel->state($self->[MY_STATE_FAILURE]);
-    undef $self->[MY_STATE_FAILURE];
+    $poe_kernel->state($self->[MY_EVENT_FAILURE]);
+    undef $self->[MY_EVENT_FAILURE];
   }
 
   &POE::Wheel::free_wheel_id($self->[MY_UNIQUE_ID]);
@@ -817,8 +847,8 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel = POE::Wheel::SocketFactory->new(
     SocketDomain => AF_UNIX,               # Sets the socket() domain
     BindAddress  => $unix_socket_address,  # Sets the bind() address
-    SuccessState => $success_state,        # State to call upon accept()
-    FailureState => $state_failure,        # State to call upon error
+    SuccessEvent => $success_event,        # Event to emit upon accept()
+    FailureEvent => $failure_event,        # Event to emit upon error
     # Optional parameters (and default values):
     SocketType   => SOCK_STREAM,           # Sets the socket() type
   );
@@ -827,8 +857,8 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel = POE::Wheel::SocketFactory->new(
     SocketDomain  => AF_UNIX,              # Sets the socket() domain
     RemoteAddress => $unix_server_address, # Sets the connect() address
-    SuccessState  => $success_state,       # State to call on connection
-    FailureState  => $state_failure,       # State to call on error
+    SuccessEvent  => $success_event,       # Event to emit on connection
+    FailureEvent  => $failure_event,       # Event to emit on error
     # Optional parameters (and default values):
     SocketType    => SOCK_STREAM,          # Sets the socket() type
     # Optional parameters (that have no defaults):
@@ -839,8 +869,8 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel = POE::Wheel::SocketFactory->new(
     BindAddress    => $inet_address,       # Sets the bind() address
     BindPort       => $inet_port,          # Sets the bind() port
-    SuccessState   => $success_state,      # State to call upon accept()
-    FailureState   => $state_failure,      # State to call upon error
+    SuccessEvent   => $success_event,      # Event to emit upon accept()
+    FailureEvent   => $failure_event,      # Event to emit upon error
     # Optional parameters (and default values):
     SocketDomain   => AF_INET,             # Sets the socket() domain
     SocketType     => SOCK_STREAM,         # Sets the socket() type
@@ -853,8 +883,8 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
   $wheel = POE::Wheel::SocketFactory->new(
     RemoteAddress  => $inet_address,       # Sets the connect() address
     RemotePort     => $inet_port,          # Sets the connect() port
-    SuccessState   => $success_state,      # State to call on connection
-    FailureState   => $state_failure,      # State to call on error
+    SuccessEvent   => $success_event,      # Event to emit on connection
+    FailureEvent   => $failure_event,      # Event to emit on error
     # Optional parameters (and default values):
     SocketDomain   => AF_INET,             # Sets the socket() domain
     SocketType     => SOCK_STREAM,         # Sets the socket() type
@@ -874,9 +904,9 @@ sockets.
 
 The SocketFactory manages connecting and listening sockets on behalf
 of the session that created it.  It will watch a connecting socket and
-fire a SuccessState or FailureState event when something happens.  It
-will watch a listening socket and fire a SuccessState or FailureState
-event for every connection.
+fire a SuccessEvent or FailureEvent event when something happens.  It
+will watch a listening socket and fire a SuccessEvent or FailureEvent
+for every connection.
 
 =head1 PUBLIC METHODS
 
@@ -1017,14 +1047,14 @@ match events with the wheels which generated them.
 
 =over 2
 
-=item SuccessState
+=item SuccessEvent
 
-SuccessState defines the event that will be emitted when a socket has
-been established successfully.  The SuccessState event is fired when
+SuccessEvent defines the event that will be emitted when a socket has
+been established successfully.  The SuccessEvent event is fired when
 outbound sockets have connected or whenever listening sockets accept
 new connections.
 
-SuccessState must be the name of a state within the current session.
+SuccessEvent must be the name of a state within the current session.
 
 In all cases, C<ARG0> holds the new socket handle.  C<ARG3> holds the
 wheel's unique ID.  The parameters between them differ according to
@@ -1042,7 +1072,7 @@ According to _Perl Cookbook_, the remote address returned by accept()
 on UNIX sockets is undefined, so C<ARG1> and C<ARG2> are also
 undefined in this case.
 
-A sample SuccessState event handler:
+A sample SuccessEvent handler:
 
   sub server_accept {
     my $accepted_handle = $_[ARG0];
@@ -1056,22 +1086,22 @@ A sample SuccessState event handler:
     &spawn_connection_session( $accepted_handle );
   }
 
-=item FailureState
+=item FailureEvent
 
-FailureState defines the event that will be emitted when a socket
+FailureEvent defines the event that will be emitted when a socket
 error occurs.  EAGAIN does not count as an error since the
 SocketFactory knows what to do with it.
 
-FailureState must be the name of a state within the current session.
+FailureEvent must be the name of a state within the current session.
 
-The FailureState event comes with the standard error event parameters.
+The FailureEvent event comes with the standard error event parameters.
 
 C<ARG0> contains the name of the operation that failed.  C<ARG1> and
 C<ARG2> hold numeric and string values for C<$!>, respectively.
 C<ARG3> contains the wheel's unique ID, which may be matched back to
 the wheel itself via the $wheel->ID call.
 
-A sample ErrorState event handler:
+A sample ErrorEvent handler:
 
   sub error_state {
     my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
@@ -1091,7 +1121,7 @@ the entire POE distribution.
 =head1 BUGS
 
 Many (if not all) of the croak/carp/warn/die statements should fire
-back $state_failure instead.
+back FailureEvent instead.
 
 SocketFactory is only tested with UNIX streams and INET sockets using
 the UDP and TCP protocols.  Others may or may not work, but the latest

@@ -48,10 +48,34 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $poe_kernel);
 
+  # STATE-EVENT
+  if (exists $params{InputState}) {
+    if (exists $params{InputEvent}) {
+      carp "InputEvent takes precedence over depreciated InputState";
+      delete $params{InputState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{InputEvent} = delete $params{InputState};
+    }
+  }
+
+  # STATE-EVENT
+  if (exists $params{ErrorState}) {
+    if (exists $params{ErrorEvent}) {
+      carp "ErrorEvent takes precedence over depreciated ErrorState";
+      delete $params{ErrorState};
+    }
+    else {
+      # depreciation warning goes here
+      $params{ErrorEvent} = delete $params{ErrorState};
+    }
+  }
+
   croak "Handle required"     unless defined $params{Handle};
   croak "Driver required"     unless defined $params{Driver};
   croak "Filter required"     unless defined $params{Filter};
-  croak "InputState required" unless defined$params{InputState};
+  croak "InputEvent required" unless defined $params{InputEvent};
 
   my ($handle, $driver, $filter) = @params{ qw(Handle Driver Filter) };
 
@@ -70,8 +94,8 @@ sub new {
                      $driver,                          # SELF_DRIVER
                      $filter,                          # SELF_FILTER
                      $poll_interval,                   # SELF_INTERVAL
-                     $params{InputState},              # SELF_EVENT_INPUT
-                     $params{ErrorEvent},              # SELF_EVENT_ERROR
+                     delete $params{InputEvent},       # SELF_EVENT_INPUT
+                     delete $params{ErrorEvent},       # SELF_EVENT_ERROR
                      &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
                      undef,                            # SELF_STATE_READ
                      undef,                            # SELF_STATE_WAKE
@@ -199,18 +223,24 @@ sub event {
   my $self = shift;
   push(@_, undef) if (scalar(@_) & 1);
 
+  # STATE-EVENT
+  if ($name =~ /^(.*?)State$/) {
+    # depreciation warning goes here
+    $name = $1 . 'Event';
+  }
+
   while (@_) {
     my ($name, $event) = splice(@_, 0, 2);
 
-    if ($name eq 'InputState') {
+    if ($name eq 'InputEvent') {
       if (defined $event) {
         $self->[SELF_EVENT_INPUT] = $event;
       }
       else {
-        carp "InputState requires an event name.  ignoring undef";
+        carp "InputEvent requires an event name.  ignoring undef";
       }
     }
-    elsif ($name eq 'ErrorState') {
+    elsif ($name eq 'ErrorEvent') {
       $self->[SELF_EVENT_ERROR] = $event;
     }
     else {
@@ -263,8 +293,8 @@ POE::Wheel::FollowTail - follow the tail of an ever-growing file
     Driver       => POE::Driver::Something->new(), # How to read it
     Filter       => POE::Filter::Something->new(), # How to parse it
     PollInterval => 1,                  # How often to check it
-    InputState   => $input_event_name,  # State to call upon input
-    ErrorState   => $error_event_name,  # State to call upon error
+    InputEvent   => $input_event_name,  # Event to emit upon input
+    ErrorEvent   => $error_event_name,  # Event to emit upon error
     SeekBack     => $offset,            # How far from EOF to start
   );
 
@@ -284,7 +314,7 @@ This is a read-only wheel so it does not include a put() method.
 
 event() is covered in the POE::Wheel manpage.
 
-FollowTail's event types are C<InputState> and C<ErrorState>.
+FollowTail's event types are C<InputEvent> and C<ErrorEvent>.
 
 =item ID
 
@@ -319,24 +349,24 @@ When SeekBack is used, the wheel assumes that records have already
 been framed, and the seek position is the beginning of one.  It will
 return everything it reads up until EOF.
 
-=item InputState
+=item InputEvent
 
-InputState contains the event which is emitted for every complete
-record read.  Every InputState event is accompanied by two parameters.
-C<ARG0> contains the record which was read.  C<ARG1> contains the
-wheel's unique ID.
+InputEvent contains the name of an event which is emitted for every
+complete record read.  Every InputEvent event is accompanied by two
+parameters.  C<ARG0> contains the record which was read.  C<ARG1>
+contains the wheel's unique ID.
 
-A sample InputState event handler:
+A sample InputEvent event handler:
 
   sub input_state {
     my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
     print "Wheel $wheel_id received input: $input\n";
   }
 
-=item ErrorState
+=item ErrorEvent
 
-ErrorState contains the event which is emitted whenever an error
-occurs.  Every ErrorState event comes with four parameters:
+ErrorEvent contains the event which is emitted whenever an error
+occurs.  Every ErrorEvent comes with four parameters:
 
 C<ARG0> contains the name of the operation that failed.  This usually
 is 'read'.  Note: This is not necessarily a function name.  The wheel
@@ -348,7 +378,7 @@ never return that error.
 
 C<ARG3> contains the wheel's unique ID.
 
-A sample ErrorState event handler:
+A sample ErrorEvent event handler:
 
   sub error_state {
     my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];

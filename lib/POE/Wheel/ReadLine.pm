@@ -1133,7 +1133,7 @@ sub put {
     $poe_kernel->delay( $self->[SELF_STATE_IDLE], $self->[SELF_IDLE_TIME] );
     $self->[SELF_HAS_TIMER] = 1;
   }
-}    
+}
 
 
 # Add things to the edit history.
