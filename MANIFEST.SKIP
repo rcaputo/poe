@@ -6,11 +6,15 @@ CVS
 \.swp$
 ^Makefile$
 ^Makefile\.old$
+^POE.ppd$
 ^\.
+^_Inline
+^_build
 ^blib/
+^comptest
 ^coverage\.report$
 ^docs
 ^pm_to_blib$
 ^poe_report\.xml$
-^test-output\.err$
+test-output\.err$
 ~$
