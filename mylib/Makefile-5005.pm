@@ -24,29 +24,33 @@ if ($@) {
   die if $@;
 }
 
+# TODO - Combine the -core requirements here, and in PREREQ_PM below,
+# into one has they can both share.
+
 ExtUtils::AutoInstall->import(
   -version => '0.50',
   -core => [
-      Carp                 => '',
-      Exporter             => '',
-      IO                   => '',
-      POSIX                => '',
-      Socket               => '',
-      'File::Spec'         => '',
-      'Test::More'         => '',
-      'Filter::Util::Call' => 1.04,
+    "Carp"               => 0,
+    "Exporter"           => 0,
+    "IO"                 => 1.20,
+    "POSIX"              => 1.02,
+    "Socket"             => 1.7,
+    "Filter::Util::Call" => 1.06,
+    "Test::More"         => 0.50,
+    "File::Spec"         => 3.01,
+    "Errno"              => 1.09,
   ],
   "Recommended modules to increase timer/alarm/delay accuracy." => [
       -default      => 0,
-      'Time::HiRes' => '',
+      'Time::HiRes' => '1.65',
   ],
   "Optional modules to speed up large-scale clients/servers." => [
       -default   => 0,
-      'IO::Poll' => 0.05,
+      'IO::Poll' => 0.01,
   ],
   "Optional modules for IPv6 support." => [
       -default  => 0,
-      'Socket6' => 0.11,
+      'Socket6' => 0.17,
   ],
   "Optional modules for controlling full-screen programs (e.g. vi)." => [
       -default  => 0,
@@ -54,37 +58,34 @@ ExtUtils::AutoInstall->import(
   ],
   "Optional modules for marshaling/serializing data." => [
       -default         => 0,
-      'Storable'       => '',
-      'Compress::Zlib' => '',
+      'Storable'       => '2.13',
+      'Compress::Zlib' => '1.33',
   ],
   "Optional modules for web applications (client & server)." => [
       -default => 0,
-      'HTTP::Status'   => '1.28',
-      'HTTP::Request'  => '1.34',
-      'HTTP::Date'     => '1.46',
-      'HTTP::Response' => '1.41',
-      'URI'            => '1.27',
+      'LWP'            => '5.801',
+      'URI'            => '1.35',
   ],
   "Optional modules for Curses text interfaces." => [
       -default => 0,
-      'Curses' => '',
+      'Curses' => '1.08',
   ],
   "Optional modules for console (command line) interfaces." => [
       -default        => 0,
-      'Term::ReadKey' => '',
-      'Term::Cap'     => '',
+      'Term::ReadKey' => '2.21',
+      'Term::Cap'     => '1.09',
   ],
   "Optional modules for Gtk+ graphical interfaces." => [
       -default => 0,
-      'Gtk'    => '',
+      'Gtk'    => '0.7009',
   ],
   "Optional modules for Tk graphical interfaces." => [
       -default => 0,
-      'Tk'     => '800.021',
+      'Tk'     => '800.027',
   ],
   "Optional modules for Event.pm support." => [
       -default => 0,
-      'Event'  => '',
+      'Event'  => '1.00',
   ],
 );
 
@@ -168,8 +169,15 @@ WriteMakefile(
   PL_FILES       => { },
   NO_META        => 1,
   PREREQ_PM      => {
-    'Test::More'         => 0,
-    'Filter::Util::Call' => 1.04,
+    "Carp"               => 0,
+    "Exporter"           => 0,
+    "IO"                 => 1.20,
+    "POSIX"              => 1.02,
+    "Socket"             => 1.7,
+    "Filter::Util::Call" => 1.06,
+    "Test::More"         => 0.50,
+    "File::Spec"         => 3.01,
+    "Errno"              => 1.09,
   },
 );
 
