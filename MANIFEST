@@ -107,3 +107,4 @@ t/24_filter_stack.t
 t/25_detach.t
 t/26_comp_tcp.t
 t/27_poll.t
+t/28_windows.t
