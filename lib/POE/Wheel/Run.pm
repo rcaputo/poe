@@ -602,7 +602,7 @@ item in the LIST is processed according to the C<StdinFilter>.
 
 =item set_filter FILTER_REFERENCE
 
-Set C<StdinFilter>, C<StdoutFilter. and C<StderrFilter> all at once.
+Set C<StdinFilter>, C<StdoutFilter>, and C<StderrFilter> all at once.
 Not yet implemented.
 
 =item set_stdin_filter FILTER_REFERENCE
