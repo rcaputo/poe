@@ -17,6 +17,7 @@ use IO::Socket;
 my $kernel = new POE::Kernel();
 
 #------------------------------------------------------------------------------
+# Start listening for objects.
 
 new POE::Session
   ( $kernel,
@@ -61,6 +62,9 @@ new POE::Session
     },
   );
 
+#------------------------------------------------------------------------------
+# Set up a single Responder session that can handle thawed references.
+
 new POE::Session ( $kernel,
                    new Responder(),
                    [ qw(_start respond) ],
@@ -69,6 +73,7 @@ new POE::Session ( $kernel,
 $kernel->run();
 
 #------------------------------------------------------------------------------
+# Responder is an aliased (daemon) session that processes thawed references.
 
 package Responder;
 use strict;
@@ -103,6 +108,11 @@ sub respond {
   }
 }
 
+#------------------------------------------------------------------------------
+# Daemon instances are created by the listening session to handle connections.
+# It receives one or more thawed references, and passes them to the running
+# Responder session for processing.
+
 package Daemon;
 use strict;
 
@@ -114,7 +124,6 @@ sub new {
 		handle => $handle,
 	       }, $class;
 }
-
 
 sub _start {
   my ($self,$kernel,$namespace,$from) = @_;
@@ -152,4 +161,3 @@ sub shutdown {
   my ($self,$k, $me, $from) = @_;
   delete $me->{'wheel_client'};
 }
-
