@@ -9,10 +9,10 @@
 
 use strict;
 
-use POE qw(Wheel::ListenAccept Wheel::ReadWrite
+use POE qw(Wheel::ListenAccept Wheel::ReadWrite Wheel::SocketFactory
            Driver::SysRW Filter::Reference
           );
-use IO::Socket;
+use Socket;
 
 my $kernel = new POE::Kernel();
 
@@ -24,36 +24,28 @@ new POE::Session
     _start => sub {
       my ($k, $me, $from) = @_;
 
-      my $listener = new IO::Socket::INET
-        ( 'LocalPort' => '31338', # eleet++
-          'Listen'    => 5,
-          'Proto'     => 'tcp',
-          'Reuse'     => 'yes',
+      $me->{'wheel'} = new POE::Wheel::SocketFactory
+        ( $kernel,
+          SocketDomain => AF_INET,
+          SocketType => SOCK_STREAM,
+          SocketProtocol => 'tcp',
+          BindAddress => INADDR_ANY,
+          BindPort => '31338', # eleet++
+          ListenQueue => 5,
+          Reuse => 'yes',
+          SuccessState => 'accept',
+          FailureState => 'accept error'
         );
-		    
-      if ($listener) {
-        $me->{'wheel'} = new POE::Wheel::ListenAccept
-          ( $kernel,
-            'Handle'      => $listener,
-            'AcceptState' => 'accept',
-            'ErrorState'  => 'accept error',
-          );
-      }
-      else {
-        warn "redirection could not start: $!";
-      }
     },
     'accept error' => sub { 
       my ($k, $me, $from, $operation, $errnum, $errstr) = @_;
       print "! $operation error $errnum: $errstr\n";
     },
     'accept' => sub {
-      my ($k,$me,$from,$handle) = @_;
+      my ($k, $me, $from, $handle, $peer_host, $peer_port) = @_;
       my $object = Daemon->new($handle);
-      my ($peer_host,$peer_port) = ( $handle->peerhost(),
-                                     $handle->peerport()
-                                   );
-      print STDERR "Got connection from $peer_host:$peer_port\n";
+      print STDERR "Got connection from ",
+                   inet_ntoa($peer_host), ":$peer_port\n";
       
       new POE::Session ( $k,
                          $object,
