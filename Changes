@@ -29,29 +29,36 @@ Depreciation Schedule and Status (!!!)
 The original depreciation schedule has been broken into separate ones
 for each aspect of POE.  Asynchrony rules!
 
-1. In the wheels, rename /.*State/ to /.*Event/.  Wheels don't
-   define states, they emit events.  Calling Wheels' parameters
-   /.*State/ is inconsistent and confusing.
+1. In the wheels, rename XyzState to XyzEvent.  Wheels don't define
+   states, they emit events.  Calling Wheels' parameters XyzState has
+   been inconsistent and confusing.
 
-   TODO: Port existing tests and samples to /.*Event/.
-   TODO: Wait 28 days.  Set a date here.
-   TODO: Add depreciation warnings for /.*State/ uses.
-   TODO: Wait 28 days.  Set a date here.
-   TODO: Remove /.*State/ warnings and support.
+   TODO: Release version 0.15.
+   TODO: Defer the rest of the State/Event depreciation for at least
+         28 days (until ????.??.??).
+   TODO: Add depreciation warnings for XyzState uses.
+   TODO: Defer the rest of the State/Event depreciation for at least
+         28 days (until ????.??.??).
+   TODO: Remove XyzState warnings and support.
 
 2. ARG0..ARG9 in built-in events are silly.  The whole point of
    using array slices and constant offsets is to avoid positional
    dependencies.  Using ARG0..ARG9 defeats most of this technique's
    benefits.  D'oh!
 
+   There may be a better way to do this than to depreciate ARG0..ARG9
+   and stuff.  I'm looking into it now.
+
    TODO: Introduce new constants for different built-in events.
    TODO: Document the new constants instead of ARG0..ARG9.
    TODO: Document that parameters may move around in the future, so
          their positions in ARG0..ARG9 will not be guaranteed.
-   TODO: Wait 28 days.  Set a date here.
+   TODO: Defer the rest of the ARG# depreciation for at least 28 days
+         (until ????.??.??).
    TODO: Generate warnings when ARG0..ARG9 are used for built-in
          events.
-   TODO: Wait 28 days.  Set a date here.
+   TODO: Defer the rest of the ARG# depreciation for at least 28 days
+         (until ????.??.??).
    TODO: Remove the warnings from ARG0..ARG9.
 
 3. Split some of the optionally useful bits out into a separate
@@ -69,8 +76,12 @@ for each aspect of POE.  Asynchrony rules!
    TODO: Split out most of the documentation into separate PODs.
 
 
-0.15 2001.??.??
----------------
+0.15 2001.??.?? (!!!)
+---------------------
+
+(!!!) Breakage warning!  XyzState parameters in wheels have been
+renamed to XyzEvent and documented as such.  They are guaranteed to
+work without warnings until ????.??.??.
 
 Fix t/06_tk.t to skip if Tk is outdated, rather than fail.
 
@@ -79,14 +90,22 @@ Fix lib/deptest.perl to recognize Exporter on Solaris.
 Increase dependency checking information on Solaris in case attempts
 to fix the Exporter bug aren't successful.
 
-Add /.*Event/ support to wheels.  Code to support /.*Event/ and
-/.*State/ is marked with the comment C<# STATE-EVENT>.  Hooks for
-depreciation warnings are also commented.  Changed the documentation
-to say /.*Event/ instead of /.*State/, so new users will not learn the
+Add XyzEvent support to wheels.  Code to support XyzEvent and XyzState
+is marked with the comment C<# STATE-EVENT>.  Hooks for depreciation
+warnings are also commented.  Changed the documentation to say
+XyvEvent instead of XyzState, so new users will not learn the
 depreciated ways.
 
 Verified that the depreciation from State to Event does not break
-existing tests.  The samples directory is still lagging behind here.
+existing tests.
+
+Ported the existing tests to use XyzEvent instead of XyzState, and
+verified that they still pass.
+
+Added instructions for installing the ActiveState PPM to README.
+
+Ported the samples from XyzState to XyzEvent, but they still are not
+properly tested.
 
 
 0.14 2001.04.23
