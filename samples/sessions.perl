@@ -4,25 +4,43 @@
 use strict;
                                         # Kernel and Session always included
 use POE;
+                                        # stupid scope trick, part 1 of 3 parts
+my $session_name;
+
+#==============================================================================
+# This section defines the event handler (or state) subs for the
+# sessions that this program calls "child" sessions.  Each sub does
+# just one thing, possibly passing execution to other event handlers
+# through one of the supported event-passing mechanims.
 
 #------------------------------------------------------------------------------
-# These subs are for the ten child sessions that are created by the
-# main parent.
-                                        # stupid scope trick
-my $session_name;
-                                        # bootstrap state
+# Newly created sessions are not ready to run until the kernel
+# registers them in its internal data structures.  The kernel sends
+# every new session a _start event to tell them when they may begin.
+
 sub child_start {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
+                                        # stupid scope trick, part 2 of 3 parts
   $heap->{'name'} = $session_name;
   $kernel->sig('INT', 'sigint');
   print "Session $heap->{'name'} started.\n";
 }
-                                        # stop stae
+
+#------------------------------------------------------------------------------
+# Every session receives a _stop event just prior to being removed
+# from memory.  This allows sessions to perform last-minute cleanup.
+
 sub child_stop {
   my $heap = $_[HEAP];
   print "Session ", $heap->{'name'}, " stopped.\n";
 }
-                                        # increment a counter
+
+#------------------------------------------------------------------------------
+# This sub handles a developer-supplied event.  It accepts a name and
+# a count, increments the count, and displays some information.  If
+# the count is small enough, it feeds back on itself by posting
+# another "increment" message.
+
 sub child_increment {
   my ($kernel, $me, $heap, $name, $count) = @_[KERNEL, SELF, HEAP, ARG0, ARG1];
 
@@ -40,55 +58,94 @@ sub child_increment {
     $kernel->post($me, 'increment', $name, $count);
   }
 }
-                                        # test called states and return values
+
+#------------------------------------------------------------------------------
+# This sub handles a developer-supplied event.  It is called (not
+# posted) immediately by the "increment" event handler.  It displays
+# some information about its parameters, and returns a value.  It is
+# included to test that $kernel->call() works properly.
+
 sub child_display_one {
   my ($name, $count) = @_[ARG0, ARG1];
   print "\t(display one, $name, iteration $count)\n";
   return $count * 2;
 }
-                                        # test called states and return values
+
+#------------------------------------------------------------------------------
+# This sub handles a developer-supplied event.  It is called (not
+# posted) immediately by the "increment" event handler.  It displays
+# some information about its parameters, and returns a value.  It is
+# included to test that $kernel->call() works properly.
+
 sub child_display_two {
   my ($name, $count) = @_[ARG0, ARG1];
   print "\t(display two, $name, iteration $count)\n";
   return $count * 3;
 }
 
+#==============================================================================
+# This section defines the event handler (or state) subs for the
+# sessions that this program calls "parent" sessions.  Each sub does
+# just one thing, possibly passing execution to other event handlers
+# through one of the supported event-passing mechanisms.
+
 #------------------------------------------------------------------------------
-# These subs are for the main parent.
+# Newly created sessions are not ready to run until the kernel
+# registers them in its internal data structures.  The kernel sends
+# every new session a _start event to tell them when they may begin.
 
 sub main_start {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
-                                        # start ten sub-sessions
+                                        # start ten child sessions
   foreach my $name (qw(one two three four five six seven eight nine ten)) {
+                                        # stupid scope trick, part 3 of 3 parts
     $session_name = $name;
     my $session = new POE::Session
-      ( $kernel,
-        _start    => \&child_start,
-        _stop     => \&child_stop,
-        increment => \&child_increment,
+      ( _start      => \&child_start,
+        _stop       => \&child_stop,
+        increment   => \&child_increment,
         display_one => \&child_display_one,
         display_two => \&child_display_two,
       );
-                                        # tests delayed GC
+
+    # Normally, sessions are stopped if they have nothing to do.  The
+    # only exception to this rule is newly created sessions.  Their
+    # garbage collection is delayed slightly, so that parent sessions
+    # may send them "bootstrap" events.  The following post() call is
+    # such a bootstrap event.
+
     $kernel->post($session, 'increment', $name, 0);
   }
 }
+
+#------------------------------------------------------------------------------
+# POE's _stop events are not mandatory.
 
 sub main_stop {
   print "*** Main session stopped.\n";
 }
 
+#------------------------------------------------------------------------------
+# POE sends a _child event whenever a child session is about to
+# receive a _stop event.  The direction argument is either 'gain' or
+# 'lose', to signify whether the child is being given or taken away.
+
 sub main_child {
-  print "*** Child of main session terminated.\n";
+  my ($self, $direction, $child) = @_[SELF, ARG0, ARG1];
+
+  print "*** $self ${direction}s child $child\n";
 }
 
-#------------------------------------------------------------------------------
+#==============================================================================
+# Start the main (parent) session, and begin processing events.
+# Kernel::run() will continue until there is nothing left to do.
 
-my $kernel = new POE::Kernel;
 new POE::Session
-  ( $kernel,
-    _start => \&main_start,
+  ( _start => \&main_start,
     _stop  => \&main_stop,
     _child => \&main_child,
   );
+
 $kernel->run();
+
+exit;
