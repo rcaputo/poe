@@ -1836,7 +1836,7 @@ sub _enqueue_state {
     # If using Event and the FIFO queue now has only one event, then
     # start the Event idle watcher to begin the dispatch loop.
 
-    if ( POE_HAS_TK ) {
+    if ( POE_HAS_EVENT ) {
       $self->[KR_WATCHER_IDLE]->start();
     }
 
@@ -2139,7 +2139,7 @@ sub delay {
     $self->alarm($state, time() + $delay, @etc);
   }
   else {
-    $self->alarm($state, 0);
+    $self->alarm($state);
   }
 
   return 0;

@@ -39,6 +39,10 @@ documentation.  This is experimental until a proper test can be made.
 
 Added t/06_tk.t to test Tk support.
 
+a-mused pointed out that samples/tk.perl wasn't stopping its alarm
+counters when it ought to.  This turned out to be a problem with
+POE::Kernel's delay() method not clearing timed events.  Fixed!
+
 
 0.1004 2000.05.21
 -----------------

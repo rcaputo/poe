@@ -145,20 +145,31 @@ sub ui_signal {
 
 sub ui_slow_counter_increment {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
-  ${$heap->{slow_text}}++;
-  $kernel->delay( 'ev_slow_count', 0.2 );
+  if ($heap->{timers_running}) {
+    ${$heap->{slow_text}}++;
+    $kernel->delay( 'ev_slow_count', 0.2 );
+  }
+  else {
+    print "slow counter called unnecessarily\n";
+  }
 }
 
 sub ui_fast_counter_increment {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
-  ${$heap->{fast_text}}++;
-  $kernel->delay( 'ev_fast_count', 0.1 );
+  if ($heap->{timers_running}) {
+    ${$heap->{fast_text}}++;
+    $kernel->delay( 'ev_fast_count', 0.1 );
+  }
+  else {
+    print "fast counter called unnecessarily\n";
+  }
 }
 
 sub ui_timed_counters_begin {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
-  print "counters' begin button pressed\n";
+  print "counters' begin button pressed (flag=$heap->{timers_running})\n";
   unless ($heap->{timers_running}) {
+    print "starting timers...\n";
     $heap->{timers_running} = 1;
     $kernel->delay( 'ev_fast_count', 0.1 );
     $kernel->delay( 'ev_slow_count', 0.2 );
@@ -167,8 +178,9 @@ sub ui_timed_counters_begin {
 
 sub ui_timed_counters_cease {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
-  print "counters' cease button pressed\n";
+  print "counters' cease button pressed (flag=$heap->{timers_running})\n";
   if ($heap->{timers_running}) {
+    print "stopping timers...\n";
     $heap->{timers_running} = 0;
     $kernel->delay( 'ev_fast_count' );
     $kernel->delay( 'ev_slow_count' );
