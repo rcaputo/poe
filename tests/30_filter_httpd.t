@@ -15,7 +15,7 @@ BEGIN {
         eval " use Test::More skip_all => 'HTTP::Request is needed for these tests.' ";
     } else {
         eval {
-            eval " use Test::More tests => 47; ";
+            eval " use Test::More tests => 56; ";
             use_ok('POE::Filter::HTTPD');
         }
     }
@@ -180,5 +180,41 @@ SKIP: { # simple put {{{
 
     is($req->url, 'http://localhost/foo.mhtml',
         'simple put: HTTP::Request object contains proper URI');
+
+} # }}}
+
+{ # multipart form data post {{{ 
+
+    my $request = POST 'http://localhost/foo.mhtml', Content_Type => 'form-data', 
+                    content => [ 'I' => 'like', 'tasty' => 'pie', 
+                                 file => [ 't/19_filterchange.t' ]
+                               ];
+    $request->protocol('HTTP/1.0');
+
+    my $filter = POE::Filter::HTTPD->new();
+
+    my $data;
+    eval { $data = $filter->get([ $request->as_string ]); };
+    ok(!$@, 'multipart form data: get() throws no exceptions');
+    ok(defined $data, "multipart form data: get() returns something");
+    is(ref $data, 'ARRAY', 'multipart form data: get() returns list of requests');
+    is(scalar @$data, 1, 'multipart form data: get() returned single request');
+
+    my $req = shift @$data;
+   
+    is(ref $req, 'HTTP::Request',
+        'multipart form data: get() returns HTTP::Request object');
+
+    is($req->method, 'POST',
+        'multipart form data: HTTP::Request object contains proper HTTP method');
+
+    is($req->url, 'http://localhost/foo.mhtml',
+        'multipart form data: HTTP::Request object contains proper URI');
+
+    like($req->header('Content-Type'), qr#multipart/form-data#,
+        'multipart form data: HTTP::Request object contains proper Content-Type header');
+
+    like($req->content, qr#&results;.*?exit;#s,
+            'multipart form data: content seems to contain all data sent');
 
 } # }}}
