@@ -2,6 +2,7 @@
 Changes
 MANIFEST
 Makefile.PL
+NEEDS
 POE.pm
 POE/Attribute/Array.pm
 POE/Attribute/Hash.pm
@@ -30,12 +31,13 @@ POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
 POE/Wheel/SocketFactory.pm
 README
-lib/coverage.perl
 lib/Devel/Null.pm
 lib/Devel/Trace.pm
 lib/MyOtherFreezer.pm
 lib/TestPipe.pm
 lib/TestSetup.pm
+lib/coverage.perl
+lib/deptest.perl
 samples/create.perl
 samples/fakelogin.perl
 samples/filterchange.perl
