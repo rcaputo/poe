@@ -1340,7 +1340,7 @@ this:
 
   sub put_stuff {
     my @stuff_to_put = @_;
-    $poe_kernel->get_active_session()->heap()->{wheel}->put( @stuff_to_put );
+    $poe_kernel->get_active_session()->get_heap()->{wheel}->put(@stuff);
   }
 
   sub some_state {
