@@ -6,6 +6,13 @@ use strict;
 use Carp;
 use POE qw(Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW);
 
+BEGIN {
+  local $SIG{'__DIE__'} = 'DEFAULT';
+  eval    { require IO::Pty; IO::Pty->import(); };
+  if ($@) { eval 'sub PTY_AVAILABLE () { 0 }';  }
+  else    { eval 'sub PTY_AVAILABLE () { 1 }';  }
+};
+
 # Offsets into $self.
 sub UNIQUE_ID     () {  0 }
 sub DRIVER        () {  1 }
@@ -78,6 +85,7 @@ sub new {
     if defined($stderr_event) and not defined($stderr_filter);
 
   my $error_event   = delete $params{ErrorEvent};
+  my $use_pty       = delete $params{UsePty};
 
   # Make sure the user didn't pass in parameters we're not aware of.
   if (scalar keys %params) {
@@ -86,20 +94,46 @@ sub new {
         );
   }
 
-  # Make the pipes.  We make more pipes than strictly necessary in
-  # case someone wants to turn some on later.  Uses a TwoWay pipe for
-  # STDIN/STDOUT and a OneWay pipe for STDERR.  This may save 2
-  # filehandles if socketpair() is available.
-  my ($stdin_read, $stdout_write, $stdout_read, $stdin_write) =
-    POE::Pipe::TwoWay->new();
-  croak "could not make stdin pipes: $!"
-    unless defined $stdin_read and defined $stdin_write;
-  croak "could not make stdout pipes: $!"
-    unless defined $stdout_read and defined $stdout_write;
+  my ( $stdin_read, $stdout_write, $stdout_read, $stdin_write,
+       $stderr_read, $stderr_write, $sem_pipe_read, $sem_pipe_write,
+     );
 
-  my ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
-  croak "could not make stderr pipes: $!"
-    unless defined $stderr_read and defined $stderr_write;
+  # Use IO::Pty if requested.
+  if (defined $use_pty) {
+    croak "IO::Pty is not available" unless PTY_AVAILABLE;
+    my $pty_master = IO::Pty->new();
+    croak "could not create master pty: $!" unless defined $pty_master;
+    my $pty_slave = IO::Pty->new();
+    croak "could not create slave pty: $!" unless defined $pty_slave;
+
+    $stdin_read   = $pty_slave;
+    $stdin_write  = $pty_master;
+
+    $stdout_read  = $pty_master;
+    $stdout_write = $pty_slave;
+
+    ($sem_pipe_read, $sem_pipe_write) = POE::Pipe::OneWay->new();
+    croak "could not make a semaphore pipe: $!\n" unless defined $sem_pipe_read;
+  }
+
+  # Use pipes otherwise.
+  else {
+
+    # We make more pipes than strictly necessary in case someone wants
+    # to turn some on later.  Uses a TwoWay pipe for STDIN/STDOUT and
+    # a OneWay pipe for STDERR.  This may save 2 filehandles if
+    # socketpair() is available.
+    ($stdin_read, $stdout_write, $stdout_read, $stdin_write) =
+      POE::Pipe::TwoWay->new();
+    croak "could not make stdin pipes: $!"
+      unless defined $stdin_read and defined $stdin_write;
+    croak "could not make stdout pipes: $!"
+      unless defined $stdout_read and defined $stdout_write;
+
+    my ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
+    croak "could not make stderr pipes: $!"
+      unless defined $stderr_read and defined $stderr_write;
+  }
 
   # Fork!  Woo-hoo!
   my $pid = fork;
@@ -116,9 +150,16 @@ sub new {
     open( STDOUT, ">&=" . fileno($stdout_write) )
       or die "can't redirect stdout in child pid $$: $!";
 
-    # Redirect STDERR to the write end of the stderr pipe.
-    open( STDERR, ">&=" . fileno($stderr_write) )
-      or die "can't redirect stderr in child: $!";
+    # Redirect STDERR to the write end of the stderr pipe.  If the
+    # stderr pipe's undef, then we use STDOUT.
+    if (defined $stderr_write) {
+      open( STDERR, ">&=" . fileno($stderr_write) )
+        or die "can't redirect stderr in child: $!";
+    }
+    else {
+      open( STDERR, ">&=" . fileno($stdout_write) )
+        or die "can't redirect stderr in child: $!";
+    }
 
     # Fix the priority delta.  -><- Hardcoded constants mean this
     # process, at least here.  [crosses fingers] -><- Also must add
@@ -142,6 +183,10 @@ sub new {
       $( = $) = $group_id;
     }
 
+    # Wait for the ok, if needed.
+    close $sem_pipe_write if defined $sem_pipe_write;
+    <$sem_pipe_read> if defined $sem_pipe_read;
+
     # Exec the program depending on its form.
     if (ref($program) eq 'ARRAY') {
       exec(@$program) or die "can't exec (@$program) in child pid $$: $!";
@@ -150,8 +195,6 @@ sub new {
       exec($program) or die "can't exec ($program) in child pid $$: $!";
     }
   }
-
-  # Parent here.
 
   my $self = bless
     [ &POE::Wheel::allocate_wheel_id(),  # UNIQUE_ID
@@ -180,6 +223,9 @@ sub new {
   $self->_define_stdin_flusher() if defined $stdin_event;
   $self->_define_stdout_reader() if defined $stdout_event;
   $self->_define_stderr_reader() if defined $stderr_event;
+
+  close $sem_pipe_read if defined $sem_pipe_read;
+  print($sem_pipe_write "go\n") if defined $sem_pipe_write;
 
   return $self;
 }

@@ -182,7 +182,19 @@ Event   : (not installed)
 All tests successful, 4 tests skipped.
 Files=23,  Tests=406, 114 wallclock secs (55.15 cusr +  5.20 csys = 60.35 CPU)
 
-** POE 0.1202 on Solaris/SunOS 5.8
+** POE 0.1203 on Linux
+
+Hardware: Celeron 600; unknown RAM
+System  : Linux 2.4.0-test12
+Perl    : 5.005_03
+Gtk     : (unknown)
+Tk      : (not installed)
+Event   : (installed; unknown version)
+
+All tests successful, 2 tests skipped.
+Files=23, Tests=415, 98 wallclock secs (14.22 cusr + 0.63 csys = 14.85 CPU)
+
+** POE 0.1203 on Solaris/SunOS 5.8
 
 (dynweb's machine rocks)
 
@@ -191,10 +203,10 @@ System  : SunOS 5.7
 Perl    : 5.6.0
 Gtk     : (not installed)
 Tk      : (not installed)
-Event   : (not installed)
+Event   : 0.80
 
-All tests successful, 5 tests skipped.
-Files=22, Tests=308, 64 wallclock secs (11.63 cusr +  0.94 csys = 12.57 CPU)
+All tests successful, 2 tests skipped.
+Files=23, Tests=415, 98 wallclock secs (14.03 cusr + 0.99 csys = 15.02 CPU)
 
 -------------
 Test Coverage

@@ -119,8 +119,8 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
   }
 }
 
-### Test Wheel::Run.  Uses "!" as a newline to avoid having to deal
-### with whatever the system uses.
+### Test Wheel::Run with filehandles.  Uses "!" as a newline to avoid
+### having to deal with whatever the system uses.
 
 my $program =
   ( '/usr/bin/perl -we \'' .
@@ -133,7 +133,65 @@ my $program =
     'exit 0;\''
   );
 
-my $flush_count = 0;
+my $tty_flush_count = 0;
+
+POE::Session->create
+  ( inline_states =>
+    { _start => sub {
+        my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+        # Run a child process.
+        $heap->{wheel} = POE::Wheel::Run->new
+          ( Program     => $program,
+            Filter      => POE::Filter::Line->new( Literal => "!" ),
+            StdoutEvent => 'stdout',
+            StderrEvent => 'stderr',
+            ErrorEvent  => 'error',
+            StdinEvent  => 'stdin',
+          );
+
+        # Ask the child for something on stdout.
+        $heap->{wheel}->put( 'out test-out' );
+      },
+
+      # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
+      _signal => sub {
+        my $signame = $_[ARG0];
+        if ($signame eq 'CHLD') {
+          my ($heap, $child_pid) = @_[HEAP, ARG1];
+          delete $heap->{wheel} if $child_pid == $heap->{wheel}->PID();
+        }
+        return 0;
+      },
+
+      # Count every line that's flushed to the child.
+      stdin  => sub { $tty_flush_count++; },
+
+      # Got a stdout response.  Ask for something on stderr.
+      stdout => sub { &ok_if(17, $_[ARG0] eq 'out: test-out');
+                      $_[HEAP]->{wheel}->put( 'err test-err' );
+                    },
+
+      # Got a sterr response.  Tell the child to exit.
+      stderr => sub { &ok_if(18, $_[ARG0] eq 'err: test-err');
+                      $_[HEAP]->{wheel}->put( 'bye' );
+                    },
+    },
+  );
+
+### Test Wheel::Run with ptys.  Uses "!" as a newline to avoid having
+### to deal with whatever the system uses.
+
+my $program =
+  ( '/usr/bin/perl -we \'' .
+    '$/ = q(!); select STDERR; $| = 1; select STDOUT; $| = 1; ' .
+    'while (<STDIN>) { ' .
+    '  print; ' .
+    '} ' .
+    'exit 0;\''
+  );
+
+my $pty_flush_count = 0;
 
 POE::Session->create
   ( inline_states =>
@@ -179,9 +237,11 @@ POE::Session->create
     },
   );
 
+### Run the main loop.
+
 $poe_kernel->run();
 
-# out, err, bye == 3
-&ok_if( 16, $flush_count == 3 );
+### Post-run tests.
+&ok_if( 16, $tty_flush_count == 3 );
 
 &results();
