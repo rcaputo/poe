@@ -10,6 +10,7 @@ use vars qw(@ISA $VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Errno qw(ESRCH EPERM);
+use Carp qw(confess);
 
 sub DEBUG () { 0 }
 
@@ -404,14 +405,14 @@ sub _dump_splice {
   if ($index > 0) {
     my $before = $self->[$index-1]->[ITEM_PRIORITY];
     push @return, "before($before)";
-    Carp::confess "out of order: $before should be < $at" if $before > $at;
+    confess "out of order: $before should be < $at" if $before > $at;
   }
   push @return, "at($at)";
   if ($index < $#$self) {
     my $after = $self->[$index+1]->[ITEM_PRIORITY];
     push @return, "after($after)";
     my @priorities = map {$_->[ITEM_PRIORITY]} @$self;
-    Carp::confess "out of order: $at should be < $after (@priorities)"
+    confess "out of order: $at should be < $after (@priorities)"
       if $at >= $after;
   }
   return "@return";
