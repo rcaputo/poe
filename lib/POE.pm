@@ -122,7 +122,7 @@ designed as the core of a persistent object server and runtime
 environment, but it's evolved into a general purpose multitasking and
 networking framework.
 
-POE's core contains two types of module.  First there's POE::Kernel;
+POE's core contains two types of modules.  First there's POE::Kernel;
 this is the main resource manager and event loop.  Second are the
 sessions or state machines which implement the actual threads.  The
 sessions are POE::Session (not quite a proper state machine) and

@@ -1045,6 +1045,9 @@ sub _dispatch_event {
             $event, ET_SIGNAL_COMPATIBLE, $etc,
             time(), $file, $line, undef
           );
+
+        TRACE_SIGNALS and
+          warn "(!) propagated to $_ (", $_->ID, ")";
       }
 
       # If this session already received a signal in step 1, then
@@ -1298,6 +1301,7 @@ sub _dispatch_event {
            ( $kr_signal_type & SIGTYPE_TERMINAL and !$kr_signal_total_handled )
          ) {
         foreach my $dead_session (@kr_signaled_sessions) {
+          next unless exists $kr_sessions{$dead_session};
           TRACE_SIGNALS and
             warn( "!!! freeing signaled session ", $dead_session->ID, "\n" );
           $self->session_free($dead_session);
@@ -1611,6 +1615,8 @@ sub session_alloc {
 
 sub session_free {
   my ($self, $session) = @_;
+
+  TRACE_GARBAGE and warn "freeing session $session";
 
   if (ASSERT_RELATIONS) {
     die {% ssid %}, " doesn't exist\a"
@@ -2807,7 +2813,7 @@ sub _internal_select {
     }
 
     # SS_HANDLES - Remove the select from the session, assuming there
-    # is a session to remove it from.
+    # is a session to remove it from.  -><- Key it on fileno?
 
     my $kr_session = $kr_sessions{$session};
     if (exists $kr_session->[SS_HANDLES]->{$handle}) {
@@ -3137,8 +3143,8 @@ sub alias_list {
   if (defined $search_session) {
     $search_session = {% alias_resolve $search_session %};
     unless (defined $search_session) {
-      TRACE_RETURNS and carp "session does not exist";
-      ASSERT_RETURNS and croak "session does not exist";
+      TRACE_RETURNS and carp "session ($search_session) does not exist";
+      ASSERT_RETURNS and croak "session ($search_session) does not exist";
       $! = ESRCH;
       return;
     }
@@ -3201,8 +3207,8 @@ sub ID_session_to_id {
     $! = 0;
     return $kr_sessions{$session}->[SS_ID];
   }
-  TRACE_RETURNS and carp "session does not exist";
-  ASSERT_RETURNS and croak "session does not exist";
+  TRACE_RETURNS and carp "session ($session) does not exist";
+  ASSERT_RETURNS and croak "session ($session) does not exist";
   $! = ESRCH;
   return;
 }
@@ -3258,8 +3264,8 @@ sub refcount_increment {
     return $refcount;
   }
 
-  TRACE_RETURNS and carp "session does not exist";
-  ASSERT_RETURNS and croak "session does not exist";
+  TRACE_RETURNS and carp "session ($session) does not exist";
+  ASSERT_RETURNS and croak "session ($session) does not exist";
 
   $! = ESRCH;
   return;
@@ -3315,8 +3321,8 @@ sub refcount_decrement {
     return $refcount;
   }
 
-  TRACE_RETURNS and carp "session does not exist";
-  ASSERT_RETURNS and croak "session does not exist";
+  TRACE_RETURNS and carp "session ($session) does not exist";
+  ASSERT_RETURNS and croak "session ($session) does not exist";
 
   $! = ESRCH;
   return;
@@ -3349,8 +3355,8 @@ sub state {
   # though, is already gone.  If TRACE_RETURNS and/or ASSERT_RETURNS
   # is set, this causes a warning or fatal error.
 
-  TRACE_RETURNS and carp "session does not exist";
-  # ASSERT_RETURNS and croak "session does not exist";
+  TRACE_RETURNS and carp "session ($kr_active_session) does not exist";
+  # ASSERT_RETURNS and croak "session ($kr_active_session) does not exist";
 
   return ESRCH;
 }

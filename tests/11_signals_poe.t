@@ -13,7 +13,7 @@ BEGIN {
   test_setup(0, "$^O does not support fork.") if $^O eq "MacOS";
 };
 
-&test_setup(3);
+&test_setup(4);
 
 # Turn on all asserts.
 #sub POE::Kernel::TRACE_SIGNALS  () { 1 }
@@ -167,8 +167,37 @@ POE::Session->create
     },
   );
 
+# mstevens found a subtle incompatibility between nested sessions and
+# SIGIDLE.  This should be fun to debug, but first I'll add the test
+# case here.
+
+sub spawn_server {
+  POE::Session->new
+    ( _start => sub {
+        $_[KERNEL]->alias_set("server");
+      },
+      do_thing => sub {
+        $_[KERNEL]->post($_[SENDER], thing_done => $_[ARG0]);
+      },
+      _signal => sub { 0 },
+      _child  => sub { 0 },
+      _stop   => sub { 0 },
+    );
+}
+
+POE::Session->new
+  ( _start => sub {
+      spawn_server();
+      $_[KERNEL]->post(server => do_thing => 1);
+    },
+    thing_done => sub { 0 },
+    _signal => sub { 0 },
+    _child  => sub { 0 },
+    _stop   => sub { 0 },
+  );
+
 # Run the tests.
 
 $poe_kernel->run();
-
+print "ok 4\n";
 exit;
