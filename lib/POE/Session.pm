@@ -10,7 +10,11 @@ sub SE_NAMESPACE () { 0 }
 sub SE_OPTIONS   () { 1 }
 sub SE_STATES    () { 2 }
 
-sub DEB_DESTROY  () { 0 }
+# Define some debugging flags for subsystems, unless someone already
+# has defined them.
+BEGIN {
+  defined &DEB_DESTROY or eval 'sub DEB_DESTROY () { 0 }';
+}
 
 #------------------------------------------------------------------------------
 # Export constants into calling packages.  This is evil.
@@ -993,6 +997,36 @@ object.  If the reference was not stringified, it would delay the
 wheel's destruction until after the session stopped.  The wheel would
 try to remove its states from the nonexistent session, and the program
 would crash.
+
+=head1 DEBUGGING FLAGS
+
+These flags were made public in 0.0906.  If they are pre-defined by
+the first package that uses POE::Session (or POE, since that includes
+POE::Session by default), then the pre-definition will take precedence
+over POE::Session's definition.  In this way, it is possible to use
+POE::Session's internal debugging code without finding Session.pm and
+editing it.
+
+Debugging flags are meant to be constants.  They should be prototyped
+as such, and they must be declared in the POE::Session package.
+
+Sample usage:
+
+  # Display information about Session object destruction.
+  sub POE::Session::DEB_DESTROY () { 1 }
+  use POE;
+  ...
+
+=over 4
+
+=item *
+
+DEB_DESTROY
+
+When enabled, POE::Session will display some information about the
+session's internal data at DESTROY time.
+
+=back
 
 =head1 SEE ALSO
 

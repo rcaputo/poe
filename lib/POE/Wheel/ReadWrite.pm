@@ -19,9 +19,10 @@ sub WATERMARK_MARK_HIGH        () { 8 }
 sub WATERMARK_MARK_LOW         () { 9 }
 sub WATERMARK_EVENT_HIGH       () { 10 }
 sub WATERMARK_EVENT_LOW        () { 11 }
-sub DRIVER_BUFFERED_OUT_OCTETS () { 12 }
-sub STATE_WRITE                () { 13 }
-sub STATE_READ                 () { 14 }
+sub WATERMARK_STATE            () { 12 }
+sub DRIVER_BUFFERED_OUT_OCTETS () { 13 }
+sub STATE_WRITE                () { 14 }
+sub STATE_READ                 () { 15 }
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -114,6 +115,7 @@ sub new {
       $params{LowMark},
       $params{HighState},
       $params{LowState},
+      0,
       # Driver statistics.
       0,
     ];
@@ -131,8 +133,8 @@ sub new {
 sub _define_write_state {
   my $self = shift;
 
-  # If any of these change, then the write state is invalidated and
-  # needs to be redefined.
+  # Read-only members.  If any of these change, then the write state
+  # is invalidated and needs to be redefined.
   my $driver        = $self->[DRIVER_BOTH];
   my $event_error   = $self->[EVENT_ERROR];
   my $event_flushed = $self->[EVENT_FLUSHED];
@@ -141,9 +143,11 @@ sub _define_write_state {
   my $event_high    = $self->[WATERMARK_EVENT_HIGH];
   my $event_low     = $self->[WATERMARK_EVENT_LOW];
 
-  # Closure poking into the redefined state.  This is used to detect
-  # when the pending number of writes crosses
-  my $is_in_high_water_state = 0;
+  # Read/write members.  These are done by reference, to avoid pushing
+  # $self into the anonymous sub.  Extra copies of $self are bad and
+  # can prevent wheels from destructing properly.
+  my $is_in_high_water_state     = \$self->[WATERMARK_STATE];
+  my $driver_buffered_out_octets = \$self->[DRIVER_BUFFERED_OUT_OCTETS];
 
   # Register the select-write handler.
 
@@ -154,7 +158,7 @@ sub _define_write_state {
                                         # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-        $self->[DRIVER_BUFFERED_OUT_OCTETS] = $driver->flush($handle);
+        $$driver_buffered_out_octets = $driver->flush($handle);
 
         # When you can't write, nothing else matters.
         if ($!) {
@@ -169,24 +173,23 @@ sub _define_write_state {
           # In high water state?  Check for low water.  High water
           # state will never be set if $event_low is undef, so don't
           # bother checking its definedness here.
-          if ($is_in_high_water_state) {
-            if ( $self->[DRIVER_BUFFERED_OUT_OCTETS] <= $low_mark ) {
-              $is_in_high_water_state = 0;
+          if ($$is_in_high_water_state) {
+            if ( $$driver_buffered_out_octets <= $low_mark ) {
+              $$is_in_high_water_state = 0;
               $k->call( $me, $event_low ) if defined $event_low;
             }
           }
 
           # Not in high water state.  Check for high water.  Needs to
-          # also check definedness of
-          # $self->[DRIVER_BUFFERED_OUT_OCTETS].  Although we know
-          # this ahead of time and could probably optimize it away
-          # with a second state definition, it would be best to wait
-          # until ReadWrite stabilizes.  That way there will be only
-          # half as much code to maintain.
+          # also check definedness of $$river_buffered_out_octets.
+          # Although we know this ahead of time and could probably
+          # optimize it away with a second state definition, it would
+          # be best to wait until ReadWrite stabilizes.  That way
+          # there will be only half as much code to maintain.
           elsif ( $high_mark and
-                  ($self->[DRIVER_BUFFERED_OUT_OCTETS] >= $high_mark)
+                  ( $$driver_buffered_out_octets >= $high_mark )
                 ) {
-            $is_in_high_water_state = 1;
+            $$is_in_high_water_state = 1;
             $k->call( $me, $event_high ) if defined $event_high;
           }
         }
@@ -195,7 +198,7 @@ sub _define_write_state {
         # occurs independently, so it's possible to get a low-water
         # call and a flushed call at the same time (if the low mark
         # is 1).
-        unless ($self->[DRIVER_BUFFERED_OUT_OCTETS]) {
+        unless ($$driver_buffered_out_octets) {
           $k->select_write($handle);
           $event_flushed && $k->call($me, $event_flushed);
         }
@@ -327,6 +330,11 @@ sub put {
   ) {
     $poe_kernel->select_write($self->[HANDLE_OUTPUT], $self->[STATE_WRITE]);
   }
+
+  # Return true if the high watermark has been reached.
+  ( $self->[WATERMARK_MARK_HIGH] &&
+    $self->[DRIVER_BUFFERED_OUT_OCTETS] >= $self->[WATERMARK_MARK_HIGH]
+  );
 }
 
 #------------------------------------------------------------------------------
@@ -518,6 +526,14 @@ chunk into a serialized (streamable) representation.  It then uses a
 POE::Driver to enqueue or write the data to a filehandle.  It also
 manages the wheel's write select so that any buffered data can be
 flushed when the handle is ready.
+
+The put() method returns a boolean value indicating whether the
+wheel's high water mark has been reached.  It will always return false
+if the wheel doesn't have a high water mark set.
+
+Data isn't flushed to the underlying filehandle, so it's easy for
+put() to exceed a wheel's high water mark without generating a
+HighState event.
 
 =item *
 

@@ -42,8 +42,8 @@ work with the latest stable release (the latest development release
 may also work).  For the most recent compatibility results, see
 <http://www.perl.org/cpan-testers/results.cgi?request=dist&dist=POE>.
 
-If you have news about breakage on an unlisted platform, please let me
-know.  Thank you!
+If you have news about breakage or success that's not documented,
+please let me know.  Thank you!
 
 
 Windows
@@ -99,16 +99,22 @@ And later, after it was suggested to remove the EINPROGRESS code:
 ... so I made EINPROGRESS a dummy thing on Win32.  Let me know if
 there's breakage!
 
+P.S.: If you've just skipped ahead to read about Windows, you should
+skip back one section, to the General compatibility information, which
+may still apply.
+
 
 MacOS
 -----
 
-MacOS is suspected to support POE.  It would be greatly appreciated if
-someone could confirm or deny this.
+Macintosh users have rumored that POE might work on MacOS, but none of
+them have stepped forward with actual failure or success reports.  It
+would be greatly appreciated if someone could confirm or deny
+something.  Anything.  Bueller?
 
 
-Non-requirements:
------------------
+Non-requirements
+----------------
 
 POE is compatible with fork(), but it is only used upon request.  This
 distribution includes a sample server that uses a pool of forked
@@ -122,8 +128,8 @@ POE currently uses no XS in its implementation.  It should work
 wherever a sufficiently complete version of Perl does.
 
 
-Requirements:
--------------
+Requirements
+------------
 
 For portability, POE uses POSIX system calls and constants.  There
 should be no problem running it on systems that have sufficient POSIX

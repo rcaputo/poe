@@ -86,17 +86,22 @@ BEGIN {
 $poe_kernel = undef;                    # only one active kernel; sorry
 
 #------------------------------------------------------------------------------
-                                        # debugging flags for subsystems
-sub DEB_RELATION () { 0 }
-sub DEB_MAIN     () { 0 }
-sub DEB_GC       () { 0 }
-sub DEB_EVENTS   () { 0 }
-sub DEB_SELECT   () { 0 }
-sub DEB_REFCOUNT () { 0 }
-sub DEB_QUEUE    () { 0 }
-sub DEB_STRICT   () { 0 }
-sub DEB_INSERT   () { 0 }
-sub DEB_PROFILE  () { 0 }
+
+# Debugging flags for subsystems.  They're done as double evals here
+# so that someone may define them before using POE, and the
+# pre-defined value will take precedence over the defaults here.
+BEGIN {
+  defined &DEB_EVENTS   or eval 'sub DEB_EVENTS   () { 0 }';
+  defined &DEB_GC       or eval 'sub DEB_GC       () { 0 }';
+  defined &DEB_INSERT   or eval 'sub DEB_INSERT   () { 0 }';
+  defined &DEB_MAIN     or eval 'sub DEB_MAIN     () { 0 }';
+  defined &DEB_PROFILE  or eval 'sub DEB_PROFILE  () { 0 }';
+  defined &DEB_QUEUE    or eval 'sub DEB_QUEUE    () { 0 }';
+  defined &DEB_REFCOUNT or eval 'sub DEB_REFCOUNT () { 0 }';
+  defined &DEB_RELATION or eval 'sub DEB_RELATION () { 0 }';
+  defined &DEB_SELECT   or eval 'sub DEB_SELECT   () { 0 }';
+  defined &DEB_STRICT   or eval 'sub DEB_STRICT   () { 0 }';
+}
                                         # handles & vectors structures
 sub VEC_RD       () { 0 }
 sub VEC_WR       () { 1 }
@@ -2145,6 +2150,105 @@ unique.  Because of this, the ID of a given reference (stringified, so
 Perl can release the referenced Session) may appear to change.  If it
 does appear to have changed, then the Session reference is probably
 invalid.
+
+=back
+
+=head1 DEBUGGING FLAGS
+
+These flags were made public in 0.0906.  If they are pre-defined by
+the first package that uses POE::Kernel (or POE, since that includes
+POE::Kernel by default), then the pre-definition will take precedence
+over POE::Kernel's definition.  In this way, it is possible to use
+POE::Kernel's internal debugging code without finding Kernel.pm and
+editing it.
+
+Debugging flags are meant to be constants.  They should be prototyped
+as such, and they must be declared in the POE::Kernel package.
+
+Sample usage:
+
+  # Display information about garbage collection, and display some
+  # profiling information at the end.
+  sub POE::Kernel::DEB_GC      () { 1 }
+  sub POE::Kernel::DEB_PROFILE () { 1 }
+  use POE;
+  ...
+
+=over 4
+
+=item *
+
+DEB_EVENTS
+
+Enables a trace of events as they are enqueued and dispatched (or
+discarded).  Also shows states' return values.
+
+=item *
+
+DEB_GC
+
+Enables sanity checks in POE's internal structure cleanup, after each
+Session is stopped, and again at the end of the program's run.
+Displays the results of sessions' garbage-collection checks, perhaps
+showing why a session isn't stopping when it ought to.
+
+=item *
+
+DEB_INSERT
+
+Trace the steps POE::Kernel->_enqueue_state() takes to find the
+locations of new events in its queue.
+
+=item *
+
+DEB_MAIN
+
+The first debugging constant.  Prints "POE stopped." when
+POE::Kernel->run() stops.
+
+=item *
+
+DEB_PROFILE
+
+When enabled, POE::Kernel collects a histogram of state names that
+were dispatched, and displays a report of them when POE::Kernel->run()
+stops.
+
+=item *
+
+DEB_QUEUE
+
+When enabled, POE::Kernel displays information about events in the
+queue.
+
+=item *
+
+DEB_REFCOUNT
+
+Enabling enables sanity checks and status displays on the number of
+references POE::Kernel holds on resources.  These references are used
+to determine when things like filehandles are no longer being used.
+
+=item *
+
+DEB_RELATION
+
+Enabling this causes POE::Kernel to examine parent/child relationships
+for problems.
+
+=item *
+
+DEB_SELECT
+
+When enabled, DEB_SELECT causes POE::Kernel to display running
+statistics about its select vectors and time-out status.
+
+=item *
+
+DEB_STRICT
+
+When enabled, POE::Kernel->post() and POE::Kernel->call() must be able
+to resolve an event's destination at post time.
 
 =back
 
