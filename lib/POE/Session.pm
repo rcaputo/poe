@@ -433,7 +433,9 @@ sub create {
         }
 
         else {
-          croak "states for '$package' needs to be a hash or array ref";
+          croak( "states for package '$package' " .
+                 "need to be a hash or array ref"
+               );
         }
       }
     }
@@ -477,7 +479,7 @@ sub create {
         }
 
         else {
-          croak "states for '$object' needs to be a hash or array ref";
+          croak "states for object '$object' need to be a hash or array ref";
         }
 
       }
