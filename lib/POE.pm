@@ -312,7 +312,8 @@ layer.
 fakelogin.perl
 
 This program tests the ability for POE::Wheel instances to change the
-events they emit.
+events they emit.  The port it listens on can be specified on the
+command line.  Its default listen port is 23.
 
 =item *
 
