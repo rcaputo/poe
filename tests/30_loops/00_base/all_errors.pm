@@ -12,7 +12,7 @@ sub POE::Kernel::ASSERT_DEFAULT () { 0 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-print "1..0 SKIP most of these should move into other tests\n";
+print "1..0 # skipped: most of these should move into other tests\n";
 
 #use POSIX qw(:errno_h);
 #use Socket;
