@@ -89,23 +89,25 @@ BEGIN {
 # EXPORT_OK instead?  The parameters NFA has in common with SESSION
 # (and other sessions) must be kept at the same offsets as each-other.
 
-sub OBJECT   () {  0 }
-sub MACHINE  () {  1 }
-sub KERNEL   () {  2 }
-sub RUNSTATE () {  3 }
-sub EVENT    () {  4 }
-sub SENDER   () {  5 }
-sub STATE    () {  6 }
-sub ARG0     () {  7 }
-sub ARG1     () {  8 }
-sub ARG2     () {  9 }
-sub ARG3     () { 10 }
-sub ARG4     () { 11 }
-sub ARG5     () { 12 }
-sub ARG6     () { 13 }
-sub ARG7     () { 14 }
-sub ARG8     () { 15 }
-sub ARG9     () { 16 }
+sub OBJECT      () {  0 }
+sub MACHINE     () {  1 }
+sub KERNEL      () {  2 }
+sub RUNSTATE    () {  3 }
+sub EVENT       () {  4 }
+sub SENDER      () {  5 }
+sub STATE       () {  6 }
+sub CALLER_FILE () {  7 }
+sub CALLER_LINE () {  8 }
+sub ARG0        () {  9 }
+sub ARG1        () { 10 }
+sub ARG2        () { 11 }
+sub ARG3        () { 12 }
+sub ARG4        () { 13 }
+sub ARG5        () { 14 }
+sub ARG6        () { 15 }
+sub ARG7        () { 16 }
+sub ARG8        () { 17 }
+sub ARG9        () { 18 }
 
 sub import {
   my $package = caller();
@@ -352,6 +354,8 @@ sub _invoke_state {
         $event,                     # EVENT
         $sender,                    # SENDER
         $self->[SELF_CURRENT_NAME], # STATE
+        $file,                      # CALLER_FILE_NAME
+        $line,                      # CALLER_FILE_LINE
         @$args                      # ARG0..
       );
   }
@@ -367,6 +371,8 @@ sub _invoke_state {
         $event,                     # EVENT
         $sender,                    # SENDER
         $self->[SELF_CURRENT_NAME], # STATE
+        $file,                      # CALLER_FILE_NAME
+        $line,                      # CALLER_FILE_LINE
         @$args                      # ARG0..
       );
   }
@@ -452,6 +458,17 @@ sub ID {
 sub get_current_state {
   my $self = shift;
   return $self->[SELF_CURRENT_NAME];
+}
+
+#------------------------------------------------------------------------------
+
+# Fetch the session's run state.  In rare cases, libraries may need to
+# break encapsulation this way, probably also using
+# $kernel->get_current_session as an accessory to the crime.
+
+sub get_runstate {
+  my $self = shift;
+  return $self->[SELF_RUNSTATE];
 }
 
 #------------------------------------------------------------------------------
@@ -565,9 +582,17 @@ sub postback {
 
 sub goto_state {
   my ($self, $new_state, $entry_event, @entry_args) = @_;
-  $POE::Kernel::poe_kernel->post( $self, NFA_EN_GOTO_STATE,
-                                  $new_state, $entry_event, @entry_args
-                                );
+
+  if (defined $self->[SELF_CURRENT]) {
+    $POE::Kernel::poe_kernel->post( $self, NFA_EN_GOTO_STATE,
+                                    $new_state, $entry_event, @entry_args
+                                  );
+  }
+  else {
+    $POE::Kernel::poe_kernel->call( $self, NFA_EN_GOTO_STATE,
+                                    $new_state, $entry_event, @entry_args
+                                  );
+  }
 }
 
 sub stop {
@@ -595,7 +620,7 @@ __END__
 
 =head1 NAME
 
-POE::NFA - even driven nondeterministic finite automaton
+POE::NFA - event driven nondeterministic finite automaton
 
 =head1 SYNOPSIS
 
@@ -668,6 +693,12 @@ C<get_current_state()> returns the name of the machine's current
 state.  This method is mainly used for getting the state of some other
 machine.  In the machine's own event handlers, it's easier to just
 access C<$_[STATE]>.
+
+=item get_runstate
+
+C<get_runstate()> returns the machine's current runstate.  This is
+equivalent to C<get_heap()> in POE::Session.  In the machine's own
+handlers, it's easier to just access C<$_[RUNSTATE]>.
 
 =item new
 
