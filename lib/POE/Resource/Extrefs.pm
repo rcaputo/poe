@@ -108,6 +108,8 @@ sub _data_extref_remove {
   }
 
   delete $kr_extra_refs{$session}->{$tag};
+  delete $kr_extra_refs{$session}
+    unless scalar keys %{$kr_extra_refs{$session}};
   $self->_data_ses_refcount_dec($session);
 }
 
@@ -128,8 +130,6 @@ sub _data_extref_clear_session {
       );
     }
   }
-
-  delete $kr_extra_refs{$session};
 }
 
 # Fetch the number of sessions with extra references held in the
