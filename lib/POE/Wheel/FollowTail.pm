@@ -103,8 +103,10 @@ sub new {
     @start_stat = stat($filename);
   }
 
-  my $poll_interval = $params{PollInterval} || 1;
-  my $seek_back     = $params{SeekBack} || 4096;
+  my $poll_interval = defined($params{PollInterval}) ?
+                        $params{PollInterval} : 1;
+  my $seek_back     = defined($params{SeekBack}) ?
+                        $params{SeekBack} : 4096;
   $seek_back = 0 if $seek_back < 0;
 
   my $self = bless
