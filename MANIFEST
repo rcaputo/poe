@@ -98,7 +98,6 @@ samples/signals.perl
 samples/tcp_watermarks.perl
 samples/thrash.perl
 samples/watermarks.perl
-samples/wheels.perl
 samples/wheels2.perl
 t/10_units/01_preprocessor/01_preprocessor.t
 t/10_units/01_preprocessor/02_macro_usebytes.t
