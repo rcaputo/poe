@@ -149,7 +149,7 @@ tests themselves.  For a more accurate determination of POE's speed,
 balance the CPU seconds against the test machine's hardware and
 operating system.
 
-** POE 0.1402 on FreeBSD (home-bsd)
+** POE 0.1403 on FreeBSD (home-bsd)
 
 Hardware: Athlon-1000; 512MB RAM
 System  : FreeBSD 4.3-STABLE
@@ -160,7 +160,7 @@ Event   : 0.81
 IO::Pty : 0.01
 
 All tests successful.
-Files=26, Tests=492, 86 wallclock secs ( 7.34 cusr +  0.59 csys =  7.93 CPU)
+Files=26, Tests=494, 83 wallclock secs ( 7.62 cusr +  0.61 csys =  8.23 CPU)
 
 ** POE 0.1401 on Solaris/SunOS 5.8 (dynweb)
 
@@ -212,7 +212,7 @@ The Ran and Total numbers are breakpoints that perl's debugger can
 step through.  The Covered number is the percentage of breakpoints
 that were actually stepped through.
 
-These results are for POE 0.1401.
+These results are for version 0.1401.
 
   Source File                         =   Ran / Total = Covered
   POE.pm                              =    23 /    24 =  95.83%
