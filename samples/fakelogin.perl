@@ -7,7 +7,7 @@
 # a good exercise for wheel event renaming.
 
 use strict;
-use IO::Socket::INET;
+use IO::Socket;
 
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);
 

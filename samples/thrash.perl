@@ -175,12 +175,11 @@ sub pool_start {
   $heap->{'bench count'} = 0;
 
   # Start five clients.  NOTE: This would not work if clients used
-  # IO::Socket::INET to connect to the server, because
-  # IO::Socket::INET's connect blocks.  It would wait for the server
-  # to accept a connectino before continuing, which would never happen
-  # since this loop is holding up the event queue.  The program can
-  # only get away with this loop because SocketFactory connections do
-  # not block.
+  # IO::Socket to connect to the server, because IO::Socket's connect
+  # blocks.  It would wait for the server to accept a connectino
+  # before continuing, which would never happen since this loop is
+  # holding up the event queue.  The program can only get away with
+  # this loop because SocketFactory connections do not block.
 
   for (my $i = 0; $i < 5; $i++) {
     &client_create(++$heap->{'client serial'});

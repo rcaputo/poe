@@ -14,12 +14,12 @@
 
 # Wheels, Drivers and Filters were still new at this point.
 # POE::Wheel::SocketFactory had not been conceived at this point, so
-# this program still relies on IO::Socket::INET.
+# this program still relies on IO::Socket.
 
 use strict;
 
 use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line);
-use IO::Socket::INET;
+use IO::Socket;
 
 my $rot13_port = 32000;
 

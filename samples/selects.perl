@@ -14,8 +14,8 @@
 # connected to by other clients, such as netcat or telnet.
 
 # This is a pre-wheel sockets test.  It's one of the few that uses
-# IO::Socket::INET.  All the others (with exception of wheels.perl)
-# have been adapted to use POE::Wheel::SocketFactory.
+# IO::Socket.  All the others (with exception of wheels.perl) have
+# been adapted to use POE::Wheel::SocketFactory.
 
 # If some aspects of using sessions are confusing, please see the
 # *session*.perl tests.  They are commented in more detail.
@@ -23,7 +23,7 @@
 use strict;
 
 use POE;
-use IO::Socket::INET;
+use IO::Socket;
 use POSIX qw(EAGAIN);
                                         # the chargen server's listen port
 my $chargen_port = 30019;
