@@ -1,12 +1,17 @@
 #!/usr/bin/perl -w
+# $Id$
+
+# Exercise POE::Wheel::ReadLine.  This really needs to be made into a
+# non-interactive test for the `make test' suite.
 
 use strict;
-
-# Rocco doesn't keep POE installed on his machine; rather, all his
-# programs run it out of the development directory.  This keeps
-# pressure on him to make sure it at least runs, if not runs well.
-use lib '/home/troc/perl/poe';
+use lib '..';
 use POE qw(Wheel::ReadLine);
+
+# This quick, dirty inline session acts as an input loop.  It's
+# smaller without the comments, but it's still pretty big compared to
+# a plain input loop.  On the other hand, this one lets you do things
+# in the background, between keystrokes.
 
 POE::Session->create
   ( inline_states =>
