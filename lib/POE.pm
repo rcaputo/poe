@@ -22,9 +22,13 @@ sub import {
   my @modules = grep(!/^(Kernel|Session)$/, @_);
   unshift @modules, qw(Kernel Session);
 
+  my $package = (caller())[0];
+
   my @failed;
   foreach my $module (@modules) {
-    unless (eval("require POE::$module")) {
+    my $code = "package $package; use POE::$module;";
+    eval($code);
+    if ($@) {
       warn $@;
       push(@failed, $module);
     }
