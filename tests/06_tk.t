@@ -5,13 +5,10 @@
 # loop.
 
 use strict;
+
 use lib qw(./lib ../lib);
-use lib '/usr/mysrc/Tk800.021/blib';
-use lib '/usr/mysrc/Tk800.021/blib/lib';
-use lib '/usr/mysrc/Tk800.021/blib/arch';
 
 use Symbol;
-
 use TestSetup;
 
 # Skip if Tk isn't here.

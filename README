@@ -124,16 +124,14 @@ documentation.
 Test Results
 ------------
 
-Some of the tests, like Tk's and Gtk's, can be interactive, if only to
-place a window.  Unfortunately, the time it takes to acknowledge these
-interactive tests skews test results.  Any results that include
-interactive tests will not include times.
+All the tests have been made to run unattended, and testing has been
+automated across the systems.
 
 ** POE 0.1204 on OS/2
 
-(OS/2 doesn't grok system vs. user time.)
+OS/2 doesn't grok system vs. user time, so the numbers are 0.
 
-Hardware: Cyrix P166+; 64MB RAM
+Hardware: Cyrix P166+; 64MB RAM (home os2)
 System  : OS/2 4.0, Fix 13
 Perl    : v5.6.0
 Gtk     : (not installed)
@@ -141,21 +139,21 @@ Tk      : (not installed)
 Event   : (not installed)
 
 All tests successful, 4 tests and 5 subtests skipped.
-Files=24, Tests=429, 159 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+Files=24, Tests=429, 158 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
-** POE 0.1203 on FreeBSD
+** POE 0.1204 on FreeBSD
 
-Hardware: AMD 486-40; 16MB RAM
+Hardware: AMD 486-40; 16MB RAM (home bsd)
 System  : FreeBSD 4.0-STABLE
 Perl    : v5.6.0
-Gtk     : 0.7000
+Gtk     : 0.7004
 Tk      : 800.021
 Event   : 0.79
 
 All tests successful.
-Files=23, Tests=431, [ some tests paused ]
+Files=24, Tests=454, 685 wallclock secs (423.57 cusr + 40.40 csys = 463.97 CPU)
 
-** POE 0.1203 on Linux
+** POE 0.1204 on Linux (titanic)
 
 Hardware: dual Celeron 500; 265MB RAM
 System  : Linux 2.2.15 SMP
@@ -164,22 +162,22 @@ Gtk     : (not installed)
 Tk      : (not installed)
 Event   : 0.79
 
-All tests successful, 2 tests skipped.
-Files=23, Tests=415, 104 wallclock secs (19.50 cusr +  0.85 csys = 20.35 CPU)
+All tests successful, 2 tests and 3 subtests skipped.
+Files=24, Tests=438, 105 wallclock secs (21.54 cusr +  0.68 csys = 22.22 CPU)
 
 ** POE 0.1203 on Solaris/SunOS 5.7
 
-Hardware: SPARCstation-20; dual Sparc-75; 320MB RAM
+Hardware: SPARCstation-20; dual Sparc-75; 320MB RAM (hfb>
 System  : SunOS 5.7
 Perl    : 5.005_03
 Gtk     : (not installed)
 Tk      : (not installed)
 Event   : (not installed)
 
-All tests successful, 4 tests skipped.
-Files=23,  Tests=406, 114 wallclock secs (55.15 cusr +  5.20 csys = 60.35 CPU)
+All tests successful, 4 tests skipped, plus 3 subtests skipped.
+Files=24,  Tests=429, 120 wallclock secs (60.55 cusr +  5.33 csys = 65.88 CPU)
 
-** POE 0.1203 on Linux
+** POE 0.1203 on Linux (a-mused)
 
 Hardware: Celeron 600; unknown RAM
 System  : Linux 2.4.0-test12
@@ -191,9 +189,7 @@ Event   : (installed; unknown version)
 All tests successful, 2 tests skipped.
 Files=23, Tests=415, 98 wallclock secs (14.22 cusr + 0.63 csys = 14.85 CPU)
 
-** POE 0.1203 on Solaris/SunOS 5.8
-
-(dynweb's machine rocks)
+** POE 0.1203 on Solaris/SunOS 5.8 (dynweb)
 
 Hardware: SPARCstation-80; 2x UltraSparc II-450; 1GB RAM
 System  : SunOS 5.7
@@ -214,14 +210,14 @@ coverage is a fun goal.  Increasing the coverage percents gives the
 author some small sense of accomplishment, and it assures users that
 something's being done to assure POE's quality.
 
-These results are for POE 0.1202 on the FreeBSD test machine.  This
+These results are for POE 0.1204 on the FreeBSD test machine.  This
 machine is the slowest of the bunch, but it also has the most support
-libraries installed.  The percent deltas are since version 0.1110.
+libraries installed.
 
   Source File                         =   Ran / Total = Covered
   POE.pm                              =    23 /    24 =  95.83%
   POE/Component.pm                    =     5 /     5 = 100.00%
-  POE/Component/Server/TCP.pm         =    23 /    23 = 100.00%
+  POE/Component/Server/TCP.pm         =    26 /    26 = 100.00%
   POE/Driver.pm                       =     5 /     5 = 100.00%
   POE/Driver/SysRW.pm                 =    42 /    54 =  77.78%
   POE/Filter.pm                       =     5 /     5 = 100.00%
@@ -230,16 +226,19 @@ libraries installed.  The percent deltas are since version 0.1110.
   POE/Filter/Line.pm                  =    77 /    82 =  93.90%
   POE/Filter/Reference.pm             =    60 /    66 =  90.91%
   POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-  POE/Kernel.pm                       =   613 /   815 =  75.21% (+0.95%)
-  POE/NFA.pm                          =     9 /   144 =   6.25%
-  POE/Preprocessor.pm                 =   147 /   167 =  88.02% (+0.07%)
+  POE/Kernel.pm                       =   660 /   860 =  76.74%
+  POE/NFA.pm                          =    74 /   157 =  47.13%
+  POE/Pipe/OneWay.pm                  =    20 /    39 =  51.28%
+  POE/Pipe/TwoWay.pm                  =    23 /    43 =  53.49%
+  POE/Preprocessor.pm                 =   147 /   167 =  88.02%
   POE/Session.pm                      =   126 /   181 =  69.61%
   POE/Wheel.pm                        =    11 /    11 = 100.00%
-  POE/Wheel/FollowTail.pm             =    75 /    96 =  78.12% (+2.26%)
-  POE/Wheel/ListenAccept.pm           =    39 /    53 =  73.58% (+3.37%)
+  POE/Wheel/FollowTail.pm             =    75 /    96 =  78.12%
+  POE/Wheel/ListenAccept.pm           =    39 /    53 =  73.58%
   POE/Wheel/ReadWrite.pm              =   111 /   184 =  60.33%
-  POE/Wheel/SocketFactory.pm          =   197 /   234 =  84.19% (+1.32%)
-  All Told                            =  1627 /  2285 =  71.20% (+0.74%)
+  POE/Wheel/Run.pm                    =   141 /   230 =  61.30%
+  POE/Wheel/SocketFactory.pm          =   197 /   234 =  84.19%
+  All Told                            =  1926 /  2658 =  72.46%
 
 Thanks for reading!
 
