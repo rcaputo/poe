@@ -109,15 +109,15 @@ open(CHANGES, ">>CHANGES") and close CHANGES;
 sub MY::postamble {
     return <<EOF;
 reportupload: poe_report.xml
-	lib/reportupload.pl
+	$^X lib/reportupload.pl
 
 uploadreport: poe_report.xml
-	lib/reportupload.pl
+	$^X lib/reportupload.pl
 	
 testreport: poe_report.xml
 
 poe_report.xml: Makefile
-	lib/testreport.pl
+	$^X lib/testreport.pl
 EOF
 
 }

@@ -13,15 +13,15 @@ sub MY::test {
 sub MY::postamble {
     return <<EOF;
 reportupload: poe_report.xml
-	lib/reportupload.pl
+	perl lib/reportupload.pl
 
 uploadreport: poe_report.xml
-	lib/reportupload.pl
+	perl lib/reportupload.pl
 
 testreport: poe_report.xml
 
 poe_report.xml: Makefile
-	lib/testreport.pl
+	perl lib/testreport.pl
 EOF
 
 }
