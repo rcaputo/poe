@@ -38,30 +38,34 @@ stable release (the latest development release may also work).  For
 the most recent compatibility results, see
 <http://www.perl.org/cpan-testers/results.cgi?request=dist&dist=POE>.
 
-As of this writing, Windows seems to have broken ioctl constants, and
-its select returns strange values.  POE should work on sufficiently
-POSIX systems, but Windows doesn't appear to be one of them.
+The last attempt at writing Windows support into POE was in early
+January 1999.  The Windows code was never completed nor tested, and it
+has been backed out as of January 2000.  The assumption is that
+ActiveState has been working on bringing its perl port into line with
+normal things, and it would be better to start cleanly now than try to
+work with code implementing old assumptions.  The Changes file lists
+the exact versions and dates when the Windows support went in and came
+out.
 
-MacOS is suspected to support POE.  If someone could confirm or deny
-this, it would be greatly appreciated.
+MacOS is suspected to support POE.  It would be greatly appreciated if
+someone could confirm or deny this.
 
 Please let me or the list know if any of this is wrong.  Thanks!
-
-CPAN.pm will ensure that you have up-to-date copies of all the modules
-POE uses.  I'm not sure whether to consider this a bug or a feature,
-since most of POE's module requirements are only advisory.
 
 
 Non-requirements:
 -----------------
 
-POE is compatible with fork(), but it is not used.  This distribution
-includes a sample server that uses a pool of forked children.
+POE is compatible with fork(), but it is only used upon request.  This
+distribution includes a sample server that uses a pool of forked
+children.
 
 POE will use Time::HiRes, if it's available.  Nothing untoward should
-happen if it's not.
+happen if it's not, unless you use one of the sample programs that
+absolutely requires it.
 
-POE currently doesn't use XS modules, so you don't need a C compiler.
+POE currently uses no XS in its implementation.  It should work
+wherever a sufficiently complete version of Perl does.
 
 
 Requirements:
@@ -75,7 +79,9 @@ Some of POE's sample programs require a recent IO bundle, but you get
 that for free with recent versions of Perl.
 
 Filter::Reference requires either Storable, FreezeThaw or some other
-freeze/thaw package.  Storable tends to be fastest.
+freeze/thaw package.  Storable tends to be fastest, and it's checked
+first.  The Reference filter can also use Compress::Zlib upon request,
+but it works without it too.
 
 Filter::HTTPD requires a small world of modules: HTTP::Status;
 HTTP::Request; HTTP::Date and URI::URL.
@@ -83,7 +89,8 @@ HTTP::Request; HTTP::Date and URI::URL.
 The httpd.perl sample program uses Filter::HTTPD, which uses all that
 other stuff.
 
-The preforkedserver.perl sample program uses fork(), which may not be
+The preforkedserver.perl sample program uses POE::Kernel::fork(),
+which in turn uses the fork() built-in.  This may or may not be
 available on your planet.
 
 Other sample programs may require other modules, but the required
@@ -95,17 +102,29 @@ AVAILABILITY
 
 The latest stable release of POE is available three ways:
 
-  perl -MCPAN -e 'install POE'
+1:
 
-  In the /authors/id/R/RC/RCAPUTO/ on your favorite CPAN mirror.
+  ``perl -MCPAN -e shell'' Then type ``install POE'' at the CPAN
+  prompt.
+
+2:
+
+  In the /authors/id/R/RC/RCAPUTO/ on your favorite CPAN mirror.  This
+  is where the CPAN shell gets it.
 
   If you don't have a favorite CPAN mirror, you really ought to pick
   one.  You can download and manually install the latest stable POE
   from <http://www.cpan.org/authors/id/R/RC/RCAPUTO/> until then.
 
-Beta versions of the next release are available from the author.  They
-tend to be mostly stable, and other module and program authors tend to
-use them because they're incrementally better than what's on the CPAN.
+3:
+
+  Beta versions of the next release are available from the author.
+  They tend to be mostly stable, and other module and program authors
+  tend to use them because they're incrementally better than what's on
+  the CPAN.
+
+  Relatively stable betas are available from the POE web page, at
+  <http://www.newts.org/~troc/>.
 
 
 SUPPORT RESOURCES
@@ -113,14 +132,15 @@ SUPPORT RESOURCES
 
 Places on the Internet where you can find more information about POE:
 
+
 POE has a mailing list thanks to Arturn Bergman.  You may subscribe to
 it by sending e-mail:
 
   From: (the address to which you want your mail sent)
-  To: majordomo@vogon.se
+  To: poe-help@vogon.se
   Subject: (anything will do)
 
-  subscribe poe
+  Anything will do for the body.
 
 All forms of feedback are welcome.
 
@@ -151,15 +171,6 @@ effect.
 Once everything looks good, POE can be installed by typing:
 
   make install
-
-
-THE FUTURE
-==========
-
-A next-generation POE (code-named "POE2") is in the works.  It is a
-complete rewrite, supporting some of the more difficult feature
-requests.  An "RFC" level pre-alpha release is available from the POE
-home page.
 
 
 -- Rocco Caputo / troc@netrus.net / Thank you for reading.
