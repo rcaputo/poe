@@ -7,8 +7,8 @@
 use strict;
 use lib qw( . .. ../mylib );
 
-sub DEBUG  () { 0 } # skip running tests to better debug this one
-sub UNLINK () { 1 } # unlink coverage files when done (disable for testing)
+sub DEBUG  () { 1 } # skip running tests to better debug this one
+sub UNLINK () { 0 } # unlink coverage files when done (disable for testing)
 
 sub SRC_COUNT () { 0 }
 sub SRC_LINE  () { 1 }
@@ -95,6 +95,8 @@ foreach my $test_file (@test_files) {
   while (<R>) {
     chomp;
     my ($file, $line, $count, $sub, $source) = split /\t/;
+
+    $file =~ s/^lib\///;
 
     my $report_source = $source;
     $source =~ s/\s+/ /g;
