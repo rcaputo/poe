@@ -131,6 +131,14 @@ sub _collect_garbage {
     ) {
       $self->session_free($session);
     }
+#     else {
+#       warn "queued(" . $self->{'sessions'}->{$session}->[2] . ")\n";
+#       warn "select(" . $self->{'sessions'}->{$session}->[3] . ")\n";
+#       warn "childs(" . scalar(@{$self->{'sessions'}->{$session}->[1]})
+#         . ")\n";
+#       warn "alias (" . scalar(keys(%{$self->{'sessions'}->{$session}->[6]}))
+#         . ")\n";
+#     }
   }
 }
 
@@ -193,7 +201,7 @@ sub _dispatch_state {
   $self->{'active session'} = $hold_active_session;
   undef $active_kernel;
 
-# print "\x1b[1;32m$session $state returns($handled)\x1b[0m\n";
+#print "\x1b[1;32m$session $state returns($handled)\x1b[0m\n";
 
                                         # if _stop, fix up tables
   if ($state eq '_stop') {
@@ -260,6 +268,10 @@ sub _dispatch_state {
         ($signal eq 'ZOMBIE')
     ) {
       $self->session_free($session);
+    }
+                                        # otherwise garbage-collect
+    else {
+      $self->_collect_garbage($session);
     }
   }
                                         # return what the state handler did
