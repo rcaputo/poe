@@ -6,9 +6,21 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 
 WriteMakefile
-  ( 'NAME'         => 'POE',
-    'VERSION_FROM' => 'POE.pm',
-    'dist'         => { 'COMPRESS' => 'gzip -9',
-                        'SUFFIX'   => 'gz',
-                      },
+  ( NAME         => 'POE',
+    VERSION_FROM => 'POE.pm',
+    dist         => { 'COMPRESS' => 'gzip -9',
+                      'SUFFIX'   => 'gz',
+                    },
+    PREREQ_PM    => { Carp           => 0,
+                      Exporter       => 0,
+                      HTTP::Request  => 1.24,
+                      HTTP::Response => 1.32,
+                      HTTP::Status   => 1.24,
+                      IO             => 1.20,
+                      POSIX          => 1.02,
+                      Socket         => 1.7,
+                      Storable       => 0.603,
+                      Time::HiRes    => 1.19,
+                      URI::URL       => 5.01,
+                    },
   );
