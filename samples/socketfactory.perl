@@ -23,7 +23,7 @@ package StreamServerSession;
 
 use strict;
 use Socket;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # A regular Perl object method.  It creates a StreamServerSession
@@ -159,7 +159,7 @@ sub flushed {
 package StreamClientSession;
 
 use strict;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # Create a Perl object, and give it to POE to manage as a session.
@@ -255,7 +255,7 @@ package UnixServer;
 
 use strict;
 use Socket;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # Create the UnixServer object, and give it to POE to manage as a
@@ -338,7 +338,7 @@ package UnixClient;
 
 use strict;
 use Socket;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # This helper generates a new client socket bind address.
@@ -453,7 +453,7 @@ package InetTcpServer;
 
 use strict;
 use Socket;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # Create the InetTcpServer object, and give it to POE to manage as a
@@ -538,7 +538,7 @@ package InetTcpClient;
 
 use strict;
 use Socket;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 # This Perl object method creates a new InetTcpClient object and gives
@@ -668,7 +668,7 @@ sub DESTROY {
 package Bootstrap;
 
 use strict;
-use POE;
+use POE::Session;
 
 #------------------------------------------------------------------------------
 
