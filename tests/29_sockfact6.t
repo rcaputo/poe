@@ -8,7 +8,14 @@ use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
 use Socket;
-use Socket6;
+
+BEGIN {
+  eval 'use Socket6';
+  test_setup(0, "Socket6 is needed for IPv6 tests")
+    if ( length($@) or
+         not exists($INC{"Socket6.pm"})
+       );
+}
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
