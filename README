@@ -129,18 +129,18 @@ Test Results
 All the tests have been made to run unattended, and testing has been
 automated across the systems.
 
-** POE 0.1206 on FreeBSD (home-bsd)
+** POE 0.13 on FreeBSD (home-bsd)
 
 Hardware: Athlon-1000; 512MB RAM
-System  : FreeBSD 4.3-BETA
-Perl    : 5.005_03
+System  : FreeBSD 4.3-RC
+Perl    : 5.6.1
 Gtk     : 0.7005
 Tk      : 800.022
 Event   : 0.81
 IO::Pty : 0.01
 
 All tests successful.
-Files=24,  Tests=459, 87 wallclock secs ( 8.88 cusr +  0.68 csys =  9.55 CPU)
+Files=25, Tests=467, 85 wallclock secs ( 6.77 cusr +  0.62 csys =  7.39 CPU)
 
 ** POE 0.1206 on Linux (titanic)
 
