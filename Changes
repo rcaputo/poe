@@ -7,10 +7,17 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
-0.05_57 1999.02.02
-------------------
+0.06 1999.02.03 (!!!)
+---------------------
 
-!!! Renamed POE::Session::debug() as POE::Session::option(), per
+This is a public CPAN release.  It incorporates all the changes since
+version 0.05.
+
+
+0.05_57 1999.02.02 (!!!)
+------------------------
+
+(!!!) Renamed POE::Session::debug() as POE::Session::option(), per
 feedback from testers.  This changes the original "_debug" semantics
 into something like environment variables for sessions.
 
