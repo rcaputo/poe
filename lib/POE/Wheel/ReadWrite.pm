@@ -606,6 +606,24 @@ sub resume_input {
   }
 }
 
+# Shutdown the socket for reading.
+sub shutdown_input {
+  my $self = shift;
+  if (defined $self->[HANDLE_INPUT]) {
+    eval { local $^W = 0; shutdown($self->[HANDLE_INPUT], 0) };
+    $poe_kernel->select_read($self->[HANDLE_INPUT], undef);
+  }
+}
+
+# Shutdown the socket for writing.
+sub shutdown_output {
+  my $self = shift;
+  if (defined $self->[HANDLE_OUTPUT]) {
+    eval { local $^W=0; shutdown($self->[HANDLE_OUTPUT], 1) };
+    $poe_kernel->select_write($self->[HANDLE_OUTPUT], undef);
+  }
+}
+
 ###############################################################################
 1;
 
@@ -675,6 +693,10 @@ POE::Wheel::ReadWrite - buffered non-blocking I/O
   # To pause and resume a wheel's input events.
   $wheel->pause_input();
   $wheel->resume_input();
+
+  # To shutdown a wheel's socket(s).
+  $wheel->shutdown_input();
+  $wheel->shutdown_output();
 
 =head1 DESCRIPTION
 
@@ -767,6 +789,14 @@ corresponding output buffer) from being overwhelmed.
 
 resume_input() instructs the wheel to resume checking its input
 filehandle for data.
+
+=item shutdown_input
+
+=item shutdown_output
+
+Some applications require the remote end to shut down a socket before
+they will continue.  These methods map directly to shutdown() for the
+wheel's input and output sockets.
 
 =back
 
