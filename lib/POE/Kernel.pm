@@ -350,9 +350,7 @@ sub _croak {
   local *STDERR = *TRACE_FILE;
 
   _trap_death();
-
   croak @_;
-
   _release_death();
 
 }
@@ -360,6 +358,7 @@ sub _croak {
 sub _confess {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
+
   _trap_death();
   confess @_;
   _release_death();
@@ -370,9 +369,7 @@ sub _cluck {
   local *STDERR = *TRACE_FILE;
 
   _trap_death();
-
   cluck @_;
-
   _release_death();
 }
 
@@ -381,9 +378,7 @@ sub _carp {
   local *STDERR = *TRACE_FILE;
 
   _trap_death();
-
   carp @_;
-
   _release_death();
 }
 
@@ -393,9 +388,7 @@ sub _warn {
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
 
   _trap_death();
-
   warn $message;
-
   _release_death();
 }
 
@@ -406,9 +399,7 @@ sub _die {
   local *STDERR = *TRACE_FILE;
 
   _trap_death();
-
   die $message;
-
   _release_death();
 }
 
@@ -1830,7 +1821,7 @@ sub delay_adjust {
   }
 
   unless (defined $seconds) {
-    $self->_explain_usage("undefined delay seconds in delay_abjust()");
+    $self->_explain_usage("undefined delay seconds in delay_adjust()");
     $! = EINVAL;
     return;
   }
