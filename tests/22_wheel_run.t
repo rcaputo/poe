@@ -125,16 +125,10 @@ use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
 
 my $tty_flush_count = 0;
 
-unlink '/home/troc/pty-debug';
-
 my $program =
   ( '/usr/bin/perl -we \'' .
-    'open(DEBUG, q(>>/home/troc/pty-debug)) or die $!; ' .
-    'select DEBUG; $| = 1; ' .
-    'print DEBUG $$, qq(\n); ' .
     '$/ = q(!); select STDERR; $| = 1; select STDOUT; $| = 1; ' .
     'while (<STDIN>) { ' .
-    '  print DEBUG qq($_\n); ' .
     '  last if /^bye/; ' .
     '  print(STDOUT qq(out: $_)) if s/^out //; ' .
     '  print(STDERR qq(err: $_)) if s/^err //; ' .
