@@ -922,6 +922,13 @@ This is the working equivalent:
   use POE::Resource::Signals;
   use POE::Resource::Statistics;
 
+  # Choose one of the following, depending on your event loop.
+  use POE::Loop::Select;   # Usually this one.
+  use POE::Loop::Poll;
+  use POE::Loop::Event;
+  use POE::Loop::Tk;
+  use POE::Loop::Gtk;
+
   # Dynamically required by POE.pm.
   use POE::Kernel;
   use POE::Session;
@@ -930,10 +937,14 @@ This is the working equivalent:
   use POE::B;
   use POE::C;
 
-PerlApp does not support POE::Processor or any other source filter, so
-it's necessary to generate a static version of the files to be
-included.  Setting the C<POE_PREPROC_DUMP> environment variable will
-cause POE::Preprocessor to dump a processed version of the file.
+We recommend that you use PAR.  PAR understands source code filters
+like POE::Preprocessor.  You can skip the rest of this section if
+you're using it.
+
+PerlApp and Perl2EXE do not support POE::Processor or any other source
+filter, so it's necessary to generate a static version of the files to
+be included.  Setting the C<POE_PREPROC_DUMP> environment variable
+will cause POE::Preprocessor to dump a processed version of the file.
 
   set POE_PREPROC_DUMP=c:\rocco\preproc
 
@@ -945,7 +956,7 @@ be placed in subdirectories under L<POE_PREPROC_DUMP>.
 The preprocessed files must now be found, and their parent directory
 must be placed in the PERL5LIB environment variable.
 
-  C:\rocco\POE-0.20>dir /b /a:d /s c:\rocco\preproc
+  C:\rocco\POE-0.30>dir /b /a:d /s c:\rocco\preproc
 
 Might show these directories:
 
@@ -972,6 +983,8 @@ Zoltan Kandi for testing and documenting this.
 Lance Braswell for pointing out the POE::Resource classes need to be
 loaded.
 
+Autrijus Tang, for writing PAR.
+
 =head1 BUGS
 
 Source filters are line-based, and so is the macro language.  The only
@@ -996,13 +1009,15 @@ POE_PREPROC_DUMP environment variable.
 =head1 SEE ALSO
 
 The regexp optimizer is based on code in Ilya Zakharevich's
-Text::Trie.
+L<Text::Trie>.
+
+L<PAR> is a fine Perl archiver.  Use it.
 
 =head1 AUTHOR & COPYRIGHT
 
-POE::Preprocessor is Copyright 2000 Rocco Caputo.  Some parts are
+POE::Preprocessor is Copyright 2000-2004 Rocco Caputo.  Some parts are
 Copyright 2001 Matt Cashner. All rights reserved.  POE::Preprocessor
-is free software; you may redistribute it and/or modify it under
-the same terms as Perl itself.
+is free software; you may redistribute it and/or modify it under the
+same terms as Perl itself.
 
 =cut
