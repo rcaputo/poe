@@ -710,6 +710,7 @@ sub _data_sig_free_terminated_sessions {
   }
   else {
     foreach my $touched_session (@kr_signaled_sessions) {
+      next unless $self->_data_ses_exists($touched_session);
       $self->_data_ses_collect_garbage($touched_session);
     }
   }
