@@ -122,10 +122,20 @@ Connection: Keep-Alive
     is($req->url, 'http://localhost/foo.mhtml',
         'simple post: HTTP::Request object contains proper URI');
 
-    if ($^O eq "MSWin32" and $] < 5.008003) {
-      skip("Please upgrade ActivePerl to pass this test.");
-    }
-    else {
+    # The HTTP::Request bundled with ActivePerl 5.6.1 causes a test
+    # failure here.  The one included in ActivePerl 5.8.3 works fine.
+    # It was suggested by an anonymous bug reporter to test against
+    # HTTP::Request's version rather than Perl's, so we're doing that
+    # here.  Theoretically we shouldn't get this far.  The Makefile
+    # magic should strongly suggest HTTP::Request 1.34.  But people
+    # install (or fail to) the darnedest things, so I thought it was
+    # safe to check here rather than fail the test due to operator
+    # error.
+    SKIP: {
+      my $required_http_request_version = 1.34;
+      skip("simple post: Please upgrade HTTP::Request to $required_http_request_version or later", 1)
+        if $^O eq "MSWin32" and $HTTP::Request::VERSION < $required_http_request_version;
+
       is($req->content, "I=like&tasty=pie\n",
         'simple post: HTTP::Request object contains proper content');
     }
