@@ -24,22 +24,21 @@ if ($@) {
   die if $@;
 }
 
-# TODO - Combine the -core requirements here, and in PREREQ_PM below,
-# into one has they can both share.
+my %core_requirements = (
+  "Carp"               => 0,
+  "Exporter"           => 0,
+  "IO"                 => 1.20,
+  "POSIX"              => 1.02,
+  "Socket"             => 1.7,
+  "Filter::Util::Call" => 1.06,
+  "Test::More"         => 0.47,
+  "File::Spec"         => 0.87,
+  "Errno"              => 1.09,
+);
 
 ExtUtils::AutoInstall->import(
   -version => '0.50',
-  -core => [
-    "Carp"               => 0,
-    "Exporter"           => 0,
-    "IO"                 => 1.20,
-    "POSIX"              => 1.02,
-    "Socket"             => 1.7,
-    "Filter::Util::Call" => 1.06,
-    "Test::More"         => 0.47,
-    "File::Spec"         => 0.87,
-    "Errno"              => 1.09,
-  ],
+  -core => [ %core_requirements ],
   "Recommended modules to increase timer/alarm/delay accuracy." => [
       -default      => 0,
       'Time::HiRes' => '1.59',
@@ -168,17 +167,7 @@ WriteMakefile(
   # More for META.yml than anything.
   PL_FILES       => { },
   NO_META        => 1,
-  PREREQ_PM      => {
-    "Carp"               => 0,
-    "Exporter"           => 0,
-    "IO"                 => 1.20,
-    "POSIX"              => 1.02,
-    "Socket"             => 1.7,
-    "Filter::Util::Call" => 1.06,
-    "Test::More"         => 0.50,
-    "File::Spec"         => 3.01,
-    "Errno"              => 1.09,
-  },
+  PREREQ_PM      => \%core_requirements,
 );
 
 1;
