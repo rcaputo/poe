@@ -924,7 +924,7 @@ This is the working equivalent:
 
   # Choose one of the following, depending on your event loop.
   use POE::Loop::Select;   # Usually this one.
-  use POE::Loop::Poll;
+  use POE::Loop::IO_Poll;
   use POE::Loop::Event;
   use POE::Loop::Tk;
   use POE::Loop::Gtk;

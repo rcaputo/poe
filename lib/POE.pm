@@ -371,7 +371,7 @@ POE::Filter::Stackable, POE::Filter::Stream
 POE::Component, POE::Component::Client::TCP,
 POE::Component::Server::TCP
 
-POE::Loop, POE::Loop::Event, POE::Loop::Gtk, POE::Loop::Poll,
+POE::Loop, POE::Loop::Event, POE::Loop::Gtk, POE::Loop::IO_Poll,
 POE::Loop::Select, POE::Loop::Tk
 
 POE::Pipe, POE::Pipe::OneWay, POE::Pipe::TwoWay
@@ -505,7 +505,8 @@ problem relating to anonymous subs, scope and @{} processing.
 =item Matt Sergeant
 
 Matt contributed POE::Kernel::Poll, a more efficient way to watch
-multiple files than select().
+multiple files than select().  It's since been moved to
+POE::Loop::IO_Poll.
 
 =item Richard Soderberg
 

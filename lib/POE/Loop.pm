@@ -403,7 +403,7 @@ active.
 Stop watching a file HANDLE in a given MODE.  Stops (and possibly
 destroys) an event watcher corresponding to the HANDLE and MODE.
 
-POE::Loop::Poll manages the descriptor/mode bits out of its
+POE::Loop::IO_Poll manages the descriptor/mode bits out of its
 loop_ignore_filehandle() function.  It also performs some cleanup if a
 descriptors has been totally ignored.
 
@@ -464,7 +464,7 @@ state for a file HANDLE in a particular mode.
 
 =head1 SEE ALSO
 
-L<POE>, L<POE::Loop::Event>, L<POE::Loop::Gtk>, L<POE::Loop::Poll>,
+L<POE>, L<POE::Loop::Event>, L<POE::Loop::Gtk>, L<POE::Loop::IO_Poll>,
 L<POE::Loop::Select>, L<POE::Loop::Tk>.
 
 =head1 BUGS
