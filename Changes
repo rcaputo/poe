@@ -26,14 +26,16 @@ Version numbers have four fields: X.YYZZAA
 `------------------------------------------------------------------------------
 
 
-0.1201 2000.??.??
+0.1201 2000.12.15
 -----------------
 
 Added a program, lib/deptest.perl, which tries to determine and test
 the distribution's dependencies.  If any are missing, it reports them,
 and it may stop the module from being installed.
 
-Moved POE development to <http://sourceforge.net/projects/poe/>.
+Tentatively POE development to <http://sourceforge.net/projects/poe/>.
+Really regretting it at the moment: SF is experiencing severe
+growing/moving pains, resulting in a lot of service failures.
 
 Documented the object layer depreciation.
 
