@@ -32,21 +32,27 @@ sub new {
   my $b_write = gensym();
 
   if (defined $conduit_type) {
-    ($a_read, $a_write, $b_read, $b_write) =
-      $self->_try_type($conduit_type, $a_read, $a_write, $b_read, $b_write);
-    return ($a_read, $a_write, $b_read, $b_write) if $a_read;
+    return ($a_read, $a_write, $b_read, $b_write) if
+      $self->_try_type(
+        $conduit_type,
+        \$a_read, \$a_write,
+        \$b_read, \$b_write
+      );
   }
 
   while (my $try_type = $self->get_next_preference()) {
-    ($a_read, $a_write, $b_read, $b_write) =
-      $self->_try_type($try_type, $a_read, $a_write, $b_read, $b_write);
-    return ($a_read, $a_write, $b_read, $b_write) if $a_read;
+    return ($a_read, $a_write, $b_read, $b_write) if
+      $self->_try_type(
+        $try_type,
+        \$a_read, \$a_write,
+        \$b_read, \$b_write
+      );
     $self->shift_preference();
   }
 
   # There's nothing left to try.
   DEBUG and warn "nothing worked";
-  return (undef, undef, undef, undef);
+  return;
 }
 
 # Try a pipe by type.
@@ -57,82 +63,82 @@ sub _try_type {
   # Try a socketpair().
   if ($type eq "socketpair") {
     eval {
-      socketpair($a_read, $b_read, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
+      socketpair($$a_read, $$b_read, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
         or die "socketpair 1 failed: $!";
     };
 
     # Socketpair failed.
     if (length $@) {
       warn "socketpair failed: $@" if DEBUG;
-      return (undef, undef, undef, undef);
+      return;
     }
 
     DEBUG and do {
       warn "using UNIX domain socketpairs";
-      warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+      warn "ar($$a_read) aw($$a_write) br($$b_read) bw($$b_write)\n";
     };
 
     # It's two-way, so each reader is also a writer.
-    $a_write = $a_read;
-    $b_write = $b_read;
+    $$a_write = $$a_read;
+    $$b_write = $$b_read;
 
     # Turn off buffering.  POE::Kernel does this for us, but someone
     # might want to use the pipe class elsewhere.
-    select((select($a_write), $| = 1)[0]);
-    select((select($b_write), $| = 1)[0]);
-    return ($a_read, $a_write, $b_read, $b_write);
+    select((select($$a_write), $| = 1)[0]);
+    select((select($$b_write), $| = 1)[0]);
+    return 1;
   }
 
   # Try a couple pipe() calls.
   if ($type eq "pipe") {
     eval {
-      pipe($a_read, $b_write) or die "pipe 1 failed: $!";
-      pipe($b_read, $a_write) or die "pipe 2 failed: $!";
+      pipe($$a_read, $$b_write) or die "pipe 1 failed: $!";
+      pipe($$b_read, $$a_write) or die "pipe 2 failed: $!";
     };
 
     # Pipe failed.
     if (length $@) {
       warn "pipe failed: $@" if DEBUG;
-      return (undef, undef, undef, undef);
+      return;
     }
 
     DEBUG and do {
       warn "using a pipe";
-      warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+      warn "ar($$a_read) aw($$a_write) br($$b_read) bw($$b_write)\n";
     };
 
     # Turn off buffering.  POE::Kernel does this for us, but someone
     # might want to use the pipe class elsewhere.
-    select((select($a_write), $| = 1)[0]);
-    select((select($b_write), $| = 1)[0]);
-    return ($a_read, $a_write, $b_read, $b_write);
+    select((select($$a_write), $| = 1)[0]);
+    select((select($$b_write), $| = 1)[0]);
+    return 1;
   }
 
   # Try a pair of plain INET sockets.
   if ($type eq "inet") {
     eval {
-      ($a_read, $b_read) = $self->make_socket();
+      ($$a_read, $$b_read) = $self->make_socket();
     };
 
     # Sockets failed.
     if (length $@) {
       warn "make_socket failed: $@" if DEBUG;
-      return (undef, undef, undef, undef);
+      return;
     }
 
     DEBUG and do {
       warn "using a plain INET socket";
-      warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+      warn "ar($$a_read) aw($$a_write) br($$b_read) bw($$b_write)\n";
     };
 
-    $a_write = $a_read;
-    $b_write = $b_read;
+    $$a_write = $$a_read;
+    $$b_write = $$b_read;
 
     # Turn off buffering.  POE::Kernel does this for us, but someone
     # might want to use the pipe class elsewhere.
-    select((select($a_write), $| = 1)[0]);
-    select((select($b_write), $| = 1)[0]);
-    return ($a_read, $a_write, $b_read, $b_write);
+    select((select($$a_write), $| = 1)[0]);
+    select((select($$b_write), $| = 1)[0]);
+    return 1;
   }
 
   DEBUG and warn "unknown OneWay socket type ``$type''";

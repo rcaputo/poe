@@ -30,19 +30,19 @@ sub new {
   my $b_write = gensym();
 
   if (defined $conduit_type) {
-    ($a_read, $b_write) = $self->_try_type($conduit_type, $a_read, $b_write);
-    return ($a_read, $b_write) if $a_read;
+    return ($a_read, $b_write)
+      if $self->_try_type($conduit_type, \$a_read, \$b_write);
   }
 
   while (my $try_type = $self->get_next_preference()) {
-    ($a_read, $b_write) = $self->_try_type($try_type, $a_read, $b_write);
-    return ($a_read, $b_write) if $a_read;
+    return ($a_read, $b_write)
+      if $self->_try_type($try_type, \$a_read, \$b_write);
     $self->shift_preference();
   }
 
   # There's nothing left to try.
   DEBUG and warn "nothing worked";
-  return (undef, undef, undef, undef);
+  return;
 }
 
 # Try a pipe by type.
@@ -53,77 +53,77 @@ sub _try_type {
   # Try a pipe().
   if ($type eq "pipe") {
     eval {
-      pipe($a_read, $b_write) or die "pipe failed: $!";
+      pipe($$a_read, $$b_write) or die "pipe failed: $!";
     };
 
     # Pipe failed.
     if (length $@) {
       warn "pipe failed: $@" if DEBUG;
-      return (undef, undef);
+      return;
     }
 
     DEBUG and do {
       warn "using a pipe";
-      warn "ar($a_read) bw($b_write)\n";
+      warn "ar($$a_read) bw($$b_write)\n";
     };
 
     # Turn off buffering.  POE::Kernel does this for us, but
     # someone might want to use the pipe class elsewhere.
-    select((select($b_write), $| = 1)[0]);
-    return($a_read, $b_write);
+    select((select($$b_write), $| = 1)[0]);
+    return 1;
   }
 
   # Try a UNIX-domain socketpair.
   if ($type eq "socketpair") {
     eval {
-      socketpair($a_read, $b_write, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
+      socketpair($$a_read, $$b_write, AF_UNIX, SOCK_STREAM, PF_UNSPEC)
         or die "socketpair failed: $!";
     };
 
     if (length $@) {
       warn "socketpair failed: $@" if DEBUG;
-      return (undef, undef);
+      return;
     }
 
     DEBUG and do {
       warn "using a UNIX domain socketpair";
-      warn "ar($a_read) bw($b_write)\n";
+      warn "ar($$a_read) bw($$b_write)\n";
     };
 
     # It's one-way, so shut down the unused directions.
-    shutdown($a_read,  1);
-    shutdown($b_write, 0);
+    shutdown($$a_read,  1);
+    shutdown($$b_write, 0);
 
     # Turn off buffering.  POE::Kernel does this for us, but someone
     # might want to use the pipe class elsewhere.
-    select((select($b_write), $| = 1)[0]);
-    return($a_read, $b_write);
+    select((select($$b_write), $| = 1)[0]);
+    return 1;
   }
 
   # Try a pair of plain INET sockets.
   if ($type eq "inet") {
     eval {
-      ($a_read, $b_write) = $self->make_socket();
+      ($$a_read, $$b_write) = $self->make_socket();
     };
 
     if (length $@) {
       warn "make_socket failed: $@" if DEBUG;
-      return (undef, undef);
+      return;
     }
 
     DEBUG and do {
       warn "using a plain INET socket";
-      warn "ar($a_read) bw($b_write)\n";
+      warn "ar($$a_read) bw($$b_write)\n";
     };
 
     # It's one-way, so shut down the unused directions.
-    shutdown($a_read,  1);
-    shutdown($b_write, 0);
+    shutdown($$a_read,  1);
+    shutdown($$b_write, 0);
 
     # Turn off buffering.  POE::Kernel does this for us, but someone
     # might want to use the pipe class elsewhere.
-    select((select($b_write), $| = 1)[0]);
-    return($a_read, $b_write);
+    select((select($$b_write), $| = 1)[0]);
+    return 1;
   }
 
   # There's nothing left to try.
