@@ -141,7 +141,7 @@ Tk      : (not installed)
 Event   : (not installed)
 
 All tests successful, 4 tests and 5 subtests skipped.
-Files=23, Tests=406, 211 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+Files=23, Tests=406, 182 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
 ** POE 0.1203 on FreeBSD
 
@@ -165,7 +165,7 @@ Tk      : (not installed)
 Event   : 0.79
 
 All tests successful, 2 tests skipped.
-Files=23, Tests=415, 102 wallclock secs (19.69 cusr +  0.74 csys = 20.43 CPU)
+Files=23, Tests=415, 104 wallclock secs (19.50 cusr +  0.85 csys = 20.35 CPU)
 
 ** POE 0.1203 on Solaris/SunOS 5.7
 
@@ -180,7 +180,7 @@ Tk      : (not installed)
 Event   : (not installed)
 
 All tests successful, 4 tests skipped.
-Files=23,  Tests=406, 114 wallclock secs (55.25 cusr +  5.31 csys = 60.56 CPU)
+Files=23,  Tests=406, 114 wallclock secs (55.15 cusr +  5.20 csys = 60.35 CPU)
 
 ** POE 0.1202 on Solaris/SunOS 5.8
 
