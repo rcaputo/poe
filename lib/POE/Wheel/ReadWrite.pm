@@ -207,10 +207,10 @@ sub _define_write_state {
   # Read-only members.  If any of these change, then the write state
   # is invalidated and needs to be redefined.
   my $driver        = $self->[DRIVER_BOTH];
-  my $event_error   = \$self->[EVENT_ERROR];
-  my $event_flushed = \$self->[EVENT_FLUSHED];
   my $high_mark     = $self->[WATERMARK_WRITE_MARK_HIGH];
   my $low_mark      = $self->[WATERMARK_WRITE_MARK_LOW];
+  my $event_error   = \$self->[EVENT_ERROR];
+  my $event_flushed = \$self->[EVENT_FLUSHED];
   my $event_high    = \$self->[WATERMARK_WRITE_EVENT_HIGH];
   my $event_low     = \$self->[WATERMARK_WRITE_EVENT_LOW];
   my $unique_id     = $self->[UNIQUE_ID];
@@ -300,7 +300,7 @@ sub _define_read_state {
     # If any of these change, then the read state is invalidated and
     # needs to be redefined.
 
-    my $driver       = \$self->[DRIVER_BOTH];
+    my $driver       = $self->[DRIVER_BOTH];
     my $input_filter = \$self->[FILTER_INPUT];
     my $event_input  = \$self->[EVENT_INPUT];
     my $event_error  = \$self->[EVENT_ERROR];
@@ -321,7 +321,7 @@ sub _define_read_state {
 
             # The actual code starts here.
             my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-            if (defined(my $raw_input = $$driver->get($handle))) {
+            if (defined(my $raw_input = $driver->get($handle))) {
               $$input_filter->get_one_start($raw_input);
               while (1) {
                 my $next_rec = $$input_filter->get_one();
@@ -353,7 +353,7 @@ sub _define_read_state {
 
             # The actual code starts here.
             my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-            if (defined(my $raw_input = $$driver->get($handle))) {
+            if (defined(my $raw_input = $driver->get($handle))) {
               foreach my $cooked_input (@{$$input_filter->get($raw_input)}) {
                 $k->call($me, $$event_input, $cooked_input, $unique_id);
               }
