@@ -18,6 +18,7 @@ $Text::Wrap::columns = 74;
 use Time::Local;
 
 my $date_range = "-d'1 year ago<'";
+# $date_range = "-d'2 years ago<'";
 
 my ( %rev, %file, %time, %tag, %tags_by_time, %log, %last_tag_times, );
 
