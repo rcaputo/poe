@@ -95,7 +95,11 @@ sub accept_and_start {
       },
       'client_error' => sub {
         my ($k,$me,$from,$operation,$errnum,$errstr) = @_;
-        print "client closed connection: $operation error $errnum ($errstr)\n";
+        print "client closed connection";
+        if ($errnum) {
+          print ": $operation error $errnum ($errstr)";
+        }
+        print "\n";
         $k->post($me, 'shutdown');
       },
       'server' => sub {
@@ -104,7 +108,11 @@ sub accept_and_start {
       },
       'server_error' => sub {
         my ($k,$me,$from,$operation,$errnum,$errstr) = @_;
-        print "server closed connection: $operation error $errnum ($errstr)\n";
+        print "server closed connection";
+        if ($errnum) {
+          print ": $operation error $errnum ($errstr)\n";
+        }
+        print "\n";
         $k->post($me, 'shutdown');
       },
       'shutdown' => sub {
