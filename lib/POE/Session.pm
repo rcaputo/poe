@@ -163,6 +163,25 @@ sub import {
   *{ $package . '::CALLER_STATE' } = \&CALLER_STATE;
 }
 
+sub instantiate {
+  my $type = shift;
+
+  croak "$type requires a working Kernel"
+    unless defined $POE::Kernel::poe_kernel;
+
+  my $self =
+    bless [ { }, # SE_NAMESPACE
+            { }, # SE_OPTIONS
+            { }, # SE_STATES
+          ], $type;
+
+  if (ASSERT_STATES) {
+    $self->[SE_OPTIONS]->{+OPT_DEFAULT} = 1;
+  }
+
+  return $self;
+}
+
 sub try_alloc {
   my ($self, @args) = @_;
   # Verify that the session has a special start state, otherwise how
@@ -196,17 +215,7 @@ sub new {
   croak "sessions no longer require a kernel reference as the first parameter"
     if ((@states > 1) && (ref($states[0]) eq 'POE::Kernel'));
 
-  croak "$type requires a working Kernel"
-    unless defined $POE::Kernel::poe_kernel;
-
-  my $self =
-    bless [ { }, # SE_NAMESPACE
-            { }, # SE_OPTIONS
-            { }, # SE_STATES
-          ], $type;
-  if (ASSERT_STATES) {
-    $self->[SE_OPTIONS]->{+OPT_DEFAULT} = 1;
-  }
+  my $self = $type->instantiate (\@states);
 
   # Scan all arguments.  It mainly expects them to be in pairs, except
   # for some, uh, exceptions.
@@ -370,17 +379,7 @@ sub create {
   }
   my %params = @params;
 
-  croak "$type requires a working Kernel"
-    unless defined $POE::Kernel::poe_kernel;
-
-  my $self =
-    bless [ { }, # SE_NAMESPACE
-            { }, # SE_OPTIONS
-            { }, # SE_STATES
-          ], $type;
-  if (ASSERT_STATES) {
-    $self->[SE_OPTIONS]->{+OPT_DEFAULT} = 1;
-  }
+  my $self = $type->instantiate(\%params);
 
   # Process _start arguments.  We try to do the right things with what
   # we're given.  If the arguments are a list reference, map its items
