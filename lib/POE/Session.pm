@@ -9,15 +9,43 @@ use Carp;
 #------------------------------------------------------------------------------
 
 sub new {
-  my ($type, $kernel, %states) = @_;
+  my ($type, $kernel, @states) = @_;
 
-  my $self = bless {
-                    'kernel'    => $kernel,
-                    'namespace' => { },
+  my $self = bless { 'kernel'    => $kernel,
+                     'namespace' => { },
                    }, $type;
 
-  while (my ($state, $handler) = each(%states)) {
-    $self->register_state($state, $handler);
+  while (@states >= 2) {
+    my ($state, $handler) = splice(@states, 0, 2);
+
+    if (ref($state) eq 'CODE') {
+      croak "using a CODE reference as an event handler name is not allowed";
+    }
+                                        # regular states
+    if (ref($state) eq '') {
+      if (ref($handler) eq 'CODE') {
+        $self->register_state($state, $handler);
+        next;
+      }
+      else {
+        croak "using something other than a CODEREF for $state handler";
+      }
+    }
+                                        # object states
+    if (ref($handler) eq '') {
+      $self->register_state($handler, $state);
+      next;
+    }
+    if (ref($handler) ne 'ARRAY') {
+      croak "strange reference ($handler) used as an 'object' session method";
+    }
+    foreach my $method (@$handler) {
+      $self->register_state($method, $state);
+    }
+  }
+
+  if (@states) {
+    croak "odd number of events/handlers (missing one or the other?)";
   }
 
   if (exists $self->{'states'}->{'_start'}) {
@@ -49,9 +77,16 @@ sub _invoke_state {
   }
 
   if (exists $self->{'states'}->{$state}) {
-    return &{$self->{'states'}->{$state}}($kernel, $self->{'namespace'},
-                                          $source_session, @$etc
-                                         );
+    if (ref($self->{'states'}->{$state}) eq 'CODE') {
+      return &{$self->{'states'}->{$state}}($kernel, $self->{'namespace'},
+                                            $source_session, @$etc
+                                           );
+    }
+    else {
+      return $self->{'states'}->{$state}->$state($kernel, $self->{'namespace'},
+                                                 $source_session, @$etc
+                                                );
+    }
   }
   elsif (exists $self->{'states'}->{'_default'}) {
     return &{$self->{'states'}->{'_default'}}($kernel, $self->{'namespace'},
@@ -72,8 +107,13 @@ sub register_state {
         if (exists $self->{'states'}->{$state});
       $self->{'states'}->{$state} = $handler;
     }
+    elsif (ref($handler) ne '') {
+      carp "redefining state($state) for session($self)"
+        if (exists $self->{'states'}->{$state});
+      $self->{'states'}->{$state} = $handler;
+    }
     elsif ($self->{'namespace'}->{'_debug'}) {
-      print "$self : state($state) is not a CODE ref - not registered\n";
+      print "$self : state($state) is not a proper ref - not registered\n";
     }
   }
   else {
@@ -109,25 +149,48 @@ POE::Session - a state machine, driven by C<POE::Kernel>
     },
   );
 
+  # ... or ...
+
+  new POE::Session(
+    $kernel,
+    $blessed_object, \@array_of_methods
+  );
+
 =head1 DESCRIPTION
 
-C<POE::Session> builds an initial state table and registers it as a full
-session with C<POE::Kernel>.  The Kernel will invoke C<_start> after the
-session is registered, and C<_stop> just before destroying it.  C<_default>
-is called when a signal is dispatched to a nonexistent handler.
+C<POE::Session> builds an initial state table and registers it as a
+full session with C<POE::Kernel>.  The Kernel will invoke C<_start>
+after the session is registered, and C<_stop> just before destroying
+it.  C<_default> is called when a signal is dispatched to a
+nonexistent handler.
 
-States are invoked as:
-C<&$state_code_ref($kernel, $namespace, $source_session, @$etc)>.
+Regular states (C<'scalar' => $code_ref>) are invoked as:
+C<&$code_ref($kernel, $namespace, $source_session, @$etc)>.
+
+Object states (C<$object, \@event_handler_methods>) are invoked as
+C<$object->$method($kernel, $namespace, $source_session, @$etc)>.
+Don't forget that C<$_[0]> is a reference to the object in this case.
 
 =head1 PUBLIC METHODS
 
 =over 4
 
-=item new POE::Session($kernel, 'state' => sub { ... }, ....);
+=item new POE::Session($kernel, $name, $handler, $name, $handler, ...);
 
-Build an initial state table, and register it with a C<$kernel>.  Returns a
-reference to the new Session, which should be discarded promptly since the
-C<$kernel> will maintain it (and extra references prevent garbage collection).
+Build an initial state table (list of events), and register it with a
+C<$kernel>.
+
+Normal events/states are named after C<$name>, and handled by CODE
+references in C<$handler>.
+
+If C<$name> is a blessed object reference, then C<$handler> is
+expected to be a reference to an array of object methods that are used
+as handlers.
+
+C<new(...)> returns a reference to the new Session, which should be
+discarded promptly since the C<$kernel> will maintain it.  Keeping
+extra copies of the reference will prevent sessions from being freed
+when they are done.
 
 =back
 
