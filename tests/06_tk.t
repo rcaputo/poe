@@ -13,7 +13,6 @@ use lib '/usr/mysrc/Tk800.021/blib/arch';
 use Symbol;
 
 use TestSetup;
-&test_setup(8);
 
 # Skip if Tk isn't here.
 BEGIN {
@@ -24,18 +23,20 @@ BEGIN {
     &test_setup(0, 'no DISPLAY is set');
   }
   eval 'use Tk';
+  &test_setup(0, "Tk could not be used: $@") if length $@;
   unless (exists $INC{'Tk.pm'}) {
     &test_setup(0, 'the Tk module is not installed');
   }
 }
 
+&test_setup(8);
+
 # Turn on all asserts.
-# sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);
 
 # How many things to push through the pipe.
-my $write_max = 1;
+my $write_max = 10;
 
 # Keep track of the "after" alarms we use so the postback tests can
 # clear them.

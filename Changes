@@ -31,11 +31,14 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 0.1009 2000.??.??
 -----------------
 
+Tweaked POE::Preprocessor to do something approaching right things
+when debugging or tracing are turned on.
+
 Optimized away a function in lib/TestSetup.pm.
 
 Added t/13_wheels_udp.t and a corresponding MANIFEST entry.
 
-Jonathan Feinber graciously provided a Windows NT shell for testing
+Jonathan Feinber graciously loaned a Windows NT shell for testing
 and development, opening whole new worlds of pain to me.  :)
 
 Tweaked the Win32 FIONBIO ioctls for non-blocking filehandles in

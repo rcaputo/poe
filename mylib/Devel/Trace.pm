@@ -7,6 +7,7 @@ use strict;
 package Trace; # satisfies 'use'
 
 package DB;
+use vars qw($sub);
 
 sub CALL_COUNT  () { 0 }
 sub SUB_NAME    () { 1 }
@@ -18,6 +19,9 @@ BEGIN {
   unlink "$0.coverage";
   open STATS, ">$0.coverage" or die "can't write $0.coverage: $!";
 }
+
+# &DB is called for every breakpoint that's encountered.  We use it to
+# track which code is instrumented during a given program run.
 
 sub DB {
   my ($package, $file, $line) = caller;
@@ -31,6 +35,12 @@ sub DB {
     unless exists $statistics{$file}->{$line};
   $statistics{$file}->{$line}->[CALL_COUNT]++;
 }
+
+# &sub is a proxy function that's used to trace function calls.  We
+# don't use it for anything right now, but things seem to run better
+# when it's defined.
+
+sub sub { no strict 'refs'; &$sub; }
 
 # After all's said and done, say what's done.
 

@@ -29,13 +29,19 @@ closedir T;
 
 # Run each test with coverage statistics.
 
-goto SPANG;
+# Skip actual runs for testing.
+# goto SPANG;
 
 foreach my $test_file (@test_files) {
   unlink "$test_file.coverage";
 
+  print "*** Testing $test_file ...\n";
+
   # System returns 0 on success.
-  my $result = system '/usr/bin/perl', '-Ilib', '-I..', '-d:Trace', $test_file;
+  my $result =
+    system( '/usr/bin/perl',
+            '-Ilib', '-I../lib', '-I.', '-I..', '-d:Trace', $test_file
+          );
   if ($result) {
     warn "can't profile $test_file: ($result) $!";
     next;
