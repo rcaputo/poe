@@ -149,7 +149,7 @@ tests themselves.  For a more accurate determination of POE's speed,
 balance the CPU seconds against the test machine's hardware and
 operating system.
 
-** POE 0.1401 on FreeBSD (home-bsd)
+** POE 0.1402 on FreeBSD (home-bsd)
 
 Hardware: Athlon-1000; 512MB RAM
 System  : FreeBSD 4.3-STABLE
