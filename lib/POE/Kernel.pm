@@ -489,7 +489,7 @@ sub new {
         $kr_queue,          # KR_QUEUE - should this be extracted into a Resource ?
         undef,               # KR_ID 
         undef,               # KR_SESSION_IDS - loaded from POE::Resource::SIDS
-        undef,               # KR_SID_SEQ - lives in P:R:SIDS but is a lexical scalar. thoughts on if it should live inside the kernel?
+        undef,               # KR_SID_SEQ - loaded from POE::Resource::SIDS - is a scalar ref
       ], $type;
 
     POE::Resources->initialize();

@@ -30,6 +30,7 @@ my $kr_sid_seq = 1;
 
 sub _data_sid_initialize {
   $poe_kernel->[KR_SESSION_IDS] = \%kr_session_ids;
+  $poe_kernel->[KR_SID_SEQ] = \$kr_sid_seq;
 }
 use POE::API::ResLoader \&_data_sid_initialize;
 
