@@ -2212,8 +2212,9 @@ sub alarm_adjust {
   return $new_time;
 }
 
-# A convenient macro for setting alarms relative to now.  It also uses
-# whichever time() POE::Kernel can find, which may be Time::HiRes'.
+# A convenient "macro" for setting alarms relative to now.  It also
+# uses whichever time() POE::Kernel can find, which may be
+# Time::HiRes'.
 
 sub delay_set {
   my ($self, $state, $seconds, @etc) = @_;
