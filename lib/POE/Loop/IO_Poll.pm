@@ -8,7 +8,7 @@
 package POE::Loop::Poll;
 
 use vars qw($VERSION);
-$VERSION = (qw($Revision$ ))[1];
+$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 # Include common signal handling.
 use POE::Loop::PerlSignals;

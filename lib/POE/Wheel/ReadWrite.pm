@@ -5,7 +5,7 @@ package POE::Wheel::ReadWrite;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = (qw($Revision$ ))[1];
+$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Carp;
 use POE qw(Wheel Driver::SysRW Filter::Line);

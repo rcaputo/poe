@@ -7,7 +7,7 @@
 package POE::Resources::Extrefs;
 
 use vars qw($VERSION);
-$VERSION = (qw($Revision$))[1];
+$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 # These methods are folded into POE::Kernel;
 package POE::Kernel;

@@ -10,7 +10,7 @@ package POE::Loop::TkCommon;
 use POE::Loop::PerlSignals;
 
 use vars qw($VERSION);
-$VERSION = (qw($Revision$ ))[1];
+$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 BEGIN {
   die "POE's Tk support requires version Tk 800.021 or higher.\n"

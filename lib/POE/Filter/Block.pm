@@ -6,7 +6,7 @@ use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 use strict;
 
 use vars qw($VERSION);
-$VERSION = (qw($Revision$ ))[1];
+$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Carp qw(croak);
 

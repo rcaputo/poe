@@ -4,7 +4,7 @@ package POE::Macro::UseBytes;
 use POE::Preprocessor;
 
 use vars qw($VERSION);
-$VERSION = (qw($Revision$ ))[1];
+$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 # Make the "use_bytes" macro evaluate to C<use bytes;> in Perl on or
 # after 5.005_55.  Systems before then don't have the option, so the

@@ -10,7 +10,7 @@ package POE::Loop::PerlSignals;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = (qw($Revision$ ))[1];
+$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
