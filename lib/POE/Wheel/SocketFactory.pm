@@ -45,11 +45,11 @@ BEGIN {
 
     # Constants are evaluated first so they exist when the code uses
     # them.
-    eval( '*EADDRNOTAVAIL = sub () {  10049 };' .
-          '*EINPROGRESS   = sub () {  10036 };' .
-          '*EWOULDBLOCK   = sub () {  10035 };' .
-          '*F_GETFL       = sub () {      0 };' .
-          '*F_SETFL       = sub () {      0 };' .
+    eval( '*EADDRNOTAVAIL = sub { 10049 };' .
+          '*EINPROGRESS   = sub { 10036 };' .
+          '*EWOULDBLOCK   = sub { 10035 };' .
+          '*F_GETFL       = sub {     0 };' .
+          '*F_SETFL       = sub {     0 };' .
 
           # Garrett Goebel's patch to support non-blocking connect()
           # or MSWin32 follows.  His notes on the matter:
