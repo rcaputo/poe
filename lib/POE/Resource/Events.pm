@@ -85,6 +85,9 @@ sub _data_ev_enqueue {
     $self->loop_reset_time_watcher($time);
   }
 
+  # This is the counterpart to _data_ev_refcount_dec().  It's only
+  # used in one place, so it's not in its own function.
+
   $self->_data_ses_refcount_inc($session);
   $event_count{$session}++;
 
