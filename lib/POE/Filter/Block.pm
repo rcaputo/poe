@@ -3,17 +3,32 @@
 package POE::Filter::Block;
 
 use strict;
+use Carp qw(croak);
+
+sub BLOCK_SIZE     () { 0 }
+sub FRAMING_BUFFER () { 1 }
 
 #------------------------------------------------------------------------------
 
 sub new {
   my $type = shift;
+  croak "$type must be given an even number of parameters" if @_ & 1;
+  my %params = @_;
 
-  my $self = { blocksize      => abs(shift) || 512,
-               framing_buffer => ''
-             };
+  my $block_size =
+    ( (exists $params{BlockSize})
+      ? ( ($params{BlockSize} < 1)
+          ? 512
+          : $params{BlockSize}
+        )
+      : 512
+    );
 
-  bless $self, $type;
+  my $self =
+    bless [ $block_size,
+            '',
+          ], $type;
+
   $self;
 }
 
@@ -22,11 +37,12 @@ sub new {
 sub get {
   my ($self, $stream) = @_;
 
-  $self->{framing_buffer} .= join '', @{$stream};
+  $self->[FRAMING_BUFFER] .= join '', @{$stream};
 
   my @blocks;
-  while (length $self->{framing_buffer} >= $self->{blocksize}) {
-    push @blocks, substr($self->{framing_buffer}, 0, $self->{blocksize}, "");
+  while (length($self->[FRAMING_BUFFER]) >= $self->[BLOCK_SIZE]) {
+    push @blocks, substr($self->[FRAMING_BUFFER], 0, $self->[BLOCK_SIZE]);
+    substr($self->[FRAMING_BUFFER], 0, $self->[BLOCK_SIZE]) = '';
   }
 
   \@blocks;
@@ -44,8 +60,8 @@ sub put {
 
 sub get_pending {
   my $self = shift;
-  return unless $self->{framing_buffer};
-  [ $self->{framing_buffer ];
+  return unless $self->[FRAMING_BUFFER];
+  [ $self->[FRAMING_BUFFER] ];
 }
 
 ###############################################################################
@@ -59,7 +75,7 @@ POE::Filter::Block - POE Block Protocol Abstraction
 
 =head1 SYNOPSIS
 
-  $filter = new POE::Filter::Block(1024);
+  $filter = new POE::Filter::Block( BlockSize => 1024 );
   $arrayref_of_blocks =
     $filter->get($arrayref_of_raw_chunks_from_driver);
   $arrayref_of_streamable_chunks_for_driver =

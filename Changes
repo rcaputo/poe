@@ -16,14 +16,9 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 ,----- To Do -----
 |
-| Before 0.11
-|
-| Wheel::FollowTail test.
-| Filter::Block test.
-| Fix $kernel->fork() or take it out entirely.
-|
 | After 0.11
 |
+| Fix $kernel->fork() or take it out entirely.
 | Filter::HTTPD test.
 | Filter::Reference test.
 | Filter::Stream test.
@@ -43,6 +38,17 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 (!!!) Documented that $kernel->fork() was broken in 0.1006.
 
+Added Filter::Block to 00_coverage.t.
+
+Added t/14_wheels_ft.t to test Wheel::FollowTail and Filter::Block.
+
+FollowTail would go into an infinite loop while discarding initial
+data.  It wasn't checking drivers' get() methods' return values for
+emptiness.
+
+Driver::SysRW's get() method wasn't checking sysread's return value
+for definedness.
+
 Dieter Pearcey sent in a patch to FollowTail that lets programs
 specify how far to seek back into a file before tailing it.  When
 SeekBack is used, everything up to the current end of file is
@@ -51,6 +57,10 @@ samples/followtail.perl still works, which is encouraging.
 
 Dieter Pearcey also submitted Filter::Block, a fixed-length block
 filter.  This filter is not yet tested.
+
+Translated Filter::Block's internal object into an anonymous list
+reference.  This will be more efficient, and I understand Dieter's
+application may need it.
 
 Windows compatibility seems to have gone all to heck in this version.
 I'm not sure why, either, since I didn't do anything specific to

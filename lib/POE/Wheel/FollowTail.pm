@@ -58,6 +58,8 @@ sub new {
   # Discard partial input chunks unless a SeekBack was specified.
   unless (exists $params{SeekBack}) {
     while (defined(my $raw_input = $driver->get($handle))) {
+      # Skip out if there's no more input.
+      last unless @$raw_input;
       $filter->get($raw_input);
     }
   }
@@ -97,7 +99,7 @@ sub _define_states {
                                         # subroutine starts here
         my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
 
-        while (defined(my $raw_input = $driver->get($hdl))) {
+        if (defined(my $raw_input = $driver->get($hdl))) {
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
             $k->call($ses, $$event_input, $cooked_input);
           }

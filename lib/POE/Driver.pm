@@ -61,6 +61,8 @@ filehandle.  It returns a reference to an array of received data
 chunks.  The array may be empty if nothing could be read.  The array
 reference it returns is a suitable parameter to POE::Filter::get().
 
+get() returns undef on an error.
+
 Wheels usually call the get() method from their read select states.
 
 =item *

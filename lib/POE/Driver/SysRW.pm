@@ -71,7 +71,7 @@ sub get {
   my ($self, $handle) = @_;
 
   my $result = sysread($handle, my $buffer = '', $self->[BLOCK_SIZE]);
-  if ($result || ($! == EAGAIN)) {
+  if (defined $result and ($result || ($! == EAGAIN))) {
     $! = 0;
     [ $buffer ];
   }

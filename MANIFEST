@@ -72,3 +72,4 @@ t/10_wheels_tcp.t
 t/11_signals_poe.t
 t/12_signals_ev.t
 t/13_wheels_udp.t
+t/14_wheels_ft.t

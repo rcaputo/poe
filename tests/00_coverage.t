@@ -8,7 +8,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(11);
+&test_setup(12);
 
 sub load_optional_module {
   my ($test_number, $module) = @_;
@@ -51,9 +51,10 @@ sub load_required_module {
 &load_optional_module( 8, 'POE::Filter::Reference');
 &load_optional_module( 9, 'POE::Wheel::FollowTail');
 &load_optional_module(10, 'POE::Wheel::ListenAccept');
+&load_optional_module(11, 'POE::Filter::Block');
 
 # And one to grow on.
 
-print "ok 11\n";
+print "ok 12\n";
 
 exit;
