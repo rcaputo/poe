@@ -3241,16 +3241,43 @@ properly.
 
 =head1 SEE ALSO
 
-POE::Wheel, readline(3).
+POE::Wheel, readline(3), Term::ReadKey, Term::Visual.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
 =head1 BUGS
 
-=over 2
+POE::Wheel::ReadLine has some known issues:
 
-=item Non-optimal code
+=head2 Perl 5.8.0 is Broken
+
+Non-blocking input with Term::ReadKey does not work with Perl 5.8.0.
+The problem usually appears on Linux systems.  See:
+http://rt.cpan.org/Ticket/Display.html?id=4524 and all the tickets
+related to it.
+
+If you suspect your system is one where Term::ReadKey fails, you can
+run this test program to be sure.  If you can, upgrade Perl to fix it.
+If you can't upgrade Perl, consider alternative input methods, such as
+Term::Visual.
+
+  #!/usr/bin/perl
+  use Term::ReadKey;
+  print "Press 'q' to quit this test.\n";
+  ReadMode 5; # Turns off controls keys
+  while (1) {
+    while (not defined ($key = ReadKey(-1))) {
+      print "Didn't get a key.  Sleeping 1 second.\015\012";
+      sleep (1);
+    }
+    print "Got key: $key\015\012";
+    ($key eq 'q') and last;
+  }
+  ReadMode 0; # Reset tty mode before exiting
+  exit;
+
+=head2 Non-optimal code2
 
 Dissociating the input and display cursors introduced a lot of code.
 Much of this code was thrown in hastily, and things can probably be
@@ -3263,7 +3290,7 @@ all before or after the display.  Do it consistently for each handled
 keystroke, so that certain pairs of editing commands don't have extra
 perceived latency.
 
-=item Unimplemented features
+=head2 Unimplemented features
 
 Input editing is not kept on one line.  If it wraps, and a terminal
 cannot wrap back through a line division, the cursor will become lost.
@@ -3273,8 +3300,6 @@ Unicode, or at least European code pages.  I feel real bad about
 throwing away native representation of all the 8th-bit-set characters.
 I also have no idea how to do this, and I don't have a system to test
 this.  Patches are recommended.
-
-=back
 
 =head1 GOTCHAS / FAQ
 
