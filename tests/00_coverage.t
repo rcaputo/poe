@@ -23,6 +23,9 @@ sub load_optional_module {
   if ($reason =~ /Can\'t locate (.*?) in \@INC/) {
     $reason = "optional module $1 not installed";
   }
+  elsif ($reason =~ /Can\'t find a valid termcap file/) {
+    $reason = "Term::Cap can't find a valid termcap file";
+  }
 
   print( "ok $test_number",
          ( (length $reason) ? " # skipped: $reason" : '' ),
