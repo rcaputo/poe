@@ -16,16 +16,19 @@ use POSIX qw(fcntl_h errno_h);
 use Socket;
 use POE;
 
+sub CRIMSON_SCOPE_HACK ($) { 0 }
+
 #------------------------------------------------------------------------------
 
 sub condition_handle {
   my ($self, $handle, $reuse) = @_;
-
+                                        # fix DOSISHness
   binmode($handle);
                                         # do it the Win32 way
-  if ($^O eq '"MSWin32') {
+  if ($^O eq 'MSWin32') {
     my $set_it = "1";
-    ioctl($handle, 126, $set_it)
+                                        # 126 is FIONBIO
+    ioctl($handle, 126 | (ord('f')<<8) | (4<<16) | 0x80000000, $set_it)
       or return ['ioctl', $!+0, $!];
   }
                                         # do it the way everyone else does
@@ -65,11 +68,14 @@ sub register_listen_accept {
   my ($self, $listen_handle, $success_state, $failure_state) = @_;
 
   $poe_kernel->state
-    ( $self->{'state read'} = $self . ' -> select read',
+    ( $self->{'state accept'} = $self . ' -> select accept',
       sub {
+                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-        my $new_socket = gensym();
+        my $new_socket = gensym;
         my $peer = accept($new_socket, $handle);
 
         if ($peer) {
@@ -92,7 +98,7 @@ sub register_listen_accept {
       }
     );
 
-  $poe_kernel->select_read($listen_handle, $self->{'state read'});
+  $poe_kernel->select_read($listen_handle, $self->{'state accept'});
 }
 
 #------------------------------------------------------------------------------
@@ -101,18 +107,25 @@ sub register_connect {
   my ($self, $connect_handle, $success_state, $failure_state) = @_;
 
   $poe_kernel->state
-    ( $self->{'state write'} = $self . ' -> select write',
+    ( $self->{'state connect'} = $self . ' -> select connect',
       sub {
+                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
         $k->select($handle);
         $k->call($me, $success_state, $handle);
       }
     );
-  $poe_kernel->select_write($connect_handle, $self->{'state write'});
+
+  $poe_kernel->select_write($connect_handle, $self->{'state connect'});
 
 #   $poe_kernel->state
-#     ( $self->{'state read'} = $self . ' -> select read',
+#     ( $self->{'state connect'} = $self . ' -> select connect',
 #       sub {
+#                                        # prevents SEGV
+#         0 && CRIMSON_SCOPE_HACK('<');
+#                                        # subroutine starts here
 #         my ($k, $handle) = @_[KERNEL, ARG0];
 #         sysread($handle, my $buffer = '', 0, 0);
 #         if ($! && ($! != EINPROGRESS)) {
@@ -122,7 +135,7 @@ sub register_connect {
 #         }
 #       }
 #     );
-#   $poe_kernel->select_read($connect_handle, $self->{'state read'});
+#   $poe_kernel->select_read($connect_handle, $self->{'state connect'});
 }
 
 #------------------------------------------------------------------------------
@@ -135,8 +148,7 @@ sub new {
     unless (defined $poe_kernel);
 
   my $self = bless { }, $type;
-
-  my $socket_handle = gensym();
+  my $socket_handle = gensym;
 
   croak 'SuccessState required' unless (exists $params{'SuccessState'});
   croak 'FailureState required' unless (exists $params{'FailureState'});
@@ -259,7 +271,6 @@ sub new {
     }
 
     if ($protocol_name eq 'tcp') {
-
       if (exists $params{'ListenQueue'}) {
         my $listen_queue = $params{'ListenQueue'};
         ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
@@ -362,9 +373,14 @@ sub DESTROY {
     $poe_kernel->select($self->{'handle'});
   }
 
-  if (exists $self->{'state read'}) {
-    $poe_kernel->state($self->{'state read'});
-    delete $self->{'state read'};
+  if (exists $self->{'state accept'}) {
+    $poe_kernel->state($self->{'state accept'});
+    delete $self->{'state accept'};
+  }
+
+  if (exists $self->{'state connect'}) {
+    $poe_kernel->state($self->{'state connect'});
+    delete $self->{'state connect'};
   }
 }
 
