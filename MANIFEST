@@ -3,6 +3,9 @@ Changes
 MANIFEST
 Makefile.PL
 POE.pm
+POE/Attribute/Array.pm
+POE/Attribute/Hash.pm
+POE/Attribute/Scalar.pm
 POE/Curator.pm
 POE/Driver.pm
 POE/Driver/SysRW.pm
@@ -22,7 +25,6 @@ POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
 POE/Wheel/SocketFactory.pm
 README
-t/test.t
 samples/create.perl
 samples/fakelogin.perl
 samples/filterchange.perl
@@ -46,3 +48,4 @@ samples/socketfactory.perl
 samples/thrash.perl
 samples/tutorial-chat.perl
 samples/wheels.perl
+t/test.t

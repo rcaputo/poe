@@ -19,9 +19,7 @@ sub get {
   my ($self, $stream) = @_;
   $$self .= join('', @$stream);
   my @result;
-  while (
-         $$self =~ s/^([^\x0D\x0A]*)(\x0D\x0A?|\x0A\x0D?)//
-  ) {
+  while ($$self =~ s/^([^\x0D\x0A]*)(\x0D\x0A?|\x0A\x0D?)//) {
     push(@result, $1);
   }
   \@result;
