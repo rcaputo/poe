@@ -29,7 +29,7 @@ BEGIN {
   }
 };
 
-&test_setup(8);
+&test_setup(9);
 
 warn( "\n",
       "***\n",
@@ -81,8 +81,15 @@ sub io_start {
           InputState   => 'ev_pipe_read',
         );
 
+    # Toggle writability on the pipe for testing.
+    $kernel->select_read_pause( $a_read );
+    $kernel->select_read_resume( $a_read );
+
     # And a timer loop to test alarms.
     $kernel->delay( ev_pipe_write => 1 );
+
+    # Add a timer to time-out the test.
+    $kernel->delay( ev_timeout => 15 );
   }
 
   # And counters to monitor read/write progress.
@@ -219,6 +226,13 @@ sub io_postback {
   }
 }
 
+# The tests have timed out; close down.
+
+sub io_timeout {
+  my $heap = $_[HEAP];
+  delete $_[HEAP]->{pipe_wheel};
+}
+
 # Start the I/O session.
 
 POE::Session->create
@@ -230,6 +244,7 @@ POE::Session->create
       ev_idle_increment  => \&io_idle_increment,
       ev_timer_increment => \&io_timer_increment,
       ev_postback        => \&io_postback,
+      ev_timeout         => \&io_timeout,
     }
   );
 

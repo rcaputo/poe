@@ -89,6 +89,14 @@ between them, and things like that.  Patch applied, and I went through
 everything and cleaned up some trailing whitespace (none of it
 significant) just for kicks.
 
+Newton Brown found a bug in POE's Tk support, which turns out to be a
+known issue with Tk's fileevent mechanism.  Thanks to "good_call" via
+usenet news for pointing me at
+<http://www.xray.mpe.mpg.de/mailing-lists/ptk/2000-12/msg00060.html>,
+which explains fileevent's pitfalls and provides their work-arounds.
+
+Oh.  I added a test to t/06_tk.t to exercise the fileevent bug.
+
 
 0.1204 2001.01.13
 -----------------
