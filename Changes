@@ -95,6 +95,10 @@ update their programs.
 0.1207 2001.??.??
 -----------------
 
+Add ASSERT_USAGE.  Setting this POE::Kernel debugging constant causes
+it to check the values passed to its parameters and croak if they're
+bad.
+
 (!!!) David Huggins-Daines discovered that POE versions 0.1205 and
 later don't work with older Tk versions.  Make the Tk substrate fail
 if it's working with an older Perl-Tk library.
@@ -107,8 +111,8 @@ when using Gtk+, and it has a new method, signal_ui_destroy, which can
 be used to fire UIDESTROY when some arbitrary widget is destroyed.
 See the POE::Kernel documentation.
 
-Tk requires at least one widget to use the event loop, so it continues
-to create one and set $poe_main_window.
+Tk requires at least one widget to use the event loop, so POE::Kernel
+continues to create one and set $poe_main_window when Tk is in effect.
 
 (!!!) Depreciate support for coderefs in SocketFactory's SuccessState
 and FailureState parameters.
