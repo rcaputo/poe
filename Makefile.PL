@@ -3,8 +3,6 @@
 use strict;
 use ExtUtils::MakeMaker;
 
-warn $];
-
 eval "use 5.005_03";
 if ($@) {
   warn( "\n",
