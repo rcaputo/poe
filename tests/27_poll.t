@@ -7,6 +7,8 @@ use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
 
+#sub POE::Kernel::TRACE_SELECT () { 1 }
+
 BEGIN {
   eval 'use IO::Poll';
   test_setup(0, "need IO::Poll to test POE's support for that module")

@@ -1,4 +1,4 @@
-# $Id#
+# $Id$
 
 # IO::Poll substrate for POE::Kernel.  The theory is that this will be
 # faster for large scale applications.  This file is contributed by
@@ -28,10 +28,11 @@ BEGIN {
 sub POE_SUBSTRATE      () { SUBSTRATE_POLL      }
 sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_POLL }
 
-use IO::Poll qw(POLLRDNORM POLLWRNORM POLLIN POLLOUT POLLERR POLLHUP);
+use IO::Poll qw( POLLRDNORM POLLWRNORM POLLRDBAND
+                 POLLIN POLLOUT POLLERR POLLHUP
+               );
 
 sub MINIMUM_POLL_TIMEOUT () { 0 }
-sub POLL_ALL () { POLLIN | POLLOUT | POLLERR }
 
 #------------------------------------------------------------------------------
 # Signal handlers.
@@ -134,83 +135,91 @@ macro substrate_pause_time_watcher {
 }
 
 sub vec_to_poll {
-  return POLLIN  if $_[0] == VEC_RD;
-  return POLLOUT if $_[0] == VEC_WR;
-  return POLLERR if $_[0] == VEC_EX;
+  return POLLIN     if $_[0] == VEC_RD;
+  return POLLOUT    if $_[0] == VEC_WR;
+  return POLLRDBAND if $_[0] == VEC_EX;
   croak "unknown I/O vector $_[0]";
 }
 
 ### Filehandles.
 
 macro substrate_watch_filehandle (<fileno>,<vector>) {
-  # Cheat.  $handle comes from the user's scope.
-
   my $type = vec_to_poll(<vector>);
-  my $current = $POE::Kernel::Poll::KR_Poll->mask($handle) || 0;
+  my $current = $POE::Kernel::Poll::poll_fd_masks{<fileno>} || 0;
+  my $new = $current | $type;
 
   TRACE_SELECT and
     warn( sprintf( "Watch " . <fileno> .
-                   ": Current mask: 0x%02X - combine with 0x%02X = 0x%02X\n",
-                   $current, $type, $current | $type
+                   ": Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
+                   $current, $type, $new
                  )
         );
 
-  $POE::Kernel::Poll::KR_Poll->mask($handle, $current | $type);
+  $POE::Kernel::Poll::poll_fd_masks{<fileno>} = $new;
+
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_RUNNING;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
 }
 
 macro substrate_ignore_filehandle (<fileno>,<vector>) {
-  # Cheat.  $handle comes from the user's scope.
-
   my $type = vec_to_poll(<vector>);
-  my $current = $POE::Kernel::Poll::KR_Poll->mask($handle) || 0;
+  my $current = $POE::Kernel::Poll::poll_fd_masks{<fileno>} || 0;
   my $new = $current & ~$type;
 
   TRACE_SELECT and
     warn( sprintf( "Ignore ". <fileno> .
-                   ": Current mask: 0x%02X - combine with 0x%02X = 0x%02X\n",
+                   ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
 
-  $POE::Kernel::Poll::KR_Poll->mask($handle, $new);
+  if ($new) {
+    $POE::Kernel::Poll::poll_fd_masks{<fileno>} = $new;
+  }
+  else {
+    delete $POE::Kernel::Poll::poll_fd_masks{<fileno>};
+  }
+
   $kr_fno_vec->[FVC_ST_ACTUAL]  = HS_STOPPED;
   $kr_fno_vec->[FVC_ST_REQUEST] = HS_STOPPED;
 }
 
 macro substrate_pause_filehandle_watcher (<fileno>,<vector>) {
-  # Cheat.  $handle comes from the user's scope.
-
   my $type = vec_to_poll(<vector>);
-  my $current = $POE::Kernel::Poll::KR_Poll->mask($handle) || 0;
+  my $current = $POE::Kernel::Poll::poll_fd_masks{<fileno>} || 0;
   my $new = $current & ~$type;
 
   TRACE_SELECT and
     warn( sprintf( "Pause " . <fileno> .
-                   ": Current mask: 0x%02X - combine with 0x%02X = 0x%02X\n",
+                   ": Current mask: 0x%02X - removing 0x%02X = 0x%02X\n",
                    $current, $type, $new
                  )
         );
 
-  $POE::Kernel::Poll::KR_Poll->mask($handle, $new);
+  if ($new) {
+    $POE::Kernel::Poll::poll_fd_masks{<fileno>} = $new;
+  }
+  else {
+    delete $POE::Kernel::Poll::poll_fd_masks{<fileno>};
+  }
+
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_PAUSED;
 }
 
 macro substrate_resume_filehandle_watcher (<fileno>,<vector>) {
-  # Cheat.  $handle comes from the user's scope.
-
   my $type = vec_to_poll(<vector>);
-  my $current = $POE::Kernel::Poll::KR_Poll->mask($handle) || 0;
+  my $current = $POE::Kernel::Poll::poll_fd_masks{<fileno>} || 0;
+  my $new = $current | $type;
 
   TRACE_SELECT and
     warn( sprintf( "Resume " . <fileno> .
-                   ": Current mask: 0x%02X - combine with 0x%02X = 0x%02X\n",
-                   $current, $type, $current | $type
+                   ": Current mask: 0x%02X - including 0x%02X = 0x%02X\n",
+                   $current, $type, $new
                  )
         );
 
-  $POE::Kernel::Poll::KR_Poll->mask($handle, $current | $type);
+  $POE::Kernel::Poll::poll_fd_masks{<fileno>} = $new;
+
   $kr_fno_vec->[FVC_ST_ACTUAL] = HS_RUNNING;
 }
 
@@ -222,8 +231,7 @@ macro substrate_define_callbacks {
 # Main loop management.
 
 macro substrate_init_main_loop {
-  # Initialize the vectors as vectors.
-  $POE::Kernel::Poll::KR_Poll = IO::Poll->new();
+  %POE::Kernel::Poll::poll_fd_masks = ();
 }
 
 macro substrate_do_timeslice {
@@ -274,10 +282,10 @@ macro substrate_do_timeslice {
     }
   }
 
-  @filenos = $POE::Kernel::Poll::KR_Poll->handles();
+  @filenos = %POE::Kernel::Poll::poll_fd_masks;
 
   if (TRACE_SELECT) {
-    foreach (@filenos) {
+    foreach (sort { $a<=>$b} keys %POE::Kernel::Poll::poll_fd_masks) {
       my @types;
       push @types, "plain-file"        if -f;
       push @types, "directory"         if -d;
@@ -288,14 +296,11 @@ macro substrate_do_timeslice {
       push @types, "character-special" if -c;
       push @types, "tty"               if -t;
       my @modes;
-      my $flags = $POE::Kernel::Poll::KR_Poll->mask($_);
-      push @modes, 'r' if $flags & POLLIN;
-      push @modes, 'w' if $flags & POLLOUT;
-      push @modes, 'x' if $flags & POLLERR;
-      warn( "file handle $_ = fileno(" .
-            fileno($_) .
-            ") modes(@modes) types(@types)\n"
-          );
+      my $flags = $POE::Kernel::Poll::poll_fd_masks{$_};
+      push @modes, 'r' if $flags & (POLLIN | POLLHUP | POLLERR);
+      push @modes, 'w' if $flags & (POLLOUT | POLLHUP | POLLERR);
+      push @modes, 'x' if $flags & (POLLRDBAND | POLLHUP | POLLERR);
+      warn( "file descriptor $_ = modes(@modes) types(@types)\n" );
     }
   }
 
@@ -309,7 +314,7 @@ macro substrate_do_timeslice {
 
     if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
-      my $hits = $POE::Kernel::Poll::KR_Poll->poll($timeout);
+      my $hits = IO::Poll::_poll($timeout * 1000, @filenos);
 
       if (ASSERT_SELECT) {
         if ($hits < 0) {
@@ -338,62 +343,31 @@ macro substrate_do_timeslice {
 
         # This is where they're gathered.
 
-        my @rd_selects =
-          ( map { fileno($_) }
-            $POE::Kernel::Poll::KR_Poll->handles( POLLIN )
-          );
-        my @wr_selects =
-          ( map { fileno($_) }
-            $POE::Kernel::Poll::KR_Poll->handles( POLLOUT )
-          );
-        my @ex_selects =
-          ( map { fileno($_) }
-            $POE::Kernel::Poll::KR_Poll->handles( POLLERR )
-          );
+        while (@filenos) {
+          my ($fd, $got_mask) = splice(@filenos, 0, 2);
+          next unless $got_mask;
 
-        if (TRACE_SELECT) {
-          if (@rd_selects) {
-            warn( "found pending rd selects: ",
-                  join( ', ', sort { $a <=> $b } @rd_selects ),
-                  "\n"
-                );
+          my $watch_mask = $POE::Kernel::Poll::poll_fd_masks{$fd};
+          if ( $watch_mask & POLLIN and
+               $got_mask & (POLLIN | POLLHUP | POLLERR)
+             ) {
+            TRACE_SELECT and warn "enqueuing read for fileno $fd\n";
+            {% enqueue_ready_selects $fd, VEC_RD %}
           }
-          if (@wr_selects) {
-            warn( "found pending wr selects: ",
-                  join( ', ', sort { $a <=> $b } @wr_selects ),
-                  "\n"
-                );
+
+          if ( $watch_mask & POLLOUT and
+               $got_mask & (POLLOUT | POLLHUP | POLLERR)
+             ) {
+            TRACE_SELECT and warn "enqueuing write for fileno $fd\n";
+            {% enqueue_ready_selects $fd, VEC_WR %}
           }
-          if (@ex_selects) {
-            warn( "found pending ex selects: ",
-                  join( ', ', sort { $a <=> $b } @ex_selects ),
-                  "\n"
-                );
+
+          if ( $watch_mask & POLLRDBAND and
+               $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
+             ) {
+            TRACE_SELECT and warn "enqueuing expedite for fileno $fd\n";
+            {% enqueue_ready_selects $fd, VEC_EX %}
           }
-        }
-
-        # IO::Poll often returns a $hits that doesn't match the number
-        # of handles that handles() returns.  This ASSERT_SELECT has
-        # been disabled since it's not true for IO::Poll.
-        if (0 && ASSERT_SELECT) {
-          unless (@rd_selects or @wr_selects or @ex_selects) {
-            die "found no selects, with $hits hits from poll???\a\n";
-          }
-        }
-
-        # Enqueue the gathered selects, and flag them as temporarily
-        # paused.  They'll resume after dispatch.
-
-        foreach my $fileno (@rd_selects) {
-          {% enqueue_ready_selects $fileno, VEC_RD %}
-        }
-
-        foreach my $fileno (@wr_selects) {
-          {% enqueue_ready_selects $fileno, VEC_WR %}
-        }
-
-        foreach my $fileno (@ex_selects) {
-          {% enqueue_ready_selects $fileno, VEC_EX %}
         }
       }
     }
