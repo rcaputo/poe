@@ -52,7 +52,7 @@ sub new {
         if (defined $writes_pending) {
           unless ($writes_pending) {
             $k->select_write($handle);
-            $k->post($me, $state_flushed);
+            (defined $state_flushed) && $k->post($me, $state_flushed);
           }
         }
         elsif ($!) {
