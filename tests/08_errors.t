@@ -65,6 +65,8 @@ BEGIN {
 
         F_GETFL F_SETFL EINPROGRESS EWOULDBLOCK
 
+        RUNNING_IN_HELL
+
         import signal_ui_destroy
       );
 
