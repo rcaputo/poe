@@ -148,6 +148,24 @@ That's madness.
 
 So this needs a redesign and a depreciation schedule.
 
+----------------------------------------------------
+The POE Community Wants a Bigger Hand in Development
+----------------------------------------------------
+
+The YAPC 2001 POE BOF agreed that its members want a bigger part in
+the project's development.  This is great!  It should reduce my
+workload and generally expand POE knowledge across a larger group of
+people.  If I get hit by a passing blimp, life goes on without me.
+
+For such a group to remain organized, however, I feel the need to
+codify the goals and heuristics that guide my own development.
+Certainly these would just be guidelines.  Evolution happens, and they
+may change over time as the project continues to grow up, but it's a
+good idea to know going into it what's expected to come out of it.
+
+So, what am I trying to do here?  What are the decision priorities
+when making trade-offs?  Where do I want to go today?
+
 ----------------------------------------
 Filter Changing Flawed As Designed (!!!)
 ----------------------------------------
