@@ -40,7 +40,12 @@ sub loop_initialize {
 
   # Must Gnome->init() yourselves, as it takes parameters.
   unless (exists $INC{'Gnome.pm'}) {
-    Gtk->init();
+    my $res = Gtk->init_check();
+    if(defined $res) {
+      Gtk->init();
+    } else {
+      POE::Kernel::_die "Gtk initialization failed. Chances are it couldn't connect to a display. Of course, Gtk doesn't put its error message anywhere I can find so we can't be more specific here.";
+    }
   }
 }
 

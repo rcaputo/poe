@@ -11,6 +11,11 @@ use Symbol;
 
 use TestSetup;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+
+
 # Skip if Gtk isn't here.
 BEGIN {
   eval 'use Gtk';
@@ -29,6 +34,20 @@ BEGIN {
   }
 };
 
+# Check if Gtk can connect to a display and do its usual init type things
+# Skip if gtk finds a problem with the setup
+BEGIN {
+  eval {
+    require POE::Kernel;
+  };
+  if ($@ and $@ =~ /initialization failed/) {
+    test_setup(0, "Gtk initialization failed. Probably can't connect to a display.");
+  } else {
+      warn "unknown error: $@";
+  }
+}
+
+
 &test_setup(10);
 
 warn( "\n",
@@ -36,11 +55,6 @@ warn( "\n",
       "*** Please note: This test will pop up a window.\n",
       "***\n",
     );
-
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
-
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW Pipe::OneWay);
 
 # How many things to push through the pipe.
