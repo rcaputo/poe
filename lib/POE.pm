@@ -114,10 +114,19 @@ POE - perl application kernel with event driven threads
   $poe_kernel->run();
   exit;
 
-=head1 DESCRIPTION
+=head1 QUICK LINKS
 
 Please see the SEE ALSO section for conceptual summary of all POE's
 documentation.
+
+Please see the samples directory in POE's distribution for several
+well-commented sample and tutorial programs.
+
+Please see <http://www.perl.com/pub/2001/01/poe.html> for an
+excellent, and more importantly: gradual, introduction to POE.  If
+this manpage doesn't make sense, perhaps the introduction will.
+
+=head1 DESCRIPTION
 
 POE is an acronym of "Persistent Object Environment".  It originally
 was designed as the core of a persistent object server and runtime
