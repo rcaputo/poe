@@ -33,9 +33,15 @@ BEGIN {
 
 use Errno qw(EINPROGRESS EWOULDBLOCK EINTR);
 
-use IO::Poll qw( POLLRDNORM POLLWRNORM POLLRDBAND
-                 POLLIN POLLOUT POLLERR POLLHUP
-               );
+use IO::Poll qw(
+  POLLRDNORM POLLWRNORM POLLRDBAND POLLIN POLLOUT POLLERR POLLHUP
+);
+
+# Define POLLRDBAND if we don't have one.
+BEGIN {
+  eval "sub POLLRDBAND () { 128 }" unless defined &POLLRDBAND;
+  die if $@;
+}
 
 sub MINIMUM_POLL_TIMEOUT () { 0 }
 
@@ -235,8 +241,8 @@ sub loop_do_timeslice {
       push @types, "tty"               if -t;
       my @modes;
       my $flags = $poll_fd_masks{$_};
-      push @modes, 'r' if $flags & (POLLIN | POLLHUP | POLLERR);
-      push @modes, 'w' if $flags & (POLLOUT | POLLHUP | POLLERR);
+      push @modes, 'r' if $flags & (POLLIN     | POLLHUP | POLLERR);
+      push @modes, 'w' if $flags & (POLLOUT    | POLLHUP | POLLERR);
       push @modes, 'x' if $flags & (POLLRDBAND | POLLHUP | POLLERR);
       POE::Kernel::_warn(
         "<fh> file descriptor $_ = modes(@modes) types(@types)\n"
