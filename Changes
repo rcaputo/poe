@@ -23,6 +23,19 @@ Added UDP testing to samples/socketfactory.perl.
 Addi found a bareword warning in samples/udp.perl; I renamed
 $heap->{socket} to $heap->{socket_handle} to avoid it.
 
+mstevens pointed out a similar bareword warning in samples/poing.perl;
+I renamed $heap->{socket} to $heap->{socket_handle} to avoid it there,
+too.  Added -T to the #! line in poing.perl since it wants to run as
+root.
+
+All the sample programs use -I.. on the #! line instead of use lib
+'..' in the code.  This is problematic on 5.004_04 systems (thanks
+again, mstevens), so I've fixed them to use lib '..' instead.
+
+Fixed samples/poing.perl to be more permissive with the environment
+variables that define terminal height and width.  If they can't be
+found, the terminal is assumed to be 80 columns and/or 25 rows.
+
 
 0.0805 2000.01.05
 -----------------
