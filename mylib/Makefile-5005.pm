@@ -3,6 +3,7 @@
 
 use strict;
 
+use lib qw(./lib);
 use ExtUtils::MakeMaker;
 
 eval "require ExtUtils::AutoInstall";
@@ -17,7 +18,7 @@ if ($@) {
         "==================================================================\n",
         "\n",
       );
-  eval "require './lib/AutoInstall.pm'";
+  eval "require './lib/ExtUtils/AutoInstall.pm'";
   die if $@;
 }
 
