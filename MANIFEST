@@ -13,6 +13,7 @@ POE/Session.pm
 POE/Wheel.pm
 POE/Driver/SysRW.pm
 POE/Filter/Line.pm
+POE/Filter/Reference.pm
 POE/Wheel/FollowTail.pm
 POE/Wheel/ListenAccept.pm
 POE/Wheel/ReadWrite.pm
@@ -21,6 +22,8 @@ tests/forkbomb.perl
 tests/names.perl
 tests/objsessions.perl
 tests/proxy.perl
+tests/refsender.perl
+tests/refserver.perl
 tests/selects.perl
 tests/sessions.perl
 tests/signals.perl
