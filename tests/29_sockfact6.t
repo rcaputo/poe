@@ -28,6 +28,10 @@ use POE qw( Component::Client::TCP Component::Server::TCP );
 
 my $tcp_server_port = 31909;
 
+test_setup(0,"Network access (and permission) required to run this test")
+    unless -f 'run_network_tests';
+
+
 # Congratulations! We made it this far!
 test_setup(5);
 ok(1);

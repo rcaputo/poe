@@ -11,14 +11,19 @@ use lib qw(./mylib ../mylib ../lib ./lib);
 use Data::Dumper;
 
 BEGIN {
-    eval " use HTTP::Request; use HTTP::Request::Common; ";
-    if($@) {
-        eval " use Test::More skip_all => 'HTTP::Request is needed for these tests.' ";
-    } else {
-        eval {
-            eval " use Test::More tests => 56; ";
-            use_ok('POE::Filter::HTTPD');
+    if (-f 'run_network_tests') {
+        eval " use HTTP::Request; use HTTP::Request::Common; ";
+        if($@) {
+            eval " use Test::More skip_all => 'HTTP::Request is needed for these tests.' ";
+        } else {
+            eval {
+                eval " use Test::More tests => 56; ";
+                use_ok('POE::Filter::HTTPD');
+            }
         }
+    } else {
+        eval "use Test::More skip_all => 'Need network access (and permission) for these tests'";
+        exit;
     }
 }
 

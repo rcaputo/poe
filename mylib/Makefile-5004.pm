@@ -68,7 +68,7 @@ WriteMakefile(
   },
   PL_FILES    => { },
   clean => {
-    FILES => 'poe_report.xml test-output.err coverage.report',
+    FILES => 'poe_report.xml test-output.err coverage.report run_network_tests',
   }
 );
 

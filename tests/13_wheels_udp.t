@@ -17,6 +17,10 @@ use POE qw( Wheel::SocketFactory );
 
 my $max_send_count = 10;
 
+test_setup(0,"Network access (and permission) required to run this test")
+    unless -f 'run_network_tests';
+
+
 # Congratulations! We made it this far!
 test_setup(13);
 

@@ -15,6 +15,9 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use POE qw(Wheel::ListenAccept Wheel::SocketFactory);
 
+test_setup(0,"Need network access (and permission) to run these tests")
+    unless -f 'run_network_tests';
+
 &test_setup(4);
 
 ### A listening session.

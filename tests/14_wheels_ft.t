@@ -14,6 +14,9 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
+test_setup(0,"Need network access (and permission) for these tests")
+    unless -f 'run_network_tests';
+
 test_setup(9);
 
 use POE qw( Component::Server::TCP

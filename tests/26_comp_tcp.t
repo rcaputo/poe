@@ -7,6 +7,10 @@ use strict;
 use lib qw(./mylib ../mylib ../lib ./lib);
 use TestSetup;
 
+test_setup(0,"Network access (and permission) required to run this test")
+    unless -f 'run_network_tests';
+
+
 test_setup(18);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

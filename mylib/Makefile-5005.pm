@@ -177,7 +177,7 @@ WriteMakefile(
   test           => { TESTS => 't/*/*.t t/*.t' },
 
   clean          => {
-      FILES => 'poe_report.xml test-output.err coverage.report',
+      FILES => 'poe_report.xml test-output.err coverage.report run_network_tests',
   },
 
   # More for META.yml than anything.
