@@ -42,9 +42,7 @@ BEGIN {
   };
   if ($@ and $@ =~ /initialization failed/) {
     test_setup(0, "Gtk initialization failed. Probably can't connect to a display.");
-  } else {
-      warn "unknown error: $@";
-  }
+  } 
 }
 
 
