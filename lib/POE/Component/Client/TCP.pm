@@ -229,11 +229,13 @@ sub new {
         },
 
         shutdown => sub {
-          my $heap = $_[HEAP];
+          my ($kernel, $heap) = @_[KERNEL, HEAP];
           $heap->{shutdown} = 1;
 
-          $_[KERNEL]->alarm_remove( delete $heap->{ctimeout_id} )
+          $kernel->alarm_remove( delete $heap->{ctimeout_id} )
             if exists $heap->{ctimeout_id};
+
+          $kernel->alias_remove($alias) if defined $alias;
 
           if ($heap->{connected}) {
             if (defined $heap->{server}) {
