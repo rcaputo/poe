@@ -49,6 +49,7 @@ t/08_errors.t     is data
 
 # Soft dependencies are the exception.  Set them explicitly.
 
+POE::Kernel::Tk        wants Tk                 800.021
 POE::Kernel            wants Time::HiRes
 POE::Filter::Reference wants FreezeThaw
 POE::Filter::Reference wants Compress::Zlib

@@ -47,15 +47,19 @@ sub FS_UNKNOWN    () { 0x0080 } # file status: unknown (prevents dep. loops)
 sub FS_OK         () { 0x0100 } # file status: ok
 sub FS_BAD        () { 0x0200 } # file status: bad
 sub FS_IMPAIRED   () { 0x0400 } # file status: impaired
-sub FS_ANY        () { FS_UNKNOWN | FS_OK | FS_BAD | FS_IMPAIRED }
+sub FS_OUTDATED   () { 0x0800 } # file status: dependency is too old
+sub FS_ANY        () { FS_UNKNOWN | FS_OK | FS_BAD |
+                       FS_IMPAIRED | FS_OUTDATED
+                     }
 
 sub DT_WANTS      () { 0x0800 } # dependency type: soft
 sub DT_NEEDS      () { 0x1000 } # dependency type: hard
 sub DT_ANY        () { DT_WANTS | DT_NEEDS }
 
-sub RULE_USER_MASK () { 0 }
-sub RULE_TYPE      () { 1 }
-sub RULE_DEP_MASK  () { 2 }
+sub RULE_USER_MASK   () { 0 }
+sub RULE_TYPE        () { 1 }
+sub RULE_DEP_MASK    () { 2 }
+sub RULE_DEP_VERSION () { 3 }
 
 my %module_type =
   ( core      => FT_CORE,
@@ -74,6 +78,7 @@ my @dep_rules =
   ( [ '.*',                     # RULE_USER_MASK
       $dependency_type{needs},  # RULE_TYPE
       '.*',                     # RULE_DEP_MASK
+      0,                        # RULE_DEP_VERSION
     ],
   );
 
@@ -98,12 +103,20 @@ if (open(NEEDS, "<NEEDS")) {
             ]
           );
     }
-    elsif (/^\s*(\S+)\s+(wants|needs|prefers)\s+(\S+)\s*(?:\#.*)?$/) {
-      my ($user_mask, $dep_type, $usee_mask) = ($1, $2, $3);
+    elsif (/^ \s* (\S+)
+              \s+ (wants|needs|prefers)
+              \s+ (\S+)
+              \s* ([0-9\_\.]*)
+              \s* (?:\#.*)?
+           $/x
+          ) {
+      my ($user_mask, $dep_type, $usee_mask, $version) = ($1, $2, $3, $4);
+      $version = 0 unless defined $version and length $version;
       push( @dep_rules,
             [ &mask_to_regexp($user_mask),  # RULE_USER_MASK
               $dependency_type{$dep_type},  # RULE_DEP_TYPE
               &mask_to_regexp($usee_mask),  # RULE_DEP_MASK
+              $version,                     # RULE_DEP_VERSION
             ]
           );
     }
@@ -147,6 +160,16 @@ sub dep_type {
     $dep_type = $dep_rule->[RULE_TYPE];
   }
   return $dep_type;
+}
+
+# Determine a dependency version.  Make a hash, or use masks properly?
+sub dep_version {
+  my $usee = quotemeta(shift);
+  foreach my $dep_rule (@dep_rules) {
+    next unless $dep_rule->[RULE_DEP_MASK] eq $usee;
+    return $dep_rule->[RULE_DEP_VERSION];
+  }
+  return 0;
 }
 
 #------------------------------------------------------------------------------
@@ -243,7 +266,20 @@ sub build_dependency_tree {
         my $file_type;
 
         if (File::Spec->file_name_is_absolute($inc_file)) {
-          $file_type = FO_EXTERNAL | FS_OK;
+          $file_type = FO_EXTERNAL;
+
+          # If it's an outdated dependency, then it's bad.
+          my $dependency_version = eval "\$" . $file_key . '::VERSION';
+          $dependency_version = 0
+            unless defined $dependency_version and length $dependency_version;
+
+          if ($dependency_version < dep_version($file_key)) {
+            $file_type |= FS_OUTDATED;
+          }
+          else {
+            $file_type |= FS_OK;
+          }
+
           if ($inc_file =~ /^$is_core_regexp$/) {
             $file_type |= FT_CORE;
           }
@@ -320,7 +356,7 @@ sub build_dependency_tree {
 
     while ($code =~ / (?<!\w\s)
                       \b (use|require) \s+ (\S+)
-                      (?: \s* (?:qw\(|['"]) \s* (.+?) \s* [\)'"] )?
+                      (?: \s* (?:qw\(|[\'\"]) \s* (.+?) \s* [\)\'\"] )?
                     /gx
           )
     {
@@ -449,7 +485,7 @@ sub gather_leaves {
     foreach my $child_key (sort keys %{$parent->[NODE_CHILDREN]}) {
       my $child_status = $dep_node{$child_key}->[NODE_TYPE];
       next if     $child_status & FO_INTERNAL;
-      next unless $child_status & FS_BAD;
+      next if     $child_status & FS_OK;
       next unless $parent->[NODE_CHILDREN]->{$child_key} & $dep_must_be;
       push( @found_children, $child_key );
     }
