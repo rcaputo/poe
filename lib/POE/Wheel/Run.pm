@@ -53,29 +53,31 @@ BEGIN {
 
 # Offsets into $self.
 sub UNIQUE_ID     () {  0 }
-sub DRIVER        () {  1 }
-sub ERROR_EVENT   () {  2 }
-sub CLOSE_EVENT   () {  3 }
-sub PROGRAM       () {  4 }
-sub CHILD_PID     () {  5 }
-sub CONDUIT_TYPE  () {  6 }
-sub IS_ACTIVE     () {  7 }
+sub ERROR_EVENT   () {  1 }
+sub CLOSE_EVENT   () {  2 }
+sub PROGRAM       () {  3 }
+sub CHILD_PID     () {  4 }
+sub CONDUIT_TYPE  () {  5 }
+sub IS_ACTIVE     () {  6 }
 
-sub HANDLE_STDIN  () {  8 }
-sub FILTER_STDIN  () {  9 }
+sub HANDLE_STDIN  () {  7 }
+sub FILTER_STDIN  () {  8 }
+sub DRIVER_STDIN  () {  9 }
 sub EVENT_STDIN   () { 10 }
 sub STATE_STDIN   () { 11 }
 sub OCTETS_STDIN  () { 12 }
 
 sub HANDLE_STDOUT () { 13 }
 sub FILTER_STDOUT () { 14 }
-sub EVENT_STDOUT  () { 15 }
-sub STATE_STDOUT  () { 16 }
+sub DRIVER_STDOUT () { 15 }
+sub EVENT_STDOUT  () { 16 }
+sub STATE_STDOUT  () { 17 }
 
-sub HANDLE_STDERR () { 17 }
-sub FILTER_STDERR () { 18 }
-sub EVENT_STDERR  () { 19 }
-sub STATE_STDERR  () { 20 }
+sub HANDLE_STDERR () { 18 }
+sub FILTER_STDERR () { 19 }
+sub DRIVER_STDERR () { 20 }
+sub EVENT_STDERR  () { 21 }
+sub STATE_STDERR  () { 22 }
 
 # Used to work around a bug in older perl versions.
 sub CRIMSON_SCOPE_HACK ($) { 0 }
@@ -120,11 +122,18 @@ sub new {
             defined($stderr_event)
           );
 
+  my $stdio_driver  = delete $params{StdioDriver}
+    || POE::Driver::SysRW->new();
+  my $stdin_driver  = delete $params{StdinDriver}  || $stdio_driver;
+  my $stdout_driver = delete $params{StdoutDriver} || $stdio_driver;
+  my $stderr_driver = delete $params{StderrDriver}
+    || POE::Driver::SysRW->new();
+
+  my $stdio_filter  = delete $params{Filter};
   my $stdin_filter  = delete $params{StdinFilter};
   my $stdout_filter = delete $params{StdoutFilter};
   my $stderr_filter = delete $params{StderrFilter};
 
-  my $stdio_filter = delete $params{Filter};
   if (defined $stdio_filter) {
     croak "Filter and StdioFilter cannot be used together"
       if defined $params{StdioFilter};
@@ -358,7 +367,6 @@ sub new {
 
   my $self = bless
     [ &POE::Wheel::allocate_wheel_id(),  # UNIQUE_ID
-      POE::Driver::SysRW->new(),         # DRIVER
       $error_event,   # ERROR_EVENT
       $close_event,   # CLOSE_EVENT
       $program,       # PROGRAM
@@ -368,17 +376,20 @@ sub new {
       # STDIN
       $stdin_write,   # HANDLE_STDIN
       $stdin_filter,  # FILTER_STDIN
+      $stdin_driver,  # DRIVER_STDIN
       $stdin_event,   # EVENT_STDIN
       undef,          # STATE_STDIN
       0,              # OCTETS_STDIN
       # STDOUT
       $stdout_read,   # HANDLE_STDOUT
       $stdout_filter, # FILTER_STDOUT
+      $stdout_driver, # DRIVER_STDOUT
       $stdout_event,  # EVENT_STDOUT
       undef,          # STATE_STDOUT
       # STDERR
       $stderr_read,   # HANDLE_STDERR
       $stderr_filter, # FILTER_STDERR
+      $stderr_driver, # DRIVER_STDERR
       $stderr_event,  # EVENT_STDERR
       undef,          # STATE_STDERR
     ], $type;
@@ -405,7 +416,7 @@ sub _define_stdin_flusher {
   # Read-only members.  If any of these change, then the write state
   # is invalidated and needs to be redefined.
   my $unique_id     = $self->[UNIQUE_ID];
-  my $driver        = $self->[DRIVER];
+  my $driver        = $self->[DRIVER_STDIN];
   my $error_event   = \$self->[ERROR_EVENT];
   my $close_event   = \$self->[CLOSE_EVENT];
   my $stdin_filter  = $self->[FILTER_STDIN];
@@ -470,7 +481,7 @@ sub _define_stdout_reader {
     # If any of these change, then the read state is invalidated and
     # needs to be redefined.
     my $unique_id     = $self->[UNIQUE_ID];
-    my $driver        = $self->[DRIVER];
+    my $driver        = $self->[DRIVER_STDOUT];
     my $error_event   = \$self->[ERROR_EVENT];
     my $close_event   = \$self->[CLOSE_EVENT];
     my $stdout_filter = $self->[FILTER_STDOUT];
@@ -527,7 +538,7 @@ sub _define_stderr_reader {
     # If any of these change, then the read state is invalidated and
     # needs to be redefined.
     my $unique_id     = $self->[UNIQUE_ID];
-    my $driver        = $self->[DRIVER];
+    my $driver        = $self->[DRIVER_STDERR];
     my $error_event   = \$self->[ERROR_EVENT];
     my $close_event   = \$self->[CLOSE_EVENT];
     my $stderr_filter = $self->[FILTER_STDERR];
@@ -660,7 +671,7 @@ sub DESTROY {
 sub put {
   my ($self, @chunks) = @_;
   if ( $self->[OCTETS_STDIN] =
-       $self->[DRIVER]->put($self->[FILTER_STDIN]->put(\@chunks))
+       $self->[DRIVER_STDIN]->put($self->[FILTER_STDIN]->put(\@chunks))
   ) {
     $poe_kernel->select_resume_write($self->[HANDLE_STDIN]);
   }
@@ -697,7 +708,7 @@ sub get_driver_out_octets {
 }
 
 sub get_driver_out_messages {
-  $_[0]->[DRIVER]->get_out_messages_buffered();
+  $_[0]->[DRIVER_STDIN]->get_out_messages_buffered();
 }
 
 sub ID {
@@ -741,13 +752,21 @@ POE::Wheel::Run - event driven fork/exec with added value
     StdoutEvent => 'stdout', # Event to emit with child stdout information.
     StderrEvent => 'stderr', # Event to emit with child stderr information.
 
-    # Set StdinFilter and StdoutFilter together.
-    StdioFilter => POE::Filter::Line->new(),    # Or some other filter.
-
-    # May also specify filters per handle.
+    # Specify different I/O formats.
     StdinFilter  => POE::Filter::Line->new(),   # Child accepts input as lines.
     StdoutFilter => POE::Filter::Stream->new(), # Child output is a stream.
     StderrFilter => POE::Filter::Line->new(),   # Child errors are lines.
+
+    # Set StdinFilter and StdoutFilter together.
+    StdioFilter => POE::Filter::Line->new(),    # Or some other filter.
+
+    # Optionally specify different I/O methods.
+    StdinDriver  => POE::Driver::SysRW->new(),  # Defaults to SysRW.
+    StdoutDriver => POE::Driver::SysRW->new(),  # Same.
+    StderrDriver => POE::Driver::SysRW->new(),  # Same.
+
+    # Optionally specify both StdinDriver and StdoutDriver together.
+    StdioDriver  => POE::Driver::SysRW->new(),
   );
 
   print "Unique wheel ID is  : ", $wheel->ID;
@@ -785,6 +804,20 @@ C<Conduit> describes how Wheel::Run should talk with the child
 process.  It may either be 'pipe' (the default), or 'pty'.
 
 Pty conduits require the IO::Pty module.
+
+=item StdioDriver
+
+=item StdinDriver
+
+=item StdoutDriver
+
+=item StderrDriver
+
+These parameters change the drivers for Wheel::Run.  The default
+drivers are created internally with C<<POE::Driver::SysRW->new()>>.
+
+C<StdioDriver> changes both C<StdinDriver> and C<StdoutDriver> at the
+same time.
 
 =item CloseEvent
 
