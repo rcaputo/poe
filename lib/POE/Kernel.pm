@@ -113,14 +113,27 @@ macro alias_resolve (<name>) {
   )
 }
 
+macro gc_mark(<session>) {
+  $self->[KR_GC_MARKS]->{<session>} = $session;
+}
+
+macro gc_clear(<session>) {
+  delete $self->[KR_GC_MARKS]->{<session>};
+}
+
+macro gc_sweep {
+}
+
 macro collect_garbage (<session>) {
-  if ( (<session> != $self)
-       and (exists $self->[KR_SESSIONS]->{<session>})
-       and (!$self->[KR_SESSIONS]->{<session>}->[SS_REFCOUNT])
-     ) {
+  if (<session> != $self) {
     TRACE_GARBAGE and $self->trace_gc_refcount(<session>);
     ASSERT_GARBAGE and $self->assert_gc_refcount(<session>);
-    $self->session_free(<session>);
+
+    if ( (exists $self->[KR_SESSIONS]->{<session>})
+         and (!$self->[KR_SESSIONS]->{<session>}->[SS_REFCOUNT])
+       ) {
+      $self->session_free(<session>);
+    }
   }
 }
 
@@ -163,7 +176,8 @@ macro test_resolve (<name>,<resolved>) {
 macro test_for_idle_poe_kernel {
   unless ( @{$self->[KR_STATES]} or
            @{$self->[KR_ALARMS]} or
-           %{$self->[KR_HANDLES]}
+           %{$self->[KR_HANDLES]} or
+           $self->[KR_EXTRA_REFS]
          ) {
     $self->_enqueue_state( $self, $self,
                            EN_SIGNAL, ET_SIGNAL,
@@ -371,7 +385,8 @@ enum   SH_HANDLE SH_REFCOUNT SH_VECCOUNT
 # The Kernel object.  KR_SIZE goes last (it's the index count).
 enum   KR_SESSIONS KR_VECTORS KR_HANDLES KR_STATES KR_SIGNALS KR_ALIASES
 enum + KR_ACTIVE_SESSION KR_PROCESSES KR_ALARMS KR_ID KR_SESSION_IDS
-enum + KR_ID_INDEX KR_WATCHER_TIMER KR_WATCHER_IDLE KR_SIZE
+enum + KR_ID_INDEX KR_WATCHER_TIMER KR_WATCHER_IDLE KR_EXTRA_REFS
+enum + KR_GC_MARKS KR_SIZE
 
 # Handle structure.
 enum HND_HANDLE HND_REFCOUNT HND_VECCOUNT HND_SESSIONS HND_FILENO HND_WATCHERS
@@ -486,6 +501,8 @@ const FIFO_DISPATCH_TIME 0.01
 # };
 #
 # names: { $name => $session };
+#
+# gc marks: { $session => $session };
 #
 #------------------------------------------------------------------------------
 
@@ -628,11 +645,16 @@ sub new {
     if (defined $poe_tk_main_window) {
       $poe_tk_main_window->OnDestroy
         ( sub {
-            $poe_kernel->_dispatch_state
-              ( $poe_kernel, $poe_kernel,
-                EN_SIGNAL, ET_SIGNAL, [ 'TKDESTROY' ],
-                time(), __FILE__, __LINE__, undef
-              );
+            # Don't bother broadcasting TKDESTROY if there are no
+            # sessions remaining.  This is the case when POE exits
+            # before its main window.
+            if (keys %{$poe_kernel->[KR_SESSIONS]}) {
+              $poe_kernel->_dispatch_state
+                ( $poe_kernel, $poe_kernel,
+                  EN_SIGNAL, ET_SIGNAL, [ 'TKDESTROY' ],
+                  time(), __FILE__, __LINE__, undef
+                );
+            }
           }
         );
     }
@@ -967,7 +989,10 @@ sub _dispatch_state {
   }
 
   TRACE_EVENTS and do {
-    warn ">>> dispatching $state to ", {% ssid %}, "\n";
+    warn ">>> dispatching $state to $session ", {% ssid %}, "\n";
+    if ($state eq EN_SIGNAL) {
+      warn ">>>     signal($etc->[0])\n";
+    }
   };
 
   # Prepare to call the appropriate state.  Push the current active
@@ -1068,9 +1093,7 @@ sub _dispatch_state {
       my $index = @$states;
       while ($index-- && $sessions->{$session}->[SS_EVCOUNT]) {
         if ($states->[$index]->[ST_SESSION] == $session) {
-
           {% ses_refcount_dec2 $session, SS_EVCOUNT %}
-
           splice(@$states, $index, 1);
         }
       }
@@ -1081,9 +1104,7 @@ sub _dispatch_state {
       $index = @$alarms;
       while ($index-- && $sessions->{$session}->[SS_ALCOUNT]) {
         if ($alarms->[$index]->[ST_SESSION] == $session) {
-
           {% ses_refcount_dec2 $session, SS_ALCOUNT %}
-
           splice(@$alarms, $index, 1);
         }
       }
@@ -1791,18 +1812,19 @@ sub session_free {
                           [],
                           time(), __FILE__, __LINE__, undef
                         );
-
-  # Is this necessary?  Shouldn't the session already be stopped?
-  {% collect_garbage $session %}
 }
 
 # Debugging subs for reference count checks.
 
 sub trace_gc_refcount {
   my ($self, $session) = @_;
+
+my ($package, $file, $line) = caller;
+warn "tracing gc refcount from $file at $line\n";
+
   my $ss = $self->[KR_SESSIONS]->{$session};
-  warn "+----- GC test for ", {% ssid %}, " -----\n";
-  warn "| ref. count    : $ss->[SS_REFCOUNT]\n";
+  warn "+----- GC test for ", {% ssid %}, " ($session) -----\n";
+  warn "| total refcnt  : $ss->[SS_REFCOUNT]\n";
   warn "| event count   : $ss->[SS_EVCOUNT]\n";
   warn "| alarm count   : $ss->[SS_ALCOUNT]\n";
   warn "| child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n";
@@ -1810,7 +1832,7 @@ sub trace_gc_refcount {
   warn "| aliases in use: ", scalar(keys(%{$ss->[SS_ALIASES]})), "\n";
   warn "| extra refs    : ", scalar(keys(%{$ss->[SS_EXTRA_REFS]})), "\n";
   warn "+---------------------------------------------------\n";
-  warn("| Session ", {% ssid %}, " is garbage; recycling it...\n")
+  warn("| ", {% ssid %}, " is garbage; recycling it...\n")
     unless $ss->[SS_REFCOUNT];
   warn "+---------------------------------------------------\n";
 }
@@ -1834,7 +1856,7 @@ sub assert_gc_refcount {
   # The calculated reference count really ought to match the one POE's
   # been keeping track of all along.
 
-  die "session ", {% ssid %}, " has a reference count inconsistency\n"
+  die {% ssid %}, " has a reference count inconsistency\n"
     if $calc_ref != $ss->[SS_REFCOUNT];
 
   # Compare held handles against reference counts for them.
@@ -1843,7 +1865,7 @@ sub assert_gc_refcount {
     $calc_ref = $_->[SH_VECCOUNT]->[VEC_RD] +
       $_->[SH_VECCOUNT]->[VEC_WR] + $_->[SH_VECCOUNT]->[VEC_EX];
 
-    die "session ", {% ssid %}, " has a handle reference count inconsistency\n"
+    die {% ssid %}, " has a handle reference count inconsistency\n"
       if $calc_ref != $_->[SH_REFCOUNT];
   }
 }
@@ -2655,20 +2677,30 @@ sub refcount_increment {
     # time the tag's been used for the session, then increment the
     # session's reference count as well.
 
-    if (++$self->[KR_SESSIONS]->{$session}->[SS_EXTRA_REFS]->{$tag} == 1) {
-      {% ses_refcount_inc $session %}
-    }
+    my $refcount = ++$self->[KR_SESSIONS]->{$session}->[SS_EXTRA_REFS]->{$tag};
 
     TRACE_REFCOUNT and do {
-      carp( "+++ session $session_id refcount for tag '$tag' incremented to ",
-            $self->[KR_SESSIONS]->{$session}->[SS_EXTRA_REFS]->{$tag},
-            " (session reference count is at: ",
-            $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT],
-            ")"
+      carp( "+++ ", {% ssid %}, " refcount for tag '$tag' incremented to ",
+            $refcount
           );
     };
 
-    return $self->[KR_SESSIONS]->{$session}->[SS_EXTRA_REFS]->{$tag};
+    if ($refcount == 1) {
+      {% ses_refcount_inc $session %}
+      TRACE_REFCOUNT and do {
+          carp( "+++ ", {% ssid %}, " refcount for session is at ",
+                $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT]
+             );
+      };
+
+      $self->[KR_EXTRA_REFS]++;
+
+      TRACE_REFCOUNT and do {
+        carp( "+++ session refcounts in kernel: ", $self->[KR_EXTRA_REFS] );
+      }
+    }
+
+    return $refcount;
   }
 
   $! = ESRCH;
@@ -2685,24 +2717,35 @@ sub refcount_decrement {
     # session's reference count as well.
 
     my $refcount = --$self->[KR_SESSIONS]->{$session}->[SS_EXTRA_REFS]->{$tag};
+
     ASSERT_REFCOUNT and do {
-      carp( "--- session $session_id refcount for tag '$tag' dropped below 0"
-          ) if $refcount < 0;
+      croak( "--- ", {% ssid %}, " refcount for tag '$tag' dropped below 0" )
+        if $refcount < 0;
+    };
+
+    TRACE_REFCOUNT and do {
+      carp( "--- ", {% ssid %}, " refcount for tag '$tag' decremented to ",
+            $refcount
+          );
     };
 
     unless ($refcount) {
       {% remove_extra_reference $session, $tag %}
+      $self->[KR_EXTRA_REFS]--;
+
+      ASSERT_REFCOUNT and do {
+        die( "--- ", {% ssid %}, " refcounts for kernel dropped below 0")
+          if $self->[KR_EXTRA_REFS] < 0;
+      };
+
+      TRACE_REFCOUNT and do {
+        carp( "--- ", {% ssid %}, " refcount for session is at ",
+              $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT]
+            );
+      };
     }
 
-    TRACE_REFCOUNT and do {
-      carp( "--- session $session_id refcount for tag '$tag' decremented to ",
-            "$refcount (session reference count is at: ",
-            $self->[KR_SESSIONS]->{$session}->[SS_REFCOUNT],
-            ")"
-          );
-    };
-
-    return $self->[KR_SESSIONS]->{$session}->[SS_EXTRA_REFS]->{$tag};
+    return $refcount;
   }
 
   $! = ESRCH;

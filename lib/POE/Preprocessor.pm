@@ -169,9 +169,10 @@ sub import {
             else {
               $macro_line++;
 
-              $macros{$macro_name}->[MAC_CODE] .=
-                "# line $macro_line \"macro $macro_name\"\n"
-                unless $^P;
+#              $macros{$macro_name}->[MAC_CODE] .=
+#                "# line $macro_line \"macro $macro_name\"\n"
+#                unless $^P;
+
               $macros{$macro_name}->[MAC_CODE] .= $_;
             }
 
@@ -279,7 +280,18 @@ sub import {
                 1 while ($substitution =~ s/$mac_param/$use_param/g);
               }
 
-              $_ = $left . $substitution . $right;
+              my @sub_lines;
+              unless ($^P) {
+                @sub_lines = split "\n", $substitution;
+                for (my $sub_line = 0; $sub_line < @sub_lines; $sub_line++) {
+                  $sub_lines[$sub_line] =
+                    ( "# line $line_number \"macro $name (line $sub_line) " .
+                      "invoked from $file_name\"\n"
+                    ) . $sub_lines[$sub_line];
+                }
+              }
+
+              $_ = $left . join("\n", @sub_lines) . $right;
               $_ .= "# line " . ($line_number+1) . " \"$file_name\"\n"
                 unless $^P;
 

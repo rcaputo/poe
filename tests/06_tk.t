@@ -30,8 +30,16 @@ BEGIN {
 }
 
 # Turn on all asserts.
+# sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);
+
+# How many things to push through the pipe.
+my $write_max = 1;
+
+# Keep track of the "after" alarms we use so the postback tests can
+# clear them.
+my @after_alarms;
 
 # Congratulate ourselves for getting this far.
 print "ok 1\n";
@@ -64,7 +72,7 @@ sub io_start {
   }
 
   else {
-    # The wheel uses read and write file events internall, so they're
+    # The wheel uses read and write file events internally, so they're
     # tested here.
     $heap->{pipe_wheel} =
       POE::Wheel::ReadWrite->new
@@ -121,14 +129,15 @@ sub io_start {
 sub io_pipe_write {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
   $heap->{pipe_wheel}->put( scalar localtime );
-  if (++${$heap->{write_count}} < 10) {
+  if (++${$heap->{write_count}} < $write_max) {
     $kernel->delay( ev_pipe_write => 1 );
   }
   else {
-    $poe_tk_main_window->after
-      ( 1000,
-        $_[SESSION]->postback( ev_postback => 5 );
-      );
+    $after_alarms[5] =
+      Tk::After->new( $poe_tk_main_window, 1000, 'once',
+                      $_[SESSION]->postback( ev_postback => 5 )
+                    );
+    undef;
   }
 }
 
@@ -137,20 +146,21 @@ sub io_pipe_read {
   ${$heap->{read_count}}++;
 
   # Shut down the wheel if we're done.
-  if ( ${$heap->{write_count}} == 10 ) {
+  if ( ${$heap->{write_count}} == $write_max ) {
     delete $heap->{pipe_wheel};
-  }
-  else {
-    $poe_tk_main_window->after
-      ( 1000,
-        $_[SESSION]->postback( ev_postback => 6 )
-      );
   }
 }
 
 sub io_idle_increment {
   if (++${$_[HEAP]->{idle_count}} < 10) {
     $_[KERNEL]->yield( 'ev_idle_increment' );
+  }
+  else {
+    $after_alarms[6] =
+      Tk::After->new( $poe_tk_main_window, 1000, 'once',
+                      $_[SESSION]->postback( ev_postback => 6 )
+                    );
+    undef;
   }
 }
 
@@ -165,10 +175,11 @@ sub io_timer_increment {
   # given at creation time.
 
   else {
-    $poe_tk_main_window->after
-      ( 1000,
-        $_[SESSION]->postback( ev_postback => 7 )
-      );
+    $after_alarms[7] =
+      Tk::After->new( $poe_tk_main_window, 1000, 'once',
+                      $_[SESSION]->postback( ev_postback => 7 )
+                    );
+    undef;
   }
 }
 
@@ -194,8 +205,20 @@ sub io_stop {
 # Collect postbacks and cache results.
 
 sub io_postback {
-  my ($session, $test_number) = @_[SESSION, ARG0];
-  $heap->{postback_tests}->{$test_number} = "ok $test_number\n";
+  my ($session, $postback_given) = @_[SESSION, ARG0];
+  my $test_number = $postback_given->[0];
+
+  if ($test_number =~ /^\d+$/) {
+
+    # This is so incredibly horribly bad that I'm ashamed to be doing
+    # it.  First we violate the Tk::After object to get at the
+    # Tk::Callback object within it.  Then we violate THAT to remove
+    # the POE::Session::Postback so that it's destroyed and our
+    # reference count decrements.
+    $after_alarms[$test_number]->[4]->[0] = undef;
+
+    $_[HEAP]->{postback_tests}->{$test_number} = "ok $test_number\n";
+  }
 }
 
 # Start the I/O session.

@@ -675,19 +675,16 @@ sub POE::Session::Postback::DESTROY {
 
 sub postback {
   my ($self, $event, @etc) = @_;
+  my $id = {% fetch_id $self %};
 
   my $postback = bless
-    ( sub {
-        my $id = {% fetch_id $self %};
-        $POE::Kernel::poe_kernel->post( $id, $event, \@etc, [ @_ ] );
-      },
-      'POE::Session::Postback'
-    );
+    sub {
+      $POE::Kernel::poe_kernel->post( $id, $event, [ @etc ], [ @_ ] )
+    }, 'POE::Session::Postback';
 
-  $postback_parent_id{$postback} = {% fetch_id $self %};
-  $POE::Kernel::poe_kernel->refcount_increment( {% fetch_id $self %},
-                                                'postback'
-                                              );
+  $postback_parent_id{$postback} = $id;
+  $POE::Kernel::poe_kernel->refcount_increment( $id, 'postback' );
+
   $postback;
 }
 

@@ -16,6 +16,10 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 ,----- To Do -----
 |
+| Before 0.1008
+|
+| Initialize KR_GC_MARKS as a hash.
+|
 | Before 0.11
 |
 | Test $kernel->fork() or replace it entirely.
@@ -28,6 +32,44 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 | Revise the POE web pages.
 |
 `-----------------
+
+
+0.1008 2000.??.??
+-----------------
+
+Prevented the TKDESTROY signal from being fired if POE finishes before
+Tk does.  There's nothing to receive the signal!
+
+Added the beginnings of a mark/sweep garbage collector for sessions.
+This is added mainly to avoid redundant garbage collections; if
+there's any performance benefit, it's purely accidental.
+
+Enhanced the "# line" directives that POE::Preprocessor injects into
+macros.  Now they're added when macros are used; this enables them to
+include not only the macro name and line number but also the source
+file and line number.  For example: "Use of uninitialized value in
+concatenation (.) at macro ssid (line 1) invoked from POE/Kernel.pm
+line 1007."  This doesn't nest, though.
+
+Added a postback test to t/06_tk.t, discovering in the process that
+the postback's blessed coderefs were part of POE::Session::postback's
+code tree and thus not being DESTROYed when Tk::After was done with
+them.  I thought this might be a Perl bug and posted to perl5-porters
+about it.  Wolfgang Laun and Nick Ing-Simmons sent back enlightening
+replies, and the game once again is afoot!
+
+blessed coderefs never have DESTROY called upon them.  This means that
+postbacks haven't ever worked correctly!  Grrrr!  Posted a test case
+to perl5-porters, avoiding perlbug because it's been flaky ever since
+5.6.0 was released.
+
+Simon suggested wrapping the coderef in an object and performing
+cleanup when the object's DESTROY method is called.  I extrapolated a
+tied scalar from his advice, where the FETCH method returns its
+coderef.  As an added bonus, I'm able to store the parent session's ID
+in the tied scalar's hidden data, eliminating the need for a "global"
+hash that maps postbacks to session IDs.  Excellent!  Thanks muchly,
+Simon; this has been bugging me for days!
 
 
 0.1007 2000.06.07
