@@ -24,9 +24,11 @@ WriteMakefile
     ),
 
     VERSION_FROM   => 'POE.pm',
-    dist           => { 'COMPRESS' => 'gzip -9f',
-                        'SUFFIX'   => 'gz',
-                      },
+    dist           =>
+    { COMPRESS => 'gzip -9f',
+      SUFFIX   => 'gz',
+      PREOP    => qq(cvs2cl.pl -l "-d'a year ago<'" --utc --file CHANGES),
+    },
     PREREQ_PM      => { Carp               => 0,
                         Exporter           => 0,
                         IO                 => 0,
