@@ -1,3 +1,4 @@
+# $Id$
 CHANGES
 HISTORY
 MANIFEST
@@ -29,6 +30,8 @@ POE/Loop/PerlSignals.pm
 POE/Loop/Poll.pm
 POE/Loop/Select.pm
 POE/Loop/Tk.pm
+POE/Loop/TkActiveState.pm
+POE/Loop/TkCommon.pm
 POE/Macro/UseBytes.pm
 POE/NFA.pm
 POE/Pipe.pm

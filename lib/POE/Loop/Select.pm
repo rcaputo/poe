@@ -71,7 +71,6 @@ sub loop_initialize {
   vec($loop_vectors[MODE_EX], 0, 1) = 0;
 }
 
-
 sub loop_finalize {
   my $self = shift;
 

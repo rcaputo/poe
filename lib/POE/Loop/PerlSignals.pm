@@ -16,6 +16,7 @@ $VERSION = (qw($Revision$ ))[1];
 package POE::Kernel;
 
 use strict;
+use POE::Kernel;
 use Carp qw(confess);
 
 #------------------------------------------------------------------------------
