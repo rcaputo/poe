@@ -182,6 +182,25 @@ That's madness.
 
 So this needs a redesign and a depreciation schedule.
 
+--------------------------------
+Make Things Inheritance-Friendly
+--------------------------------
+
+There was a time in POE's development where just using @ISA would make
+method calls three times slower.  Whatever perl was doing got fixed,
+and now it's safe to use inheritance again.
+
+    b01_solo: 13 wallclock secs ( ... ) @ 924187.73/s (n=10000000)
+  b02_parent: 12 wallclock secs ( ... ) @ 901408.45/s (n=10000000)
+   b03_child: 12 wallclock secs ( ... ) @ 919540.23/s (n=10000000)
+
+Session should be made inheritable, if it's not already.  The base
+Wheel, Filter, and Driver classes maybe.  Component could provide some
+useful common things; perhaps Philip Gwyn can add interoperability
+stuff there and make components do the right things.
+
+Kernel?  Should it be inheritable?
+
 ----------------------------------------------------
 The POE Community Wants a Bigger Hand in Development
 ----------------------------------------------------
@@ -397,6 +416,29 @@ busy processing events?  "Good" means the session won't corrupt
 anything by not handling whatever is in its queue.
 
 What of everything_remove_all() ?
+
+-------------------------------------------------------
+POE::Kernel's yield() is Nearly Universally Hated (!!!)
+-------------------------------------------------------
+
+Especially by people who know threads.  It implies blocking in one
+session and resumption in some other, and it freaks people out when it
+returns immediately.
+
+These names have been suggested instead:
+
+  post_self    (2 votes)
+  post_me      (1 vote)
+  post_myself  (1 vote)
+  postal :)    (0 votes)
+  enqueue      (1 vote)
+  postpend     (1 vote)
+  continuation (1 vote)
+  continue     (0 votes)
+
+This is a pretty basic function, and it's one a lot of people are
+probably using.  This depreciation should have a longer than usual
+schedule, to avoid unnecessary breakage.
 
 ----------------------------------
 SIGTSTP Does the Wrong Thing (???)
