@@ -733,23 +733,11 @@ sub new {
     if ((defined $params{BindAddress}) or (defined $params{BindPort})) {
 
       # Set the bind address, or default to INADDR_ANY.
-      $bind_address = ( (defined $params{BindAddress})
-                        ? $params{BindAddress}
-                        : Socket6::inaddr6_any()
-                      );
-
-      {% use_bytes %}
-
-      # Resolve the bind address.
-      $bind_address =
-        Socket6::gethostbyname2($bind_address, $self->[MY_SOCKET_DOMAIN]);
-      unless (defined $bind_address) {
-        $! = EADDRNOTAVAIL;
-        $poe_kernel->yield( $event_failure,
-                            "gethostbyname2", $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
-        return $self;
-      }
+      $bind_address = (
+        (defined $params{BindAddress})
+        ? $params{BindAddress}
+        : Socket6::in6addr_any()
+      );
 
       # Set the bind port, or default to 0 (any) if none specified.
       # Resolve it to a number, if at all possible.
@@ -765,14 +753,40 @@ sub new {
         }
       }
 
-      $bind_address = Socket6::pack_sockaddr_in6($bind_port, $bind_address);
-      unless (defined $bind_address) {
+      {% use_bytes %}
+
+      # Resolve the bind address.
+      my @info = Socket6::getaddrinfo(
+        $bind_address, $bind_port, &Socket6::AF_INET6
+        #$self->[MY_SOCKET_DOMAIN],
+      );
+
+# Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
+# TODO - Remove this if nothing needs it.
+#      $bind_address =
+#        Socket6::gethostbyname2($bind_address, $self->[MY_SOCKET_DOMAIN]);
+
+      unless (@info) { # defined $bind_address) {
+        $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $event_failure,
-                            "pack_sockaddr_in6", $!+0, $!,
-                            $self->[MY_UNIQUE_ID]
+                            "getaddrinfo", $!+0, $!, $self->[MY_UNIQUE_ID]
                           );
         return $self;
       }
+
+      $bind_address = $info[3];
+
+# Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
+# TODO - Remove this if nothing needs it.
+#      $bind_address = Socket6::pack_sockaddr_in6($bind_port, $bind_address);
+#      warn unpack "H*", $bind_address;
+#      unless (defined $bind_address) {
+#        $poe_kernel->yield( $event_failure,
+#                            "pack_sockaddr_in6", $!+0, $!,
+#                            $self->[MY_UNIQUE_ID]
+#                          );
+#        return $self;
+#      }
     }
   }
 
@@ -855,16 +869,36 @@ sub new {
         $error_tag = "inet_aton";
       }
       elsif ($abstract_domain eq DOM_INET6) {
-        $connect_address =
-          Socket6::gethostbyname2( $params{RemoteAddress},
-                                   $self->[MY_SOCKET_DOMAIN]
-                                 );
+        my @info = Socket6::getaddrinfo(
+          $params{RemoteAddress}, $remote_port, &Socket6::AF_INET6
+          #$self->[MY_SOCKET_DOMAIN],
+        );
+
+        if (@info) {
+          $connect_address = $info[3];
+        }
+        else {
+          $connect_address = undef;
+        }
+
+# Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
+# TODO - Remove this if nothing needs it.
+#        $connect_address =
+#          Socket6::gethostbyname2( $params{RemoteAddress},
+#                                   $self->[MY_SOCKET_DOMAIN]
+#                                 );
         $error_tag = "gethostbyname2";
       }
       else {
         die "unknown domain $abstract_domain";
       }
 
+      # TODO - If the gethostbyname2() code is removed, then we can
+      # combine the previous code with the following code, and perhaps
+      # remove one of these redundant $connect_address checks.  The
+      # 0.29 release should tell us pretty quickly whether it's
+      # needed.  If we reach 0.30 without incident, it's probably safe
+      # to remove the old gethostbyname2() code and clean this up.
       unless (defined $connect_address) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield( $event_failure,
@@ -878,8 +912,10 @@ sub new {
         $error_tag = "pack_sockaddr_in";
       }
       elsif ($abstract_domain eq DOM_INET6) {
-        $connect_address =
-          Socket6::pack_sockaddr_in6($remote_port, $connect_address);
+# Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
+# TODO - Remove this if nothing needs it.
+#        $connect_address =
+#          Socket6::pack_sockaddr_in6($remote_port, $connect_address);
         $error_tag = "pack_sockaddr_in6";
       }
       else {
