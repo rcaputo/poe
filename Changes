@@ -7,6 +7,13 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
+0.06_05 ????.??.??
+------------------
+
+Added some defaults to SocketFactory: SocketDomain => AF_INET,
+SocketType => SOCK_STREAM, SocketProtocol => 'tcp' (for INET sockets).
+
+
 0.06_05 1999.03.23
 ------------------
 
