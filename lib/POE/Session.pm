@@ -8,10 +8,11 @@ package POE::Session;
 
 use strict;
 use Carp;
+use POSIX qw(ENOSYS);
 
 use Exporter;
 @POE::Session::ISA = qw(Exporter);
-@POE::Session::EXPORT = qw(OBJECT SESSION KERNEL HEAP SENDER
+@POE::Session::EXPORT = qw(OBJECT SESSION KERNEL HEAP STATE SENDER
                            ARG0 ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 ARG9
                           );
 
@@ -77,6 +78,10 @@ sub new {
     if (@states >= 2) {
       my ($state, $handler) = splice(@states, 0, 2);
 
+      unless ((defined $state) && (length $state)) {
+        carp "depreciated: using an undefined state";
+      }
+
       if (ref($state) eq 'CODE') {
         croak "using a CODE reference as an event handler name is not allowed";
       }
@@ -115,6 +120,82 @@ sub new {
 
   if (@states) {
     croak "odd number of events/handlers (missing one or the other?)";
+  }
+
+  if (exists $self->{'states'}->{'_start'}) {
+    $POE::Kernel::poe_kernel->session_alloc($self, @args);
+  }
+  else {
+    carp "discarding session $self - no '_start' state";
+  }
+
+  $self;
+}
+
+#------------------------------------------------------------------------------
+
+sub create {
+  my ($type, @params) = @_;
+  my @args;
+
+  croak "$type requires a working Kernel"
+    unless (defined $POE::Kernel::poe_kernel);
+
+  if (@params & 1) {
+    croak "odd number of events/handlers (missin one or the other?)";
+  }
+
+  my %params = @params;
+
+  my $self = bless { 'namespace' => { },
+                     'options'   => { },
+                   }, $type;
+
+  if (exists $params{'args'}) {
+    if (ref($params{'args'}) eq 'ARRAY') {
+      push @args, @{$params{'args'}};
+    }
+    else {
+      push @args, $params{'args'};
+    }
+    delete $params{'args'};
+  }
+
+  my @params_keys = keys(%params);
+  foreach (@params_keys) {
+    my $state_hash = $params{$_};
+
+    croak "$_ does not refer to a hashref"
+      unless (ref($state_hash) eq 'HASH');
+
+    if ($_ eq 'inline_states') {
+      while (my ($state, $handler) = each(%$state_hash)) {
+        croak "inline state '$state' needs a CODE reference"
+          unless (ref($handler) eq 'CODE');
+        $self->register_state($state, $handler);
+      }
+    }
+    elsif ($_ eq 'package_states') {
+      while (my ($state, $handler) = each(%$state_hash)) {
+        croak "states for package '$state' needs an ARRAY reference"
+          unless (ref($handler) eq 'ARRAY');
+        foreach my $method (@$handler) {
+          $self->register_state($method, $state);
+        }
+      }
+    }
+    elsif ($_ eq 'object_states') {
+      while (my ($state, $handler) = each(%$state_hash)) {
+        croak "states for object '$state' need an ARRAY reference"
+          unless (ref($handler) eq 'ARRAY');
+        foreach my $method (@$handler) {
+          $self->register_state($method, $state);
+        }
+      }
+    }
+    else {
+      croak "unknown $type parameter: $_";
+    }
   }
 
   if (exists $self->{'states'}->{'_start'}) {
@@ -178,8 +259,12 @@ sub _invoke_state {
                                );
   }
                                         # whoops!  no _default?
-  elsif (exists $self->{'options'}->{'default'}) {
-    warn "\t$self -> $state does not exist (and no _default)\n";
+  else {
+    $! = ENOSYS;
+    if (exists $self->{'options'}->{'default'}) {
+      warn "\t$self -> $state does not exist (and no _default)\n";
+    }
+    return undef;
   }
 
   return 0;
