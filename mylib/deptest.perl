@@ -164,10 +164,15 @@ die "can't read MANIFEST: $!\n" unless defined $manifest;
 
 foreach my $manifest_filename (sort keys %$manifest) {
 
-  # Transform obvious module names into filenames.
+  # Transform obvious module names into filenames.  Old versions of
+  # File::Spec (and they're out there) don't do splitdir.  Fall back
+  # on a cheezy regexp if one is encountered.
   my $file_key = $manifest_filename;
   if ($file_key =~ s!\.pm$!!) {
-    $file_key = join '::', File::Spec->splitdir( $file_key );
+    my @split_dir;
+    eval { @split_dir = File::Spec->splitdir( $file_key ); };
+    @split_dir = split(/[\\\/\:]+/, $file_key) unless @split_dir;
+    $file_key = join '::', @split_dir;
   }
 
   # Determine what sort of file we have.  Don't bother with data.
@@ -207,9 +212,14 @@ sub build_dependency_tree {
 
     &trace_gather( "Testing module $file_key ..." );
 
-    # Pause output.
-    open(STDERR, '>' . File::Spec->devnull) or close STDERR;
-    open(STDOUT, '>' . File::Spec->devnull) or close STDOUT;
+    # Pause output.  Older File::Spec doesn't include a devnull
+    # method, so fall back on /dev/null if it's missing.
+    my $dev_null;
+    eval { $dev_null = File::Spec->devnull };
+    $dev_null = '/dev/null' unless defined $dev_null;
+
+    open(STDERR, ">$dev_null") or close STDERR;
+    open(STDOUT, ">$dev_null") or close STDERR;
 
     eval 'package Test::Package_' . $test_package++ . "; use $file_key";
     my $is_ok = !(defined $@ and length $@);
