@@ -74,12 +74,28 @@ sub new {
       if (ref($state) eq 'CODE') {
         croak "using a CODE reference as an event handler name is not allowed";
       }
-                                        # regular states
+
+      # regular states
       if (ref($state) eq '') {
         if (ref($handler) eq 'CODE') {
           $self->register_state($state, $handler);
           next;
         }
+
+        elsif (ref($handler) eq 'ARRAY') {
+          foreach my $method (@$handler) {
+            $self->register_state($method, $state, $method);
+          }
+          next;
+        }
+
+        elsif (ref($handler) eq 'HASH') {
+          while (my ($state_name, $method_name) = each %$handler) {
+            $self->register_state($state_name, $state, $method_name);
+          }
+          next;
+        }
+
         else {
           croak "using something other than a CODEREF for $state handler";
         }

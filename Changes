@@ -17,11 +17,11 @@ create() constructors, as well as POE::Kernel->state().  The new test
 in samples/objmaps.perl exercises the code.
 
 (!!!) The ability to map package and object states to methods has
-uncovered a problem with POE::Session->create's object_states and
-package_states parameters.  They previously took hashrefs, which
-stringified objects' references.  Now they accept array references
-instead.  [I don't care if they're really lists, ref() returns
-'ARRAY'.]
+uncovered a problem with POE::Session->create's object_states
+parameter.  This previously accepted a hashref, which stringified the
+object references.  Now it requires an array reference instead.  The
+package_states parameter is also expected to be an array reference
+now.
 
 There seems to be renewed interest in Win32 support.  The previous
 Win32 porting attempt was about a year ago, and it was never completed

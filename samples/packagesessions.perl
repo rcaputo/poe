@@ -111,7 +111,7 @@ foreach my $name (qw(one two three four five six seven eight nine ten)) {
                                         # stupid scope trick, part 3 of 3
   $Counter::name = $name;
                                         # create the session
-  new POE::Session( 'Counter',
+  new POE::Session( Counter =>
                     [ qw(_start _stop increment sigint) ]
                   );
 }

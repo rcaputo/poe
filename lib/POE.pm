@@ -260,6 +260,13 @@ callback states.
 
 =item *
 
+objmaps.perl
+
+This is a version of objsessions.perl that maps states to differently
+named object methods.
+
+=item *
+
 objsessions.perl
 
 This program is essentially the same as sessions.perl, but it uses
