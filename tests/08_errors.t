@@ -472,21 +472,22 @@ else {
   print "ok 52\n";
 }
 
-use POE::Wheel::Run;
-
-eval 'POE::Wheel::Run->new( 1 )';
-print 'not ' unless defined $@ and length $@;
-print "ok 53\n";
-
-eval 'POE::Wheel::Run->new( Program => 1 )';
-print 'not ' unless defined $@ and length $@;
-print "ok 54\n";
-
-eval 'POE::Wheel::Run->new( Program => 1, StdinEvent => 1 )';
-print 'not ' unless defined $@ and length $@;
-print "ok 55\n";
-
 if ($^O ne 'MSWin32' and $^O ne 'MacOS') {
+  require POE::Wheel::Run;
+  POE::Wheel::Run->import();
+
+  eval 'POE::Wheel::Run->new( 1 )';
+  print 'not ' unless defined $@ and length $@;
+  print "ok 53\n";
+
+  eval 'POE::Wheel::Run->new( Program => 1 )';
+  print 'not ' unless defined $@ and length $@;
+  print "ok 54\n";
+
+  eval 'POE::Wheel::Run->new( Program => 1, StdinEvent => 1 )';
+  print 'not ' unless defined $@ and length $@;
+  print "ok 55\n";
+
   my $pwrun =
     eval 'POE::Wheel::Run->new( Program => 1, StdinEvent => 1, Filter => 1 )';
   print 'not ' if defined $@ and length $@;
@@ -509,7 +510,7 @@ if ($^O ne 'MSWin32' and $^O ne 'MacOS') {
   print "ok 60\n";
 }
 else {
-  for (56..60) {
+  for (53..60) {
     print "ok $_ # skipped: Wheel::Run not working on Win32 today\n";
   }
 }
