@@ -92,15 +92,15 @@ sub respond {
   my ($self,$kernel,$namespace,$from,$request) = @_;
   print STDERR "Respond received: $request\n";
   print STDERR "$request contains:\n";
-  if ($request =~ /=HASH\(/) {
+  if ($request =~ /(^|=)HASH\(/) {
     foreach my $key (sort(keys(%$request))) {
       print "    '$key' = '$request->{$key}'\n";
     }
   }
-  elsif ($request =~ /=ARRAY\(/) {
+  elsif ($request =~ /(^|=)ARRAY\(/) {
     print "    '", join("', '", @$request), "'\n";
   }
-  elsif ($request =~ /=SCALAR\(/) {
+  elsif ($request =~ /(^|=)SCALAR\(/) {
     print "    '", $$request, "'\n";
   }
   else {
