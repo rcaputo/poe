@@ -34,9 +34,9 @@ my $HTTP_1_1 = _http_version("HTTP/1.1");
 sub new {
   my $type = shift;
   my $self = { type   => 0,
-	       buffer => '',
+               buffer => '',
                finish => 0,
-	     };
+             };
   bless $self, $type;
   $self;
 }
@@ -142,12 +142,12 @@ sub get {
       $_ = $1;
       s/\015$//;
       if (/^([\w\-~]+)\s*:\s*(.*)/) {
-	$r->push_header($key, $val) if $key;
-	($key, $val) = ($1, $2);
+        $r->push_header($key, $val) if $key;
+        ($key, $val) = ($1, $2);
       } elsif (/^\s+(.*)/) {
-	$val .= " $1";
+        $val .= " $1";
       } else {
-	last HEADER;
+        last HEADER;
       }
     }
     $r->push_header($key,$val) if($key);
