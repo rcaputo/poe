@@ -261,8 +261,8 @@ sub event {
     if ($name eq 'SuccessEvent') {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
-          carp( "SuccessEvent coderefs are deprecated " .
-                "(and will go away after version 0.13)"
+          carp( "using a coderef for SuccessEvent (or SuccessState) is " .
+                "deprecated (and will go away after version 0.13)"
               );
           $poe_kernel->state
             ( $self->[MY_EVENT_SUCCESS] = $self . ' success',
@@ -285,8 +285,8 @@ sub event {
     elsif ($name eq 'FailureEvent') {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
-          carp( "FailureEvent coderefs are deprecated " .
-                "(and will go away after version 0.13)"
+          carp( "using a coderef for FailureEvent (or FailureState) is " .
+                "deprecated (and will go away after version 0.13)"
               );
           $poe_kernel->state
             ( $self->[MY_EVENT_FAILURE] = $self . ' failure',
