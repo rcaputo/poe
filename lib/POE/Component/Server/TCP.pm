@@ -156,7 +156,7 @@ sub new {
               delete $heap->{client} if $heap->{shutdown};
             },
             shutdown => sub {
-              my $heap = shift;
+              my $heap = $_[HEAP];
               $heap->{shutdown} = 1;
               if (defined $heap->{client}) {
                 delete $heap->{client}
