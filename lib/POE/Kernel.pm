@@ -2913,8 +2913,8 @@ written entirely in Perl.  To use it, simply:
   use POE;
 
 POE's event loop will also work cooperatively with Gtk's, Tk's or
-Event's.  POE will see either of these three modules if it's used
-first and change its behavior accordingly.
+Event's.  POE will see one of these three modules if it's used first
+and change its behavior accordingly.
 
   use Gtk;  # or use Tk; or use Event;
   use POE;
