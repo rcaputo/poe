@@ -31,6 +31,7 @@ sub POE_LOOP () { LOOP_GTK }
 
 my $_watcher_timer;
 my @fileno_watcher;
+my $gtk_init_check;
 
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
@@ -40,8 +41,12 @@ sub loop_initialize {
 
   # Must Gnome->init() yourselves, as it takes parameters.
   unless (exists $INC{'Gnome.pm'}) {
-    my $res = Gtk->init_check();
-    if(defined $res) {
+    # Gtk->init_check() only succeeds on the first call.
+    unless (defined $gtk_init_check) {
+      $gtk_init_check = Gtk->init_check();
+    }
+    # Now check whether the init was ok.
+    if (defined $gtk_init_check) {
       Gtk->init();
     } else {
       POE::Kernel::_die "Gtk initialization failed. Chances are it couldn't connect to a display. Of course, Gtk doesn't put its error message anywhere I can find so we can't be more specific here.";
