@@ -240,9 +240,6 @@ sub new {
     unless (exists $params{'SocketType'});
 
   my $self = bless { }, $type;
-  $self->event( SuccessState => $params{'SuccessState'},
-                FailureState => $params{'FailureState'},
-              );
   my $socket_handle = gensym;
 
   my ($socket_domain, $socket_type, $success_event, $failure_event)
@@ -482,6 +479,10 @@ sub new {
   else {
     croak 'unsupported SocketDomain';
   }
+
+  $self->event( SuccessState => $params{'SuccessState'},
+                FailureState => $params{'FailureState'},
+              );
 
   $self;
 }
