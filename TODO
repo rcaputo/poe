@@ -182,4 +182,37 @@ This is the current plan to spin off useful modules from POE:
   fit in manpages for modules themselves.  Split it into separate POD
   files, and maybe split them into Bundle::POE::Docs.
 
+-----------------------------------------
+Make Driver::SysRW the Default for Wheels
+-----------------------------------------
+
+This is a quick, inexpensive change.  Driver::SysRW is the only driver
+to be developed/used over the course of like three years.  Make it a
+default so people can stop typing it.
+
+----------------------------------------
+Make Filter::Line the Default for Wheels
+----------------------------------------
+
+This is an inexpensive change, but it has dubious value.  Think about
+it some more first.
+
+----------------------------------------------------
+Split Dual-Mode Functions into xyz_set and xyz_clear
+----------------------------------------------------
+
+This would make the functions' purposes more clear and eliminate some
+branches that are currently tested all the time.  The existing
+dual-mode functions could remain as thunks for the single-purpose
+ones.
+
+-----------------------------------------------------------
+Evaluate Torvald Riegel's Throttled ReadWrite Wheel Patches
+-----------------------------------------------------------
+
+Torvald has the code, but I'm not happy with the idea of ReadWrite
+buffering data.  Is there another way, or does Torvald's code really
+make the most sense?  Should this be beyond the scope of ReadWrite and
+something left for a better wheel?
+
 <EOT>
