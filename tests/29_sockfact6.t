@@ -5,7 +5,7 @@
 # SocketFactory in AF_INET6 mode.
 
 use strict;
-use lib qw(./lib ../lib .. .);
+use lib qw(./mylib ../mylib .. .);
 use TestSetup;
 use Socket;
 

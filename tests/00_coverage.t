@@ -6,7 +6,7 @@
 # the FreeBSD LINT kernel configuration.
 
 use strict;
-use lib qw(./lib ../lib .. .);
+use lib qw(./mylib ../mylib .. .);
 
 use TestSetup;
 

@@ -17,10 +17,10 @@ if ($@) {
         "\n",
       );
 
-  require "./lib/Makefile-5004.pm";
+  require "./mylib/Makefile-5004.pm";
 }
 else {
-  require "./lib/Makefile-5005.pm";
+  require "./mylib/Makefile-5005.pm";
 }
 
 0;

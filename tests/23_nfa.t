@@ -4,7 +4,7 @@
 # Tests NFA sessions.
 
 use strict;
-use lib qw(./lib ../lib .. .);
+use lib qw(./mylib ../mylib .. .);
 use TestSetup;
 &test_setup(20);
 

@@ -3,7 +3,7 @@
 
 use strict;
 
-use lib qw(./lib);
+use lib qw(./mylib);
 use ExtUtils::MakeMaker;
 
 # Switch to default behavior if STDIN isn't a tty.
@@ -33,7 +33,7 @@ if ($@) {
         "==================================================================\n",
         "\n",
       );
-  eval "require './lib/ExtUtils/AutoInstall.pm'";
+  eval "require './mylib/ExtUtils/AutoInstall.pm'";
   die if $@;
 }
 
@@ -127,15 +127,15 @@ sub MY::postamble {
   return ExtUtils::AutoInstall::postamble() .
     <<EOF;
 reportupload: poe_report.xml
-	$^X lib/reportupload.pl
+	$^X mylib/reportupload.pl
 
 uploadreport: poe_report.xml
-	$^X lib/reportupload.pl
+	$^X mylib/reportupload.pl
 
 testreport: poe_report.xml
 
 poe_report.xml: Makefile
-	$^X lib/testreport.pl
+	$^X mylib/testreport.pl
 
 ppmdist: pm_to_blib
 	\$(TAR) --exclude '*/man[13]*' -cvf \\
@@ -163,7 +163,7 @@ WriteMakefile(
     COMPRESS => 'gzip -9f',
     SUFFIX   => 'gz',
     PREOP    => (
-      './lib/cvs-log.perl | ' .
+      './mylib/cvs-log.perl | ' .
       'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
     ),
   },
@@ -182,7 +182,7 @@ WriteMakefile(
   },
 
   # But we're not generating META.yml here.  Rather, we're using
-  # lib/Build.PL for that.  In the future, we should use one or the
+  # mylib/Build.PL for that.  In the future, we should use one or the
   # other, because it sucks needing to remember to run lib/Build.PL
   # before every release.
   NO_META        => 1,

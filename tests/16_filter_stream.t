@@ -4,7 +4,7 @@
 # Exercises Filter::Stream without the rest of POE.
 
 use strict;
-use lib qw(./lib ../lib .. .);
+use lib qw(./mylib ../mylib .. .);
 
 use POE::Filter::Stream;
 

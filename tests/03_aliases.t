@@ -5,7 +5,7 @@
 
 use strict;
 
-use lib qw(./lib ../lib .. .);
+use lib qw(./mylib ../mylib .. .);
 use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

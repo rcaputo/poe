@@ -74,9 +74,10 @@ $sock->send($packet);
 my $output;
 $output = <$sock>; # for debug purposes
 if($output =~ /Test Submission/) {
-    print( "Report upload succeeded. Thank you for your contribution.\n",
-           "Please visit http://eekeek.org/poe-tests/ to see other tests.\n"
-         );
+    print(
+      "Report upload succeeded. Thank you for your contribution.\n",
+      "Please visit http://eekeek.org/poe-tests/ to see other results.\n"
+    );
 } else {
     print "Report upload failed.\n";
 }

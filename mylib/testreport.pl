@@ -21,7 +21,7 @@ This program was written by Matt Cashner.
 =cut
 
 package My::Strap;
-use lib qw(../lib ../ ./lib ./);
+use lib qw(../mylib ../ ./mylib ./);
 use Test::Harness;
 use base qw(Test::Harness::Straps);
 use Sys::Hostname;

@@ -51,7 +51,8 @@ t/08_errors.t     is data
 # This bundled module contains C< use Acme::KillerApp > in its 
 # documentation which is confusing the NEEDS parser.
 
-lib/ExtUtils/AutoInstall.pm     is data
+mylib::* is data
+mylib/*  is data
 
 # Soft dependencies are the exception.  Set them explicitly.
 
@@ -63,6 +64,6 @@ POE::Filter::Reference wants Compress::Zlib
 *                      wants POE::NonExistent
 POE::Wheel::Run        wants IO::Pty
 
-lib/deptest.perl       wants File::Spec
+mylib/deptest.perl     wants File::Spec
 
 # End.

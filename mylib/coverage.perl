@@ -5,7 +5,7 @@
 # coverage.
 
 use strict;
-use lib qw( . .. ../lib );
+use lib qw( . .. ../mylib );
 
 sub DEBUG  () { 0 } # skip running tests to better debug this one
 sub UNLINK () { 1 } # unlink coverage files when done (disable for testing)
@@ -70,7 +70,7 @@ foreach my $test_file (@test_files) {
   # System returns 0 on success.
   my $result =
     system( '/usr/bin/perl',
-            '-Ilib', '-I../lib', '-I.', '-I..', '-d:Trace', $test_file
+            '-Imylib', '-I../mylib', '-I.', '-I..', '-d:Trace', $test_file
           );
   warn "error running $test_file: ($result) $!" if $result;
 }
