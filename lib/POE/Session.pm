@@ -664,12 +664,8 @@ sub get_heap {
 
 #------------------------------------------------------------------------------
 # Create an anonymous sub that, when called, posts an event back to a
-# session.  This is highly experimental code to support Tk widgets and
-# maybe Event callbacks.  There's no guarantee that this code works
-# yet, nor is there one that it'll be here in the next version.
-
-# This maps postback references (stringified; blessing, and thus
-# refcount, removed) to parent session IDs.  Members are set when
+# session.  This maps postback references (stringified; blessing, and
+# thus refcount, removed) to parent session IDs.  Members are set when
 # postbacks are created, and postbacks' DESTROY methods use it to
 # perform the necessary cleanup when they go away.  Thanks to njt for
 # steering me right on this one.

@@ -127,7 +127,7 @@ Test Results
 All the tests have been made to run unattended, and testing has been
 automated across the systems.
 
-** POE 0.1204 on OS/2
+** POE 0.1205 on OS/2
 
 OS/2 doesn't grok system vs. user time, so the numbers are 0.
 
@@ -140,9 +140,9 @@ Event   : (not installed)
 IO::Pty : 0.01
 
 All tests successful, 4 tests and 5 subtests skipped.
-Files=24, Tests=429, 158 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
+Files=24, Tests=429, 227 wallclock secs ( 0.00 cusr +  0.00 csys =  0.00 CPU)
 
-** POE 0.1204 on FreeBSD
+** POE 0.1205 on FreeBSD
 
 Hardware: AMD 486-40; 16MB RAM (home bsd)
 System  : FreeBSD 4.0-STABLE
@@ -153,9 +153,9 @@ Event   : 0.79
 IO::Pty : 0.01
 
 All tests successful.
-Files=24, Tests=454, 685 wallclock secs (423.57 cusr + 40.40 csys = 463.97 CPU)
+Files=24, Tests=455, 666 wallclock secs (432.98 cusr + 35.99 csys = 468.97 CPU)
 
-** POE 0.1204 on Linux (titanic)
+** POE 0.1205 on Linux (titanic)
 
 Hardware: dual Celeron 500; 265MB RAM
 System  : Linux 2.2.15 SMP
@@ -165,10 +165,10 @@ Tk      : (not installed)
 Event   : 0.79
 IO::Pty : 0.01
 
-All tests successful, 2 tests and 3 subtests skipped.
-Files=24, Tests=438, 105 wallclock secs (21.54 cusr +  0.68 csys = 22.22 CPU)
+All tests successful, 2 tests skipped.
+Files=24, Tests=438, 105 wallclock secs (21.53 cusr +  0.71 csys = 22.24 CPU)
 
-** POE 0.1204 on Solaris/SunOS 5.7
+** POE 0.1205 on Solaris/SunOS 5.7
 
 Hardware: SPARCstation-20; dual Sparc-75; 320MB RAM (hfb)
 System  : SunOS 5.7
@@ -178,8 +178,8 @@ Tk      : (not installed)
 Event   : (not installed)
 IO::Pty : 0.01
 
-All tests successful, 4 tests skipped, plus 3 subtests skipped.
-Files=24,  Tests=429, 120 wallclock secs (60.55 cusr +  5.33 csys = 65.88 CPU)
+All tests successful, 4 tests skipped.
+Files=24,  Tests=429, 120 wallclock secs (59.72 cusr +  5.50 csys = 65.22 CPU)
 
 ** POE 0.1203 on Linux (a-mused)
 
