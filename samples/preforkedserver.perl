@@ -72,6 +72,7 @@ sub _stop {
 
 sub command {
   my ($heap, $input) = @_[HEAP, ARG0];
+                                        # just echo the input back
   $heap->{wheel}->put("Echo: $input");
 }
 
@@ -137,16 +138,16 @@ sub new {
 
 sub _start {
   my ($kernel, $heap, $processes) = @_[KERNEL, HEAP, ARG0];
-
+                                        # create a socket factory
   $heap->{wheel} = new POE::Wheel::SocketFactory
-    ( SocketDomain   => AF_INET,
-      SocketType     => SOCK_STREAM,
-      SocketProtocol => 'tcp',
-      BindAddress    => INADDR_ANY,
+    ( SocketDomain   => AF_INET,        # in the INET domain/address family
+      SocketType     => SOCK_STREAM,    # create stream sockets
+      SocketProtocol => 'tcp',          # that use the 'tcp' protocol
+      BindAddress    => INADDR_ANY,     # bind to port 8888 of any address
       BindPort       => 8888,
-      ListenQueue    => 5,
-      SuccessState   => 'connection',
-      FailureState   => 'error'
+      ListenQueue    => 5,              # listen, with a 5-connection queue
+      SuccessState   => 'connection',   # generate this event for connections
+      FailureState   => 'error'         # generate this event for errors
     );
                                         # watch for signals
   $kernel->sig('CHLD', 'signal');
@@ -158,6 +159,7 @@ sub _start {
   $heap->{'is a child'} = 0;
                                         # fork the initial set of children
   foreach (2..$processes) {
+                                        # yield() posts events to this session
     $kernel->yield('fork');
   }
 
@@ -171,6 +173,7 @@ sub _start {
 
 sub _stop {
   my $heap = $_[HEAP];
+                                        # kill the child servers
   foreach (keys %{$heap->{children}}) {
     DEBUG && print "$$: server is killing child $_ ...\n";
     kill -1, $_;
@@ -194,10 +197,12 @@ sub fork {
       $heap->{'failed forks'}++;
       $kernel->delay('retry', 1);
     }
-                                        # fail permanently if fatal
+                                        # fail permanently, if fatal
     else {
-      die "Can't fork: $!\n";
+      warn "Can't fork: $!\n";
+      $kernel->yield('_stop');
     }
+    return;
   }
                                         # successful fork; parent keeps track
   if ($pid) {
