@@ -36,16 +36,25 @@ sub get {
 
   local($_);
 
+  # Sanity check.  "finish" is set when a request has completely
+  # arrived.  Subsequent get() calls on the same request should not
+  # happen.  -><- Maybe this should return [] instead of dying?
+
   if($self->{'finish'}) {
     die "Didn't want any more data\n";
   }
 
+  # Accumulate data in a framing buffer.
+
   $self->{buffer} .= join('', @$stream);
+
+  # If headers were already received, then the framing buffer is
+  # purely content.  Return nothing until content-length bytes are in
+  # the buffer, then return the entire request.
 
   if($self->{header}) {
     my $buf = $self->{buffer};
     my $r = $self->{header};
-    $buf =~s/.*(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)//s;
     if(length($buf) >= $r->content_length()) {
       $r->content($buf);
       $self->{finish}++;
@@ -56,16 +65,19 @@ sub get {
     return [];
   }
 
-
-
-
+  # Headers aren't already received.  Short-circuit header parsing:
+  # don't return anything until we've received a blank line.
 
   return []
     unless($self->{buffer} =~/(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)/s);
 
+  # Copy the buffer for header parsing, and remove the header block
+  # from the content buffer.
+
   my $buf = $self->{buffer};
+  $self->{buffer} =~s/.*?(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)//s;
 
-
+  # Parse the request line.
 
   if ($buf !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
     $self->send_error(400);  # BAD_REQUEST
@@ -73,9 +85,14 @@ sub get {
   }
   my $proto = $3 || "HTTP/0.9";
 
+  # Use the request line to create a request object.
+
   my $r = HTTP::Request->new($1, url($2));
   $r->protocol($proto);
   $self->{'httpd_client_proto'} = $proto = _http_version($proto);
+
+  # Add the raw request's headers to the request object we'll be
+  # returning.
 
   if($proto >= $HTTP_1_0) {
     my ($key,$val);
@@ -95,15 +112,20 @@ sub get {
     $r->push_header($key,$val) if($key);
   }
 
-
   $self->{header} = $r;
+
+  # If this is a GET request, we won't be expecting a message body.
+  # Finish up.
 
   if($r->method() eq 'GET') {
     $self->{finish}++;
     return [$r];
   }
 
-
+  # However, if it's a POST request, check whether the entire content
+  # has already been received!  If so, add that to the request and
+  # we're done.  Otherwise we'll expect a subsequent get() call to
+  # finish things up.
 
   if($r->method() eq 'POST') {
 
