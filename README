@@ -155,13 +155,13 @@ operating system.
 Hardware: Athlon-1000; 512MB RAM
 System  : FreeBSD 4.3-STABLE
 Perl    : 5.6.1
-Gtk     : 0.7005
+Gtk     : 0.7008
 Tk      : 800.022
 Event   : 0.81
 IO::Pty : 0.01
 
 All tests successful.
-Files=26, Tests=559, 84 wallclock secs ( 7.65 cusr +  0.78 csys =  8.43 CPU)
+Files=26, Tests=559, 88 wallclock secs ( 7.79 cusr +  0.80 csys =  8.59 CPU)
 
 ** POE 0.1501 on Mac OS X (Jotham)
 
