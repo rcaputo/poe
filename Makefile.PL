@@ -18,7 +18,7 @@ WriteMakefile
 
     ( ($^O eq 'MacOS')
       ? ()
-      : ( AUTHOR   => 'Rocco Caputo <troc+poe@netrus.net>',
+      : ( AUTHOR   => 'Rocco Caputo <rcaputo@cpan.org>',
           ABSTRACT => 'Event driven threads and I/O abstractions.',
         )
     ),
