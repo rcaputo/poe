@@ -2732,6 +2732,11 @@ sub _internal_select {
 
         unless ($kr_fno_vec->[FVC_REFCOUNT]) {
           {% substrate_ignore_filehandle $fileno, $select_index %}
+
+          # The session is not watching handles anymore.  Remove the
+          # session entirely the fileno structure.
+          delete $kr_fno_vec->[FVC_SESSIONS]->{$session}
+            unless keys %{$kr_fno_vec->[FVC_SESSIONS]->{$session}};
         }
 
         # Decrement the kernel record's handle reference count.  If

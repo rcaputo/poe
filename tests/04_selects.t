@@ -7,7 +7,7 @@ use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
 
-&test_setup(13);
+&test_setup(14);
 
 # Turn on all asserts.
 #sub POE::Kernel::TRACE_EVENTS () { 1 }
@@ -226,7 +226,29 @@ for (my $index = 0; $index < $pair_count; $index++) {
     );
 }
 
-print "ok 2\n";
+# Spawn a quick and dirty session to test a new bug found in
+# _internal_select.
+
+POE::Session->create
+  ( inline_states =>
+    { _start => sub {
+        open FOO, ">./unlinkme.now" or die $!;
+        close FOO;
+        open FOO, "+<./unlinkme.now" or die $!;
+
+        my $kernel = $_[KERNEL];
+        $kernel->select_read(\*FOO, "input");
+        $kernel->select_write(\*FOO, "output");
+        $kernel->select_write(\*FOO);
+        $kernel->select_write(\*FOO, "output");
+        $kernel->select(\*FOO);
+        print "ok 2\n";
+      },
+      _stop => sub { },
+    },
+  );
+
+print "ok 3\n";
 
 # Now run them until they're done.
 $poe_kernel->run();
@@ -234,10 +256,10 @@ $poe_kernel->run();
 # Now make sure they've run.
 for (my $index = 0; $index < $pair_count << 1; $index++) {
   print "not " unless $test_results[$index];
-  print "ok ", $index + 3, "\n";
+  print "ok ", $index + 4, "\n";
 }
 
 # And one to grow on.
-print "ok 13\n";
+print "ok 14\n";
 
 exit;
