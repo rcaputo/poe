@@ -80,12 +80,14 @@ sub new {
   my $args                = delete $param{Args};
   my $session_type        = delete $param{SessionType};
   my $session_params      = delete $param{SessionParams};
+  my $server_started      = delete $param{Started};
 
   # Defaults.
 
   $address = INADDR_ANY unless defined $address;
 
   $error_callback = \&_default_server_error unless defined $error_callback;
+  $server_started = sub {} unless ref($server_started) eq 'CODE';
 
   $session_type = 'POE::Session' unless defined $session_type;
   if (defined($session_params) && ref($session_params)) {
@@ -329,6 +331,7 @@ sub new {
                 SuccessEvent => 'tcp_server_got_connection',
                 FailureEvent => 'tcp_server_got_error',
               );
+	      $server_started->(@_);
           },
         # Catch an error.
         tcp_server_got_error => $error_callback,
@@ -394,43 +397,43 @@ POE::Component::Server::TCP - a simplified TCP server
 
   # First form just accepts connections.
 
-  POE::Component::Server::TCP->new
-    ( Port     => $bind_port,
-      Address  => $bind_address,    # Optional.
-      Domain   => AF_INET,          # Optional.
-      Alias    => $session_alias,   # Optional.
-      Acceptor => \&accept_handler,
-      Error    => \&error_handler,  # Optional.
-    );
+  POE::Component::Server::TCP->new(
+    Port     => $bind_port,
+    Address  => $bind_address,    # Optional.
+    Domain   => AF_INET,          # Optional.
+    Alias    => $session_alias,   # Optional.
+    Acceptor => \&accept_handler,
+    Error    => \&error_handler,  # Optional.
+  );
 
   # Second form accepts and handles connections.
 
-  POE::Component::Server::TCP->new
-    ( Port     => $bind_port,
-      Address  => $bind_address,      # Optional.
-      Domain   => AF_INET,            # Optional.
-      Alias    => $session_alias,     # Optional.
-      Error    => \&error_handler,    # Optional.
-      Args     => [ "arg0", "arg1" ], # Optional.
+  POE::Component::Server::TCP->new(
+    Port     => $bind_port,
+    Address  => $bind_address,      # Optional.
+    Domain   => AF_INET,            # Optional.
+    Alias    => $session_alias,     # Optional.
+    Error    => \&error_handler,    # Optional.
+    Args     => [ "arg0", "arg1" ], # Optional.
 
-      SessionType   => "POE::Session::Abc",           # Optional.
-      SessionParams => [ options => { debug => 1 } ], # Optional.
+    SessionType   => "POE::Session::Abc",           # Optional.
+    SessionParams => [ options => { debug => 1 } ], # Optional.
 
-      ClientInput        => \&handle_client_input,      # Required.
-      ClientConnected    => \&handle_client_connect,    # Optional.
-      ClientDisconnected => \&handle_client_disconnect, # Optional.
-      ClientError        => \&handle_client_error,      # Optional.
-      ClientFlushed      => \&handle_client_flush,      # Optional.
-      ClientFilter       => "POE::Filter::Xyz",         # Optional.
-      ClientInputFilter  => "POE::Filter::Xyz",         # Optional.
-      ClientOutputFilter => "POE::Filter::Xyz",         # Optional.
-      ClientShutdownOnError => 0,                       # Optional.
+    ClientInput        => \&handle_client_input,      # Required.
+    ClientConnected    => \&handle_client_connect,    # Optional.
+    ClientDisconnected => \&handle_client_disconnect, # Optional.
+    ClientError        => \&handle_client_error,      # Optional.
+    ClientFlushed      => \&handle_client_flush,      # Optional.
+    ClientFilter       => "POE::Filter::Xyz",         # Optional.
+    ClientInputFilter  => "POE::Filter::Xyz",         # Optional.
+    ClientOutputFilter => "POE::Filter::Xyz",         # Optional.
+    ClientShutdownOnError => 0,                       # Optional.
 
-      # Optionally define other states for the client session.
-      InlineStates  => { ... },
-      PackageStates => [ ... ],
-      ObjectStates  => [ ... ],
-    );
+    # Optionally define other states for the client session.
+    InlineStates  => { ... },
+    PackageStates => [ ... ],
+    ObjectStates  => [ ... ],
+  );
 
   # Call signatures for handlers.
 
@@ -483,21 +486,29 @@ POE::Component::Server::TCP - a simplified TCP server
 
 =head1 DESCRIPTION
 
-The TCP server component hides the steps needed to create a server
-using Wheel::SocketFactory.  The steps aren't many, but they're still
-tiresome after a while.
+The TCP server component hides a generic TCP server pattern.  It uses
+POE::Wheel::SocketFactory and POE::Wheel::ReadWrite internally,
+creating a new session for each connection to arrive.
 
+The authors hope that generic servers can be created with as little
+work as possible.  Servers with uncommon requirements may need to be
+written using the wheel classes directly.  That isn't terribly
+difficult.  A tutorial at http://poe.perl.org/ describes how.
+
+=head1 CONSTRUCTOR PARAMETERS
+
+The new() method can accept quite a lot of parameters.
 POE::Component::Server::TCP supplies common defaults for most
-callbacks and handlers.  The authors hope that servers can be created
-with as little work as possible.
-
-Constructor parameters:
+callbacks and handlers.
 
 =over 2
 
-=item Acceptor
+=item Acceptor => CODEREF
 
-Acceptor is a coderef which will be called to handle accepted sockets.
+Acceptor sets a mostly obsolete callback that is expected to create
+the connection sessions manually.  Most programs should use the
+/^Client/ callbacks instead.
+
 The coderef receives its parameters directly from SocketFactory's
 SuccessEvent.  ARG0 is the accepted socket handle, suitable for giving
 to a ReadWrite wheel.  ARG1 and ARG2 contain the packed remote address
@@ -506,9 +517,9 @@ and numeric port, respectively.  ARG3 is the SocketFactory wheel's ID.
   Acceptor => \&accept_handler
 
 Acceptor lets programmers rewrite the guts of Server::TCP entirely.
-It disables the code that provides the /Client.*/ callbacks.
+It is not compatible with the /^Client/ callbacks.
 
-=item Address
+=item Address => SCALAR
 
 Address is the optional interface address the TCP server will bind to.
 It defaults to INADDR_ANY or INADDR6_ANY when using IPv4 or IPv6,
@@ -522,10 +533,11 @@ can be in whatever form SocketFactory supports.  At the time of this
 writing, that's a dotted quad, an IPv6 address, a host name, or a
 packed Internet address.
 
-=item Alias
+=item Alias => SCALAR
 
-Alias is an optional name by which this server may be referenced.
-It's used to pass events to a TCP server from other sessions.
+Alias is an optional name by which the server's listening session will
+be known.  Messages sent to the alias will go to the listening
+session, not the sessions that are handling active connections.
 
   Alias => 'chargen'
 
@@ -533,94 +545,100 @@ Later on, the 'chargen' service can be shut down with:
 
   $kernel->post( chargen => 'shutdown' );
 
-=item SessionType
+=item Args => ARRAYREF
 
-SessionType specifies what type of sessions will be created within
-the TCP server.  It must be a scalar value.
+Args passes the contents of a ARRAYREF to the ClientConnected callback
+via @_[ARG0..$#_].  It allows you to send extra information to the
+sessions that handle each client connection.
 
-  SessionType => "POE::Session::MultiDispatch"
+=item ClientConnected => CODEREF
 
-SessionType is optional.  The component will supply a "POE::Session"
-type if none is specified.
+ClientConnected sets the callback used to notify each new client
+session that it is started.  ClientConnected callbacks receive the
+usual POE parameters, plus a copy of whatever was specified in the
+component's C<Args> constructor parameter.
 
-=item SessionParams
+The ClientConnected callback will not be called within the same
+session context twice.
 
-Initialize parameters to be passed to the SessionType when it is created.
-This must be an array reference.
+=item ClientDisconnected => CODEREF
 
-  SessionParams => [ options => { debug => 1, trace => 1 } ],
+ClientDisconnected sets the callback used to notify a client session
+that the client has disconnected.
 
-It is important to realize that some of the arguments to SessionHandler
-may get clobbered when defining them for your SessionHandler.  It is
-advised that you stick to defining arguments in the "options" hash such
-as trace and debug. See L<POE::Session> for an example list of options.
+ClientDisconnected callbacks receive the usual POE parameters, but
+nothing special is included.
 
-=item ClientConnected
+=item ClientError => CODEREF
 
-ClientConnected is a coderef that will be called for each new client
-connection.  ClientConnected callbacks receive the usual POE
-parameters, plus a copy of whatever was specified in the component's
-C<Args> constructor parameter.
+ClientError sets the callback used to notify a client session that
+there has been an error on the connection.
 
-=item ClientDisconnected
+It receives POE's usual error handler parameters: ARG0 is the name of
+the function that failed.  ARG1 is the numeric failure code ($! in
+numeric context).  ARG2 is the string failure code ($! in string
+context), and so on.
 
-ClientDisconnected is a coderef that will be called for each client
-that disconnects.  ClientDisconnected callbacks receive the usual POE
-parameters, but nothing special is included.
+POE::Wheel::ReadWrite discusses the error parameters in more detail.
 
-=item ClientError
-
-ClientError is a coderef that will be called whenever an error occurs
-on a socket.  It receives the usual error handler parameters: ARG0 is
-the name of the function that failed.  ARG1 is the numeric failure
-code ($! in numeric context).  ARG2 is the string failure code ($! in
-string context).
-
-If ClientError is omitted, a default one will be provided.  The
-default error handler logs the error to STDERR and closes the
+A default error handler will be provided if ClientError is omitted.
+The default handler will log the error to STDERR and close the
 connection.
 
-=item ClientFilter
+=item ClientFilter => SCALAR
+
+=item ClientFilter => ARRAYREF
 
 ClientFilter specifies the type of filter that will parse input from
-each client.  It may either be a scalar or a list reference.  If it is
-a scalar, it will contain a POE::Filter class name.  If it is a list
-reference, the first item in the list will be a POE::Filter class
-name, and the remaining items will be constructor parameters for the
-filter.  For example, this changes the line separator to a vertical
-bar:
+each client, and optionally any constructor arguments used to create
+each filter instance.
+
+It takes a POE::Filter class name rather than an object because the
+component must create a new instance for each connection.
+
+If ClientFilter contains a SCALAR, it defines the name of the
+POE::Filter class.  Default constructor parameters will be used to
+create instances of that filter.
+
+  ClientFilter => "POE::Filter::Stream",
+
+If ClientFilter contains a list reference, the first item in the list
+will be a POE::Filter class name, and the remaining items will be
+constructor parameters for the filter.  For example, this changes the
+line separator to a vertical bar:
 
   ClientFilter => [ "POE::Filter::Line", Literal => "|" ],
 
-ClientFilter is optional.  The component will supply a
-"POE::Filter::Line" instance if none is specified.  If you supply a
-different value for Filter, then you must also C<use> that filter
-class.
+ClientFilter is optional.  The component will use "POE::Filter::Line"
+if it is omitted.
 
-=item ClientInputFilter
+If you supply a different value for Filter, then you must also C<use>
+that filter class.
 
-=item ClientOutputFilter
+=item ClientInputFilter => SCALAR
 
-ClientInputFilter and ClientOutputFilter are provided to allow for
-using different filters on the input from and output to each client.
-Usage is the same as the ClientFilter option above, allowing either
-a scalar or a list reference. Both must be defined in order to be
-used, and these options override the ClientFilter option if its
-defined as well.
+=item ClientInputFilter => ARRAYREF
 
-Filter modules are required at runtime, and if either fails to be
-loaded, it will fall back to the defaults as if no ClientFilter
-option was defined.
+=item ClientOutputFilter => SCALAR
+
+=item ClientOutputFilter => ARRAYREF
+
+ClientInputFilter and ClientOutputFilter act like ClientFilter, but
+they allow programs to specify different filters for input and output.
+Both must be used together.
+
+Usage is the same as ClientFilter.
 
   ClientInputFilter  => [ "POE::Filter::Line", Literal => "|" ],
   ClientOutputFilter => "POE::Filter::Stream",
 
-=item ClientInput
+=item ClientInput => CODEREF
 
-ClientInput is a coderef that will be called to handle client input.
-The callback receives its parameters directly from ReadWrite's
+ClientInput sets a callback that will be called to handle client
+input.  The callback receives its parameters directly from ReadWrite's
 InputEvent.  ARG0 is the input record, and ARG1 is the wheel's unique
-ID.
+ID, and so on.  POE::Wheel::ReadWrite discusses input event handlers
+in more detail.
 
   ClientInput => \&input_handler
 
@@ -629,17 +647,19 @@ prohibits the other.
 
 =item ClientShutdownOnError => BOOLEAN
 
-ClientShutdownOnError is a boolean value that determines whether
-client sessions shut down automatically on errors.  The default value
-is 1 (true).  Setting it to 0 or undef (false) turns this off.
+ClientShutdownOnError tells the component whether to shut down client
+sessions automatically on errors.  It defaults to true.  Setting it to
+a false value (0, undef, "") turns this feature off.
 
-If client shutdown-on-error is turned off, it becomes your
-responsibility to deal with client errors properly.  Not handling
-them, or not closing wheels when they should be, will cause the
-component to spit out a constant stream of errors, eventually bogging
-down your application with dead connections that spin out of control.
+If this option is turned off, it becomes your responsibility to deal
+with client errors properly.  Not handling them, or not destroying
+wheels when they should be, will cause the component to spit out a
+constant stream of errors, eventually bogging down your application
+with dead connections that spin out of control.
 
-=item Domain
+You've been warned.
+
+=item Domain => SCALAR
 
 Specifies the domain within which communication will take place.  It
 selects the protocol family which should be used.  Currently supported
@@ -650,51 +670,82 @@ Note: AF_INET6 and PF_INET6 are supplied by the Socket6 module, which
 is available on the CPAN.  You must have Socket6 loaded before
 POE::Component::Server::TCP will create IPv6 sockets.
 
-=item Error
+=item Error => CODEREF
 
-Error is an optional coderef which will be called to handle server
-socket errors.  The coderef is used as POE::Wheel::SocketFactory's
-FailureEvent, so it accepts the same parameters.  If it is omitted, a
-default error handler will be provided.  The default handler will log
-the error to STDERR and shut down the server.
+Error sets the callback that will be invoked when the server socket
+reports an error.  The callback is used to handle
+POE::Wheel::SocketFactory's FailureEvent, so it receives the same
+parameters as discussed there.
 
-=item InlineStates
+A default error handler will be provided if Error is omitted.  The
+default handler will log the error to STDERR and shut down the server.
+Active connections will have the opportunity to complete their
+transactions.
 
-InlineStates holds a hashref of inline coderefs to handle events.  The
-hashref is keyed on event name.  For more information, see
-POE::Session's create() method.
+=item InlineStates => HASHREF
 
-=item ObjectStates
+InlineStates holds a hashref of callbacks to handle custom events.
+The hashref follows the same form as POE::Session->create()'s
+inline_states parameter.
+
+=item ObjectStates => ARRAYREF
 
 ObjectStates holds a list reference of objects and the events they
-handle.  For more information, see POE::Session's create() method.
+handle.  The ARRAYREF follows the same form as POE::Session->create()'s
+object_states parameter.
 
-=item PackageStates
+=item PackageStates => ARRAYREF
 
 PackageStates holds a list reference of Perl package names and the
-events they handle.  For more information, see POE::Session's create()
-method.
+events they handle.  The ARRAYREF follows the same form as
+POE::Session->create()'s package_states parameter.
 
-=item Args LISTREF
+=item Port => SCALAR
 
-Args passes the contents of a LISTREF to the ClientConnected callback via
-@_[ARG0..$#_].  It allows you to pass extra information to the session
-created to handle the client connection.
-
-=item Port
-
-Port is the port the listening socket will be bound to.  It defaults
-to INADDR_ANY, which usually lets the operating system pick a port.
+Port contains the port the listening socket will be bound to.  It
+defaults to INADDR_ANY, which usually lets the operating system pick a
+port at random.
 
   Port => 30023
+
+=item SessionParams => ARRAYREF
+
+SessionParams specifies additional parameters that will be passed to
+the SessionType constructor at creation time.  It must be an array
+reference.
+
+  SessionParams => [ options => { debug => 1, trace => 1 } ],
+
+It is important to realize that some of the arguments to
+SessionHandler may get clobbered when defining them for your
+SessionHandler.  It is advised that you stick to defining arguments in
+the "options" hash such as trace and debug. See L<POE::Session> for an
+example list of options.
+
+=item SessionType => SCALAR
+
+SessionType specifies what type of sessions will be created within the
+TCP server.  It must be a scalar value.
+
+  SessionType => "POE::Session::MultiDispatch"
+
+SessionType is optional.  The component will create POE::Session
+instances if a new type isn't specified.
+
+=item Started => CODEREF
+
+Started sets a callback that will be invoked within the main server
+session's context.  It notifies your code that the server has started.
+Its parameters are the usual for a session's _start handler.
+
+Started is optional.
 
 =back
 
 =head1 EVENTS
 
-It's possible to manipulate a TCP server component from some other
-session.  This is useful for shutting them down, and little else so
-far.
+It's possible to manipulate a TCP server component by sending it
+messages.
 
 =over 2
 
@@ -703,6 +754,8 @@ far.
 Shuts down the TCP server.  This entails destroying the SocketFactory
 that's listening for connections and removing the TCP server's alias,
 if one is set.
+
+Active connections are not shut down until they disconnect.
 
 =back
 
@@ -718,8 +771,8 @@ This looks nothing like what Ann envisioned.
 This component currently does not accept many of the options that
 POE::Wheel::SocketFactory does.
 
-This component will not bind to several addresses.  This may be a
-limitation in SocketFactory.
+This component will not bind to several addresses at once.  This may
+be a limitation in SocketFactory.
 
 This component needs more complex error handling which appends for
 construction errors and replaces for runtime errors, instead of
