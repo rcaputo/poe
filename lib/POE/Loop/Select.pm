@@ -353,6 +353,7 @@ macro substrate_main_loop {
 
       # Pull an alarm off the queue, and dispatch it.
       $event = shift @kr_alarms;
+      delete $kr_alarm_ids{$event->[ST_SEQ]};
       {% ses_refcount_dec2 $event->[ST_SESSION], SS_ALCOUNT %}
       $self->_dispatch_state(@$event);
     }
