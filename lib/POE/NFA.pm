@@ -140,7 +140,7 @@ sub spawn {
   # We treat the parameter list strictly as a hash.  Rather than dying
   # here with a Perl error, we'll catch it and blame it on the user.
 
-  croak "odd number of states/handlers (missing one or the other?)"
+  croak "odd number of events/handlers (missing one or the other?)"
     if @params & 1;
   my %params = @params;
 
@@ -337,7 +337,7 @@ sub _invoke_state {
     die( "a '$event' event was sent from $file at $line to session ",
          $POE::Kernel::poe_kernel->ID_session_to_id($self),
          ", but session ", $POE::Kernel::poe_kernel->ID_session_to_id($self),
-         " has neither that event nor a _default event to handle it ",
+         " has neither a handler for it nor one for _default ",
          "in its current state, '$self->[SELF_CURRENT_NAME]'\n"
        );
   }
@@ -418,7 +418,7 @@ sub register_state {
     # Coderef handlers are inline states.
 
     if (ref($handler) eq 'CODE') {
-      carp( "redefining state($name) for session(",
+      carp( "redefining handler for event($name) for session(",
             $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
           )
         if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
@@ -431,7 +431,7 @@ sub register_state {
     # the method belongs to the handler.
 
     elsif ($handler->can($method)) {
-      carp( "redefining state($name) for session(",
+      carp( "redefining handler for event($name) for session(",
             $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
           )
         if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
@@ -448,7 +448,7 @@ sub register_state {
            $self->[SELF_OPTIONS]->{+OPT_TRACE}
          ) {
         carp( $self->fetch_id(),
-              " : state($name) is not a proper ref - not registered"
+              " : handler for event($name) is not a proper ref - not registered"
             )
       }
       else {

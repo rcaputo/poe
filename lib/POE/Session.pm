@@ -196,11 +196,11 @@ sub new {
       # Check for common problems.
 
       unless ((defined $first) && (length $first)) {
-        carp "deprecated: using an undefined state name";
+        carp "deprecated: using an undefined event name";
       }
 
       if (ref($first) eq 'CODE') {
-        croak "using a code reference as an state name is not allowed";
+        croak "using a code reference as an event name is not allowed";
       }
 
       # Try to determine what sort of state it is.  A lot of WIM is D
@@ -339,7 +339,7 @@ sub create {
   # here with a Perl error, we'll catch it and blame it on the user.
 
   if (@params & 1) {
-    croak "odd number of states/handlers (missing one or the other?)";
+    croak "odd number of events/handlers (missing one or the other?)";
   }
   my %params = @params;
 
@@ -392,7 +392,7 @@ sub create {
         unless (ref($param_value) eq 'HASH');
 
       while (my ($state, $handler) = each(%$param_value)) {
-        croak "inline state '$state' needs a CODE reference"
+        croak "inline state for '$state' needs a CODE reference"
           unless (ref($handler) eq 'CODE');
         $self->register_state($state, $handler);
       }
@@ -514,7 +514,7 @@ sub create {
   else {
     carp( "discarding session ",
           $POE::Kernel::poe_kernel->ID_session_to_id($self),
-          " - no '_start' state"
+          " - no '_start' event handler"
         );
     $self = undef;
   }
@@ -573,11 +573,11 @@ sub _invoke_state {
     unless (exists $self->[SE_STATES]->{+EN_DEFAULT}) {
       $! = ENOSYS;
       if ($self->[SE_OPTIONS]->{+OPT_DEFAULT} and $state ne EN_SIGNAL) {
-        warn( "a '$state' state was sent from $file at $line to session ",
+        warn( "a '$state' event was sent from $file at $line to session ",
               $POE::Kernel::poe_kernel->ID_session_to_id($self),
               ", but session ",
               $POE::Kernel::poe_kernel->ID_session_to_id($self),
-              " has neither that state nor a _default state to handle it\n"
+              " has neither a handler for it nor one for _default\n"
             );
       }
       return undef;
@@ -670,7 +670,7 @@ sub register_state {
     # Coderef handlers are inline states.
 
     if (ref($handler) eq 'CODE') {
-      carp( "redefining state($name) for session(",
+      carp( "redefining handler for event($name) for session(",
             $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
           )
         if ( $self->[SE_OPTIONS]->{+OPT_DEBUG} &&
@@ -683,7 +683,7 @@ sub register_state {
     # the method belongs to the handler.
 
     elsif ($handler->can($method)) {
-      carp( "redefining state($name) for session(",
+      carp( "redefining handler for event($name) for session(",
             $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
           )
         if ( $self->[SE_OPTIONS]->{+OPT_DEBUG} &&
@@ -700,7 +700,7 @@ sub register_state {
            $self->[SE_OPTIONS]->{+OPT_TRACE}
          ) {
         carp( $POE::Kernel::poe_kernel->ID_session_to_id($self),
-              " : state($name) is not a proper ref - not registered"
+              " : handler for event($name) is not a proper ref - not registered"
             )
       }
       else {
