@@ -23,7 +23,6 @@ testreport: poe_report.xml
 poe_report.xml: Makefile
 	perl mylib/testreport.pl
 EOF
-
 }
 
 # Touch CHANGES so it exists.
@@ -31,7 +30,7 @@ open(CHANGES, ">>CHANGES") and close CHANGES;
 
 WriteMakefile
   ( NAME           => 'POE',
-    VERSION_FROM   => 'POE.pm',
+    VERSION_FROM   => 'lib/POE.pm',
 
     dist           =>
     { COMPRESS => 'gzip -9f',
@@ -49,7 +48,6 @@ WriteMakefile
                         Filter::Util::Call => 1.04,
                         Test::More         => 0,
                       },
-    PMLIBDIRS      => [ 'POE' ],
     clean => {
         FILES => 'poe_report.xml test-output.err coverage.report',
     }

@@ -57,6 +57,10 @@ foreach my $mod (sort keys %$search) {
   my ($pkg, $ver) = ($package =~ /^(.*?)-([0-9\.\_]+)\.tar\.gz$/);
 
   # Skip things indigenous to POE.
+  unless (defined $pkg) {
+    warn "Skipping $package (can't parse package name)...\n";
+    next;
+  }
   next if $pkg eq "POE";
 
   $package{$package} = $obj;

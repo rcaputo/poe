@@ -5,7 +5,7 @@
 # loop.
 
 use strict;
-use lib qw(./mylib ../mylib .. .);
+use lib qw(./mylib ../mylib ../lib ./lib);
 use Symbol;
 
 use TestSetup;

@@ -8,7 +8,7 @@
 # arbitrarily named signals.
 
 use strict;
-use lib '..';
+use lib '../lib';
 use POE;
 
 #==============================================================================

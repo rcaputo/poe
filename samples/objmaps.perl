@@ -7,7 +7,7 @@
 # method names do not match their state names.
 
 use strict;
-use lib '..';
+use lib '../lib';
 use POE;
 
 #==============================================================================

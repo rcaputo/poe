@@ -9,7 +9,7 @@
 # relationships, signal propagation and garbage collection.
 
 use strict;
-use lib '..';
+use lib '../lib';
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 

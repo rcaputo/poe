@@ -21,7 +21,7 @@
 # *session*.perl tests.  They are commented in more detail.
 
 use strict;
-use lib '..';
+use lib '../lib';
 
 use POE;
 use IO::Socket;

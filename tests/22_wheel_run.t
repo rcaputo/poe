@@ -4,7 +4,7 @@
 # Test the portable pipe classes and Wheel::Run, which uses them.
 
 use strict;
-use lib qw(./mylib ../mylib .. .);
+use lib qw(./mylib ../mylib ../lib ./lib);
 use Socket;
 
 use TestSetup;

@@ -6,6 +6,7 @@
 # is also a simpler test than sessions.perl.
 
 use strict;
+use lib '../lib';
 use POE;
 
 #==============================================================================

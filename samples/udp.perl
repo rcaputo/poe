@@ -5,7 +5,7 @@
 # be big and strong.
 
 use strict;
-use lib '..';
+use lib '../lib';
 use POE;
 use IO::Socket;
 

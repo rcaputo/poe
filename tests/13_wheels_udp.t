@@ -4,7 +4,7 @@
 # Exercises the wheels commonly used with UDP sockets.
 
 use strict;
-use lib qw(./mylib ../mylib .. .);
+use lib qw(./mylib ../mylib ../lib ./lib);
 use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

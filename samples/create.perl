@@ -5,7 +5,7 @@
 # constructor.
 
 use strict;
-use lib '..';
+use lib '../lib';
 
 # use POE always includes POE::Kernel and POE::Session, since they are
 # the fundamental POE classes and universally used.  POE::Kernel

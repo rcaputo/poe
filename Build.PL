@@ -1,7 +1,7 @@
 use Module::Build;
 my $build = Module::Build->new(
                 dist_name => 'POE',
-                dist_version_from => 'POE.pm',
+                dist_version_from => 'lib/POE.pm',
                 license => 'perl',
 
                 requires => {

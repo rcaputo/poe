@@ -144,7 +144,6 @@ ppmdist: pm_to_blib
 
 ppddist: ppmdist
 EOF
-
 }
 
 WriteMakefile(
@@ -158,7 +157,7 @@ WriteMakefile(
       )
   ),
 
-  VERSION_FROM   => 'POE.pm',
+  VERSION_FROM   => 'lib/POE.pm',
   dist           => {
     COMPRESS => 'gzip -9f',
     SUFFIX   => 'gz',
@@ -170,7 +169,6 @@ WriteMakefile(
 
   test           => { TESTS => 't/*/*.t t/*.t' },
 
-  PMLIBDIRS      => [ 'POE' ],
   clean          => {
       FILES => 'poe_report.xml test-output.err coverage.report',
   },
@@ -180,12 +178,6 @@ WriteMakefile(
     'Test::More'         => 0,
     'Filter::Util::Call' => 1.04,
   },
-
-  # But we're not generating META.yml here.  Rather, we're using
-  # mylib/Build.PL for that.  In the future, we should use one or the
-  # other, because it sucks needing to remember to run lib/Build.PL
-  # before every release.
-  NO_META        => 1,
 );
 
 1;

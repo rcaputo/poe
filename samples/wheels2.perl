@@ -6,7 +6,7 @@
 # rot13 server on localhost port 32000.
 
 use strict;
-use lib '..';
+use lib '../lib';
 use POSIX;
 
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Stream);

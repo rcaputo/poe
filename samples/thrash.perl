@@ -12,7 +12,7 @@
 #   In the "client" copy, comment out th ecall to &server_create();
 
 use strict;
-use lib '..';
+use lib '../lib';
 use Socket;
 
 #sub POE::Kernel::ASSERT_DEFAULT () { 1 }

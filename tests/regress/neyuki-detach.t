@@ -3,6 +3,8 @@
 
 use strict;
 
+use lib qw(./mylib ../mylib ./lib ../lib ../../lib);
+
 $| = 1;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

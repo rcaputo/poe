@@ -5,7 +5,7 @@
 # for design issues.
 
 use strict;
-use lib '..';
+use lib '../lib';
 use lib '/usr/mysrc/Tk800.021/blib';
 use lib '/usr/mysrc/Tk800.021/blib/lib';
 use lib '/usr/mysrc/Tk800.021/blib/arch';

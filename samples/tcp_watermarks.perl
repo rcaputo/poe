@@ -7,7 +7,7 @@
 # watermarks.perl in that it uses a TCP server component.
 
 use strict;
-use lib '..';
+use lib '../lib';
 use POE qw(Component::Server::TCP Wheel::ReadWrite Driver::SysRW Filter::Line);
 
 my $chargen_port = 32019;

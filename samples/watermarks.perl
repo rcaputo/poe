@@ -6,7 +6,7 @@
 # create a wheel-based chargen service.
 
 use strict;
-use lib '..';
+use lib '../lib';
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Line);
 
 my $chargen_port = 32019;

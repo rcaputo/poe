@@ -17,7 +17,7 @@
 # this program still relies on IO::Socket.
 
 use strict;
-use lib '..';
+use lib '../lib';
 
 use POE qw(Wheel::ListenAccept Wheel::ReadWrite Driver::SysRW Filter::Line);
 use IO::Socket;

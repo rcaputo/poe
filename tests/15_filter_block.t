@@ -5,7 +5,7 @@
 # are looking a lot easier.
 
 use strict;
-use lib qw(./mylib ../mylib .. .);
+use lib qw(./mylib ../mylib ../lib ./lib);
 
 use TestSetup;
 

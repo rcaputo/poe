@@ -7,6 +7,8 @@
 use warnings;
 use strict;
 
+use lib qw(./mylib ../mylib ../lib ./lib);
+
 use Data::Dumper;
 
 BEGIN {

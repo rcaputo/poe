@@ -4,7 +4,7 @@
 # This is a simple job queue.
 
 use strict;
-use lib '..';
+use lib '../lib';
 
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
 # sub POE::Kernel::TRACE_GARBAGE () { 1 }

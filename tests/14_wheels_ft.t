@@ -5,7 +5,7 @@
 # -><- Needs tests for Seek and SeekBack.
 
 use strict;
-use lib qw(./mylib ../mylib .. .);
+use lib qw(./mylib ../mylib ../lib ./lib);
 use Socket;
 
 use TestSetup;
