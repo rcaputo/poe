@@ -45,11 +45,11 @@ BEGIN {
 
     # Constants are evaluated first so they exist when the code uses
     # them.
-    eval( '*EADDRNOTAVAIL = sub {  10049 };' .
-          '*EINPROGRESS   = sub {  10036 };' .
-          '*EWOULDBLOCK   = sub {  10035 };' .
-          '*F_GETFL       = sub {      0 };' .
-          '*F_SETFL       = sub {      0 };' .
+    eval( '*EADDRNOTAVAIL = sub () {  10049 };' .
+          '*EINPROGRESS   = sub () {  10036 };' .
+          '*EWOULDBLOCK   = sub () {  10035 };' .
+          '*F_GETFL       = sub () {      0 };' .
+          '*F_SETFL       = sub () {      0 };' .
 
           # Garrett Goebel's patch to support non-blocking connect()
           # or MSWin32 follows.  His notes on the matter:
@@ -73,9 +73,9 @@ BEGIN {
           # This way we'd only be turning on the overlap attribute for
           # the socket we created... and not all subsequent sockets.
 
-          '*SO_OPENTYPE   = sub { 0x7008 };' .
-          '*SO_SYNCHRONOUS_ALERT    = sub { 0x10 };' .
-          '*SO_SYNCHRONOUS_NONALERT = sub { 0x20 };'
+          '*SO_OPENTYPE = sub () { 0x7008 };' .
+          '*SO_SYNCHRONOUS_ALERT    = sub () { 0x10 };' .
+          '*SO_SYNCHRONOUS_NONALERT = sub () { 0x20 };'
         );
     die if $@;
 
@@ -95,8 +95,8 @@ BEGIN {
   }
 
   unless (exists $INC{"Socket6.pm"}) {
-    eval "*Socket6::AF_INET6 = sub { ~0 }";
-    eval "*Socket6::PF_INET6 = sub { ~0 }";
+    eval "*Socket6::AF_INET6 = sub () { ~0 }";
+    eval "*Socket6::PF_INET6 = sub () { ~0 }";
   }
 }
 
