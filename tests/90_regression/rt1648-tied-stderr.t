@@ -6,6 +6,22 @@
 # makes sure the bad behavior does not come back.
 
 use strict;
+
+# Skip these tests if fork() is unavailable.
+BEGIN {
+  my $error;
+  if ($^O eq "MacOS") {
+    $error = "$^O does not support fork";
+  }
+  elsif ($^O eq "MSWin32") {
+    $error = "$^O does not support fork/exec properly";
+  }
+  if ($error) {
+    print "1..0 # Skip $error\n";
+    exit();
+  }
+}
+
 use Test::More tests => 1;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
