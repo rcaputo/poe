@@ -284,9 +284,14 @@ empty.  See POE::Loop::Gtk and POE::Loop::Tk for examples.
 
 =head1 ALARM OR TIME FUNCTIONS
 
-These functions enable and disable time watchers, alarms, and so
-forth.  They may need to register or destroy callback functions, which
-are privately managed by the bridge.
+These functions enable and disable a time watcher or alarm in the
+substrate.  POE only requires one, which is reused or re-created as
+necessary.
+
+Most event loops trigger callbacks when time has passed.  Bridges for
+this kind of loop will need to register and unregister a callback as
+necessary.  The callback, in turn, will dispatch due events and do
+some other maintenance.
 
 The bridge time functions accept NEXT_EVENT_TIME in the form of a UNIX
 epoch time.  Event times may contain fractional seconds.  Time
