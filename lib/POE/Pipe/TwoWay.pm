@@ -8,6 +8,9 @@ package POE::Pipe::TwoWay;
 use strict;
 use Symbol qw(gensym);
 use IO::Socket;
+use POE::Pipe;
+
+@POE::Pipe::TwoWay::ISA = qw( POE::Pipe );
 
 sub DEBUG () { 0 }
 sub RUNNING_IN_HELL () { $^O eq 'MSWin32' }
@@ -17,8 +20,11 @@ sub RUNNING_IN_HELL () { $^O eq 'MSWin32' }
 my $can_run_socket = undef;
 
 sub new {
-  my $type = shift;
+  my $type         = shift;
   my $conduit_type = shift;
+
+  # Dummy object used to inherit the base POE::Pipe class.
+  my $self = bless [], $type;
 
   # Generate symbols to be used as filehandles for the pipe's ends.
   my $a_read  = gensym();
@@ -43,7 +49,7 @@ sub new {
     # Socketpair succeeded.
     unless (length $@) {
       DEBUG and do {
-        warn"using UNIX domain socketpairs\n";
+        warn "using UNIX domain socketpairs";
         warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
       };
 
@@ -76,7 +82,7 @@ sub new {
     # Pipe succeeded.
     unless (length $@) {
       DEBUG and do {
-        warn "using a pipe\n";
+        warn "using a pipe";
         warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
       };
 
@@ -97,49 +103,30 @@ sub new {
        ( $can_run_socket or (not defined $can_run_socket) )
      ) {
 
-    # Try using a pair of plain INET domain sockets.  Usurp SIGALRM
-    # in case it blocks.  Normally POE programs don't use SIGALRM
-    # anyway.  [fingers crossed here]
-    my $old_sig_alarm = $SIG{ALRM} || 'DEFAULT';
+    # Try using a pair of plain INET domain sockets.
+
     eval {
-      local $SIG{ALRM} = sub { die "deadlock" };
-      eval 'alarm(1)' unless RUNNING_IN_HELL;
-
-      my $acceptor = IO::Socket::INET->new
-        ( LocalAddr => '127.0.0.1',
-          LocalPort => 31415,
-          Listen    => 5,
-          Reuse     => 'yes',
-        );
-
-      $a_read = IO::Socket::INET->new
-        ( PeerAddr  => '127.0.0.1',
-          PeerPort  => 31415,
-          Reuse     => 'yes',
-        );
-
-      $b_read = $acceptor->accept() or die "accept";
-
-      $a_write = $a_read;
-      $b_write = $b_read;
+      ($a_read, $b_read) = $self->make_socket();
     };
-    eval 'alarm(0)' unless RUNNING_IN_HELL;
-    $SIG{ALRM} = $old_sig_alarm;
 
     # Sockets worked.
     unless (length $@) {
-      DEBUG and do {
-        warn "using a plain INET socket\n";
-        warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
-      };
-
       # Try sockets more often.
       $can_run_socket = 1;
+
+      $a_write = $a_read;
+      $b_write = $b_read;
 
       # Turn off buffering.  POE::Kernel does this for us, but someone
       # might want to use the pipe class elsewhere.
       select((select($a_write), $| = 1)[0]);
       select((select($b_write), $| = 1)[0]);
+
+      DEBUG and do {
+        warn "using a plain INET socket";
+        warn "ar($a_read) aw($a_write) br($b_read) bw($b_write)\n";
+      };
+
       return($a_read, $a_write, $b_read, $b_write);
     }
 
@@ -150,7 +137,7 @@ sub new {
   }
 
   # There's nothing left to try.
-  DEBUG and warn "nothing worked\n";
+  DEBUG and warn "nothing worked";
   return(undef, undef, undef, undef);
 }
 
