@@ -853,7 +853,7 @@ POE::Session - an event driven abstract state machine
 
     # Plain and mapped package states.
     package_states =>
-    [ $package_one => [ 'state_six', 'state_seven', 'state_eight' },
+    [ $package_one => [ 'state_six', 'state_seven', 'state_eight' ],
       $package_two => { state_ten => 'method_ten' },
     ],
 
