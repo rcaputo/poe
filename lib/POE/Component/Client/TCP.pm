@@ -8,7 +8,7 @@ use vars qw($VERSION);
 $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(carp croak);
-use POSIX qw(ETIMEDOUT);
+use POSIX qw(ETIMEDOUT ECONNRESET);
 
 # Explicit use to import the parameter constants;
 use POE::Session;
@@ -265,7 +265,7 @@ sub new {
 # The default error handler logs to STDERR and shuts down the socket.
 
 sub _default_error {
-  unless ($_[ARG0] eq "read" and $_[ARG1] == 0) {
+  unless ($_[ARG0] eq "read" and ($_[ARG1] == 0 or $_[ARG1] == ECONNRESET)) {
     warn(
       'Client ', $_[SESSION]->ID, " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
     );

@@ -9,7 +9,7 @@ $VERSION = (qw($Revision$ ))[1];
 
 use Carp qw(carp croak);
 use Socket qw(INADDR_ANY inet_ntoa);
-use POSIX qw(ECONNABORTED);
+use POSIX qw(ECONNABORTED ECONNRESET);
 
 # Explicit use to import the parameter constants.
 use POE::Session;
@@ -291,8 +291,8 @@ sub _default_server_error {
 
 sub _default_client_error {
   my ($syscall, $errno, $error) = @_[ARG0..ARG2];
-  unless ($syscall eq "read" and $errno == 0) {
-    $error = "Normal disconnection" unless $errno;
+  unless ($syscall eq "read" and ($errno == 0 or $errno == ECONNRESET)) {
+    $error = "(no error)" unless $errno;
     warn(
       'Client session ', $_[SESSION]->ID,
       " got $syscall error $errno ($error)\n"
