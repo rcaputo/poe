@@ -47,8 +47,10 @@ sub get {
   # happen.  -><- Maybe this should return [] instead of dying?
 
   if($self->{'finish'}) {
-    # BAD_REQUEST
-    return [ $self->build_error(400, "Did not want any more data") ];
+    return [ $self->build_error( RC_BAD_REQUEST,
+                                 "Did not want any more data"
+                               )
+           ];
   }
 
   # Accumulate data in a framing buffer.
@@ -88,7 +90,7 @@ sub get {
   # Parse the request line.
 
   if ($buf !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
-    return [ $self->build_error(400) ];  # BAD_REQUEST
+    return [ $self->build_error(RC_BAD_REQUEST) ];
   }
   my $proto = $3 || "HTTP/0.9";
 
@@ -121,10 +123,11 @@ sub get {
 
   $self->{header} = $r;
 
-  # If this is a GET request, we won't be expecting a message body.
-  # Finish up.
+  # If this is a GET or HEAD request, we won't be expecting a message
+  # body.  Finish up.
 
-  if($r->method() eq 'GET') {
+  my $method = $r->method();
+  if ($method eq 'GET' or $method eq 'HEAD') {
     $self->{finish}++;
     return [$r];
   }
@@ -134,11 +137,15 @@ sub get {
   # we're done.  Otherwise we'll expect a subsequent get() call to
   # finish things up.
 
-  if($r->method() eq 'POST') {
+  if($method eq 'POST') {
 
 #    print "post:$buf:\END BUFFER\n";
 #    print length($buf)."-".$r->content_length()."\n";
-    if(length($buf) >= $r->content_length()) {
+
+    my $cl = $r->content_length();
+    return [ $self->build_error(RC_LENGTH_REQUIRED) ] unless defined $cl;
+    return [ $self->build_error(RC_BAD_REQUEST    ) ] unless $cl =~ /^\d+$/;
+    if (length($buf) >= $cl) {
       $r->content($buf);
       $self->{finish}++;
       return [$r];
