@@ -11,6 +11,9 @@ use POSIX qw(errno_h fcntl_h sys_wait_h);
 use Carp qw(carp croak confess);
 use Sys::Hostname qw(hostname);
 
+# These could be made lexical, but I suspect that people expect them
+# not to be.
+
 use vars qw( $poe_kernel $poe_main_window );
 
 #------------------------------------------------------------------------------
@@ -59,236 +62,247 @@ BEGIN {
   }
 }
 
-#------------------------------------------------------------------------------
+#==============================================================================
 # Globals, or at least package-scoped things.  Data structurse were
 # moved into lexicals in 0.1201.
 
-# only one active kernel; sorry
-$poe_kernel = undef;
+# Translate event IDs to absolute event due time.  This is used by the
+# alarm functions to speed up finding alarms by ID.
 
-# events:
-# [ [ $session, $source_session, $state, $type, \@etc, $time,
-#     $poster_file, $poster_line, $sequence_number
-#   ],
-#   ...
-# ]
-my @kr_events;
-
-# alarm IDs. this is for id->time lookup in the Jun 2001 functions:
-# { $alarm_id =>
-#   $alarm_time
+# { $event_id => $event_due_time,
+#   ...,
 # }
 my %kr_event_ids;
 
-# session IDs: { $id => $session, ... }
+# Translate session IDs to blessed session references.  Used for
+# session ID to reference lookups in macro alias_resolve.
+
+# { $session_id => $session_reference,
+#   ...,
+# }
 my %kr_session_ids;
 
-# -><- being removed
-# handles:
-# { $handle =>
-#   [ $handle,
-#     $refcount,
-#     [ $ref_r, $ref_w, $ref_x ],
-#     [ { $session => [ $handle, $session, $state ], .. },
-#       { $session => [ $handle, $session, $state ], .. },
-#       { $session => [ $handle, $session, $state ], .. }
-#     ],
-#     [ $watcher_r, $watcher_w, $watcher_x ],
-#     [ $requested_state_r, $ditto_w, $ditto_x ],
-#     [ $actual_state_r, $ditto_w, $ditto_x ],
-#     [ $pending_event_count_r, $ditto_w, $ditto_x ],
-#   ]
-# };
-#my %kr_handles;
+# select() vectors.  They're stored in an array so that the VEC_RD,
+# VEC_WR, and VEC_EX offsets work.  This saves some code, but it makes
+# things a little slower.  TODO: Split the vectors into discrete
+# scalars, and use macros to manipulate them.
 
-# filenos:
-# [ [ $reference_count,     # VEC_RD
-#     $substrate_watcher,
-#     $actual_state,
-#     $requested_state,
-#     $pending_event_count,
-#     { $session => { $handle => [ $handle, $session, $event ] },
-#       ...
-#     },
-#   ],
-#   [ ... same for VEC_WR ... ],
-#   [ ... same for VEC_EX ... ],
-#   $total_reference_count,
-# ]
-my @kr_filenos;
-
-# vectors: [ $read_vector, $write_vector, $expedite_vector ];
+# [ $select_read_bit_vector,    (VEC_RD)
+#   $select_write_bit_vector,   (VEC_WR)
+#   $select_expedite_bit_vector (VEC_EX)
+# ];
 my @kr_vectors = ( '', '', '' );
 
-# signals: { $signal => { $session => $state, ... } };
+# Map a signal name to the sessions that are explicitly watching it.
+# For each explicit signal watcher, also note the event that the
+# signal will generate.
+
+# { $signal_name =>
+#   { $session_reference => $event_name,
+#     ...,
+#   }
+# }
 my %kr_signals;
 
-# sessions:
-# { $session =>
-#   [ $session,     # blessed version of the key
-#     $refcount,    # number of things keeping this alive
-#     $evcnt,       # event count
-#     $parent,      # parent session
-#     { $child => $child, ... },
-#     { $handle =>
-#       [ $handle,
-#         $refcount,
-#         [ $r, $w, $e ]
-#       ],
-#       ...
-#     },
-#     { $signal => $state, ... },
-#     { $name => 1, ... },
-#     { $pid => 1, ... },          # child processes
-#     $session_id,                 # session ID
-#     { $tag => $count, ... },     # extra reference counts
-#   ]
-# };
-my %kr_sessions;
+# The table of session aliases, and the sessions they refer to.
 
-# aliases: { $alias => $session };
+# { $alias => $session_reference,
+#   ...,
+# }
 my %kr_aliases;
 
-# Extra references.
+# The count of all extra references used in the system.
 my $kr_extra_refs = 0;
 
-# Session ID index.
+# The session ID index.  It increases as each new session is
+# allocated.
 my $kr_id_index = 1;
 
-# Currently active session.
+# A reference to the currently active session.  Used throughout the
+# functions that act on the current session.
 my $kr_active_session;
 
-# A flag determining whether the program has already run the main loop
-# once.  The question came up: Why does POE do this?  I hadn't
-# documented why, I no longer remember, and preliminary tests show
-# it's not harmful to run the kernel multiple times.  So this is being
-# commented out (2001-08-29) until more is known about it.
-# my $poe_kernel_ran = 0;
-
 #------------------------------------------------------------------------------
+# Filehandle vector sub-fields.  These are used in a few places.
 
-# Handles and vectors sub-fields.
 sub VEC_RD () { 0 }
 sub VEC_WR () { 1 }
 sub VEC_EX () { 2 }
 
-# Session structure
-sub SS_SESSION    () {  0 }
-sub SS_REFCOUNT   () {  1 }
-sub SS_EVCOUNT    () {  2 }
-sub SS_PARENT     () {  3 }
-sub SS_CHILDREN   () {  4 }
-sub SS_HANDLES    () {  5 }
-sub SS_SIGNALS    () {  6 }
-sub SS_ALIASES    () {  7 }
-sub SS_PROCESSES  () {  8 }
-sub SS_ID         () {  9 }
-sub SS_EXTRA_REFS () { 10 }
-sub SS_POST_COUNT () { 11 }
+#------------------------------------------------------------------------------
+# Kernel structure.  This is the root of a large data tree.  Dumping
+# $poe_kernel with Data::Dumper or something will show most of the
+# data that POE keeps track of.  The exceptions to this are private
+# storage in some of the leaf objects, such as POE::Wheel.  All its
+# members are described in detail further on.
 
-# session handle structure
-sub SH_HANDLE   () { 0 }
-sub SH_REFCOUNT () { 1 }
-sub SH_VECCOUNT () { 2 }
+sub KR_SESSIONS       () {  0 } # [ \%kr_sessions,
+sub KR_VECTORS        () {  1 } #   \@kr_vectors,
+sub KR_FILENOS        () {  2 } #   \@kr_filenos,
+sub KR_SIGNALS        () {  3 } #   \%kr_signals,
+sub KR_ALIASES        () {  4 } #   \%kr_aliases,
+sub KR_ACTIVE_SESSION () {  5 } #   \$kr_active_session,
+sub KR_EVENTS         () {  6 } #   \@kr_events,
+sub KR_ID             () {  7 } #   $unique_kernel_id,
+sub KR_SESSION_IDS    () {  8 } #   \%kr_session_ids,
+sub KR_ID_INDEX       () {  9 } #   \$kr_id_index,
+sub KR_WATCHER_TIMER  () { 10 } #   $kr_watcher_timer,  (for Gtk, Tk, etc.)
+sub KR_EXTRA_REFS     () { 11 } #   \$kr_extra_refs,
+sub KR_EVENT_IDS      () { 12 } #   \%kr_event_ids,
+sub KR_SIZE           () { 13 } #   XXX UNUSED ???
+                                # ]
 
-# The Kernel object.  KR_SIZE goes last (it's the index count).
-sub KR_SESSIONS       () {  0 }
-sub KR_VECTORS        () {  1 }
-sub KR_FILENOS        () {  2 }
-sub KR_SIGNALS        () {  3 }
-sub KR_ALIASES        () {  4 }
-sub KR_ACTIVE_SESSION () {  5 }
-sub KR_EVENTS         () {  6 }
-sub KR_ID             () {  7 }
-sub KR_SESSION_IDS    () {  8 }
-sub KR_ID_INDEX       () {  9 }
-sub KR_WATCHER_TIMER  () { 10 }
-sub KR_EXTRA_REFS     () { 11 }
-sub KR_EVENT_IDS      () { 12 }
-sub KR_SIZE           () { 13 }
+# This flag indicates that the program has already run its main loop
+# once.  Is it necessary?  It has been commented out as of 2001-08-29
+# until more is known about it.
 
-# Fileno structure.
-sub FNO_VEC_RD       () { VEC_RD }  # unused (for documentation)
-sub FNO_VEC_WR       () { VEC_WR }  # unused (for documentation)
-sub FNO_VEC_EX       () { VEC_EX }  # unused (for documentation)
-sub FNO_TOT_REFCOUNT () { 3      }
+# my $poe_kernel_ran = 0;
 
-# Fileno vector structure.  One per VEC_RD, VEC_WR, VEC_EX
-sub FVC_REFCOUNT   () { 0 }
-sub FVC_WATCHER    () { 1 }
-sub FVC_ST_ACTUAL  () { 2 }
-sub FVC_ST_REQUEST () { 3 }
-sub FVC_EV_COUNT   () { 4 }
-sub FVC_SESSIONS   () { 5 }
+#------------------------------------------------------------------------------
+# Session structure.
 
-# Handle states (paused or running)
-sub HS_STOPPED   () { 0x00 }
-sub HS_PAUSED    () { 0x01 }
-sub HS_RUNNING   () { 0x02 }
+my %kr_sessions;
 
-# Handle session structure.
-sub HSS_HANDLE  () { 0 }
-sub HSS_SESSION () { 1 }
-sub HSS_STATE   () { 2 }
+sub SS_SESSION    () {  0 } #  [ $blessed_session,
+sub SS_REFCOUNT   () {  1 } #    $total_reference_count,
+sub SS_EVCOUNT    () {  2 } #    $pending_inbound_event_count,
+sub SS_PARENT     () {  3 } #    $parent_session,
+sub SS_CHILDREN   () {  4 } #    { $child_session => $child_session,
+                            #      ...
+                            #    },
+sub SS_HANDLES    () {  5 } #    { $file_handle =>
+# --- BEGIN SUB STRUCT ---  #      [
+sub SH_HANDLE     () {  0 } #        $blessed_file_handle,
+sub SH_REFCOUNT   () {  1 } #        $total_reference_count,
+sub SH_VECCOUNT   () {  2 } #        [ $read_reference_count,     (VEC_RD)
+                            #          $write_reference_count,    (VEC_WR)
+                            #          $expedite_reference_count, (VEC_EX)
+# --- CEASE SUB STRUCT ---  #      ],
+                            #      ...
+                            #    },
+sub SS_SIGNALS    () {  6 } #    { $signal_name => $event_name,
+                            #      ...
+                            #    },
+sub SS_ALIASES    () {  7 } #    { $alias_name => $placeholder_value,
+                            #      ...
+                            #    },
+sub SS_PROCESSES  () {  8 } #    { $process_id => $placeholder_value,
+                            #      ...
+                            #    },
+sub SS_ID         () {  9 } #    $unique_session_id,
+sub SS_EXTRA_REFS () { 10 } #    { $reference_count_tag => $reference_count,
+                            #      ...
+                            #    },
+sub SS_POST_COUNT () { 11 } #    $pending_outbound_event_count,
+                            #  ]
 
-# Events.
-sub ST_SESSION    () { 0 }
-sub ST_SOURCE     () { 1 }
-sub ST_NAME       () { 2 }
-sub ST_TYPE       () { 3 }
-sub ST_ARGS       () { 4 }
+#------------------------------------------------------------------------------
+# Fileno structure.  This tracks the sessions that are watchin a file,
+# by its file number.  It used to track by file handle, but several
+# handles can point to the same underlying fileno.  This is more
+# unique.
 
-# These go towards the end, in this order, because they're optional
-# parameters in some cases.
-sub ST_TIME       () { 5 }
-sub ST_OWNER_FILE () { 6 }
-sub ST_OWNER_LINE () { 7 }
-sub ST_SEQ        () { 8 }
+my @kr_filenos;
 
-# These are names of internal events.
-sub EN_START  () { '_start'           }
-sub EN_STOP   () { '_stop'            }
-sub EN_SIGNAL () { '_signal'          }
+sub FNO_VEC_RD       () { VEC_RD }  # [ [ (fileno read mode structure)
+# --- BEGIN SUB STRUCT 1 ---        #
+sub FVC_REFCOUNT     () { 0      }  #     $fileno_total_use_count,
+sub FVC_WATCHER      () { 1      }  #     $fileno_substrate_watcher,
+sub FVC_ST_ACTUAL    () { 2      }  #     $requested_file_state (see HS_PAUSED)
+sub FVC_ST_REQUEST   () { 3      }  #     $actual_file_state (see HS_PAUSED)
+sub FVC_EV_COUNT     () { 4      }  #     $number_of_pending_events,
+sub FVC_SESSIONS     () { 5      }  #     { $session_watching_this_handle =>
+# --- BEGIN SUB STRUCT 2 ---        #
+sub HSS_HANDLE       () { 0      }  #       [ $blessed_handle,
+sub HSS_SESSION      () { 1      }  #         $blessed_session,
+sub HSS_STATE        () { 2      }  #         $event_name,
+                                    #       ],
+# --- CEASE SUB STRUCT 2 ---        #     },
+# --- CEASE SUB STRUCT 1 ---        #   ],
+                                    #
+sub FNO_VEC_WR       () { VEC_WR }  #   [ (write mode structure is the same)
+                                    #   ],
+                                    #
+sub FNO_VEC_EX       () { VEC_EX }  #   [ (expedite mode struct is the same)
+                                    #   ],
+                                    #
+sub FNO_TOT_REFCOUNT () { 3      }  #   $total_number_of_file_watchers,
+                                    # ]
+
+# These are the values for FVC_ST_ACTUAL and FVC_ST_REQUEST.
+
+sub HS_STOPPED   () { 0x00 }   # The file has stopped generating events.
+sub HS_PAUSED    () { 0x01 }   # The file temporarily stopped making events.
+sub HS_RUNNING   () { 0x02 }   # The file is running and can generate events.
+
+#------------------------------------------------------------------------------
+# Events themselves.  TODO: Rename them to EV_* instead of the old
+# ST_* "state" names.
+
+my @kr_events;
+
+sub ST_SESSION    () { 0 }  # [ $destination_session,
+sub ST_SOURCE     () { 1 }  #   $sender_session,
+sub ST_NAME       () { 2 }  #   $event_name,
+sub ST_TYPE       () { 3 }  #   $event_type,
+sub ST_ARGS       () { 4 }  #   \@event_parameters_arg0_etc,
+                            #
+                            #   (These fields go towards the end
+                            #   because they are optional in some
+                            #   cases.  TODO: Is this still true?)
+                            #
+sub ST_TIME       () { 5 }  #   $event_due_time,
+sub ST_OWNER_FILE () { 6 }  #   $caller_filename_where_enqueued,
+sub ST_OWNER_LINE () { 7 }  #   $caller_line_where_enqueued,
+sub ST_SEQ        () { 8 }  #   $unique_event_id,
+                            # ]
+
+# These are the names of POE's internal events.  They're in constants
+# so we don't mistype them again.
+
+sub EN_CHILD  () { '_child'           }
 sub EN_GC     () { '_garbage_collect' }
 sub EN_PARENT () { '_parent'          }
-sub EN_CHILD  () { '_child'           }
 sub EN_SCPOLL () { '_sigchld_poll'    }
+sub EN_SIGNAL () { '_signal'          }
+sub EN_START  () { '_start'           }
+sub EN_STOP   () { '_stop'            }
 
-# A hash of reserved names for warnings.
+# These are POE's event classes (types).  They often shadow the event
+# names themselves, but they can encompass a large group of events.
+# For example, ET_ALARM describes anything enqueued as by an alarm
+# call.  Types are preferred over names because bitmask tests are
+# faster than sring equality tests.
+
+sub ET_USER   () { 0x0001 }  # User events (posted ones).
+sub ET_CALL   () { 0x0002 }  # User events that weren't enqueued. (XXX UNUSED?)
+sub ET_START  () { 0x0004 }  # _start
+sub ET_STOP   () { 0x0008 }  # _stop
+sub ET_SIGNAL () { 0x0010 }  # _signal
+sub ET_GC     () { 0x0020 }  # _garbage_collect
+sub ET_PARENT () { 0x0040 }  # _parent
+sub ET_CHILD  () { 0x0080 }  # _child
+sub ET_SCPOLL () { 0x0100 }  # _sigchild_poll
+sub ET_ALARM  () { 0x0200 }  # Alarm events.
+sub ET_SELECT () { 0x0400 }  # File activity events.
+
+# A hash of reserved names.  It's used to test whether someone is
+# trying to use an internal event directoly.
+
 my %poes_own_events =
-  ( EN_START  , 1,
-    EN_STOP   , 1,
-    EN_SIGNAL , 1,
-    EN_GC     , 1,
-    EN_PARENT , 1,
-    EN_CHILD  , 1,
-    EN_SCPOLL , 1,
+  ( EN_CHILD  , 1, EN_GC     , 1, EN_PARENT , 1, EN_SCPOLL , 1,
+    EN_SIGNAL , 1, EN_START  , 1, EN_STOP   , 1,
   );
 
 # These are ways a child may come or go.
-sub CHILD_GAIN   () { 'gain'   }
-sub CHILD_LOSE   () { 'lose'   }
-sub CHILD_CREATE () { 'create' }
 
-# These are event classes (types).  They often shadow actual event
-# names, but they can encompass a large group of events.  For example,
-# ET_ALARM describes anything posted by an alarm call.  Types are
-# preferred over names because bitmask tests tend to be faster than
-# string equality checks.
-sub ET_USER   () { 0x0001 }
-sub ET_CALL   () { 0x0002 }
-sub ET_START  () { 0x0004 }
-sub ET_STOP   () { 0x0008 }
-sub ET_SIGNAL () { 0x0010 }
-sub ET_GC     () { 0x0020 }
-sub ET_PARENT () { 0x0040 }
-sub ET_CHILD  () { 0x0080 }
-sub ET_SCPOLL () { 0x0100 }
-sub ET_ALARM  () { 0x0200 }
-sub ET_SELECT () { 0x0400 }
+sub CHILD_GAIN   () { 'gain'   }  # The session was inherited from another.
+sub CHILD_LOSE   () { 'lose'   }  # The session is no longer this one's child.
+sub CHILD_CREATE () { 'create' }  # The session was created as a child of this.
 
 # Queues with this many events (or more) are considered to be "large",
-# and different strategies are used to find elements within them.
+# and different strategies are used to find events within them.
+
 sub LARGE_QUEUE_SIZE () { 512 }
 
 #------------------------------------------------------------------------------
