@@ -144,6 +144,11 @@ Thanks to a-mused and dynweb for their testing time.  Someday
 SourceForge will get its compile farm together again, and I'll be able
 to add six more test systems to this list.
 
+The wallclock seconds are constrained mainly by delays within the
+tests themselves.  For a more accurate determination of POE's speed,
+balance the CPU seconds against the test machine's hardware and
+operating system.
+
 ** POE 0.1401 on FreeBSD (home-bsd)
 
 Hardware: Athlon-1000; 512MB RAM
@@ -225,7 +230,7 @@ These results are for POE 0.1401.
   POE/Filter/Reference.pm             =    60 /    66 =  90.91%
   POE/Filter/Stackable.pm             =    17 /    40 =  42.50%
   POE/Filter/Stream.pm                =    11 /    11 = 100.00%
-  POE/Kernel.pm                       =   740 /   951 =  77.81%
+  POE/Kernel.pm                       =   853 /  1106 =  77.12%
   POE/Kernel/Event.pm                 =     1 /     9 =  11.11%
   POE/Kernel/Gtk.pm                   =     2 /    17 =  11.76%
   POE/Kernel/Select.pm                =     6 /    12 =  50.00%
@@ -239,9 +244,9 @@ These results are for POE 0.1401.
   POE/Wheel/FollowTail.pm             =    87 /   108 =  80.56%
   POE/Wheel/ListenAccept.pm           =    51 /    65 =  78.46%
   POE/Wheel/ReadWrite.pm              =   129 /   215 =  60.00%
-  POE/Wheel/Run.pm                    =   176 /   242 =  72.73%
+  POE/Wheel/Run.pm                    =   176 /   243 =  72.43%
   POE/Wheel/SocketFactory.pm          =   204 /   248 =  82.26%
-  All Told                            =  2188 /  3045 =  71.86% 
+  All Told                            =  2301 /  3201 =  71.88%
 
 Thanks for reading!
 
