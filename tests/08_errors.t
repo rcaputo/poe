@@ -192,12 +192,7 @@ print "ok 19\n";
       Nonexistent => 'woobly',
     );
 
-  if ($^O eq "MSWin32") {
-    print "not " unless $warnings == 15;
-  }
-  else {
-    print "not " unless $warnings == 1;
-  }
+  print "not " unless $warnings == 1;
   print "ok 20\n";
 }
 
