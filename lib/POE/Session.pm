@@ -52,6 +52,9 @@ sub new {
 
   my @args;
 
+  croak "sessions no longer require a kernel reference as the first parameter"
+    if ((@states > 1) && (ref($states[0]) eq 'POE::Kernel'));
+
   croak "$type requires a working Kernel"
     unless (defined $POE::Kernel::poe_kernel);
 

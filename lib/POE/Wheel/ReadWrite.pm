@@ -18,6 +18,9 @@ sub new {
   my $type = shift;
   my %params = @_;
 
+  croak "wheels no longer require a kernel reference as their first parameter"
+    if (@_ && (ref($_[0]) eq 'POE::Kernel'));
+
   croak "$type requires a working Kernel"
     unless (defined $poe_kernel);
 
