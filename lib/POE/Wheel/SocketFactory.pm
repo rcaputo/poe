@@ -506,9 +506,9 @@ sub new {
   # Configure Socket #
   #------------------#
 
-  # Make the socket binary.  This probably is necessary for DOSISH
-  # systems, and nothing untoward should happen on sane systems.
-  binmode($socket_handle);
+  # Make the socket binary.  It's wrapped in eval{} because tied
+  # filehandle classes may actually die in their binmode methods.
+  eval { binmode($socket_handle) };
 
   # Don't block on socket operations, because the socket will be
   # driven by a select loop.

@@ -2443,8 +2443,9 @@ sub _internal_select {
           0,            # FNO_TOT_REFCOUNT
         ];
 
-      # For DOSISH systems like OS/2.  Harmless elsewhere.
-      binmode($handle);
+      # For DOSISH systems like OS/2.  Not entirely harmless: Some
+      # tied-filehandle classes don't implement binmode.
+      eval { binmode($handle) };
 
       # Make the handle stop blocking, the Windows way.
       if (RUNNING_IN_HELL) {
