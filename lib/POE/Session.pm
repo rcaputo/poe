@@ -1613,6 +1613,11 @@ The C<_stop> handler is used to perform shutdown tasks, such as
 releasing custom resources and breaking circular references so that
 Perl's garbage collection will properly destroy things.
 
+Because a session is destroyed after a C<_stop> handler returns, any
+POE things done from a C<_stop> handler may not work.  For example,
+posting events from C<_stop> will be ineffective since part of the
+Session cleanup is removing posted events.
+
 =back
 
 =head1 MISCELLANEOUS CONCEPTS
