@@ -87,16 +87,16 @@ sub ui_start {
   # An entry field.  Things entered here are written to the writable
   # ends of the pipe and file.
 
-  $poe_tk_main_window->Label( -text => 'Entry Field' )->pack;
+  $poe_main_window->Label( -text => 'Entry Field' )->pack;
 
-  $heap->{pipe_entry} = $poe_tk_main_window->Entry( -width => 30 );
+  $heap->{pipe_entry} = $poe_main_window->Entry( -width => 30 );
   $heap->{pipe_entry}->insert( 0, scalar localtime() );
   $heap->{pipe_entry}->pack;
 
   # A button.  Pressing it writes what's in the entry field into the
   # pipe and file.
 
-  $poe_tk_main_window->Button
+  $poe_main_window->Button
     ( -text => 'Write Entry to Pipe and File',
       -command => $session->postback( 'ev_pipe_write' )
     )->pack;
@@ -104,9 +104,9 @@ sub ui_start {
   # A listbox.  It contains the last 5 things fetched from the
   # readable end of the pipe.
 
-  $poe_tk_main_window->Label( -text => 'Pipe Tail (simple read)' )->pack;
+  $poe_main_window->Label( -text => 'Pipe Tail (simple read)' )->pack;
 
-  $heap->{pipe_tail_list} = $poe_tk_main_window->Listbox
+  $heap->{pipe_tail_list} = $poe_main_window->Listbox
     ( -height => 5, -width => 30
     );
   for my $i (0..4) {
@@ -117,9 +117,9 @@ sub ui_start {
   # A listbox.  It contains the last 5 things fetched from the
   # readable end of the file.
 
-  $poe_tk_main_window->Label( -text => 'File Tail (tail follow)' )->pack;
+  $poe_main_window->Label( -text => 'File Tail (tail follow)' )->pack;
 
-  $heap->{file_tail_list} = $poe_tk_main_window->Listbox
+  $heap->{file_tail_list} = $poe_main_window->Listbox
     ( -height => 5, -width => 30
     );
   for my $i (0..4) {
@@ -129,67 +129,67 @@ sub ui_start {
 
   # A fast timed counter.
 
-  $poe_tk_main_window->Label( -text => 'Fast Timed Counter' )->pack;
+  $poe_main_window->Label( -text => 'Fast Timed Counter' )->pack;
 
   $heap->{fast_text} = \$fast_text;
   $heap->{fast_widget} =
-    $poe_tk_main_window->Label( -textvariable => $heap->{fast_text} );
+    $poe_main_window->Label( -textvariable => $heap->{fast_text} );
   $heap->{fast_widget}->pack;
 
   # A slow timed counter.
 
-  $poe_tk_main_window->Label( -text => 'Slow Timed Counter' )->pack;
+  $poe_main_window->Label( -text => 'Slow Timed Counter' )->pack;
 
   $heap->{slow_text} = \$slow_text;
   $heap->{slow_widget} =
-    $poe_tk_main_window->Label( -textvariable => $heap->{slow_text} );
+    $poe_main_window->Label( -textvariable => $heap->{slow_text} );
   $heap->{slow_widget}->pack;
 
   # An idle counter.
 
-  $poe_tk_main_window->Label( -text => 'Idle Foreground Counter' )->pack;
+  $poe_main_window->Label( -text => 'Idle Foreground Counter' )->pack;
 
   $heap->{idle_text} = \$idle_text;
   $heap->{idle_widget} =
-    $poe_tk_main_window->Label( -textvariable => $heap->{idle_text} );
+    $poe_main_window->Label( -textvariable => $heap->{idle_text} );
   $heap->{idle_widget}->pack;
 
   # Another idle counter, for when the window has no focus.
 
-  $poe_tk_main_window->Label( -text => 'Idle Background Counter' )->pack;
+  $poe_main_window->Label( -text => 'Idle Background Counter' )->pack;
 
   $heap->{unfocus_text} = \$unfocus_text;
   $heap->{unfocus_widget} =
-    $poe_tk_main_window->Label( -textvariable => $heap->{unfocus_text} );
+    $poe_main_window->Label( -textvariable => $heap->{unfocus_text} );
   $heap->{unfocus_widget}->pack;
 
   # Buttons to start and stop the timed counters.
 
-  $poe_tk_main_window->Button
+  $poe_main_window->Button
     ( -text => 'Begin Timed Counters',
       -command => $session->postback( 'ev_counters_begin' )
     )->pack;
-  $poe_tk_main_window->Button
+  $poe_main_window->Button
     ( -text => 'Stop Timed Counters',
       -command => $session->postback( 'ev_counters_cease' )
     )->pack;
 
   # A button to exit the program would be nice! :)
 
-  $poe_tk_main_window->Button
+  $poe_main_window->Button
     ( -text => 'Exit',
-      -command => sub { $poe_tk_main_window->destroy }
+      -command => sub { $poe_main_window->destroy }
     )->pack;
 
   # Begin some callbacks.
 
-  $poe_tk_main_window->bind( '<FocusIn>',
-                             $session->postback( 'ev_idle_count_begin' )
-                           );
+  $poe_main_window->bind( '<FocusIn>',
+                          $session->postback( 'ev_idle_count_begin' )
+                        );
 
-  $poe_tk_main_window->bind( '<FocusOut>',
-                             $session->postback( 'ev_idle_count_cease' )
-                           );
+  $poe_main_window->bind( '<FocusOut>',
+                          $session->postback( 'ev_idle_count_cease' )
+                        );
 }
 
 sub ui_stop {

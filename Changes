@@ -71,7 +71,7 @@ If it all goes as planned, this will give people at least 1/4 year to
 update their programs.
 
 
-0.1206 2001.03.01
+0.1206 2001.??.??
 -----------------
 
 Enhance POE::Preprocessor to track macros and constants per package.
@@ -109,6 +109,11 @@ put() methods can be used with single logical records.  They can't.
 
 POE::Preprocessor would make regular expressions like /(|a|b)/ when a
 sub-expression was optional.  Tweaked it to generate /(a|b)?/ instead.
+
+Rearranged the README sections in an effort to make it more readable.
+
+Fix samples/tk.perl to use C<$poe_main_window> instead of the older
+C<$poe_tk_main_window>.  I'm surprised this was overlooked so long.
 
 
 0.1205 2001.02.12
