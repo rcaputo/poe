@@ -59,9 +59,21 @@ sub _substrate_signal_handler_child {
 macro substrate_watch_signal {
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
-    Event->signal( signal => $signal,
-                   cb     => \&_substrate_signal_handler_child
-                 );
+
+    # For SIGCHLD triggered polling loop.
+    # Event->signal( signal => $signal,
+    #                cb     => \&_substrate_signal_handler_child
+    #              );
+
+    # Begin constant polling loop.
+    $SIG{$signal} = 'DEFAULT';
+    $poe_kernel->_enqueue_alarm
+      ( $poe_kernel, $poe_kernel,
+        EN_SCPOLL, ET_SCPOLL,
+        [ ],
+        time() + 1, __FILE__, __LINE__
+      );
+
     next;
   }
 
@@ -83,7 +95,18 @@ macro substrate_watch_signal {
 }
 
 macro substrate_resume_watching_child_signals {
+  # For SIGCHLD triggered polling loop.
   # nothing to do
+
+  # For constant polling loop.
+  $SIG{CHLD} = 'DEFAULT' if exists $SIG{CHLD};
+  $SIG{CLD}  = 'DEFAULT' if exists $SIG{CLD};
+  $poe_kernel->_enqueue_alarm
+    ( $poe_kernel, $poe_kernel,
+      EN_SCPOLL, ET_SCPOLL,
+      [ ],
+      time() + 1, __FILE__, __LINE__
+    ) if keys(%kr_sessions) > 1;
 }
 
 #------------------------------------------------------------------------------

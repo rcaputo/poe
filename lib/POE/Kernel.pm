@@ -492,7 +492,7 @@ macro test_for_idle_poe_kernel {
   } # include
 
   unless ( @kr_states        or
-           @kr_alarms        or
+           @kr_alarms > 1    or  # > 1 for signal poll loop
            keys(%kr_handles) or
            $kr_extra_refs
          ) {
@@ -697,6 +697,23 @@ sub new {
     # watchers.  This also starts main windows where applicable.
     {% substrate_init_main_loop %}
 
+    # The kernel is a session, sort of.
+    $kr_active_session = $self;
+    $kr_sessions{$self} =
+      [ $self,                          # SS_SESSION
+        0,                              # SS_REFCOUNT
+        0,                              # SS_EVCOUNT
+        undef,                          # SS_PARENT
+        { },                            # SS_CHILDREN
+        { },                            # SS_HANDLES
+        { },                            # SS_SIGNALS
+        { },                            # SS_ALIASES
+        { },                            # SS_PROCESSES
+        $self->[KR_ID],                 # SS_ID
+        { },                            # SS_EXTRA_REFS
+        0,                              # SS_ALCOUNT
+      ];
+
     # Register all known signal handlers, except the troublesome ones.
     foreach my $signal (keys(%SIG)) {
 
@@ -722,23 +739,6 @@ sub new {
       # watch it depending on its own criteria.
       {% substrate_watch_signal %}
     }
-
-    # The kernel is a session, sort of.
-    $kr_active_session = $self;
-    $kr_sessions{$self} =
-      [ $self,                          # SS_SESSION
-        0,                              # SS_REFCOUNT
-        0,                              # SS_EVCOUNT
-        undef,                          # SS_PARENT
-        { },                            # SS_CHILDREN
-        { },                            # SS_HANDLES
-        { },                            # SS_SIGNALS
-        { },                            # SS_ALIASES
-        { },                            # SS_PROCESSES
-        $self->[KR_ID],                 # SS_ID
-        { },                            # SS_EXTRA_REFS
-        0,                              # SS_ALCOUNT
-      ];
   }
 
   # Return the global instance.
