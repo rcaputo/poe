@@ -37,6 +37,21 @@ How do you start?
 Whichever one doesn't survive will be depreciated for a while, then
 discontinued.
 **Good Ideas
+***Research
+Sky recommends _Object Database Development, Concepts and Principles_,
+by David W. Embley:
+<http://cseng.awl.com/bookdetail.qry?ISBN=0-201-25829-3&ptype=0>.
+
+Also, from <http://osm7.cs.byu.edu/~eric/allegro.html>:
+
+OSA has concepts to formalize just about everything one needs to model
+a real world situation.  Although OSA is an "integrated" modeling
+scheme, that is all the parts work together, it can conveniently be
+seen as consisting of three parts: ORM, OBM, and OIM. 
+
+ORM - Object-Relationship Model
+OBM - Object-Behavior Model
+OIM - Object-Interaction Model
 ***POE::Simple
 Leolo suggests POE::Simple::(Server|Client|Proxy), which would be
 stratospheric-level interfaces to extremely common tasks.  "Contrast
