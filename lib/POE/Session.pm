@@ -151,7 +151,7 @@ sub create {
     unless (defined $POE::Kernel::poe_kernel);
 
   if (@params & 1) {
-    croak "odd number of events/handlers (missin one or the other?)";
+    croak "odd number of events/handlers (missing one or the other?)";
   }
 
   my %params = @params;
@@ -224,7 +224,8 @@ sub create {
       croak "$_ does not refer to an array" unless (ref($states) eq 'ARRAY');
       croak "the array for $_ has an odd number of elements" if (@$states & 1);
 
-      while (my ($object, $handlers) = each(%$states)) {
+      while (@$states) {
+        my ($object, $handlers) = splice @$states => 0, 2;
 
         # Array of handlers is passed through as method names.
         if (ref($handlers) eq 'ARRAY') {
@@ -236,7 +237,7 @@ sub create {
         # Hashes of handlers are passed through as key names.
         elsif (ref($handlers) eq 'HASH') {
           while (my ($state, $method) = each %$handlers) {
-            $self->register_state($method, $object, $state);
+            $self->register_state($state, $object, $method);
           }
         }
 

@@ -106,10 +106,30 @@ sub child_fetch_name {
 }
 
 #==============================================================================
+# Define an object for object sessions.
+
+package Counter;
+
+sub new {
+  my $type = shift;
+  my $self = bless [], $type;
+  $self;
+}
+
+sub _start      { goto &main::child_start       }
+sub _stop       { goto &main::child_stop        }
+sub increment   { goto &main::child_increment   }
+sub display_one { goto &main::child_display_one }
+sub display_two { goto &main::child_display_two }
+sub fetch_name  { goto &main::child_fetch_name  }
+
+#==============================================================================
 # This section defines the event handler (or state) subs for the
 # sessions that this program calls "parent" sessions.  Each sub does
 # just one thing, possibly passing execution to other event handlers
 # through one of the supported event-passing mechanisms.
+
+package main;
 
 #------------------------------------------------------------------------------
 # Newly created sessions are not ready to run until the kernel
@@ -119,7 +139,7 @@ sub child_fetch_name {
 sub main_start {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
                                         # start ten child sessions
-  foreach my $name (qw(one two three four five six seven eight nine ten)) {
+  foreach my $name (qw(one two three four five)) {
                                         # stupid scope trick, part 3 of 3 parts
     $session_name = $name;
     my $session = create POE::Session
@@ -141,6 +161,30 @@ sub main_start {
 
     $kernel->post($session, 'increment', $name, 0);
   }
+
+  foreach my $name (qw(six seven eight nine ten)) {
+    # stupid scope trick, part 4 of 3 parts (that just shows you how
+    # stupid it is)
+    $session_name = $name;
+    my $session = create POE::Session
+      ( object_states =>
+        [ new Counter, [ '_start', '_stop',
+                         'increment', 'display_one', 'display_two',
+                         'fetch_name',
+                       ],
+        ],
+      );
+
+    # Normally, sessions are stopped if they have nothing to do.  The
+    # only exception to this rule is newly created sessions.  Their
+    # garbage collection is delayed slightly, so that parent sessions
+    # may send them "bootstrap" events.  The following post() call is
+    # such a bootstrap event.
+
+    $kernel->post($session, 'increment', $name, 0);
+  }
+
+
 }
 
 #------------------------------------------------------------------------------
