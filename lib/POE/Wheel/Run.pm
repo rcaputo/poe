@@ -1003,7 +1003,7 @@ sub PID {
 
 sub kill {
   my ($self, $signal) = @_;
-  $signal = 'TERM' unless $signal;
+  $signal = 'TERM' unless defined $signal;
   eval { kill $signal, $self->[CHILD_PID] };
 }
 
@@ -1059,7 +1059,7 @@ POE::Wheel::Run - event driven fork/exec with added value
   $wheel->put( 'input for the child' );
 
   # Kill the child.
-  $wheel->kill();
+  $wheel->kill();  # TERM by default
   $wheel->kill(9);
 
 =head1 DESCRIPTION
@@ -1289,10 +1289,12 @@ Returns the child process' ID.  It's useful for matching up to SIGCHLD
 events, which include child process IDs as well, so that wheels can be
 destroyed properly when children exit.
 
-=item kill
+=item kill SIGNAL
 
 Sends a signal to the child process.  It's useful for processes which
 tend to be reluctant to exit when their terminals are closed.
+
+The kill() method will send SIGTERM if SIGNAL is undef or omitted.
 
 =back
 
