@@ -27,6 +27,11 @@ BEGIN {
       &test_setup(0, "can't test Tk without a DISPLAY (set one today, ok?)");
     }
   }
+  # Tk support relies on an interface change that occurred in 800.021.
+  &test_setup( 0,
+               "need Tk 800.021 or newer installed but only have $Tk::VERSION"
+             )
+    if $Tk::VERSION < 800.021;
 };
 
 &test_setup(9);
