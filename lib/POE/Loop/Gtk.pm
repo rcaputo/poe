@@ -216,12 +216,12 @@ my $last_time = time();
 sub _loop_event_callback {
   my $self = $poe_kernel;
 
-  if (TRACE_PERFORMANCE) {
+  if (TRACE_STATISTICS) {
     # TODO - I'm pretty sure the startup time will count as an unfair
     # amout of idleness.
     #
     # TODO - Introducing many new time() syscalls.  Bleah.
-    $self->_data_perf_add('idle_seconds', time() - $last_time);
+    $self->_data_stat_add('idle_seconds', time() - $last_time);
   }
 
   $self->_data_ev_dispatch_due();
@@ -236,7 +236,7 @@ sub _loop_event_callback {
   }
 
   # And back to Gtk, so we're in idle mode.
-  $last_time = time() if TRACE_PERFORMANCE;
+  $last_time = time() if TRACE_STATISTICS;
 
   # Return false to stop.
   return 0;

@@ -238,8 +238,8 @@ sub _data_ev_dispatch_due {
     }
 
     if ($time < $now) {
-        $self->_data_perf_add('blocked', 1);
-        $self->_data_perf_add('blocked_seconds', $now - $time);
+        $self->_data_stat_add('blocked', 1);
+        $self->_data_stat_add('blocked_seconds', $now - $time);
     }
 
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);

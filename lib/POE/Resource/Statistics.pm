@@ -1,11 +1,11 @@
 # $Id$
 
-# Data and methods to manage performance metrics, allowing clients to
-# look at how much work their POE server is performing.
-# None of this stuff will activate unless TRACE_PERFORMANCE or
+# Data and methods to collect runtime statistics about POE, allowing
+# clients to look at how much work their POE server is performing.
+# None of this stuff will activate unless TRACE_STATISTICS or
 # TRACE_PROFILE are enabled.
 
-package POE::Resources::Performance;
+package POE::Resources::Statistics;
 
 use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
@@ -18,34 +18,36 @@ use strict;
 # We keep a number of metrics (idle time, user time, etc).
 # Every tick (by default 30secs), we compute the rolling average
 # of those metrics. The rolling average is computed based on
-# the number of readings specified in $_perf_window_size.
+# the number of readings specified in $_stat_window_size.
 
-my $_perf_metrics     = []; # the data itself
-my $_perf_interval    = 30; # how frequently we take readings
-my $_perf_window_size = 4;  # how many readings we average across
-my $_perf_wpos        = 0;  # where to currrently write metrics (circ. buffer)
-my $_perf_rpos        = 0;  # where to currrently write metrics (circ. buffer)
+my $_stat_metrics     = []; # the data itself
+my $_stat_interval    = 30; # how frequently we take readings
+my $_stat_window_size = 4;  # how many readings we average across
+my $_stat_wpos        = 0;  # where to currrently write metrics (circ. buffer)
+my $_stat_rpos        = 0;  # where to currrently write metrics (circ. buffer)
 my %average;
 
 # This is for collecting event frequencies if TRACE_PROFILE is
 # enabled.
 my %profile;
 
-sub _data_perf_initialize {
+sub _data_stat_initialize {
     my ($self) = @_;
-    $self->_data_perf_reset;
+    $self->_data_stat_reset;
     $self->_data_ev_enqueue(
-      $self, $self, EN_PERF, ET_PERF, [ ],
-      __FILE__, __LINE__, time() + $_perf_interval
+      $self, $self, EN_STAT, ET_STAT, [ ],
+      __FILE__, __LINE__, time() + $_stat_interval
     );
 }
 
-sub _data_perf_finalize {
+sub _data_stat_finalize {
     my ($self) = @_;
-    $self->_data_perf_tick();
+    $self->_data_stat_tick();
 
-    if (TRACE_PERFORMANCE) {
-      POE::Kernel::_warn('<pr> ,----- Performance Data ' , ('-' x 50), ",\n");
+    if (TRACE_STATISTICS) {
+      POE::Kernel::_warn(
+        '<pr> ,----- Observed Statistics ' , ('-' x 50), ",\n"
+      );
       foreach (sort keys %average) {
           next if /epoch/;
           POE::Kernel::_warn(
@@ -63,7 +65,7 @@ sub _data_perf_finalize {
       $average{user_events} ||= 1;
 
       POE::Kernel::_warn(
-        '<pr> +----- Derived Performance Metrics ', ('-' x 39), "+\n",
+        '<pr> +----- Derived Statistics ', ('-' x 39), "+\n",
         sprintf(
           "<pr> | %60.60s %9.1f%% |\n",
           'idle', 100 * $average{avg_idle_seconds} / $average{interval}
@@ -85,36 +87,36 @@ sub _data_perf_finalize {
     }
 
     if (TRACE_PROFILE) {
-      perf_show_profile();
+      stat_show_profile();
     }
 }
 
-sub _data_perf_add {
+sub _data_stat_add {
     my ($self, $key, $count) = @_;
-    $_perf_metrics->[$_perf_wpos] ||= {};
-    $_perf_metrics->[$_perf_wpos]->{$key} += $count;
+    $_stat_metrics->[$_stat_wpos] ||= {};
+    $_stat_metrics->[$_stat_wpos]->{$key} += $count;
 }
 
-sub _data_perf_tick {
+sub _data_stat_tick {
     my ($self) = @_;
 
-    my $pos = $_perf_rpos;
-    $_perf_wpos = ($_perf_wpos+1) % $_perf_window_size;
-    if ($_perf_wpos == $_perf_rpos) {
-	$_perf_rpos = ($_perf_rpos+1) % $_perf_window_size;
+    my $pos = $_stat_rpos;
+    $_stat_wpos = ($_stat_wpos+1) % $_stat_window_size;
+    if ($_stat_wpos == $_stat_rpos) {
+	$_stat_rpos = ($_stat_rpos+1) % $_stat_window_size;
     }
 
     my $count = 0;
     %average = ();
     my $epoch = 0;
-    while ($count < $_perf_window_size && $_perf_metrics->[$pos]->{epoch}) {
- 	$epoch = $_perf_metrics->[$pos]->{epoch} unless $epoch;
-	while (my ($k,$v) = each %{$_perf_metrics->[$pos]}) {
+    while ($count < $_stat_window_size && $_stat_metrics->[$pos]->{epoch}) {
+ 	$epoch = $_stat_metrics->[$pos]->{epoch} unless $epoch;
+	while (my ($k,$v) = each %{$_stat_metrics->[$pos]}) {
 	    next if $k eq 'epoch';
 	    $average{$k} += $v;
 	}
 	$count++;
-	$pos = ($pos+1) % $_perf_window_size;
+	$pos = ($pos+1) % $_stat_window_size;
     }
 
     if ($count) {
@@ -124,15 +126,15 @@ sub _data_perf_tick {
  	$average{interval}       = ($now - $epoch) / $count;
     }
 
-    $self->_data_perf_reset;
+    $self->_data_stat_reset;
     $self->_data_ev_enqueue(
-      $self, $self, EN_PERF, ET_PERF, [ ],
-      __FILE__, __LINE__, time() + $_perf_interval
+      $self, $self, EN_STAT, ET_STAT, [ ],
+      __FILE__, __LINE__, time() + $_stat_interval
     ) if $self->_data_ses_count() > 1;
 }
 
-sub _data_perf_reset {
-    $_perf_metrics->[$_perf_wpos] = {
+sub _data_stat_reset {
+    $_stat_metrics->[$_stat_wpos] = {
       epoch => time,
       idle_seconds => 0,
       user_seconds => 0,
@@ -143,18 +145,18 @@ sub _data_perf_reset {
 
 # Profile this event.
 
-sub _perf_profile {
+sub _stat_profile {
   my ($self, $event) = @_;
   $profile{$event}++;
 }
 
 # Public routines...
 
-sub perf_getdata {
+sub stat_getdata {
     return %average;
 }
 
-sub perf_show_profile {
+sub stat_show_profile {
   POE::Kernel::_warn('<pr> ,----- Event Profile ' , ('-' x 53), ",\n");
   foreach (sort keys %profile) {
     POE::Kernel::_warn(
@@ -169,38 +171,39 @@ __END__
 
 =head1 NAME
 
-POE::Resource::Performance -- Performance metrics for POE::Kernel
+POE::Resource::Statistics -- Runtime statistics for POE programs
 
 =head1 SYNOPSIS
 
-  my %stats = $poe_kernel->perf_getdata;
+  my %stats = $poe_kernel->stat_getdata;
   printf "Idle = %3.2f\n", 100*$stats{avg_idle_seconds}/$stats{interval};
 
 =head1 DESCRIPTION
 
-This module tracks POE::Kernel's performance metrics and provides
-accessors to them.  To enable this monitoring, the TRACE_PERFORMANCE
+This module tracks runtime statistics for a POE program and provides
+accessors to them.  To enable this monitoring, the TRACE_STATISTICS
 flag must be true.  Otherwise no statistics will be gathered.
 
-The performance counters are totalled every 30 seconds and a rolling
+The statistics counters are totalled every 30 seconds and a rolling
 average is maintained for the last two minutes worth of data. At any
-time the data can be retrieved using the perf_getdata() method of the
+time the data can be retrieved using the stat_getdata() method of the
 POE::Kernel. On conclusion of the program, the statistics will be
 printed out by the POE::Kernel.
 
-The time() function is used to gather performance metrics.  If
+The time() function is used to gather statistics over time.  If
 Time::HiRes is available, it will be used automatically.  Otherwise
 time is measured in whole seconds, and the resulting rounding errors
 will make the statistics useless.
 
-The performance metrics were added to POE 0.28.  They are still
-considered highly experimental.  Please be advised that the figures
-are quite likely wrong.  They may in fact be useless.  The reader is
-invited to investigate and improve the module's methods.
+Runtime statistics gathering was added to POE 0.28.  It is considered
+highly experimental.  Please be advised that the figures are quite
+likely wrong.  They may in fact be useless.  The reader is invited to
+investigate and improve the module's methods.
 
 =head1 METRICS
 
-The following fields are members of the hash returned by perf_getdata.
+The following fields are members of the hash returned by
+stat_getdata().
 
 For each of the counters, there will a corresponding entry prefixed
 'avg_' which is the rolling average of that counter.
@@ -239,7 +242,7 @@ waiting for a select/poll event or a timeout to trigger).
 
 The average interval over which the counters are recorded. This will
 typically be 30 seconds, however it can be more if there are
-long-running user events which prevent the performance monitoring from
+long-running user events which prevent the statistics gathering from
 running on time, and it may be less if the program finishes in under
 30 seconds. Often the very last measurement taken before the program
 exits will use a duration less than 30 seconds and this will cause the
