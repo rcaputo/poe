@@ -8,7 +8,7 @@
 # better comments for the basic stuff.
 
 use strict;
-use POE qw(Wheel::FollowTail Driver::SysRW Filter::Line);
+use POE qw(Wheel::FollowTail Driver::SysRW Filter::Line Wheel::ReadWrite);
 use IO::File;
 
 #==============================================================================
@@ -37,32 +37,43 @@ for my $j (0..9) {
                                         # save my ID
         $heap->{'id'} = $i;
                                         # create the "log" file
-        $heap->{'handle'} = new IO::File(">$name");
-        if (defined $heap->{'handle'}) {
+        my $handle = new IO::File(">$name");
+        if (defined $handle) {
+                                        # create non-blocking write-only wheel
+          $heap->{'wheel'} = new POE::Wheel::ReadWrite
+            ( Handle     => $handle,                  # using this handle
+              Driver     => new POE::Driver::SysRW(), # using syswrite
+              Filter     => new POE::Filter::Line(),  # write lines
+              ErrorState => 'log_error'               # acknowledge errors
+            );
+
           $kernel->post($session, 'activity');
         }
         else {
           print "Writer $heap->{'id'} can't open $name for writing: $!\n";
         }
       },
+                                        # acknowledge errors; perhaps disk full
+      'log_error' => sub
+      { my ($heap, $op, $errnum, $errstr) = @_[HEAP, ARG0, ARG1, ARG2];
+        print "Writer $heap->{'id'} encountered $op error $errnum: $errstr\n";
+        delete $heap->{'wheel'};
+      },
                                         # close and destroy the log filehandle
       '_stop' => sub
       { my $heap = $_[HEAP];
-        if ($heap->{'handle'}) {
-          delete $heap->{'handle'};
-        }
+        delete $heap->{'wheel'};
         print "Writer $heap->{'id'} has stopped.\n";
       },
                                         # simulate activity, and log it
       'activity' => sub
       { my ($kernel, $heap) = @_[KERNEL, HEAP];
                                         # only if it still has the file open
-        if ($heap->{'handle'}) {
+        if ($heap->{'wheel'}) {
                                         # write a timestamp
-          $heap->{'handle'}->print($heap->{'id'}, ' - ',
-                                   scalar(localtime(time())), "\n"
-                                  );
-          $heap->{'handle'}->flush();
+          $heap->{'wheel'}->put($heap->{'id'} . ' - ' .
+                                scalar(localtime(time()))
+                               );
         }
                                         # generate more activity after a delay
         $kernel->delay('activity', $j+1);
@@ -81,7 +92,8 @@ for my $j (0..9) {
               'Driver' => new POE::Driver::SysRW(), # use sysread to read
               'Filter' => new POE::Filter::Line(),  # file contains lines
               'InputState' => 'got a line',         # input handler
-              'ErrorState' => 'error reading'       # error handler
+              'ErrorState' => 'error reading',      # error handler
+              'PollInterval' => 2,
             );
         }
                                         # could not read the file
