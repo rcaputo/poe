@@ -344,7 +344,9 @@ BEGIN {
   # constants.  Since define_trace() uses TRACE_DEFAULT internally, it
   # can't be used to define TRACE_DEFAULT itself.
 
-  defined &TRACE_DEFAULT or eval 'sub TRACE_DEFAULT () { 0 }';
+  my $trace_default = 0;
+  $trace_default++ if defined $ENV{POE_TRACE_DEFAULT};
+  defined &TRACE_DEFAULT or eval "sub TRACE_DEFAULT () { $trace_default }";
 
   define_trace
     qw(EVENTS GARBAGE PROFILE QUEUE REFCOUNT RETURNS SELECT SIGNALS);
@@ -352,7 +354,9 @@ BEGIN {
   # See the notes for TRACE_DEFAULT, except read ASSERT and assert
   # where you see TRACE and trace.
 
-  defined &ASSERT_DEFAULT or eval 'sub ASSERT_DEFAULT () { 0 }';
+  my $assert_default = 0;
+  $assert_default++ if defined $ENV{POE_ASSERT_DEFAULT};
+  defined &ASSERT_DEFAULT or eval "sub ASSERT_DEFAULT () { $assert_default }";
 
   define_assert
     qw(EVENTS GARBAGE REFCOUNT RELATIONS SELECT SESSIONS RETURNS USAGE);
