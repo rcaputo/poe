@@ -173,8 +173,8 @@ Tk      : 800.023
 Event   : 0.81
 IO::Pty : 0.01
 
-All tests successful, 2 tests skipped.
-Files=26, Tests=477, 75 wallclock secs (13.09 cusr +  1.28 csys = 14.37 CPU)
+All tests successful, 1 test skipped.
+Files=26, Tests=551, 85 wallclock secs (14.32 cusr + 1.47 csys = 15.79 CPU)
 
 ** POE 0.15 on Windows 4.10.2222
 
