@@ -71,6 +71,7 @@ sub CRIMSON_SCOPE_HACK ($) { 0 }
 
 sub new {
   my $type = shift;
+  croak "$type needs an even number of parameters" if @_ & 1;
   my %params = @_;
 
   croak "wheels no longer require a kernel reference as their first parameter"
@@ -591,19 +592,19 @@ sub put {
 # code in Wheel::ReadWrite.
 
 sub set_filter {
-  carp "set_filter not implemented";
+  croak "set_filter not implemented";
 }
 
 sub set_stdin_filter {
-  carp "set_stdin_filter not implemented";
+  croak "set_stdin_filter not implemented";
 }
 
 sub set_stdout_filter {
-  carp "set_stdout_filter not implemented";
+  croak "set_stdout_filter not implemented";
 }
 
 sub set_stderr_filter {
-  carp "set_stderr_filter not implemented";
+  croak "set_stderr_filter not implemented";
 }
 
 #------------------------------------------------------------------------------
