@@ -1324,7 +1324,7 @@ sub _invoke_state {
       # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
       # event and loop around again.
 
-      if ( (RUNNING_IN_HELL and $pid < 0) or
+      if ( (RUNNING_IN_HELL and $pid < -1) or
            (!RUNNING_IN_HELL and $pid > 0)
          ) {
         if (RUNNING_IN_HELL or WIFEXITED($?) or WIFSIGNALED($?)) {
@@ -1348,7 +1348,7 @@ sub _invoke_state {
         next;
       }
 
-      # The only negative value waitpid(2) should return is -1.
+      # The only other negative value waitpid(2) should return is -1.
 
       die "internal consistency error: waitpid returned $pid" if $pid != -1;
 
