@@ -1,16 +1,12 @@
 use Module::Build;
 my $build = Module::Build->new(
                 dist_name => 'POE',
-                dist_version_from => 'lib/POE.pm',
+                dist_version_from => 'POE.pm',
                 license => 'perl',
 
                 requires => {
-                    'Carp'  => '0',
-                    'Exporter' => '0',
-                    'IO' => '0',
-                    'POSIX' => '0',
-                    'Socket' => '0',
-                    'Filter::Util::Call' => '1.04',
+                    'Filter::Util::Call' => 1.04,
+                    'Test::More'         => 0,
                 },
             );
 

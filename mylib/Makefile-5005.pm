@@ -131,7 +131,7 @@ reportupload: poe_report.xml
 
 uploadreport: poe_report.xml
 	$^X lib/reportupload.pl
-	
+
 testreport: poe_report.xml
 
 poe_report.xml: Makefile
@@ -147,30 +147,45 @@ EOF
 
 }
 
-WriteMakefile
-  ( NAME           => 'POE',
+WriteMakefile(
+  NAME           => 'POE',
 
-    ( ($^O eq 'MacOS')
-      ? ()
-      : ( AUTHOR   => 'Rocco Caputo <rcaputo@cpan.org>',
-          ABSTRACT => 'A portable networking/multitasking framework for Perl.',
-        )
+  (
+    ($^O eq 'MacOS')
+    ? ()
+    : ( AUTHOR   => 'Rocco Caputo <rcaputo@cpan.org>',
+        ABSTRACT => 'A portable networking/multitasking framework for Perl.',
+      )
+  ),
+
+  VERSION_FROM   => 'POE.pm',
+  dist           => {
+    COMPRESS => 'gzip -9f',
+    SUFFIX   => 'gz',
+    PREOP    => (
+      './lib/cvs-log.perl | ' .
+      'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
     ),
+  },
 
-    VERSION_FROM   => 'POE.pm',
-    dist           =>
-    { COMPRESS => 'gzip -9f',
-      SUFFIX   => 'gz',
-      PREOP    => ( './lib/cvs-log.perl | ' .
-                    'tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES'
-                  ),
-    },
-    test           => { TESTS => 't/*/*.t t/*.t' },
+  test           => { TESTS => 't/*/*.t t/*.t' },
 
-    PMLIBDIRS      => [ 'POE' ],
-    clean => {
-        FILES => 'poe_report.xml test-output.err coverage.report',
-    }
-  );
+  PMLIBDIRS      => [ 'POE' ],
+  clean          => {
+      FILES => 'poe_report.xml test-output.err coverage.report',
+  },
+
+  # More for META.yml than anything.
+  PREREQ_PM      => {
+    'Test::More'         => 0,
+    'Filter::Util::Call' => 1.04,
+  },
+
+  # But we're not generating META.yml here.  Rather, we're using
+  # lib/Build.PL for that.  In the future, we should use one or the
+  # other, because it sucks needing to remember to run lib/Build.PL
+  # before every release.
+  NO_META        => 1,
+);
 
 1;
