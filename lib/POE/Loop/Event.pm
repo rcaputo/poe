@@ -113,10 +113,6 @@ macro substrate_resume_watching_child_signals {
 #------------------------------------------------------------------------------
 # Watchers and callbacks.
 
-macro substrate_resume_idle_watcher {
-  $self->[KR_WATCHER_IDLE]->again();
-}
-
 macro substrate_resume_time_watcher {
   $self->[KR_WATCHER_TIMER]->at($kr_events[0]->[ST_TIME]);
   $self->[KR_WATCHER_TIMER]->start();
@@ -227,15 +223,6 @@ macro substrate_init_main_loop {
         after  => 0,
         parked => 1,
       );
-
-  $self->[KR_WATCHER_IDLE] =
-    Event->idle
-      ( cb     => \&_substrate_fifo_callback,
-        repeat => 1,
-        min    => 0,
-        max    => 0,
-        parked => 1,
-      );
 }
 
 macro substrate_main_loop {
@@ -243,7 +230,6 @@ macro substrate_main_loop {
 }
 
 macro substrate_stop_main_loop {
-  $self->[KR_WATCHER_IDLE]->stop();
   $self->[KR_WATCHER_TIMER]->stop();
   Event::unloop_all(0);
 }

@@ -125,11 +125,6 @@ macro substrate_resume_watching_child_signals () {
 #------------------------------------------------------------------------------
 # Watchers and callbacks.
 
-macro substrate_resume_idle_watcher {
-  $self->[KR_WATCHER_IDLE] =
-    $poe_main_window->afterIdle( \&_substrate_idle_callback );
-}
-
 macro substrate_resume_time_watcher {
   if (defined $self->[KR_WATCHER_TIMER]) {
     $self->[KR_WATCHER_TIMER]->cancel();
@@ -313,7 +308,6 @@ macro substrate_main_loop {
 }
 
 macro substrate_stop_main_loop {
-  $self->[KR_WATCHER_IDLE]  = undef;
   $self->[KR_WATCHER_TIMER] = undef;
   $poe_main_window->destroy();
 }

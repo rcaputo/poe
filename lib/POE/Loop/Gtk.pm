@@ -115,11 +115,6 @@ macro substrate_resume_watching_child_signals () {
 #------------------------------------------------------------------------------
 # Watchers and callbacks.
 
-macro substrate_resume_idle_watcher {
-  $poe_kernel->[KR_WATCHER_IDLE] = Gtk->idle_add( \&_substrate_idle_callback )
-    unless defined $poe_kernel->[KR_WATCHER_IDLE];
-}
-
 macro substrate_resume_time_watcher {
   my $next_time = ($kr_events[0]->[ST_TIME] - time()) * 1000;
   $next_time = 0 if $next_time < 0;

@@ -180,10 +180,9 @@ sub KR_ID             () {  8 }
 sub KR_SESSION_IDS    () {  9 }
 sub KR_ID_INDEX       () { 10 }
 sub KR_WATCHER_TIMER  () { 11 }
-sub KR_WATCHER_IDLE   () { 12 }
-sub KR_EXTRA_REFS     () { 13 }
-sub KR_EVENT_IDS      () { 14 }
-sub KR_SIZE           () { 15 }
+sub KR_EXTRA_REFS     () { 12 }
+sub KR_EVENT_IDS      () { 13 }
+sub KR_SIZE           () { 14 }
 
 # Handle structure.
 sub HND_HANDLE   () { 0 }
@@ -641,7 +640,6 @@ sub new {
         \%kr_session_ids,    # KR_SESSION_IDS
         \$kr_id_index,       # KR_ID_INDEX
         undef,               # KR_WATCHER_TIMER
-        undef,               # KR_WATCHER_IDLE
         \$kr_extra_refs,     # KR_EXTRA_REFS
         \%kr_event_ids,      # KR_EVENT_IDS
       ], $type;

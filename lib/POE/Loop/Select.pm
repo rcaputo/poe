@@ -115,10 +115,6 @@ macro substrate_resume_watching_child_signals {
 #------------------------------------------------------------------------------
 # Event watchers and callbacks.
 
-macro substrate_resume_idle_watcher {
-  # does nothing
-}
-
 macro substrate_resume_time_watcher {
   # does nothing
 }
