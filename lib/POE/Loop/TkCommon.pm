@@ -73,6 +73,32 @@ sub loop_pause_time_watcher {
 # overhead of dispatching it, then no other events are processed.
 # That includes afterIdle and even internal Tk events.
 
+# TODO - Ton Hospel's Tk event loop doesn't mix alarms and immediate
+# events.  Rather, it keeps a list of immediate events and defers
+# queuing of alarms to something else.
+#
+#  sub loop {
+#      # Extra test without alarm handling makes alarm priority normal
+#      (@immediate && run_signals),
+#      DoOneEvent(DONT_WAIT | FILE_EVENTS | WINDOW_EVENTS) while 
+#          (@immediate && run_signals), !@loops && DoOneEvent;
+#      return shift @loops;
+#  }
+#
+# The immediate events are dispatched in a chunk between calls to Tk's
+# event loop.  He uses a double buffer: As events are processed in
+# @immediate, new ones go into a different list.  Once @immediate is
+# exhausted, the second list is copied in.
+#
+# The double bufered queue means that @immediate is alternately
+# exhausted and filled.  It's impossible to fill @immediate while it's
+# being processed, so sub handle_foo { yield("foo") } won't run
+# forever.
+#
+# This has a side effect of deferring any alarms until after
+# @immediate is exhausted.  I suspect the semantics are similar to
+# POE's queue anyway, however.
+
 # Tk timer callback to dispatch events.
 
 my $last_time = time();
@@ -104,7 +130,21 @@ sub _loop_event_callback {
       undef $_watcher_timer;
     }
 
-    # Replace it with an idle event that will reset the alarm.
+    # Faster, more direct code is also broken since Tk alarms take
+    # precedence over everything else.
+
+#    my $next_time = $poe_kernel->get_next_event_time();
+#    if (defined $next_time) {
+#      $next_time -= time();
+#      $next_time = 0 if $next_time < 0;
+#
+#      $_watcher_timer = $poe_main_window->after(
+#        $next_time * 1000,
+#        [\&_loop_event_callback]
+#      );
+#    }
+
+    # Slower, indirect code works.
 
     $_watcher_timer = $poe_main_window->afterIdle(
       [

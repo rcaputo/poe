@@ -130,6 +130,15 @@ sub dequeue_next {
 
 ### Return the next item's priority, undef if the queue is empty.
 
+# Ton Hospel suggests that assignment is relatively slow.  He proposed
+# this instead.  This is perhaps THE hottest function in POE, and the
+# result is an approximately 4% speed improvement in his benchmarks.
+#
+# return (shift->[0] || return undef)->[ITEM_PRIORITY];
+#
+# We can do similar in a lot of places, but at what cost to
+# maintainability?
+
 sub get_next_priority {
   my $self = shift;
   return undef unless @$self;
