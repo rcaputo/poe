@@ -426,11 +426,16 @@ BEGIN {
     #
     # TODO - A better convention would be to replace the path
     # separators with hyphens and rename Loop/Poll.pm to
-    # Loop/IO-Poll.pm.  Foresight > Hindsight.
-    my $pared_file = $file;
-    $pared_file =~ s/^IO\///;
-    next if $pared_file =~ /\//;
+    # Loop/IO-Poll.pm.
+    #
+    # TODO - This code uses hardcoded path separators.  A better
+    # solution would involve File::Spec.
 
+    my $pared_file = $file;
+    $pared_file =~ s/^IO[\/\\]//;
+    next if $pared_file =~ /[^\w\.]/;
+
+    # Remove ".pm"
     my $module = $pared_file;
     substr($module, -3) = "";
 
