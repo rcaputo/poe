@@ -1610,7 +1610,8 @@ sub alarm_remove {
 }
 
 # Move an alarm to a new time.  This virtually removes the alarm and
-# re-adds it somewhere else.
+# re-adds it somewhere else.  In reality, adjust_priority() is
+# optimized for this sort of thing.
 
 sub alarm_adjust {
   my ($self, $alarm_id, $delta) = @_;
@@ -1663,6 +1664,30 @@ sub delay_set {
     ( $kr_active_session, $kr_active_session, $event_name, ET_ALARM, [ @etc ],
       (caller)[1,2], time() + $seconds,
     );
+}
+
+# Move a delay to a new offset from time().  As with alarm_adjust(),
+# this is optimized internally for this sort of activity.
+
+sub delay_adjust {
+  my ($self, $alarm_id, $seconds) = @_;
+
+  unless (defined $alarm_id) {
+    $self->_explain_usage("undefined delay id in delay_adjust()");
+    $! = EINVAL;
+    return;
+  }
+
+  unless (defined $seconds) {
+    $self->_explain_usage("undefined delay seconds in delay_abjust()");
+    $! = EINVAL;
+    return;
+  }
+
+  my $my_delay = sub {
+    $_[0]->[EV_SESSION] == $kr_active_session;
+  };
+  return $kr_queue->set_priority($alarm_id, $my_delay, time() + $seconds);
 }
 
 # Remove all alarms for the current session.
@@ -2162,6 +2187,9 @@ June 2001 alarm and delay methods:
 
   # Adjust an existing alarm by a number of seconds.
   $kernel->alarm_adjust( $alarm_id, $number_of_seconds );
+
+  # Refresh an existing delay to a number of seconds in the future.
+  $kernel->delay_adjust( $delay_id, $number_of_seconds_hence );
 
   # Remove a specific alarm, regardless whether it shares a name with
   # others.
@@ -2711,6 +2739,21 @@ It's only difference is that SECONDS is added to the current time to
 get the time the delay will be dispatched.  It uses whichever time()
 POE::Kernel does, which may be Time::HiRes' high-resolution timer, if
 that's available.
+
+=item delay_adjust DELAY_ID, SECONDS
+
+delay_adjust adjusts an existing delay to be a number of seconds in
+the future.  It is useful for refreshing watchdog timers, for
+instance.
+
+  # Refresh a delay for 10 seconds into the future.
+  $new_time = $kernel->delay_adjust( $delay_id, 10 );
+
+On failure, it returns false and sets $! to a reason for the failure.
+That may be EINVAL if the delay ID or the seconds are bad values.  It
+could also be ESRCH if the delay doesn't exist (perhaps it already was
+dispatched).  $! may also contain EPERM if the delay doesn't belong to
+the session trying to adjust it.
 
 =back
 

@@ -38,6 +38,7 @@ POE::Queue - documentation for POE's priority queue interface
   @items = $q->peek_items(\&filter, $count);  # $count is optional
 
   $new_priority = $q->adjust_priority($id, \&filter, $delta);
+  $new_priority = $q->set_priority($id, \&filter, $priority);
 
 =head1 DESCRIPTION
 
@@ -147,7 +148,7 @@ returned by peek_items() if $count is too low.
 
 =item $new_priority = $q->adjust_priority($id, \&filter, $delta);
 
-Changes the priority of an item by +$delta (which can be negative).
+Changes the priority of an item by $delta (which can be negative).
 The item is identified by its $id, but the change will only happen if
 the supplied filter function returns true.  Returns $new_priority,
 which is the priority of the item after it has been adjusted.
@@ -155,6 +156,13 @@ which is the priority of the item after it has been adjusted.
 This filter function allows anything to be removed.
 
   sub filter { 1 }
+
+=item $new_priority = $q->set_priority($id, \&filter, $priority);
+
+Changes the priority of an item to $priority.  The item is identified
+by its $id, but the change will only happen if the supplied filter
+function returns true when applied to the event payload.  Returns
+$new_priority, which should match $priority.
 
 =back
 

@@ -10,6 +10,8 @@ use vars qw(@ISA);
 
 use POSIX qw(ESRCH EPERM);
 
+sub DEBUG () { 0 }
+
 ### Helpful offsets.
 
 sub ITEM_PRIORITY () { 0 }
@@ -63,18 +65,21 @@ sub enqueue {
   # Special case: No items in the queue.  The queue IS the item.
   unless (@$self) {
     $self->[0] = $item_to_enqueue;
+    DEBUG and warn $self->_dump_splice(0);
     return $item_id;
   }
 
   # Special case: The new item belongs at the end of the queue.
   if ($priority >= $self->[-1]->[ITEM_PRIORITY]) {
     push @$self, $item_to_enqueue;
+    DEBUG and warn $self->_dump_splice(@$self-1);
     return $item_id;
   }
 
   # Special case: The new item belongs at the head of the queue.
   if ($priority < $self->[0]->[ITEM_PRIORITY]) {
     unshift @$self, $item_to_enqueue;
+    DEBUG and warn $self->_dump_splice(0);
     return $item_id;
   }
 
@@ -82,6 +87,7 @@ sub enqueue {
   # naturally belongs between them.
   if (@$self == 2) {
     splice @$self, 1, 0, $item_to_enqueue;
+    DEBUG and warn $self->_dump_splice(1);
     return $item_id;
   }
 
@@ -97,6 +103,7 @@ sub enqueue {
               $priority < $self->[$index-1]->[ITEM_PRIORITY]
             );
     splice @$self, $index, 0, $item_to_enqueue;
+    DEBUG and warn $self->_dump_splice($index);
     return $item_id;
   }
 
@@ -150,6 +157,7 @@ sub _insert_item {
     # bound point.
     if ($upper < $lower) {
       splice @$self, $lower, 0, $item;
+      DEBUG and warn $self->_dump_splice($lower);
       return;
     }
 
@@ -177,6 +185,7 @@ sub _insert_item {
                   )
             );
     splice @$self, $midpoint, 0, $item;
+    DEBUG and warn $self->_dump_splice($midpoint);
     return;
   }
 
@@ -209,8 +218,11 @@ sub _find_item {
     my $midpoint = ($upper + $lower) >> 1;
 
     # The streams have crossed.  That's bad.
-    die "internal inconsistency: event should have been found"
-      if $upper < $lower;
+    if ($upper < $lower) {
+      my @priorities = map {$_->[ITEM_PRIORITY]} @$self;
+      warn "internal inconsistency: event should have been found";
+      die "these should be in numeric order: @priorities";
+    }
 
     # The key at the midpoint is too high.  The element just below
     # the midpoint becomes the new upper bound.
@@ -304,20 +316,19 @@ sub remove_items {
 
 ### Adjust the priority of an item by a relative amount.  Adds $delta
 ### to the priority of the $id'd object (if it matches $filter), and
-### moves it in the queue.  This tries to be clever by not scanning
-### the queue more than necessary.
+### moves it in the queue.
 
 sub adjust_priority {
   my ($self, $id, $filter, $delta) = @_;
 
-  my $priority = $item_priority{$id};
-  unless (defined $priority) {
+  my $old_priority = $item_priority{$id};
+  unless (defined $old_priority) {
     $! = ESRCH;
     return;
   }
 
   # Find that darn item.
-  my $item_index = $self->_find_item($id, $priority);
+  my $item_index = $self->_find_item($id, $old_priority);
 
   # Test the item against the filter.
   unless ($filter->($self->[$item_index]->[ITEM_PAYLOAD])) {
@@ -325,13 +336,83 @@ sub adjust_priority {
     return;
   }
 
-  # Nothing to do if the delta is zero.
+  # Nothing to do if the delta is zero.  -><- Actually we may need to
+  # ensure that the item is moved to the end of its current priority
+  # bucket, since it should have "moved".
   return $self->[$item_index]->[ITEM_PRIORITY] unless $delta;
 
   # Remove the item, and adjust its priority.
   my $item = splice(@$self, $item_index, 1);
   my $new_priority = $item->[ITEM_PRIORITY] += $delta;
   $item_priority{$id} = $new_priority;
+
+  $self->_reinsert_item($new_priority, $delta, $item_index, $item);
+}
+
+### Set the priority to a specific amount.  Replaces the item's
+### priority with $new_priority (if it matches $filter), and moves it
+### to the new location in the queue.
+
+sub set_priority {
+  my ($self, $id, $filter, $new_priority) = @_;
+
+  my $old_priority = $item_priority{$id};
+  unless (defined $old_priority) {
+    $! = ESRCH;
+    return;
+  }
+
+  # Nothing to do if the old and new priorities match.  -><- Actually
+  # we may need to ensure that the item is moved to the end of its
+  # current priority bucket, since it should have "moved".
+  return $new_priority if $new_priority == $old_priority;
+
+  # Find that darn item.
+  my $item_index = $self->_find_item($id, $old_priority);
+
+  # Test the item against the filter.
+  unless ($filter->($self->[$item_index]->[ITEM_PAYLOAD])) {
+    $! = EPERM;
+    return;
+  }
+
+  # Remove the item, and calculate the delta.
+  my $item = splice(@$self, $item_index, 1);
+  my $delta = $new_priority - $old_priority;
+  $item->[ITEM_PRIORITY] = $item_priority{$id} = $new_priority;
+
+  $self->_reinsert_item($new_priority, $delta, $item_index, $item);
+}
+
+### Sanity-check the results of an item insert.  Verify that it
+### belongs where it was put.  Only called during debugging.
+
+sub _dump_splice {
+  my ($self, $index) = @_;
+  my @return;
+  my $at = $self->[$index]->[ITEM_PRIORITY];
+  if ($index > 0) {
+    my $before = $self->[$index-1]->[ITEM_PRIORITY];
+    push @return, "before($before)";
+    Carp::confess "out of order: $before should be < $at" if $before > $at;
+  }
+  push @return, "at($at)";
+  if ($index < $#$self) {
+    my $after = $self->[$index+1]->[ITEM_PRIORITY];
+    push @return, "after($after)";
+    my @priorities = map {$_->[ITEM_PRIORITY]} @$self;
+    Carp::confess "out of order: $at should be < $after (@priorities)"
+      if $at >= $after;
+  }
+  return "@return";
+}
+
+### Reinsert an item into the queue.  It has just been removed by
+### adjust_priority() or set_priority() and needs to be replaced. 
+### This tries to be clever by not doing more work than necessary.
+
+sub _reinsert_item {
+  my ($self, $new_priority, $delta, $item_index, $item) = @_;
 
   # Now insert it back.  The special cases are duplicates from
   # enqueue(), but the small and large queue cases avoid unnecessarily
@@ -340,18 +421,21 @@ sub adjust_priority {
   # Special case: No events in the queue.  The queue IS the item.
   unless (@$self) {
     $self->[0] = $item;
+    DEBUG and warn $self->_dump_splice(0);
     return $new_priority;
   }
 
   # Special case: The item belongs at the end of the queue.
   if ($new_priority >= $self->[-1]->[ITEM_PRIORITY]) {
     push @$self, $item;
+    DEBUG and warn $self->_dump_splice(@$self-1);
     return $new_priority;
   }
 
   # Special case: The item blenogs at the head of the queue.
   if ($new_priority < $self->[0]->[ITEM_PRIORITY]) {
     unshift @$self, $item;
+    DEBUG and warn $self->_dump_splice(0);
     return $new_priority;
   }
 
@@ -360,6 +444,7 @@ sub adjust_priority {
 
   if (@$self == 2) {
     splice @$self, 1, 0, $item;
+    DEBUG and warn $self->_dump_splice(1);
     return $new_priority;
   }
 
@@ -376,6 +461,7 @@ sub adjust_priority {
               $new_priority >= $self->[$index]->[ITEM_PRIORITY]
             );
     splice @$self, $index, 0, $item;
+    DEBUG and warn $self->_dump_splice($index);
     return $new_priority;
   }
 
@@ -387,6 +473,7 @@ sub adjust_priority {
               $new_priority < $self->[$index-1]->[ITEM_PRIORITY]
             );
     splice @$self, $index, 0, $item;
+    DEBUG and warn $self->_dump_splice($index);
     return $new_priority;
   }
 
