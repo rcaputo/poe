@@ -322,16 +322,16 @@ sub _data_ses_resolve_to_id {
 sub _data_ses_refcount_dec {
   my ($self, $session) = @_;
 
+  if (ASSERT_DATA) {
+    _trap("decrementing refcount of a nonexistent session")
+      unless exists $kr_sessions{$session};
+  }
+
   if (TRACE_REFCNT) {
     _warn(
       "<rc> decrementing refcount for ",
       $self->_data_alias_loggable($session)
     );
-  }
-
-  if (ASSERT_DATA) {
-    _trap("decrementing refcount of a nonexistent session")
-      unless exists $kr_sessions{$session};
   }
 
   $kr_sessions{$session}->[SS_REFCOUNT]--;
@@ -349,16 +349,16 @@ sub _data_ses_refcount_dec {
 sub _data_ses_refcount_inc {
   my ($self, $session) = @_;
 
+  if (ASSERT_DATA) {
+    _trap("incrementing refcount for nonexistent session")
+      unless exists $kr_sessions{$session};
+  }
+
   if (TRACE_REFCNT) {
     _warn(
       "<rc> incrementing refcount for ",
       $self->_data_alias_loggable($session)
     );
-  }
-
-  if (ASSERT_DATA) {
-    _trap "incrementing refcount for nonexistent session"
-      unless exists $kr_sessions{$session};
   }
 
   $kr_sessions{$session}->[SS_REFCOUNT]++;
@@ -376,17 +376,6 @@ sub _data_ses_refcount {
 
 sub _data_ses_collect_garbage {
   my ($self, $session) = @_;
-
-  if (TRACE_REFCNT) {
-    _warn(
-      "<rc> testing for idle ",
-      $self->_data_alias_loggable($session)
-    );
-  }
-
-  # The next line is necessary for some strange reason.  This feels
-  # like a kludge, but I'm currently not smart enough to figure out
-  # what it's working around.
 
   if (ASSERT_DATA) {
     _trap("collecting garbage for a nonexistent session")
@@ -458,13 +447,13 @@ sub _data_ses_count {
 sub _data_ses_stop {
   my ($self, $session) = @_;
 
-  if (TRACE_SESSIONS) {
-    _warn("<ss> stopping ", $self->_data_alias_loggable($session));
-  }
-
   if (ASSERT_DATA) {
     _trap("stopping a nonexistent session")
       unless exists $kr_sessions{$session};
+  }
+
+  if (TRACE_SESSIONS) {
+    _warn("<ss> stopping ", $self->_data_alias_loggable($session));
   }
 
   # Maintain referential integrity between parents and children.
