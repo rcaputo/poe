@@ -3694,6 +3694,9 @@ sub refcount_decrement {
   }
 
   my $refcount = $self->_data_extref_dec($session, $tag);
+
+  # -><- hachi isolated this as a double-free cause.  Commented out
+  # for testing.
 #  $self->_data_ses_collect_garbage($session);
 
   # trace it here
