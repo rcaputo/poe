@@ -50,6 +50,12 @@ sub new {
 
   $self->_define_states();
 
+  # Nudge the wheel into action before performing initial operations
+  # on it.  Part of the Kernel's select() logic is making things
+  # non-blocking, and the following code will assume that.
+
+  $poe_kernel->select($handle, $self->{state_read});
+
   # Try to position the file pointer before the end of the file.  This
   # is so we can "tail -f" an existing file.
 
@@ -63,8 +69,6 @@ sub new {
       $filter->get($raw_input);
     }
   }
-                                        # nudge the wheel into action
-  $poe_kernel->select($handle, $self->{state_read});
 
   $self;
 }

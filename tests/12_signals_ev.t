@@ -22,7 +22,7 @@ use POE;
 
 &test_setup(2);
 
-my $fork_count = 16;
+my $fork_count = 8;
 
 # Everything past here should be identical to 11_signals_poe.t
 
@@ -45,9 +45,9 @@ POE::Session->create
         $_[HEAP]->{forked} = $_[HEAP]->{reaped} = 0;
         $_[KERNEL]->sig( CHLD => 'catch_sigchld' );
 
-        my $wake_time = time() + 30;
+        my $wake_time = time() + 60;
 
-        # Fork 16 child processes, all to exit at the same time.
+        # Fork some child processes, all to exit at the same time.
         for (my $child = 0; $child < $fork_count; $child++) {
           my $child_pid = fork;
 
@@ -89,7 +89,7 @@ POE::Session->create
       catch_sigchld =>
       sub {
         $_[HEAP]->{reaped}++;
-        $_[KERNEL]->delay( time_is_up => 15 );
+        $_[KERNEL]->delay( time_is_up => 60 );
       },
 
       time_is_up =>

@@ -30,8 +30,15 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 `-----------------
 
 
-0.1010 2000.??.?? (!!!)
+0.1010 2000.06.20 (!!!)
 -----------------------
+
+Wheel::FollowTail was working on its filehandles before setting them
+non-blocking.  Rearranged a couple lines of code to turn off blocking
+before working with filehandles.
+
+Tweaked the signals tests to wait longer for child processes to
+terminate.
 
 (!!!) I have nothing good to say about POE::Kernel's experimental
 fork() method, so I will refrain from saying anything more than "It

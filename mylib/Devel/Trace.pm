@@ -9,31 +9,43 @@ package Trace; # satisfies 'use'
 package DB;
 use vars qw($sub);
 
+use POSIX;
+
 sub CALL_COUNT  () { 0 }
 sub SUB_NAME    () { 1 }
 sub SOURCE_CODE () { 2 }
 
 my %statistics;
+my $signal_set;
 
 BEGIN {
   unlink "$0.coverage";
   open STATS, ">$0.coverage" or die "can't write $0.coverage: $!";
+  $signal_set = POSIX::SigSet->new();
+  $signal_set->fillset();
 }
 
 # &DB is called for every breakpoint that's encountered.  We use it to
 # track which code is instrumented during a given program run.
 
 sub DB {
+  # Try to block signal delivery while this is recording information.
+  sigprocmask( SIG_BLOCK, $signal_set );
+
   my ($package, $file, $line) = caller;
 
   # Skip lines that aren't in the POE namespace.  Skip lines ending
   # with "]", which are evals.
+  return unless $package =~ /^POE/;
   return unless $file =~ /POE/ and $file !~ /\]$/;
 
   # Gather a statistic for this line.
   $statistics{$file}->{$line} = [ 0, '(uninitialized)', '(uninitialized)' ]
     unless exists $statistics{$file}->{$line};
   $statistics{$file}->{$line}->[CALL_COUNT]++;
+
+  # Unblock signals now that we're done.
+  sigprocmask( SIG_UNBLOCK, $signal_set );
 }
 
 # &sub is a proxy function that's used to trace function calls.  We

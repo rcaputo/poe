@@ -6,7 +6,7 @@
 use strict;
 use lib qw(./lib ../lib);
 use TestSetup;
-&test_setup(15);
+&test_setup(17);
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
@@ -71,21 +71,18 @@ POE::Session->create
       sub {
         $_[HEAP]->{kills_to_go} = $event_count;
         $_[KERNEL]->sig( USR1 => 'sigusr1_target' );
-        $_[KERNEL]->delay( fire_sigusr1 => 0.5 );
-      },
-      _stop =>
-      sub {
+        $_[KERNEL]->delay( fire_sigusr1 => 1 );
       },
       fire_sigusr1 =>
       sub {
         if ($_[HEAP]->{kills_to_go}--) {
-          $_[KERNEL]->delay( fire_sigusr1 => 0.5 );
-          kill 'USR1', $$;
+          $_[KERNEL]->delay( fire_sigusr1 => 1 );
+          kill USR1 => $$;
         }
         # One last timer so the session lingers long enough to catch
         # the final signal.
         else {
-          $_[KERNEL]->delay( nonexistent_state => 0.5 );
+          $_[KERNEL]->delay( nonexistent_state => 1 );
         }
       },
       sigusr1_target =>
@@ -141,6 +138,8 @@ POE::Session->create
     },
   );
 
+print "ok 3\n";
+
 # A simple client session.  It requests five counts and then stops.
 # Its magic is that it passes a postback for the response.
 
@@ -165,10 +164,19 @@ POE::Session->create
       response =>
       sub {
         $postback_test = 0 if $_[ARG0]->[0] != $_[ARG1]->[0];
-        $_[KERNEL]->yield( 'query' ) if $_[HEAP]->{cookie} < 5;
+        if ($_[HEAP]->{cookie} < 5) {
+          $_[KERNEL]->yield( 'query' );
+        }
       },
     }
   );
+
+print "ok 4\n";
+
+# The coverage testing runtime tracker hangs this test.  We override
+# POE's SIGINT handler so that it can be killed manually and will
+# exit gracefully.
+$SIG{INT} = sub { exit; };
 
 # Now run them 'til they complete.
 $poe_kernel->run();
@@ -176,17 +184,17 @@ $poe_kernel->run();
 # Now make sure they've run.
 for (my $i=0; $i<$machine_count; $i++) {
   print 'not ' unless $completions[$i] == $event_count;
-  print 'ok ', $i+3, "\n";
+  print 'ok ', $i+5, "\n";
 }
 
 # Were all the signals caught?
 print 'not ' unless $signals_caught == $event_count;
-print "ok 13\n";
+print "ok 15\n";
 
 # Did the postbacks work?
 print 'not ' unless $postback_test;
-print "ok 14\n";
+print "ok 16\n";
 
-print "ok 15\n";
+print "ok 17\n";
 
 exit;

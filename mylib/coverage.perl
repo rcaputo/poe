@@ -12,6 +12,14 @@ sub CALL_COUNT  () { 0 }
 sub SUB_NAME    () { 1 }
 sub SOURCE_CODE () { 2 }
 
+# Ignore most signals.
+
+foreach (keys %SIG) {
+  next if /^(__.*__|CH?LD|INT)$/;
+  next unless defined $SIG{$_};
+  $SIG{$_} = 'IGNORE';
+}
+
 # Find the tests.
 
 my $test_directory =
@@ -33,6 +41,7 @@ closedir T;
 # goto SPANG;
 
 foreach my $test_file (@test_files) {
+
   unlink "$test_file.coverage";
 
   print "*** Testing $test_file ...\n";
@@ -42,10 +51,7 @@ foreach my $test_file (@test_files) {
     system( '/usr/bin/perl',
             '-Ilib', '-I../lib', '-I.', '-I..', '-d:Trace', $test_file
           );
-  if ($result) {
-    warn "can't profile $test_file: ($result) $!";
-    next;
-  }
+  warn "error running $test_file: ($result) $!" if $result;
 }
 
 SPANG:
@@ -99,6 +105,8 @@ printf( REPORT
 my $ueber_total = 0;
 my $ueber_called = 0;
 foreach my $file (sort keys %statistics) {
+  next unless $file =~ /^POE.*\.pm$/;
+
   my $file_total = 0;
   my $file_called = 0;
   my $lines = $statistics{$file};
