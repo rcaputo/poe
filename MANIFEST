@@ -4,12 +4,8 @@ MANIFEST
 Makefile.PL
 NEEDS
 POE.pm
-POE/Attribute/Array.pm
-POE/Attribute/Hash.pm
-POE/Attribute/Scalar.pm
 POE/Component.pm
 POE/Component/Server/TCP.pm
-POE/Curator.pm
 POE/Driver.pm
 POE/Driver/SysRW.pm
 POE/Filter.pm
@@ -24,12 +20,9 @@ POE/Kernel/Gtk.pm
 POE/Kernel/Select.pm
 POE/Kernel/Tk.pm
 POE/NFA.pm
-POE/Object.pm
 POE/Pipe/OneWay.pm
 POE/Pipe/TwoWay.pm
 POE/Preprocessor.pm
-POE/Repository/Array.pm
-POE/Runtime.pm
 POE/Session.pm
 POE/Wheel.pm
 POE/Wheel/FollowTail.pm
@@ -54,7 +47,6 @@ samples/names.perl
 samples/neural-net.perl
 samples/objmaps.perl
 samples/objsessions.perl
-samples/olayer.perl
 samples/packagesessions.perl
 samples/preforkedserver.perl
 samples/proxy.perl
