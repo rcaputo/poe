@@ -1,3 +1,6 @@
+# Accomodate with CPAN autoinstall.  See
+# http://www.mail-archive.com/module-authors@perl.org/msg00162.html
+shift @ARGV if $ARGV[0] eq 'Build';
 use Module::Build;
 my $build = Module::Build->new(
                 dist_name => 'POE',
