@@ -411,7 +411,7 @@ the POE::Components for TCP clients and servers.
 
 =item Matt Cashner
 
-Matt Cashner is <eek@eekeek.org>, aka C<sungo>.  Matt is one of POE's
+Matt Cashner is <sungo@pobox.com>, aka C<sungo>.  Matt is one of POE's
 core developers.  He's spearheaded the movement to simplify POE for
 new users, flattening the learning curve and making the system more
 accessible to everyone.  He uses the system in mission critical
