@@ -121,22 +121,15 @@ sub get {
     }
   }
 
-
-
-
-
-
-
   return [];
 }
 
 #------------------------------------------------------------------------------
 
 sub put {
-  my $self = shift;
-  foreach my $response (@_) {
-    return "HTTP ".$response->as_string;
-  }
+  my ($self, $responses) = @_;
+  my @raw = map { 'HTTP ' . $_->as_string(); } @$responses;
+  \@raw;
 }
 
 #------------------------------------------------------------------------------
