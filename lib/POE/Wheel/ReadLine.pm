@@ -914,21 +914,64 @@ sub _define_read_state {
 
               # Transpose words.  This needs uc($key).
               if (uc($key) eq '^[T') {
-                my $cursor_sub_one = $$cursor_input - 1;
-                if ( $$input =~
-                     s/^(.{0,$cursor_sub_one})(?<!\S)(\S+)(\s+)(\S+)/$1$4$3$2/
-                   ) {
-                  $termcap->Tgoto( 'LE', 1,
-                                   $$cursor_display - display_width($1),
-                                   *STDOUT
-                                 );
-                  print normalize($4 . $3 . $2);
-                  $$cursor_input = length($1 . $2 . $3 . $4);
-                  $$cursor_display = display_width($1 . $2 . $3 . $4);
+                my ($previous, $left, $space, $right, $rest);
+
+                # This bolus of code was written to replace a single
+                # regexp after finding out that the regexp's negative
+                # zero-width look-behind assertion doesn't work in
+                # perl 5.004_05.  For the record, this is that regexp:
+                # s/^(.{0,$cursor_sub_one})(?<!\S)(\S+)(\s+)(\S+)/$1$4$3$2/
+
+                if (substr($$input, $$cursor_input, 1) =~ /\s/) {
+                  my ($left_space, $right_space);
+                  ($previous, $left, $left_space) =
+                    ( substr($$input, 0, $$cursor_input) =~
+                      /^(.*?)(\S+)(\s*)$/
+                    );
+                  ($right_space, $right, $rest) =
+                    ( substr($$input, $$cursor_input) =~
+                      /^(\s+)(\S+)(.*)$/);
+                  $space = $left_space . $right_space;
+                }
+                elsif ( substr($$input, 0, $$cursor_input) =~
+                        /^(.*?)(\S+)(\s+)(\S*)$/
+                      ) {
+                  ($previous, $left, $space, $right) = ($1, $2, $3, $4);
+                  if (substr($$input, $$cursor_input) =~ /^(\S*)(.*)$/) {
+                    $right .= $1 if defined $1;
+                    $rest = $2;
+                  }
+                }
+                elsif ( substr($$input, $$cursor_input) =~
+                        /^(\S+)(\s+)(\S+)(.*)$/
+                      ) {
+                  ($left, $space, $right, $rest) = ($1, $2, $3, $4);
+                  if ( substr($$input, 0, $$cursor_input) =~ /^(.*?)(\S+)$/ ) {
+                    $previous = $1;
+                    $left = $2 . $left;
+                  }
                 }
                 else {
                   print $tc_bell;
+                  next;
                 }
+
+                $previous = '' unless defined $previous;
+                $rest     = '' unless defined $rest;
+
+                $$input = $previous . $right . $space . $left . $rest;
+
+                if ($$cursor_display - display_width($previous)) {
+                  $termcap->Tgoto( 'LE', 1,
+                                   $$cursor_display - display_width($previous),
+                                   *STDOUT
+                                 );
+                }
+                print normalize($right . $space . $left);
+                $$cursor_input = length($previous. $left . $space . $right);
+                $$cursor_display =
+                  display_width($previous . $left . $space . $right);
+
                 next;
               }
 

@@ -15,7 +15,7 @@ BEGIN {
     eval 'sub TRACE_GATHER () { 1 }';
   }
   else {
-    eval 'sub TRACE_GATHER () { 0 }';
+    eval 'sub TRACE_GATHER () { 1 }';
   }
 };
 sub TRACE_SECTION () { 1 }  # lets the installer know what's going on
@@ -366,7 +366,8 @@ sub build_dependency_tree {
     my $code = '';
     while (<FILE>) {
       chomp;
-      s/(?<!\\)\s*\#.*$//; # May Turing have mercy upon me.
+
+      s/(^|[^\\])\s*\#.*$/$1/; # May Turing have mercy upon me.
       next if /^\s*$/;     # Skip blank lines.
       last if /^__END__/;  # Skip DATA division.
 
@@ -383,8 +384,10 @@ sub build_dependency_tree {
     # Gather whatever dependents we can find in this file.  This is
     # far from ideal code.
 
-    while ($code =~ / (?<!\w\s)
-                      \b (use|require) \s+ (\S+)
+    #  (?<!\w\s)
+
+    while ($code =~ / (?: ^ | \s*)
+                      (use|require) \s+ (\S+)
                       (?: \s* (?:qw\(|[\'\"]) \s* (.+?) \s* [\)\'\"] )?
                     /gx
           )

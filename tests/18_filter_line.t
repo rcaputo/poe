@@ -118,8 +118,7 @@ else {
 # literal.
 
 $base = 26;
-my $compiled_regexp;
-BEGIN { eval { $compiled_regexp = qr/[xy]/; }; };
+my $compiled_regexp = eval "qr/[xy]/" if $] >= 5.005;
 
 if (defined $compiled_regexp) {
   $filter = POE::Filter::Line->new( InputRegexp   => $compiled_regexp,
