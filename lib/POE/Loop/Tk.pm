@@ -298,6 +298,16 @@ macro substrate_define_callbacks {
               }
             ],
           );
+
+      # POE::Kernel's signal polling loop always keeps oe event in the
+      # queue.  We test for an idle kernel if the queue holds only one
+      # event.  A more generic method would be to keep counts of user
+      # vs. kernel events, and GC the kernel when the user events drop
+      # to 0.
+
+      if (@kr_events == 1) {
+        {% test_for_idle_poe_kernel %}
+      }
     }
 
     # Make sure the kernel can still run.
