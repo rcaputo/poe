@@ -182,9 +182,9 @@ sub _define_states {
   my $state_read    = $self->[SELF_STATE_READ] =
     ref($self) . "($unique_id) -> select read";
   my $poll_interval = $self->[SELF_INTERVAL];
-  my $handle        = $self->[SELF_HANDLE];
   my $filename      = $self->[SELF_FILENAME];
   my $last_stat     = $self->[SELF_LAST_STAT];
+  my $handle        = $self->[SELF_HANDLE];
 
   # Define the read state.
 
@@ -198,51 +198,60 @@ sub _define_states {
         0 && CRIMSON_SCOPE_HACK('<');
 
         # The actual code starts here.
-        my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
+        my ($k, $ses) = @_[KERNEL, SESSION];
 
-        $k->select_read($hdl);
+        $k->select_read($handle);
 
         eval {
           if (defined $filename) {
-            my @old_stat = @$last_stat;
             my @new_stat = stat($filename);
             # warn "@new_stat\n";
             if (@new_stat) {
-              if ( $new_stat[0] != $old_stat[0] or # device number
-                   $new_stat[1] != $old_stat[1] or # inode
-                   $new_stat[3] != $old_stat[3] or # number of hard links
-                   $new_stat[6] != $old_stat[6]    # device identifier
+              if ( $new_stat[1] != $last_stat->[1] or # inode's number
+                   $new_stat[0] != $last_stat->[0] or # inode's device
+                   $new_stat[6] != $last_stat->[6] or # device type
+                   $new_stat[7] <  $last_stat->[7]    # file shrunk
                  ) {
-                if (defined $filename) {
-                  close $handle;
-                  if (open $handle, "<$filename") {
-                    $$event_reset and $k->call( $ses,
-                                                $$event_reset, $unique_id
-                                              );
-                  }
-                  else {
-                    $$event_error and
-                      $k->call( $ses, $$event_error, 'reopen',
-                                ($!+0), $!, $unique_id
-                              );
-                  }
+
+                TRACE and do {
+                  warn "inode $new_stat[1] != old $last_stat->[1]\n"
+                    if $new_stat[1] != $last_stat->[1];
+                  warn "inode device $new_stat[0] != old $last_stat->[0]\n"
+                    if $new_stat[0] != $last_stat->[0];
+                  warn "device type $new_stat[6] != old $last_stat->[6]\n"
+                    if $new_stat[6] != $last_stat->[6];
+                  warn "file size $new_stat[7] < old $last_stat->[7]\n"
+                    if $new_stat[7] < $last_stat->[7];
+                };
+
+                close $handle;
+                if (open $handle, "<$filename") {
+                  @$last_stat = @new_stat;
+                  $$event_reset and $k->call( $ses,
+                                              $$event_reset, $unique_id
+                                            );
+                }
+                else {
+                  $$event_error and
+                    $k->call( $ses, $$event_error, 'reopen',
+                              ($!+0), $!, $unique_id
+                            );
                 }
               }
               else {
-                sysseek($hdl, 0, SEEK_CUR);
+                sysseek($handle, 0, SEEK_CUR);
               }
-              @$last_stat = @new_stat;
             }
           }
           else {
-            sysseek($hdl, 0, SEEK_CUR);
+            sysseek($handle, 0, SEEK_CUR);
           }
         };
         $! = 0;
 
         TRACE and do { warn time . " read ok\n"; };
 
-        if (defined(my $raw_input = $driver->get($hdl))) {
+        if (defined(my $raw_input = $driver->get($handle))) {
           TRACE and do { warn time . " raw input\n"; };
           foreach my $cooked_input (@{$filter->get($raw_input)}) {
             TRACE and do { warn time . " cooked input\n"; };
