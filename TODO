@@ -418,19 +418,104 @@ ones.
 The "June 2001" alarms functions already do this.  What about
 select_xyz and the others?
 
-----------------------------------------------------------------
-Evaluate Torvald Riegel's Throttled ReadWrite Wheel Design (???)
-----------------------------------------------------------------
+-----------------------------------------
+Wheel::ReadWrite Needs Input Flow Control
+-----------------------------------------
 
-Torvald has patched POE::Wheel::ReadWrite to perform throttled reads,
-but I'm not happy with the idea of ReadWrite holding buffered data.
+Torvald Riegel has patched POE::Wheel::ReadWrite to perform throttled
+reads, but I'm not satisfied with the code's design.
 
-To do:
+Torvald wants to do two things:
 
-* Distill Torvald's e-mail on the subject and include a summary here.
+1. He wants to add pause and resume methods to Wheel::ReadWrite so
+   that users can implement their own buffering code.
 
-* Determine whether his changes are extensible or will force ReadWrite
-  development into a dead end.
+2. He wants to add two more watermarks for input flow control and have
+   ReadWrite buffer data itself.
+
+His version of ReadWrite does this:
+
+1. He added pause_input() and resume_input() methods for convenience.
+   They do $poe_kernel->select_(pause|resume)_read() calls on the
+   Wheel's filehandle so a second copy of the handle isn't needed.
+
+2. He added an input buffer and high watermark check to ReadWrite's
+   "select read" state.  It automatically pauses the wheel's input if
+   the high water mark is reached.
+
+3. He added a get() method that returns (in list context) everything
+   in ReadWrite's input buffer, or (in scalar context) the next thing
+   from the buffer.  It also watches the low water mark and resumes
+   the wheel's input if the number of buffered records drops below
+   that mark.
+
+Design notes:
+
+Torvald's design requires sessions to actively poll for new records
+once the input high water mark is reached.  I think this is too much
+work.  Instead, ReadWrite should do its own polling.  FollowTail does
+this, for example.
+
+[Torvald replied that he thinks the reading session should definitely
+poll for data.  Polling tells the wheel how fast a session wants data
+to arrive.  Moreover, the consumer's pace may vary over time.]
+
+At the very least, pause_input() and resume_input() would let people
+write their own buffering and flow control.  This requires the most
+work on the Session programmer's part, but it gives developers a
+chance to start experimenting with flow control.
+
+Observations:
+
+Requests for input throttling in the past have been concerned about
+reading from data sources which are almost always ready to be read.
+Large plain files, for example, are quickly slurped, preventing queued
+events from being dispatched until the files are completely read.
+That tends to be bad.  Rather, these sorts of programs want their
+events to be spread out over time, giving the event dispatcher a
+chance to do other things.
+
+Wheel::ReadLine does input throttling.  Its get() method tells the
+wheel that a session is ready to get another line of input.  This is
+not a general purpose wheel, though: it only deals with console input.
+
+If there are other uses for input flow control, please discuss them on
+the mailing list.
+
+[Torvald says there are a lot of cases where input flow control is
+needed.  Any program that needs to transfer data from fast sources to
+slower consumers needs input flow control.  He says that ReadWrite
+should not make an assumption about line speeds or how much time a
+data consumer needs to process data.  He lists: network gateways,
+programs reading files, and any socket client/server that wants to
+avoid denial of service attacks (floods).  He brings up a good point:
+input flow control should almost always be used in important
+applications, to avoid acts of malice.]
+
+I'm worried about adding pause_input() and resume_input() if they're
+intended as temporary methods for experimenting with flow control.
+Once they are implemented, it will be very difficult to remove them.
+Should these be considered permanent additions, left undocumented, or
+be documented as experimental?
+
+[Torvald reminded me of a filehandle accessor as an alternative to
+pause_input() and resume_input().  This might be a better, more
+generic solution, but it brings up the possibility that a program make
+put a filehandle into a state that isn't compatible with the wheel.
+
+Regardless of what happens on that issue, he would like to see flow
+control added to ReadWrite on the first try.]
+
+To do (maybe):
+
+* Add pause_input() and resume_input() from Torvald's version of
+  ReadWrite.
+
+* Document pause_input() and resume_input().
+
+* Test pause_input() and resume_input() in [t/???.t]
+
+* Release version ?.??.
 
 ------------------------------------------------------
 Evaluate Torvald Riegel's Synchronous NFA Design (???)
