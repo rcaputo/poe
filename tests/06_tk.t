@@ -31,7 +31,8 @@ BEGIN {
 
 &test_setup(8);
 
-warn( "***\n",
+warn( "\n",
+      "***\n",
       "*** Please note: This test will pop up a Tk window.\n",
       "***\n",
     );

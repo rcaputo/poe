@@ -40,7 +40,8 @@ $delay_per_child = 5 if $delay_per_child < 5;
 my $time_to_wait = $delay_per_child * $fork_count;
 
 # Let the user know what in heck is going on.
-warn( "***\n",
+warn( "\n",
+      "***\n",
       "*** This test will run for around $time_to_wait seconds.\n",
       "*** The delay ensures that all child processes are accounted for.\n",
       "***\n"
@@ -100,7 +101,7 @@ POE::Session->create
       catch_sigchld =>
       sub {
         $_[HEAP]->{reaped}++;
-        $_[KERNEL]->delay( time_is_up => 60 );
+        $_[KERNEL]->delay( time_is_up => $delay_per_child );
       },
 
       time_is_up =>
