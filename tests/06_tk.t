@@ -33,6 +33,11 @@ BEGIN {
   &test_setup(0, "Tk 800.021 or newer is needed for these tests")
     if $Tk::VERSION < 800.021;
 
+  # ActivePerl 5.8.0 + Tk = T3H NOT SUPPR0TED BY P03!
+  if ($^O eq "MSWin32" and $] == 5.008) {
+    &test_setup(0, "See http://bugs.activestate.com/show_bug.cgi?id=22619");
+  }
+
   # Tk and Perl before 5.005_03 don't mix.
   &test_setup( 0, "Tk requires Perl 5.005_03 or newer." ) if $] < 5.005_03;
 };
