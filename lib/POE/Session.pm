@@ -88,10 +88,11 @@ sub _invoke_state {
                                                 );
     }
   }
+                                        # recursive, so it does the right thing
   elsif (exists $self->{'states'}->{'_default'}) {
-    return &{$self->{'states'}->{'_default'}}($kernel, $self->{'namespace'},
-                                              $source_session, $state, @$etc
-                                             );
+    return $self->_invoke_state($kernel, $source_session, '_default',
+                                [ $state, $etc ]
+                               );
   }
   return 0;
 }
