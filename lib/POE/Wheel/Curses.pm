@@ -89,10 +89,10 @@ sub _define_input_state {
       );
 
     # Now start reading from it.
-    $poe_kernel->select_read( *STDIN, $self->[SELF_STATE_READ] );
+    $poe_kernel->select_read( \*STDIN, $self->[SELF_STATE_READ] );
   }
   else {
-    $poe_kernel->select_read( *STDIN );
+    $poe_kernel->select_read( \*STDIN );
   }
 }
 
@@ -100,7 +100,7 @@ sub DESTROY {
   my $self = shift;
 
   # Turn off the select.
-  $poe_kernel->select( *STDIN );
+  $poe_kernel->select( \*STDIN );
 
   # Remove states.
   if ($self->[SELF_STATE_READ]) {

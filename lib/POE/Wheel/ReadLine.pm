@@ -41,6 +41,7 @@ sub SELF_IDLE_TIME      () { 13 }
 sub SELF_STATE_IDLE     () { 14 }
 sub SELF_HAS_TIMER      () { 15 }
 sub SELF_CURSOR_DISPLAY () { 16 }
+sub SELF_UNIQUE_ID      () { 17 }
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -213,6 +214,7 @@ sub new {
       undef,        # SELF_STATE_IDLE
       0,            # SELF_HAS_TIMER
       0,            # SELF_CURSOR_DISPLAY
+      &POE::Wheel::allocate_wheel_id(),  # SELF_UNIQUE_ID
     ], $type;
 
   if (scalar keys %params) {
@@ -241,7 +243,7 @@ sub DESTROY {
   my $self = shift;
 
   # Stop selecting on the handle.
-  $poe_kernel->select( *STDIN );
+  $poe_kernel->select( \*STDIN );
 
   # Detach our tentacles from the parent session.
   if ($self->[SELF_STATE_READ]) {
@@ -257,6 +259,8 @@ sub DESTROY {
 
   # Restore the console.
   ReadMode('restore');
+
+  &POE::Wheel::free_wheel_id($self->[SELF_UNIQUE_ID]);
 }
 
 #------------------------------------------------------------------------------
@@ -323,6 +327,7 @@ sub _define_read_state {
     my $has_timer      = \$self->[SELF_HAS_TIMER];
     my $put_buffer     = $self->[SELF_PUT_BUFFER];
     my $put_mode       = $self->[SELF_PUT_MODE];
+    my $unique_id      = $self->[SELF_UNIQUE_ID];
 
     $poe_kernel->state
       ( $self->[SELF_STATE_READ] = $self . ' select read',
@@ -387,12 +392,14 @@ sub _define_read_state {
               # Interrupt.
               if ($key eq '^C') {
                 print $key, "\x0D\x0A";
-                $poe_kernel->select_read( *STDIN );
+                $poe_kernel->select_read( \*STDIN );
                 if ($$has_timer) {
                   $k->delay( $state_idle );
                   $$has_timer = 0;
                 }
-                $poe_kernel->yield( $$event_input, undef, 'interrupt' );
+                $poe_kernel->yield( $$event_input, undef, 'interrupt',
+                                    $unique_id
+                                  );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
                 $self->_flush_output_buffer();
@@ -449,12 +456,14 @@ sub _define_read_state {
               # Cancel.
               if ($key eq '^G') {
                 print $key, "\x0D\x0A";
-                $poe_kernel->select_read( *STDIN );
+                $poe_kernel->select_read( \*STDIN );
                 if ($$has_timer) {
                   $k->delay( $state_idle );
                   $$has_timer = 0;
                 }
-                $poe_kernel->yield( $$event_input, undef, 'cancel' );
+                $poe_kernel->yield( $$event_input, undef, 'cancel',
+                                    $unique_id
+                                  );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
                 $self->_flush_output_buffer();
@@ -487,12 +496,12 @@ sub _define_read_state {
               # Accept line.
               if ($key eq '^J') {
                 print "\x0D\x0A";
-                $poe_kernel->select_read( *STDIN );
+                $poe_kernel->select_read( \*STDIN );
                 if ($$has_timer) {
                   $k->delay( $state_idle );
                   $$has_timer = 0;
                 }
-                $poe_kernel->yield( $$event_input, $$input );
+                $poe_kernel->yield( $$event_input, $$input, $unique_id );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
                 $self->_flush_output_buffer();
@@ -527,12 +536,12 @@ sub _define_read_state {
               # Accept line.
               if ($key eq '^M') {
                 print "\x0D\x0A";
-                $poe_kernel->select_read( *STDIN );
+                $poe_kernel->select_read( \*STDIN );
                 if ($$has_timer) {
                   $k->delay( $state_idle );
                   $$has_timer = 0;
                 }
-                $poe_kernel->yield( $$event_input, $$input );
+                $poe_kernel->yield( $$event_input, $$input, $unique_id );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
                 $self->_flush_output_buffer();
@@ -1053,12 +1062,12 @@ sub _define_read_state {
       );
 
     # Now select on it.
-    $poe_kernel->select_read( *STDIN, $self->[SELF_STATE_READ] );
+    $poe_kernel->select_read( \*STDIN, $self->[SELF_STATE_READ] );
   }
 
   # Otherwise we're undefining it.
   else {
-    $poe_kernel->select_read( *STDIN );
+    $poe_kernel->select_read( \*STDIN );
   }
 
 }
@@ -1080,7 +1089,7 @@ sub get {
   $self->[SELF_INSERT_MODE]    = 1;
 
   # Watch the filehandle.
-  $poe_kernel->select( *STDIN, $self->[SELF_STATE_READ] );
+  $poe_kernel->select( \*STDIN, $self->[SELF_STATE_READ] );
 
   print $prompt;
 }
@@ -1183,6 +1192,11 @@ sub put {
 sub addhistory {
   my $self = shift;
   push @{$self->[SELF_HIST_LIST]}, @_;
+}
+
+# Get the wheel's ID.
+sub ID {
+  return $_[0]->[SELF_UNIQUE_ID];
 }
 
 ###############################################################################
@@ -1486,6 +1500,8 @@ do next.
 
 The 'cancel' exception means a user pressed C-g (^G) to cancel a line
 of input.
+
+Finally, C<ARG2> contains the ReadLine wheel's unique ID.
 
 =item PutMode
 
