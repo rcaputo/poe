@@ -9,10 +9,11 @@ use lib qw(./lib ../lib);
 use lib '/usr/mysrc/Tk800.021/blib';
 use lib '/usr/mysrc/Tk800.021/blib/lib';
 use lib '/usr/mysrc/Tk800.021/blib/arch';
+
 use Symbol;
 
-# Turn on all asserts.
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+use TestSetup;
+&test_setup(5);
 
 # Skip if Tk isn't here.
 BEGIN {
@@ -20,15 +21,16 @@ BEGIN {
            defined $ENV{'DISPLAY'} and
            length $ENV{'DISPLAY'}
          ) {
-    eval 'use TestSetup qw(0 no DISPLAY is set)';
+    &test_setup(0, 'no DISPLAY is set');
   }
   eval 'use Tk';
   unless (exists $INC{'Tk.pm'}) {
-    eval 'use TestSetup qw(0 the Tk module is not installed)';
+    &test_setup(0, 'the Tk module is not installed');
   }
 }
 
-use TestSetup qw(5);
+# Turn on all asserts.
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);
 
 # Congratulate ourselves for getting this far.

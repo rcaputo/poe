@@ -64,3 +64,7 @@ t/04_selects.t
 t/05_macros.t
 t/06_tk.t
 t/07_event.t
+t/08_errors.t
+t/09_wheels_unix.t
+t/10_wheels_tcp.t
+t/11_signals_poe.t

@@ -1394,14 +1394,14 @@ their name/value pairs.
 
 =item postback EVENT_NAME, PARAMETER_LIST
 
-Create an anonymous coderef that external watchers can call to post
-FIFO events to the current session.
+Creates an anonymous coderef which, when called, posts EVENT_NAME back
+to the session.  Postbacks will keep sessions alive until they're
+destroyed.
 
-The coderefs it creates will post EVENT_NAME to the session whose
-postback() method was invoked.  The corresponding state's
-@_[ARG0..$#_] will contain the contents of PARAMETER_LIST plus
-whatever parameters were passed to the coderef at the time it was
-called.
+The EVENT_NAME event will include two parameters.  $_[ARG0] will
+contain a reference to the PARAMETER_LIST passed to postback().
+$_[ARG1] will hold a reference to the parameters given to the coderef
+when it's called.
 
 This example creates a Tk button that posts an "ev_counters_begin"
 event at a session whenever it's pressed.
@@ -1412,9 +1412,12 @@ event at a session whenever it's pressed.
     )->pack;
 
 It can also be used to post events from Event watchers' callbacks.
+This one posts back "ev_flavor" with $_[ARG0] holding [ 'vanilla' ]
+and $_[ARG1] containing a reference to whatever parameters
+Event->flawor gives its callback.
 
   Event->flavor
-    ( cb   => $session->postback( 'ev_flavor' ),
+    ( cb   => $session->postback( 'ev_flavor', 'vanilla' ),
       desc => 'post ev_flavor when Event->flavor occurs',
     );
 

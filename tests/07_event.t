@@ -8,18 +8,20 @@ use strict;
 use lib qw(./lib ../lib);
 use Symbol;
 
-# Turn on all asserts.
-sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+use TestSetup;
 
 # Skip if Event isn't here.
 BEGIN {
   eval 'use Event';
   unless (exists $INC{'Event.pm'}) {
-    eval 'use TestSetup qw(0 the Event module is not installed)';
+    &test_setup(0, 'the Event module is not installed');
   }
 }
 
-use TestSetup qw(5);
+&test_setup(6);
+
+# Turn on all asserts.
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Wheel::ReadWrite Filter::Line Driver::SysRW);
 
 # Congratulate ourselves for getting this far.
@@ -72,6 +74,11 @@ sub io_start {
   $heap->{idle_count} = 0;
   $kernel->yield( 'ev_idle_increment' );
 
+  # And a signal count.
+
+  $heap->{signal_count} = 0;
+  $kernel->sig( USR1 => 'ev_sig_usr1' );
+
   # And an independent timer loop to test it separately from pipe
   # writer's.
 
@@ -100,9 +107,20 @@ sub io_idle_increment {
 }
 
 sub io_timer_increment {
+  kill 'USR1', $$;
   if (++$_[HEAP]->{timer_count} < 10) {
     $_[KERNEL]->delay( ev_timer_increment => 0.5 );
   }
+
+  # One last timer, going nowhere, to keep the session alive long
+  # enough to catch the last signal.
+  else {
+    $_[KERNEL]->delay( nonexistent_state => 0.5 );
+  }
+}
+
+sub io_sig_usr1 {
+  $_[HEAP]->{signal_count}++ if $_[ARG0] eq 'USR1';
 }
 
 sub io_stop {
@@ -118,6 +136,12 @@ sub io_stop {
 
   print "not " unless $heap->{timer_count};
   print "ok 4\n";
+
+  print "not " unless $heap->{signal_count} == $heap->{timer_count};
+  print "ok 5\n";
+
+  # Remove the signal, just to make sure that code runs.
+  $_[KERNEL]->sig( 'USR1' );
 }
 
 # Start the I/O session.
@@ -130,6 +154,7 @@ POE::Session->create
       ev_pipe_write      => \&io_pipe_write,
       ev_idle_increment  => \&io_idle_increment,
       ev_timer_increment => \&io_timer_increment,
+      ev_sig_usr1        => \&io_sig_usr1,
     },
   );
 
@@ -139,6 +164,6 @@ $poe_kernel->run();
 
 # Congratulate ourselves on a job completed, regardless of how well it
 # was done.
-print "ok 5\n";
+print "ok 6\n";
 
 exit;

@@ -18,7 +18,6 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 |
 | Next
 |
-| Clean up the mess made while adding Event and Tk support.
 | Event doesn't seem very fast; am I using it incorrectly?
 |
 | Before 0.11
@@ -32,6 +31,95 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 | Revise the POE web pages.
 |
 `-----------------
+
+
+0.1006 2000.??.?? (!!!)
+-----------------------
+
+Expanded t/02_alarms.t to test the big-queue binary search and insert
+code.  Previous tests didn't expand the alarm queue past the maximum
+threshhold for linear insertion.
+
+Macro-ized some of the redundant bits between the Tk and Event code.
+
+Normalized the names of some functions; added leading underscores here
+and there.
+
+Added test coverage information to the README.
+
+Added t/09_wheels_unix.t to test Wheel::ReadWrite and
+Wheel::SocketFactory against UNIX domain sockets.  This will fail
+terribly wherever UNIX sockets aren't supported; I should skip it on
+platforms where people complain about its failure.
+
+Added t/10_wheels_tcp.t to test Wheel::ReadWrite and
+Wheel::SocketFactory against INET/TCP sockets.
+
+Added t/11_signals_poe.t to test POE's stock signal handlers.  These
+are Perl's own signal handlers, and all the caveats apply.
+
+Added Exporter; TestSetup exports its functions now.  TestSetup use
+syntax changed, so I added &test_setup to set things up instead of
+&import.
+
+Added &ok, &not_ok and &results to buffer and report on the results of
+tests that occur in indeterminate orders.
+
+Added TestSetup functions stderr_pause() and stderr_resume() to turn
+STDERR off and back on when testing code known to show diagsonstics.
+
+Added ID resolution tests to t/03_aliases.t.
+
+Added the kernel's ID to its ID-to-session lookup table, so that
+$kernel->ID_id_to_session($kernel->ID) would return $kernel.  It's
+silly but complete now.
+
+Added t/08_errors.t to test error conditions, something that the other
+tests never covered.
+
+Added lib/Devel/Trace.pm.  This is a custom debugging module (used
+with -d:Trace) that collects information about runnable Perl
+statements and the ones actually called.  It's only used for reporting
+on test coverage during development and isn't installed.
+
+Added lib/coverage.perl.  This program runs t/*.t with -d:Trace to
+collect coverage statistics; then it gathers up the results and writes
+a report.
+
+Added t/00_coverage.t to load every "released" module so that the test
+coverage report can learn the set of all testable modules.
+
+Philip Gwyn pointed out that waitpid() returns 0 on some platforms to
+indicate outstanding child processes that haven't yet exited.  I was
+treating 0 as a valid PID.  The waitpid() return value checks are
+fixed now.
+
+Fletch found all sorts of badness in POE::Kernel's fork() method and
+related polling loop.  It boiled down to bad assumptions about
+$SIG{CHLD} = 'IGNORE' and a stupid use of keys() without scalar().
+
+(!!!) Revised the Changes for 0.0906, dated 2000.02.20 to note an
+interface change in Wheel::ReadWrite's put() method.  This Changes
+change isn't a compatibility issue, but the original change is.
+
+POE::Preprocessor adds "# line" directives so that macro expansions
+don't break line numbers in warnings and errors.  Unfortunately, this
+badly breaks -d modules, such as the debugger and various profilers.
+So now POE::Preprocessor omits "# line" directives when -d is used.
+This'll let you see everything being run, at the expense of correct
+line numbers.
+
+Added a rudimentary signals test to t/01_sessions.t, which uses POE's
+own event loop.
+
+Added a rudimentary signals test to t/07_event.t, which uses Event's
+event loop.
+
+Will not add a signals test to t/06_tk.t.  Tk does not have its own
+signal watchers, so this would only test POE's.
+
+Made minor revisions to the tiny and relatively new POE::Preprocessor
+documentation.
 
 
 0.1005 2000.05.23
@@ -348,12 +436,12 @@ removed.
 Updated documentation for POE::Kernel::alarm()
 
 
-0.0906 2000.02.20
------------------
+0.0906 2000.02.20 (!!!)
+-----------------------
 
-Revised Wheel::ReadWrite->put() to return true if the high watermark
-is reached; false if it hasn't been.  ReadWrite->put() may return true
-without a corresponding high or low watermark event.
+(!!!) Revised Wheel::ReadWrite->put() to return true if the high
+watermark is reached; false if it hasn't been.  ReadWrite->put() may
+return true without a corresponding high or low watermark event.
 
 Changed samples/watermarks.perl to use ReadWrite->put()'s return
 value, as well as the high and low mark states.  Commented the program

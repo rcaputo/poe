@@ -904,6 +904,7 @@ progress report:
   POE::Kernel                  rewritten 2000.05.19
   POE::Session                 rewritten 2000.05.21
   POE::Wheel                   rewritten 2000.05.22
+  POE::Preprocessor            revised   2000.05.23
 
   POE::Component               queued
   POE::Component::Server::TCP  queued
@@ -914,7 +915,6 @@ progress report:
   POE::Filter::Line            queued
   POE::Filter::Reference       queued
   POE::Filter::Stream          queued
-  POE::Preprocessor            queued
   POE::Wheel::FollowTail       queued
   POE::Wheel::ListenAccept     queued
   POE::Wheel::ReadWrite        queued

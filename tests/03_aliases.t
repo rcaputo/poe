@@ -5,7 +5,10 @@
 
 use strict;
 use lib qw(./lib ../lib);
-use TestSetup qw(10);
+use TestSetup;
+&test_setup(18);
+
+use POSIX qw (:errno_h);
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
@@ -21,32 +24,51 @@ sub machine_start {
   $heap->{idle_count} = $heap->{zombie_count} = 0;
 
   # Set an alias.
-  $kernel->alias_set( 'new name' );
+  print "not " if $kernel->alias_set( 'new name' );
+  print "ok 2\n";
+
+  # Set it again.
+  print "not " if $kernel->alias_set( 'new name' );
+  print "ok 3\n";
 
   # Resolve weak, stringified session reference.
   $resolved_session = $kernel->alias_resolve( "$session" );
   print "not " unless $resolved_session eq $session;
-  print "ok 2\n";
+  print "ok 4\n";
 
   # Resolve against session ID.
   $resolved_session = $kernel->alias_resolve( $session->ID );
   print "not " unless $resolved_session eq $session;
-  print "ok 3\n";
+  print "ok 5\n";
 
   # Resolve against alias.
   $resolved_session = $kernel->alias_resolve( 'new name' );
   print "not " unless $resolved_session eq $session;
-  print "ok 4\n";
+  print "ok 6\n";
 
   # Resolve against blessed session reference.
   $resolved_session = $kernel->alias_resolve( $session );
   print "not " unless $resolved_session eq $session;
-  print "ok 5\n";
+  print "ok 7\n";
 
   # Resolve against something that doesn't exist.
   $resolved_session = $kernel->alias_resolve( 'nonexistent' );
   print "not " if defined $resolved_session;
-  print "ok 6\n";
+  print "ok 8\n";
+
+  # Resolve IDs to and from Sessions.
+  my $id = $session->ID;
+  print "not " unless $kernel->ID_id_to_session($id) == $session;
+  print "ok 9\n";
+
+  print "not " unless $kernel->ID_session_to_id($session) == $id;
+  print "ok 10\n";
+
+  print "not " unless $kernel->ID_id_to_session($kernel->ID) == $kernel;
+  print "ok 11\n";
+
+  print "not " unless $kernel->ID_session_to_id($kernel) eq $kernel->ID;
+  print "ok 12\n";
 }
 
 # Catch SIGIDLE and SIGZOMBIE.
@@ -74,10 +96,10 @@ sub machine_stop {
   my $heap = $_[HEAP];
 
   print "not " unless $heap->{idle_count} == 1;
-  print "ok 8\n";
+  print "ok 16\n";
 
   print "not " unless $heap->{zombie_count} == 1;
-  print "ok 9\n";
+  print "ok 17\n";
 }
 
 ### Main loop.
@@ -88,18 +110,41 @@ print "ok 1\n";
 
 POE::Session->create
   ( inline_states =>
-    { _start => \&machine_start,
+    { _start  => \&machine_start,
       _signal => \&machine_signal,
-      _stop => \&machine_stop
+      _stop   => \&machine_stop
     },
   );
 
-print "ok 7\n";
+# Spawn a second machine to test for alias removal.
+
+print "ok 13\n";
+
+my $sigidle_test = 1;
+my $sigzombie_test = 1;
+
+POE::Session->create
+  ( inline_states =>
+    { _start =>
+      sub {
+        $_[KERNEL]->alias_set( 'a_sample_alias' );
+        print "not " if $_[KERNEL]->alias_remove( 'a_sample_alias' );
+        print "ok 14\n";
+      },
+      _signal =>
+      sub {
+        $sigidle_test   = 0 if $_[0] eq 'IDLE';
+        $sigzombie_test = 0 if $_[0] eq 'ZOMBIE';
+      },
+    }
+  );
+
+print "ok 15\n";
 
 # Now run the kernel until there's nothing left to do.
 
 $poe_kernel->run();
 
-print "ok 10\n";
+print "ok 18\n";
 
 exit;

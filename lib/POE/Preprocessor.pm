@@ -169,13 +169,10 @@ sub import {
             else {
               $macro_line++;
 
-              # Unindent the macro text by one level.  -><- This
-              # assumes the author's indenting style, two spaces,
-              # which is bad.
-              s/^\s\s//;
-
               $macros{$macro_name}->[MAC_CODE] .=
-                "# line $macro_line \"macro $macro_name\"\n$_";
+                "# line $macro_line \"macro $macro_name\"\n"
+                unless $^P;
+              $macros{$macro_name}->[MAC_CODE] .= $_;
             }
 
             # Either way, the code must not go on.
@@ -187,11 +184,10 @@ sub import {
           # definitions in the same area.  They also eliminate the
           # need to check for things in semantically nil lines.
 
-          # Ignore comments.
-          return $status if /^\s*\#/;
-
-          # Ignore blank lines.
-          return $status if /^\s*$/;
+          # Ignore comments and blank lines.
+          if ( /^\s*\#/ or /^\s*$/ ) {
+            return $status;
+          }
 
           # This return works around a bug where __END__ and __DATA__
           # cause perl 5.005_61 through 5.6.0 to blow up with memory
@@ -249,7 +245,6 @@ sub import {
             $macros{$macro_name}->[MAC_CODE] = '';
 
             $_ = "\n";
-
             return $status;
           }
 
@@ -284,8 +279,9 @@ sub import {
                 1 while ($substitution =~ s/$mac_param/$use_param/g);
               }
 
-              $_ = $left . $substitution . $right .
-                "# line " . ($line_number+1) . " \"$file_name\"\n";
+              $_ = $left . $substitution . $right;
+              $_ .= "# line " . ($line_number+1) . " \"$file_name\"\n"
+                unless $^P;
 
               DEBUG and warn "$_`-----\n";
             }
@@ -368,7 +364,8 @@ Iaijutsu and altered slightly to jive with Perl's native syntax.
 
 Constants are defined this way:
 
-  const CONSTANT_NAME 'constant value'
+  const CONSTANT_NAME    'constant value'
+  const ANOTHER_CONSTANT 23
 
 Enumerations can begin with 0:
 
@@ -376,7 +373,7 @@ Enumerations can begin with 0:
 
 Or some other number:
 
-  enum 10 TENTH ELEVENTH TWELVTH
+  enum 10 TENTH ELEVENTH TWELFTH
 
 Or continue where the previous one left off, which is necessary
 because an enumeration can't span lines:
@@ -404,6 +401,10 @@ parse.  This includes placing constants in strings.
 Substitution is done in two phases: macros first, then constants.  It
 would be nicer (and more dangerous) if the phases looped around and
 around until no more substitutions occurred.
+
+=item *
+
+Optimum matches aren't, but they're better than nothing.
 
 =back
 

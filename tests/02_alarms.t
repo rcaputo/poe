@@ -5,11 +5,12 @@
 
 use strict;
 use lib qw(./lib ../lib);
-use TestSetup qw(13);
+use TestSetup;
+
+&test_setup(14);
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-
 use POE;
 
 ### Test parameters.
@@ -20,6 +21,7 @@ my $event_count = 10;
 ### Status registers for each state machine instance.
 
 my @status;
+
 
 ### Define a simple state machine.
 
@@ -53,7 +55,6 @@ sub test_start {
   $kernel->alarm( path_five => time() + 2, 5.1 );
   $kernel->alarm( 'path_five' );
 
-
   # Path #6: single delay; make sure it rings.
   $heap->{test}->{path_six} = 0;
   $kernel->delay( path_six => 2, 6.1 );
@@ -81,9 +82,60 @@ sub test_start {
   $kernel->delay( path_ten => 2, 10.1 );
   $kernel->alarm( 'path_ten' );
 
-  # And a final test: Since the alarms are being waited for in
-  # parallel, the program should take close to 2 seconds to run.  Mark
-  # the start time for this test.
+  # Path #11: ensure alarms are enqueued in time order.
+
+  # Fill the alarm queue to engage the "big queue" binary insert.
+  my @eleven_fill;
+  for (my $count=0; $count<100; $count++) {
+    push @eleven_fill, int(rand(100));
+    $kernel->alarm( "path_eleven_fill_$count", $eleven_fill[-1] );
+  }
+
+  # Now to really test the insertion code.
+  $kernel->alarm( path_eleven_100 => 100 );
+  $kernel->alarm( path_eleven_200 => 200 );
+  $kernel->alarm( path_eleven_300 => 300 );
+
+  $kernel->alarm( path_eleven_050 =>  50 );
+  $kernel->alarm( path_eleven_150 => 150 );
+  $kernel->alarm( path_eleven_250 => 250 );
+  $kernel->alarm( path_eleven_350 => 350 );
+
+  $kernel->alarm( path_eleven_075 =>  75 );
+  $kernel->alarm( path_eleven_175 => 175 );
+  $kernel->alarm( path_eleven_275 => 275 );
+
+  $kernel->alarm( path_eleven_325 => 325 );
+  $kernel->alarm( path_eleven_225 => 225 );
+  $kernel->alarm( path_eleven_125 => 125 );
+
+  # To test duplicates.
+  $kernel->alarm( path_eleven_201 => 200 );
+  $kernel->alarm( path_eleven_202 => 200 );
+  $kernel->alarm( path_eleven_203 => 200 );
+
+  # Now clear the filler states.
+  for (my $count=0; $count<100; $count++) {
+    if ($count & 1) {
+      $kernel->alarm( "path_eleven_fill_$count" );
+    }
+    else {
+      $kernel->alarm( "path_eleven_fill_$count" );
+    }
+  }
+
+  # Now acquire the test alarms.
+  my @alarms_eleven = grep /^path_eleven_\d+$/, $kernel->queue_peek_alarms();
+  $heap->{alarms_eleven} = \@alarms_eleven;
+
+  # Now clear the test alarms since we're just testing the queue
+  # order.
+  foreach (@alarms_eleven) {
+    $kernel->alarm( $_ );
+  }
+
+  # All the paths are occurring in parallel so they should complete in
+  # about 2 seconds.  Start a timer to make sure.
   $heap->{start_time} = time();
 }
 
@@ -121,8 +173,29 @@ sub test_stop {
   print "ok 11\n";
 
   # Here's where we check the overall run time.
-  print 'not' if (time() - $heap->{start_time} > 3);
+  print 'not ' if (time() - $heap->{start_time} > 3);
   print "ok 12\n";
+
+  # And test alarm order.
+  print 'not '
+    unless ( $heap->{alarms_eleven}->[ 0] eq 'path_eleven_050' and
+             $heap->{alarms_eleven}->[ 1] eq 'path_eleven_075' and
+             $heap->{alarms_eleven}->[ 2] eq 'path_eleven_100' and
+             $heap->{alarms_eleven}->[ 3] eq 'path_eleven_125' and
+             $heap->{alarms_eleven}->[ 4] eq 'path_eleven_150' and
+             $heap->{alarms_eleven}->[ 5] eq 'path_eleven_175' and
+             $heap->{alarms_eleven}->[ 6] eq 'path_eleven_200' and
+             $heap->{alarms_eleven}->[ 7] eq 'path_eleven_201' and
+             $heap->{alarms_eleven}->[ 8] eq 'path_eleven_202' and
+             $heap->{alarms_eleven}->[ 9] eq 'path_eleven_203' and
+             $heap->{alarms_eleven}->[10] eq 'path_eleven_225' and
+             $heap->{alarms_eleven}->[11] eq 'path_eleven_250' and
+             $heap->{alarms_eleven}->[12] eq 'path_eleven_275' and
+             $heap->{alarms_eleven}->[13] eq 'path_eleven_300' and
+             $heap->{alarms_eleven}->[14] eq 'path_eleven_325' and
+             $heap->{alarms_eleven}->[15] eq 'path_eleven_350'
+           );
+  print "ok 13\n";
 }
 
 sub test_path_one {
@@ -265,6 +338,6 @@ $poe_kernel->run();
 
 # Now make sure they've run.
 
-print "ok 13\n";
+print "ok 14\n";
 
 exit;

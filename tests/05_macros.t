@@ -5,7 +5,9 @@
 
 use strict;
 use lib qw(./lib ../lib);
-use TestSetup qw(13);
+use TestSetup;
+&test_setup(13);
+
 use POE::Preprocessor;
 
 # Did we get this far?

@@ -5,12 +5,13 @@
 
 use strict;
 use lib qw(./lib ../lib);
-use TestSetup qw(23);
+use TestSetup;
+&test_setup(23);
 
 # Turn on all asserts.
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-
 use POE;
+
 use Socket;
 use Symbol qw(gensym);
 

@@ -7,16 +7,16 @@ use Carp;
 use POE;
 
 # Offsets into $self.
-sub HANDLE_INPUT               () { 0 }
-sub HANDLE_OUTPUT              () { 1 }
-sub FILTER_INPUT               () { 2 }
-sub FILTER_OUTPUT              () { 3 }
-sub DRIVER_BOTH                () { 4 }
-sub EVENT_INPUT                () { 5 }
-sub EVENT_ERROR                () { 6 }
-sub EVENT_FLUSHED              () { 7 }
-sub WATERMARK_MARK_HIGH        () { 8 }
-sub WATERMARK_MARK_LOW         () { 9 }
+sub HANDLE_INPUT               () {  0 }
+sub HANDLE_OUTPUT              () {  1 }
+sub FILTER_INPUT               () {  2 }
+sub FILTER_OUTPUT              () {  3 }
+sub DRIVER_BOTH                () {  4 }
+sub EVENT_INPUT                () {  5 }
+sub EVENT_ERROR                () {  6 }
+sub EVENT_FLUSHED              () {  7 }
+sub WATERMARK_MARK_HIGH        () {  8 }
+sub WATERMARK_MARK_LOW         () {  9 }
 sub WATERMARK_EVENT_HIGH       () { 10 }
 sub WATERMARK_EVENT_LOW        () { 11 }
 sub WATERMARK_STATE            () { 12 }

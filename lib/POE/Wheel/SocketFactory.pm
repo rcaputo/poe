@@ -39,15 +39,15 @@ sub SVROP_NOTHING () { 'nothing' }
 
 my %supported_protocol =
   ( DOM_UNIX, { none => SVROP_LISTENS },
-    DOM_INET, { tcp => SVROP_LISTENS,
-                udp => SVROP_NOTHING,
+    DOM_INET, { tcp  => SVROP_LISTENS,
+                udp  => SVROP_NOTHING,
               },
   );
 
 my %default_socket_type =
   ( DOM_UNIX, { none => SOCK_STREAM },
-    DOM_INET, { tcp => SOCK_STREAM,
-                udp => SOCK_DGRAM,
+    DOM_INET, { tcp  => SOCK_STREAM,
+                udp  => SOCK_DGRAM,
               },
   );
 

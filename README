@@ -3,12 +3,18 @@ $Id$
 
 The bulk of this README's information has migrated to the POE manpage.
 
+------------------------------
+Compatibility Between Versions
+------------------------------
 
 As POE moves closer towards the Common Sense axis, it sometimes
 diverges away from the Backwards Compatible axis.  If this version is
 being installed over a previous one, please check the Changes file to
 see what it might break.  Interface changes usually are documented.
 
+------------------
+Basic Installation
+------------------
 
 POE may be installed through the CPAN shell in the usual CPAN shell
 manner.  It typically is:
@@ -20,6 +26,9 @@ It involves a little more work if you have an older CPAN shell:
   perl -MCPAN -e shell
   install POE
 
+-------------------
+Manual Installation
+-------------------
 
 POE can also be installed manually.  The latest CPAN version can be
 found at <ftp://ftp.cpan.org/pub/CPAN/authors/id/R/RC/RCAPUTO/> or in
@@ -48,6 +57,16 @@ Finally you can install it:
 
   make install
 
+-------------------------
+Test Results and Coverage
+-------------------------
+
+POE's development after 0.1005 consists of a big push to test
+everything.  To further this effort, the author wrote a test coverage
+reporting program; then he discovered Devel::Coverage.  Oh well!
+Anyway, here's the test coverage summary for this version:
+
+... don't forget to put them here ...
 
 Good luck, and thank you for reading!
 
