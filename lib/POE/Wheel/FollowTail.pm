@@ -51,11 +51,11 @@ sub new {
   # STATE-EVENT
   if (exists $params{InputState}) {
     if (exists $params{InputEvent}) {
-      carp "InputEvent takes precedence over depreciated InputState";
+      carp "InputEvent takes precedence over deprecated InputState";
       delete $params{InputState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{InputEvent} = delete $params{InputState};
     }
   }
@@ -63,11 +63,11 @@ sub new {
   # STATE-EVENT
   if (exists $params{ErrorState}) {
     if (exists $params{ErrorEvent}) {
-      carp "ErrorEvent takes precedence over depreciated ErrorState";
+      carp "ErrorEvent takes precedence over deprecated ErrorState";
       delete $params{ErrorState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{ErrorEvent} = delete $params{ErrorState};
     }
   }
@@ -230,7 +230,7 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $name = $1 . 'Event';
     }
 

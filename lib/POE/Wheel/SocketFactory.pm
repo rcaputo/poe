@@ -254,14 +254,14 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $name = $1 . 'Event';
     }
 
     if ($name eq 'SuccessEvent') {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
-          carp( "SuccessEvent coderefs are depreciated " .
+          carp( "SuccessEvent coderefs are deprecated " .
                 "(and will go away after version 0.13)"
               );
           $poe_kernel->state
@@ -285,7 +285,7 @@ sub event {
     elsif ($name eq 'FailureEvent') {
       if (defined $event) {
         if (ref($event) eq 'CODE') {
-          carp( "FailureEvent coderefs are depreciated " .
+          carp( "FailureEvent coderefs are deprecated " .
                 "(and will go away after version 0.13)"
               );
           $poe_kernel->state
@@ -349,18 +349,18 @@ sub new {
 
   my %params = @_;
 
-  # The calling conventio experienced a hard depreciation.
+  # The calling conventio experienced a hard deprecation.
   croak "wheels no longer require a kernel reference as their first parameter"
     if (@_ && (ref($_[0]) eq 'POE::Kernel'));
 
   # STATE-EVENT
   if (exists $params{SuccessState}) {
     if (exists $params{SuccessEvent}) {
-      carp "SuccessEvent takes precedence over depreciated SuccessState";
+      carp "SuccessEvent takes precedence over deprecated SuccessState";
       delete $params{SuccessState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{SuccessEvent} = delete $params{SuccessState};
     }
   }
@@ -368,11 +368,11 @@ sub new {
   # STATE-EVENT
   if (exists $params{FailureState}) {
     if (exists $params{FailureEvent}) {
-      carp "FailureEvent takes precedence over depreciated FailureState";
+      carp "FailureEvent takes precedence over deprecated FailureState";
       delete $params{FailureState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{FailureEvent} = delete $params{FailureState};
     }
   }

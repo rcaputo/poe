@@ -77,11 +77,11 @@ sub new {
   # STATE-EVENT
   if (exists $params{HighState}) {
     if (exists $params{HighEvent}) {
-      carp "HighEvent parameter takes precedence over depreciated HighState";
+      carp "HighEvent parameter takes precedence over deprecated HighState";
       delete $params{HighState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{HighEvent} = delete $params{HighState};
     }
   }
@@ -89,11 +89,11 @@ sub new {
   # STATE-EVENT
   if (exists $params{LowState}) {
     if (exists $params{LowEvent}) {
-      carp "LowEvent parameter takes precedence over depreciated LowState";
+      carp "LowEvent parameter takes precedence over deprecated LowState";
       delete $params{LowState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{LowEvent} = delete $params{LowState};
     }
   }
@@ -101,11 +101,11 @@ sub new {
   # STATE-EVENT
   if (exists $params{InputState}) {
     if (exists $params{InputEvent}) {
-      carp "InputEvent takes precedence over depreciated InputState";
+      carp "InputEvent takes precedence over deprecated InputState";
       delete $params{InputState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{InputEvent} = delete $params{InputState};
     }
   }
@@ -113,11 +113,11 @@ sub new {
   # STATE-EVENT
   if (exists $params{ErrorState}) {
     if (exists $params{ErrorEvent}) {
-      carp "ErrorEvent takes precedence over depreciated ErrorState";
+      carp "ErrorEvent takes precedence over deprecated ErrorState";
       delete $params{ErrorState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{ErrorEvent} = delete $params{ErrorState};
     }
   }
@@ -125,11 +125,11 @@ sub new {
   # STATE-EVENT
   if (exists $params{FlushedState}) {
     if (exists $params{FlushedEvent}) {
-      carp "FlushedEvent takes precedence over depreciated FlushedState";
+      carp "FlushedEvent takes precedence over deprecated FlushedState";
       delete $params{FlushedState};
     }
     else {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $params{FlushedEvent} = delete $params{FlushedState};
     }
   }
@@ -389,7 +389,7 @@ sub event {
 
     # STATE-EVENT
     if ($name =~ /^(.*?)State$/) {
-      # depreciation warning goes here
+      # deprecation warning goes here
       $name = $1 . 'Event';
     }
 

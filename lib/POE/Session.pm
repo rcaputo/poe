@@ -170,7 +170,7 @@ sub import {
 }
 
 #------------------------------------------------------------------------------
-# Classic style constructor.  This is unofficially depreciated in
+# Classic style constructor.  This is unofficially deprecated in
 # favor of the create() constructor.  Its DWIM nature does things
 # people don't mean, so create() is a little more explicit.
 
@@ -215,7 +215,7 @@ sub new {
       # Check for common problems.
 
       unless ((defined $first) && (length $first)) {
-        carp "depreciated: using an undefined state name";
+        carp "deprecated: using an undefined state name";
       }
 
       if (ref($first) eq 'CODE') {

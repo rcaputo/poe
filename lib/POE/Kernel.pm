@@ -1765,7 +1765,7 @@ sub call {
 
 #------------------------------------------------------------------------------
 # Peek at pending alarms.  Returns a list of pending alarms.  This
-# function is depreciated; its lack of documentation is by design.
+# function is deprecated; its lack of documentation is by design.
 # Here's the old POD, in case you're interested.
 #
 # # Return the names of pending timed events.
@@ -3461,7 +3461,7 @@ session owns that alarm.
 =item alarm_remove_all
 
 alarm_remove_all() removes all alarms for the current session.  It
-obviates the need for queue_peek_alarms(), which has been depreciated.
+obviates the need for queue_peek_alarms(), which has been deprecated.
 
 This function takes no arguments.  In scalar context, it returns a
 reference to a list of alarms that were removed.  In list context, it
