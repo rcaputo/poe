@@ -9,7 +9,7 @@ use TestSetup;
 use Socket;
 
 BEGIN {
-  &test_setup(0, "Windows doesn't seem to do UNIX sockets")
+  &test_setup(0, "Windows doesn't support UNIX sockets")
     if $^O eq 'MSWin32';
 };
 
