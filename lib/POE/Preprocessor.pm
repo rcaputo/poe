@@ -8,8 +8,10 @@ use Filter::Util::Call;
 sub MAC_PARAMETERS () { 0 }
 sub MAC_CODE       () { 1 }
 
-sub DEBUG     () { 0 }
-sub DEBUG_ROP () { 0 } # Regexp optimizer.
+BEGIN {
+  defined &DEBUG     or eval 'sub DEBUG     () { 0 }'; # preprocessor
+  defined &DEBUG_ROP or eval 'sub DEBUG_ROP () { 0 }'; # regexp optimizer
+};
 
 # Create an optimal regexp to match a list of things.
 my $debug_level = 0;
@@ -386,6 +388,17 @@ Or continue where the previous one left off, which is necessary
 because an enumeration can't span lines:
 
   enum + THIRTEENTH FOURTEENTH FIFTEENTH ...
+
+=head1 DEBUGGING
+
+POE::Preprocessor has two debugging constants: DEBUG (which traces
+source filtering to stderr) and DEBUG_ROP (which shows what the regexp
+optimizer is up to).  They can be overridden prior to
+POE::Preprocessor's use:
+
+  sub POE::Preprocessor::DEBUG     () { 1 } # trace preprocessor
+  sub POE::Preprocessor::DEBUG_ROP () { 1 } # trace regexp optimizer
+  use POE::Preprocessor;
 
 =head1 BUGS
 

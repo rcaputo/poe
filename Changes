@@ -26,6 +26,10 @@ Version numbers have four fields: X.YYZZAA
 
 ,----- To Do -----
 |
+| _enqueue_alarm has already tested against the first and last items
+| in the alarm queue by the time it gets to the small and large queue
+| code.  Does it need to compare against the whole list?
+|
 | How about Gtk support?
 |
 | Better alarms API.  Roderick has threatened to do something.
@@ -39,21 +43,27 @@ Version numbers have four fields: X.YYZZAA
 | Write a Filter::HTTPD test.  Which may involve writing a web
 | server and client.  Ow! Ow! Ow!
 |
-| Wheel::ListenAccept is way behind SocketFactory's listen/accept
-| code.  Migrate SocketFactory's code to ListenAccept, and write
-| a test based on IO::Socket::INET sockets.
-|
 | Split the samples out into a separate distribution.  POE's
 | distribution tree is over 800 kilobytes!  Most of it's supporting
 | documentation, tests, and samples.
 |
-| Revise the POE web pages.
-|
-| Move the POE mailing list, which seems to have fallen on hard times.
-|
 | Benchmark index vs. rindex vs. regexp for finding line terminators.
 |
 `-----------------
+
+
+0.1107 2000.??.??
+-----------------
+
+Document POE::Preprocessor's debugging constants, and allow them to be
+overridden by defining them before POE::Preprocessor is used.  This is
+the same scheme that POE::Kernel's TRACE/ASSERT constants use.
+
+Philip Gwyn thinks SIGCHLD was broken after 0.1104, so I've
+restructured test programs 11 and 12 (POE and Event signal watchers).
+Child process death is synchronized by the parent program (read:
+SIGINT) instead of with sleep and Time::HiRes.  They ought to die
+closer together now.
 
 
 0.1106 2000.09.01

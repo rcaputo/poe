@@ -391,6 +391,12 @@ const EN_PARENT '_parent'
 const EN_CHILD  '_child'
 const EN_SCPOLL '_sigchld_poll'
 
+# These are ways a child may come or go.
+
+const CHILD_GAIN   'gain'
+const CHILD_LOSE   'lose'
+const CHILD_CREATE 'create'
+
 # These are event classes (types).  They often shadow actual event
 # names, but they can encompass a large group of events.  For example,
 # ET_ALARM describes anything posted by an alarm call.  Types are
@@ -906,7 +912,7 @@ sub _dispatch_state {
       foreach my $child (@children) {
         $self->_dispatch_state( $parent, $self,
                                 EN_CHILD, ET_CHILD,
-                                [ 'gain', $child ],
+                                [ CHILD_GAIN, $child ],
                                 time(), $file, $line, undef
                               );
         $self->_dispatch_state( $child, $self,
@@ -921,7 +927,7 @@ sub _dispatch_state {
       if (defined $parent) {
         $self->_dispatch_state( $parent, $self,
                                 EN_CHILD, ET_CHILD,
-                                [ 'lose', $session ],
+                                [ CHILD_LOSE, $session ],
                                 time(), $file, $line, undef
                               );
       }
@@ -1017,7 +1023,7 @@ sub _dispatch_state {
   if ($type & ET_START) {
     $self->_dispatch_state( $sessions->{$session}->[SS_PARENT], $self,
                             EN_CHILD, ET_CHILD,
-                            [ 'create', $session, $return ],
+                            [ CHILD_CREATE, $session, $return ],
                             time(), $file, $line, undef
                           );
   }

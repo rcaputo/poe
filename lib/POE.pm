@@ -43,7 +43,7 @@ __END__
 
 =head1 NAME
 
-POE - persistent object environment / perl operating environment / perl object  events / peace on earth / part of everything
+POE - event driven state machines
 
 =head1 SYNOPSIS
 
