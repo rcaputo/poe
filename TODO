@@ -111,40 +111,51 @@ Schedule:
 Make Filter Changing Usable
 ---------------------------
 
-This change adds new features without breaking existing ones.
+This change adds new features without breaking existing ones.  This
+change is a prerequisite for input flow control in Wheel::ReadWrite.
 
 2001-07-27 - Refactoring Checklist
 
 1. get_one_start() takes an arrayref of chunks.  It does not return
-   anything.
+   anything in particular.
+
+   done.  documented.
 
 2. get_one() returns an arrayref of 0 or 1 chunks.  It does not take
-   anything.
+   anything.  Actually, it can return 2+ chunks, but it tries to be
+   ungreedy.
+
+   done.  documented.
 
 3. get_pending() returns undef if nothing is pending.
+
+   done.  documented.
 
 4. get_pending() returns an arrayref if something is pending.  Check
    for pending data using length(), defined(), or scalar() depending
    on how the filter stores its pending data.  Be sure not to test the
-   buffer directyl for truth, as it may contain a significant 0 or
+   buffer directly for truth, as it may contain a significant 0 or
    undef.
+
+   done.  documented.
 
 5. get_pending() does not damage a filter's buffer.
 
+   done.  documented.
+
 6. Wheels?  Auuuugh!
 
-7. Update Wheel::Xyz and Filter::Xyz documentation.
+   Actually, only ReadWrite deals with filter changing.  Whew!
 
-Filters:
-        + Block
-        + Grep
-        + HTTPD
-        + Line
-        + Map
-        + RecordBlock
-        + Reference
-        + Stackable
-        + Stream
+   done.  documented.
+
+7. Update Filter::Xyz documentation.
+
+   done.
+
+8. Update Wheel::Xyz documentation.
+
+   (doing)
 
 Wheels:
         + ReadWrite
@@ -152,7 +163,8 @@ Wheels:
 Finishing Touches:
 
         Dear gods, some of this code sucks!  The duplicated code in
-        Filter::Line is particularly horrific.  The way wheels test
+        Filter::Line is particularly horrific, not for its structure
+        but for the amount of duplication.  The way wheels test
         for the end of get_one() loops leaves much to be desired.  But
         my brane is focused on getting through this big suite of
         changes today, so I'm not paying too much attention to doing
@@ -613,6 +625,53 @@ use POE::Tweak qw( Trace  => qw( +default -garbage   ),
 
 Tweaks would be global.
 
+-------------------
+Automatic Postbacks
+-------------------
+
+Torvald Riegel writes:
+
+  What do you think about some sort of automatic postbacks?  A third
+  type of generating an event, which would be posted to the target
+  session.  The associated state's return value would be returned to a
+  postback that is specified when sending the first event.  So one
+  would use something like $kernel->postandreply($target, $event,
+  $self->postback(...), @args)...
+
+  Advantages would be that the target session would not need to care
+  about handling postbacks and returning values through them.  One
+  more function would have to be maintained and postacks would need to
+  be kept somewhere at the event's structures.  Garbage collection
+  shouldn't be a problem since the postback would be a normal
+  parameter otherwise.
+
+  Really good would be if this return-postback could be set as another
+  state's return-postback.  So if user() would postandreply server()
+  but server() would have to call worker(), the postback could be
+  handed over to worker() and it would reply through the postback.
+  This would only be a variation of postandreply, I think.
+
+  I know everything could be done using postbacks given as state
+  arguments, but the above would make returning values simple and
+  easier to read at the server() side.
+
+Others have requested it too.
+
+----------------------------------------
+Even Simpler POE::Component::Server::TCP
+----------------------------------------
+
+Artur would like PoCo::Server::TCP to be simpler.  In fact, he'd like
+it to be so simple that it wraps accepted sessions as well, possibly
+not spawning new sessions at all.
+
+The idea would be to provide Reader, Writer, and/or Error handlers
+instead of Acceptor.  The server component would do its accept thing
+and create a generic session (possibly not) that does generic reading
+and writing.  The handlers would customize things from there.
+
+Artur has some specific ideas how this should work.
+
 -------------------------------------------
 Change Internal Helpers To Static Functions
 -------------------------------------------
@@ -636,6 +695,11 @@ about that?
 This is a relatively easy change, and it would make a good starter
 project for someone who wants to get familiar with Kernel.pm and
 Kernel/*.pm.
+
+2001-07-29 - Chances Decreasing
+
+The more I think about this one, the less I like doing it.  At some
+point, things should be subclassable.
 
 ----------------------
 Batch Remove Resources
@@ -697,6 +761,20 @@ The $session->post() idea is doable, but not until Session and NFA can
 be subclassed.  There's another section in this TODO file about
 subclassable sessions.
 
+-------------------------------------------------
+POE::Kernel's call() Pretty Much Sucks, Too (!!!)
+-------------------------------------------------
+
+The call() method is incongruous, and that's putting it nicely.  It
+should be depreciated for inter-session calls, and it should probably
+become $session->call to match $session->post, or something.
+
+General ideas:
+
+Eliminate the ability to call() outside the current session.
+
+Possibly move the call() method to POE::Session.  $session->call() ?
+
 -----------------------
 ARG0..ARG9 May Go (!!!)
 -----------------------
@@ -740,6 +818,38 @@ This is the current plan to depreciate them:
 
 * Release version ?.??, and announce that the ARG0..ARG9 built-in
   parameter depreciation has completed.
+
+-------------------
+Finish POE::Message
+-------------------
+
+POE::Message would be a high-level inter-session message object,
+trading away some speed for a lot of useful features:
+
+  It can encapsulate named parameters instead of the vaguely icky
+  ARG0..ARG9.
+
+  It can encapsulate several postbacks, including refcounts which keep
+  the sender alive.
+
+  It can encapsulate inter-Kernel routing, messaging, and directory
+  services.
+
+  It can encapsulate automatic postbacks and exceptions.
+
+I have a prototype which must be developed further before entering the
+repository.
+
+---------------------------
+Automatic Parameter Exports
+---------------------------
+
+Turn @_[KERNEL, HEAP, etc.] into regular variables, somehow.  A lot of
+people would like this, and the original object layer had code to do
+this.  Of course it cheated: all code was kept in a database and had
+to be eval'd into existence, so it could do what it liked to your
+programs.  But still, that was a good idea, it still is, and someone
+should do something about it.
 
 ----------------------------
 Spin Off Useful Technologies
@@ -863,6 +973,9 @@ ActiveState's perlapp (PDK) does not recognize source filters and so
 cannot "compile" POE programs into stand-alone applications.  Source
 filters may not be available elsewhere, so it would be useful to let
 developers statically preprocess applications into stand-alone files.
+
+This sort of preprocessing would kill the startup delay filters have
+introduced.
 
 Let Ilya Melamed know when this is done.  It's his request.
 
