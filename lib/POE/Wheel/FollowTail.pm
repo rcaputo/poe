@@ -327,9 +327,10 @@ sub _define_timer_states {
               # the file.
               if ($new_stat[7] < $last_stat->[7]) {
                 $$event_reset and $k->call($ses, $$event_reset, $unique_id);
-                $last_stat->[7] = $new_stat[7];
                 sysseek($handle, 0, SEEK_SET);
               }
+
+              $last_stat->[7] = $new_stat[7];
 
               # Something fundamental about the file changed.  Reopen it.
               if ( $new_stat[1] != $last_stat->[1] or # inode's number
