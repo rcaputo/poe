@@ -155,10 +155,10 @@ sub io_pipe_write {
   $heap->{write_label}->set_text( ++$heap->{write_count} );
 
   if ($heap->{write_count} < $write_max) {
-    $kernel->delay( ev_pipe_write => 1 );
+    $kernel->delay( ev_pipe_write => 0.25 );
   }
   else {
-    Gtk->timeout_add( 1000, $_[SESSION]->postback( ev_postback => 5 ) );
+    Gtk->timeout_add( 500, $_[SESSION]->postback( ev_postback => 5 ) );
   }
 }
 
@@ -180,7 +180,7 @@ sub io_idle_increment {
     $_[KERNEL]->yield( 'ev_idle_increment' );
   }
   else {
-    Gtk->timeout_add( 1000, $_[SESSION]->postback( ev_postback => 6 ) );
+    Gtk->timeout_add( 500, $_[SESSION]->postback( ev_postback => 6 ) );
     undef;
   }
 }
@@ -198,7 +198,7 @@ sub io_timer_increment {
   # given at creation time.
 
   else {
-    Gtk->timeout_add( 1000, $_[SESSION]->postback( ev_postback => 7 ) );
+    Gtk->timeout_add( 500, $_[SESSION]->postback( ev_postback => 7 ) );
     undef;
   }
 }
