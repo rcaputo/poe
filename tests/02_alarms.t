@@ -170,8 +170,9 @@ sub test_stop {
   ok_if(  9, $heap->{test}->{path_nine}  == 11 );
   ok_if( 10, $heap->{test}->{path_ten}   == 1  );
 
-  # Here's where we check the overall run time.
-  ok_unless( 11, time() - $heap->{start_time} > 3 );
+  # Here's where we check the overall run time.  Increased to 5s for
+  # extremely slow, overtaxed machines like my NT test platform.
+  ok_unless( 11, time() - $heap->{start_time} > 5 );
 
   # And test alarm order.
   ok_if( 12,

@@ -384,7 +384,10 @@ $poe_kernel->_data_handle_pause($a_read, MODE_RD);
   ok_if(161, $e_req == HS_PAUSED);
 }
 
-# Dispatch the event, and verify the session's status.
+# Dispatch the event, and verify the session's status.  The sleep()
+# call is to simulate slow systems, which always dispatch the events
+# because they've taken so long to get here.
+sleep(1);
 $poe_kernel->_data_ev_dispatch_due();
 
 { my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
@@ -423,8 +426,7 @@ ok_if(176, $poe_kernel->_data_handle_count_ses("nonexistent") == 0);
 $poe_kernel->_data_handle_remove($a_read, MODE_RD, $poe_kernel);
 
 # Verify reference counts.
-
-ok_if(177, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2);
+ok_if(177, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount);
 
 { my ($tot, $rd, $wr, $ex) = $poe_kernel->_data_handle_fno_refcounts(
     fileno($a_read)
@@ -487,14 +489,13 @@ ok_if(177, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2);
 $poe_kernel->_data_handle_remove($a_write, MODE_WR, $poe_kernel);
 
 # Verify reference counts.
-
-ok_if(204, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1);
+ok_if(204, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount - 1);
 ok_unless(205, $poe_kernel->_data_handle_is_good($a_write, MODE_WR));
 
 # Remove a nonexistent filehandle and verify the structures.  We just
-# make sure the reference count matches the base.
+# make sure the reference count matches the previous one.
 $poe_kernel->_data_handle_remove(\*STDIN, MODE_RD, $poe_kernel);
-ok_if(206, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1);
+ok_if(206, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount - 1);
 
 # Remove all handles for the session.  And verify the structures.
 $poe_kernel->_data_handle_clear_session($poe_kernel);

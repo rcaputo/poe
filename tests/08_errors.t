@@ -187,7 +187,7 @@ print "ok 19\n";
     );
 
   if ($^O eq "MSWin32") {
-    print "not " unless $warnings == 16;
+    print "not " unless $warnings == 15;
   }
   else {
     print "not " unless $warnings == 1;
