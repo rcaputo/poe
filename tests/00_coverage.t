@@ -21,7 +21,10 @@ sub load_optional_module {
 
   # Make skip messages look more proper.
   if ($reason =~ /Can\'t locate (.*?) in \@INC/) {
-    $reason = "optional module $1 not installed";
+    $reason = "optional $1 not installed";
+  }
+  elsif ($reason =~ /(\S+) not implemented on this architecture/) {
+    $reason = "optional $1 not implemented on $^O";
   }
   elsif ($reason =~ /Can\'t find a valid termcap file/) {
     $reason = "Term::Cap can't find a valid termcap file";
