@@ -97,19 +97,11 @@ Connection: Keep-Alive
 { # simple post {{{ 
 
     my $post_request = POST 'http://localhost/foo.mhtml', [ 'I' => 'like', 'tasty' => 'pie' ];
+    $post_request->protocol('HTTP/1.0');
 
     my $filter = POE::Filter::HTTPD->new();
 
-    # If i'm reading the rfc right, and i'm pretty sure i am, POST is not a 
-    # request type in HTTP 0.9. HTTP::Request::Common generates a POST
-    # transaction that is missing an HTTP Version string. By rfc, 
-    # the parser falls back to 0.9 mode which makes the post data invalid.
-    # Until i get a patch into Gisle to fix this and until we can be
-    # reasonably sure its installed everywhere (: never), i hack
-    # an HTTP version string into the post data.
-
     my $str = $post_request->as_string;
-    $str =~ s#POST (\S+)#POST $1 HTTP/1.0#s;
     
     my $data;
     eval { $data = $filter->get([ $str ]); };
