@@ -15,15 +15,8 @@ sub MY::test {
 
 WriteMakefile
   ( NAME           => 'POE',
-
-    ( ($^O eq 'MacOS')
-      ? ()
-      : ( AUTHOR   => 'Rocco Caputo <rcaputo@cpan.org>',
-          ABSTRACT => 'A networking/multitasking framework for Perl.',
-        )
-    ),
-
     VERSION_FROM   => 'POE.pm',
+
     dist           =>
     { COMPRESS => 'gzip -9f',
       SUFFIX   => 'gz',
