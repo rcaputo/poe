@@ -16,6 +16,14 @@ Documentation Roadmap
 The POE manpage's SEE ALSO section lists the topics covered in each
 manpage.  It's a good starting place.
 
+The CHANGES file lists nearly every change made to POE since 1998,
+including ones which have broken backward compatibility.  The
+backward-breaking changes are marked with exclamation points so they
+stand out.
+
+Planned breakage is included in the TODO file.  Please consult that if
+you're using POE in a production environment.
+
 --------------------
 Distribution Details
 --------------------
