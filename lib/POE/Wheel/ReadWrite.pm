@@ -475,7 +475,7 @@ sub put {
 #------------------------------------------------------------------------------
 # Redefine filter. -PG / Now that there are two filters internally,
 # one input and one output, make this set both of them at the same
-# time. -RC
+# time. -RCC
 
 sub _transfer_input_buffer {
   my ($self, $buf) = @_;
@@ -619,6 +619,22 @@ sub ID {
   return $_[0]->[UNIQUE_ID];
 }
 
+# Pause the wheel's input watcher.
+sub pause_input {
+  my $self = shift;
+  if (defined $self->[HANDLE_INPUT]) {
+    $poe_kernel->select_pause_read( $self->[HANDLE_INPUT] );
+  }
+}
+
+# Resume the wheel's input watcher.
+sub resume_input {
+  my $self = shift;
+  if (defined $self->[HANDLE_INPUT]) {
+    $poe_kernel->select_resume_read( $self->[HANDLE_INPUT] );
+  }
+}
+
 ###############################################################################
 1;
 
@@ -684,6 +700,10 @@ POE::Wheel::ReadWrite - buffered non-blocking I/O
 
   # To retrieve the wheel's ID:
   print $wheel->ID;
+
+  # To pause and resume a wheel's input events.
+  $wheel->pause_input();
+  $wheel->resume_input();
 
 =head1 DESCRIPTION
 
@@ -761,6 +781,21 @@ low-water marks.
 The ID method returns a FollowTail wheel's unique ID.  This ID will be
 included in every event the wheel generates, and it can be used to
 match events with the wheels which generated them.
+
+=item pause_input
+
+=item resume_input
+
+ReadWrite wheels will continually generate input events for as long as
+they have data to read.  Sometimes it's necessary to control the flow
+of data coming from a wheel or the input filehandle it manages.
+
+pause_input() instructs the wheel to temporarily stop checking its
+input filehandle for data.  This can keep a session (or a
+corresponding output buffer) from being overwhelmed.
+
+resume_input() instructs the wheel to resume checking its input
+filehandle for data.
 
 =back
 
