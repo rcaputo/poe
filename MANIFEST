@@ -16,6 +16,7 @@ POE/Filter/Reference.pm
 POE/Filter/Stream.pm
 POE/Kernel.pm
 POE/Object.pm
+POE/Repository/Array.pm
 POE/Runtime.pm
 POE/Session.pm
 POE/Wheel.pm

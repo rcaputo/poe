@@ -20,7 +20,7 @@ implement the start of the heretofore "Mythical" Object Layer.
 
 Added samples/olayer.perl to test the current Object Layer features.
 The object layer is in early development, so there's no documentation
-outside the olayer.perl comment.
+outside the olayer.perl comments.
 
 
 0.06_07 1999.05.12

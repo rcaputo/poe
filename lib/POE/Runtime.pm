@@ -9,11 +9,31 @@
 package POE::Runtime;
 
 use strict;
+use Carp;
 
 use POE::Session;
+use POE::Curator;
+use POE::Object;
 
-*spawn = \&POE::Object::spawn;
-*object = \&POE::Curator::object;
-*post = \&POE::Object::post;
+sub ACTOR  () { POE::Session::SENDER }
+sub METHOD () { POE::Session::STATE  }
+sub ME     () { POE::Session::OBJECT }
 
-#------------------------------------------------------------------------------
+my %aspects;
+
+sub initialize {
+  my ($package, @parameters) = @_;
+  my %parameters = @parameters;
+
+  croak "Runtime must be initialized with a Curator"
+    unless (exists $parameters{Curator});
+
+  %aspects = %parameters;
+}
+
+sub object {
+  $aspects{Curator}->object(@_);
+}
+
+###############################################################################
+1;
