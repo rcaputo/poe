@@ -7,8 +7,11 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
-0.0703 1999.08.13
+0.0703 1999.08.20
 -----------------
+
+Removed closure optimizations from the Wheel classes.  The later
+addition of $wheel->event() subtly broke them.
 
 Added poing.perl, a multi-host ICMP ping program, to the samples
 directory.  My ISP was down, so I hacked this together, "borrowing" a

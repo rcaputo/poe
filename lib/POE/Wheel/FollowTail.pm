@@ -42,7 +42,31 @@ sub new {
                      'event error' => $params{'ErrorEvent'},
                    }, $type;
                                         # register the input state
-  $self->_define_read_state();
+  $poe_kernel->state
+    ( $self->{'state read'} = $self . ' -> select read',
+      sub {
+                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
+        my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
+
+        while (defined(my $raw_input = $driver->get($hdl))) {
+          foreach my $cooked_input (@{$filter->get($raw_input)}) {
+            $k->call($ses, $self->{'event input'}, $cooked_input)
+          }
+        }
+
+        $k->select_read($hdl);
+
+        if ($!) {
+          defined($self->{'event error'})
+            && $k->call($ses, $self->{'event error'}, 'read', ($!+0), $!);
+        }
+        else {
+          $k->delay($self->{'state wake'}, $poll_interval);
+        }
+      }
+    );
                                         # set the file position to the end
   seek($handle, 0, SEEK_END);
   seek($handle, -4096, SEEK_CUR);
@@ -91,43 +115,6 @@ sub event {
       carp "ignoring unknown ReadWrite parameter '$name'";
     }
   }
-
-  $self->_define_read_state();
-}
-
-#------------------------------------------------------------------------------
-
-sub _define_read_state {
-  my $self = shift;
-                                        # stupid closure trick
-  my ($event_in, $event_error, $filter, $driver, $poll_interval)
-    = @{$self}{'event input', 'event error', 'filter', 'driver', 'interval'};
-                                        # check for file activity
-  $poe_kernel->state
-    ( $self->{'state read'} = $self . ' -> select read',
-      sub {
-                                        # prevents SEGV
-        0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
-        my ($k, $ses, $hdl) = @_[KERNEL, SESSION, ARG0];
-
-        while (defined(my $raw_input = $driver->get($hdl))) {
-          foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            $k->call($ses, $event_in, $cooked_input)
-          }
-        }
-
-        $k->select_read($hdl);
-
-        if ($!) {
-          defined($event_error)
-            && $k->call($ses, $event_error, 'read', ($!+0), $!);
-        }
-        else {
-          $k->delay($self->{'state wake'}, $poll_interval);
-        }
-      }
-    );
 }
 
 #------------------------------------------------------------------------------

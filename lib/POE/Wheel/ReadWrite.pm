@@ -32,8 +32,56 @@ sub new {
                      'event flushed' => $params{'FlushedState'},
                    }, $type;
                                         # register private event handlers
-  $self->_define_read_state();
-  $self->_define_write_state();
+  if (defined $self->{'event input'}) {
+    $poe_kernel->state
+      ( $self->{'state read'} = $self . ' -> select read',
+        sub {
+                                        # prevents SEGV
+          0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
+          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+          if (defined(my $raw_input = $self->{driver}->get($handle))) {
+            foreach my $cooked_input (@{$self->{filter}->get($raw_input)}) {
+              $k->call($me, $self->{'event input'}, $cooked_input)
+            }
+          }
+          else {
+            $self->{'event error'} &&
+              $k->call($me, $self->{'event error'}, 'read', ($!+0), $!);
+            $k->select_read($handle);
+          }
+        }
+      );
+                                        # register the state's select
+    $poe_kernel->select_read($self->{handle}, $self->{'state read'});
+  }
+                                        # undefine the select, just in case
+  else {
+    $poe_kernel->select_read($self->{handle})
+  }
+                                        # register the select-write handler
+  $poe_kernel->state
+    ( $self->{'state write'} = $self . ' -> select write',
+      sub {                             # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+
+        my $writes_pending = $self->{driver}->flush($handle);
+        if ($!) {
+          $self->{'event error'} &&
+            $k->call($me, $self->{'event error'}, 'write', ($!+0), $!);
+          $k->select_write($handle);
+        }
+        elsif (defined $writes_pending) {
+          unless ($writes_pending) {
+            $k->select_write($handle);
+            (defined $self->{'event flushed'}) &&
+              $k->call($me, $self->{'event flushed'});
+          }
+        }
+      }
+    );
 
   $self;
 }
@@ -61,79 +109,6 @@ sub event {
       carp "ignoring unknown ReadWrite parameter '$name'";
     }
   }
-
-  $self->_define_read_state();
-  $self->_define_write_state();
-}
-
-#------------------------------------------------------------------------------
-# Re/define the read state.  Moved out of new so that it can be redone
-# whenever the input and/or error states are changed.
-
-sub _define_read_state {
-  my $self = shift;
-                                        # stupid closure trick
-  my ($event_in, $event_error, $driver, $filter, $handle) =
-    @{$self}{'event input', 'event error', 'driver', 'filter', 'handle'};
-                                        # register the select-read handler
-  if (defined $event_in) {
-    $poe_kernel->state
-      ( $self->{'state read'} = $self . ' -> select read',
-        sub {
-                                        # prevents SEGV
-          0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          if (defined(my $raw_input = $driver->get($handle))) {
-            foreach my $cooked_input (@{$filter->get($raw_input)}) {
-              $k->call($me, $event_in, $cooked_input)
-            }
-          }
-          else {
-            $event_error && $k->call($me, $event_error, 'read', ($!+0), $!);
-            $k->select_read($handle);
-          }
-        }
-      );
-                                        # register the state's select
-    $poe_kernel->select_read($handle, $self->{'state read'});
-  }
-                                        # undefine the select, just in case
-  else {
-    $poe_kernel->select_read($handle)
-  }
-}
-
-#------------------------------------------------------------------------------
-# Re/define the write state.  Moved out of new so that it can be
-# redone whenever the input and/or error states are changed.
-
-sub _define_write_state {
-  my $self = shift;
-                                        # stupid closure trick
-  my ($event_error, $event_flushed, $handle, $driver) =
-    @{$self}{'event error', 'event flushed', 'handle', 'driver'};
-                                        # register the select-write handler
-  $poe_kernel->state
-    ( $self->{'state write'} = $self . ' -> select write',
-      sub {                             # prevents SEGV
-        0 && CRIMSON_SCOPE_HACK('<');
-                                        # subroutine starts here
-        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-
-        my $writes_pending = $driver->flush($handle);
-        if ($!) {
-          $event_error && $k->call($me, $event_error, 'write', ($!+0), $!);
-          $k->select_write($handle);
-        }
-        elsif (defined $writes_pending) {
-          unless ($writes_pending) {
-            $k->select_write($handle);
-            (defined $event_flushed) && $k->call($me, $event_flushed);
-          }
-        }
-      }
-    );
 }
 
 #------------------------------------------------------------------------------
@@ -170,8 +145,6 @@ sub set_filter
     my($self, $filter)=@_;
     my $buf=$self->{filter}->get_pending();
     $self->{filter}=$filter;
-    $self->_define_read_state();
-    $self->_define_write_state();
     if ( defined($buf) )
     {
         foreach my $cooked_input (@{$filter->get($buf)})

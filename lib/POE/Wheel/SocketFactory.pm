@@ -61,9 +61,6 @@ sub condition_unix_address {
 sub _define_accept_state {
   my $self = shift;
 
-  my ($success_event, $failure_event, $listen_handle)
-    = @{$self}{'event success', 'event failure', 'handle'};
-
   $poe_kernel->state
     ( $self->{'state accept'} = $self . ' -> select accept',
       sub {
@@ -90,25 +87,24 @@ sub _define_accept_state {
           else {
             die "sanity failure: socket domain == $self->{'socket domain'}";
           }
-          $k->call($me, $success_event, $new_socket, $peer_addr, $peer_port);
+          $k->call($me, $self->{'event success'},
+                   $new_socket, $peer_addr, $peer_port
+                  );
         }
         elsif ($! != EWOULDBLOCK) {
-          $failure_event &&
-            $k->call($me, $failure_event, 'accept', ($!+0), $!);
+          $self->{'event failure'} &&
+            $k->call($me, $self->{'event failure'}, 'accept', ($!+0), $!);
         }
       }
     );
 
-  $poe_kernel->select_read($listen_handle, $self->{'state accept'});
+  $poe_kernel->select_read($self->{handle}, $self->{'state accept'});
 }
 
 #------------------------------------------------------------------------------
 
 sub _define_connect_state {
   my $self = shift;
-
-  my ($success_event, $failure_event, $connect_handle)
-    = @{$self}{'event success', 'event failure', 'handle'};
 
   $poe_kernel->state
     ( $self->{'state noconnect'} = $self . ' -> select noconnect',
@@ -119,7 +115,7 @@ sub _define_connect_state {
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
         $k->select($handle);
                                         # acquire and dispatch connect error
-        if (defined $failure_event) {
+        if (defined $self->{'event failure'}) {
           $! = 0;
           my $error = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
           $error && ($! = $error);
@@ -130,7 +126,7 @@ sub _define_connect_state {
           # $k->call($me, $failure_event, 'connect', ($!+0), $!);
 
           if ($!) {
-            $k->call($me, $failure_event, 'connect', ($!+0), $!);
+            $k->call($me, $self->{'event failure'}, 'connect', ($!+0), $!);
           }
         }
       }
@@ -145,11 +141,11 @@ sub _define_connect_state {
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         $k->select($handle);
-        $k->call($me, $success_event, $handle);
+        $k->call($me, $self->{'event success'}, $handle);
       }
     );
 
-  $poe_kernel->select($connect_handle,
+  $poe_kernel->select($self->{handle},
                       $self->{'state noconnect'},
                       $self->{'state connect'}
                      );
@@ -386,7 +382,7 @@ sub new {
       close $socket_handle;
       return undef;
     }
-    
+
     unless (bind($socket_handle, $packed_bind_address)) {
       $poe_kernel->yield($failure_event, 'bind', $!+0, $!);
       close($socket_handle);
