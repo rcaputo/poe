@@ -20,14 +20,35 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 |
 | Test $kernel->fork() or replace it entirely.
 |
-| Test SocketFactory with UDP sockets.
-|
 | After 0.11
 |
 | Split the samples out into a separate distribution.
 | Revise the POE web pages.
 |
 `-----------------
+
+
+0.1009 2000.??.??
+-----------------
+
+Optimized away a function in lib/TestSetup.pm.
+
+Added t/13_wheels_udp.t and a corresponding MANIFEST entry.
+
+Jonathan Feinber graciously provided a Windows NT shell for testing
+and development, opening whole new worlds of pain to me.  :)
+
+Tweaked the Win32 FIONBIO ioctls for non-blocking filehandles in
+POE::Kernel and POE::Wheel::SocketFactory.
+
+Added t/00_coverage.t to the MANIFEST.  Whoops!
+
+Added a crucial newline between 1; and __END__ in POE::Session.
+
+Jonathan Feinber reported that ActiveState 5.6.0, build 613 doesn't
+implement F_GETFL and F_SETFL.  These constants aren't used for the
+MSWin32 code, so now POE::Kernel and POE::Wheel::SocketFactory define
+dummies for them.
 
 
 0.1008 2000.06.14
@@ -58,19 +79,6 @@ code tree and thus not being DESTROYed when Tk::After was done with
 them.  I thought this might be a Perl bug and posted to perl5-porters
 about it.  Wolfgang Laun and Nick Ing-Simmons sent back enlightening
 replies, and the game once again is afoot!
-
-blessed coderefs never have DESTROY called upon them.  This means that
-postbacks haven't ever worked correctly!  Grrrr!  Posted a test case
-to perl5-porters, avoiding perlbug because it's been flaky ever since
-5.6.0 was released.
-
-Simon suggested wrapping the coderef in an object and performing
-cleanup when the object's DESTROY method is called.  I extrapolated a
-tied scalar from his advice, where the FETCH method returns its
-coderef.  As an added bonus, I'm able to store the parent session's ID
-in the tied scalar's hidden data, eliminating the need for a "global"
-hash that maps postbacks to session IDs.  Excellent!  Thanks muchly,
-Simon; this has been bugging me for days!
 
 
 0.1007 2000.06.07

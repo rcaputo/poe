@@ -48,19 +48,14 @@ sub stderr_resume {
   open STDERR, '>&STDERR_HOLD' or print "cannot restore STDERR: $!";
 }
 
-sub _display_result {
-  my $test = shift;
-  if (defined $test_results[$test]) {
-    print $test_results[$test], "\n";
-  }
-  else {
-    print "not ok $test # no test result\n";
-  }
-}
-
 sub results {
   for (my $test = 1; $test < @test_results; $test++) {
-    &_display_result($test);
+    if (defined $test_results[$test]) {
+      print $test_results[$test], "\n";
+    }
+    else {
+      print "not ok $test # no test result\n";
+    }
   }
 }
 
@@ -119,4 +114,3 @@ sub ok_unless {
 }
 
 1;
-

@@ -20,7 +20,10 @@ BEGIN {
   # defines EINPROGRESS as 10035.  We provide it here because some
   # Win32 users report POSIX::EINPROGRESS is not vendor-supported.
   if ($^O eq 'MSWin32') {
-    eval '*EINPROGRESS = sub { 10035 };'
+    eval '*EINPROGRESS = sub { 10036 };';
+    eval '*EWOULDBLOCK = sub { 10035 };';
+    eval '*F_GETFL     = sub {     0 };';
+    eval '*F_SETFL     = sub {     0 };';
   }
 }
 
@@ -384,8 +387,12 @@ sub new {
   # Do it the Win32 way.  XXX This is incomplete.
   if ($^O eq 'MSWin32') {
     my $set_it = "1";
-                                        # 126 is FIONBIO
-    ioctl($socket_handle, 126 | (ord('f')<<8) | (4<<16) | 0x80000000, $set_it)
+
+    # 126 is FIONBIO (some docs say 0x7F << 16)
+    ioctl( $socket_handle,
+           0x80000000 | (4<<16) | (ord('f')<<8) | 126,
+           $set_it
+         )
       or do {
         $poe_kernel->yield($state_failure, 'ioctl', $!+0, $!);
         return undef;
@@ -583,7 +590,7 @@ sub new {
       # XXX EINPROGRESS is not included in ActiveState's POSIX.pm, and
       # I don't know what AS's Perl uses instead.  What to do here?
 
-      if ($! and ($! != EINPROGRESS)) {
+      if ($! and ($! != EINPROGRESS) and ($! != EWOULDBLOCK)) {
         $poe_kernel->yield($state_failure, 'connect', $!+0, $!);
         return undef;
       }

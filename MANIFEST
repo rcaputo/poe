@@ -57,6 +57,7 @@ samples/udp.perl
 samples/watermarks.perl
 samples/wheels.perl
 samples/wheels2.perl
+t/00_coverage.t
 t/01_sessions.t
 t/02_alarms.t
 t/03_aliases.t
@@ -69,3 +70,4 @@ t/09_wheels_unix.t
 t/10_wheels_tcp.t
 t/11_signals_poe.t
 t/12_signals_ev.t
+t/13_wheels_udp.t

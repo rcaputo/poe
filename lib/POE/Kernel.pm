@@ -251,7 +251,10 @@ BEGIN {
   # defines EINPROGRESS as 10035.  We provide it here because some
   # Win32 users report POSIX::EINPROGRESS is not vendor-supported.
   if ($^O eq 'MSWin32') {
-    eval '*EINPROGRESS = sub { 10035 };'
+    eval '*EINPROGRESS = sub { 10036 };';
+    eval '*EWOULDBLOCK = sub { 10035 };';
+    eval '*F_GETFL     = sub {     0 };';
+    eval '*F_SETFL     = sub {     0 };';
   }
 }
 
@@ -1284,8 +1287,11 @@ sub run {
 
         ASSERT_SELECT and do {
           if ($hits < 0) {
-            die "select error = $!\n"
-              unless ( ($! == EINPROGRESS) or ($! == EINTR) );
+            die "select error: $!"
+              unless ( ($! == EINPROGRESS) or
+                       ($! == EWOULDBLOCK) or
+                       ($! == EINTR)
+                     );
           }
         };
 
@@ -2207,9 +2213,11 @@ sub _internal_select {
       if ($^O eq 'MSWin32') {
         my $set_it = "1";
 
-        # 126 is FIONBIO
-        ioctl($handle, 126 | (ord('f')<<8) | (4<<16) | 0x80000000, $set_it)
-          or croak "Can't set the handle non-blocking: $!\n";
+        # 126 is FIONBIO (some docs say 0x7F << 16)
+        ioctl( $handle,
+               0x80000000 | (4<<16) | (ord('f')<<8) | 126,
+               $set_it
+             ) or die "Can't set the handle non-blocking: $!";
       }
 
       # Make the handle stop blocking, the POSIX way.
