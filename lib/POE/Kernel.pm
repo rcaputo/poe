@@ -80,6 +80,7 @@ my %kr_processes;
 # session IDs: { $id => $session, ... }
 my %kr_session_ids;
 
+# -><- being removed
 # handles:
 # { $handle =>
 #   [ $handle,
@@ -90,9 +91,28 @@ my %kr_session_ids;
 #       { $session => [ $handle, $session, $state ], .. }
 #     ],
 #     [ $watcher_r, $watcher_w, $watcher_x ],
+#     [ $requested_state_r, $ditto_w, $ditto_x ],
+#     [ $actual_state_r, $ditto_w, $ditto_x ],
+#     [ $pending_event_count_r, $ditto_w, $ditto_x ],
 #   ]
 # };
-my %kr_handles;
+#my %kr_handles;
+
+# filenos:
+# [ [ $reference_count,     # VEC_RD
+#     $substrate_watcher,
+#     $actual_state,
+#     $requested_state,
+#     $pending_event_count,
+#     { $session => { $handle => [ $handle, $session, $event ] },
+#       ...
+#     },
+#   ],
+#   [ ... same for VEC_WR ... ],
+#   [ ... same for VEC_EX ... ],
+#   $total_reference_count,
+# ]
+my @kr_filenos;
 
 # vectors: [ $read_vector, $write_vector, $expedite_vector ];
 my @kr_vectors = ( '', '', '' );
@@ -171,7 +191,7 @@ sub SH_VECCOUNT () { 2 }
 # The Kernel object.  KR_SIZE goes last (it's the index count).
 sub KR_SESSIONS       () {  0 }
 sub KR_VECTORS        () {  1 }
-sub KR_HANDLES        () {  2 }
+sub KR_FILENOS        () {  2 }
 sub KR_SIGNALS        () {  3 }
 sub KR_ALIASES        () {  4 }
 sub KR_ACTIVE_SESSION () {  5 }
@@ -185,12 +205,24 @@ sub KR_EXTRA_REFS     () { 12 }
 sub KR_EVENT_IDS      () { 13 }
 sub KR_SIZE           () { 14 }
 
-# Handle structure.
-sub HND_HANDLE   () { 0 }
-sub HND_REFCOUNT () { 1 }
-sub HND_VECCOUNT () { 2 }
-sub HND_SESSIONS () { 3 }
-sub HND_WATCHERS () { 4 }
+# Fileno structure.
+sub FNO_VEC_RD       () { VEC_RD }  # unused (for documentation)
+sub FNO_VEC_WR       () { VEC_WR }  # unused (for documentation)
+sub FNO_VEC_EX       () { VEC_EX }  # unused (for documentation)
+sub FNO_TOT_REFCOUNT () { 3      }
+
+# Fileno vector structure.  One per VEC_RD, VEC_WR, VEC_EX
+sub FVC_REFCOUNT   () { 0 }
+sub FVC_WATCHER    () { 1 }
+sub FVC_ST_ACTUAL  () { 2 }
+sub FVC_ST_REQUEST () { 3 }
+sub FVC_EV_COUNT   () { 4 }
+sub FVC_SESSIONS   () { 5 }
+
+# Handle states (paused or running)
+sub HS_STOPPED   () { 0x00 }
+sub HS_PAUSED    () { 0x01 }
+sub HS_RUNNING   () { 0x02 }
 
 # Handle session structure.
 sub HSS_HANDLE  () { 0 }
@@ -198,11 +230,11 @@ sub HSS_SESSION () { 1 }
 sub HSS_STATE   () { 2 }
 
 # Events.
-sub ST_SESSION () { 0 }
-sub ST_SOURCE  () { 1 }
-sub ST_NAME    () { 2 }
-sub ST_TYPE    () { 3 }
-sub ST_ARGS    () { 4 }
+sub ST_SESSION    () { 0 }
+sub ST_SOURCE     () { 1 }
+sub ST_NAME       () { 2 }
+sub ST_TYPE       () { 3 }
+sub ST_ARGS       () { 4 }
 
 # These go towards the end, in this order, because they're optional
 # parameters in some cases.
@@ -426,10 +458,10 @@ macro collect_garbage (<session>) {
 
 macro validate_handle (<handle>,<vector>) {
   # Don't bother if the kernel isn't tracking the file.
-  return 0 unless exists $kr_handles{<handle>};
+  return 0 unless defined $kr_filenos[fileno(<handle>)];
 
   # Don't bother if the kernel isn't tracking the file mode.
-  return 0 unless $kr_handles{<handle>}->[HND_VECCOUNT]->[<vector>];
+  return 0 unless $kr_filenos[fileno(<handle>)]->[<vector>]->[FVC_REFCOUNT];
 }
 
 macro remove_alias (<session>,<alias>) {
@@ -455,16 +487,12 @@ macro test_resolve (<name>,<resolved>) {
 }
 
 macro test_for_idle_poe_kernel {
+  my @filenos = grep { defined $_ } @kr_filenos;
   if (TRACE_REFCOUNT) { # include
     warn( ",----- Kernel Activity -----\n",
           "| Events : ", scalar(@kr_events), "\n",
-          "| Files  : ", scalar(keys(%kr_handles)), "\n",
-          "|   `--> : ", join( ', ',
-                               sort { $a <=> $b }
-                               map { fileno($_->[HND_HANDLE]) }
-                               values(%kr_handles)
-                             ),
-          "\n",
+          "| Files  : ", scalar(@filenos), "\n",
+          "|   `--> : ", join(', ', sort { $a <=> $b } @filenos), "\n",
           "| Extra  : $kr_extra_refs\n",
           "`---------------------------\n",
           " ..."
@@ -472,7 +500,7 @@ macro test_for_idle_poe_kernel {
   } # include
 
   unless ( @kr_events > 1    or  # > 1 for signal poll loop
-           keys(%kr_handles) or
+           @filenos          or
            $kr_extra_refs
          ) {
     $poe_kernel->_enqueue_event
@@ -503,15 +531,43 @@ macro dispatch_due_events {
   }
 }
 
-macro dispatch_ready_selects {
-  my @selects = values %{ $kr_handles{$handle}->[HND_SESSIONS]->[$vector] };
+macro enqueue_ready_selects (<fileno>,<vector>) {
+  die "internal inconsistency: undefined fileno" unless defined <fileno>;
+
+  my $kr_fileno = $kr_filenos[<fileno>];
+  die "internal inconsistency: fileno <fileno> is not known"
+    unless defined $kr_fileno;
+
+  my $kr_fno_vec = $kr_fileno->[<vector>];
+
+  # Gather all the events to emit for this fileno/vector pair.
+
+  my @selects =
+    map( { values %$_ }
+         values %{ $kr_filenos[<fileno>]->[<vector>]-> [FVC_SESSIONS] }
+       );
+
+  # Emit them.
 
   foreach my $select (@selects) {
-    $poe_kernel->_dispatch_event
+    $poe_kernel->_enqueue_event
       ( $select->[HSS_SESSION], $select->[HSS_SESSION],
-        $select->[HSS_STATE], ET_SELECT, [ $select->[HSS_HANDLE] ],
-        time(), __FILE__, __LINE__, undef
+        $select->[HSS_STATE], ET_SELECT,
+        [ $select->[HSS_HANDLE], <vector> ],
+        time(), __FILE__, __LINE__,
       );
+
+    unless ($kr_fno_vec->[FVC_EV_COUNT]++) {
+      # Used in Tk substrate.
+      my $handle = $select->[HSS_HANDLE];
+      {% substrate_pause_filehandle_watcher <fileno>, <vector> %}
+    }
+
+    if (TRACE_SELECT) {
+      warn( "+++ incremented event count in vector (<vector>) ",
+            "for fileno (<fileno>) to count ($kr_fno_vec->[FVC_EV_COUNT])"
+          );
+    }
   }
 }
 
@@ -632,7 +688,7 @@ sub new {
     my $self = $poe_kernel = bless
       [ \%kr_sessions,       # KR_SESSIONS
         \@kr_vectors,        # KR_VECTORS
-        \%kr_handles,        # KR_HANDLES
+        \@kr_filenos,        # KR_FILENOS
         \%kr_signals,        # KR_SIGNALS
         \%kr_aliases,        # KR_ALIASES
         \$kr_active_session, # KR_ACTIVE_SESSION
@@ -783,6 +839,51 @@ sub _dispatch_event {
       # Add the new session to its parent's children.
       $kr_sessions{$source_session}->[SS_CHILDREN]->{$session} = $session;
       {% ses_refcount_inc $source_session %}
+    }
+
+    # Select event.  Clean up the vectors ahead of time so that
+    # reusing filenos isn't so damned painful.
+
+    elsif ($type & ET_SELECT) {
+
+      # Decrement the event count by handle/vector.  -><- Assumes the
+      # format for a select event, which may change later.  It
+      # probably would be useful to set up some macros that create and
+      # parse events so we don't have to make these assumptions.
+
+      my ($handle, $vector) = @$etc;
+      my $fileno = fileno($handle);
+
+      if (defined $kr_filenos[$fileno]) {
+        my $kr_fileno  = $kr_filenos[$fileno];
+        my $kr_fno_vec = $kr_fileno->[$vector];
+
+        if (TRACE_SELECT) {
+          warn( "--- decrementing event count in vector ($vector) ",
+                "for fileno (", $fileno, ") from count (",
+                $kr_fno_vec->[FVC_EV_COUNT], ")"
+              );
+        }
+
+        unless (--$kr_fno_vec->[FVC_EV_COUNT]) {
+          if ( $kr_fno_vec->[FVC_ST_ACTUAL] !=
+               $kr_fno_vec->[FVC_ST_REQUEST]
+             ) {
+            if ($kr_fno_vec->[FVC_ST_REQUEST] == HS_PAUSED) {
+              {% substrate_pause_filehandle_watcher $fileno, $vector %}
+            }
+            elsif ($kr_fno_vec->[FVC_ST_REQUEST] == HS_RUNNING) {
+              {% substrate_resume_filehandle_watcher $fileno, $vector %}
+            }
+            else {
+              die "internal consistency error";
+            }
+          }
+        }
+        elsif ($kr_fno_vec->[FVC_EV_COUNT] < 0) {
+          die "handle event count went below zero";
+        }
+      }
     }
 
     # Some sessions don't do anything in _start and expect their
@@ -1135,13 +1236,18 @@ macro finalize_kernel {
     {% kernel_leak_vec   VEC_RD          %}
     {% kernel_leak_vec   VEC_WR          %}
     {% kernel_leak_vec   VEC_EX          %}
-    {% kernel_leak_hash  %kr_handles     %}
     {% kernel_leak_hash  %kr_signals     %}
     {% kernel_leak_hash  %kr_aliases     %}
     {% kernel_leak_hash  %kr_processes   %}
     {% kernel_leak_array @kr_events      %}
     {% kernel_leak_hash  %kr_session_ids %}
     {% kernel_leak_hash  %kr_event_ids   %}
+
+    # Because undef values are okay here.  Destructive is okay too
+    # because we're not going to use these afterwards.
+
+    @kr_filenos = grep {defined} @kr_filenos;
+    {% kernel_leak_array @kr_filenos     %}
   }
 
   if (TRACE_PROFILE) {
@@ -1281,7 +1387,8 @@ sub _invoke_state {
 
   elsif ($event eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
-      unless (@kr_events > 1 || keys(%kr_handles)) {
+      my @filenos = grep { defined } @kr_filenos;
+      unless (@kr_events > 1 or @filenos) {
         $self->_enqueue_event
           ( $self, $self,
             EN_SIGNAL, ET_SIGNAL, [ 'ZOMBIE' ],
@@ -1628,6 +1735,8 @@ sub _enqueue_event {
     # quickly find the event to fiddle with.
     my $new_event_id = $event_to_enqueue->[ST_SEQ];
     $kr_event_ids{$new_event_id} = $time;
+
+    # If it's a select event, track the event count.
 
     # Return the new event ID.  Man, this rocks.  I forgot POE was
     # maintaining event sequence numbers.
@@ -2253,22 +2362,45 @@ sub _internal_select {
   my ($self, $session, $handle, $event, $select_index) = @_;
   my $fileno = fileno($handle);
 
-  # If an event is specified register it.  This may be a new handle,
-  # or it may be replacing an existing select with a new destination.
+  # If an event is included, then we're defining a filehandle watcher.
 
   if ($event) {
 
-    # The handle is unknown.  Register it anew.
+    # However, the fileno is not known.  This is a new file.  Create
+    # the data structure for it, and prepare the handle for use.
 
-    unless (exists $kr_handles{$handle}) {
-      $kr_handles{$handle} =
-        [ $handle,             # HND_HANDLE
-          0,                   # HND_REFCOUNT
-          [ 0, 0, 0 ],         # HND_VECCOUNT (VEC_RD, VEC_WR, VEC_EX)
-          [ { }, { }, { } ],   # HND_SESSIONS (VEC_RD, VEC_WR, VEC_EX)
+    unless (defined $kr_filenos[$fileno]) {
+
+      if (TRACE_SELECT) {
+        warn "!!! adding fileno (", $fileno, ")";
+      }
+
+      $kr_filenos[$fileno] =
+        [ [ 0,          # FVC_REFCOUNT    VEC_RD
+            undef,      # FVC_WATCHER
+            HS_PAUSED,  # FVC_ST_ACTUAL
+            HS_PAUSED,  # FVC_ST_REQUEST
+            0,          # FVC_EV_COUNT
+            { },        # FVC_SESSIONS
+          ],
+          [ 0,          # FVC_REFCOUNT    VEC_WR
+            undef,      # FVC_WATCHER
+            HS_PAUSED,  # FVC_ST_ACTUAL
+            HS_PAUSED,  # FVC_ST_REQUEST
+            0,          # FVC_EV_COUNT
+            { },        # FVC_SESSIONS
+          ],
+          [ 0,          # FVC_REFCOUNT    VEC_EX
+            undef,      # FVC_WATCHER
+            HS_PAUSED,  # FVC_ST_ACTUAL
+            HS_PAUSED,  # FVC_ST_REQUEST
+            0,          # FVC_EV_COUNT
+            { },        # FVC_SESSIONS
+          ],
+          0,            # FNO_TOT_REFCOUNT
         ];
 
-      # For DOSISH systems like OS/2
+      # For DOSISH systems like OS/2.  Harmless elsewhere.
       binmode($handle);
 
       # Make the handle stop blocking, the Windows way.
@@ -2292,54 +2424,61 @@ sub _internal_select {
         }
       }
 
-      # This depends heavily on socket.ph, or somesuch.  It's
-      # extremely unportable.  I can't begin to figure out a way to
-      # make this work everywhere, so I'm not even going to try.
-      # Besides, it should be some sort of option.  Feel free to set
-      # it before calling a select_* function.
-      #
-      # setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
-      #   or die "Couldn't disable Nagle's algorithm: $!\a\n";
-
       # Turn off buffering.
       select((select($handle), $| = 1)[0]);
     }
 
-    # Cache the handle.  Save a repeated hash lookup.
-    my $kr_handle = $kr_handles{$handle};
+    # Cache some high-level lookups.
+    my $kr_fileno  = $kr_filenos[$fileno];
+    my $kr_fno_vec = $kr_fileno->[$select_index];
 
-    # If this session hasn't already been watching the filehandle,
-    # then modify the handle's reference counts and perhaps turn on
-    # the appropriate select bit.
+    # The session is already watching this fileno in this mode.
 
-    unless (exists $kr_handle->[HND_SESSIONS]->[$select_index]->{$session}) {
+    if (exists $kr_fno_vec->[FVC_SESSIONS]->{$session}) {
 
-      # Increment the handle's vector (Read, Write or Expedite)
-      # reference count.  This helps the kernel know when to manage
-      # the handle's corresponding vector bit.
+      # The session is also watching it by the same handle.  Treat
+      # this as a "resume" in this mode.
 
-      $kr_handle->[HND_VECCOUNT]->[$select_index]++;
-
-      # If this is the first session to watch the handle, then turn
-      # its select bit on.
-
-      if ($kr_handle->[HND_VECCOUNT]->[$select_index] == 1) {
-        {% substrate_watch_filehandle %}
+      if (exists $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle}) {
+        if (TRACE_SELECT) {
+          warn( "=== fileno(" . $fileno . ") vector($select_index) " .
+                "count($kr_fno_vec->[FVC_EV_COUNT])"
+              );
+        }
+        unless ($kr_fno_vec->[FVC_EV_COUNT]) {
+          {% substrate_resume_filehandle_watcher $fileno, $select_index %}
+        }
+        $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
       }
 
-      # Increment the handle's overall reference count (which is the
-      # sum of its read, write and expedite counts but kept separate
-      # for faster runtime checking).
+      # The session is watching it by a different handle.  It can't be
+      # done yet, but maybe later when drivers are added to the mix.
 
-      $kr_handle->[HND_REFCOUNT]++;
+      else {
+        confess "can't watch the same handle in the same mode 2+ times yet";
+      }
     }
 
-    # Record the session parameters in the kernel's handle structure,
-    # so we know what to do when the watcher unblocks.  This
-    # overwrites a previous value, if any, or adds a new one.
+    # The session is not watching this fileno in this mode.  Record
+    # the session/handle pair.
 
-    $kr_handle->[HND_SESSIONS]->[$select_index]->{$session} =
-      [ $handle, $session, $event ];
+    else {
+      $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle} =
+        [ $handle,   # HSS_HANDLE
+          $session,  # HSS_SESSION
+          $event,    # HSS_STATE
+        ];
+
+      # Fix reference counts.
+      $kr_fileno->[FNO_TOT_REFCOUNT]++;
+      $kr_fno_vec->[FVC_REFCOUNT]++;
+
+      # If this is the first time a file is watched in this mode, then
+      # turn on the substrate watcher.
+      if ($kr_fno_vec->[FVC_REFCOUNT] == 1) {
+        {% substrate_watch_filehandle $fileno, $select_index %}
+      }
+    }
 
     # SS_HANDLES
     my $kr_session = $kr_sessions{$session};
@@ -2366,34 +2505,38 @@ sub _internal_select {
   # session's destruction.
 
   else {
-    # KR_HANDLES
+    # KR_FILENOS
 
     # Make sure the handle is deregistered with the kernel.
 
-    if (exists $kr_handles{$handle}) {
-      my $kr_handle = $kr_handles{$handle};
+    if (defined $kr_filenos[$fileno]) {
+      my $kr_fileno  = $kr_filenos[$fileno];
+      my $kr_fno_vec = $kr_fileno->[$select_index];
 
       # Make sure the handle was registered to the requested session.
 
-      if (exists $kr_handle->[HND_SESSIONS]->[$select_index]->{$session}) {
+      if ( exists($kr_fno_vec->[FVC_SESSIONS]->{$session}) and
+           exists($kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle})
+         ) {
 
         # Remove the handle from the kernel's session record.
 
-        delete $kr_handle->[HND_SESSIONS]->[$select_index]->{$session};
+        delete $kr_fno_vec->[FVC_SESSIONS]->{$session}->{$handle};
 
         # Decrement the handle's reference count.
 
-        $kr_handle->[HND_VECCOUNT]->[$select_index]--;
+        $kr_fno_vec->[FVC_REFCOUNT]--;
 
         if (ASSERT_REFCOUNT) { # include
-          die if ($kr_handle->[HND_VECCOUNT]->[$select_index] < 0);
+          die "fileno vector refcount went below zero"
+            if $kr_fno_vec->[FVC_REFCOUNT] < 0;
         } # include
 
         # If the "vector" count drops to zero, then stop selecting the
         # handle.
 
-        unless ($kr_handle->[HND_VECCOUNT]->[$select_index]) {
-          {% substrate_ignore_filehandle %}
+        unless ($kr_fno_vec->[FVC_REFCOUNT]) {
+          {% substrate_ignore_filehandle $fileno, $select_index %}
         }
 
         # Decrement the kernel record's handle reference count.  If
@@ -2402,14 +2545,18 @@ sub _internal_select {
         # collection on it, as soon as whatever else in "user space"
         # frees it.
 
-        $kr_handle->[HND_REFCOUNT]--;
+        $kr_fileno->[FNO_TOT_REFCOUNT]--;
 
         if (ASSERT_REFCOUNT) { # include
-          die if ($kr_handle->[HND_REFCOUNT] < 0);
+          die "fileno refcount went below zero"
+            if $kr_fileno->[FNO_TOT_REFCOUNT] < 0;
         } # include
 
-        unless ($kr_handle->[HND_REFCOUNT]) {
-          delete $kr_handles{$handle};
+        unless ($kr_fileno->[FNO_TOT_REFCOUNT]) {
+          if (TRACE_SELECT) {
+            warn "!!! deleting fileno (", $fileno, ")";
+          }
+          undef $kr_filenos[$fileno];
         }
       }
     }
@@ -2516,7 +2663,27 @@ sub select_pause_write {
   };
 
   {% validate_handle $handle, VEC_WR %}
-  {% substrate_pause_filehandle_write_watcher %}
+
+  # If there are no events in the queue for this handle/mode
+  # combination, then we can go ahead and set the actual state now.
+  # Otherwise it'll have to wait until the queue empties.
+
+  my $kr_fileno  = $kr_filenos[fileno($handle)];
+  my $kr_fno_vec = $kr_fileno->[VEC_WR];
+  if (TRACE_SELECT) {
+    warn( "=== fileno(" . fileno($handle) . ") vector(VEC_WR) " .
+          "count($kr_fno_vec->[FVC_EV_COUNT])"
+        );
+  }
+  unless ($kr_fno_vec->[FVC_EV_COUNT]) {
+    {% substrate_pause_filehandle_watcher fileno($handle), VEC_WR %}
+  }
+
+  # Set the requested handle state so it'll be correct when the actual
+  # state must be changed to reflect it.
+
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_PAUSED;
+
   return 0;
 }
 
@@ -2533,7 +2700,27 @@ sub select_resume_write {
   };
 
   {% validate_handle $handle, VEC_WR %}
-  {% substrate_resume_filehandle_write_watcher %}
+
+  # If there are no events in the queue for this handle/mode
+  # combination, then we can go ahead and set the actual state now.
+  # Otherwise it'll have to wait until the queue empties.
+
+  my $kr_fileno = $kr_filenos[fileno($handle)];
+  my $kr_fno_vec = $kr_fileno->[VEC_WR];
+  if (TRACE_SELECT) {
+    warn( "=== fileno(" . fileno($handle) . ") vector(VEC_WR) " .
+          "count($kr_fno_vec->[FVC_EV_COUNT])"
+        );
+  }
+  unless ($kr_fno_vec->[FVC_EV_COUNT]) {
+    {% substrate_resume_filehandle_watcher fileno($handle), VEC_WR %}
+  }
+
+  # Set the requested handle state so it'll be correct when the actual
+  # state must be changed to reflect it.
+
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
+
   return 1;
 }
 
@@ -2550,7 +2737,27 @@ sub select_pause_read {
   };
 
   {% validate_handle $handle, VEC_RD %}
-  {% substrate_pause_filehandle_read_watcher %}
+
+  # If there are no events in the queue for this handle/mode
+  # combination, then we can go ahead and set the actual state now.
+  # Otherwise it'll have to wait until the queue empties.
+
+  my $kr_fileno = $kr_filenos[fileno($handle)];
+  my $kr_fno_vec = $kr_fileno->[VEC_RD];
+  if (TRACE_SELECT) {
+    warn( "=== fileno(" . fileno($handle) . ") vector(VEC_RD) " .
+          "count($kr_fno_vec->[FVC_EV_COUNT])"
+        );
+  }
+  unless ($kr_fno_vec->[FVC_EV_COUNT]) {
+    {% substrate_pause_filehandle_watcher fileno($handle), VEC_RD %}
+  }
+
+  # Set the requested handle state so it'll be correct when the actual
+  # state must be changed to reflect it.
+
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_PAUSED;
+
   return 0;
 }
 
@@ -2560,14 +2767,34 @@ sub select_resume_read {
   my ($self, $handle) = @_;
 
   ASSERT_USAGE and do {
-    croak "undefined filehandle in select_resume_write()"
+    croak "undefined filehandle in select_resume_read()"
       unless defined $handle;
-    croak "invalid filehandle in select_resume_write()"
+    croak "invalid filehandle in select_resume_read()"
       unless defined fileno($handle);
   };
 
   {% validate_handle $handle, VEC_RD %}
-  {% substrate_resume_filehandle_read_watcher %}
+
+  # If there are no events in the queue for this handle/mode
+  # combination, then we can go ahead and set the actual state now.
+  # Otherwise it'll have to wait until the queue empties.
+
+  my $kr_fileno = $kr_filenos[fileno($handle)];
+  my $kr_fno_vec = $kr_fileno->[VEC_RD];
+  if (TRACE_SELECT) {
+    warn( "=== fileno(" . fileno($handle) . ") vector(VEC_RD) " .
+          "count($kr_fno_vec->[FVC_EV_COUNT])"
+        );
+  }
+  unless ($kr_fno_vec->[FVC_EV_COUNT]) {
+    {% substrate_resume_filehandle_watcher fileno($handle), VEC_RD %}
+  }
+
+  # Set the requested handle state so it'll be correct when the actual
+  # state must be changed to reflect it.
+
+  $kr_fno_vec->[FVC_ST_REQUEST] = HS_RUNNING;
+
   return 1;
 }
 
@@ -3643,9 +3870,16 @@ Select handlers are expected to deal with filehandles so that they
 stop being ready.  For example, a select_read() handler should try to
 read as much data from a filehandle as it can.
 
-Select events include one parameter, C<ARG0>, which contains the
-handle for the file that is ready.  C<ARG0> and the other event
-handler parameter constants is covered in L<POE::Session>.
+Select events include two parameters.
+
+C<ARG0> holds the handle of the file that is ready.
+
+C<ARG1> contains 0, 1, or 2 to indicate whether the filehandle is
+ready for reading, writing, or out-of-band reading (otherwise knows as
+"expedited" or "exception").
+
+C<ARG0> and the other event handler parameter constants is covered in
+L<POE::Session>.
 
 Sessions will not spontaneously stop as long as they are watching at
 least one filehandle.
