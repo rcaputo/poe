@@ -110,7 +110,10 @@ sub _data_sig_get_safe_signals {
 ### End-run leak checking.
 
 sub _data_sig_finalize {
+  my $finalized_ok = 1;
+
   while (my ($sig, $sig_rec) = each(%kr_signals)) {
+    $finalized_ok = 0;
     warn "!!! Leaked signal $sig\n";
     while (my ($ses, $event) = each(%{$kr_signals{$sig}})) {
       warn "!!!\t$ses = $event\n";
@@ -118,11 +121,14 @@ sub _data_sig_finalize {
   }
 
   while (my ($ses, $sig_rec) = each(%kr_sessions_to_signals)) {
+    $finalized_ok = 0;
     warn "!!! Leaked signal cross-reference: $ses\n";
     while (my ($sig, $event) = each(%{$kr_signals{$ses}})) {
       warn "!!!\t$sig = $event\n";
     }
   }
+
+  return $finalized_ok;
 }
 
 ### Add a signal to a session.
@@ -191,7 +197,7 @@ sub _data_sig_explicitly_watched {
 
 sub _data_sig_watchers {
   my ($self, $signal) = @_;
-  return each %{$kr_signals{$signal}};
+  return %{$kr_signals{$signal}};
 }
 
 ### Determine if a given session is watching a signal.  This uses a
