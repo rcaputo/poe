@@ -22,6 +22,16 @@ use POE::Preprocessor;
 sub POE_SUBSTRATE      () { SUBSTRATE_SELECT      }
 sub POE_SUBSTRATE_NAME () { SUBSTRATE_NAME_SELECT }
 
+# Linux has a bug on "polled" select() calls.  If select() is called
+# with a zero-second timeout, and a signal manages to interrupt it
+# anyway (it's happened), the select() function is restarted and will
+# block indefinitely.  Set the minimum select() timeout to 1us on
+# Linux systems.
+BEGIN {
+  my $timeout = ($^O eq 'linux') ? 0.001 : 0;
+  eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
+};
+
 #------------------------------------------------------------------------------
 # Signal handlers.
 
@@ -195,7 +205,7 @@ macro substrate_do_timeslice {
 
   if (@kr_events) {
     $timeout = $kr_events[0]->[ST_TIME] - $now;
-    $timeout = 0 if $timeout < 0;
+    $timeout = MINIMUM_SELECT_TIMEOUT if $timeout < MINIMUM_SELECT_TIMEOUT;
   }
   else {
     $timeout = 3600;
