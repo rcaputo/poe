@@ -660,18 +660,11 @@ sub _dispatch_event {
 
   unless ($type & (ET_USER | ET_CALL)) {
 
-    # The _start event is dispatched immediately as part of allocating
-    # a session.  Set up the kernel's tables for this session.
-
-    if ($type & ET_START) {
-      my $sid = $self->_data_sid_allocate();
-      $self->_data_ses_allocate($session, $sid, $source_session);
-    }
 
     # A "select" event has just come out of the queue.  Reset its
     # actual state to its requested state before handling the event.
 
-    elsif ($type & ET_SELECT) {
+    if ($type & ET_SELECT) {
       $self->_data_handle_resume_requested_state(@$etc);
     }
 
@@ -717,11 +710,11 @@ sub _dispatch_event {
       # is departing.
 
       if (defined $parent) {
-        $self->_dispatch_event
-          ( $parent, $self,
-            EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
-            $file, $line, time(), -__LINE__
-          );
+        $self->_dispatch_event(
+          $parent, $self,
+          EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session ],
+          $file, $line, time(), -__LINE__
+        );
       }
     }
 
@@ -907,22 +900,10 @@ sub _dispatch_event {
       if $self->_data_ses_exists($session);
   }
 
-  # A new session has started.  Tell its parent.  Incidental _start
-  # events are fired after the dispatch.  Garbage collection is
-  # delayed until ET_GC.
-
-  if ($type & ET_START) {
-    $self->_dispatch_event
-      ( $self->_data_ses_get_parent($session), $self,
-        EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
-        $file, $line, time(), -__LINE__
-      );
-  }
-
   # This session has stopped.  Clean up after it.  There's no
   # garbage collection necessary since the session's stopped.
 
-  elsif ($type & ET_STOP) {
+  if ($type & ET_STOP) {
     $self->_data_ses_free($session);
   }
 
@@ -1190,21 +1171,45 @@ sub session_alloc {
   # Register that a session was created.
   $kr_run_warning |= KR_RUN_SESSION;
 
-  $self->_dispatch_event
-    ( $session, $kr_active_session,
-      EN_START, ET_START, \@args,
-      __FILE__, __LINE__, time(), -__LINE__
-    );
-  $self->_data_ev_enqueue
-    ( $session, $kr_active_session, EN_GC, ET_GC, [],
-      __FILE__, __LINE__, time(),
-    );
+  # Allocate the session's data structure.  This must be done before
+  # we dispatch anything regarding the new session.
+  my $new_sid = $self->_data_sid_allocate();
+  $self->_data_ses_allocate($session, $new_sid, $kr_active_session);
+
+  # Tell the new session that it has been created.  Catch the _start
+  # state's return value so we can pass it to the parent with the
+  # _child create.
+  my $return = $self->_dispatch_event(
+    $session, $kr_active_session,
+    EN_START, ET_START, \@args,
+    __FILE__, __LINE__, time(), -__LINE__
+  );
+
+  # If the child has not detached itself---that is, if its parent is
+  # the currently active session---then notify the parent with a
+  # _child create event.  Otherwise skip it, since we'd otherwise
+  # throw a create without a lose.
+  $self->_dispatch_event(
+    $self->_data_ses_get_parent($session), $self,
+    EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
+    __FILE__, __LINE__, time(), -__LINE__
+  );
+
+  # Enqueue a delayed garbage-collection event so the session has time
+  # to do its thing before it goes.
+  $self->_data_ev_enqueue(
+    $session, $session, EN_GC, ET_GC, [],
+    __FILE__, __LINE__, time(),
+  );
 }
 
 # Detach a session from its parent.  This breaks the parent/child
 # relationship between the current session and its parent.  Basically,
 # the current session is given to the Kernel session.  Unlike with
 # _stop, the current session's children follow their parent.
+#
+# TODO - Calling detach_myself() from _start means the parent receives
+# a "_child lose" event without ever seeing "_child create".
 
 sub detach_myself {
   my $self = shift;
@@ -1218,24 +1223,27 @@ sub detach_myself {
   my $old_parent = $self->_data_ses_get_parent($kr_active_session);
 
   # Tell the old parent session that the child is departing.
-  $self->_dispatch_event
-    ( $old_parent, $self,
-      EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session ],
-      (caller)[1,2], time(), -__LINE__
-    );
+  $self->_dispatch_event(
+    $old_parent, $self,
+    EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session ],
+    (caller)[1,2], time(), -__LINE__
+  );
 
   # Tell the new parent (kernel) that it's gaining a child.
   # (Actually it doesn't care, so we don't do that here, but this is
   # where the code would go if it ever does in the future.)
 
   # Tell the current session that its parentage is changing.
-  $self->_dispatch_event
-    ( $kr_active_session, $self,
-      EN_PARENT, ET_PARENT, [ $old_parent, $self ],
-      (caller)[1,2], time(), -__LINE__
-    );
+  $self->_dispatch_event(
+    $kr_active_session, $self,
+    EN_PARENT, ET_PARENT, [ $old_parent, $self ],
+    (caller)[1,2], time(), -__LINE__
+  );
 
   $self->_data_ses_move_child($kr_active_session, $self);
+
+  # Test the old parent for garbage.
+  $self->_data_ses_collect_garbage($old_parent);
 
   # Success!
   return 1;
@@ -1267,24 +1275,27 @@ sub detach_child {
   }
 
   # Tell the current session that the child is departing.
-  $self->_dispatch_event
-    ( $kr_active_session, $self,
-      EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session ],
-      (caller)[1,2], time(), -__LINE__
-    );
+  $self->_dispatch_event(
+    $kr_active_session, $self,
+    EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session ],
+    (caller)[1,2], time(), -__LINE__
+  );
 
   # Tell the new parent (kernel) that it's gaining a child.
   # (Actually it doesn't care, so we don't do that here, but this is
   # where the code would go if it ever does in the future.)
 
   # Tell the child session that its parentage is changing.
-  $self->_dispatch_event
-    ( $child_session, $self,
-      EN_PARENT, ET_PARENT, [ $kr_active_session, $self ],
-      (caller)[1,2], time(), -__LINE__
-    );
+  $self->_dispatch_event(
+    $child_session, $self,
+    EN_PARENT, ET_PARENT, [ $kr_active_session, $self ],
+    (caller)[1,2], time(), -__LINE__
+  );
 
   $self->_data_ses_move_child($child_session, $self);
+
+  # Test the old parent for garbage.
+  $self->_data_ses_collect_garbage($kr_active_session);
 
   # Success!
   return 1;

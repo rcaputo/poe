@@ -141,6 +141,7 @@ t/26_comp_tcp.t
 t/27_poll.t
 t/28_windows.t
 t/29_sockfact6.t
+t/regress/neyuki-detach.t
 t/res/aliases.t
 t/res/events.t
 t/res/extrefs.t
