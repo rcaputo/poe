@@ -2504,7 +2504,7 @@ sub _internal_select {
       else {
         my $flags = fcntl($handle, F_GETFL, 0)
           or croak "fcntl fails with F_GETFL: $!\n";
-        $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
+        fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
           or croak "fcntl fails with F_SETFL: $!\n";
       }
 

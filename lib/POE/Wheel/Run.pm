@@ -4,6 +4,8 @@ package POE::Wheel::Run;
 
 use strict;
 use Carp;
+use POSIX;  # termios stuff
+
 use POE qw(Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW);
 
 BEGIN {
@@ -19,22 +21,23 @@ sub DRIVER        () {  1 }
 sub ERROR_EVENT   () {  2 }
 sub PROGRAM       () {  3 }
 sub CHILD_PID     () {  4 }
+sub CONDUIT_TYPE  () {  5 }
 
-sub HANDLE_STDIN  () {  5 }
-sub FILTER_STDIN  () {  6 }
-sub EVENT_STDIN   () {  7 }
-sub STATE_STDIN   () {  8 }
-sub OCTETS_STDIN  () {  9 }
+sub HANDLE_STDIN  () {  6 }
+sub FILTER_STDIN  () {  7 }
+sub EVENT_STDIN   () {  8 }
+sub STATE_STDIN   () {  9 }
+sub OCTETS_STDIN  () { 10 }
 
-sub HANDLE_STDOUT () { 10 }
-sub FILTER_STDOUT () { 11 }
-sub EVENT_STDOUT  () { 12 }
-sub STATE_STDOUT  () { 13 }
+sub HANDLE_STDOUT () { 11 }
+sub FILTER_STDOUT () { 12 }
+sub EVENT_STDOUT  () { 13 }
+sub STATE_STDOUT  () { 14 }
 
-sub HANDLE_STDERR () { 14 }
-sub FILTER_STDERR () { 15 }
-sub EVENT_STDERR  () { 16 }
-sub STATE_STDERR  () { 17 }
+sub HANDLE_STDERR () { 15 }
+sub FILTER_STDERR () { 16 }
+sub EVENT_STDERR  () { 17 }
+sub STATE_STDERR  () { 18 }
 
 # Used to work around a bug in older perl versions.
 sub CRIMSON_SCOPE_HACK ($) { 0 }
@@ -59,9 +62,19 @@ sub new {
   my $user_id  = delete $params{User};
   my $group_id = delete $params{Group};
 
+  my $conduit = delete $params{Conduit};
+  $conduit = 'pipe' unless defined $conduit;
+  croak "$type needs a known Conduit type (pty or pipe, not $conduit)"
+    if $conduit ne 'pipe' and $conduit ne 'pty';
+
   my $stdin_event  = delete $params{StdinEvent};
   my $stdout_event = delete $params{StdoutEvent};
   my $stderr_event = delete $params{StderrEvent};
+
+  if ($conduit eq 'pty' and defined $stderr_event) {
+    carp "ignoring StderrEvent with pty conduit";
+    undef $stderr_event;
+  }
 
   croak "$type needs at least one of StdinEvent, StdoutEvent or StderrEvent"
     unless( defined($stdin_event) or defined($stdout_event) or
@@ -75,7 +88,16 @@ sub new {
 
   $stdin_filter  = $all_filter unless defined $stdin_filter;
   $stdout_filter = $all_filter unless defined $stdout_filter;
-  $stderr_filter = $all_filter unless defined $stderr_filter;
+
+  if (defined $stderr_filter) {
+    if ($conduit eq 'pty') {
+      carp "ignoring StderrFilter with pty conduit";
+      undef $stderr_filter;
+    }
+  }
+  else {
+    $stderr_filter = $all_filter unless $conduit eq 'pty';
+  }
 
   croak "$type needs either Filter or StdinFilter"
     if defined($stdin_event) and not defined($stdin_filter);
@@ -85,7 +107,6 @@ sub new {
     if defined($stderr_event) and not defined($stderr_filter);
 
   my $error_event   = delete $params{ErrorEvent};
-  my $use_pty       = delete $params{UsePty};
 
   # Make sure the user didn't pass in parameters we're not aware of.
   if (scalar keys %params) {
@@ -95,44 +116,43 @@ sub new {
   }
 
   my ( $stdin_read, $stdout_write, $stdout_read, $stdin_write,
-       $stderr_read, $stderr_write, $sem_pipe_read, $sem_pipe_write,
+       $stderr_read, $stderr_write,
      );
 
-  # Use IO::Pty if requested.
-  if (defined $use_pty) {
+  # Create a semaphore pipe.  This is used so that the parent doesn't
+  # begin listening until the child's stdio has been set up.
+  my ($sem_pipe_read, $sem_pipe_write) = POE::Pipe::OneWay->new();
+  croak "could not create semaphore pipe: $!" unless defined $sem_pipe_read;
+
+  # Use IO::Pty if requested.  IO::Pty turns on autoflush for us.
+  if ($conduit eq 'pty') {
     croak "IO::Pty is not available" unless PTY_AVAILABLE;
-    my $pty_master = IO::Pty->new();
-    croak "could not create master pty: $!" unless defined $pty_master;
-    my $pty_slave = IO::Pty->new();
-    croak "could not create slave pty: $!" unless defined $pty_slave;
 
-    $stdin_read   = $pty_slave;
-    $stdin_write  = $pty_master;
-
-    $stdout_read  = $pty_master;
-    $stdout_write = $pty_slave;
-
-    ($sem_pipe_read, $sem_pipe_write) = POE::Pipe::OneWay->new();
-    croak "could not make a semaphore pipe: $!\n" unless defined $sem_pipe_read;
+    $stdin_write = $stdout_read = IO::Pty->new();
+    croak "could not create master pty: $!" unless defined $stdout_read;
   }
 
   # Use pipes otherwise.
-  else {
-
+  elsif ($conduit eq 'pipe') {
     # We make more pipes than strictly necessary in case someone wants
     # to turn some on later.  Uses a TwoWay pipe for STDIN/STDOUT and
     # a OneWay pipe for STDERR.  This may save 2 filehandles if
     # socketpair() is available.
     ($stdin_read, $stdout_write, $stdout_read, $stdin_write) =
       POE::Pipe::TwoWay->new();
-    croak "could not make stdin pipes: $!"
+    croak "could not make stdin pipe: $!"
       unless defined $stdin_read and defined $stdin_write;
-    croak "could not make stdout pipes: $!"
+    croak "could not make stdout pipe: $!"
       unless defined $stdout_read and defined $stdout_write;
 
-    my ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
+    ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
     croak "could not make stderr pipes: $!"
       unless defined $stderr_read and defined $stderr_write;
+  }
+
+  # Sanity check.
+  else {
+    croak "unknown conduit type $conduit";
   }
 
   # Fork!  Woo-hoo!
@@ -142,23 +162,24 @@ sub new {
   unless ($pid) {
     croak "couldn't fork: $!" unless defined $pid;
 
-    # Redirect STDIN from the read end of the stdin pipe.
-    open( STDIN, "<&=" . fileno($stdin_read) )
-      or die "can't redirect STDIN in child pid $$: $!";
+    # If running pty, we delay the slave side creation 'til after
+    # doing the necessary bits to become our own [unix] session.
+    if ($conduit eq 'pty') {
 
-    # Redirect STDOUT to the write end of the stdout pipe.
-    open( STDOUT, ">&=" . fileno($stdout_write) )
-      or die "can't redirect stdout in child pid $$: $!";
+      # Become a new unix session.  Program 19.3, APITUE.
+      setsid();
 
-    # Redirect STDERR to the write end of the stderr pipe.  If the
-    # stderr pipe's undef, then we use STDOUT.
-    if (defined $stderr_write) {
-      open( STDERR, ">&=" . fileno($stderr_write) )
-        or die "can't redirect stderr in child: $!";
-    }
-    else {
-      open( STDERR, ">&=" . fileno($stdout_write) )
-        or die "can't redirect stderr in child: $!";
+      # Open the slave side of the pty.
+      $stdin_read = $stdout_write = $stderr_write = $stdin_write->slave();
+      croak "could not create slave pty: $!" unless defined $stdin_read;
+
+      # Turn off echo for slave pty.  Program 19.4, APITUE.
+      my $tio = POSIX::Termios->new();
+      $tio->getattr(fileno($stdin_read));
+      my $lflag = $tio->getlflag;
+      $lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL | ICANON);
+      $tio->setlflag($lflag);
+      $tio->setattr(fileno($stdin_read));
     }
 
     # Fix the priority delta.  -><- Hardcoded constants mean this
@@ -183,9 +204,28 @@ sub new {
       $( = $) = $group_id;
     }
 
-    # Wait for the ok, if needed.
-    close $sem_pipe_write if defined $sem_pipe_write;
-    <$sem_pipe_read> if defined $sem_pipe_read;
+    # Close what the child won't need.
+    close $stdin_write;
+    close $stdout_read;
+    close $stderr_read if defined $stderr_read;
+
+    # Redirect STDIN from the read end of the stdin pipe.
+    open( STDIN, "<&" . fileno($stdin_read) )
+      or die "can't redirect STDIN in child pid $$: $!";
+
+    # Redirect STDOUT to the write end of the stdout pipe.
+    open( STDOUT, ">&" . fileno($stdout_write) )
+      or die "can't redirect stdout in child pid $$: $!";
+
+    # Redirect STDERR to the write end of the stderr pipe.  If the
+    # stderr pipe's undef, then we use STDOUT.
+    open( STDERR, ">&" . fileno($stderr_write) )
+      or die "can't redirect stderr in child: $!";
+
+    # Tell the parent that the stdio has been set up.
+    close $sem_pipe_read;
+    print $sem_pipe_write "go\n";
+    close $sem_pipe_write;
 
     # Exec the program depending on its form.
     if (ref($program) eq 'ARRAY') {
@@ -194,7 +234,14 @@ sub new {
     else {
       exec($program) or die "can't exec ($program) in child pid $$: $!";
     }
+
+    die "insanity check passed";
   }
+
+  # Parent here.  Close what the parent won't need.
+  close $stdin_read   if defined $stdin_read;
+  close $stdout_write if defined $stdout_write;
+  close $stderr_write if defined $stderr_write;
 
   my $self = bless
     [ &POE::Wheel::allocate_wheel_id(),  # UNIQUE_ID
@@ -202,6 +249,7 @@ sub new {
       $error_event,   # ERROR_EVENT
       $program,       # PROGRAM
       $pid,           # CHILD_PID
+      $conduit,       # CONDUIT_TYPE
       # STDIN
       $stdin_write,   # HANDLE_STDIN
       $stdin_filter,  # FILTER_STDIN
@@ -220,12 +268,14 @@ sub new {
       undef,          # STATE_STDERR
     ], $type;
 
+  # Wait here while the child sets itself up.
+  close $sem_pipe_write;
+  <$sem_pipe_read>;
+  close $sem_pipe_read;
+
   $self->_define_stdin_flusher() if defined $stdin_event;
   $self->_define_stdout_reader() if defined $stdout_event;
   $self->_define_stderr_reader() if defined $stderr_event;
-
-  close $sem_pipe_read if defined $sem_pipe_read;
-  print($sem_pipe_write "go\n") if defined $sem_pipe_write;
 
   return $self;
 }
@@ -348,7 +398,6 @@ sub _define_stderr_reader {
 
   # Register the select-read handler for STDERR.
   if (defined $self->[EVENT_STDERR]) {
-
     # If any of these change, then the read state is invalidated and
     # needs to be redefined.
     my $unique_id     = $self->[UNIQUE_ID];
@@ -409,8 +458,13 @@ sub event {
       $redefine_stdout = 1;
     }
     elsif ($name eq 'StderrEvent') {
-      $self->[EVENT_STDERR] = $event;
-      $redefine_stderr = 1;
+      if ($self->[CONDUIT_TYPE] ne 'pty') {
+        $self->[EVENT_STDERR] = $event;
+        $redefine_stderr = 1;
+      }
+      else {
+        carp "ignoring StderrEvent on a pty conduit";
+      }
     }
     elsif ($name eq 'ErrorEvent') {
       $self->[ERROR_EVENT] = $event;
@@ -445,7 +499,8 @@ sub DESTROY {
     $self->[STATE_STDOUT] = undef;
   }
 
-  $poe_kernel->select($self->[HANDLE_STDERR]);
+  $poe_kernel->select($self->[HANDLE_STDERR])
+    if defined $self->[HANDLE_STDERR];
   if ($self->[STATE_STDERR]) {
     $poe_kernel->state($self->[STATE_STDERR]);
     $self->[STATE_STDERR] = undef;
@@ -753,6 +808,8 @@ Wheel::ReadWrite.
 
 Wheel::Run generates SIGCHLD.  This may eventually cause Perl to
 segfault.  Bleah.
+
+MS Windows is going to have a fit about this.
 
 =head1 AUTHORS & COPYRIGHTS
 
