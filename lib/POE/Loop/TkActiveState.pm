@@ -158,7 +158,7 @@ sub _poll_for_io {
 
       if (ASSERT_FILES) {
         if ($hits < 0) {
-          POE::Kernel::_confess("<fh> select error: $!")
+          POE::Kernel::_trap("<fh> select error: $!")
             unless ( ($! == EINPROGRESS) or
                      ($! == EWOULDBLOCK) or
                      ($! == EINTR)
@@ -224,7 +224,7 @@ sub _poll_for_io {
 
         if (ASSERT_FILES) {
           unless (@rd_selects or @wr_selects or @ex_selects) {
-            POE::Kernel::_confess(
+            POE::Kernel::_trap(
               "<fh> found no selects, with $hits hits from select???\n"
             );
           }
