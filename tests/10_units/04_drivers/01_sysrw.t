@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More qw(no_plan);
+use Test::More tests => 17;
 use POE::Pipe::OneWay;
 
 BEGIN { use_ok("POE::Driver::SysRW") }
@@ -37,16 +37,15 @@ ok(
 
   $! = 0;
 
-  open(SAVE_STDERR, ">&=STDERR") or die $!;
+  open(SAVE_STDERR, ">&STDERR") or die $!;
   close(STDERR) or die $!;
 
   my $get_ret = $d->get($fh);
   ok(!defined($get_ret), "get() returns undef on error");
-  ok($!, "get() sets \$! on error");
+  ok($!, "get() sets \$! on error ($!)");
 
-  open(STDERR, ">&=SAVE_STDERR") or die $!;
+  open(STDERR, ">&SAVE_STDERR") or die $!;
   close(SAVE_STDERR) or die $!;
-
 }
 
 my $d = POE::Driver::SysRW->new( BlockSize => 1024 );
@@ -124,7 +123,7 @@ ok($d->get_out_messages_buffered() == 0, "buffer exhausted");
 { write_until_pipe_is_full($d, $w);
   close($w);
 
-  open(SAVE_STDERR, ">&=STDERR") or die $!;
+  open(SAVE_STDERR, ">&STDERR") or die $!;
   close(STDERR) or die $!;
 
   while (1) {
@@ -135,14 +134,14 @@ ok($d->get_out_messages_buffered() == 0, "buffer exhausted");
   pass("driver returns undef on eof");
   ok($! == 0, "\$! is clear on eof");
 
-  open(STDERR, ">&=SAVE_STDERR") or die $!;
+  open(STDERR, ">&SAVE_STDERR") or die $!;
   close(SAVE_STDERR) or die $!;
 }
 
 # Flush() returns the number of octets remaining, and sets $! to
 # nonzero on major error.
 
-{ open(SAVE_STDERR, ">&=STDERR") or die $!;
+{ open(SAVE_STDERR, ">&STDERR") or die $!;
   close(STDERR) or die $!;
 
   $! = 0;
@@ -151,7 +150,7 @@ ok($d->get_out_messages_buffered() == 0, "buffer exhausted");
   ok($error_left, "put() returns octets left on error");
   ok($!, "put() sets \$! nonzero on error");
 
-  open(STDERR, ">&=SAVE_STDERR") or die $!;
+  open(STDERR, ">&SAVE_STDERR") or die $!;
   close(SAVE_STDERR) or die $!;
 }
 
