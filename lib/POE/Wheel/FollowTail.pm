@@ -62,16 +62,6 @@ sub new {
 
   croak "$type requires a working Kernel" unless (defined $poe_kernel);
 
-  # STATE-EVENT
-  if (exists $params{InputState}) {
-    croak "InputState is deprecated.  Use InputEvent";
-  }
-
-  # STATE-EVENT
-  if (exists $params{ErrorState}) {
-    croak "ErrorState is deprecated.  Use ErrorEvent";
-  }
-
   croak "FollowTail requires a Handle or Filename parameter, but not both"
     unless $params{Handle} xor defined $params{Filename};
 
@@ -412,11 +402,6 @@ sub event {
 
   while (@_) {
     my ($name, $event) = splice(@_, 0, 2);
-
-    # STATE-EVENT
-    if ($name =~ /^(.*?)State$/) {
-      croak "$name is deprecated.  Use $1Event";
-    }
 
     if ($name eq 'InputEvent') {
       if (defined $event) {

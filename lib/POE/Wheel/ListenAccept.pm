@@ -33,16 +33,6 @@ sub new {
 
   croak "$type requires a working Kernel" unless defined $poe_kernel;
 
-  # STATE-EVENT
-  if (exists $params{AcceptState}) {
-    croak "AcceptState is deprecated.  Use AcceptEvent";
-  }
-
-  # STATE-EVENT
-  if (exists $params{ErrorState}) {
-    croak "ErrorState is deprecated.  Use ErrorEvent";
-  }
-
   croak "Handle required"      unless defined $params{Handle};
   croak "AcceptEvent required" unless defined $params{AcceptEvent};
 
@@ -67,11 +57,6 @@ sub event {
 
   while (@_) {
     my ($name, $event) = splice(@_, 0, 2);
-
-    # STATE-EVENT
-    if ($name =~ /^(.*?)State$/) {
-      croak "$name is deprecated.  Use $1Event";
-    }
 
     if ($name eq 'AcceptEvent') {
       if (defined $event) {

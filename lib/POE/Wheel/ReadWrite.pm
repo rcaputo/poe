@@ -81,31 +81,6 @@ sub new {
   my $driver = delete $params{Driver};
   $driver = POE::Driver::SysRW->new() unless defined $driver;
 
-  # STATE-EVENT
-  if (exists $params{HighState}) {
-    croak "HighState is deprecated.  Use HighEvent";
-  }
-
-  # STATE-EVENT
-  if (exists $params{LowState}) {
-    croak "LowState is deprecated.  Use LowEvent.";
-  }
-
-  # STATE-EVENT
-  if (exists $params{InputState}) {
-    croak "InputState is deprecated.  Use InputEvent";
-  }
-
-  # STATE-EVENT
-  if (exists $params{ErrorState}) {
-    croak "ErrorState is deprecated.  Use ErrorEvent";
-  }
-
-  # STATE-EVENT
-  if (exists $params{FlushedState}) {
-    croak "FlushedState is deprecated.  Use FlushedEvent";
-  }
-
   { my $mark_errors = 0;
     if (defined($params{HighMark}) xor defined($params{LowMark})) {
       carp "HighMark and LowMark parameters require each-other";
@@ -358,11 +333,6 @@ sub event {
 
   while (@_) {
     my ($name, $event) = splice(@_, 0, 2);
-
-    # STATE-EVENT
-    if ($name =~ /^(.*?)State$/) {
-      croak "$name is deprecated.  Use $1Event";
-    }
 
     if ($name eq 'InputEvent') {
       $self->[EVENT_INPUT] = $event;
