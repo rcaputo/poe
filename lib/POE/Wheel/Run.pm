@@ -219,8 +219,10 @@ sub new {
     # to turn some on later.  Uses a TwoWay pipe for STDIN/STDOUT and
     # a OneWay pipe for STDERR.  This may save 2 filehandles if
     # socketpair() is available.
+    my $pipe_type;
+    $pipe_type = "pipe" if $^O eq "cygwin";
     ($stdin_read, $stdout_write, $stdout_read, $stdin_write) =
-      POE::Pipe::TwoWay->new();
+      POE::Pipe::TwoWay->new($pipe_type);
     croak "could not make stdin pipe: $!"
       unless defined $stdin_read and defined $stdin_write;
     croak "could not make stdout pipe: $!"

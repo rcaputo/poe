@@ -19,6 +19,27 @@ use POE::Pipe;
 sub DEBUG () { 0 }
 sub RUNNING_IN_HELL () { $^O eq 'MSWin32' or $^O eq 'MacOS' }
 
+# CygWin seems to have a problem with socketpair() and exec().  When
+# an exec'd process closes, any data on sockets created with
+# socketpair() is not flushed.  From irc.rhizomatic.net #poe:
+#
+# <dngnand>   Sounds like a lapse in cygwin's exec implementation.  It
+#             works ok under Unix-ish systems?
+# <jdeluise2> yes, it works perfectly
+# <jdeluise2> but, if we just use poe::Pipe::TwoWay->new("pipe") it
+#             always works fine on cygwin
+# <jdeluise2> by the way, it looks like the reason is that
+#             poe::Pipe::OneWay works because it tries to make a pipe
+#             first instead of a socketpair
+# <jdeluise2> this socketpair problem seems like a long-standing one
+#             with cygwin, according to searches on google, but never
+#             been fixed.
+#
+# The problem occurred in POE::Wheel::Run, and that's where the
+# solution was coded.  If this becomes a general problem, we should
+# force pipe() and INET sockets to be more important than socketpair()
+# on that platform.
+
 # This flag is set true/false after the first attempt at using plain
 # INET sockets as pipes.
 my $can_run_socket = undef;
