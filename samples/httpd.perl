@@ -173,7 +173,7 @@ sub _start {
       ListenQueue    => 5,              # listen, with a 5-connection queue
       Reuse          => 'yes',          # and allow immediate port reuse
       SuccessState   => 'accept',       # generating this event on connection
-      FailureState   => 'error'         # generating this event on error
+      FailureState   => 'accept_error'  # generating this event on error
     );
 
   DEBUG && print "Listening to port $port on all interfaces.\n";
