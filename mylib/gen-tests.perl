@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-use File::Spec::Functions;
+use File::Spec;
 use File::Path;
 
 my $test_base = "tests";
@@ -9,8 +9,8 @@ my $test_base = "tests";
 ### Resources, and their perl and XS implementations.
 
 {
-  my $base_dir = catfile($test_base, "20_resources");
-  my $base_lib = catfile($base_dir,  "00_base");
+  my $base_dir = File::Spec->catfile($test_base, "20_resources");
+  my $base_lib = File::Spec->catfile($base_dir,  "00_base");
 
   my %derived_conf = (
     "10_perl" => { implementation => "perl" },
@@ -42,8 +42,8 @@ my $test_base = "tests";
 ### Event loops and the tests that love them.
 
 {
-  my $base_dir = catfile($test_base, "30_loops");
-  my $base_lib = catfile($base_dir,  "00_base");
+  my $base_dir = File::Spec->catfile($test_base, "30_loops");
+  my $base_lib = File::Spec->catfile($base_dir,  "00_base");
 
   my %derived_conf = (
     "10_select" => { module => "",         display => "" },
@@ -110,7 +110,7 @@ my $test_base = "tests";
 
   derive_files(
     base_dir     => $base_dir,
-    base_lib     => catfile($base_dir, "00_base"),
+    base_lib     => File::Spec->catfile($base_dir, "00_base"),
     derived_conf => \%derived_conf,
     src_template => $source,
   );
@@ -133,7 +133,7 @@ sub derive_files {
   # Generate a set of test files for each configuration.
 
   foreach my $dst_dir (keys %{$conf{derived_conf}}) {
-    my $full_dst = catfile($base_dir, $dst_dir);
+    my $full_dst = File::Spec->catfile($base_dir, $dst_dir);
     $full_dst =~ tr[/][/]s;
     $full_dst =~ s{/+$}{};
 
@@ -149,7 +149,7 @@ sub derive_files {
     # customize the test.
 
     foreach my $base_file (@base_files) {
-      my $full_file = catfile($full_dst, $base_file);
+      my $full_file = File::Spec->catfile($full_dst, $base_file);
       $full_file =~ s/\.pm$/.t/;
 
       # These hardcoded expansions are for the base file to be
