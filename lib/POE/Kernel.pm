@@ -145,8 +145,11 @@ my $kr_id_index = 1;
 my $kr_active_session;
 
 # A flag determining whether the program has already run the main loop
-# once.
-my $poe_kernel_ran = 0;
+# once.  The question came up: Why does POE do this?  I hadn't
+# documented why, I no longer remember, and preliminary tests show
+# it's not harmful to run the kernel multiple times.  So this is being
+# commented out (2001-08-29) until more is known about it.
+# my $poe_kernel_ran = 0;
 
 #------------------------------------------------------------------------------
 
@@ -1150,11 +1153,13 @@ sub _dispatch_state {
 sub run {
   my $self = shift;
 
-  croak "can't rerun POE::Kernel" if $poe_kernel_ran;
+  # See the notes near $poe_kernel_ran's definition.
+  # croak "can't rerun POE::Kernel" if $poe_kernel_ran;
 
   {% substrate_main_loop %}
 
-  $poe_kernel_ran++;
+  # See the notes near $poe_kernel_ran's definition.
+  # $poe_kernel_ran++;
 
   # Disable signal watching, since there's now no place for them to
   # go.
