@@ -1210,14 +1210,23 @@ These are the @_ fields that make up a session's runtime context.
 =over 2
 
 =item ARG0
+
 =item ARG1
+
 =item ARG2
+
 =item ARG3
+
 =item ARG4
+
 =item ARG5
+
 =item ARG6
+
 =item ARG7
+
 =item ARG8
+
 =item ARG9
 
 C<ARG0..ARG9> are a state's first ten custom parameters.  They will

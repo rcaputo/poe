@@ -29,7 +29,7 @@ sub new {
   if ( (not defined $conduit_type) or
        ($conduit_type eq 'pipe')
      ) {
-      
+
     # Try using pipe, but don't bother on systems that don't support
     # nonblocking pipes.  Even if they support pipes themselves.
     unless (RUNNING_IN_HELL) {
@@ -93,7 +93,7 @@ sub new {
       # Try using a pair of plain INET domain sockets.  Usurp SIGALRM
       # in case it blocks.  Normally POE programs don't use SIGALRM
       # anyway.  [fingers crossed here]
-      my $old_sig_alarm = $SIG{ALRM};
+      my $old_sig_alarm = $SIG{ALRM} || 'DEFAULT';
       eval {
         local $SIG{ALRM} = sub { die "deadlock" };
         eval 'alarm(1)' unless RUNNING_IN_HELL;

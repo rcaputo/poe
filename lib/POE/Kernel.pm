@@ -675,7 +675,7 @@ sub new {
       $poe_main_window->OnDestroy( \&signal_ui_destroy );
 
     } # include
-    
+
     my $self = $poe_kernel = bless
       [ \%kr_sessions,     # KR_SESSIONS
         \@kr_vectors,      # KR_VECTORS
@@ -1525,9 +1525,9 @@ sub run {
           # Otherwise, dispatch more FIFO events until $stop_time is
           # reached.
           last unless time() < $stop_time;
-          
+
         } else { # include
-        
+
           # If Time::HiRes isn't available, then the fairest thing to do
           # is loop immediately.
           last;
@@ -2222,7 +2222,7 @@ sub _enqueue_alarm {
         # higher keys until the midpoint points to an element with a
         # higher key.  Insert the new state before it.
         $midpoint++
-          while ( ($midpoint < @kr_alarms) 
+          while ( ($midpoint < @kr_alarms)
                   and ($time == $kr_alarms[$midpoint]->[ST_TIME])
                 );
         splice @kr_alarms, $midpoint, 0, {% state_to_enqueue %};

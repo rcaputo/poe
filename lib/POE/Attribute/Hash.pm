@@ -82,7 +82,7 @@ sub STORE {
 sub FIRSTKEY {
   my ($self) = @_;
 
-  my ($status, $value) = 
+  my ($status, $value) =
     $self->[TH_REPOSITORY]->attribute_fetch( $self->[TH_READ_ID],
                                              $self->[TH_ATTRIBUTE]
                                            );
@@ -112,7 +112,7 @@ sub NEXTKEY {
     return ();
   }
 
-  my ($status, $value) = 
+  my ($status, $value) =
     $self->[TH_REPOSITORY]->attribute_fetch( $self->[TH_READ_ID],
                                              $self->[TH_ATTRIBUTE]
                                            );

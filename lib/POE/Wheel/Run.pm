@@ -663,8 +663,11 @@ process.  It may either be 'pipe' (the default), or 'pty'.
 Pty conduits require the IO::Pty module.
 
 =item ErrorEvent
+
 =item StdinEvent
+
 =item StdoutEvent
+
 =item StderrEvent
 
 C<ErrorEvent> contains the name of an event to emit if something
@@ -681,8 +684,11 @@ Wheel::Run emits whenever the child process writes something to its
 STDOUT or STDERR handles, respectively.
 
 =item Filter
+
 =item StdinFilter
+
 =item StdoutFilter
+
 =item StderrFilter
 
 C<Filter> contains a reference to a POE::Filter class that describes
@@ -806,6 +812,7 @@ child's STDIN handle.
 StdinEvent's C<ARG0> parameter contains its wheel's unique ID.
 
 =item StdoutEvent
+
 =item StderrEvent
 
 StdoutEvent and StderrEvent contain names for events that Wheel::Run

@@ -84,6 +84,11 @@ being set.
 
 Make Wheel::Run's pty conduits run in "raw" or cbreak mode.
 
+Rob Bloodgood found some POD breakage; C<=item>s without blank lines
+between them, and things like that.  Patch applied, and I went through
+everything and cleaned up some trailing whitespace (none of it
+significant) just for kicks.
+
 
 0.1204 2001.01.13
 -----------------

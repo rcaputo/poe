@@ -573,7 +573,9 @@ memory.
 event() is covered in the POE::Wheel manpage.
 
 =item set_filter POE_FILTER
+
 =item set_input_filter POE_FILTER
+
 =item set_output_filter POE_FILTER
 
 set_input_filter() changes the filter a wheel uses for reading.
@@ -591,6 +593,7 @@ The HTTPD filter does not support get_pending(), and it will complain
 if a program tries to switch away from one.
 
 =item set_high_mark HIGH_MARK_OCTETS
+
 =item set_low_mark LOW_MARK_OCTETS
 
 These methods set a wheel's high- and low-water marks.  New values
@@ -667,6 +670,7 @@ A sample ErrorState event handler:
   }
 
 =item HighState
+
 =item LowState
 
 ReadWrite emits a HighState event when a wheel's pending output queue

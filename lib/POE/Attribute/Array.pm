@@ -30,7 +30,7 @@ sub TIEARRAY {
 sub FETCH {
   my ($self, $index) = @_;
 
-  my ($status, $value) = 
+  my ($status, $value) =
     $self->[TA_REPOSITORY]->attribute_fetch( $self->[TA_READ_ID],
                                              $self->[TA_ATTRIBUTE]
                                            );

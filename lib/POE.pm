@@ -67,7 +67,7 @@ POE - perl application kernel with event driven threads
 
   # Use POE!
   use POE;
-  
+
   # Every session must handle a special event, _start.  It's used to
   # tell the session that it has been successfully instantiated.
   # $_[KERNEL] is a reference to the program's global POE::Kernel

@@ -209,7 +209,7 @@ sub _invoke_state {
          "in state '$new_state'\n"
        )
       unless ( not defined $enter_event or
-               ( length $enter_event and 
+               ( length $enter_event and
                  exists $self->[SELF_STATES]->{$new_state}->{$enter_event}
                )
              );
