@@ -1,43 +1,52 @@
 $Id$
 
-* About
+ABOUT:
 
-POE is the Perl Object Environment, a non-forking, non-blocking, co-operative
-multitasking, object-oriented virtual environment.  When finished, it should
-look almost exactly like a cross between a MUD and an operating system.
+ POE is the Perl Object Environment, a framework for non-forking, non-blocking,
+ co-operative multitasking, object-oriented virtual environment.  When
+ finished, it should look suspiciously like a cross between a MUD and an
+ operating system.
 
-* Version 0.01 includes:
+DONE:
 
-The POE Kernel.  This provides an event queue, select(2) logic, alarms (delayed
-events) and limited signal processing.
+ * The event queue, select(2) logic, alarms and signals (Kernel.pm).
+ * State machines that run within the Kernel (Session.pm).
+ * Templates (Wheel.pm).
+ * Basic read/write/framing operations (Wheel.pm, Driver.pm, Filter.pm).
+ * Low-level object management, and object invocation as Sessions (Curator.pm).
 
-A state machine class (Session) that reacts to state transitions (events)
-created or dispatched from the Kernel.
+TO DO:
 
-Reusable boilerplace state machines (Wheels) that extend Sessions by adding
-their states when constructed and removing their states when destroyed.
+ * Higher-level object management, including inheritance, security,
+   side-effects, and standard interactions.
+ * Standard object library.
+ * MUD input parser.
+ * Sample world.
+ * Use real threads, if available.
+ * (etc.)
 
-* New in version 0.02:
+COMPATIBILITY:
 
-A tied hash that manages objects and attributes, called Curator.
+ POE has been tested with Perl 5.004_04 (look ma', no threads!), on recent
+ versions of Linux, FreeBSD, and OS/2.  It uses some packages that aren't
+ included with Perl by default [must document better].
 
-* To Do:
+AVAILABILITY:
 
-Higher-level object management, such as referential integrity maintenance
-between inverse (converse?) attributes: (contains/location, owner/owns;
-parents/children); behavior (code attributes) execution; security (can the
-currently running behavior read/write attributes, destroy this object, etc.?).
+ The latest version of POE should be available from
+ <URL:http://www.netrus.net/users/troc/perl.html>.
 
-Input parsing, and side-effects of input that include invoking objects'
-behaviors.
+GETTING STARTED:
 
-* To build, test and install this distribution, type:
+ To build and test this distribution, type:
 
-  perl Makefile.PL
-  make test
-  make install
+   perl Makefile.PL
+   make test
 
-Please see the F<tests> directory for examples that exercise different parts
-of POE.
+ Real tests exist within the F<tests> directory, and just happen to be examples
+ of how to use different parts of POE.  Once everything looks good, it can be
+ installed by typing:
+
+   make install
 
 -- Rocco Caputo / troc@netrus.net
