@@ -262,7 +262,15 @@ BEGIN {
 
 #------------------------------------------------------------------------------
 # Helpers to carp, croak, confess, cluck, warn and die with whatever
-# trace file we're using today.
+# trace file we're using today.  _trap is reserved for internal
+# errors.
+
+sub _trap {
+  local $Carp::CarpLevel = $Carp::CarpLevel + 1;
+  local *STDERR = *TRACE_FILE;
+  warn "Please mail the following information to bug-POE\@rt.cpan.org:\n";
+  confess @_;
+}
 
 sub _croak {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
@@ -430,7 +438,7 @@ sub _explain_resolve_failure {
   local $Carp::CarpLevel = 2;
 
   if (ASSERT_DATA) {
-    _confess "<dt> Cannot resolve ``$whatever'' into a session reference";
+    _trap "<dt> Cannot resolve ``$whatever'' into a session reference";
   }
 
   $! = ESRCH;
@@ -1072,7 +1080,7 @@ sub _invoke_state {
 
       # The only other negative value waitpid(2) should return is -1.
 
-      _confess "internal consistency error: waitpid returned $pid"
+      _trap "internal consistency error: waitpid returned $pid"
         if $pid != -1;
 
       # If the error is an interrupted syscall, poll again right away.
@@ -1159,8 +1167,13 @@ sub session_alloc {
     $self->_data_sig_initialize();
   }
 
-  _confess "<ss> ", $self->_data_alias_loggable($session), " already exists\a"
-    if ASSERT_DATA and $self->_data_ses_exists($session);
+  if (ASSERT_DATA) {
+    if ($self->_data_ses_exists($session)) {
+      _trap(
+        "<ss> ", $self->_data_alias_loggable($session), " already exists\a"
+      );
+    }
+  }
 
   # Register that a session was created.
   $kr_run_warning |= KR_RUN_SESSION;
@@ -1701,7 +1714,7 @@ sub alarm_remove_all {
   my $self = shift;
 
   # This should never happen, actually.
-  _confess "unknown session in alarm_remove_all call"
+  _trap "unknown session in alarm_remove_all call"
     unless $self->_data_ses_exists($kr_active_session);
 
   # Free every alarm owned by the session.  This code is ripped off

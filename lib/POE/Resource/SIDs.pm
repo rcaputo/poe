@@ -70,7 +70,9 @@ sub _data_sid_set {
 sub _data_sid_clear {
   my ($self, $session) = @_;
   my $sid = delete $kr_session_to_id{$session};
-  _confess "internal inconsistency" unless defined $sid;
+  if (ASSERT_DATA) {
+    _trap() unless defined $sid;
+  }
   delete $kr_session_ids{$sid};
 }
 

@@ -51,15 +51,16 @@ sub _data_ev_finalize {
 ### Enqueue an event.
 
 sub _data_ev_enqueue {
-  my ( $self,
-       $session, $source_session, $event, $type, $etc, $file, $line,
-       $time
-     ) = @_;
+  my (
+    $self, $session, $source_session, $event, $type, $etc, $file, $line, $time
+  ) = @_;
 
-  unless ($self->_data_ses_exists($session)) {
-    _confess(
-      "<ev> can't enqueue event ``$event'' for nonexistent session $session\n"
-    );
+  if (ASSERT_DATA) {
+    unless ($self->_data_ses_exists($session)) {
+      _trap(
+        "<ev> can't enqueue event ``$event'' for nonexistent session $session\n"
+      );
+    }
   }
 
   # This is awkward, but faster than using the fields individually.
@@ -181,8 +182,10 @@ sub _data_ev_clear_alarm_by_session {
 sub _data_ev_refcount_dec {
   my ($self, $source_session, $dest_session) = @_;
 
-  _confess $dest_session unless exists $event_count{$dest_session};
-  _confess $source_session unless exists $post_count{$source_session};
+  if (ASSERT_DATA) {
+    _trap $dest_session unless exists $event_count{$dest_session};
+    _trap $source_session unless exists $post_count{$source_session};
+  }
 
   $self->_data_ses_refcount_dec($dest_session);
   unless (--$event_count{$dest_session}) {

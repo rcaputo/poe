@@ -122,7 +122,11 @@ sub _data_alias_count_ses {
 
 sub _data_alias_loggable {
   my ($self, $session) = @_;
-  _confess "internal inconsistency" unless ref($session);
+
+  if (ASSERT_DATA) {
+    _trap unless ref($session);
+  }
+
   "session " . $session->ID . " (" .
     ( (exists $kr_ses_to_alias{$session})
       ? join(", ", $self->_data_alias_list($session))

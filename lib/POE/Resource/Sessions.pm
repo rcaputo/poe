@@ -81,8 +81,10 @@ sub _data_ses_allocate {
 
   # Manage parent/child relationship.
   if (defined $parent) {
-    unless (exists $kr_sessions{$parent}) {
-      _confess "parent $parent does not exist";
+    if (ASSERT_DATA) {
+      unless (exists $kr_sessions{$parent}) {
+        _trap "parent $parent does not exist";
+      }
     }
 
     if (TRACE_SESSIONS) {
@@ -120,25 +122,28 @@ sub _data_ses_free {
 
   my $parent = $kr_sessions{$session}->[SS_PARENT];
   my @children = $self->_data_ses_get_children($session);
+
   if (defined $parent) {
-    if ($parent == $session) {
-      _confess "session is its own parent";
-    }
-    unless ($self->_data_ses_is_child($parent, $session)) {
-      _confess(
-        $self->_data_alias_loggable($session), " isn't a child of ",
-        $self->_data_alias_loggable($parent), " (it's a child of ",
-        $self->_data_alias_loggable($self->_data_ses_get_parent($session)),
-        ")"
-      );
+    if (ASSERT_DATA) {
+      if ($parent == $session) {
+        _trap "session is its own parent";
+      }
+      unless ($self->_data_ses_is_child($parent, $session)) {
+        _trap(
+          $self->_data_alias_loggable($session), " isn't a child of ",
+          $self->_data_alias_loggable($parent), " (it's a child of ",
+          $self->_data_alias_loggable($self->_data_ses_get_parent($session)),
+          ")"
+        );
+      }
+      unless (exists $kr_sessions{$parent}) {
+        _trap "internal inconsistency ($parent)";
+      }
     }
 
     # Remove the departing session from its parent.
 
-    unless (exists $kr_sessions{$parent}) {
-      _confess "internal inconsistency ($parent)";
-    }
-    _confess "internal inconsistency ($parent/$session)"
+    _trap "internal inconsistency ($parent/$session)"
       unless delete $kr_sessions{$parent}->[SS_CHILDREN]->{$session};
     undef $kr_sessions{$session}->[SS_PARENT];
 
@@ -158,8 +163,8 @@ sub _data_ses_free {
       $self->_data_ses_move_child($_, $parent)
     }
   }
-  else {
-    _confess "no parent to give children to" if @children;
+  elsif (ASSERT_DATA) {
+    _trap "no parent to give children to" if @children;
   }
 
   # Things which do not hold reference counts.
@@ -202,12 +207,16 @@ sub _data_ses_move_child {
     );
   }
 
-  _confess "internal inconsistency" unless exists $kr_sessions{$session};
-  _confess "internal inconsistency" unless exists $kr_sessions{$new_parent};
+  if (ASSERT_DATA) {
+    _trap() unless exists $kr_sessions{$session};
+    _trap() unless exists $kr_sessions{$new_parent};
+  }
 
   my $old_parent = $self->_data_ses_get_parent($session);
 
-  _confess "internal inconsistency" unless exists $kr_sessions{$old_parent};
+  if (ASSERT_DATA) {
+    _trap() unless exists $kr_sessions{$old_parent};
+  }
 
   # Remove the session from its old parent.
   delete $kr_sessions{$old_parent}->[SS_CHILDREN]->{$session};
@@ -251,7 +260,9 @@ sub _data_ses_move_child {
 
 sub _data_ses_get_parent {
   my ($self, $session) = @_;
-  _confess "internal inconsistency" unless exists $kr_sessions{$session};
+  if (ASSERT_DATA) {
+    _trap() unless exists $kr_sessions{$session};
+  }
   return $kr_sessions{$session}->[SS_PARENT];
 }
 
@@ -259,7 +270,9 @@ sub _data_ses_get_parent {
 
 sub _data_ses_get_children {
   my ($self, $session) = @_;
-  _confess "internal inconsistency" unless exists $kr_sessions{$session};
+  if (ASSERT_DATA) {
+    _trap() unless exists $kr_sessions{$session};
+  }
   return values %{$kr_sessions{$session}->[SS_CHILDREN]};
 }
 
@@ -267,7 +280,9 @@ sub _data_ses_get_children {
 
 sub _data_ses_is_child {
   my ($self, $parent, $child) = @_;
-  _confess "internal inconsistency" unless exists $kr_sessions{$parent};
+  if (ASSERT_DATA) {
+    _trap() unless exists $kr_sessions{$parent};
+  }
   return exists $kr_sessions{$parent}->[SS_CHILDREN]->{$child};
 }
 
@@ -316,10 +331,15 @@ sub _data_ses_refcount_dec {
   # that there is a problem if the session does not exist?  One of
   # these must go!
   return unless exists $kr_sessions{$session};
-  _confess "internal inconsistency" unless exists $kr_sessions{$session};
 
-  if (--$kr_sessions{$session}->[SS_REFCOUNT] < 0) {
-    _confess(
+  if (ASSERT_DATA) {
+    _trap() unless exists $kr_sessions{$session};
+  }
+
+  $kr_sessions{$session}->[SS_REFCOUNT]--;
+
+  if (ASSERT_DATA and $kr_sessions{$session}->[SS_REFCOUNT] < 0) {
+    _trap(
       $self->_data_alias_loggable($session),
      " reference count went below zero"
    );
@@ -338,8 +358,11 @@ sub _data_ses_refcount_inc {
     );
   }
 
-  _confess "incrementing refcount for nonexistent session"
-    unless exists $kr_sessions{$session};
+  if (ASSERT_DATA) {
+    _trap "incrementing refcount for nonexistent session"
+      unless exists $kr_sessions{$session};
+  }
+
   $kr_sessions{$session}->[SS_REFCOUNT]++;
 }
 
@@ -367,7 +390,9 @@ sub _data_ses_collect_garbage {
   # like a kludge, but I'm currently not smart enough to figure out
   # what it's working around.
 
-  _confess "internal inconsistency" unless exists $kr_sessions{$session};
+  if (ASSERT_DATA) {
+    _trap() unless exists $kr_sessions{$session};
+  }
 
   if (TRACE_REFCNT) {
     my $ss = $kr_sessions{$session};
@@ -406,7 +431,7 @@ sub _data_ses_collect_garbage {
     # The calculated reference count really ought to match the one
     # POE's been keeping track of all along.
 
-    _confess(
+    _trap(
       "<dt> ", $self->_data_alias_loggable($session),
        " has a reference count inconsistency",
        " (calc=$calc_ref; actual=$ss->[SS_REFCOUNT])\n"
@@ -436,7 +461,9 @@ sub _data_ses_stop {
     _warn("<ss> stopping ", $self->_data_alias_loggable($session));
   }
 
-  _confess unless exists $kr_sessions{$session};
+  if (ASSERT_DATA) {
+    _trap unless exists $kr_sessions{$session};
+  }
 
   $self->_dispatch_event
     ( $session, $self->get_active_session(),

@@ -197,12 +197,14 @@ sub _data_handle_resume_requested_state {
       $self->loop_resume_filehandle($handle, $mode);
       $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
     }
-    else {
-      _confess "internal consistency error";
+    elsif (ASSERT_DATA) {
+      _trap();
     }
   }
-  elsif ($kr_fno_rec->[FMO_EV_COUNT] < 0) {
-    _confess "handle event count went below zero";
+  elsif (ASSERT_DATA) {
+    if ($kr_fno_rec->[FMO_EV_COUNT] < 0) {
+      _trap "handle event count went below zero";
+    }
   }
 }
 
@@ -213,7 +215,10 @@ sub _data_handle_enqueue_ready {
   my ($self, $mode, @filenos) = @_;
 
   foreach my $fileno (@filenos) {
-    _confess "internal inconsistency: undefined fileno" unless defined $fileno;
+    if (ASSERT_DATA) {
+      _trap "internal inconsistency: undefined fileno" unless defined $fileno;
+    }
+
     my $kr_fno_rec = $kr_filenos{$fileno}->[$mode];
 
     # Gather all the events to emit for this fileno/mode pair.
@@ -322,9 +327,9 @@ sub _data_handle_add {
         # Make the handle stop blocking, the POSIX way.
         unless (RUNNING_IN_HELL) {
           my $flags = fcntl($handle, F_GETFL, 0)
-            or _confess "fcntl($handle, F_GETFL, etc.) fails: $!\n";
+            or _trap "fcntl($handle, F_GETFL, etc.) fails: $!\n";
           until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
-            _confess "fcntl($handle, FSETFL, etc) fails: $!"
+            _trap "fcntl($handle, FSETFL, etc) fails: $!"
               unless $! == EAGAIN or $! == EWOULDBLOCK;
           }
         }
@@ -337,7 +342,7 @@ sub _data_handle_add {
                  0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
                  $set_it
                )
-            or _confess "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
+            or _trap "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
         }
       }
     }
@@ -373,9 +378,32 @@ sub _data_handle_add {
 
     # The session is watching it by a different handle.  It can't be
     # done yet, but maybe later when drivers are added to the mix.
+    #
+    # TODO - This can occur if someone closes a filehandle without
+    # calling select_foo() to deregister it from POE.  In that case,
+    # the operating system reuses the file descriptor, but we still
+    # have something registered for it here.
 
     else {
-      _confess "can't watch the same handle in the same mode 2+ times yet";
+      foreach my $hdl_rec (
+        values %{$kr_fno_rec->[FMO_SESSIONS]->{$session}}
+      ) {
+        my $other_handle = $hdl_rec->[HSS_HANDLE];
+        unless (fileno $other_handle) {
+          _trap(
+            "can't watch $handle: $other_handle (closed) is still ",
+            "registered for that file descriptor in mode $mode"
+          );
+        }
+        if (fileno($handle) == fileno($other_handle)) {
+          _trap(
+            "can't watch $handle: $other_handle (open) is still ",
+            "registered for that descriptor in mode $mode"
+          );
+        }
+        _trap "internal inconsistency";
+      }
+      _trap "can't watch the same handle in the same mode 2+ times yet";
     }
   }
 
@@ -484,7 +512,7 @@ sub _data_handle_remove {
         }
 
         if (ASSERT_DATA) {
-          _confess "<dt> fileno $fd mode $mode event count went below zero"
+          _trap "<dt> fileno $fd mode $mode event count went below zero"
             if $kr_fno_rec->[FMO_EV_COUNT] < 0;
         }
       }
@@ -494,7 +522,7 @@ sub _data_handle_remove {
       $kr_fno_rec->[FMO_REFCOUNT]--;
 
       if (ASSERT_DATA) {
-        _confess "<dt> fileno mode refcount went below zero"
+        _trap "<dt> fileno mode refcount went below zero"
           if $kr_fno_rec->[FMO_REFCOUNT] < 0;
       }
 
@@ -520,7 +548,7 @@ sub _data_handle_remove {
       $kr_fileno->[FNO_TOT_REFCOUNT]--;
 
       if (ASSERT_DATA) {
-        _confess "<dt> fileno refcount went below zero"
+        _trap "<dt> fileno refcount went below zero"
           if $kr_fileno->[FNO_TOT_REFCOUNT] < 0;
       }
 
@@ -554,7 +582,7 @@ sub _data_handle_remove {
       $ss_handle->[SH_REFCOUNT]--;
 
       if (ASSERT_DATA) {
-        _confess "<dt> refcount went below zero"
+        _trap "<dt> refcount went below zero"
           if $ss_handle->[SH_REFCOUNT] < 0;
       }
 

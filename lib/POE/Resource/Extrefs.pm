@@ -73,7 +73,7 @@ sub _data_extref_dec {
 
   if (ASSERT_DATA) {
     unless (exists $kr_extra_refs{$session}->{$tag}) {
-      _confess(
+      _trap(
         "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
         $self->_data_alias_loggable($session)
       );
@@ -100,7 +100,7 @@ sub _data_extref_remove {
 
   if (ASSERT_DATA) {
     unless (exists $kr_extra_refs{$session}->{$tag}) {
-      _confess(
+      _trap(
         "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
         $self->_data_alias_loggable($session)
       );
@@ -125,7 +125,7 @@ sub _data_extref_clear_session {
 
   if (ASSERT_DATA) {
     if (exists $kr_extra_refs{$session}) {
-      _confess(
+      _trap(
         "<dt> extref clear did not remove session ",
         $self->_data_alias_loggable($session)
       );
