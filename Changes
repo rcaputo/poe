@@ -26,11 +26,6 @@ Version numbers have four fields: X.YYZZAA
 
 ,----- To Do -----
 |
-| Filehandles are bad.  Check t/04_selects.t and lines in
-| POE::Kernel beginning with /^#-/.  Must allow 2+ selects for
-| the same fileno/handle, even if it's meaningless, so that
-| handles can be passed between wheels, etc.
-|
 | How about Gtk support?
 |
 | Better alarms API.  Roderick has threatened to do something.
@@ -61,7 +56,7 @@ Version numbers have four fields: X.YYZZAA
 `-----------------
 
 
-0.1104 2000.??.??
+0.1104 2000.08.12
 -----------------
 
 Jaxdahl donated some shell time on his Win32 machine, allowing me to
@@ -80,16 +75,9 @@ delivered when child processes exited by signal.
 
 Added t/20_accept.t to test Wheel::ListenAccept.
 
-Wrote lib/TestPipe.pm.  This file tries to make a two-way pipe at any
-cost.  It tries socketpair(2) in the UNIX domain, socketpair(2) in the
-INET domain, a pair of pipe(2)s, and finally a plain INET domain
-socket.  This would make a great basis for an open3 thingy.
-
-select(2) bits are keyed on fileno.  POE's selects were keyed on file
-handle.  Several dup(2)'d handles could have the same fileno.  POE
-would manage the select(2) bits based on reference counts for handles.
-This was bad.  Changed POE to manage its own selects by fileno
-instead of filehandle.  This worked, much to my surprise.
+Wrote lib/TestPipe.pm.  This file tries to make a portable two-way
+pipe.  It uses a pair of pipe(2)s, or a plain INET socket if that
+fails.  This would make a great basis for an open3 thingy.
 
 
 0.1103 2000.08.06
