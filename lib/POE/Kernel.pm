@@ -1106,12 +1106,24 @@ sub _internal_select {
       $kr_handles->{$handle} = [ $handle, 0, [ 0, 0, 0 ], [ { }, { }, { } ] ];
                                         # for DOSISH systems like OS/2
       binmode($handle);
-                                        # don't block on pending I/O
-      my $flags = fcntl($handle, F_GETFL, 0)
-        or croak "fcntl fails with F_GETFL: $!\n";
-      $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
-        or croak "fcntl fails with F_SETFL: $!\n";
+                                        # set the handle non-blocking
+                                        # do it the Win32 way
+      if ($^O eq 'MSWin32') {
+        my $set_it = "1";
+                                  # 126 is FIONBIO
+        ioctl($handle, 126 | (ord('f')<<8) | (4<<16) | 0x80000000, $set_it)
+          or croak "Can't set the handle non-blocking: $!\n";
+      }
+                                  # do it the way everyone else does
+      else {
+        my $flags = fcntl($handle, F_GETFL, 0)
+          or croak "fcntl fails with F_GETFL: $!\n";
+        $flags = fcntl($handle, F_SETFL, $flags | O_NONBLOCK)
+          or croak "fcntl fails with F_SETFL: $!\n";
+      }
 
+# This depends heavily on socket.ph, or somesuch.  It's way
+# unportable.
 #      setsockopt($handle, SOL_SOCKET, &TCP_NODELAY, 1)
 #        or die "Couldn't disable Nagle's algorithm: $!\a\n";
 

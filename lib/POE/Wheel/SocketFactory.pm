@@ -373,16 +373,31 @@ sub new {
 
   # Don't block on socket operations, because the socket will be
   # driven by a select loop.
-  my $flags = fcntl($socket_handle, F_GETFL, 0)
-    or do {
-      $poe_kernel->yield($state_failure, 'fcntl', $!+0, $!);
-      return undef;
-    };
-  $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
-    or do {
-      $poe_kernel->yield($state_failure, 'fcntl', $!+0, $!);
-      return undef;
-    };
+
+  # Do it the Win32 way.  XXX This is incomplete.
+  if ($^O eq 'MSWin32') {
+    my $set_it = "1";
+                                        # 126 is FIONBIO
+    ioctl($socket_handle, 126 | (ord('f')<<8) | (4<<16) | 0x80000000, $set_it)
+      or do {
+        $poe_kernel->yield($state_failure, 'ioctl', $!+0, $!);
+        return undef;
+      };
+  }
+
+  # Do it the way everyone else does.
+  else {
+    my $flags = fcntl($socket_handle, F_GETFL, 0)
+      or do {
+        $poe_kernel->yield($state_failure, 'fcntl', $!+0, $!);
+        return undef;
+      };
+    $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
+      or do {
+        $poe_kernel->yield($state_failure, 'fcntl', $!+0, $!);
+        return undef;
+      };
+  }
 
   # Make the socket reusable, if requested.
   if ( (exists $params{Reuse})
