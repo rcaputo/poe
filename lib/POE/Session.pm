@@ -643,6 +643,7 @@ sub register_state {
   my ($self, $name, $handler, $method) = @_;
   $method = $name unless defined $method;
 
+  # Deprecate _signal.
   if ($name eq EN_SIGNAL) {
 
     # Report the problem outside POE.
@@ -653,9 +654,12 @@ sub register_state {
       $Carp::CarpLevel++;
     }
 
-    carp( "The _signal event is deprecated.  ",
-          "Please use sig() to register a signal handler"
-        );
+    croak(
+      ",----- DEPRECATION ERROR -----\n",
+      "| The _signal event is deprecated.  Please use sig() to register\n",
+      "| an explicit signal handler instead.\n",
+      "`-----------------------------\n",
+   );
   }
 
   # There is a handler, so try to define the state.  This replaces an

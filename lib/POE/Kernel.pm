@@ -452,14 +452,13 @@ sub sig_handled {
   $self->_data_sig_handled();
 
   if ($kr_active_event eq EN_SIGNAL) {
-    warn( ",----- DEPRECATION WARNING -----\n",
-          "| Session ", $self->_data_alias_loggable($kr_active_session), ":\n",
-          "| handled a _signal event.  Please register a handler with sig()\n",
-          "| to disable this message.\n",
-          "`-------------------------------\n",
-        );
+    die(
+      ",----- DEPRECATION ERROR -----\n",
+      "| Session ", $self->_data_alias_loggable($kr_active_session), ":\n",
+      "| handled a _signal event.  You must register a handler with sig().\n",
+      "`-----------------------------\n",
+    );
   }
-
 }
 
 # Attach a window or widget's destroy/closure to the UIDESTROY signal.
