@@ -17,10 +17,11 @@ This will output a file called C<poe_report.xml>.
 =cut
 
 package My::Strap;
+use lib qw(../lib ../ ./lib);
 use Test::Harness;
 use base qw(Test::Harness::Straps);
+use Sys::Hostname;
 use vars qw($VERSION);
-use lib qw(../lib ../);
 
 $VERSION = (qw($Revision$))[1];
 
@@ -116,8 +117,9 @@ foreach my $file (@test_files) {
     print "\n";
 }
 
-my $username = (getpwuid($<))[0];
-my $hostname = (gethostent())[0];
+my $username = "(windows)";
+eval { $username = (getpwuid($<))[0]; };
+my $hostname = hostname();
 my $time = scalar gmtime(time());
 
 my $xml = "<poe_test_report>\n";
