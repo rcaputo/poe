@@ -246,7 +246,8 @@ BEGIN {
     $value =~ tr['"][]d;
     $value = qq("$value") if $value =~ /\D/;
 
-    no warnings;
+    BEGIN { $^W = 0; }
+
     eval "sub $const () { $value }";
     die if $@;
   }
@@ -264,7 +265,6 @@ BEGIN {
       *TRACE_FILE = *STDERR;
     }
   }
-
   # TRACE_DEFAULT changes the default value for other TRACE_*
   # constants.  Since define_trace() uses TRACE_DEFAULT internally, it
   # can't be used to define TRACE_DEFAULT itself.
@@ -302,44 +302,101 @@ BEGIN {
 # trace file we're using today.  _trap is reserved for internal
 # errors.
 
+{ 
+  # This block abstracts away a particular piece of voodoo, since we're about 
+  # to call it many times. This is all a big closure around the following two 
+  # variables, allowing us to swap out and replace handlers without the need 
+  # for mucking up the namespace or the kernel itself.
+  my ($orig_warn_handler, $orig_die_handler);
+
+  # _trap_death replaces the current __WARN__ and __DIE__ handlers with our own.
+  # We keep the defaults around so we can put them back when we're done.
+  # Specifically this is necessary, it seems, for older perls that don't 
+  # respect the C< local *STDERR = *TRACE_FILE >. 
+  sub _trap_death {
+    $orig_warn_handler = $SIG{__WARN__};
+    $orig_die_handler = $SIG{__DIE__};
+
+    $SIG{__WARN__} = sub { print TRACE_FILE $_[0] };
+    $SIG{__DIE__} = sub { print TRACE_FILE $_[0]; die $@; };
+ 
+  }
+
+  # _release_death puts the original __WARN__ and __DIE__ handlers back in 
+  # place. Hopefully this is zero-impact camping. The hope is that we can 
+  # do our trace magic without impacting anyone else.
+  sub _release_death {
+    $SIG{__WARN__} = $orig_warn_handler; 
+    $SIG{__DIE__} = $orig_die_handler;
+  }
+}
+
+
 sub _trap {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
+  
+  _trap_death();
+  
   confess(
     "Please mail the following information to bug-POE\@rt.cpan.org:\n@_"
   );
+
+  _release_death();
 }
 
 sub _croak {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
+  
+  _trap_death();
+  
   croak @_;
+  
+  _release_death();
+  
 }
 
 sub _confess {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
+  _trap_death();
   confess @_;
+  _release_death();
 }
 
 sub _cluck {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
+  
+  _trap_death();
+  
   cluck @_;
+  
+  _release_death();
 }
 
 sub _carp {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = *TRACE_FILE;
+
+  _trap_death();
+
   carp @_;
+
+  _release_death();
 }
 
 sub _warn {
   my ($package, $file, $line) = caller();
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
-  local *STDERR = *TRACE_FILE;
+ 
+  _trap_death();
+ 
   warn $message;
+ 
+  _release_death();
 }
 
 sub _die {
@@ -347,7 +404,12 @@ sub _die {
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
   local *STDERR = *TRACE_FILE;
+ 
+  _trap_death();
+ 
   die $message;
+ 
+  _release_death();
 }
 
 #------------------------------------------------------------------------------

@@ -39,8 +39,10 @@ sub EN_SIGNAL       () { '_signal' }
 sub define_assert {
   no strict 'refs';
   foreach my $name (@_) {
+    
+    BEGIN { $^W = 0 };
+
     next if defined *{"ASSERT_$name"}{CODE};
-    no warnings;
     if (defined *{"POE::Kernel::ASSERT_$name"}{CODE}) {
       eval(
         "sub ASSERT_$name () { " .
@@ -59,9 +61,11 @@ sub define_assert {
 # Shorthand for defining a trace constant.
 sub define_trace {
   no strict 'refs';
+ 
+  BEGIN { $^W = 0 };
+
   foreach my $name (@_) {
     next if defined *{"TRACE_$name"}{CODE};
-    no warnings;
     if (defined *{"POE::Kernel::TRACE_$name"}{CODE}) {
       eval(
         "sub TRACE_$name () { " .
