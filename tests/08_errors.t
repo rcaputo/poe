@@ -484,8 +484,8 @@ if ($^O ne 'MSWin32' and $^O ne 'MacOS') {
   print 'not ' unless defined $@ and length $@;
   print "ok 54\n";
 
-  my $pwrun =
-    eval 'POE::Wheel::Run->new( Program => 1, StdinEvent => 1, Filter => 1 )';
+  my $pwrun = eval
+    'POE::Wheel::Run->new( Program => 1, StdinEvent => 1, StdinFilter => 1 )';
   print 'not ' if defined $@ and length $@;
   print "ok 55\n";
 
