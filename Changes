@@ -12,7 +12,12 @@ subversions are available from <http://www.newts.org/~troc/poe.html>.
 -----------------
 
 Put the incomplete, experimental Win32 code back.  It appears to have
-been working!
+been working all along!
+
+Add Artur's high/low watermark patches to Wheel::ReadWrite.  This is a
+higher level watermark not confined to a particular driver.  It
+implements high- and low-water callbacks instead of performing its own
+flow control.
 
 
 0.0902 2000.02.07

@@ -56,6 +56,22 @@ sub new {
 
   croak "Driver required" unless (exists $params{Driver});
 
+  { my $mark_errors = 0;
+    if (exists($params{HighMark}) xor exists($params{LowMark})) {
+      carp "HighMark and LowMark parameters require each-other";
+      $mark_errors++;
+    }
+    if (exists($params{HighMark}) xor exists($params{HighState})) {
+      carp "HighMark and HighState parameters require each-other";
+      $mark_errors++;
+    }
+    if (exists($params{LowMark}) xor exists($params{LowState})) {
+      carp "LowMark and LowState parameters require each-other";
+      $mark_errors++;
+    }
+    croak "Water mark errors" if $mark_errors;
+  }
+
   my $self = bless { input_handle  => $in_handle,
                      output_handle => $out_handle,
                      driver        => $params{Driver},
@@ -64,6 +80,12 @@ sub new {
                      event_input   => $params{InputState},
                      event_error   => $params{ErrorState},
                      event_flushed => $params{FlushedState},
+
+                     # watermarks
+                     high_mark     => $params{HighMark},
+                     low_mark      => $params{LowMark},
+                     event_high    => $params{HighState},
+                     event_low     => $params{LowState},
                    }, $type;
 
   $self->_define_read_state();
@@ -86,6 +108,15 @@ sub _define_write_state {
   my $event_error   = $self->{event_error};
   my $event_flushed = $self->{event_flushed};
 
+  my $high_mark     = $self->{high_mark};
+  my $low_mark      = $self->{low_mark};
+  my $event_high    = $self->{event_high};
+  my $event_low     = $self->{event_low};
+
+  # Closure poking into the redefined state.  This is used to detect
+  # when the pending number of writes crosses
+  my $is_in_high_water_state = 0;
+
   # Register the select-write handler.
 
   $poe_kernel->state
@@ -96,11 +127,44 @@ sub _define_write_state {
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         my $writes_pending = $driver->flush($handle);
+
+        # When you can't write, nothing else matters.
         if ($!) {
           $event_error && $k->call( $me, $event_error, 'write', ($!+0), $! );
           $k->select_write($handle);
         }
-        elsif (defined $writes_pending) {
+
+        # Could write, or perhaps couldn't but only because the
+        # filehandle's buffer is choked.
+        else {
+
+          # In high water state?  Check for low water.  High water
+          # state will never be set if $event_low is undef, so don't
+          # bother checking its definedness here.
+          if ($is_in_high_water_state) {
+            if ( $writes_pending <= $low_mark ) {
+              $is_in_high_water_state = 0;
+              $k->call( $me, $event_low );
+            }
+          }
+
+          # Not in high water state.  Check for high water.  Needs to
+          # also check definedness of $writes_pending.  Although we
+          # know this ahead of time and could probably optimize it
+          # away with a second state definition, it would be best to
+          # wait until ReadWrite stabilizes.  That way there will be
+          # only half as much code to maintain.
+          elsif ( defined($event_high) and
+                  ($writes_pending >= $high_mark)
+                ) {
+            $is_in_high_water_state = 1;
+            $k->call( $me, $event_high );
+          }
+
+          # All chunks written; fire off a "flushed" event.  This
+          # occurs independently, so it's possible to get a low-water
+          # call and a flushed call at the same time (if the low mark
+          # is 1).
           unless ($writes_pending) {
             $k->select_write($handle);
             $event_flushed && $k->call($me, $event_flushed);
@@ -264,6 +328,20 @@ sub set_input_filter {
 sub set_output_filter {
     my($self, $new_filter)=@_;
     $self->{output_filter}=$new_filter;
+}
+
+# Set the high water mark.
+
+sub set_high_mark {
+  my ($self, $new_high_mark) = @_;
+  $self->{high_mark} = $new_high_mark;
+  $self->_define_write_state();
+}
+
+sub set_low_mark {
+  my ($self, $new_low_mark) = @_;
+  $self->{low_mark} = $new_low_mark;
+  $self->_define_write_state();
 }
 
 
