@@ -88,7 +88,7 @@ foreach my $file (<../t/*.t>) {
     print "\n";
 }
 
-my $username = (getpwent())[0];
+my $username = (getpwuid($<))[0];
 my $hostname = (gethostent())[0];
 my $time = scalar gmtime(time());
 
