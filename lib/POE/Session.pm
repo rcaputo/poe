@@ -585,7 +585,7 @@ sub _invoke_state {
   # Inline states are invoked this way.
 
   if (ref($self->[SE_STATES]->{$state}) eq 'CODE') {
-    return &{$self->[SE_STATES]->{$state}}
+    return $self->[SE_STATES]->{$state}->
       ( undef,                          # object
         $self,                          # session
         $POE::Kernel::poe_kernel,       # kernel
