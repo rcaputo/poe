@@ -29,10 +29,10 @@ EOF
 
 my @tests;
 
-find( 
-  sub { 
-    /\.t$/ && 
-    push @tests, File::Spec->catfile($File::Find::dir,$_) 
+find(
+  sub {
+    /\.t$/ &&
+    push @tests, File::Spec->catfile($File::Find::dir,$_)
   },
   't/',
 );

@@ -24,7 +24,7 @@ BEGIN {
 
 
 { # simple get {{{
-    
+
     my $filter;
 
     eval { $filter = POE::Filter::HTTPD->new() };
@@ -41,7 +41,7 @@ BEGIN {
     is(scalar @$data, 1, 'simple get: get() returned single request');
 
     my $req = shift @$data;
-    
+
     is(ref $req, 'HTTP::Request', 'simple get: get() returns HTTP::Request object');
     is($req->method, 'GET', 'simple get: HTTP::Request object contains proper HTTP method');
     is($req->url, 'http://localhost/pie.mhtml', 'simple get: HTTP::Request object contains proper URI');
@@ -50,7 +50,7 @@ BEGIN {
 } # }}}
 
 { # More complex get {{{
-    
+
     my $filter;
 
     $filter = POE::Filter::HTTPD->new();
@@ -72,30 +72,30 @@ Connection: Keep-Alive
     my $req = shift @$data;
     is(ref $req, 'HTTP::Request',
         'HTTP 1.0 get: get() returns HTTP::Request object');
-    
-    is($req->method, 'GET', 
+
+    is($req->method, 'GET',
         'HTTP 1.0 get: HTTP::Request object contains proper HTTP method');
 
-    is($req->url, '/foo.html', 
+    is($req->url, '/foo.html',
         'HTTP 1.0 get: HTTP::Request object contains proper URI');
-    
-    is($req->content, '', 
+
+    is($req->content, '',
         'HTTP 1.0 get: HTTP::Request object properly contains no content');
-    is($req->header('User-Agent'), 'Wget/1.8.2', 
+    is($req->header('User-Agent'), 'Wget/1.8.2',
         'HTTP 1.0 get: HTTP::Request object contains proper User-Agent header');
-    
-    is($req->header('Host'), 'localhost:8080', 
+
+    is($req->header('Host'), 'localhost:8080',
         'HTTP 1.0 get: HTTP::Request object contains proper Host header');
-    
-    is($req->header('Accept'), '*/*', 
+
+    is($req->header('Accept'), '*/*',
         'HTTP 1.0 get: HTTP::Request object contains proper Accept header');
 
-    is($req->header('Connection'), 'Keep-Alive', 
+    is($req->header('Connection'), 'Keep-Alive',
         'HTTP 1.0 get: HTTP::Request object contains proper Connection header');
 
 } # }}}
 
-{ # simple post {{{ 
+{ # simple post {{{
 
     my $post_request = POST 'http://localhost/foo.mhtml', [ 'I' => 'like', 'tasty' => 'pie' ];
     $post_request->protocol('HTTP/1.0');
@@ -103,7 +103,7 @@ Connection: Keep-Alive
     my $filter = POE::Filter::HTTPD->new();
 
     my $str = $post_request->as_string;
-    
+
     my $data;
     eval { $data = $filter->get([ $str ]); };
     ok(!$@, 'simple post: get() throws no exceptions');
@@ -112,7 +112,7 @@ Connection: Keep-Alive
     is(scalar @$data, 1, 'simple post: get() returned single request');
 
     my $req = shift @$data;
-   
+
     is(ref $req, 'HTTP::Request',
         'simple post: get() returns HTTP::Request object');
 
@@ -122,17 +122,22 @@ Connection: Keep-Alive
     is($req->url, 'http://localhost/foo.mhtml',
         'simple post: HTTP::Request object contains proper URI');
 
-    is($req->content, "I=like&tasty=pie\n", 
+    if ($^O eq "MSWin32" and $] < 5.008003) {
+      skip("Please upgrade ActivePerl to pass this test.");
+    }
+    else {
+      is($req->content, "I=like&tasty=pie\n",
         'simple post: HTTP::Request object contains proper content');
+    }
 
     is($req->header('Content-Type'), 'application/x-www-form-urlencoded',
         'simple post: HTTP::Request object contains proper Content-Type header');
 
 } # }}}
 
-{ # simple head {{{ 
+{ # simple head {{{
 
-        
+
     my $head_request = HEAD 'http://localhost/foo.mhtml';
 
     my $filter = POE::Filter::HTTPD->new();
@@ -145,7 +150,7 @@ Connection: Keep-Alive
     is(scalar @$data, 1, 'simple head: get() returned single request');
 
     my $req = shift @$data;
-   
+
     is(ref $req, 'HTTP::Request',
         'simple head: get() returns HTTP::Request object');
 
@@ -157,8 +162,8 @@ Connection: Keep-Alive
 
 } # }}}
 
-SKIP: { # simple put {{{ 
-    
+SKIP: { # simple put {{{
+
     skip "PUT not supported yet.", 7;
     my $put_request = PUT 'http://localhost/foo.mhtml';
 
@@ -172,7 +177,7 @@ SKIP: { # simple put {{{
     is(scalar @$data, 1, 'simple put: get() returned single request');
 
     my $req = shift @$data;
-   
+
     is(ref $req, 'HTTP::Request',
         'simple put: get() returns HTTP::Request object');
 
@@ -184,10 +189,10 @@ SKIP: { # simple put {{{
 
 } # }}}
 
-{ # multipart form data post {{{ 
+{ # multipart form data post {{{
 
-    my $request = POST 'http://localhost/foo.mhtml', Content_Type => 'form-data', 
-                    content => [ 'I' => 'like', 'tasty' => 'pie', 
+    my $request = POST 'http://localhost/foo.mhtml', Content_Type => 'form-data',
+                    content => [ 'I' => 'like', 'tasty' => 'pie',
                                  file => [ 't/19_filterchange.t' ]
                                ];
     $request->protocol('HTTP/1.0');
@@ -202,7 +207,7 @@ SKIP: { # simple put {{{
     is(scalar @$data, 1, 'multipart form data: get() returned single request');
 
     my $req = shift @$data;
-   
+
     is(ref $req, 'HTTP::Request',
         'multipart form data: get() returns HTTP::Request object');
 
@@ -226,6 +231,6 @@ SKIP: { # simple put {{{
             ok(1);
             ok(1);
         }
-    } 
+    }
 
 } # }}}
