@@ -100,12 +100,12 @@ POE::Session->create
         $_[HEAP]->{kills_to_go} = $event_count;
         $_[KERNEL]->sig( ALRM => 'sigalrm_target' );
         $_[KERNEL]->sig( PIPE => 'sigpipe_target' );
-        $_[KERNEL]->delay( fire_signals => 1 );
+        $_[KERNEL]->delay( fire_signals => 0.5 );
       },
       fire_signals =>
       sub {
         if ($_[HEAP]->{kills_to_go}--) {
-          $_[KERNEL]->delay( fire_signals => 1 );
+          $_[KERNEL]->delay( fire_signals => 0.5 );
           kill ALRM => $$;
           kill PIPE => $$;
         }
