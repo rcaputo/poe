@@ -107,81 +107,6 @@ Schedule:
 
 5. Release a version with queue_peek_alarms() removed altogether.
 
----------------------------
-Make Filter Changing Usable
----------------------------
-
-This change adds new features without breaking existing ones.  This
-change is a prerequisite for input flow control in Wheel::ReadWrite.
-
-2001-07-27 - Refactoring Checklist
-
-1. get_one_start() takes an arrayref of chunks.  It does not return
-   anything in particular.
-
-   done.  documented.
-
-2. get_one() returns an arrayref of 0 or 1 chunks.  It does not take
-   anything.  Actually, it can return 2+ chunks, but it tries to be
-   ungreedy.
-
-   done.  documented.
-
-3. get_pending() returns undef if nothing is pending.
-
-   done.  documented.
-
-4. get_pending() returns an arrayref if something is pending.  Check
-   for pending data using length(), defined(), or scalar() depending
-   on how the filter stores its pending data.  Be sure not to test the
-   buffer directly for truth, as it may contain a significant 0 or
-   undef.
-
-   done.  documented.
-
-5. get_pending() does not damage a filter's buffer.
-
-   done.  documented.
-
-6. Wheels?  Auuuugh!
-
-   Actually, only ReadWrite deals with filter changing.  Whew!
-
-   done.  documented.
-
-7. Update Filter::Xyz documentation.
-
-   done.
-
-8. Update Wheel::Xyz documentation.
-
-   (doing)
-
-Wheels:
-        + ReadWrite
-
-Finishing Touches:
-
-        Dear gods, some of this code sucks!  The duplicated code in
-        Filter::Line is particularly horrific, not for its structure
-        but for the amount of duplication.  The way wheels test
-        for the end of get_one() loops leaves much to be desired.  But
-        my brane is focused on getting through this big suite of
-        changes today, so I'm not paying too much attention to doing
-        it optimally.  As my C guru once said, "Get it working, and
-        then make it faster."
-
-        Filter::Reference uses a hashref for its $self.  Make that an
-        arrayref, damnit!
-
-2001-07-16:
-
-Once this is fixed, ReadWrite can use get_one() to fetch one event at
-a time.  The resume_input() method can, among other things, continue
-the get_one() loop if data is already buffered but more isn't ready to
-be read.
-
-
 ===============================================================================
 ===============================================================================
                Deprecations & Changes BEING CONSIDERED
@@ -461,14 +386,94 @@ Wheels
 
 Several issues grouped together.
 
+----------------
+Stream Paradigms
+----------------
+
+I forsee the stream paradigm dictating how the API should be designed,
+so it's a separate section.  Otherwise I'd have to edit the API every
+time something was changed here.  At least as separate sections, they
+can evolve separately until it's time to combine them.
+
+2001-08-12: Torvald Riegel writes...
+
+Detaching streams from their sessions is good.
+ 
+However, I would prefer a real stream model. At the moment they
+represent a source or destination including any processing needed
+(filters, buffers, ...).
+ 
+It might be better to think of streams as linked processors. Graphs
+can be easily built (multicast, or parallel scanning, ...). There
+would be interfaces that have to be supported by sessions or
+objects. They are two roles: producer and consumer. data travels
+through the graph, single pieces can communicate between each other
+(flow control, ...).
+ 
+Filter would be plain consumer/producer pieces, you could easily
+include buffers and flow control, windows version could use threads to
+have non-blocking IO on files, ...
+ 
+Links (associations) between sessions would be needed (and for the
+TODO version as well !). This kinda conflicts with the plans to not
+include object layer features in core POE. But if we decide to go this
+way, we should do it right and discuss more about it, right from the
+start ...
+
+2001-08-12: Rocco Caputo writes...
+
+I'm inclined to use chained filters to do it.  I'm against a complete
+Session for every discipline on a stream because the $kernel->call()
+between them will add a lot of overhead.
+ 
+Perhaps consumers, producers, and links could be something different.
+I'd like to see their interaction be as lightweight as possible.
+ 
+I have the System V streams specification, and I have some notes about
+how to pass messages between disciplines on a protocol stack.  All my
+previous design experiments have assumed protocol layers existed
+together in some kind of local chain, not across several sessions.
+
+2001-08-13: Torvald Riegel writes...
+
+True. But they could be perl objects dealing with it, embedded in
+sessions in any way. The idea behind that is that developers could
+freely link these pieces and construct various data flow graphs.
+ 
+Yes, they should be lightweigth. But as POE is heading to distributed
+applications (at least I hope so :) the case where data comes from A
+goes over B to C and all that on separate hosts gets more important.
+Imaging being able to easily insert a monitoring component and stuff
+like that. think about aspect/subject oriented programming, ...  I
+prefer a slow applications that takes less time to build than vice
+versa :)
+
+2001-08-14: Rocco Caputo writes...
+
+I'm trying to avoid embedded objects in sessions.  Wheels do this, and
+it makes subclassing POE::Session very difficult.  The problem arises
+when a new kind of session changes its states' call signature.
+Suddenly wheels, which have assumed POE::Session's call signature,
+stop working.
+ 
+In POE::IO::Stream, I'm proposing to move I/O management into a single
+dedicated session.  All the other sessions would use it in place of
+wheels.  The TODO file discusses it in detail.
+ 
+Plug-in pieces and data flow graphs sound like a good idea.  I'd still
+like them to be as light as possible.  Just because POE's useful for
+distributed programming doesn't mean that's its only purpose.  People
+who write one-processor systems should not be penalized, if it's at
+all possible.
+
 ------------------
 Wheels Must Evolve
 ------------------
 
-First, I'd like to say that wheels won't die entirely, but they may
-become stubs (thunks?) into some other kind of I/O abstraction.
-Certainly it would be more efficient to use the new abstraction
-directly, but at least old code won't die.
+First, I'd like to say that wheels won't die entirely.  For
+compatibility's sake, they may become stubs (thunks?) into some other
+kind of I/O abstraction.  Certainly it will be more efficient to use
+wheels' descendent(s), but at least old code won't die.
 
 POE::IO::Stream is the abstraction's planned name.  Suggestions are
 welcome, and I'll document them here.
@@ -652,7 +657,7 @@ streams:
 Wheel::ReadWrite Needs Input Flow Control
 -----------------------------------------
 
-This change depends on fixed filter changing.
+This change can go ahead now that filter changing has been fixed.
 
 2001-07-16
 
@@ -697,6 +702,32 @@ years.
 Filter::Xyz are deoptimized, I think.  I need to expand test 19 to try
 changing filters rapidly before I close that.  Test 19 hurts my brain.
 
+2001-08-12 - Status
+
+Test 19 got enhanced with several new tests.  Rapid-fire filter
+changing works now, so input flow control is cleared for take-off. :)
+
+-------------------
+Instant Write (???)
+-------------------
+
+2000-03-10:
+
+The earliest documentation I have on this issue is March 2000, so this
+is back-dated to then.
+
+Artur has, for a long time, wished that $wheel->put() immediately
+tried to write data to the socket, rather than buffer data and write
+it as a result of select_write().
+
+He claims it saves about 1/3 of the state calls in the wheels.perl
+sample program.  I'm inclined to believe him, but it also complicates
+wheels' design somewhat.
+
+On the other hand, people tend to think that calling $wheel->put()
+should put stuff right away.  Maybe "least surprise" is enough to
+warrant the change.
+
 --------------------------------
 Make Things Inheritance-Friendly
 --------------------------------
@@ -733,6 +764,113 @@ POE::IO::Stream somewhere else in this document.
 ========
 Etcetera
 ========
+
+Miscellaneous issues without proper homes.
+
+-------------
+POE-ized LDAP
+-------------
+
+Chris Fedde <cfedde@viawest.net> is working on a project that uses
+Net::LDAP and POE.  He may have integrated the two.
+
+-------------------
+POE::Filter::Bisync
+-------------------
+
+IBM's Bisync protocol, invented sometime around 1966, is a layered
+ASCII protocol using many of the control characters which have since
+fallen into obscurity and disuse.  It's a useful way to encapsulate
+streams, and I think there should be a filter for it.
+
+It's also very simple.  Google for "bisync soh stx etx" and "bsc soh
+stx etx" reveals a lot of stuff, including these links:
+
+  http://www.cs.uiowa.edu/~jones/opsys/notes/22.html
+  http://ckp.made-it.com/bisync.html
+  http://cs.wwc.edu/~aabyan/425/DirectLink.html
+  http://www.awstevenson.demon.co.uk/SYSNOTES/bmp.htm
+
+There are error detection and correction layers over the basic frame
+format, but they don't need to be implemented right away.
+
+Julian Morrison <julian@extropy.demon.co.uk> has been working on a
+subset of it, Filter::SyncStream, which implements variable- length
+blocks with synchronization characters.  It's like Filter::Block, but
+it can recover if a block becomes corrupt.  Filter::Block assumes a
+reliable transport such as TCP, so Filter::SyncStream may be better
+over unreliable channels like raw serial lines or UDP or something.
+
+----------------
+Asynchronous DBI
+----------------
+
+This is a wishlist item.  A lot of people would like to run async DBI
+calls, even the DBI people.  Check the DBI mailing list archives (?)
+for discussion on it.  It's rumored that someone is working on it from
+the DBI end.
+
+2001-04-04:
+
+MJD's Async module manages a pool of child processes.  It may be able
+to handle this, although a lot of DBI discussions have concluded that
+database libraries aren't very fork safe.
+
+2001-05-25:
+
+Andrew Chen <achen-poe@micropixel.com> is interested in asynchronous
+DBI as well.
+
+David Esposito <David.Esposito@wink.com> has said he plans to try some
+asynchronous DBI ideas sometime.
+
+Rob Bloodgood <robb@empire2.com> posted some interesting work-arounds:
+
+  Truthfully, it REALLY depends on your query.
+
+  I wrote a multiplexer on my fetch() loop, so I can read updated/new
+  data and still serve requests.  THAT part was actually pretty easy,
+  and fetching rows is quite fast.
+ 
+  But the query itself was a %#!$@%.  So, long days of optimization
+  which led to the following solution:
+
+  Since certain parts of my data view took forever
+  but I only needed them at a 1-day granularity
+  I made views out of those slow parts
+  and then run a daily procedure that updates that SLOW part into a
+  table
+  so that when my query runs
+  and mentions THAT data (that table)
+  it takes <.1 second on that part
+  instead of >30 seconds.
+ 
+  Depending on UR db, you can get a rundown on what parts are the slow
+  parts... Oracle has its EXPLAIN PLAN, dunno about others but I would
+  be surprised if similar wasn't available for, say, MS SQL, MySQL,
+  Postgres.
+
+Artur suggested waiting for thread support.  I think he wasn't
+entirely serious at the time, but he's deadly serious these days. :)
+
+2001-08-14:
+
+It may be possible to grab a socket handle from the DBI library and
+select_xyz() on that.  I have no idea how the details would work, but
+I'm pretty sure each database connection could still only field one
+request.  Bleah.
+
+--------------------------------------
+Deprecate Filters' get() Methods (!!!)
+--------------------------------------
+
+Now that get_one() and get_one_start() are implemented, should the
+older get() methods be deprecated?  I'm not sure, but I wanted to
+document it here.
+
+Both sets of methods certainly do duplicate code.  At the very least,
+they should be normalized and/or combined so the code is easier to
+maintain.
 
 ---------------------------
 Simplify Session Definition
@@ -810,6 +948,62 @@ when making trade-offs?  Where do I want to go today?
 
 I'm finding this a lot easier to say than to do.
 
+2001-08-14 - Still Not Done
+
+I think I need to just dive into this one.  Give one or two people
+development access and then hit them with sticks if they break stuff.
+My biggest worry, I think, is that people won't give adequate
+forethought before adding new code to things.  Of course "adequate"
+for me is probably "way too much" for most other people.  This file is
+evidence of that.
+
+Perhaps some sort of groupware system where we can talk about stuff.
+Ideally, I suppose it would be the TODO file with multiple authors.
+There are some options here:
+
+  SourceForge
+
+    Blech.  Simple tasks turn into multi-page processes of doom.
+    Slow, tedious, flaky, and ugly.  About all it has going for it is
+    a lot of users, which says something, but I'm not sure what.
+
+  CVS
+
+    Make the TODO file group-editable.  Again, this could be through
+    SourceForge.  On the plus side, people won't need to go through
+    the web interface to make changes.  This may become the best
+    option, actually.
+
+  Wiki
+
+    Group-edited web site.  I don't know much about this one.
+
+  YASD
+
+    My groupware outline, never completed.  It is a self-contained POE
+    web server/database.  Artur would like to finish POE::Component::
+    Server::HTTP, and I'd rather use that than reinvent it for my own
+    server.
+
+  Mailing List
+
+    Guts talk on the main list?  I know Torvald is using the list that
+    way, reading from here and posting there.  I get the impression,
+    though, that it would be easier and more direct if he could add
+    his comments directly to this file instead of waiting for me to.
+
+  nntp.perl.org
+
+    This news server mirrors and archives all the perl.org mailing
+    lists.  It provides a persistent record of conversations, and
+    sufficiently advanced newsreaders will present it threaded.  This
+    might work well for some people, but there's still no way to
+    summarize contributions into a coherent design.  Maybe an offshoot
+    of YASD is in order.  I'll work on a database design that models
+    my interpretation of the ideal development model.
+
+Are there any other free, usable groupware things?
+
 ---------------------------------------
 Give Exported Constants Some Prefix(es)
 ---------------------------------------
@@ -873,6 +1067,16 @@ other goop.  So:
 
 These would still need to be before the first instance of C<use POE;>
 because they dis/enable things at compile time.
+
+2001-08-14 - Module Tweaks
+
+Modules should be allowed to access global tweak flags at C<use> time.
+The tweaks library should make this easy.
+
+Artur wants lexical stricture.  Gads, that would make things slow!
+Right now stricture is implemented at compile time, by enabling code
+that's normally not compiled into the program.  Requiring runtime
+tests for everything would add a big (?) chunk of overhead.
 
 Known interested people: Artur, Rocco :)
 
@@ -1262,6 +1466,28 @@ POE::Relationship::Network - A directed graph of sessions, suitable
 for writing neural or other networks.  Convenience methods for
 broadcasting events to connected sessions.
 
+2001-08-13: Torvald Riegel writes...
+
+I'd like to note that these are patterns which should be layered on a
+real link.  These relationships (relations would be better) are called
+associations between objects (at least in UML and what I've seen so
+far).  The ends of such associations have a given multiplicity and
+role(name)s.  These roles identify interfaces on these ends.  So
+interface definitions for sessions or objects (lets call them objects
+since they have the same properties...) should be used as well.
+ 
+But this is the object layer, actually.  I wouldn't mind if it would
+be used widely (when one exists), but the last decision I heard from
+Rocco was that it shouldn't be included but strictly layered on top.
+However I do think that it would make sense for POE basics as well.
+ 
+I do want to include associations for POE::Script, which will exist
+soon.  (the plans for it are done, I just need some more time,
+implementation won't be so hard).  A well designed object layer would
+be better, but maybe we can use the script thing as a testcase and to
+make writing POE scripts more easily.  Roughly it is a stack based
+method system that deals with parallelism in the POE way.
+
 ------------------------------
 Delay Garbage Collection (???)
 ------------------------------
@@ -1364,6 +1590,83 @@ Notes:
 - decided against alarm_remove_by_event(); use alarm() instead
 - decided against alarm_remove_by time(); it's not very useful
 
+---------------------------
+Make Filter Changing Usable
+---------------------------
+
+This change adds new features without breaking existing ones.  This
+change is a prerequisite for input flow control in Wheel::ReadWrite.
+
+2001-07-27 - Refactoring Checklist
+
+1. get_one_start() takes an arrayref of chunks.  It does not return
+   anything in particular.
+
+   done.  documented.
+
+2. get_one() returns an arrayref of 0 or 1 chunks.  It does not take
+   anything.  Actually, it can return 2+ chunks, but it tries to be
+   ungreedy.
+
+   done.  documented.
+
+3. get_pending() returns undef if nothing is pending.
+
+   done.  documented.
+
+4. get_pending() returns an arrayref if something is pending.  Check
+   for pending data using length(), defined(), or scalar() depending
+   on how the filter stores its pending data.  Be sure not to test the
+   buffer directly for truth, as it may contain a significant 0 or
+   undef.
+
+   done.  documented.
+
+5. get_pending() does not damage a filter's buffer.
+
+   done.  documented.
+
+6. Wheels?  Auuuugh!
+
+   Actually, only ReadWrite deals with filter changing.  Whew!
+
+   done.  documented.
+
+7. Update Filter::Xyz documentation.
+
+   done.
+
+8. Update Wheel::Xyz documentation.
+
+   done.
+
+Wheels:
+
+   ReadWrite - done.
+
+Finishing Touches:
+
+   Dear gods, some of this code sucks!  The duplicated code in
+   Filter::Line is particularly horrific, not for its structure but
+   for the amount of duplication.  The way wheels test for the end of
+   get_one() loops leaves much to be desired.  But my brane is focused
+   on getting through this big suite of changes today, so I'm not
+   paying too much attention to doing it optimally.  As my C guru once
+   said, "Get it working, and then make it faster."
+
+   Filter::Reference uses a hashref for its $self.  Make that an
+   arrayref, damnit!
+
+2001-07-16:
+
+Once this is fixed, ReadWrite can use get_one() to fetch one event at
+a time.  The resume_input() method can, among other things, continue
+the get_one() loop if data is already buffered but more isn't ready to
+be read.
+
+2001-08-12:
+
+Released in version 0.1502.
 
 ===============================================================================
 ===============================================================================
