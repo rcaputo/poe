@@ -122,11 +122,12 @@ sub flush {
 
   # syswrite() it, like we're supposed to
   while (@{$self->[OUTPUT_QUEUE]}) {
-    my $wrote_count = syswrite($handle,
-                               $self->[OUTPUT_QUEUE]->[0],
-                               $self->[CURRENT_OCTETS_LEFT],
-                               $self->[CURRENT_OCTETS_DONE],
-                              );
+    my $wrote_count = syswrite(
+      $handle,
+      $self->[OUTPUT_QUEUE]->[0],
+      $self->[CURRENT_OCTETS_LEFT],
+      $self->[CURRENT_OCTETS_DONE],
+    );
 
     unless ($wrote_count) {
       $! = 0 if $! == EAGAIN or $! == EWOULDBLOCK;
