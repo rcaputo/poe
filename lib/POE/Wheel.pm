@@ -88,7 +88,7 @@ occur.
 
   $wheel->event( InputEvent   => 'new_input_event',
                  ErrorEvent   => undef,
-                 FlushedEvenc => 'new_flushed_event',
+                 FlushedEvent => 'new_flushed_event',
                );
 
 =back
