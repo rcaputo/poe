@@ -282,7 +282,7 @@ sub new {
       # size.  APITUE 19.4 and 19.5.
       if (defined TIOCGWINSZ) {
         if (-t STDIN) {
-          my $window_size = '';
+          my $window_size = '!' x 25;
           ioctl( STDIN, TIOCGWINSZ, $window_size ) or die $!;
           ioctl( $stdin_read, TIOCSWINSZ, $window_size ) or die $!;
         }
