@@ -35,12 +35,19 @@ BEGIN {
 
 #------------------------------------------------------------------------------
 
+macro define_assert (<const>) {
+  defined &ASSERT_<const> or eval 'sub ASSERT_<const> () { ASSERT_DEFAULT }';
+}
+
 macro make_session {
   my $self =
     bless [ { }, # SE_NAMESPACE
             { }, # SE_OPTIONS
             { }, # SE_STATES
           ], $type;
+  if (ASSERT_STATES) {
+    $self->[SE_OPTIONS]->{OPT_DEFAULT} = 1;
+  }
 }
 
 macro validate_kernel {
@@ -74,6 +81,30 @@ macro verify_start_state {
 }
 
 # MACROS END <-- search tag for editing
+
+#------------------------------------------------------------------------------
+# Debugging flags for subsystems.  They're done as double evals here
+# so that someone may define them before using POE::Session (or POE),
+# and the pre-defined value will take precedence over the defaults
+# here.
+
+BEGIN {
+
+  # ASSERT_DEFAULT changes the default value for other ASSERT_*
+  # constants.  It inherits POE::Kernel's ASSERT_DEFAULT value, if
+  # it's present.
+
+  unless (defined &ASSERT_DEFAULT) {
+    if (defined &POE::Kernel::ASSERT_DEFAULT) {
+      eval( "sub ASSERT_DEFAULT () { " . &POE::Kernel::ASSERT_DEFAULT . " }" );
+    }
+    else {
+      eval 'sub ASSERT_DEFAULT () { 0 }';
+    }
+  };
+
+  {% define_assert STATES %}
+}
 
 #------------------------------------------------------------------------------
 # Export constants into calling packages.  This is evil; perhaps
@@ -1658,6 +1689,31 @@ session.  The existing session which created a child becomes its
 
 A session with children will not spontaneously stop.  In other words,
 the presence of child sessions will keep a parent alive.
+
+=head2 Session's Debugging Features
+
+POE::Session contains a two debugging assertions, for now.
+
+=over 2
+
+=item ASSERT_DEFAULT
+
+ASSERT_DEFAULT is used as the default value for all the other assert
+constants.  Setting it true is a quick and reliably way to ensure all
+Session assertions are enabled.
+
+Session's ASSERT_DEFAULT inherits Kernel's ASSERT_DEFAULT value unless
+overridden.
+
+=item ASSERT_STATES
+
+Setting ASSERT_STATES to true causes every Session to warn when they
+are asked to handle unknown events.  Session.pm implements the guts of
+ASSERT_STATES by defaulting the "default" option to true instead of
+false.  See the option() function earlier in this document for details
+about the "default" option.
+
+=back
 
 =head1 SEE ALSO
 
