@@ -16,14 +16,9 @@ Documentation Roadmap
 The POE manpage's SEE ALSO section lists the topics covered in each
 manpage.  It's a good starting place.
 
-The CHANGES file lists nearly every change made to POE since 1998,
-including ones which have broken backward compatibility.  The
-backward-breaking changes are marked with exclamation points so they
-stand out.
-
-The TODO file includes a roadmap of changes which may break backward
-compatibility.  Each change includes dates of earliest breakage, which
-means you have at least until those dates to update critical programs.
+The CHANGES file lists all the changes in the past year.  A more
+complete version is available at <http://poe.perl.org/?POE_CHANGES>.
+This file highlights changes that may break existing programs.
 
 --------------------
 Distribution Details
@@ -98,23 +93,20 @@ POE manpage.  You can preview them before building POE.
 
   perldoc ./POE.pm
 
-Please read the CHANGES and TODO files if you already have programs
-which use POE.  They contain advance notice of changes which may break
-existing code.
+Please read the CHANGES file if you already have programs which use
+POE.  It contains advance notice of changes which may break existing
+code.  POE's change history is at <http://poe.perl.org/?POE_CHANGES>,
+and a copy is provided in the distribution.
 
   less ./CHANGES
-  less ./TODO
 
 If everything looks good, build POE:
 
   perl Makefile.PL
   make
 
-... then test the distribution.  This is an important step since it
-also ferrets out the modules POE needs.  It reports on the POE
-components which won't work because of missing dependencies, and it
-recommends things to install.  Please read the dependency report
-carefully.
+... then test the distribution.  The test suite includes a dependency
+report.  Please read it carefully if POE won't build.
 
   make test
 
@@ -141,145 +133,22 @@ Finally you can install it:
 Test Results
 ------------
 
-Thanks to a-mused and dynweb for their testing time.  Someday
-SourceForge will get its compile farm together again, and I'll be able
-to add six more test systems to this list.
+POE's test results have moved onto the 'web.  You can find them at
+<http://poe.perl.org/?POE%27s_test_results>.
 
-The wallclock seconds are constrained mainly by delays within the
-tests themselves.  For a more accurate determination of POE's speed,
-balance the CPU seconds against the test machine's hardware and
-operating system.
-
-** POE 0.17 on FreeBSD (dngor)
-
-Hardware: Athlon-1000; 512MB RAM
-System  : FreeBSD 4.3-STABLE
-Perl    : 5.6.1
-Gtk     : 0.7008
-Tk      : 800.023
-Event   : 0.83
-IO::Pty : 0.01
-
-All tests successful.
-Files=26, Tests=578, 84 wallclock secs ( 7.73 cusr +  0.66 csys =  8.40 CPU)
-
-** POE 0.17 on Linux (titanic)
-
-Hardware: dual Celeron 500; 512MB RAM
-System  : Linux 2.4.9 SMP
-Perl    : v5.6.0
-Gtk     : (not installed)
-Tk      : (not installed)
-Event   : 0.79
-IO::Pty : 0.01
-
-All tests successful, 2 tests skipped.
-Files=26, Tests=561, 80 wallclock secs (19.01 cusr +  1.30 csys = 20.31 CPU)
-
-** POE 0.16 on Solaris 8 (dynweb)
-
-Hardware: Ultra-80; 2x UltraSparc II-450; 1GB RAM
-System  : SunOS 5.8
-Perl    : 5.6.1
-Gtk     : (not installed)
-Tk      : 800.023
-Event   : 0.81
-IO::Pty : 0.01
-
-All tests successful, 2 tests skipped.
-Files=26, Tests=561, 79 wallclock secs (17.53 cusr +  1.51 csys = 19.04 CPU)
-
-** POE 0.1501 on Mac OS X (Jotham)
-
-Hardware: G4-400
-System  : Mac OS X 10.0.4
-Perl    : 5.6.1
-Gtk     : (not installed)
-Tk      : (not installed)
-Event   : (not installed)
-IO::Pty : (not installed)
-
-(unknown test status)
-Files=26, Tests=444, 74 wallclock secs (20.47 cusr +  3.22 csys = 23.69 CPU)
-
-** POE 0.15 on Windows 4.10.2222 (also dynweb)
-
-Hardware: (unknown)
-System  : Windows 98 2nd Edition
-Perl    : v5.6.1, MSWin32-x86-multi-thread, ActiveState build 628
-Gtk     : (not installed)
-Tk      : (not installed)
-Event   : (not installed)
-IO::Pty : (not installed)
-
-7 tests skipped.
-Failed 6/26 test scripts, 76.92% okay. 45/297 subtests failed, 84.85% okay.
-
-[NB: Several of these test failures have been addressed, if not
-fixed.]
-
-** POE 0.1203 on Linux (a-mused)
-
-Hardware: Celeron 600; unknown RAM
-System  : Linux 2.4.0-test12
-Perl    : 5.005_03
-Gtk     : (unknown)
-Tk      : (not installed)
-Event   : (installed; unknown version)
-
-All tests successful, 2 tests skipped.
-Files=23, Tests=415, 98 wallclock secs (14.22 cusr + 0.63 csys = 14.85 CPU)
+If you have tested POE on a configuration that's not listed there,
+please consider adding your results to the site.  Thanks!
 
 -------------
 Test Coverage
 -------------
 
-While the test coverage numbers are statistically meaningless, they
-still present a fun challenge and some measure of assurance that the
-authors care about POE's quality.  Here's your grain of salt.  Lime
-and tequila will be provided upon request. :)
+POE's test coverage report has also moved onto the 'web.  It's at
+<http://poe.perl.org/?POE%27s_test_coverage_report>.
 
-The "Ran" and "Total" numbers are breakpoints that perl's debugger can
-step through.  The "Covered" number is the percentage of breakpoints
-that were actually stepped through during testing.
-
-These results are for version 0.1502.
-
-  Source File                         =   Ran / Total = Covered
-  POE.pm                              =    23 /    24 =  95.83%
-  POE/Component.pm                    =     5 /     5 = 100.00%
-  POE/Component/Server/TCP.pm         =    32 /    32 = 100.00%
-  POE/Driver.pm                       =     5 /     5 = 100.00%
-  POE/Driver/SysRW.pm                 =    47 /    54 =  87.04%
-  POE/Filter.pm                       =     5 /     5 = 100.00%
-  POE/Filter/Block.pm                 =    51 /    51 = 100.00%
-  POE/Filter/Grep.pm                  =    24 /    31 =  77.42%
-  POE/Filter/HTTPD.pm                 =    18 /    88 =  20.45%
-  POE/Filter/Line.pm                  =    86 /   114 =  75.44%
-  POE/Filter/Map.pm                   =    22 /    29 =  75.86%
-  POE/Filter/RecordBlock.pm           =    24 /    48 =  50.00%
-  POE/Filter/Reference.pm             =    81 /    84 =  96.43%
-  POE/Filter/Stackable.pm             =    31 /    40 =  77.50%
-  POE/Filter/Stream.pm                =    21 /    21 = 100.00%
-  POE/Kernel.p.pm                     =     1 /     1 = 100.00%
-  POE/Kernel.pm                       =   869 /  1121 =  77.52%
-  POE/Kernel/Event.pm                 =     1 /     9 =  11.11%
-  POE/Kernel/Gtk.pm                   =     2 /    17 =  11.76%
-  POE/Kernel/Select.pm                =     6 /    12 =  50.00%
-  POE/Kernel/Tk.pm                    =     2 /    19 =  10.53%
-  POE/NFA.pm                          =   114 /   203 =  56.16%
-  POE/Pipe.pm                         =    44 /    60 =  73.33%
-  POE/Pipe/OneWay.pm                  =    18 /    37 =  48.65%
-  POE/Pipe/TwoWay.pm                  =    21 /    42 =  50.00%
-  POE/Preprocessor.pm                 =   108 /   186 =  58.06%
-  POE/Session.pm                      =   177 /   226 =  78.32%
-  POE/Wheel.pm                        =    11 /    11 = 100.00%
-  POE/Wheel/FollowTail.pm             =    90 /   108 =  83.33%
-  POE/Wheel/ListenAccept.pm           =    51 /    65 =  78.46%
-  POE/Wheel/ReadWrite.pm              =   152 /   228 =  66.67%
-  POE/Wheel/Run.pm                    =   176 /   250 =  70.40%
-  POE/Wheel/SocketFactory.pm          =   206 /   249 =  82.73%
-  All Told                            =  2524 /  3475 =  72.63%
+----
+Bye!
+----
 
 Thanks for reading!
 
