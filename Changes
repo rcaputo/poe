@@ -7,7 +7,21 @@ Changes marked with "(!!!)" may break backward compatibility.
 Versions with "_xx" subversions are internal test releases.
 
 
-0.06_08 1999.05.13
+0.06_09 1999.06.??
+------------------
+
+Updated samples/*sessions.perl to test $kernel->state(...) and
+discovered that the documentation was wrong about this function.
+Thanks, Artur, for pointing this out.
+
+Fixed the documentation for $kernel->state(...) with regards to
+package and object sessions.
+
+Made POE::Session an array reference, as part of the reorganization of
+POE's internals.
+
+
+0.06_08 1999.05.30
 ------------------
 
 Begin reorganizing POE development.  The tests/ subdirectory is now
@@ -33,6 +47,8 @@ much more confidence in this now that it's tested.
 Updated documentation to point to the samples/ directory.
 
 Fixed t/test.t to point to the samples/ directory.
+
+Made dist on a FreeBSD system, so the permissions should be correct.
 
 
 0.06_07 1999.05.12

@@ -66,18 +66,38 @@ sub sigint {
 # handler causes that condition when it stops posting events.
 
 sub increment {
-  my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+  my ($package, $kernel, $session, $heap) = @_[OBJECT, KERNEL, SESSION, HEAP];
 
   $heap->{'counter'}++;
+
+  if ($heap->{counter} % 2) {
+    $kernel->state('runtime_state', $package);
+  }
+  else {
+    $kernel->state('runtime_state');
+  }
 
   print "Session $heap->{'name'}, iteration $heap->{'counter'}.\n";
 
   if ($heap->{'counter'} < 5) {
     $kernel->post($session, 'increment');
+    $kernel->yield('runtime_state', $heap->{counter});
   }
   else {
     # no more events.  since there is nothing left to do, the session exits.
   }
+}
+
+#------------------------------------------------------------------------------
+# This state is added on every even count.  It's removed on every odd
+# one.  Every count posts an event here.
+
+sub runtime_state {
+  my ($session, $heap, $iteration) = @_[SESSION, HEAP, ARG0];
+  print( 'Session ', $heap->{name},
+         ' received a runtime_state event during iteration ',
+         $iteration, "\n"
+       );
 }
 
 #==============================================================================

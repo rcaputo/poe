@@ -1162,7 +1162,7 @@ sub alias_resolve {
   my ($self, $name) = @_;
                                         # resolve against current namespace
   if ($self->[KR_ACTIVE_SESSION] ne $self) {
-    if ($name eq $self->[KR_ACTIVE_SESSION]->{'namespace'}) {
+    if ($name eq $self->[KR_ACTIVE_SESSION]->[&POE::Session::SE_NAMESPACE]) {
       carp "Using HEAP instead of SESSION is depreciated";
       return $self->[KR_ACTIVE_SESSION];
     }
@@ -1210,3 +1210,54 @@ new POE::Kernel();
 
 ###############################################################################
 1;
+
+__END__
+
+name is public
+_name is friend
+__name is private
+
+sub _enqueue_event {
+  my ($self, $session_id, $source_id, $state, $priority, $time, $etc) = @_;
+}
+
+#------------------------------------------------------------------------------
+# Dispatch an event to the next session in the round-robin queue.
+# This also has the side-effect of testing sessions for activity; they
+# can be checked for resource starvation only when they've run out of
+# events.  This should eliminate a lot of checks.
+
+sub _dispatch_next_event {
+  my ($self) = @_;
+
+  my $next_session = shift @{$self->[KR_SQUEUE]};
+  if ($next_session->_dispatch_event()) {
+    push @{$self->[KR_SQUEUE]}, $next_session;
+  }
+}
+
+
+# Theory of operation:
+#
+# Kernel keeps a master queue.  This holds active sessions in a
+# time-based "priority" queue.
+#
+# The queue's "key" is the time that a session will next need
+# attention.  This is the time of the next event in the session's
+# queue.
+#
+# The queue's "value" is a reference to the session (or perhaps
+# session ID) that points to the session for dispatching.
+#
+# So:
+
+my $kernel = bless {}, 'POE::Kernel';
+$kernel->[KR_MASTER_QUEUE] =
+  [ [ $time, $session ],
+    [ $time, $session ],
+    ...
+  ];
+
+# Sorted in $time order.
+#
+# Inser

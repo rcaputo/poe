@@ -33,19 +33,10 @@ sub ARG7    () { 13 }
 sub ARG8    () { 14 }
 sub ARG9    () { 15 }
 
-#------------------------------------------------------------------------------
-# AUTOLOAD to translate regular calls into method invocations.
-
-# sub AUTOLOAD {
-#   use vars qw($AUTOLOAD);
-#   die "not ready: $AUTOLOAD";
-# }
-
-#------------------------------------------------------------------------------
-
-# sub post {
-#   warn "*** post(", join(', ', @_), ")\n";
-# }
+sub SE_NAMESPACE () { 0 }
+sub SE_OPTIONS   () { 1 }
+sub SE_KERNEL    () { 2 }
+sub SE_STATES    () { 3 }
 
 #------------------------------------------------------------------------------
 
@@ -60,9 +51,7 @@ sub new {
   croak "$type requires a working Kernel"
     unless (defined $POE::Kernel::poe_kernel);
 
-  my $self = bless { 'namespace' => { },
-                     'options'   => { },
-                   }, $type;
+  my $self = bless [ { }, { } ], $type;
 
   while (@states) {
                                         # handle arguments
@@ -122,7 +111,7 @@ sub new {
     croak "odd number of events/handlers (missing one or the other?)";
   }
 
-  if (exists $self->{'states'}->{'_start'}) {
+  if (exists $self->[SE_STATES]->{'_start'}) {
     $POE::Kernel::poe_kernel->session_alloc($self, @args);
   }
   else {
@@ -198,7 +187,7 @@ sub create {
     }
   }
 
-  if (exists $self->{'states'}->{'_start'}) {
+  if (exists $self->[SE_STATES]->{'_start'}) {
     $POE::Kernel::poe_kernel->session_alloc($self, @args);
   }
   else {
@@ -212,9 +201,7 @@ sub create {
 
 sub DESTROY {
   my $self = shift;
-  delete $self->{'kernel'};
-  delete $self->{'namespace'};
-  delete $self->{'states'};
+  # -><- clean out things
 }
 
 #------------------------------------------------------------------------------
@@ -222,17 +209,17 @@ sub DESTROY {
 sub _invoke_state {
   my ($self, $source_session, $state, $etc) = @_;
 
-  if (exists($self->{'options'}->{'trace'})) {
+  if (exists($self->[SE_OPTIONS]->{'trace'})) {
     warn "$self -> $state\n";
   }
 
-  if (exists $self->{'states'}->{$state}) {
+  if (exists $self->[SE_STATES]->{$state}) {
                                         # inline
-    if (ref($self->{'states'}->{$state}) eq 'CODE') {
-      return &{$self->{'states'}->{$state}}(undef,                    # object
+    if (ref($self->[SE_STATES]->{$state}) eq 'CODE') {
+      return &{$self->[SE_STATES]->{$state}}(undef,                   # object
                                             $self,                    # session
                                             $POE::Kernel::poe_kernel, # kernel
-                                            $self->{'namespace'},     # heap
+                                            $self->[SE_NAMESPACE],    # heap
                                             $state,                   # state
                                             $source_session,          # sender
                                             @$etc                     # args
@@ -241,10 +228,10 @@ sub _invoke_state {
                                         # package and object
     else {
       return
-        $self->{'states'}->{$state}->$state(                          # object
+        $self->[SE_STATES]->{$state}->$state(                         # object
                                             $self,                    # session
                                             $POE::Kernel::poe_kernel, # kernel
-                                            $self->{'namespace'},     # heap
+                                            $self->[SE_NAMESPACE],    # heap
                                             $state,                   # state
                                             $source_session,          # sender
                                             @$etc                     # args
@@ -252,7 +239,7 @@ sub _invoke_state {
     }
   }
                                         # recursive, so it does the right thing
-  elsif (exists $self->{'states'}->{'_default'}) {
+  elsif (exists $self->[SE_STATES]->{'_default'}) {
     return $self->_invoke_state( $source_session,
                                  '_default',
                                  [ $state, $etc ]
@@ -261,7 +248,7 @@ sub _invoke_state {
                                         # whoops!  no _default?
   else {
     $! = ENOSYS;
-    if (exists $self->{'options'}->{'default'}) {
+    if (exists $self->[SE_OPTIONS]->{'default'}) {
       warn "\t$self -> $state does not exist (and no _default)\n";
     }
     return undef;
@@ -278,21 +265,21 @@ sub register_state {
   if ($handler) {
     if (ref($handler) eq 'CODE') {
       carp "redefining state($state) for session($self)"
-        if ( (exists $self->{'options'}->{'debug'}) &&
-             (exists $self->{'states'}->{$state})
+        if ( (exists $self->[SE_OPTIONS]->{'debug'}) &&
+             (exists $self->[SE_STATES]->{$state})
            );
-      $self->{'states'}->{$state} = $handler;
+      $self->[SE_STATES]->{$state} = $handler;
     }
     elsif ($handler->can($state)) {
       carp "redefining state($state) for session($self)"
-        if ( (exists $self->{'options'}->{'debug'}) &&
-             (exists $self->{'states'}->{$state})
+        if ( (exists $self->[SE_OPTIONS]->{'debug'}) &&
+             (exists $self->[SE_STATES]->{$state})
            );
-      $self->{'states'}->{$state} = $handler;
+      $self->[SE_STATES]->{$state} = $handler;
     }
     else {
       if (ref($handler) eq 'CODE' &&
-          exists($self->{'options'}->{'trace'})
+          exists($self->[SE_OPTIONS]->{'trace'})
       ) {
         carp "$self : state($state) is not a proper ref - not registered"
       }
@@ -303,7 +290,7 @@ sub register_state {
     }
   }
   else {
-    delete $self->{'states'}->{$state};
+    delete $self->[SE_STATES]->{$state};
   }
 }
 
@@ -320,13 +307,48 @@ sub option {
     ($value = 0) if ($value =~ /^(no|off)$/i);
                                         # set or clear the option
     if ($value) {
-      $self->{'options'}->{lc($flag)} = $value;
+      $self->[SE_OPTIONS]->{lc($flag)} = $value;
     }
     else {
-      delete $self->{'options'}->{lc($flag)};
+      delete $self->[SE_OPTIONS]->{lc($flag)};
     }
   }
 }
 
 ###############################################################################
 1;
+
+__END__
+
+#------------------------------------------------------------------------------
+# Enqueue an event.
+
+name is public
+_name is friend
+__name is private
+
+sub _enqueue_event {
+  my ($self, $sender, $state, $priority, $time, $etc) = @_;
+
+  # Place the event is the session's queue.
+
+  #
+  # If "concurrent" POE:
+  #   Start or unblock the session's dispatch thread.
+  # End
+  #
+  # Return the number of events in the session's queues.
+
+}
+
+sub _dispatch_event {
+  my ($self) = @_;
+
+  # If "concurrent" POE:
+  #   Return 1 if there are no events but the session has resources to keep it active.
+  #   Return 0 if there are no events and the session is "stalled".
+  # Otherwise, "regular" POE:
+  #   Dispatch an event, and return the number of events left in the queue.
+  # End
+}
+

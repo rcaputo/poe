@@ -63,6 +63,13 @@ sub child_increment {
 
   $count++;
 
+  if ($count % 2) {
+    $kernel->state('runtime_state', \&child_runtime_state);
+  }
+  else {
+    $kernel->state('runtime_state');
+  }
+
   print "Session $name, iteration $count...\n";
 
   my $ret = $kernel->call($me, 'display_one', $name, $count);
@@ -73,7 +80,19 @@ sub child_increment {
 
   if ($count < 5) {
     $kernel->post($me, 'increment', $name, $count);
+    $kernel->yield('runtime_state', $name, $count);
   }
+}
+
+#------------------------------------------------------------------------------
+# This state is added on every even count.  It's removed on every odd
+# one.  Every count posts an event here.
+
+sub child_runtime_state {
+  my ($name, $iteration) = @_[ARG0, ARG1];
+  print( "Session $name received a runtime_state event ",
+         "during iteration $iteration\n"
+       );
 }
 
 #------------------------------------------------------------------------------

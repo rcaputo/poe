@@ -88,14 +88,34 @@ sub increment {
 
   $heap->{'counter'}++;
 
+  if ($heap->{counter} % 2) {
+    $kernel->state('runtime_state', $object);
+  }
+  else {
+    $kernel->state('runtime_state');
+  }
+
   print "Session $object->{'name'}, iteration $heap->{'counter'}.\n";
 
   if ($heap->{'counter'} < 5) {
     $kernel->post($session, 'increment');
+    $kernel->yield('runtime_state', $heap->{counter});
   }
   else {
     # no more events.  since there is nothing left to do, the session exits.
   }
+}
+
+#------------------------------------------------------------------------------
+# This state is added on every even count.  It's removed on every odd
+# one.  Every count posts an event here.
+
+sub runtime_state {
+  my ($self, $iteration) = @_[OBJECT, ARG0];
+  print( 'Session ', $self->{name},
+         ' received a runtime_state event during iteration ',
+         $iteration, "\n"
+       );
 }
 
 #==============================================================================
