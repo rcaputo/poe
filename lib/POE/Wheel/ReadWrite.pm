@@ -10,6 +10,8 @@ use strict;
 use Carp;
 use POE;
 
+sub CRIMSON_SCOPE_HACK ($) { 0 }
+
 #------------------------------------------------------------------------------
 
 sub new {
@@ -22,10 +24,9 @@ sub new {
   croak "Handle required" unless (exists $params{'Handle'});
   croak "Driver required" unless (exists $params{'Driver'});
   croak "Filter required" unless (exists $params{'Filter'});
-  croak "InputState required" unless (exists $params{'InputState'});
 
-  my ($handle, $driver, $filter, $state_in, $state_flushed, $state_error) =
-    @params{ qw(Handle Driver Filter InputState FlushedState ErrorState) };
+  my ($handle, $driver, $filter, $state_flushed, $state_error) =
+    @params{ qw(Handle Driver Filter FlushedState ErrorState) };
 
   my $self = bless { 'handle' => $handle,
                      'driver' => $driver,
@@ -34,25 +35,33 @@ sub new {
                      'state flushed' => $state_flushed,
                    }, $type;
                                         # register the select-read handler
-  $poe_kernel->state
-    ( $self->{'state read'} = $self . ' -> select read',
-      sub {
-        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-        if (defined(my $raw_input = $driver->get($handle))) {
-          foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            $k->call($me, $state_in, $cooked_input)
+  if (exists $params{'InputState'}) {
+    my $state_in = $params{'InputState'};
+    $poe_kernel->state
+      ( $self->{'state read'} = $self . ' -> select read',
+        sub {
+                                        # prevents SEGV
+          0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
+          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+          if (defined(my $raw_input = $driver->get($handle))) {
+            foreach my $cooked_input (@{$filter->get($raw_input)}) {
+              $k->call($me, $state_in, $cooked_input)
+            }
+          }
+          else {
+            $state_error && $k->call($me, $state_error, 'read', ($!+0), $!);
+            $k->select_read($handle);
           }
         }
-        else {
-          $state_error && $k->call($me, $state_error, 'read', ($!+0), $!);
-          $k->select_read($handle);
-        }
-      }
-    );
+      );
+  }
                                         # register the select-write handler
   $poe_kernel->state
     ( $self->{'state write'} = $self . ' -> select write',
-      sub {
+      sub {                                        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+                                        # subroutine starts here
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
         my $writes_pending = $driver->flush($handle);
@@ -69,7 +78,9 @@ sub new {
       }
     );
 
-  $poe_kernel->select($handle, $self->{'state read'});
+  if (exists $params{'InputState'}) {
+    $poe_kernel->select($handle, $self->{'state read'});
+  }
 
   $self;
 }
