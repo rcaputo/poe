@@ -160,7 +160,7 @@ sub derive_files {
 
       # Write with lots of error checking.
 
-      open EXPANDED, ">", $full_file or die $!;
+      open EXPANDED, ">$full_file" or die $!;
       print EXPANDED $expanded_src;
       close EXPANDED or die $!;
     }
