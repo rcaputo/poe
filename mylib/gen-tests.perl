@@ -1,0 +1,170 @@
+#!/usr/bin/perl -w
+
+use strict;
+use File::Spec::Functions;
+use File::Path;
+
+### Resources, and their perl and XS implementations.
+
+{
+  my $base_dir = catfile("t", "20_resources");
+  my $base_lib = catfile($base_dir, "00_base");
+
+  my %derived_conf = (
+    "10_perl" => { implementation => "perl" },
+    "20_xs"   => { implementation => "xs"   },
+  );
+
+  my $source = (
+    "#!/usr/bin/perl -w\n" .
+    "# \$Id\$\n" .
+    "\n" .
+    "use strict;\n" .
+    "use lib qw(--base_lib--);\n" .
+    "\n" .
+    "\$ENV{POE_IMPLEMENTATION} = '--implementation--';\n" .
+    "\n" .
+    "require '--base_file--';\n" .
+    "\n" .
+    "exit 0;\n"
+  );
+
+  derive_files(
+    base_dir     => $base_dir,
+    base_lib     => $base_lib,
+    derived_conf => \%derived_conf,
+    src_template => $source,
+  );
+}
+
+### Event loops and the tests that love them.
+
+{
+  my $base_dir = catfile("t", "30_loops");
+  my $base_lib = catfile($base_dir, "00_base");
+
+  my %derived_conf = (
+    "10_select" => { module => "",         display => "" },
+    "20_poll"   => { module => "IO::Poll", display => "" },
+    "30_event"  => { module => "Event",    display => "" },
+    "40_gtk"    => { module => "Gtk",      display => 1  },
+    "50_tk"     => { module => "Tk",       display => 1  },
+  );
+
+  # Turn a specified display flag into the code that tests for a
+  # DISPLAY environment variable.  DISPLAY is not necessary for
+  # ActiveState Perl, at least not for Tk.
+
+  foreach my $variables (values %derived_conf) {
+    my $module = $variables->{module};
+
+    if ($variables->{display} and $^O ne "MSWin32") {
+      $variables->{display} = (
+        "\n" .
+        "BEGIN {\n" .
+        "  unless (\$ENV{DISPLAY}) {\n" .
+        "    print qq(1..0 # SKIP $module needs a DISPLAY (set one today, okay?)\\n);\n" .
+        "    exit 0;\n" .
+        "  }\n" .
+        "}\n"
+      );
+    }
+
+    # If a module must be loaded, load it.  Skip the tests if it can't
+    # be loaded.
+
+    if ($variables->{module}) {
+      $variables->{module} = (
+        "\n" .
+        "BEGIN {\n" .
+        "  eval 'use $module';\n" .
+        "  if (\$@) {\n" .
+        "    print qq(1..0 # SKIP $module could not be loaded\\n);\n" .
+        "    exit 0;\n" .
+        "  }\n" .
+        "}\n"
+      );
+    }
+  }
+
+  my $source = (
+    "#!/usr/bin/perl -w\n" .
+    "# \$Id\$\n" .
+    "\n" .
+    "use strict;\n" .
+    "use lib qw(--base_lib--);\n" .
+    "--display--" .
+    "--module--" .
+    "\n" .
+    "require '--base_file--';\n" .
+    "\n" .
+    "exit 0;\n"
+  );
+
+  derive_files(
+    base_dir     => $base_dir,
+    base_lib     => catfile($base_dir, "00_base"),
+    derived_conf => \%derived_conf,
+    src_template => $source,
+  );
+}
+
+exit 0;
+
+sub derive_files {
+  my %conf = @_;
+
+  my $base_dir = $conf{base_dir};
+
+  # Gather the list of base files.  Each will be used to generate a
+  # real test file.
+
+  opendir BASE, $conf{base_lib} or die $!;
+  my @base_files = grep /\.pm$/, readdir(BASE);
+  closedir BASE;
+
+  # Generate a set of test files for each configuration.
+
+  foreach my $dst_dir (keys %{$conf{derived_conf}}) {
+    my $full_dst = catfile($base_dir, $dst_dir);
+    $full_dst =~ tr[/][/]s;
+    $full_dst =~ s{/+$}{};
+
+    my %template_conf = %{$conf{derived_conf}{$dst_dir}};
+
+    # Blow away any previously generated test files.
+
+    rmtree($full_dst);
+    mkpath($full_dst, 0, 0755);
+
+    # For each base file, generate a corresponding one in the
+    # configured destination directory.  Expand various bits to
+    # customize the test.
+
+    foreach my $base_file (@base_files) {
+      my $full_file = catfile($full_dst, $base_file);
+      $full_file =~ s/\.pm$/.t/;
+
+      # These hardcoded expansions are for the base file to be
+      # required, and the base library directory where it'll be found.
+
+      my $expanded_src = $conf{src_template};
+      $expanded_src =~ s/--base_file--/$base_file/g;
+      $expanded_src =~ s/--base_lib--/$conf{base_lib}/g;
+
+      # The others are plugged in from the directory configuration.
+
+      while (my ($key, $val) = each %template_conf) {
+        $expanded_src =~ s/--\Q$key\E--/$val/g;
+      }
+
+      # Write with lots of error checking.
+
+      open EXPANDED, ">", $full_file or die $!;
+      print EXPANDED $expanded_src;
+      close EXPANDED or die $!;
+    }
+  }
+}
+
+exit 0;
