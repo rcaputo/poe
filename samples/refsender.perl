@@ -71,6 +71,8 @@ sub client_stop {
 
 sub client_connected {
   my ($heap, $socket) = @_[HEAP, ARG0];
+
+  print "Client connected.\n";
                                         # become a reader/writer
   $heap->{'wheel'} = new POE::Wheel::ReadWrite
     ( Handle       => $socket,                    # read/write on this handle
