@@ -33,11 +33,16 @@ Added a program, lib/deptest.perl, which tries to determine and test
 the distribution's dependencies.  If any are missing, it reports them,
 and it may stop the module from being installed.
 
-Tentatively POE development to <http://sourceforge.net/projects/poe/>.
-Really regretting it at the moment: SF is experiencing severe
-growing/moving pains, resulting in a lot of service failures.
+Tentatively moved POE development to SourceForge (project name: "poe",
+at <http://sourceforge.net/projects/poe/>).  I'm really regretting it
+at the moment: SF is experiencing severe growing/moving pains, and all
+sorts of things have been broken.
 
-Documented the object layer depreciation.
+Documented the object layer depreciation.  The object layer will be
+moved to a separate component after 0.13 is released.
+
+Documented the samples depreciation.  They will be moved to a separate
+distribution after 0.13 is released.
 
 Moved POE::Kernel's data structures out of $self and into lexicals.
 Kept references to the structures in $self so Data::Dumper can dump
