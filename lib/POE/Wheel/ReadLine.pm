@@ -10,6 +10,7 @@ $VERSION = (qw($Revision$ ))[1];
 use Carp;
 use Symbol qw(gensym);
 use POE qw(Wheel);
+use POE::Preprocessor;
 
 # Things we'll need to interact with the terminal.
 use Term::Cap;
@@ -82,6 +83,53 @@ BEGIN {
         ) - 1;
   }
 };
+
+# Wipe the current input line.  Implemented as a macro to avoid
+# circular closure problems with $self.
+
+macro wipe_input_line {
+  # Clear the current prompt and input, and home the cursor.
+  print $stdout $termcap->Tgoto( 'LE', 1,
+                         ( $$self_cursor_display + length($$self_prompt)
+                         )
+                       );
+  if ($tc_has_ke) {
+    print $stdout $termcap->Tputs( 'kE', 1 );
+  }
+  else {
+    my $wipe_length = length($$self_prompt) + display_width($$self_input);
+    print( $stdout
+           (' ' x $wipe_length), $termcap->Tgoto( 'LE', 1, $wipe_length)
+         );
+  }
+}
+
+# Helper to flush any buffered output.  A macro to avoid circular
+# closure problems with $self.
+
+macro flush_output_buffer {
+  # Flush anything buffered.
+  if (@$self_put_buffer) {
+    print $stdout @$self_put_buffer;
+
+    # Do not change the interior listref, or the event handlers will
+    # become confused.
+    @$self_put_buffer = ( );
+  }
+}
+
+# Set up the prompt and input line like nothing happened.  A macro to
+# avoid circular closure problems with $self.
+
+macro repaint_input_line {
+  print( $stdout $$self_prompt, normalize($$self_input) );
+  if ($$self_cursor_input != length($$self_input)) {
+    $termcap->Tgoto( 'LE', 1,
+                     ( display_width($$self_input) - $$self_cursor_display ),
+                     $stdout
+                   );
+  }
+}
 
 # Return a normalized version of a string.  This includes destroying
 # 8th-bit-set characters, turning them into strange multi-byte
@@ -284,8 +332,13 @@ sub _define_idle_state {
   my $self = shift;
 
   my $has_timer   = \$self->[SELF_HAS_TIMER];
-  my $put_buffer  = $self->[SELF_PUT_BUFFER];
   my $unique_id   = $self->[SELF_UNIQUE_ID];
+
+  my $self_put_buffer     = $self->[SELF_PUT_BUFFER];
+  my $self_cursor_display = \$self->[SELF_CURSOR_DISPLAY];
+  my $self_cursor_input   = \$self->[SELF_CURSOR_INPUT];
+  my $self_prompt         = \$self->[SELF_PROMPT];
+  my $self_input          = \$self->[SELF_INPUT];
 
   # This handler is called when input has become idle.
   $poe_kernel->state
@@ -296,10 +349,10 @@ sub _define_idle_state {
 
         my ($k, $s) = @_[KERNEL, SESSION];
 
-        if (@$put_buffer) {
-          $self->_wipe_input_line();
-          $self->_flush_output_buffer();
-          $self->_repaint_input_line();
+        if (@$self_put_buffer) {
+          {% wipe_input_line %}
+          {% flush_output_buffer %}
+          {% repaint_input_line %}
         }
 
         # No more timer.
@@ -341,6 +394,8 @@ sub _define_read_state {
     my $put_buffer     = $self->[SELF_PUT_BUFFER];
     my $put_mode       = $self->[SELF_PUT_MODE];
     my $unique_id      = $self->[SELF_UNIQUE_ID];
+
+    my $self_put_buffer = $self->[SELF_PUT_BUFFER];
 
     $poe_kernel->state
       ( $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> select read",
@@ -415,7 +470,7 @@ sub _define_read_state {
                                   );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
-                $self->_flush_output_buffer();
+                {% flush_output_buffer %}
                 next;
               }
 
@@ -479,7 +534,7 @@ sub _define_read_state {
                                   );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
-                $self->_flush_output_buffer();
+                {% flush_output_buffer %}
                 return;
               }
 
@@ -517,7 +572,7 @@ sub _define_read_state {
                 $poe_kernel->yield( $$event_input, $$input, $unique_id );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
-                $self->_flush_output_buffer();
+                {% flush_output_buffer %}
                 next;
               }
 
@@ -558,7 +613,7 @@ sub _define_read_state {
                 $poe_kernel->yield( $$event_input, $$input, $unique_id );
                 $$reading = 0;
                 $$hist_index = @$hist_list;
-                $self->_flush_output_buffer();
+                {% flush_output_buffer %}
                 next;
               }
 
@@ -1109,59 +1164,6 @@ sub get {
   print $stdout $prompt;
 }
 
-# Helper to wipe the current input line.
-sub _wipe_input_line {
-  my $self = shift;
-
-  # Clear the current prompt and input, and home the cursor.
-  print $stdout $termcap->Tgoto( 'LE', 1,
-                         ( $self->[SELF_CURSOR_DISPLAY] +
-                           length($self->[SELF_PROMPT])
-                         )
-                       );
-  if ($tc_has_ke) {
-    print $stdout $termcap->Tputs( 'kE', 1 );
-  }
-  else {
-    my $wipe_length =
-      ( length($self->[SELF_PROMPT]) +
-        display_width($self->[SELF_INPUT])
-      );
-    print( $stdout
-           (' ' x $wipe_length), $termcap->Tgoto( 'LE', 1, $wipe_length)
-         );
-  }
-}
-
-# Helper to flush any buffered output.
-sub _flush_output_buffer {
-  my $self = shift;
-
-  # Flush anything buffered.
-  if (@{$self->[SELF_PUT_BUFFER]}) {
-    print $stdout @{$self->[SELF_PUT_BUFFER]};
-
-    # Do not change the interior listref, or the event handlers will
-    # become confused.
-    @{$self->[SELF_PUT_BUFFER]} = ( );
-  }
-}
-
-# Set up the prompt and input line like nothing happened.
-sub _repaint_input_line {
-  my $self = shift;
-
-  print( $stdout $self->[SELF_PROMPT], normalize($self->[SELF_INPUT]) );
-  if ($self->[SELF_CURSOR_INPUT] != length($self->[SELF_INPUT])) {
-    $termcap->Tgoto( 'LE', 1,
-                     ( display_width($self->[SELF_INPUT]) -
-                       $self->[SELF_CURSOR_DISPLAY]
-                     ),
-                     $stdout
-                   );
-  }
-}
-
 # Write a line on the terminal.
 sub put {
   my $self = shift;
@@ -1182,14 +1184,22 @@ sub put {
     #         "timer($self->[SELF_HAS_TIMER]) "
     #       );
 
-    $self->_wipe_input_line();
-    $self->_flush_output_buffer();
+    my $self_put_buffer     = $self->[SELF_PUT_BUFFER];
+    my $self_cursor_display = \$self->[SELF_CURSOR_DISPLAY];
+    my $self_prompt         = \$self->[SELF_PROMPT];
+    my $self_input          = \$self->[SELF_INPUT];
+    my $self_cursor_input   = \$self->[SELF_CURSOR_INPUT];
+
+    {% wipe_input_line %}
+    {% flush_output_buffer %}
 
     # Print the new stuff.
     print $stdout @lines;
 
     # Only repaint the input if we're reading a line.
-    $self->_repaint_input_line() if $self->[SELF_READING_LINE];
+    if ($self->[SELF_READING_LINE]) {
+      {% repaint_input_line %}
+    }
 
     return;
   }
