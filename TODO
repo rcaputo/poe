@@ -346,6 +346,12 @@ session with the "poe_" methods as event handlers.
 I think Artur Bergman mentioned this to me once, but I was too busy to
 think about it.  It's a rocking idea, though.
 
+-----------------------
+POE One-Liners are HARD
+-----------------------
+
+And it's a shame.  What can be done about that?
+
 ----------------------------------------------------
 The POE Community Wants a Bigger Hand in Development
 ----------------------------------------------------
