@@ -446,7 +446,10 @@ each client.  It may either be a scalar or a list reference.  If it is
 a scalar, it will contain a POE::Filter class name.  If it is a list
 reference, the first item in the list will be a POE::Filter class
 name, and the remaining items will be constructor parameters for the
-filter.
+filter.  For example, this changes the line separator to a vertical
+bar:
+
+  ClientFilter => [ "POE::Filter::Line", InputLiteral => "|" ],
 
 ClientFilter is optional.  The component will supply a
 "POE::Filter::Line" instance none is specified.
