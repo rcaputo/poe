@@ -56,8 +56,20 @@ sub new {
   $freezer ||= _default_freezer();
                                         # not a reference... maybe a package?
   unless(ref $freezer) {
-    unless(exists $::{$freezer.'::'}) {
-      eval {require "$freezer.pm"; import $freezer ();};
+    my $symtable=$::{"main::"};
+    my $loaded=1;                       # find out of the package was loaded
+    foreach my $p (split /::/, $freezer) {
+      unless(exists $symtable->{"$p\::"}) {
+        $loaded=0;
+        last;
+      }
+      $symtable=$symtable->{"$p\::"};
+    }
+
+    unless($loaded) {
+      my $q=$freezer;
+      $q=~s(::)(/)g;
+      eval {require "$q.pm"; import $freezer ();};
       croak $@ if $@;
     }
   }
