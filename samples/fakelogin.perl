@@ -129,12 +129,7 @@ new POE::Session
     { my $heap = $_[HEAP];
 
       $heap->{'wheel'} = new POE::Wheel::SocketFactory
-        ( SocketDomain   => AF_INET,
-          SocketType     => SOCK_STREAM,
-          SocketProtocol => 'tcp',
-          BindAddress    => INADDR_ANY,
-          BindPort       => $port,
-          ListenQueue    => 5,
+        ( BindPort       => $port,
           SuccessState   => 'socket_ok',
           FailureState   => 'socket_error',
           Reuse          => 'yes',
