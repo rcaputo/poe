@@ -155,8 +155,10 @@ sub new {
             shutdown => sub {
               my $heap = shift;
               $heap->{shutdown} = 1;
-              delete $heap->{client}
-                unless $heap->{client}->get_driver_out_octets();
+              if (defined $heap->{client}) {
+                delete $heap->{client}
+                  unless $heap->{client}->get_driver_out_octets();
+              }
             },
             _stop => $client_disconnected,
 

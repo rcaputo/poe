@@ -171,8 +171,10 @@ sub new {
           $_[HEAP]->{shutdown} = 1;
           my $heap = shift;
           $heap->{shutdown} = 1;
-          delete $heap->{server}
-            unless $heap->{server}->get_driver_out_octets();
+          if (defined $heap->{server}) {
+            delete $heap->{server}
+              unless $heap->{server}->get_driver_out_octets();
+          }
         },
 
         # User supplied states.
