@@ -8,7 +8,7 @@ Versions with "_xx" subversions are internal test releases.  Most
 subversions are available from <http://www.newts.org/~troc/poe.html>.
 
 
-0.08 1999.11.19
+0.08 1999.11.26
 ---------------
 
 John Labovitz <watchguard.com!johnl> submitted a patch to change
@@ -21,6 +21,9 @@ There have been no complaints with the 0.07_xx subversions, and they
 contain useful changes, so the version is bumped to 0.08.
 
 Mentioned the "POE2" project in the README file.
+
+Added an undocumented command line switch to samples/poing.perl that
+specifies the maximum number of hours to run.
 
 
 0.0704 1999.11.14
