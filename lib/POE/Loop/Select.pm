@@ -392,6 +392,7 @@ macro substrate_do_timeslice {
     $event = shift @kr_events;
     delete $kr_event_ids{$event->[ST_SEQ]};
     {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
+    {% ses_refcount_dec2 $event->[ST_SOURCE], SS_POST_COUNT %}
     $self->_dispatch_event(@$event);
   }
 }

@@ -161,6 +161,7 @@ sub SS_ALIASES    () {  7 }
 sub SS_PROCESSES  () {  8 }
 sub SS_ID         () {  9 }
 sub SS_EXTRA_REFS () { 10 }
+sub SS_POST_COUNT () { 11 }
 
 # session handle structure
 sub SH_HANDLE   () { 0 }
@@ -303,7 +304,7 @@ macro sig_remove (<session>,<signal>) {
 }
 
 macro sid (<session>) {
-  "session " . <session>->ID
+  "session " . <session>->ID . " (<session>)"
 }
 
 macro ssid {
@@ -496,7 +497,8 @@ macro dispatch_due_events {
   while ( @kr_events and ($kr_events[0]->[ST_TIME] <= $now) ) {
     my $event = shift @kr_events;
     delete $kr_event_ids{$event->[ST_SEQ]};
-    {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT %}
+    {% ses_refcount_dec2 $event->[ST_SESSION], SS_EVCOUNT    %}
+    {% ses_refcount_dec2 $event->[ST_SOURCE],  SS_POST_COUNT %}
     $poe_kernel->_dispatch_event(@$event);
   }
 }
@@ -677,6 +679,7 @@ sub new {
         { },                            # SS_PROCESSES
         $self->[KR_ID],                 # SS_ID
         { },                            # SS_EXTRA_REFS
+        0,                              # SS_POST_COUNT
       ];
 
     # Register all known signal handlers, except the troublesome ones.
@@ -760,6 +763,7 @@ sub _dispatch_event {
           { },              # SS_PROCESSES
           $kr_id_index,     # SS_ID
           { },              # SS_EXTRA_REFS
+          0,                # SS_POST_COUNT
         ];
 
       # For the ID to session reference lookup.
@@ -980,11 +984,19 @@ sub _dispatch_event {
     }
 
     # Free any events that the departing session has in its queue.
+    # Also free the events this session has posted.
 
     my $index = @kr_events;
-    while ($index-- && $kr_sessions{$session}->[SS_EVCOUNT]) {
-      if ($kr_events[$index]->[ST_SESSION] == $session) {
-        {% ses_refcount_dec2 $session, SS_EVCOUNT %}
+    while ( $index-- &&
+            ( $kr_sessions{$session}->[SS_EVCOUNT] or
+              $kr_sessions{$session}->[SS_POST_COUNT]
+            )
+          ) {
+      if ( $kr_events[$index]->[ST_SESSION] == $session or
+           $kr_events[$index]->[ST_SOURCE] == $session
+         ) {
+        {% ses_refcount_dec2 $kr_events[$index]->[ST_SESSION], SS_EVCOUNT %}
+        {% ses_refcount_dec2 $kr_events[$index]->[ST_SOURCE], SS_POST_COUNT %}
         my $removed_event = splice(@kr_events, $index, 1);
         delete $kr_event_ids{$removed_event->[ST_SEQ]};
       }
@@ -1030,6 +1042,7 @@ sub _dispatch_event {
 
       if (my $leaked = $kr_sessions{$session}->[SS_REFCOUNT]) {
         warn {% ssid %}, " has a refcount leak: $leaked\a\n";
+        $self->trace_gc_refcount($session);
         $errors++;
       }
 
@@ -1444,6 +1457,7 @@ sub trace_gc_refcount {
   warn "+----- GC test for ", {% ssid %}, " ($session) -----\n";
   warn "| total refcnt  : $ss->[SS_REFCOUNT]\n";
   warn "| event count   : $ss->[SS_EVCOUNT]\n";
+  warn "| post count    : $ss->[SS_POST_COUNT]\n";
   warn "| child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n";
   warn "| handles in use: ", scalar(keys(%{$ss->[SS_HANDLES]})), "\n";
   warn "| aliases in use: ", scalar(keys(%{$ss->[SS_ALIASES]})), "\n";
@@ -1466,6 +1480,7 @@ sub assert_gc_refcount {
 
   my $calc_ref =
     ( $ss->[SS_EVCOUNT] +
+      $ss->[SS_POST_COUNT] +
       scalar(keys(%{$ss->[SS_CHILDREN]})) +
       scalar(keys(%{$ss->[SS_HANDLES]})) +
       scalar(keys(%{$ss->[SS_EXTRA_REFS]})) +
@@ -1605,6 +1620,7 @@ sub _enqueue_event {
 
     # Manage reference counts.
     {% ses_refcount_inc2 $session, SS_EVCOUNT %}
+    {% ses_refcount_inc2 $source_session, SS_POST_COUNT %}
 
     # Track the new event's ID and time.  This is used later if we
     # want to remove an event with a specific ID.  The ID->time lookup
@@ -1766,6 +1782,7 @@ sub alarm {
          ($kr_events[$index]->[ST_NAME] eq $event)
     ) {
       {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
+      {% ses_refcount_dec2 $kr_active_session, SS_POST_COUNT %}
       my $removed_alarm = splice(@kr_events, $index, 1);
       delete $kr_event_ids{$removed_alarm->[ST_SEQ]};
     }
@@ -2000,8 +2017,9 @@ sub alarm_remove {
     return;
   }
 
-  {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
   my $old_alarm = splice( @kr_events, $alarm_index, 1 );
+  {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
+  {% ses_refcount_dec2 $kr_active_session, SS_POST_COUNT %}
   delete $kr_event_ids{$old_alarm->[ST_SEQ]};
 
   # In a list context, return the alarm that was removed.  In a scalar
@@ -2213,6 +2231,7 @@ sub alarm_remove_all {
          $kr_events[$index]->[ST_TYPE] & ET_ALARM
        ) {
       {% ses_refcount_dec2 $kr_active_session, SS_EVCOUNT %}
+      {% ses_refcount_dec2 $kr_active_session, SS_POST_COUNT %}
       my $removed_alarm = splice(@kr_events, $index, 1);
       delete $kr_event_ids{$removed_alarm->[ST_SEQ]};
       push( @removed,
@@ -3141,6 +3160,9 @@ was enqueued successfully.  $! will explain why the post() failed:
 SESSION did not exist at the time of the post() call.
 
 =back
+
+Posted events keep both the sending and receiving session alive until
+they're dispatched.
 
 =item yield EVENT_NAME, PARAMETER_LIST
 
