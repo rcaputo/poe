@@ -508,7 +508,9 @@ bar:
   ClientFilter => [ "POE::Filter::Line", InputLiteral => "|" ],
 
 ClientFilter is optional.  The component will supply a
-"POE::Filter::Line" instance if none is specified.
+"POE::Filter::Line" instance if none is specified.  If you supply a
+different value for Filter, then you must also C<use> that filter
+class.
 
 =item ClientInput
 

@@ -521,7 +521,8 @@ pipe:
   Filter => [ "POE::Filter::Line", InputLiteral => "|" ],
 
 Filter is optional.  The component will supply a "POE::Filter::Line"
-instance none is specified.
+instance none is specified.  If you supply a different value for
+Filter, then you must also C<use> that filter class.
 
 =item InlineStates
 
