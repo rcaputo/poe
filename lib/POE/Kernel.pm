@@ -8,7 +8,12 @@ use POSIX qw(EINPROGRESS EINTR);
 use IO::Select;
 use Carp;
                                         # allow subsecond alarms, if available
-eval { require Time::HiRes; import Time::HiRes qw(time sleep); };
+BEGIN {
+  eval {
+    require Time::HiRes;
+    import Time::HiRes qw(time sleep);
+  };
+}
 
 #------------------------------------------------------------------------------
 # states  : [ [ $session, $source_session, $state, $time, \@etc ], ... ]
@@ -218,6 +223,8 @@ sub _dispatch_state {
       $self->session_free($session);
     }
   }
+                                        # return what the state handler did
+  $handled;
 }
 
 #------------------------------------------------------------------------------
@@ -559,26 +566,39 @@ sub sig {
   $self->_internal_sig($self->{'active session'}, $signal, $state);
 }
 
+sub signal {
+  my ($self, $session, $signal) = @_;
+  my $active_session = $self->{'active session'};
+  $session = $self->alias_resolve($session);
+  $self->_enqueue_state($session, $active_session,
+                        '_signal', time(), [ $signal ]
+                       );
+}
+
 #------------------------------------------------------------------------------
 # Post a state to the queue.
 
 sub post {
   my ($self, $destination, $state_name, @etc) = @_;
   my $active_session = $self->{'active session'};
-                                        # external -> internal representation
-  if ($destination eq $active_session->{'namespace'}) {
-    $destination = $active_session;
-  }
-                                        # translate names to destinations
-  elsif ((ref($destination) eq '') &&
-         (exists $self->{'names'}->{$destination})
-  ){
-    $destination = $self->{'names'}->{$destination};
-  }
+  $destination = $self->alias_resolve($destination);
 
   $self->_enqueue_state($destination, $active_session,
                         $state_name, time(), \@etc
                        );
+}
+
+#------------------------------------------------------------------------------
+# Call a state directly.
+
+sub call {
+  my ($self, $destination, $state_name, @etc) = @_;
+  my $active_session = $self->{'active session'};
+  $destination = $self->alias_resolve($destination);
+
+  $self->_dispatch_state($destination, $active_session,
+                         $state_name, \@etc
+                        );
 }
 
 #------------------------------------------------------------------------------
@@ -622,6 +642,25 @@ sub alias_remove {
     delete $self->{'names'}->{$name};
     delete $self->{'sessions'}->{$active_session}->[6]->{$name};
   }
+}
+
+sub alias_resolve {
+  my ($self, $name) = @_;
+  my $resolved_session = $self->{'active session'};
+  if ($name ne $resolved_session->{'namespace'}) {
+    if (ref($name) eq '') {
+      if (exists $self->{'names'}->{$name}) {
+        $resolved_session = $self->{'names'}->{$name};
+      }
+      else {
+        $resolved_session = '';
+      }
+    }
+    else {
+      $resolved_session = $name;
+    }
+  }
+  $resolved_session;
 }
 
 ###############################################################################
@@ -715,6 +754,12 @@ names as with C<%SIG>).  If C<$state> is defined, then that state will be
 invoked when a specified signal.  If C<$state> is undefined, then the
 C<$SIG{$signal}> handler is removed.
 
+=item $kernel->signal($session, $signal)
+
+Sends a signal to a session (and all child sessions).  C<$session> may
+also refer to a C<POE::Kernel> instance, in which case it will be
+propagated to every session managed by that kernel.
+
 =item $kernel->post($destination_session, $state_name, @etc)
 
 Enqueues an event (C<$state>) for the C<$destination_session>.  Additional
@@ -777,6 +822,11 @@ there are no more events to process.
 
 Clears the name (alias) for the current session.  This "undaemonizes"
 the session.
+
+=item $object = $kernel->alias_resolve($name)
+
+Resolves an alias to the object it references.  Returns an empty
+string if the alias does not exist.
 
 =back
 
