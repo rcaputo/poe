@@ -14,7 +14,6 @@ use TestSetup;
 # Turn on all asserts, and use POE and other modules.
 # sub POE::Kernel::TRACE_DEFAULT () { 1 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Session::ASSERT_STATES () { 0 }
 use POE qw( Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay );
 
 ### Test one-way pipe() pipe.
@@ -164,6 +163,9 @@ my $program =
           $heap->{wheel}->put( 'out test-out' );
         },
 
+        # Error! Ow!
+        error => sub { },
+
         # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
         _signal => sub {
           my $signame = $_[ARG0];
@@ -173,6 +175,9 @@ my $program =
           }
           return 0;
         },
+
+        # Dummy _stop to prevent runtime errors.
+        _stop => sub { },
 
         # Count every line that's flushed to the child.
         stdin  => sub { $tty_flush_count++; },
@@ -234,6 +239,9 @@ my $coderef_flush_count = 0;
           $heap->{wheel}->put( 'out test-out' );
         },
 
+        # Error! Ow!
+        error => sub { },
+
         # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
         _signal => sub {
           my $signame = $_[ARG0];
@@ -243,6 +251,9 @@ my $coderef_flush_count = 0;
           }
           return 0;
         },
+
+        # Dummy _stop to prevent runtime errors.
+        _stop => sub { },
 
         # Count every line that's flushed to the child.
         stdin  => sub { $coderef_flush_count++; },
@@ -291,6 +302,9 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
           $heap->{wheel}->put( 'out test-out' );
         },
 
+        # Error!  Ow!
+        error => sub { },
+
         # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
         _signal => sub {
           my $signame = $_[ARG0];
@@ -300,6 +314,9 @@ if (POE::Wheel::Run::PTY_AVAILABLE) {
           }
           return 0;
         },
+
+        # Dummy _stop to prevent runtime errors.
+        _stop => sub { },
 
         # Count every line that's flushed to the child.
         stdin  => sub { $pty_flush_count++; },
@@ -328,6 +345,7 @@ else {
 $poe_kernel->run();
 
 ### Post-run tests.
+
 &ok_if( 16, $tty_flush_count == 3 );
 &ok_if( 19, $pty_flush_count == 3 ) if POE::Wheel::Run::PTY_AVAILABLE;
 &ok_if( 22, $coderef_flush_count == 3 );
