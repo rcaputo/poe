@@ -1,4 +1,4 @@
-<#!perl -w -I..
+#!perl -w -I..
 # $Id$
 
 # This program tests POE::Wheel::SocketFactory.  Basically, it is
