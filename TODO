@@ -979,6 +979,27 @@ introduced.
 
 Let Ilya Melamed know when this is done.  It's his request.
 
+---------------------------
+Uncategorized User Requests
+---------------------------
+
+POE::Message - Parameters for states instead of a mash of @_
+values. (Lenzo)
+
+Pluggable queue disciplines. (Lenzo) Replace the FIFO with some kind
+of priority queue.
+
+POE::Strict or POE::strict (easy form of POE::Tweak [see elsewhere in
+this document]). (Artur)
+
+Security.  Code review. (Artur, on behalf of YAPC::EU)
+
+Official IKC. (Artur, on behalf of YAPC::EU) Requires subclassable
+sessions.
+
+Threads. (Artur, on behalf of YAPC::EU) Artur has a preliminary patch
+to add iThreads support to the Kernel.
+
 ===============================================================================
 ===============================================================================
                           Stuff That's DONE
