@@ -1,24 +1,50 @@
 $Id$
 
-Things to do to POE, many of which will break existing programs.
-Please use POE's mailing list (see the main POE manpage) to comment on
-proposed changes.
+This is a list of things to do to POE.  Many of them may break
+existing programs if they come to pass.  The overwhelming majority of
+them are changes still being considered, and there is no guarantee
+that they'll happen, let alone in the way that's described here.
+
+This document is divided into two sections: Stuff that's happening
+now, and stuff that's maybe going to happen after it's thought through
+sufficiently.
+
+Everything here is subject to comment and discussion.  If you have a
+comment or concern, even if it's not present here, please post it to
+POE's mailing list.  Subscription information is in the main POE
+manpage.
 
 As with the CHANGES file, things which may break existing programs
-will be marked with "(!!!)".  Since these are long-term plans,
-however, actual code breakage will not occur for at least a month
-after release.
+will be marked with "(!!!)".  I have scheduled such breakage so that
+there is at least a month of documentation changes followed by a month
+of warnings before programs are broken outright.  This ensures at
+least 56 days of advance notice before programs up and die.
+
+If you follow this TODO file or the development releases, the actual
+depreciation time is several weeks longer than the official one.
+
+Typographical conventions:
 
 Various forms of "Xyz" are used throughout to mean "for every".  For
-example, "POE::Filter::Xyz" means "for every POE::Filter".
+example, "POE::Filter::Xyz" means "for every POE::Filter subclass".
 
-===================================
-Depreciations & Changes In Progress
-===================================
+Bits marked with question marks (like "????.??.??") are blanks to be
+filled in once their values are determined.  They are usually version
+numbers and release dates.  Almost everywhere, though, their context
+gives some idea of the time frame involved.  For example, an unknown
+date 28 days after some release means that there is at least a month
+to fix something after the release.  If the release version is also
+blank, then you're doubly safe, and so on.
 
-These changes have begun, or will shortly.  Their remaining steps are
-still open to discussion, but the changes will go through in one form
-or another.
+===============================================================================
+                 Depreciations & Changes IN PROGRESS
+===============================================================================
+
+These changes have begun, or will begin shortly.  Their remaining
+steps are open to discussion, and I invite you to post your comments
+to the POE mailing list.  The end results will probably happen in one
+form or another.  If they plan to break existing programs, there will
+be at least a month (usually two) of depreciation before then.
 
 --------------------------
 XyzState to XyzEvent (!!!)
@@ -33,9 +59,10 @@ To do:
 
 * Release version 0.15, and announce the depreciation.
 
-* Wait at least 28 days (until ????.??.??) before continuing this
-  change schedule.  This gives people time to adapt their production
-  code to the new parameters before warnings start.
+* Wait at least 28 days after the formal announcement (until
+  ????.??.??) before continuing this change schedule.  This gives
+  people time to adapt their production code to the new parameters
+  before warnings start.
 
 * Add depreciation warnings when XyzState is used.  This will prompt
   late developers to adapt their code.
@@ -43,9 +70,10 @@ To do:
 * Release version ?.??, and announce the next phase of XyzState
   depreciation.
 
-* Wait at least 28 days (until ????.??.??) before continuing this
-  change schedule.  This gives people time to adapt their production
-  code to avoid the depreciation warnings and subsequent breakage.
+* Wait at least 28 days after the next phase announcement (until
+  ????.??.??) before continuing this change schedule.  This gives
+  people time to adapt their production code to avoid the depreciation
+  warnings and subsequent breakage.
 
 * Remove XyzState warnings and support altogether.
 
@@ -86,18 +114,20 @@ To do:
 
 * Release version 0.15, and announce the depreciation.
 
-* Wait at least 28 days (until ????.??.??) before continuing this
-  change schedule.  This gives people time to adapt their production
-  code to the new parameters before warnings start.
+* Wait at least 28 days after the formal announcement (until
+  ????.??.??) before continuing this change schedule.  This gives
+  people time to adapt their production code to the new parameters
+  before warnings start.
 
 * Add depreciation warnings to queue_peek_alarms().  This will prompt
   late developers to adapt their code.
 
 * Release ?.??, and announce the next phase of depreciation.
 
-* Wait at least 28 days (until ????.??.??) before continuing this
-  change schedule.  This gives people time to adapt their production
-  code to avoid the depreciation warnings and subsequent breakage.
+* Wait at least 28 days after announcing the next phase (until
+  ????.??.??) before continuing this change schedule.  This gives
+  people time to adapt their production code to avoid the depreciation
+  warnings and subsequent breakage.
 
 * Remove queue_peek_alarms() altogether.
 
@@ -105,13 +135,17 @@ To do:
   complete.
 
 
-========================================
-Depreciations & Changes Being Considered
-========================================
+===============================================================================
+               Depreciations & Changes BEING CONSIDERED
+===============================================================================
 
-These changes are under consideration.  They have not begun, and they
-may not ever be made.  These are proto-plans being considered and made
-ready for deployment.
+These changes have not begun.  They are still under heavy
+consideration, and it may be decided that they should never occur.
+Even if there is a depreciation schedule, it's still not planned to
+start yet.  Don't be scared.
+
+Please send comments and additions to the POE mailing list.  I will
+try to incorporate them into this document.
 
 ----------------------------------------
 Signal Handling Flawed As Designed (!!!)
@@ -309,9 +343,10 @@ To do:
 
 * Release version ?.??, and announce the depreciation.
 
-* Wait at least 28 days (until ????.??.??) before continuing this
-  change schedule.  This gives people time to adapt their production
-  code to the new signal handling method before the warnings start.
+* Wait at least 28 days after the formal depreciation announcement
+  (until ????.??.??) before continuing this change schedule.  This
+  gives people time to adapt their production code to the new signal
+  handling method before the warnings start.
 
 * Add depreciation warnings whenever a terminal signal is handled by
   its return value instead of the new handle_signal() method.
@@ -319,9 +354,10 @@ To do:
 * Release version ?.??, and announce the next phase of the signal
   handler depreciation.
 
-* Wait at least 28 days (until ????.??.??) before continuing this
-  change schedule.  This gives people time to adapt their production
-  code to avoid the depreciation warnings and subsequent breakage.
+* Wait at least 28 days after the next phase announcement (until
+  ????.??.??) before continuing this change schedule.  This gives
+  people time to adapt their production code to avoid the depreciation
+  warnings and subsequent breakage.
 
 * Remove the code to recognize implicit signal handling due to
   handlers' return values, making the handle_signal() method the only
@@ -450,9 +486,9 @@ This is the current plan to depreciate them:
 
 * Release version ?.??.
 
-* Wait at least 28 days (until ????.??.??) before continuing this
-  depreciation schedule, to give people time to react to the initial
-  round of changes.
+* Wait at least 28 days after releasing the documentation change
+  (until ????.??.??) before continuing this depreciation schedule, to
+  give people time to react to the initial round of changes.
 
 * Generate warnings when ARG0..ARG9 are used for built-in events.
   This will require some logic within those subs, removing their
@@ -461,9 +497,10 @@ This is the current plan to depreciate them:
 * Release version ?.??, and announce that the ARG0..ARG9 built-in
   parameter depreciation is proceding apace.
 
-* Wait at least 29 days (until ????.??.??) before continuing this
-  depreciation schedule, to give people time to react to the warnings
-  and adapt their code to the new symbolic constants.
+* Wait at least 28 days after releasing the warnings (until
+  ????.??.??) before continuing this depreciation schedule, to give
+  people time to react to the warnings and adapt their code to the new
+  symbolic constants.
 
 * Remove the warnings from ARG0..ARG9, making them constants again and
   speeding things up once more.
