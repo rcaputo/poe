@@ -23,6 +23,7 @@ sub forkbomb {
        $me->{'id'} = ++$forkbomber;
        print $me->{'id'}, ": starting...\n";
        $k->sig('INT', 'signal handler');
+       $k->sig('ZOMBIE', 'signal handler');
        $k->post($me, 'fork');
      },
      '_stop' => sub
