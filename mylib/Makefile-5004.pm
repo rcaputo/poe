@@ -8,18 +8,18 @@ use ExtUtils::MakeMaker;
 sub MY::postamble {
     return <<EOF;
 reportupload: poe_report.xml
-\cIperl mylib/reportupload.pl
+\cI$^X mylib/reportupload.pl
 
 uploadreport: poe_report.xml
-\cIperl mylib/reportupload.pl
+\cI$^X mylib/reportupload.pl
 
 testreport: poe_report.xml
 
 poe_report.xml: Makefile
-\cIperl mylib/testreport.pl
+\cI$^X mylib/testreport.pl
 
 coverage: Makefile
-\cIperl mylib/coverage.perl
+\cI$^X mylib/coverage.perl
 
 cover: coverage
 EOF
@@ -27,7 +27,7 @@ EOF
 
 # Generate dynamic test files.
 
-system("perl", "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
+system($^X, "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
 
 # Touch generated files so they exist.
 open(TOUCH, ">>CHANGES") and close TOUCH;
