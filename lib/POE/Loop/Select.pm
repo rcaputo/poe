@@ -36,13 +36,13 @@ BEGIN {
   eval "sub MINIMUM_SELECT_TIMEOUT () { $timeout }";
 };
 
-# select() vectors.  They're stored in an array so that the VEC_RD,
-# VEC_WR, and VEC_EX offsets work.  This saves some code, but it makes
-# things a little slower.
+# select() vectors.  They're stored in an array so that the MODE_*
+# offsets can refer to them.  This saves some code at the expense of
+# clock cycles.
 #
-# [ $select_read_bit_vector,    (VEC_RD)
-#   $select_write_bit_vector,   (VEC_WR)
-#   $select_expedite_bit_vector (VEC_EX)
+# [ $select_read_bit_vector,    (MODE_RD)
+#   $select_write_bit_vector,   (MODE_WR)
+#   $select_expedite_bit_vector (MODE_EX)
 # ];
 my @loop_vectors = ("", "", "");
 
@@ -57,9 +57,9 @@ sub loop_initialize {
 
   # Initialize the vectors as vectors.
   @loop_vectors = ( '', '', '' );
-  vec($loop_vectors[VEC_RD], 0, 1) = 0;
-  vec($loop_vectors[VEC_WR], 0, 1) = 0;
-  vec($loop_vectors[VEC_EX], 0, 1) = 0;
+  vec($loop_vectors[MODE_RD], 0, 1) = 0;
+  vec($loop_vectors[MODE_WR], 0, 1) = 0;
+  vec($loop_vectors[MODE_EX], 0, 1) = 0;
 }
 
 
@@ -68,16 +68,16 @@ sub loop_finalize {
 
   # This is "clever" in that it relies on each symbol on the left to
   # be stringified by the => operator.
-  my %kernel_vectors =
-    ( VEC_RD => VEC_RD,
-      VEC_WR => VEC_WR,
-      VEC_EX => VEC_EX,
+  my %kernel_modes =
+    ( MODE_RD => MODE_RD,
+      MODE_WR => MODE_WR,
+      MODE_EX => MODE_EX,
     );
 
-  while (my ($vec_name, $vec_offset) = each(%kernel_vectors)) {
-    my $bits = unpack('b*', $loop_vectors[$vec_offset]);
+  while (my ($mode_name, $mode_offset) = each(%kernel_modes)) {
+    my $bits = unpack('b*', $loop_vectors[$mode_offset]);
     if (index($bits, '1') >= 0) {
-      warn "<rc> LOOP VECTOR LEAK: $vec_name = $bits\a\n";
+      warn "<rc> LOOP VECTOR LEAK: $mode_name = $bits\a\n";
     }
   }
 }
@@ -178,35 +178,35 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  vec($loop_vectors[$vector], $fileno, 1) = 1;
-  $loop_filenos{$fileno} |= (1<<$vector);
+  vec($loop_vectors[$mode], $fileno, 1) = 1;
+  $loop_filenos{$fileno} |= (1<<$mode);
 }
 
 sub loop_ignore_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  vec($loop_vectors[$vector], $fileno, 1) = 0;
-  $loop_filenos{$fileno} &= ~(1<<$vector);
+  vec($loop_vectors[$mode], $fileno, 1) = 0;
+  $loop_filenos{$fileno} &= ~(1<<$mode);
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  vec($loop_vectors[$vector], $fileno, 1) = 0;
-  $loop_filenos{$fileno} &= ~(1<<$vector);
+  vec($loop_vectors[$mode], $fileno, 1) = 0;
+  $loop_filenos{$fileno} &= ~(1<<$mode);
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  vec($loop_vectors[$vector], $fileno, 1) = 1;
-  $loop_filenos{$fileno} |= (1<<$vector);
+  vec($loop_vectors[$mode], $fileno, 1) = 1;
+  $loop_filenos{$fileno} |= (1<<$mode);
 }
 
 #------------------------------------------------------------------------------
@@ -251,9 +251,9 @@ sub loop_do_timeslice {
 
   if (TRACE_SELECT) {
     warn( "<sl> ,----- SELECT BITS IN -----\n",
-          "<sl> | READ    : ", unpack('b*', $loop_vectors[VEC_RD]), "\n",
-          "<sl> | WRITE   : ", unpack('b*', $loop_vectors[VEC_WR]), "\n",
-          "<sl> | EXPEDITE: ", unpack('b*', $loop_vectors[VEC_EX]), "\n",
+          "<sl> | READ    : ", unpack('b*', $loop_vectors[MODE_RD]), "\n",
+          "<sl> | WRITE   : ", unpack('b*', $loop_vectors[MODE_WR]), "\n",
+          "<sl> | EXPEDITE: ", unpack('b*', $loop_vectors[MODE_EX]), "\n",
           "<sl> `--------------------------\n"
         );
   }
@@ -268,9 +268,9 @@ sub loop_do_timeslice {
 
     if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
-      my $hits = select( my $rout = $loop_vectors[VEC_RD],
-                         my $wout = $loop_vectors[VEC_WR],
-                         my $eout = $loop_vectors[VEC_EX],
+      my $hits = select( my $rout = $loop_vectors[MODE_RD],
+                         my $wout = $loop_vectors[MODE_WR],
+                         my $eout = $loop_vectors[MODE_EX],
                          $timeout,
                        );
 
@@ -346,11 +346,11 @@ sub loop_do_timeslice {
         # paused.  They'll resume after dispatch.
 
         @rd_selects and
-          $self->_data_handle_enqueue_ready(VEC_RD, @rd_selects);
+          $self->_data_handle_enqueue_ready(MODE_RD, @rd_selects);
         @wr_selects and
-          $self->_data_handle_enqueue_ready(VEC_WR, @wr_selects);
+          $self->_data_handle_enqueue_ready(MODE_WR, @wr_selects);
         @ex_selects and
-          $self->_data_handle_enqueue_ready(VEC_EX, @ex_selects);
+          $self->_data_handle_enqueue_ready(MODE_EX, @ex_selects);
       }
     }
 

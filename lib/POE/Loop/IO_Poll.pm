@@ -141,21 +141,21 @@ sub loop_pause_time_watcher {
 
 # A static function; not some object method.
 
-sub vec_to_poll {
-  return POLLIN     if $_[0] == VEC_RD;
-  return POLLOUT    if $_[0] == VEC_WR;
-  return POLLRDBAND if $_[0] == VEC_EX;
-  croak "unknown I/O vector $_[0]";
+sub mode_to_poll {
+  return POLLIN     if $_[0] == MODE_RD;
+  return POLLOUT    if $_[0] == MODE_WR;
+  return POLLRDBAND if $_[0] == MODE_EX;
+  croak "unknown I/O mode $_[0]";
 }
 
 #------------------------------------------------------------------------------
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  my $type = vec_to_poll($vector);
+  my $type = mode_to_poll($mode);
   my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current | $type;
 
@@ -170,10 +170,10 @@ sub loop_watch_filehandle {
 }
 
 sub loop_ignore_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  my $type = vec_to_poll($vector);
+  my $type = mode_to_poll($mode);
   my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current & ~$type;
 
@@ -193,10 +193,10 @@ sub loop_ignore_filehandle {
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  my $type = vec_to_poll($vector);
+  my $type = mode_to_poll($mode);
   my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current & ~$type;
 
@@ -216,10 +216,10 @@ sub loop_pause_filehandle_watcher {
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
-  my $type = vec_to_poll($vector);
+  my $type = mode_to_poll($mode);
   my $current = $poll_fd_masks{$fileno} || 0;
   my $new = $current | $type;
 
@@ -337,21 +337,21 @@ sub loop_do_timeslice {
                $got_mask & (POLLIN | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "<sl> enqueuing read for fileno $fd\n";
-            $self->_data_handle_enqueue_ready(VEC_RD, $fd);
+            $self->_data_handle_enqueue_ready(MODE_RD, $fd);
           }
 
           if ( $watch_mask & POLLOUT and
                $got_mask & (POLLOUT | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "<sl> enqueuing write for fileno $fd\n";
-            $self->_data_handle_enqueue_ready(VEC_WR, $fd);
+            $self->_data_handle_enqueue_ready(MODE_WR, $fd);
           }
 
           if ( $watch_mask & POLLRDBAND and
                $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
              ) {
             TRACE_SELECT and warn "<sl> enqueuing expedite for fileno $fd\n";
-            $self->_data_handle_enqueue_ready(VEC_EX, $fd);
+            $self->_data_handle_enqueue_ready(MODE_EX, $fd);
           }
         }
       }

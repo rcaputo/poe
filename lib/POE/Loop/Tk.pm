@@ -130,7 +130,7 @@ sub loop_attach_uidestroy {
           $self->_dispatch_event
             ( $self, $self,
               EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-              __FILE__, __LINE__, time(), undef,
+              __FILE__, __LINE__, time(), -__LINE__
             );
         }
       }
@@ -168,40 +168,40 @@ sub loop_pause_time_watcher {
 # Maintain filehandle watchers.
 
 sub loop_watch_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 1 of 2.
   confess "Tk does not support expedited filehandles"
-    if $vector == VEC_EX;
+    if $mode == MODE_EX;
 
   # Start a filehandle watcher.
 
   $poe_main_window->fileevent
     ( $handle,
 
-      # It can only be VEC_RD or VEC_WR here (VEC_EX is checked a few
-      # lines up).
-      ( $vector == VEC_RD ) ? 'readable' : 'writable',
+      # It can only be MODE_RD or MODE_WR here (MODE_EX is checked a
+      # few lines up).
+      ( $mode == MODE_RD ) ? 'readable' : 'writable',
 
       # The handle is wrapped in quotes here to stringify it.  For
       # some reason, it seems to work as a filehandle anyway, and it
       # breaks reference counting.  For filehandles, then, this is
       # truly a safe (strict ok? warn ok? seems so!) weak reference.
-      [ \&_loop_select_callback, $fileno, $vector ],
+      [ \&_loop_select_callback, $fileno, $mode ],
     );
 
   $_fileno_refcount[fileno $handle]++;
 }
 
 sub loop_ignore_filehandle {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
 
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 2 of 2.
   confess "Tk does not support expedited filehandles"
-    if $vector == VEC_EX;
+    if $mode == MODE_EX;
 
   # The fileno refcount just dropped to 0.  Remove the handle from
   # Tk's file watchers.
@@ -210,9 +210,9 @@ sub loop_ignore_filehandle {
     $poe_main_window->fileevent
       ( $handle,
 
-        # It can only be VEC_RD or VEC_WR here (VEC_EX is checked a
+        # It can only be MODE_RD or MODE_WR here (MODE_EX is checked a
         # few lines up).
-        ( ( $vector == VEC_RD ) ? 'readable' : 'writable' ),
+        ( ( $mode == MODE_RD ) ? 'readable' : 'writable' ),
 
         # Nothing here!  Callback all gone!
         ''
@@ -227,7 +227,7 @@ sub loop_ignore_filehandle {
     my $tk_file_io = tied( *$handle );
     die "whoops; no tk file io object" unless defined $tk_file_io;
     $tk_file_io->handler
-      ( ( ( $vector == VEC_RD )
+      ( ( ( $mode == MODE_RD )
           ? Tk::Event::IO::READABLE()
           : Tk::Event::IO::WRITABLE()
         ),
@@ -237,17 +237,17 @@ sub loop_ignore_filehandle {
 }
 
 sub loop_pause_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
 
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 2 of 2.
   confess "Tk does not support expedited filehandles"
-    if $vector == VEC_EX;
+    if $mode == MODE_EX;
 
   # Use an internal work-around to fileevent quirks.
   my $tk_file_io = tied( *$handle );
   die "whoops; no tk file io object" unless defined $tk_file_io;
-  $tk_file_io->handler( ( ( $vector == VEC_RD )
+  $tk_file_io->handler( ( ( $mode == MODE_RD )
                           ? Tk::Event::IO::READABLE()
                           : Tk::Event::IO::WRITABLE()
                         ),
@@ -256,25 +256,25 @@ sub loop_pause_filehandle_watcher {
 }
 
 sub loop_resume_filehandle_watcher {
-  my ($self, $handle, $vector) = @_;
+  my ($self, $handle, $mode) = @_;
   my $fileno = fileno($handle);
 
   # The Tk documentation implies by omission that expedited
   # filehandles aren't, uh, handled.  This is part 2 of 2.
   confess "Tk does not support expedited filehandles"
-    if $vector == VEC_EX;
+    if $mode == MODE_EX;
 
   # Use an internal work-around to fileevent quirks.
   my $tk_file_io = tied( *$handle );
   die "whoops; no tk file io object" unless defined $tk_file_io;
 
-  $tk_file_io->handler( ( ( $vector == VEC_RD )
+  $tk_file_io->handler( ( ( $mode == MODE_RD )
                           ? Tk::Event::IO::READABLE()
                           : Tk::Event::IO::WRITABLE()
                         ),
                         [ \&_loop_select_callback,
                           $fileno,
-                          $vector,
+                          $mode,
                         ]
                       );
 }
@@ -345,8 +345,8 @@ sub _loop_event_callback {
 
 # Tk filehandle callback to dispatch selects.
 sub _loop_select_callback {
-  my ($fileno, $vector) = @_;
-  $poe_kernel->_data_handle_enqueue_ready($vector, $fileno);
+  my ($fileno, $mode) = @_;
+  $poe_kernel->_data_handle_enqueue_ready($mode, $fileno);
   $poe_kernel->_data_test_for_idle_poe_kernel();
 }
 
@@ -370,7 +370,7 @@ sub Tk::Error {
     $poe_kernel->_dispatch_event
       ( $poe_kernel, $poe_kernel,
         EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-        __FILE__, __LINE__, time(), undef
+        __FILE__, __LINE__, time(), -__LINE__
       );
   }
 }
