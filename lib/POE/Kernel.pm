@@ -147,11 +147,10 @@ sub KR_EVENT_IDS      () { 12 } #   \%kr_event_ids,
 sub KR_SIZE           () { 13 } #   XXX UNUSED ???
                                 # ]
 
-# This flag indicates that the program has already run its main loop
-# once.  Is it necessary?  It has been commented out as of 2001-08-29
-# until more is known about it.
+# This flag indicates that POE::Kernel's run() method was called.
+# It's used to warn about forgetting $poe_kernel->run().
 
-# my $poe_kernel_ran = 0;
+my $kr_run_was_called = 0;
 
 #------------------------------------------------------------------------------
 # Session structure.
@@ -1371,9 +1370,6 @@ sub _dispatch_event {
 # Do post-run cleanup.
 
 macro finalize_kernel {
-  # See the notes near $poe_kernel_ran's definition.
-  # $poe_kernel_ran++;
-
   # Disable signal watching, since there's now no place for them to
   # go.
   my @signals = keys %SIG;
@@ -1421,8 +1417,8 @@ sub run_one_timeslice {
 sub run {
   my $self = shift;
 
-  # See the notes near $poe_kernel_ran's definition.
-  # croak "can't rerun POE::Kernel" if $poe_kernel_ran;
+  # Flag that run() was called.
+  $kr_run_was_called++;
 
   {% substrate_main_loop %}
 
@@ -1437,6 +1433,9 @@ sub DESTROY {
   # resources.  It's taken care of by Perl's own garbage collection.
   # For completeness, I suppose a copy of POE::Kernel->run's leak
   # detection could be included here.
+
+  warn "POE::Kernel's run() method was never called.\n"
+    unless $kr_run_was_called;
 }
 
 #------------------------------------------------------------------------------
