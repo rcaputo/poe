@@ -76,7 +76,7 @@ ExtUtils::AutoInstall->import
 );
 
 # Touch CHANGES so it exists.
-# open(CHANGES, ">>CHANGES") and close CHANGES;
+open(CHANGES, ">>CHANGES") and close CHANGES;
 
 WriteMakefile
   ( NAME           => 'POE',

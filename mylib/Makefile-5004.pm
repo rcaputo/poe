@@ -10,8 +10,8 @@ sub MY::test {
   "\ntest ::\n\t\$(FULLPERL) ./lib/deptest.perl\n" . shift->SUPER::test(@_);
 }
 
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence the
-# contents of the Makefile that is written.
+# Touch CHANGES so it exists.
+open(CHANGES, ">>CHANGES") and close CHANGES;
 
 WriteMakefile
   ( NAME           => 'POE',
