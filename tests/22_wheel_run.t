@@ -6,7 +6,6 @@
 use strict;
 use lib qw(./lib ../lib);
 use Socket;
-use Config;
 
 use TestSetup;
 
@@ -140,7 +139,7 @@ use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
 my $tty_flush_count = 0;
 
 my $program =
-  ( $Config{perlpath} . ' -we \'' .
+  ( "$^X -we '" .
     '$/ = q(!); select STDERR; $| = 1; select STDOUT; $| = 1; ' .
     'OUTER: while (1) { ' .
     '  while (<STDIN>) { ' .
@@ -151,8 +150,6 @@ my $program =
     '} ' .
     'exit 0;\''
   );
-
-$program =~ tr[\'][\"] if $^O eq "MSWin32";
 
 { POE::Session->create
     ( inline_states =>
