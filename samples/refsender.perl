@@ -128,11 +128,18 @@ sub client_error {
 }
 
 #------------------------------------------------------------------------------
-# The server doesn't send anything back, but the client will take note
-# of responses anyway.
+# The server doesn't send anything back, but an event handler is
+# defined here anyway.  In the current refsender/refserver design, it
+# would never be called.
 
 sub client_receive {
   my $reference = $_[ARG0];
+
+  # Remember, this function is not normally called.  If you want to
+  # reuse refsender.perl for something that speaks bi-directionally,
+  # you'll have to also not delete $heap->{'wheel'} from within the
+  # &client_flushed event handler.
+
   print "The client recevied a reference: $reference\n";
 }
 
@@ -143,6 +150,11 @@ sub client_receive {
 sub client_flushed {
   my $heap = $_[HEAP];
   print "All references were sent.  Bye!\n";
+
+  # Note: refserver.perl doesn't send a reply.  When the wheel
+  # indicates that all the references were flushed, we delete the
+  # wheel so the client can stop.
+
   delete $heap->{'wheel'};
 }
 
