@@ -77,14 +77,15 @@ macro substrate_watch_signal {
     # For SIGCHLD triggered polling loop.
     # $SIG{$signal} = \&_substrate_signal_handler_child;
 
-    # Begin constant polling loop.
+    # Begin constant polling loop.  Only start it on CHLD or on CLD if
+    # CHLD doesn't exist.
     $SIG{$signal} = 'DEFAULT';
     $poe_kernel->_enqueue_alarm
       ( $poe_kernel, $poe_kernel,
         EN_SCPOLL, ET_SCPOLL,
         [ ],
         time() + 1, __FILE__, __LINE__
-      );
+      ) if $signal eq 'CHLD' or not exists $SIG{CHLD};
 
     next;
   }

@@ -500,8 +500,7 @@ macro test_for_idle_poe_kernel {
       ( $poe_kernel, $poe_kernel,
         EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
         time(), __FILE__, __LINE__
-      )
-        if keys %kr_sessions;
+      ) if keys %kr_sessions;
   }
 }
 
