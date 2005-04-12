@@ -95,7 +95,7 @@ sub get {
   # purely content.  Return nothing until content-length bytes are in
   # the buffer, then return the entire request.
 
-  if($self->{header}) {
+  if ($self->{header}) {
     my $buf = $self->{buffer};
     my $r   = $self->{header};
     my $cl  = $r->content_length() || "0 (implicit)";
@@ -104,7 +104,7 @@ sub get {
       $self->{finish}++;
       return [$r];
     } else {
-      # print "$cl wanted, got " . length($buf) . "\n";
+      #print "$cl wanted, got " . length($buf) . "\n";
     }
     return [];
   }
@@ -139,7 +139,7 @@ sub get {
   # Add the raw request's headers to the request object we'll be
   # returning.
 
-  if($proto >= $HTTP_1_0) {
+  if ($proto >= $HTTP_1_0) {
     my ($key,$val);
   HEADER:
     while ($buf =~ s/^([^\012]*)\012//) {
@@ -172,51 +172,48 @@ sub get {
     return [$r];
   }
 
-  # However, if it's a POST request, check whether the entire content
-  # has already been received!  If so, add that to the request and
-  # we're done.  Otherwise we'll expect a subsequent get() call to
-  # finish things up.
+  # However, if it's any other type of request, check whether the
+  # entire content has already been received!  If so, add that to the
+  # request and we're done.  Otherwise we'll expect a subsequent get()
+  # call to finish things up.
 
-  if($method eq 'POST') {
+  #print "post:$buf:\END BUFFER\n";
+  #print length($buf)."-".$r->content_length()."\n";
 
-#    print "post:$buf:\END BUFFER\n";
-#    print length($buf)."-".$r->content_length()."\n";
-
-    my $cl = $r->content_length();
-    unless(defined $cl) {
-      if($self->{'httpd_client_proto'} == 9) {
-        return [
-          $self->build_error(
-            RC_BAD_REQUEST,
-            "POST request detected in an HTTP 0.9 transaction. " .
-            "POST is not a valid HTTP 0.9 transaction type. " .
-            "Please verify your HTTP version and transaction content."
-          )
-        ];
-      }
-      else {
-        return [
-          $self->build_error(RC_LENGTH_REQUIRED, "No content length found.")
-        ];
-      }
-    }
-
-    unless ($cl =~ /^\d+$/) {
+  my $cl = $r->content_length();
+  unless(defined $cl) {
+    if($self->{'httpd_client_proto'} == 9) {
       return [
         $self->build_error(
           RC_BAD_REQUEST,
-          "Content length contains non-digits."
+          "POST request detected in an HTTP 0.9 transaction. " .
+          "POST is not a valid HTTP 0.9 transaction type. " .
+          "Please verify your HTTP version and transaction content."
         )
-      ]
+      ];
     }
+    else {
+      return [
+        $self->build_error(RC_LENGTH_REQUIRED, "No content length found.")
+      ];
+    }
+  }
 
-    if (length($buf) >= $cl) {
-      $r->content($buf);
-      $self->{finish}++;
-      # We are sending this back, so won't need it anymore.
-      delete $self->{header};
-      return [$r];
-    }
+  unless ($cl =~ /^\d+$/) {
+    return [
+      $self->build_error(
+        RC_BAD_REQUEST,
+        "Content length contains non-digits."
+      )
+    ]
+  }
+
+  if (length($buf) >= $cl) {
+    $r->content($buf);
+    $self->{finish}++;
+    # We are sending this back, so won't need it anymore.
+    delete $self->{header};
+    return [$r];
   }
 
   return [];
