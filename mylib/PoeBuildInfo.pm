@@ -30,6 +30,7 @@ sub CORE_REQUIREMENTS () {
     "Test::More"         => 0.54,
     "File::Spec"         => 0.87,
     "Errno"              => 1.09,
+    "Test::Harness"      => 2.26,
   )
 }
 
