@@ -41,6 +41,19 @@ if ($@) {
   die if $@;
 }
 
+### Some things we can do on Windows.
+
+my @windows_options;
+if ($^O eq "MSWin32") {
+  @windows_options = (
+    "Optional modules for Windows POE::Wheel::Run support." => [
+        -default => 0,
+        'Win32API::File'  => '0.05',
+        'Win32::Console'  => '0.031',
+    ],
+  );
+}
+
 ### Prompt for additional modules.
 
 ExtUtils::AutoInstall->import(
@@ -93,6 +106,7 @@ ExtUtils::AutoInstall->import(
       -default => 0,
       'Event'  => '1.00',
   ],
+  @windows_options,
 );
 
 ### Generate dynamic test files.

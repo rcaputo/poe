@@ -58,10 +58,18 @@ sub import {
 #------------------------------------------------------------------------------
 # Perform some optional setup.
 
-sub RUNNING_IN_HELL () { $^O eq 'MSWin32' }
 
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
+
+  {
+    no strict 'refs';
+    if ($^O eq 'MSWin32') {
+        *{ __PACKAGE__ . '::RUNNING_IN_HELL' } = sub { 1 };
+    } else {
+        *{ __PACKAGE__ . '::RUNNING_IN_HELL' } = sub { 0 };
+    }
+  }
 
   # POE runs better with Time::HiRes, but it also runs without it.
   { no strict 'refs';

@@ -18,9 +18,6 @@ BEGIN {
   if ($^O eq "MacOS") {
     $error = "$^O does not support fork";
   }
-  elsif ($^O eq "MSWin32") {
-    $error = "$^O does not support fork/exec properly";
-  }
 
   if ($error) {
     print "1..0 # Skip $error\n";
@@ -151,8 +148,10 @@ use POE qw(Wheel::Run Filter::Line Pipe::TwoWay Pipe::OneWay);
 
 my $tty_flush_count = 0;
 
+my $os_quote = ($^O eq 'MSWin32') ? q(") : q(');
+
 my $program =
-  ( "$^X -we '" .
+  ( "$^X -we $os_quote" .
     '$/ = q(!); select STDERR; $| = 1; select STDOUT; $| = 1; ' .
     'my $out = shift; '.
     'my $err = shift; '.
@@ -163,7 +162,7 @@ my $program =
     '    print(STDERR qq($err: $_)) if s/^err //; ' .
     '  } ' .
     '} ' .
-    'exit 0;\''
+    "exit 0; $os_quote"
   );
 
 { POE::Session->create
