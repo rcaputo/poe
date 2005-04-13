@@ -17,7 +17,7 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 test_setup(0, "Network access (and permission) required to run this test")
   unless -f 'run_network_tests';
 
-test_setup(9);
+test_setup(11);
 
 use POE qw(
   Component::Server::TCP
@@ -224,6 +224,71 @@ POE::Session->create(
     got_flush  => \&client_tcp_got_flush,
     got_alarm  => \&client_tcp_got_alarm,
   }
+);
+
+### Test a file that appears and disappears.
+
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      my ($kernel, $heap) = @_[KERNEL, HEAP];
+
+      unlink "./test-tail-file";
+      $heap->{wheel} = POE::Wheel::FollowTail->new(
+        Filename => "./test-tail-file",
+        InputEvent => "got_input",
+        ErrorEvent => "got_error",
+        ResetEvent => "got_reset",
+      );
+      $kernel->delay(create_file => 1);
+      $heap->{sent_count}  = 0;
+      $heap->{recv_count}  = 0;
+      $heap->{reset_count} = 0;
+      DEBUG and warn "start";
+    },
+
+    create_file => sub {
+      open(FH, ">./test-tail-file") or die $!;
+      print FH "moo\015\012";
+      close FH;
+      DEBUG and warn "create";
+      $_[HEAP]->{sent_count}++;
+    },
+
+    got_input => sub {
+      my ($kernel, $heap) = @_[KERNEL, HEAP];
+      $heap->{recv_count}++;
+
+      DEBUG and warn "input";
+
+      unlink "./test-tail-file";
+
+      if ($heap->{recv_count} == 1) {
+        $kernel->delay(create_file => 1);
+        return;
+      }
+
+      delete $heap->{wheel};
+    },
+
+    got_error => sub { warn "error"; die },
+
+    got_reset => sub {
+      DEBUG and warn "reset";
+      $_[HEAP]->{reset_count}++;
+    },
+
+    _stop => sub {
+      DEBUG and warn "stop";
+      my $heap = $_[HEAP];
+      ok_if(
+        10,
+        ($heap->{sent_count} == $heap->{recv_count}) &&
+        ($heap->{sent_count} == 2)
+      );
+      ok_if(11, $heap->{reset_count} > 0);
+    },
+  },
 );
 
 ### main loop
