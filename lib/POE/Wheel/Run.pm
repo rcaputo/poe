@@ -11,7 +11,6 @@ use Carp qw(carp croak);
 use POSIX qw(
   sysconf setsid _SC_OPEN_MAX ECHO ICANON IEXTEN ISIG BRKINT ICRNL
   INPCK ISTRIP IXON CSIZE PARENB OPOST TCSANOW
-  STDIN_FILENO STDOUT_FILENO STDERR_FILENO
 );
 
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
@@ -406,20 +405,12 @@ sub new {
     # Redirect STDIN from the read end of the stdin pipe.
     open( STDIN, "<&" . fileno($stdin_read) )
       or die "can't redirect STDIN in child pid $$: $!";
-    POE::Kernel::RUNNING_IN_HELL or fileno(STDIN) == STDIN_FILENO or die (
-      "child's STDIN fileno == ", fileno(STDIN),
-      " but ", STDIN_FILENO, " was expected"
-    );
 
     # Redirect STDOUT to the write end of the stdout pipe.
     # The STDOUT_FILENO check snuck in on a patch.  I'm not sure why
     # we care what the file descriptor is.
     open( STDOUT, ">&" . fileno($stdout_write) )
       or die "can't redirect stdout in child pid $$: $!";
-    POE::Kernel::RUNNING_IN_HELL or fileno(STDOUT) == STDOUT_FILENO or die (
-      "child's STDOUT fileno == ", fileno(STDOUT),
-      " but ", STDOUT_FILENO, " was expected"
-    );
 
     # Need to close on Win32 because std handles aren't dup'ed, no harm elsewhere
     close STDERR;
@@ -430,10 +421,6 @@ sub new {
     # we care what the file descriptor is.
     open( STDERR, ">&" . fileno($stderr_write) )
       or die "can't redirect stderr in child: $!";
-    POE::Kernel::RUNNING_IN_HELL or fileno(STDERR) == STDERR_FILENO or die (
-      "child's STDERR fileno == ", fileno(STDERR),
-      " but ", STDERR_FILENO, " was expected"
-    );
 
     # Make STDOUT and/or STDERR auto-flush.
     select STDERR;  $| = 1;
@@ -457,9 +444,15 @@ sub new {
     # Exec the program depending on its form.
     if (ref($program) eq 'CODE') {
 
-      # Close any close-on-exec file descriptors.
+      # Close any close-on-exec file descriptors.  Except STDIN,
+      # STDOUT, and STDERR, of course.
       if ($close_on_call) {
-        POSIX::close($_) for $^F+1..MAX_OPEN_FDS;
+        for (0..MAX_OPEN_FDS-1) {
+          next if fileno(STDIN) == $_;
+          next if fileno(STDOUT) == $_;
+          next if fileno(STDERR) == $_;
+          POSIX::close($_);
+        }
       }
 
       $program->(@$prog_args);
