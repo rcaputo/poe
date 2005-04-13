@@ -40,6 +40,7 @@ sub new {
   # Extract parameters.
   my $alias   = delete $param{Alias};
   my $address = delete $param{Address};
+  my $hname   = delete $param{Hostname};
   my $port    = delete $param{Port};
   my $domain  = delete $param{Domain};
 
@@ -84,6 +85,9 @@ sub new {
 
   # Defaults.
 
+  if (!defined $address && defined $hname) {
+    $address = inet_aton($hname);
+  }
   $address = INADDR_ANY unless defined $address;
 
   $error_callback = \&_default_server_error unless defined $error_callback;
@@ -406,6 +410,7 @@ POE::Component::Server::TCP - a simplified TCP server
   POE::Component::Server::TCP->new(
     Port     => $bind_port,
     Address  => $bind_address,    # Optional.
+    Hostname => $bind_hostname,   # Optional.
     Domain   => AF_INET,          # Optional.
     Alias    => $session_alias,   # Optional.
     Acceptor => \&accept_handler,
@@ -417,6 +422,7 @@ POE::Component::Server::TCP - a simplified TCP server
   POE::Component::Server::TCP->new(
     Port     => $bind_port,
     Address  => $bind_address,      # Optional.
+    Hostname => $bind_hostname,     # Optional.
     Domain   => AF_INET,            # Optional.
     Alias    => $session_alias,     # Optional.
     Error    => \&error_handler,    # Optional.
@@ -537,7 +543,7 @@ respectively.
 It's passed directly to SocketFactory's BindAddress parameter, so it
 can be in whatever form SocketFactory supports.  At the time of this
 writing, that's a dotted quad, an IPv6 address, a host name, or a
-packed Internet address.
+packed Internet address. See also the Hostname parameter.
 
 =item Alias => SCALAR
 
@@ -687,6 +693,17 @@ A default error handler will be provided if Error is omitted.  The
 default handler will log the error to STDERR and shut down the server.
 Active connections will have the opportunity to complete their
 transactions.
+
+=item Hostname => SCALAR
+
+Hostname is the optional non-packed name of the interface the TCP
+server will bind to. This will always be converted via inet_aton
+and so can either be a dotted quad or a name. If you know that you
+are passing in text, then this parameter should be used in preference
+to Address, to prevent confusion in the case that the hostname
+happens to be 4 bytes in length. In the case that both are
+provided, then the Address parameter overrides
+the Hostname parameter.
 
 =item InlineStates => HASHREF
 
