@@ -191,11 +191,7 @@ POE::Session->create(
   },
 );
 
-# Run the tests.
-
-POE::Kernel->run();
-
-# Now run some more tests!
+# See how SIGPIPE gets handled.
 
 POE::Session->create(
   inline_states => {
@@ -222,6 +218,8 @@ POE::Session->create(
     },
   },
 );
+
+# Run the tests.
 
 POE::Kernel->run();
 
