@@ -7,7 +7,7 @@ use strict;
 use Carp qw( croak );
 
 use vars qw($VERSION $REVISION);
-$VERSION = '0.3009';
+$VERSION = '0.31';
 $REVISION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 sub import {
@@ -254,16 +254,20 @@ No known problems.  POE has no OS/2 tester as of version 0.1206.
 
 =item Windows
 
-POE seems to work very nicely with Perl compiled for CygWin.  If you
-must use ActiveState Perl, please use build 631 or newer.
+POE seems to work very nicely with Perl compiled for Cygwin.  If you
+must use ActiveState Perl, please use the absolute latest version.
+ActiveState Perl's compatibility fluctuates from one build to another,
+so we only support the most recent build prior to POE's release.
 
 POE's Windows port is current maintained by Rocco Caputo, but he has
 only limited knowledge of Windows development.  Please contact Rocco
 if you or someone you know would like to accelerate POE's Windows
 support.
 
-Sean Puckett, Douglas Couch, and Andrew Chen have helped to bring
-POE's Windows support this far.
+A number of people have helped bring POE's Windows support this far,
+through contributions of time, patches, and other resources.  Some of
+them are: Sean Puckett, Douglas Couch, Andrew Chen, Uhlarik Ondoej,
+and Nick Williams.
 
 TODO: I'm sure there are others.  Find them in the changelog and thank
 them here.
@@ -280,22 +284,13 @@ forward and make it happen.
 
 =head1 SYSTEM REQUIREMENTS
 
-POE has only one absolute external requirement: Filter::Util::Call
-version 1.04 or later.  All the other modules are optional, although
-people tend to install them anyway.
-
 POE's installer will prompt for required and optional modules.  It's
 important to read the prompts and only install what you will need.
 You may always reinstall it later, adding new prerequisites as the
-need arises.  B<Note that Tk and Gtk support require very large
-dependencies.>
+need arises.
 
 Time::HiRes is recommended.  POE will work without it, but alarms and
 other features will be much more accurate with it.
-
-POE::Wheel::Run requires a working fork() implementation.
-Unfortunately ActivePerl's fork() emulation is not sufficient for it.
-CygWin's fork() works just fine however.
 
 POE relies heavily on constants in the POSIX module.  Some of the
 constants aren't defined on some platforms.  POE works around this as
@@ -323,17 +318,10 @@ POE.
 
 =over 2
 
-=item POE's Request Tracker
-
-Bug reports, suggestions, and feedback of all kinds should be e-mailed
-to <bug-POE@rt.cpan.org>.  It will be entered into our request queue
-where it will remain until addressed.  If your return address is
-valid, you will be notified when the status of your request changes.
-
 =item POE's Mailing List
 
 POE has a mailing list where you can discuss it with the community at
-large.  You can receive subscription information by sending e-mail:
+large.  You can receive subscription information by sending e-mail to:
 
   To: poe-help@perl.org
   Subject: (anything will do)
@@ -387,10 +375,15 @@ POE::Resource::Sessions, POE::Resource::Signals
 
 =head1 BUGS
 
-The t/*.t tests only cover about 70% of POE.
+The tests only cover about 70% of POE.
+
+Bug reports, suggestions, and feedback of all kinds should be e-mailed
+to <bug-POE@rt.cpan.org>.  It will be entered into our request queue
+where it will remain until addressed.  If your return address is
+valid, you will be notified when the status of your request changes.
 
 Outstanding issues, including wish list items, are available in POE's
-queue at L<http://rt.cpan.org/>.
+RT queue at L<http://rt.cpan.org/>.
 
 =head1 AUTHORS & COPYRIGHT
 
@@ -536,7 +529,7 @@ Please contact the author if you've been forgotten.
 
 Rocco Caputo is <rcaputo@cpan.org>.  POE is his brainchild.
 
-Except where otherwise noted, POE is Copyright 1998-2004 Rocco Caputo.
+Except where otherwise noted, POE is Copyright 1998-2005 Rocco Caputo.
 All rights reserved.  POE is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 

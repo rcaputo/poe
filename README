@@ -4,8 +4,8 @@ $Id$
 Detailed Information
 --------------------
 
-POE is bigger than this README.  Please see its web site at
-http://poe.perl.org/ for more information.
+POE is bigger than this README.  Please see http://poe.perl.org/ for
+more information.
 
 ---------------------
 Documentation Roadmap
@@ -82,8 +82,8 @@ What POE Is
 
 POE is a networking and multitasking (some say cooperative threading)
 framework for Perl.  It has been in active development since 1996,
-with its first open release in 1998.  O'Reilly's Perl Conference (now
-OSCON) named POE "Best New Module" in 1999.
+with its first open release in 1998.  O'Reilly's "The Perl Conference"
+(now OSCON's Perl track) named POE "Best New Module" in 1999.
 
 POE has been used in mission-critical systems such as internetworked
 financial markets, file systems, commerce and application servers.  It
@@ -91,12 +91,13 @@ has been used in projects ranging from a few lines of code to tens of
 thousands.
 
 POE is compatible with perl versions as old as 5.005_03.  This may
-change in the future.
+change as it becomes harder and harder to support old versions of Perl
+over time.
 
 POE includes an evolving component framework.  Components are
 high-level, modular, reusable pieces of programs.  Several components
 have been published on the CPAN, and more are listed on POE's web
-site.
+site.  See: http://search.cpan.org/search?query=POE&mode=dist
 
 POE includes components and libraries for making quick work of network
 clients, servers, and peers.  A simple stand-alone web application
@@ -108,4 +109,5 @@ Bye!
 
 Thanks for reading!
 
--- Rocco Caputo / rcaputo@cpan.org / poe.perl.org
+-- 
+Rocco Caputo / rcaputo@cpan.org / poe.perl.org

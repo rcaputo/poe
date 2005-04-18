@@ -1545,8 +1545,6 @@ names.
 Group must be specified by GID.  It would be nice to support group
 names.
 
-ActiveState Perl doesn't like this module one bit.
-
 =head1 AUTHORS & COPYRIGHTS
 
 Please see L<POE> for more information about authors and contributors.
