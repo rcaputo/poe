@@ -23,13 +23,14 @@ my $test_base = "tests";
     "# \$Id\$\n" .
     "\n" .
     "use strict;\n" .
+    "use POSIX qw(_exit);\n" .
     "use lib qw(--base_lib--);\n" .
     "\n" .
     "\$ENV{POE_IMPLEMENTATION} = '--implementation--';\n" .
     "\n" .
     "require '--base_file--';\n" .
     "\n" .
-    "exit 0;\n"
+    "POSIX::_exit(0);\n"
   );
 
   derive_files(
@@ -72,7 +73,7 @@ my $test_base = "tests";
           "  unless (\$ENV{DISPLAY}) {\n" .
           "    print qq(1..0 # " .
           "SKIP $module needs a DISPLAY (set one today, okay?)\\n);\n" .
-          "    exit 0;\n" .
+          "    POSIX::_exit(0);\n" .
           "  }\n" .
           "}\n"
         );
@@ -89,7 +90,7 @@ my $test_base = "tests";
         "  eval 'use $module';\n" .
         "  if (\$@) {\n" .
         "    print qq(1..0 # SKIP $module could not be loaded\\n);\n" .
-        "    exit 0;\n" .
+        "    POSIX::_exit(0);\n" .
         "  }\n" .
         "}\n"
       );
@@ -101,13 +102,14 @@ my $test_base = "tests";
     "# \$Id\$\n" .
     "\n" .
     "use strict;\n" .
+    "use POSIX qw(_exit);\n" .
     "use lib qw(--base_lib--);\n" .
     "--display--" .
     "--module--" .
     "\n" .
     "require '--base_file--';\n" .
     "\n" .
-    "exit 0;\n"
+    "POSIX::_exit(0);\n"
   );
 
   derive_files(
@@ -175,5 +177,3 @@ sub derive_files {
     }
   }
 }
-
-exit 0;
