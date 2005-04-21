@@ -13,11 +13,12 @@ use Symbol qw( gensym );
 
 use POSIX qw(:fcntl_h);
 use Errno qw(EWOULDBLOCK EADDRNOTAVAIL EINPROGRESS EADDRINUSE);
-use Socket qw(	AF_INET SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 
-		PF_INET SOCK_DGRAM SO_ERROR unpack_sockaddr_in 
-		unpack_sockaddr_un PF_UNSPEC SO_REUSEADDR INADDR_ANY 
-		pack_sockaddr_in pack_sockaddr_un inet_aton SOMAXCONN
-	);
+use Socket qw(
+  AF_INET SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 
+  PF_INET SOCK_DGRAM SO_ERROR unpack_sockaddr_in 
+  unpack_sockaddr_un PF_UNSPEC SO_REUSEADDR INADDR_ANY 
+  pack_sockaddr_in pack_sockaddr_un inet_aton SOMAXCONN
+);
 use IO::Handle ();
 use POE qw( Wheel );
 
@@ -265,12 +266,12 @@ sub _define_connect_state {
         # Grab some values and stop watching the socket.
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-	_shutdown(
-	  $socket_selected, $socket_handle,
-	  $state_accept, $state_connect,
-	  $mine_success, $event_success,
-	  $mine_failure, $event_failure,
-	);
+  _shutdown(
+    $socket_selected, $socket_handle,
+    $state_accept, $state_connect,
+    $mine_success, $event_success,
+    $mine_failure, $event_failure,
+  );
 
         # Throw a failure if the connection failed.
         $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
@@ -355,12 +356,12 @@ sub _define_connect_state {
           # Grab some values and stop watching the socket.
           my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-	  _shutdown(
-	    $socket_selected, $socket_handle,
-	    $state_accept, $state_connect,
-	    $mine_success, $event_success,
-	    $mine_failure, $event_failure,
-	  );
+    _shutdown(
+      $socket_selected, $socket_handle,
+      $state_accept, $state_connect,
+      $mine_success, $event_success,
+      $mine_failure, $event_failure,
+    );
 
           # Throw a failure if the connection failed.
           $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
@@ -621,39 +622,42 @@ sub new {
       my $set_it = "1";
 
       # 126 is FIONBIO (some docs say 0x7F << 16)
-      ioctl( $socket_handle,
-             0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-             $set_it
-           )
-        or do {
-          $poe_kernel->yield( $event_failure,
-                              'ioctl', $!+0, $!, $self->[MY_UNIQUE_ID]
-                            );
-          return $self;
-        };
+      ioctl(
+        $socket_handle,
+        0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+        \$set_it
+      ) or do {
+        $poe_kernel->yield(
+          $event_failure,
+          'ioctl', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
+        return $self;
+      };
     }
 
     # Do it the way everyone else does.
     else {
-      my $flags = fcntl($socket_handle, F_GETFL, 0)
-        or do {
-          $poe_kernel->yield( $event_failure,
-                              'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
-                            );
-          return $self;
-        };
-      $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
-        or do {
-          $poe_kernel->yield( $event_failure,
-                              'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
-                            );
-          return $self;
-        };
+      my $flags = fcntl($socket_handle, F_GETFL, 0) or do {
+        $poe_kernel->yield(
+          $event_failure,
+          'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
+        return $self;
+      };
+
+      $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK) or do {
+        $poe_kernel->yield(
+          $event_failure,
+          'fcntl', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
+        return $self;
+      };
     }
   }
 
   # Make the socket reusable, if requested.
-  if ( (defined $params{Reuse})
+  if (
+    (defined $params{Reuse})
        and ( (lc($params{Reuse}) eq 'yes')
              or (lc($params{Reuse}) eq 'on')
              or ( ($params{Reuse} =~ /\d+/)
@@ -664,9 +668,10 @@ sub new {
   {
     setsockopt($socket_handle, SOL_SOCKET, SO_REUSEADDR, 1)
       or do {
-        $poe_kernel->yield( $event_failure,
-                            'setsockopt', $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          'setsockopt', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       };
   }
@@ -685,10 +690,11 @@ sub new {
     if ((defined $params{BindAddress}) or (defined $params{BindPort})) {
 
       # Set the bind address, or default to INADDR_ANY.
-      $bind_address = ( (defined $params{BindAddress})
-                        ? $params{BindAddress}
-                        : INADDR_ANY
-                      );
+      $bind_address = (
+        (defined $params{BindAddress})
+        ? $params{BindAddress}
+        : INADDR_ANY
+      );
 
       {% use_bytes %}
 
@@ -699,9 +705,10 @@ sub new {
 
       unless (defined $bind_address) {
         $! = EADDRNOTAVAIL;
-        $poe_kernel->yield( $event_failure,
-                            "inet_aton", $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          "inet_aton", $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
 
@@ -712,18 +719,20 @@ sub new {
         $bind_port = getservbyname($bind_port, $protocol_name);
         unless (defined $bind_port) {
           $! = EADDRNOTAVAIL;
-          $poe_kernel->yield( $event_failure,
-                              'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
-                            );
+          $poe_kernel->yield(
+            $event_failure,
+            'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
+          );
           return $self;
         }
       }
 
       $bind_address = pack_sockaddr_in($bind_port, $bind_address);
       unless (defined $bind_address) {
-        $poe_kernel->yield( $event_failure,
-                            "pack_sockaddr_in", $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          "pack_sockaddr_in", $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
     }
@@ -751,9 +760,10 @@ sub new {
         $bind_port = getservbyname($bind_port, $protocol_name);
         unless (defined $bind_port) {
           $! = EADDRNOTAVAIL;
-          $poe_kernel->yield( $event_failure,
-                              'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
-                            );
+          $poe_kernel->yield(
+            $event_failure,
+            'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
+          );
           return $self;
         }
       }
@@ -773,9 +783,10 @@ sub new {
 
       if (@info < 5) {  # unless defined $bind_address
         $! = EADDRNOTAVAIL;
-        $poe_kernel->yield( $event_failure,
-                            "getaddrinfo", $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          "getaddrinfo", $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
 
@@ -804,18 +815,20 @@ sub new {
       # Is this necessary, or will bind() return EADDRINUSE?
       if (defined $params{RemotePort}) {
         $! = EADDRINUSE;
-        $poe_kernel->yield( $event_failure,
-                            'bind', $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          'bind', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
 
       $bind_address = &condition_unix_address($params{BindAddress});
       $bind_address = pack_sockaddr_un($bind_address);
       unless ($bind_address) {
-        $poe_kernel->yield( $event_failure,
-                            'pack_sockaddr_un', $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          'pack_sockaddr_un', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
     }
@@ -830,9 +843,10 @@ sub new {
   # Perform the actual bind, if there's a bind address to bind to.
   if (defined $bind_address) {
     unless (bind($socket_handle, $bind_address)) {
-      $poe_kernel->yield( $event_failure,
-                          'bind', $!+0, $!, $self->[MY_UNIQUE_ID]
-                        );
+      $poe_kernel->yield(
+        $event_failure,
+        'bind', $!+0, $!, $self->[MY_UNIQUE_ID]
+      );
       return $self;
     }
 
@@ -850,9 +864,10 @@ sub new {
     # Check SocketFactory /Remote.*/ parameters in an Internet socket
     # context, and translate them into parameters that connect()
     # understands.
-    if ($abstract_domain eq DOM_INET or
-        $abstract_domain eq DOM_INET6
-       ) {
+    if (
+      $abstract_domain eq DOM_INET or
+      $abstract_domain eq DOM_INET6
+    ) {
       # connecting if RemoteAddress
       croak 'RemotePort required' unless (defined $params{RemotePort});
       carp 'ListenQueue ignored' if (defined $params{ListenQueue});
@@ -861,9 +876,10 @@ sub new {
       if ($remote_port =~ /[^0-9]/) {
         unless ($remote_port = getservbyname($remote_port, $protocol_name)) {
           $! = EADDRNOTAVAIL;
-          $poe_kernel->yield( $event_failure,
-                              'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
-                            );
+          $poe_kernel->yield(
+            $event_failure,
+            'getservbyname', $!+0, $!, $self->[MY_UNIQUE_ID]
+          );
           return $self;
         }
       }
@@ -908,9 +924,10 @@ sub new {
       # to remove the old gethostbyname2() code and clean this up.
       unless (defined $connect_address) {
         $! = EADDRNOTAVAIL;
-        $poe_kernel->yield( $event_failure,
-                            $error_tag, $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          $error_tag, $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
 
@@ -931,9 +948,10 @@ sub new {
 
       unless ($connect_address) {
         $! = EADDRNOTAVAIL;
-        $poe_kernel->yield( $event_failure,
-                            $error_tag, $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          $error_tag, $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
     }
@@ -946,9 +964,10 @@ sub new {
       $connect_address = condition_unix_address($params{RemoteAddress});
       $connect_address = pack_sockaddr_un($connect_address);
       unless (defined $connect_address) {
-        $poe_kernel->yield( $event_failure,
-                            'pack_sockaddr_un', $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          'pack_sockaddr_un', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
     }
@@ -971,9 +990,10 @@ sub new {
   if (defined $connect_address) {
     unless (connect($socket_handle, $connect_address)) {
       if ($! and ($! != EINPROGRESS) and ($! != EWOULDBLOCK)) {
-        $poe_kernel->yield( $event_failure,
-                            'connect', $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          'connect', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
     }
@@ -982,9 +1002,10 @@ sub new {
 
     $self->[MY_SOCKET_HANDLE] = $socket_handle;
     $self->_define_connect_state();
-    $self->event( SuccessEvent => $params{SuccessEvent},
-                  FailureEvent => $params{FailureEvent},
-                );
+    $self->event(
+      SuccessEvent => $params{SuccessEvent},
+      FailureEvent => $params{FailureEvent},
+    );
     return $self;
   }
 
@@ -1010,9 +1031,10 @@ sub new {
       # 
       # ($listen_queue > SOMAXCONN) && ($listen_queue = SOMAXCONN);
       unless (listen($socket_handle, $listen_queue)) {
-        $poe_kernel->yield( $event_failure,
-                            'listen', $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure,
+          'listen', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
 
@@ -1020,9 +1042,10 @@ sub new {
 
       $self->[MY_SOCKET_HANDLE] = $socket_handle;
       $self->_define_accept_state();
-      $self->event( SuccessEvent => $params{SuccessEvent},
-                    FailureEvent => $params{FailureEvent},
-                  );
+      $self->event(
+        SuccessEvent => $params{SuccessEvent},
+        FailureEvent => $params{FailureEvent},
+      );
       return $self;
     }
     else {
@@ -1031,9 +1054,10 @@ sub new {
       if ($protocol_op eq SVROP_NOTHING) {
         # Do nothing.  Duh.  Fire off a success event immediately, and
         # return.
-        $poe_kernel->yield( $event_success,
-                            $socket_handle, undef, undef, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_success,
+          $socket_handle, undef, undef, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
       else {
@@ -1051,20 +1075,22 @@ sub new {
 # Pause and resume accept.
 sub pause_accept {
   my $self = shift;
-  if ( defined $self->[MY_SOCKET_HANDLE] and
-       defined $self->[MY_STATE_ACCEPT] and
-       defined $self->[MY_SOCKET_SELECTED]
-     ) {
+  if (
+    defined $self->[MY_SOCKET_HANDLE] and
+    defined $self->[MY_STATE_ACCEPT] and
+    defined $self->[MY_SOCKET_SELECTED]
+  ) {
     $poe_kernel->select_pause_read($self->[MY_SOCKET_HANDLE]);
   }
 }
 
 sub resume_accept {
   my $self = shift;
-  if ( defined $self->[MY_SOCKET_HANDLE] and
-       defined $self->[MY_STATE_ACCEPT] and
-       defined $self->[MY_SOCKET_SELECTED]
-     ) {
+  if (
+    defined $self->[MY_SOCKET_HANDLE] and
+    defined $self->[MY_STATE_ACCEPT] and
+    defined $self->[MY_SOCKET_SELECTED]
+  ) {
     $poe_kernel->select_resume_read($self->[MY_SOCKET_HANDLE]);
   }
 }

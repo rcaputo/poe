@@ -12,10 +12,11 @@ use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Symbol qw(gensym);
-use IO::Socket qw( 	PF_INET SOCK_STREAM SOL_SOCKET SO_REUSEADDR 
-			pack_sockaddr_in unpack_sockaddr_in inet_aton
-			SOMAXCONN SO_ERROR
-		);
+use IO::Socket qw(
+  PF_INET SOCK_STREAM SOL_SOCKET SO_REUSEADDR 
+  pack_sockaddr_in unpack_sockaddr_in inet_aton
+  SOMAXCONN SO_ERROR
+);
 use POSIX qw(:fcntl_h);
 use Errno qw(EINPROGRESS EWOULDBLOCK);
 
@@ -80,29 +81,30 @@ sub _stop_blocking {
   # RCC 2003-01-20: Perl 5.005_03 doesn't like blocking(), so we'll
   # only call it in perl 5.8.0 and beyond.
 
+  # Do it the Win32 way.
+  if ($^O eq 'MSWin32') {
+    my $set_it = "1";
+
+    # 126 is FIONBIO (some docs say 0x7F << 16)
+    ioctl(
+      $socket_handle,
+      0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+      \$set_it
+    ) or die "ioctl fails: $!";
+    return;
+  }
+
+  # Do it the 5.8+ way.
   if ($] >= 5.008) {
     $socket_handle->blocking(0);
+    return;
   }
-  else {
-    # Do it the Win32 way.  XXX This is incomplete.
-    if ($^O eq 'MSWin32') {
-      my $set_it = "1";
 
-      # 126 is FIONBIO (some docs say 0x7F << 16)
-      ioctl( $socket_handle,
-             0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-             $set_it
-           )
-        or die "ioctl fails: $!";
-    }
-
-    # Do it the way everyone else does.
-    else {
-      my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
-      $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
-        or die "setfl fails: $!";
-    }
-  }
+  # Do it the old way.
+  my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
+  $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
+    or die "setfl fails: $!";
+  return;
 }
 
 # Another static member.  Turn blocking on when we're done, in case
@@ -119,29 +121,30 @@ sub _start_blocking {
   # RCC 2003-01-20: Perl 5.005_03 doesn't like blocking(), so we'll
   # only call it in perl 5.8.0 and beyond.
 
+  # Do it the Win32 way.
+  if ($^O eq 'MSWin32') {
+    my $unset_it = "0";
+
+    # 126 is FIONBIO (some docs say 0x7F << 16)
+    ioctl(
+      $socket_handle,
+      0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+      \$unset_it
+    ) or die "ioctl fails: $!";
+    return;
+  }
+
+  # Do it the 5.8+ way.
   if ($] >= 5.008) {
     $socket_handle->blocking(1);
+    return;
   }
-  else {
-    # Do it the Win32 way.  XXX This is incomplete.
-    if ($^O eq 'MSWin32') {
-      my $unset_it = "0";
 
-      # 126 is FIONBIO (some docs say 0x7F << 16)
-      ioctl( $socket_handle,
-             0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-             $unset_it
-           )
-        or die "ioctl fails: $!";
-    }
-
-    # Do it the way everyone else does.
-    else {
-      my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
-      $flags = fcntl($socket_handle, F_SETFL, $flags & ~O_NONBLOCK)
-        or die "setfl fails: $!";
-    }
-  }
+  # Do it the old way.
+  my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
+  $flags = fcntl($socket_handle, F_SETFL, $flags & ~O_NONBLOCK)
+    or die "setfl fails: $!";
+  return;
 }
 
 # Make a socket.  This is a homebrew socketpair() for systems that

@@ -346,11 +346,11 @@ sub _data_handle_add {
         my $set_it = "1";
 
         # 126 is FIONBIO (some docs say 0x7F << 16)
-        ioctl( $handle,
-               0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-               $set_it
-             )
-          or _trap "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
+        ioctl(
+          $handle,
+          0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+          \$set_it
+        ) or _trap "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
       }
     }
 
@@ -425,11 +425,11 @@ sub _data_handle_add {
   # the session/handle pair.
 
   else {
-    $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle} =
-      [ $handle,   # HSS_HANDLE
-        $session,  # HSS_SESSION
-        $event,    # HSS_STATE
-      ];
+    $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle} = [
+      $handle,   # HSS_HANDLE
+      $session,  # HSS_SESSION
+      $event,    # HSS_STATE
+    ];
 
     # Fix reference counts.
     $kr_fileno->[FNO_TOT_REFCOUNT]++;
@@ -449,14 +449,14 @@ sub _data_handle_add {
   # register the filehandle in the session's structure.
 
   unless (exists $kr_ses_to_handle{$session}->{$handle}) {
-    $kr_ses_to_handle{$session}->{$handle} =
-      [ $handle,  # SH_HANDLE
-        0,        # SH_REFCOUNT
-        [ 0,      # SH_MODECOUNT / MODE_RD
-          0,      # SH_MODECOUNT / MODE_WR
-          0       # SH_MODECOUNT / MODE_EX
-        ]
-      ];
+    $kr_ses_to_handle{$session}->{$handle} = [
+      $handle,  # SH_HANDLE
+      0,        # SH_REFCOUNT
+      [ 0,      # SH_MODECOUNT / MODE_RD
+        0,      # SH_MODECOUNT / MODE_WR
+        0       # SH_MODECOUNT / MODE_EX
+      ]
+    ];
     $self->_data_ses_refcount_inc($session);
   }
 
