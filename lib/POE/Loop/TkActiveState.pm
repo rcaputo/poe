@@ -60,11 +60,11 @@ sub loop_finalize {
 
   # This is "clever" in that it relies on each symbol on the left to
   # be stringified by the => operator.
-  my %kernel_modes =
-    ( MODE_RD => MODE_RD,
-      MODE_WR => MODE_WR,
-      MODE_EX => MODE_EX,
-    );
+  my %kernel_modes = (
+    MODE_RD => MODE_RD,
+    MODE_WR => MODE_WR,
+    MODE_EX => MODE_EX,
+  );
 
   while (my ($mode_name, $mode_offset) = each(%kernel_modes)) {
     my $bits = unpack('b*', $loop_vectors[$mode_offset]);
@@ -147,19 +147,20 @@ sub _poll_for_io {
 
     if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
-      my $hits = select( my $rout = $loop_vectors[MODE_RD],
-                         my $wout = $loop_vectors[MODE_WR],
-                         my $eout = $loop_vectors[MODE_EX],
-                         0,
-                       );
+      my $hits = select(
+        my $rout = $loop_vectors[MODE_RD],
+        my $wout = $loop_vectors[MODE_WR],
+        my $eout = $loop_vectors[MODE_EX],
+        0,
+      );
 
       if (ASSERT_FILES) {
         if ($hits < 0) {
-          POE::Kernel::_trap("<fh> select error: $!")
-            unless ( ($! == EINPROGRESS) or
-                     ($! == EWOULDBLOCK) or
-                     ($! == EINTR)
-                   );
+          POE::Kernel::_trap("<fh> select error: $!") unless (
+            ($! == EINPROGRESS) or
+            ($! == EWOULDBLOCK) or
+            ($! == EINTR)
+          );
         }
       }
 

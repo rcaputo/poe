@@ -20,7 +20,10 @@ package POE::Kernel;
 
 use strict;
 
-my $_watcher_timer;
+use Tk qw(DoOneEvent DONT_WAIT ALL_EVENTS);
+
+my $_watcher_time;
+my $_do_one_running = 0;
 
 #------------------------------------------------------------------------------
 # Signal handler maintenance functions.
@@ -46,16 +49,19 @@ sub loop_attach_uidestroy {
 
 sub loop_resume_time_watcher {
   my ($self, $next_time) = @_;
-  $next_time -= time();
 
-  if (defined $_watcher_timer) {
-    $_watcher_timer->cancel();
-    undef $_watcher_timer;
+  $self->loop_pause_time_watcher();
+
+  my $timeout = $next_time - time();
+  if ($timeout < 0) {
+    $_do_one_running = 0;
+    return;
   }
 
-  $next_time = 0 if $next_time < 0;
-  $_watcher_timer =
-    $poe_main_window->after($next_time * 1000, [\&_loop_event_callback]);
+  $_do_one_running = 1;
+  $_watcher_time = $poe_main_window->after(
+    $timeout * 1000, [ sub { $_do_one_running = 0 } ]
+  );
 }
 
 sub loop_reset_time_watcher {
@@ -65,13 +71,11 @@ sub loop_reset_time_watcher {
 
 sub loop_pause_time_watcher {
   my $self = shift;
-  $_watcher_timer->cancel() if defined $_watcher_timer;
+  if (defined $_watcher_time) {
+    $_watcher_time->cancel();
+    $_watcher_time = undef;
+  }
 }
-
-# Tk's alarm callbacks seem to have the highest priority.  That is, if
-# $widget->after is constantly scheduled for a period smaller than the
-# overhead of dispatching it, then no other events are processed.
-# That includes afterIdle and even internal Tk events.
 
 # TODO - Ton Hospel's Tk event loop doesn't mix alarms and immediate
 # events.  Rather, it keeps a list of immediate events and defers
@@ -98,93 +102,6 @@ sub loop_pause_time_watcher {
 # This has a side effect of deferring any alarms until after
 # @immediate is exhausted.  I suspect the semantics are similar to
 # POE's queue anyway, however.
-
-# Tk timer callback to dispatch events.
-
-my $last_time = time();
-
-sub _loop_event_callback {
-  if (TRACE_STATISTICS) {
-    # TODO - I'm pretty sure the startup time will count as an unfair
-    # amount of idleness.
-    #
-    # TODO - Introducing many new time() syscalls.  Bleah.
-    $poe_kernel->_data_stat_add('idle_seconds', time() - $last_time);
-  }
-
-  $poe_kernel->_data_ev_dispatch_due();
-
-  # As was mentioned before, $widget->after() events can dominate a
-  # program's event loop, starving it of other events, including Tk's
-  # internal widget events.  To avoid this, we'll reset the event
-  # callback from an idle event.
-
-  # Register the next timed callback if there are events left.
-
-  if ($poe_kernel->get_event_count()) {
-
-    # Cancel the Tk alarm that handles alarms.
-
-    if (defined $_watcher_timer) {
-      $_watcher_timer->cancel();
-      undef $_watcher_timer;
-    }
-
-    # Faster, more direct code is also broken since Tk alarms take
-    # precedence over everything else.
-
-#    my $next_time = $poe_kernel->get_next_event_time();
-#    if (defined $next_time) {
-#      $next_time -= time();
-#      $next_time = 0 if $next_time < 0;
-#
-#      $_watcher_timer = $poe_main_window->after(
-#        $next_time * 1000,
-#        [\&_loop_event_callback]
-#      );
-#    }
-
-    # Slower, indirect code works.
-
-    $_watcher_timer = $poe_main_window->afterIdle(
-      [
-        sub {
-          $_watcher_timer->cancel();
-          undef $_watcher_timer;
-
-          my $next_time = $poe_kernel->get_next_event_time();
-          if (defined $next_time) {
-            $next_time -= time();
-            $next_time = 0 if $next_time < 0;
-
-            $_watcher_timer = $poe_main_window->after(
-              $next_time * 1000,
-              [\&_loop_event_callback]
-            );
-          }
-        }
-      ],
-    );
-
-    # POE::Kernel's signal polling loop always keeps one event in the
-    # queue.  We test for an idle kernel if the queue holds only one
-    # event.  A more generic method would be to keep counts of user
-    # vs. kernel events, and GC the kernel when the user events drop
-    # to 0.
-
-    if ($poe_kernel->get_event_count() == $poe_kernel->_idle_queue_size()) {
-      $poe_kernel->_test_if_kernel_is_idle();
-    }
-  }
-
-  # Make sure the kernel can still run.
-  else {
-    $poe_kernel->_test_if_kernel_is_idle();
-  }
-
-  # And back to Tk, so we're in idle mode.
-  $last_time = time() if TRACE_STATISTICS;
-}
 
 #------------------------------------------------------------------------------
 # Tk traps errors in an effort to survive them.  However, since POE
@@ -215,15 +132,35 @@ sub Tk::Error {
 # The event loop itself.
 
 sub loop_do_timeslice {
-  die "doing timeslices currently not supported in the Tk loop";
+  my $self = shift;
+
+  # Check for a hung kernel.
+  $self->_test_if_kernel_is_idle();
+
+  my $now;
+  $now = time() if TRACE_STATISTICS;
+
+  DoOneEvent(DONT_WAIT | ALL_EVENTS);
+  while ($_do_one_running) {
+    DoOneEvent(ALL_EVENTS);
+  }
+
+  $self->_data_stat_add('idle_seconds', time() - $now) if TRACE_STATISTICS;
+
+  # Dispatch whatever events are due.
+  $self->_data_ev_dispatch_due();
 }
 
 sub loop_run {
-  Tk::MainLoop();
+  my $self = shift;
+
+  # Run for as long as there are sessions to service.
+  while ($self->_data_ses_count()) {
+    $self->loop_do_timeslice();
+  }
 }
 
 sub loop_halt {
-  undef $_watcher_timer;
   $poe_main_window->destroy();
 }
 

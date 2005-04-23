@@ -69,16 +69,16 @@ sub loop_watch_filehandle {
 
   # Start a filehandle watcher.
 
-  $poe_main_window->fileevent
-    ( $handle,
-      $tk_mode,
+  $poe_main_window->fileevent(
+    $handle,
+    $tk_mode,
 
-      # The handle is wrapped in quotes here to stringify it.  For
-      # some reason, it seems to work as a filehandle anyway, and it
-      # breaks reference counting.  For filehandles, then, this is
-      # truly a safe (strict ok? warn ok? seems so!) weak reference.
-      [ \&_loop_select_callback, $fileno, $mode ],
-    );
+    # The handle is wrapped in quotes here to stringify it.  For some
+    # reason, it seems to work as a filehandle anyway, and it breaks
+    # reference counting.  For filehandles, then, this is truly a safe
+    # (strict ok? warn ok? seems so!) weak reference.
+    [ \&_loop_select_callback, $fileno, $mode ],
+  );
 
   $_fileno_refcount[fileno $handle]++;
 }
@@ -95,16 +95,16 @@ sub loop_ignore_filehandle {
   # Tk's file watchers.
 
   unless (--$_fileno_refcount[fileno $handle]) {
-    $poe_main_window->fileevent
-      ( $handle,
+    $poe_main_window->fileevent(
+      $handle,
 
-        # It can only be MODE_RD or MODE_WR here (MODE_EX is checked a
-        # few lines up).
-        ( ( $mode == MODE_RD ) ? 'readable' : 'writable' ),
+      # It can only be MODE_RD or MODE_WR here (MODE_EX is checked a
+      # few lines up).
+      ( ( $mode == MODE_RD ) ? 'readable' : 'writable' ),
 
-        # Nothing here!  Callback all gone!
-        ''
-      );
+      # Nothing here!  Callback all gone!
+      ''
+    );
   }
 
   # Otherwise we have other things watching the handle.  Go into Tk's
@@ -114,13 +114,13 @@ sub loop_ignore_filehandle {
   else {
     my $tk_file_io = tied( *$handle );
     die "whoops; no tk file io object" unless defined $tk_file_io;
-    $tk_file_io->handler
-      ( ( ( $mode == MODE_RD )
-          ? Tk::Event::IO::READABLE()
-          : Tk::Event::IO::WRITABLE()
-        ),
-        ''
-      );
+    $tk_file_io->handler(
+      ( ( $mode == MODE_RD )
+        ? Tk::Event::IO::READABLE()
+        : Tk::Event::IO::WRITABLE()
+      ),
+      ''
+    );
   }
 }
 
@@ -160,15 +160,16 @@ sub loop_resume_filehandle {
   my $tk_file_io = tied( *$handle );
   die "whoops; no tk file io object" unless defined $tk_file_io;
 
-  $tk_file_io->handler( ( ( $mode == MODE_RD )
-                          ? Tk::Event::IO::READABLE()
-                          : Tk::Event::IO::WRITABLE()
-                        ),
-                        [ \&_loop_select_callback,
-                          $fileno,
-                          $mode,
-                        ]
-                      );
+  $tk_file_io->handler(
+    ( ( $mode == MODE_RD )
+      ? Tk::Event::IO::READABLE()
+      : Tk::Event::IO::WRITABLE()
+    ),
+    [ \&_loop_select_callback,
+      $fileno,
+      $mode,
+    ]
+  );
 }
 
 # Tk filehandle callback to dispatch selects.
