@@ -503,7 +503,7 @@ sub _data_ses_stop {
   }
 
   # Stop the main loop if everything is gone.
-	# XXX - Under Tk this is called twice.  Why?  WHY is it called twice?
+  # XXX - Under Tk this is called twice.  Why?  WHY is it called twice?
   unless (keys %kr_sessions) {
     $self->loop_halt();
   }

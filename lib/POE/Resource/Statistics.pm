@@ -103,27 +103,27 @@ sub _data_stat_tick {
     my $pos = $_stat_rpos;
     $_stat_wpos = ($_stat_wpos+1) % $_stat_window_size;
     if ($_stat_wpos == $_stat_rpos) {
-	$_stat_rpos = ($_stat_rpos+1) % $_stat_window_size;
+  $_stat_rpos = ($_stat_rpos+1) % $_stat_window_size;
     }
 
     my $count = 0;
     %average = ();
     my $epoch = 0;
     while ($count < $_stat_window_size && $_stat_metrics->[$pos]->{epoch}) {
- 	$epoch = $_stat_metrics->[$pos]->{epoch} unless $epoch;
-	while (my ($k,$v) = each %{$_stat_metrics->[$pos]}) {
-	    next if $k eq 'epoch';
-	    $average{$k} += $v;
-	}
-	$count++;
-	$pos = ($pos+1) % $_stat_window_size;
+   $epoch = $_stat_metrics->[$pos]->{epoch} unless $epoch;
+  while (my ($k,$v) = each %{$_stat_metrics->[$pos]}) {
+      next if $k eq 'epoch';
+      $average{$k} += $v;
+  }
+  $count++;
+  $pos = ($pos+1) % $_stat_window_size;
     }
 
     if ($count) {
         my $now = time();
- 	map { $average{"avg_$_"} = $average{$_} / $count } keys %average;
- 	$average{total_duration} = $now - $epoch;
- 	$average{interval}       = ($now - $epoch) / $count;
+   map { $average{"avg_$_"} = $average{$_} / $count } keys %average;
+   $average{total_duration} = $now - $epoch;
+   $average{interval}       = ($now - $epoch) / $count;
     }
 
     $self->_data_stat_reset;

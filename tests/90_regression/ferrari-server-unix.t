@@ -17,7 +17,7 @@ BEGIN {
 
   if ($error) {
     print "1..0 # Skip $error\n";
-		exit;
+    exit;
   }
 }
 
@@ -30,7 +30,7 @@ unless($ARGV[0] && $ARGV[0] eq "test") {
   my $out = `$^X "$0" test 2>&1 >/dev/null`;
   chomp($out);
   isnt($out, "UNIX socket should not throw a warning");
-	exit;
+  exit;
 }
 
 my $sock = "./testsocket.$$";
