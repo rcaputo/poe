@@ -395,7 +395,7 @@ sub new {
     close $stdin_write;
     close $stdout_read;
     close $stderr_read if defined $stderr_read;
-    
+
     # Need to close on Win32 because std handles aren't dup'ed, no
     # harm elsewhere.  Close STDERR later to not influence possible
     # die.
@@ -412,7 +412,8 @@ sub new {
     open( STDOUT, ">&" . fileno($stdout_write) )
       or die "can't redirect stdout in child pid $$: $!";
 
-    # Need to close on Win32 because std handles aren't dup'ed, no harm elsewhere
+    # Need to close on Win32 because std handles aren't dup'ed, no
+    # harm elsewhere
     close STDERR;
 
     # Redirect STDERR to the write end of the stderr pipe.  If the
@@ -432,15 +433,27 @@ sub new {
     close $sem_pipe_write;
 
     if (POE::Kernel::RUNNING_IN_HELL)  {
-	# The Win32 pseudo fork sets up the std handles in the child based on the true win32 handles
-	# For the exec these get remembered, so manipulation of STDIN/OUT/ERR is not enough. Only 
-	# necessary for the exec, as Perl CODE subroutine goes through 0/1/2 which are correct. 
-	# But ofcourse that coderef might invoke exec, so better do it regardless.
-	# HACK: Using Win32::Console as nothing else exposes SetStdHandle
-	Win32::Console::_SetStdHandle(STD_INPUT_HANDLE(),  FdGetOsFHandle(fileno($stdin_read)));
-	Win32::Console::_SetStdHandle(STD_OUTPUT_HANDLE(), FdGetOsFHandle(fileno($stdout_write)));
-	Win32::Console::_SetStdHandle(STD_ERROR_HANDLE(),  FdGetOsFHandle(fileno($stderr_write)));
+      # The Win32 pseudo fork sets up the std handles in the child
+      # based on the true win32 handles For the exec these get
+      # remembered, so manipulation of STDIN/OUT/ERR is not enough.
+      # Only necessary for the exec, as Perl CODE subroutine goes
+      # through 0/1/2 which are correct.  But ofcourse that coderef
+      # might invoke exec, so better do it regardless.
+      # HACK: Using Win32::Console as nothing else exposes SetStdHandle
+      Win32::Console::_SetStdHandle(
+        STD_INPUT_HANDLE(),
+        FdGetOsFHandle(fileno($stdin_read))
+      );
+      Win32::Console::_SetStdHandle(
+        STD_OUTPUT_HANDLE(),
+        FdGetOsFHandle(fileno($stdout_write))
+      );
+      Win32::Console::_SetStdHandle(
+        STD_ERROR_HANDLE(),
+        FdGetOsFHandle(fileno($stderr_write))
+      );
     }
+
     # Exec the program depending on its form.
     if (ref($program) eq 'CODE') {
 
@@ -465,20 +478,20 @@ sub new {
       # Give up with a plain exit if we must.
       # On win32 cannot _exit as it will kill *all* threads, meaning parent too
       unless (POE::Kernel::RUNNING_IN_HELL) {
-	  eval { POSIX::_exit(0);  };
-	  eval { kill KILL => $$;  };
-	  eval { exec("$^X -e 0"); };
+    eval { POSIX::_exit(0);  };
+    eval { kill KILL => $$;  };
+    eval { exec("$^X -e 0"); };
       };
       exit(0);
     } else {
-	if (ref($program) eq 'ARRAY') {
-	  exec(@$program, @$prog_args)
-	    or die "can't exec (@$program) in child pid $$: $!";
-	}
-	else {
-	  exec(join(" ", $program, @$prog_args))
-	    or die "can't exec ($program) in child pid $$: $!";
-	}
+  if (ref($program) eq 'ARRAY') {
+    exec(@$program, @$prog_args)
+      or die "can't exec (@$program) in child pid $$: $!";
+  }
+  else {
+    exec(join(" ", $program, @$prog_args))
+      or die "can't exec ($program) in child pid $$: $!";
+  }
     }
     die "insanity check passed";
   }

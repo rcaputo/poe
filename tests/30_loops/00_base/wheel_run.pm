@@ -231,7 +231,13 @@ my $program =
 
 my $coderef_flush_count = 0;
 
-{ my $program = sub {
+if ($^O eq "MSWin32" and exists $INC{"Tk.pm"}) {
+  ok(23, "SKIP: Wheel::Run + Tk + ActiveState + CODE program = pain");
+  ok(24, "SKIP: Wheel::Run + Tk + ActiveState + CODE program = pain");
+  $coderef_flush_count = 3;
+}
+else {
+  my $program = sub {
     my ($out, $err) = @_;
     local $/ = q(!);
     OUTER: while (1) {
