@@ -1167,6 +1167,20 @@ POE::Wheel::Run - event driven fork/exec with added value
 Wheel::Run spawns child processes and establishes non-blocking, event
 based communication with them.
 
+Wheel::Run does not reap child processes.  For that, you need to
+register a SIGCHLD handler:
+
+  $kernel->sig(CHLD => "your_event");
+
+The session will then receive your_event with details about $? when
+the wheel's process exits and is reaped.  POE will reap child
+processes as a side effect.
+
+Another way to do it is to register $SIG{CHLD} = "IGNORE".  Use
+sparingly and with caution: This may clobber a handler that POE has
+already registered for SIGCHLD.  Why does IGNORE work this way?  See
+the discussion in perldoc perlipc.
+
 =head1 PUBLIC METHODS
 
 =over 2
