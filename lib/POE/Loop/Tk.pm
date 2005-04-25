@@ -2,15 +2,14 @@
 
 # Tk-Perl event loop bridge for POE::Kernel.
 
-# Empty package to appease perl.
 package POE::Loop::Tk;
+
+use vars qw($VERSION);
+$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 # Include common things.
 use POE::Loop::PerlSignals;
 use POE::Loop::TkCommon;
-
-use vars qw($VERSION);
-$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
 
 use Tk 800.021;
 use 5.00503;
