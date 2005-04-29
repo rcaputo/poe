@@ -99,21 +99,21 @@ else {
 }
 
 # And finally, ask the user to run a test report.
-
-use Config;
-my $make = $Config::Config{make};
-
-print(
-  "\n",
-  "=======================================================================\n",
-  "\n",
-  "Please consider running '$make uploadreport' to create and upload a\n",
-  "test report.  You can see samples of other test reports by visitng\n",
-  "http://eekeek.org/poe-tests/\n",
-  "\n",
-  "Thank you.\n",
-  "\n",
-  "=======================================================================\n",
-);
+# 
+# use Config;
+# my $make = $Config::Config{make};
+# 
+# print(
+#   "\n",
+#   "=======================================================================\n",
+#   "\n",
+#   "Please consider running '$make uploadreport' to create and upload a\n",
+#   "test report.  You can see samples of other test reports by visitng\n",
+#   "http://eekeek.org/poe-tests/\n",
+#   "\n",
+#   "Thank you.\n",
+#   "\n",
+#   "=======================================================================\n",
+# );
 
 0;
