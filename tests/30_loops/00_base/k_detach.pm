@@ -149,7 +149,7 @@ POE::Session->create
         &spawn_child( 1 );
         &spawn_child( 2 );
         &spawn_child( 3 );
-        $kernel->yield( 'run_tests' );
+        $kernel->delay( run_tests => 0.5 );
       },
       get_alias => sub {
         return 'main';
