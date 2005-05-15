@@ -97,6 +97,7 @@ sub loop_watch_signal {
 
   # Child process has stopped.  We use Event's safe SIGCHLD handler.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
+    $SIG{$signal} = "DEFAULT";
     $signal_watcher{CHLD} = Event->signal(
       signal => $signal,
       cb     => \&_loop_signal_handler_child
@@ -106,6 +107,7 @@ sub loop_watch_signal {
 
   # Broken pipe.
   if ($signal eq 'PIPE') {
+    $SIG{$signal} = "DEFAULT";
     $signal_watcher{$signal} = Event->signal(
       signal => $signal,
       cb     => \&_loop_signal_handler_pipe
@@ -125,9 +127,16 @@ sub loop_watch_signal {
 
 sub loop_ignore_signal {
   my ($self, $signal) = @_;
+
   if (defined $signal_watcher{$signal}) {
     $signal_watcher{$signal}->stop();
     delete $signal_watcher{$signal};
+  }
+
+  # Certain kinds of signals should be ignored by default.
+  if ($signal =~ /^(CH?LD|PIPE)$/) {
+    $SIG{$signal} = "IGNORE";
+    return;
   }
 }
 
