@@ -36,18 +36,8 @@ BEGIN {
 use Errno qw(EINPROGRESS EWOULDBLOCK EINTR);
 
 use IO::Poll qw(
-  POLLRDNORM POLLWRNORM POLLRDBAND POLLIN POLLOUT POLLERR POLLHUP
+  POLLRDNORM POLLWRNORM POLLRDBAND POLLERR POLLHUP POLLNVAL
 );
-
-# Define POLLRDBAND if we don't have one.
-BEGIN {
-  eval "sub IO::Poll::POLLRDBAND () { 128 }"
-    unless defined &IO::Poll::POLLRDBAND;
-  eval "sub POLLRDBAND () { 128 }" unless defined &POLLRDBAND;
-  die if $@;
-}
-
-sub MINIMUM_POLL_TIMEOUT () { 0 }
 
 my %poll_fd_masks;
 
@@ -91,8 +81,8 @@ sub loop_pause_time_watcher {
 # A static function; not some object method.
 
 sub mode_to_poll {
-  return POLLIN     if $_[0] == MODE_RD;
-  return POLLOUT    if $_[0] == MODE_WR;
+  return POLLRDNORM if $_[0] == MODE_RD;
+  return POLLWRNORM if $_[0] == MODE_WR;
   return POLLRDBAND if $_[0] == MODE_EX;
   croak "unknown I/O mode $_[0]";
 }
@@ -214,7 +204,7 @@ sub loop_do_timeslice {
   my $timeout = $self->get_next_event_time();
   if (defined $timeout) {
     $timeout -= $now;
-    $timeout = MINIMUM_POLL_TIMEOUT if $timeout < MINIMUM_POLL_TIMEOUT;
+    $timeout = 0 if $timeout < 0;
   }
   else {
     $timeout = 3600;
@@ -245,8 +235,8 @@ sub loop_do_timeslice {
       push @types, "tty"               if -t;
       my @modes;
       my $flags = $poll_fd_masks{$_};
-      push @modes, 'r' if $flags & (POLLIN     | POLLHUP | POLLERR);
-      push @modes, 'w' if $flags & (POLLOUT    | POLLHUP | POLLERR);
+      push @modes, 'r' if $flags & (POLLRDNORM | POLLHUP | POLLERR);
+      push @modes, 'w' if $flags & (POLLWRNORM | POLLHUP | POLLERR);
       push @modes, 'x' if $flags & (POLLRDBAND | POLLHUP | POLLERR);
       POE::Kernel::_warn(
         "<fh> file descriptor $_ = modes(@modes) types(@types)\n"
@@ -298,8 +288,9 @@ sub loop_do_timeslice {
           next unless $got_mask;
 
           my $watch_mask = $poll_fd_masks{$fd};
-          if ( $watch_mask & POLLIN and
-               $got_mask & (POLLIN | POLLHUP | POLLERR)
+
+          if ( $watch_mask & POLLRDNORM and
+               $got_mask & (POLLRDNORM | POLLHUP | POLLERR)
              ) {
             if (TRACE_FILES) {
               POE::Kernel::_warn "<fh> enqueuing read for fileno $fd";
@@ -308,8 +299,8 @@ sub loop_do_timeslice {
             $self->_data_handle_enqueue_ready(MODE_RD, $fd);
           }
 
-          if ( $watch_mask & POLLOUT and
-               $got_mask & (POLLOUT | POLLHUP | POLLERR)
+          if ( $watch_mask & POLLWRNORM and
+               $got_mask & (POLLWRNORM | POLLHUP | POLLERR)
              ) {
             if (TRACE_FILES) {
               POE::Kernel::_warn "<fh> enqueuing write for fileno $fd";
