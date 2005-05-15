@@ -46,7 +46,7 @@ sub _data_stat_finalize {
 
     if (TRACE_STATISTICS) {
       POE::Kernel::_warn(
-        '<pr> ,----- Observed Statistics ' , ('-' x 50), ",\n"
+        '<pr> ,----- Observed Statistics ' , ('-' x 47), ",\n"
       );
       foreach (sort keys %average) {
           next if /epoch/;
@@ -65,7 +65,7 @@ sub _data_stat_finalize {
       $average{user_events} ||= 1;
 
       POE::Kernel::_warn(
-        '<pr> +----- Derived Statistics ', ('-' x 39), "+\n",
+        '<pr> +----- Derived Statistics ', ('-' x 48), "+\n",
         sprintf(
           "<pr> | %60.60s %9.1f%% |\n",
           'idle', 100 * $average{avg_idle_seconds} / $average{interval}
