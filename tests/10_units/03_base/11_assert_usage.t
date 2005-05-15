@@ -7,7 +7,7 @@
 use strict;
 use lib qw(./mylib);
 
-use Test::More tests => 54;
+use Test::More tests => 53;
 
 use Symbol qw(gensym);
 
@@ -60,12 +60,6 @@ eval { $poe_kernel->yield(undef) };
 ok(
   $@ && $@ =~ /event name is undefined in yield/,
   "event undefined in yield"
-);
-
-eval { $poe_kernel->post(undef) };
-ok(
-  $@ && $@ =~ /destination is undefined in post/,
-  "destination undefined in post"
 );
 
 eval { $poe_kernel->call(undef) };
