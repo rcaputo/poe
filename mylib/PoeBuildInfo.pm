@@ -51,12 +51,19 @@ sub CLEAN_FILES () {
     poe_report.xml
     run_network_tests
     tests/20_resources/10_perl/*
+    tests/20_resources/10_perl
     tests/20_resources/20_xs/*
+    tests/20_resources/20_xs
     tests/30_loops/10_select/*
+    tests/30_loops/10_select
     tests/30_loops/20_poll/*
+    tests/30_loops/20_poll
     tests/30_loops/30_event/*
+    tests/30_loops/30_event
     tests/30_loops/40_gtk/*
+    tests/30_loops/40_gtk
     tests/30_loops/50_tk/*
+    tests/30_loops/50_tk
     test-output.err
   );
   "@clean_files";
