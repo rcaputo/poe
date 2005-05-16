@@ -94,7 +94,7 @@ my $program = (
 
       # Error! Ow!
       error => sub {
-        DEBUG and warn "error";
+        DEBUG and warn "$_[ARG0] error $_[ARG1]: $_[ARG2]";
       },
 
       # The child has closed.  Delete its wheel.
@@ -200,7 +200,7 @@ SKIP: {
 
       # Error! Ow!
       error => sub {
-        DEBUG and warn "error";
+        DEBUG and warn "$_[ARG0] error $_[ARG1]: $_[ARG2]";
       },
 
       # The child has closed.  Delete its wheel.
@@ -300,7 +300,9 @@ SKIP: {
       },
 
       # Error!  Ow!
-      error => sub { warn "error" },
+      error => sub {
+        DEBUG and warn "$_[ARG0] error $_[ARG1]: $_[ARG2]";
+      },
 
       # Catch SIGCHLD.  Stop the wheel if the exited child is ours.
       sigchild => sub {
@@ -312,6 +314,8 @@ SKIP: {
         my ($heap, $child_pid) = @_[HEAP, ARG1];
 
         DEBUG and warn "\tthe child process ID is $child_pid\n";
+
+        return unless $heap->{wheel};
 
         if ($child_pid == $heap->{wheel}->PID()) {
           DEBUG and warn "\tthe child process is ours\n";
