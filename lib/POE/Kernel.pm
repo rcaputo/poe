@@ -2429,8 +2429,8 @@ Kernel data accessors:
   # kernel if called outside any session.
   $session = $kernel->get_active_session();
 
-  # Return a the currently active event, or to the last event if
-  # called outside any session.
+  # Return the currently active event name, or an empty string if
+  # called outside any event.
   $event = $kernel->get_active_event();
 
 Exported symbols:
@@ -3553,6 +3553,11 @@ pretends it's just another session.
 This is a convenient way for procedurally called libraries to get a
 reference to the current session.  Otherwise a programmer would
 tediously need to include C<SESSION> with every call.
+
+=item get_active_event
+
+get_active_event() returns the currently active event name or an
+empty string if called outside any event.
 
 =back
 
