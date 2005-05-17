@@ -17,6 +17,10 @@ BEGIN {
     $error = "$^O does not support fork";
   }
 
+  if ($^O eq "MSWin32" and exists $INC{"Event.pm"}) {
+    $error = "$^O\'s fork() emulation breaks Event";
+  }
+
   if ($error) {
     plan skip_all => $error;
     CORE::exit();
@@ -250,7 +254,7 @@ SKIP: {
 my $pty_flush_count = 0;
 
 SKIP: {
-  skip "IO::Pty is needed for this test.", 3
+  skip "IO::Pty is needed for this test.", 2
     unless POE::Wheel::Run::PTY_AVAILABLE;
 
   skip "The underlying event loop has trouble with ptys on $^O", 2
