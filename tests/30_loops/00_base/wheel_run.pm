@@ -46,7 +46,6 @@ use POE qw(Wheel::Run Filter::Line);
 my $pty_flush_count = 0;
 
 my $os_quote = ($^O eq 'MSWin32') ? q(") : q(');
-
 my $program = (
   "$^X -we $os_quote" .
   '$/ = q(!); select STDERR; $| = 1; select STDOUT; $| = 1; ' .
@@ -139,7 +138,6 @@ my $program = (
     },
   );
 
-  POE::Kernel->run();
 }
 
 ### Test Wheel::Run with a coderef instead of a subprogram.  Uses "!"
@@ -245,7 +243,6 @@ SKIP: {
     },
   );
 
-  POE::Kernel->run();
 }
 
 ### Test Wheel::Run with ptys.  Uses "!" as a newline to avoid having
@@ -353,12 +350,11 @@ SKIP: {
     },
   );
 
-  POE::Kernel->run();
 }
 
 ### Run the main loop.
 
-# POE::Kernel->run();
+POE::Kernel->run();
 
 ### Post-run tests.
 
