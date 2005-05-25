@@ -941,6 +941,11 @@ sub _dispatch_event {
     );
   }
 
+  # Clear out the event arguments list, in case there are POE-ish things in it. This
+  # allows them to destruct happily before we set the current session back.
+
+  @$etc = (); # Is this your card?
+
   if (TRACE_STATISTICS) {
       my $after = time();
       my $elapsed = $after - $before;
