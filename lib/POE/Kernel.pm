@@ -224,6 +224,7 @@ sub CHILD_CREATE () { 'create' }  # The session was created as a child of this.
 
 sub EA_SEL_HANDLE () { 0 }
 sub EA_SEL_MODE   () { 1 }
+sub EA_SEL_ARGS   () { 2 }
 
 # Queues with this many events (or more) are considered to be "large",
 # and different strategies are used to find events within them.
@@ -1829,12 +1830,12 @@ sub alarm_remove_all {
 #==============================================================================
 
 sub _internal_select {
-  my ($self, $session, $handle, $event_name, $mode) = @_;
+  my ($self, $session, $handle, $event_name, $mode, $args) = @_;
 
   # If an event is included, then we're defining a filehandle watcher.
 
   if ($event_name) {
-    $self->_data_handle_add($handle, $mode, $session, $event_name);
+    $self->_data_handle_add($handle, $mode, $session, $event_name, $args);
   }
   else {
     $self->_data_handle_remove($handle, $mode, $session);
@@ -1845,7 +1846,7 @@ sub _internal_select {
 # selects together.
 
 sub select {
-  my ($self, $handle, $event_r, $event_w, $event_e) = @_;
+  my ($self, $handle, $event_r, $event_w, $event_e, @args) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined filehandle in select()" unless defined $handle;
@@ -1860,15 +1861,21 @@ sub select {
     }
   }
 
-  $self->_internal_select($kr_active_session, $handle, $event_r, MODE_RD);
-  $self->_internal_select($kr_active_session, $handle, $event_w, MODE_WR);
-  $self->_internal_select($kr_active_session, $handle, $event_e, MODE_EX);
+  $self->_internal_select(
+    $kr_active_session, $handle, $event_r, MODE_RD, \@args
+  );
+  $self->_internal_select(
+    $kr_active_session, $handle, $event_w, MODE_WR, \@args
+  );
+  $self->_internal_select(
+    $kr_active_session, $handle, $event_e, MODE_EX, \@args
+  );
   return 0;
 }
 
 # Only manipulate the read select.
 sub select_read {
-  my ($self, $handle, $event_name) = @_;
+  my ($self, $handle, $event_name, @args) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined filehandle in select_read()"
@@ -1881,13 +1888,15 @@ sub select_read {
     ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event_name, MODE_RD);
+  $self->_internal_select(
+    $kr_active_session, $handle, $event_name, MODE_RD, \@args
+  );
   return 0;
 }
 
 # Only manipulate the write select.
 sub select_write {
-  my ($self, $handle, $event_name) = @_;
+  my ($self, $handle, $event_name, @args) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined filehandle in select_write()"
@@ -1900,13 +1909,15 @@ sub select_write {
     ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event_name, MODE_WR);
+  $self->_internal_select(
+    $kr_active_session, $handle, $event_name, MODE_WR, \@args
+  );
   return 0;
 }
 
 # Only manipulate the expedite select.
 sub select_expedite {
-  my ($self, $handle, $event_name) = @_;
+  my ($self, $handle, $event_name, @args) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined filehandle in select_expedite()"
@@ -1919,7 +1930,9 @@ sub select_expedite {
     ) if defined($event_name) and exists($poes_own_events{$event_name});
   };
 
-  $self->_internal_select($kr_active_session, $handle, $event_name, MODE_EX);
+  $self->_internal_select(
+    $kr_active_session, $handle, $event_name, MODE_EX, \@args
+  );
   return 0;
 }
 
@@ -2355,16 +2368,22 @@ Symbolic name, or session alias methods:
 Filehandle watcher methods:
 
   # Watch for read readiness on a filehandle.
-  $kernel->select_read( $file_handle, $event );
+  $kernel->select_read( $file_handle, $event, @optional_args );
 
   # Stop watching a filehandle for read-readiness.
   $kernel->select_read( $file_handle );
 
   # Watch for write readiness on a filehandle.
-  $kernel->select_write( $file_handle, $event );
+  $kernel->select_write( $file_handle, $event, @optional_args );
 
   # Stop watching a filehandle for write-readiness.
   $kernel->select_write( $file_handle );
+
+  # Watch for out-of-bound (expedited) read readiness on a filehandle.
+  $kernel->select_expedite( $file_handle, $event, @optional_args );
+
+  # Stop watching a filehandle for out-of-bound data.
+  $kernel->select_expedite( $file_handle );
 
   # Pause and resume write readiness watching.  These have lower
   # overhead than full select_write() calls.
@@ -2376,17 +2395,12 @@ Filehandle watcher methods:
   $kernel->select_pause_read( $file_handle );
   $kernel->select_resume_read( $file_handle );
 
-  # Watch for out-of-bound (expedited) read readiness on a filehandle.
-  $kernel->select_expedite( $file_handle, $event );
-
-  # Stop watching a filehandle for out-of-bound data.
-  $kernel->select_expedite( $file_handle );
-
   # Set and/or clear a combination of selects in one call.
   $kernel->select( $file_handle,
                    $read_event,     # or undef to clear it
                    $write_event,    # or undef to clear it
                    $expedite_event, # or undef to clear it
+                   @optional_args,
                  );
 
 Signal watcher and generator methods:
@@ -3103,13 +3117,17 @@ C<ARG1> contains 0, 1, or 2 to indicate whether the filehandle is
 ready for reading, writing, or out-of-band reading (otherwise knows as
 "expedited" or "exception").
 
+C<ARG2..$#_> contain optional additional parameters passed to
+POE::Kernel's various I/O watcher methods.
+
 C<ARG0> and the other event handler parameter constants is covered in
 L<POE::Session>.
 
-Sessions will not spontaneously stop as long as they are watching at
-least one filehandle.
+Sessions will not stop if they have active filehandle watchers.
 
 =over 2
+
+=item select_read FILE_HANDLE, EVENT_NAME, ADDITIONAL_PARAMETERS
 
 =item select_read FILE_HANDLE, EVENT_NAME
 
@@ -3118,6 +3136,8 @@ least one filehandle.
 select_read() starts or stops the kernel from watching to see if a
 filehandle can be read from.  An EVENT_NAME event will be enqueued
 whenever the filehandle has data to be read.
+The optional ADDITIONAL_PARAMETERS will be passed to the input
+callback after the usual I/O parameters.
 
   # Emit 'do_a_read' event whenever $filehandle has data to be read.
   $kernel->select_read( $filehandle, 'do_a_read' );
@@ -3133,7 +3153,9 @@ select_read() does not return a meaningful value.
 
 select_write() starts or stops the kernel from watching to see if a
 filehandle can be written to.  An EVENT_NAME event will be enqueued
-whenever it is possible to write data to the filehandle.
+whenever it is possible to write data to the filehandle.  The optional
+ADDITIONAL_PARAMETERS will be passed to the input callback after the
+usual I/O parameters.
 
   # Emit 'flush_data' whenever $filehandle can be written to.
   $kernel->select_writ( $filehandle, 'flush_data' );
@@ -3151,7 +3173,9 @@ select_expedite() starts or stops the kernel from watching to see if a
 filehandle can be read from "out-of-band".  This is most useful for
 datagram sockets where an out-of-band condition is meaningful.  In
 most cases it can be ignored.  An EVENT_NAME event will be enqueued
-whatever the filehandle can be read from out-of-band.
+whatever the filehandle can be read from out-of-band.  The optional
+ADDITIONAL_PARAMETERS will be passed to the input callback after the
+usual I/O parameters.
 
 Out of band data is called "expedited" because it's often available
 ahead of a file or socket's normal data.  It's also used in socket
@@ -3183,7 +3207,9 @@ Pause and resume a filehandle's writable events:
 
 These methods don't return meaningful values.
 
-=item select FILE_HANDLE, READ_EVENT_NM, WRITE_EVENT_NM, EXPEDITE_EVENT_NM
+=item select FILE_HANDLE, READ_EVENT, WRITE_EVENT, EXPEDITE_EVENT, ARGS
+
+=item select FILE_HANDLE, READ_EVENT, WRITE_EVENT, EXPEDITE_EVENT
 
 POE::Kernel's select() method alters a filehandle's read, write, and
 expedite selects at the same time.  It's one method call more

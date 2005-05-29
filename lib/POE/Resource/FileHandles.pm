@@ -48,6 +48,7 @@ sub FMO_SESSIONS     () { 4      }  #     { $session_watching_this_handle =>
 sub HSS_HANDLE       () { 0      }  #         [ $blessed_handle,
 sub HSS_SESSION      () { 1      }  #           $blessed_session,
 sub HSS_STATE        () { 2      }  #           $event_name,
+sub HSS_ARGS         () { 3      }  #           \@callback_arguments
                                     #         ],
                                     #       },
 # --- CEASE SUB STRUCT 2 ---        #     },
@@ -121,6 +122,7 @@ sub _data_handle_finalize {
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
           "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
           "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
+          "!!!\t\t\targs    = (@{$hnd_rec->[HSS_ARGS]})\n",
         );
       }
     }
@@ -137,6 +139,7 @@ sub _data_handle_finalize {
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
           "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
           "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
+          "!!!\t\t\targs    = (@{$hnd_rec->[HSS_ARGS]})\n",
         );
       }
     }
@@ -153,6 +156,7 @@ sub _data_handle_finalize {
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
           "!!!\t\t\tsession = $hnd_rec->[HSS_SESSION]\n",
           "!!!\t\t\tevent   = $hnd_rec->[HSS_STATE]\n",
+          "!!!\t\t\targs    = (@{$hnd_rec->[HSS_ARGS]})\n",
         );
       }
     }
@@ -245,6 +249,7 @@ sub _data_handle_enqueue_ready {
         $select->[HSS_STATE], ET_SELECT,
         [ $select->[HSS_HANDLE],  # EA_SEL_HANDLE
           $mode,                  # EA_SEL_MODE
+          @{$select->[HSS_ARGS]}, # EA_SEL_ARGS
         ],
         __FILE__, __LINE__, undef, time(),
       );
@@ -285,7 +290,7 @@ sub _data_handle_is_good {
 ### Add a select to the session, and possibly begin a watcher.
 
 sub _data_handle_add {
-  my ($self, $handle, $mode, $session, $event) = @_;
+  my ($self, $handle, $mode, $session, $event, $args) = @_;
   my $fd = fileno($handle);
 
   # First time watching the file descriptor.  Do some heavy setup.
@@ -429,6 +434,7 @@ sub _data_handle_add {
       $handle,   # HSS_HANDLE
       $session,  # HSS_SESSION
       $event,    # HSS_STATE
+      $args,     # HSS_ARGS
     ];
 
     # Fix reference counts.
