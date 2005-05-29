@@ -24,6 +24,7 @@ sub HS_STOPPED () { POE::Kernel::HS_STOPPED }
 sub HSS_HANDLE  () { POE::Kernel::HSS_HANDLE  }
 sub HSS_SESSION () { POE::Kernel::HSS_SESSION }
 sub HSS_STATE   () { POE::Kernel::HSS_STATE   }
+sub HSS_ARGS    () { POE::Kernel::HSS_ARGS    }
 
 sub SH_HANDLE    () { POE::Kernel::SH_HANDLE    }
 sub SH_REFCOUNT  () { POE::Kernel::SH_REFCOUNT  }
@@ -41,7 +42,7 @@ ok_if(1, defined $a_read);
 
 # Add a filehandle in read mode.
 
-$poe_kernel->_data_handle_add($a_read, MODE_RD, $poe_kernel, "event-rd");
+$poe_kernel->_data_handle_add($a_read, MODE_RD, $poe_kernel, "event-rd", []);
 
 # Verify reference counts.
 
@@ -111,7 +112,7 @@ ok_if(2, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1);
 
 # Add a second handle in read mode.
 
-$poe_kernel->_data_handle_add($b_read, MODE_RD, $poe_kernel, "event-rd");
+$poe_kernel->_data_handle_add($b_read, MODE_RD, $poe_kernel, "event-rd", []);
 
 # Verify reference counts.
 
@@ -191,7 +192,7 @@ ok_if(34, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2);
 
 # Add a third filehandle in write mode.
 
-$poe_kernel->_data_handle_add($a_write, MODE_WR, $poe_kernel, "event-wr");
+$poe_kernel->_data_handle_add($a_write, MODE_WR, $poe_kernel, "event-wr", []);
 
 # Verify reference counts.  Total reference count doesn't go up
 # because this is a duplicate fileno of a previous one.  -><- May not
@@ -263,7 +264,7 @@ ok_if(72, $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2);
 
 # Add a fourth filehandle in exception mode.
 
-$poe_kernel->_data_handle_add($b_write, MODE_EX, $poe_kernel, "event-ex");
+$poe_kernel->_data_handle_add($b_write, MODE_EX, $poe_kernel, "event-ex", []);
 
 # Verify reference counts.
 
