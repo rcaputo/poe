@@ -195,6 +195,7 @@ sub ET_MASK_USER () { ~(ET_GC | ET_SCPOLL | ET_STAT) }
 
 sub ET_SIGNAL_EXPLICIT   () { 0x0800 }  # Explicitly requested signal.
 sub ET_SIGNAL_COMPATIBLE () { 0x1000 }  # Backward-compatible semantics.
+sub ET_SIGNAL_ANY () { ET_SIGNAL | ET_SIGNAL_EXPLICIT | ET_SIGNAL_COMPATIBLE }
 
 # A hash of reserved names.  It's used to test whether someone is
 # trying to use an internal event directly.
@@ -769,10 +770,11 @@ sub new {
 # Dispatch an event to its session.  A lot of work goes on here.
 
 sub _dispatch_event {
-  my ( $self,
-       $session, $source_session, $event, $type, $etc, $file, $line, $fromstate,
-       $time, $seq
-     ) = @_;
+  my (
+    $self,
+    $session, $source_session, $event, $type, $etc,
+    $file, $line, $fromstate, $time, $seq
+  ) = @_;
 
   if (ASSERT_EVENTS) {
     _confess "<ev> undefined dest session" unless defined $session;
@@ -942,10 +944,26 @@ sub _dispatch_event {
     );
   }
 
-  # Clear out the event arguments list, in case there are POE-ish things in it. This
-  # allows them to destruct happily before we set the current session back.
+  # Clear out the event arguments list, in case there are POE-ish
+  # things in it. This allows them to destruct happily before we set
+  # the current session back.
+  #
+  # We must preserve $_[ARG0] if the event is a signal.  It contains
+  # the signal name, which is used by post-invoke processing to
+  # determine future actions (such as whether to terminate the
+  # session, or to promote SIGIDLE into SIGZOMBIE).
+  #
+  # TODO - @$etc contains @_[ARG0..$#_], which includes both watcher-
+  # and user-supplied elements.  A more exciting solution might be to
+  # have a table of events and their user-supplied indices, and wipe
+  # them out programmatically.  splice(@$etc, $first_user{$type});
+  # That would leave the watcher-supplied arguments alone.
 
-  @$etc = (); # Is this your card?
+  @$etc = (
+    ($type & ET_SIGNAL_ANY)
+    ? $etc->[0]   # Preserve signal name.
+    : ()          # Is this your card?
+  );
 
   if (TRACE_STATISTICS) {
       my $after = time();
@@ -1392,10 +1410,10 @@ sub post {
   # Enqueue the event for "now", which simulates FIFO in our
   # time-ordered queue.
 
-  $self->_data_ev_enqueue
-    ( $session, $kr_active_session, $event_name, ET_POST, \@etc,
-      (caller)[1,2], $kr_active_event, time(),
-    );
+  $self->_data_ev_enqueue(
+    $session, $kr_active_session, $event_name, ET_POST, \@etc,
+    (caller)[1,2], $kr_active_event, time(),
+  );
   return 1;
 }
 
@@ -2228,6 +2246,9 @@ sub state {
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined event name in state()" unless defined $event;
+    _confess "<us> can't call state() outside a session" if (
+      $kr_active_session == $self
+    );
   };
 
   if ( (ref($kr_active_session) ne '') &&
