@@ -193,9 +193,8 @@ sub ET_MASK_USER () { ~(ET_GC | ET_SCPOLL | ET_STAT) }
 # Temporary signal subtypes, used during signal dispatch semantics
 # deprecation and reformation.
 
-sub ET_SIGNAL_EXPLICIT   () { 0x0800 }  # Explicitly requested signal.
-sub ET_SIGNAL_COMPATIBLE () { 0x1000 }  # Backward-compatible semantics.
-sub ET_SIGNAL_ANY () { ET_SIGNAL | ET_SIGNAL_EXPLICIT | ET_SIGNAL_COMPATIBLE }
+sub ET_SIGNAL_RECURSIVE () { 0x0800 }  # Explicitly requested signal.
+sub ET_SIGNAL_ANY () { ET_SIGNAL | ET_SIGNAL_RECURSIVE }
 
 # A hash of reserved names.  It's used to test whether someone is
 # trying to use an internal event directly.
@@ -866,7 +865,7 @@ sub _dispatch_event {
 
           $self->_dispatch_event(
             $target_session, $self,
-            $target_event, ET_SIGNAL_EXPLICIT, [ @$etc ],
+            $target_event, ET_SIGNAL_RECURSIVE, [ @$etc ],
             $file, $line, $fromstate, time(), -__LINE__
           );
         }
