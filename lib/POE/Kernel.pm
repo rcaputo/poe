@@ -866,7 +866,7 @@ sub _dispatch_event {
 
           $self->_dispatch_event(
             $target_session, $self,
-            $target_event, ET_SIGNAL_EXPLICIT, $etc,
+            $target_event, ET_SIGNAL_EXPLICIT, [ @$etc ],
             $file, $line, $fromstate, time(), -__LINE__
           );
         }
@@ -959,11 +959,7 @@ sub _dispatch_event {
   # them out programmatically.  splice(@$etc, $first_user{$type});
   # That would leave the watcher-supplied arguments alone.
 
-  @$etc = (
-    ($type & ET_SIGNAL_ANY)
-    ? $etc->[0]   # Preserve signal name.
-    : ()          # Is this your card?
-  );
+  @$etc = ( );
 
   if (TRACE_STATISTICS) {
       my $after = time();
