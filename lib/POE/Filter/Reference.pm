@@ -8,8 +8,9 @@ use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+@ISA = qw(POE::Filter);
 
 use Carp qw(carp croak);
 
@@ -19,22 +20,23 @@ use vars qw( $DEF_FREEZER $DEF_FREEZE $DEF_THAW );
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
 
-  foreach my $p (qw(Storable FreezeThaw YAML)) {
-    eval { require "$p.pm"; import $p (); };
-    if ( $@ ) {
+  my @packages = qw(Storable FreezeThaw YAML);
+  foreach my $package (@packages) {
+    eval { require "$package.pm"; import $package (); };
+    if ($@) {
       warn $@;
       next;
-    } else {
-      # Found a good freezer!
-      $DEF_FREEZER = $p;
-      last;
-    }      
+    }
+
+    # Found a good freezer!
+    $DEF_FREEZER = $package;
+    last;
   }
-  die "Filter::Reference requires Storable, FreezeThaw, or YAML" if ! defined $DEF_FREEZER;
+  die "Filter::Reference requires one of @packages" unless defined $DEF_FREEZER;
 }
 
 # Some processing here
-( $DEF_FREEZE, $DEF_THAW ) = _get_methods( $DEF_FREEZER );
+($DEF_FREEZE, $DEF_THAW) = _get_methods($DEF_FREEZER);
 
 #------------------------------------------------------------------------------
 # Try to acquire Compress::Zlib at runtime.
@@ -47,10 +49,10 @@ sub _include_zlib {
     eval "use Compress::Zlib qw(compress uncompress)";
     if ($@) {
       $zlib_status = $@;
-      eval <<'      EOE';
-        sub compress { @_ }
-        sub uncompress { @_ }
-      EOE
+      eval(
+        "sub compress   { @_ }\n" .
+        "sub uncompress { @_ }"
+      );
     }
     else {
       $zlib_status = '';
@@ -61,58 +63,65 @@ sub _include_zlib {
 }
 
 #------------------------------------------------------------------------------
-sub _get_methods
-{
-    my($freezer)=@_;
-    my $freeze=$freezer->can('nfreeze') || $freezer->can('freeze');
-    my $thaw=$freezer->can('thaw');
-    return unless $freeze and $thaw;
-    return ($freeze, $thaw);
+
+sub _get_methods {
+  my($freezer)=@_;
+  my $freeze=$freezer->can('nfreeze') || $freezer->can('freeze');
+  my $thaw=$freezer->can('thaw');
+  return unless $freeze and $thaw;
+  return ($freeze, $thaw);
 }
 
 #------------------------------------------------------------------------------
 
 sub new {
   my($type, $freezer, $compression) = @_;
-  
-  my( $freeze, $thaw );
-  if ( ! defined $freezer ) {
-      # Okay, load the default one!
+
+  my($freeze, $thaw);
+  unless (defined $freezer) {
+    # Okay, load the default one!
     $freezer = $DEF_FREEZER;
-    $freeze = $DEF_FREEZE;
-    $thaw = $DEF_THAW;
-  } else {
+    $freeze  = $DEF_FREEZE;
+    $thaw    = $DEF_THAW;
+  }
+  else {
     # What did we get?
-    if ( ref $freezer ) {
+    if (ref $freezer) {
       # It's an object, create an closure
-      my( $freezetmp, $thawtmp ) = _get_methods( $freezer );
-          $freeze = sub { $freezetmp->( $freezer, @_ ) };
-          $thaw = sub { $thawtmp->( $freezer, @_ ) };
-      } else {
-        # A package name?
-        my $package = $freezer;
+      my($freezetmp, $thawtmp) = _get_methods($freezer);
+      $freeze = sub { $freezetmp->($freezer, @_) };
+      $thaw   = sub { $thawtmp->  ($freezer, @_) };
+    }
+    else {
+      # A package name?
+      my $package = $freezer;
 
       $package =~ s(::)(\/)g;
       delete $INC{$package . ".pm"};
 
-      eval {local $^W=0; require "$package.pm"; import $freezer ();};
+      eval {
+        local $^W=0;
+        require "$package.pm";
+        import $freezer ();
+      };
       carp $@ if $@;
 
-      ( $freeze, $thaw )= _get_methods( $freezer );
+      ($freeze, $thaw) = _get_methods($freezer);
     }
   }
 
   # Now get the methods we want
   carp "$freezer doesn't have a freeze or nfreeze method" unless $freeze;
   carp "$freezer doesn't have a thaw method" unless $thaw;
-  # Rocco, shouldn't ->new() return undef() it if fails to find the methods
-  # it wants?
+
+  # Should ->new() return undef() it if fails to find the methods it
+  # wants?
   return unless $freeze and $thaw;
 
   # Compression
   $compression ||= 0;
   if ($compression) {
-    my $zlib_status = &_include_zlib();
+    my $zlib_status = _include_zlib();
     if ($zlib_status ne '') {
       warn "Compress::Zlib load failed with error: $zlib_status\n";
       carp "Filter::Reference compression option ignored";
@@ -120,12 +129,13 @@ sub new {
     }
   }
 
-  my $self = bless { buffer    => '',
-                     expecting => undef,
-                     thaw      => $thaw,
-                     freeze    => $freeze,
-                     compress  => $compression,
-                   }, $type;
+  my $self = bless {
+    buffer    => '',
+    expecting => undef,
+    thaw      => $thaw,
+    freeze    => $freeze,
+    compress  => $compression,
+  }, $type;
   $self;
 }
 
@@ -135,23 +145,11 @@ sub get {
   my ($self, $stream) = @_;
   my @return;
 
-  {% use_bytes %}
-
-  $self->{buffer} .= join('', @$stream);
-
-  while ( defined($self->{expecting}) ||
-          ( ($self->{buffer} =~ s/^(\d+)\0//s) &&
-            ($self->{expecting} = $1)
-          )
-  ) {
-    last if (length $self->{buffer} < $self->{expecting});
-
-    my $chunk = substr($self->{buffer}, 0, $self->{expecting});
-    substr($self->{buffer}, 0, $self->{expecting}) = '';
-    undef $self->{expecting};
-
-    $chunk = uncompress($chunk) if $self->{compress};
-    push @return, $self->{thaw}->( $chunk );
+  $self->get_one_start($stream);
+  while (1) {
+    my $next = $self->get_one();
+    last unless @$next;
+    push @return, @$next;
   }
 
   return \@return;
@@ -172,10 +170,12 @@ sub get_one {
 
   {% use_bytes %}
 
-  while ( defined($self->{expecting}) ||
-          ( ($self->{buffer} =~ s/^(\d+)\0//s) &&
-            ($self->{expecting} = $1)
-          )
+  while (
+    defined($self->{expecting}) or
+    (
+      ($self->{buffer} =~ s/^(\d+)\0//s) and
+      ($self->{expecting} = $1)
+    )
   ) {
     return [ ] if length($self->{buffer}) < $self->{expecting};
 

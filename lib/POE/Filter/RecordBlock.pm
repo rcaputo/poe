@@ -4,8 +4,9 @@ package POE::Filter::RecordBlock;
 
 use strict;
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+@ISA = qw(POE::Filter);
 
 use Carp qw(croak);
 
@@ -22,10 +23,16 @@ sub new {
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
 
-  croak "BlockSize must be greater than 0" if
-    !defined($params{BlockSize}) || ($params{BlockSize} < 1);
+  croak "BlockSize must be greater than 0" unless (
+    defined($params{BlockSize}) || ($params{BlockSize} < 1)
+  );
 
-  my $self = bless [$params{BlockSize}, [], [], $params{CheckPut}], $type;
+  my $self = bless [
+    $params{BlockSize}, # BLOCKSIZE
+    [],                 # GETBUFFER
+    [],                 # PUTBUFFER
+    $params{CheckPut},  # CHECKPUT
+  ], $type;
 }
 
 #------------------------------------------------------------------------------

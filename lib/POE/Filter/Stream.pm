@@ -4,8 +4,9 @@ package POE::Filter::Stream;
 
 use strict;
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+@ISA = qw(POE::Filter);
 
 #------------------------------------------------------------------------------
 

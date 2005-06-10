@@ -4,8 +4,9 @@ package POE::Filter::Line;
 
 use strict;
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+@ISA = qw(POE::Filter);
 
 use Carp qw(carp croak);
 
@@ -28,8 +29,9 @@ sub new {
   croak "$type requires an even number of parameters" if @_ and @_ & 1;
   my %params = @_;
 
-  croak "$type cannot have both Regexp and Literal line endings"
-    if defined $params{Regexp} and defined $params{Literal};
+  croak "$type cannot have both Regexp and Literal line endings" if (
+    defined $params{Regexp} and defined $params{Literal}
+  );
 
   my ($input_regexp, $output_literal);
   my $autodetect = AUTO_STATE_DONE;
@@ -41,11 +43,13 @@ sub new {
       unless defined($params{Literal}) and length($params{Literal});
     $input_regexp   = quotemeta $params{Literal};
     $output_literal = $params{Literal};
-    croak "$type cannot have Literal with any other parameter"
-      if ( exists $params{InputLiteral} or # undef means something
-           defined $params{InputRegexp} or
-           defined $params{OutputLiteral}
-         );
+    if (
+      exists $params{InputLiteral} or # undef means something
+      defined $params{InputRegexp} or
+      defined $params{OutputLiteral}
+    ) {
+      croak "$type cannot have Literal with any other parameter";
+    }
   }
 
   # Input and output are specified separately, then.
@@ -90,12 +94,12 @@ sub new {
   carp("$type ignores unknown parameters: ", join(', ', sort keys %params))
     if scalar keys %params;
 
-  my $self =
-    bless [ '',              # FRAMING_BUFFER
-            $input_regexp,   # INPUT_REGEXP
-            $output_literal, # OUTPUT_LITERAL
-            $autodetect,     # AUTODETECT_STATE
-          ], $type;
+  my $self = bless [
+    '',              # FRAMING_BUFFER
+    $input_regexp,   # INPUT_REGEXP
+    $output_literal, # OUTPUT_LITERAL
+    $autodetect,     # AUTODETECT_STATE
+  ], $type;
 
   DEBUG and warn join ':', @$self;
 
@@ -117,8 +121,7 @@ sub get {
   $self->[FRAMING_BUFFER] .= join '', @$stream;
 
   # Process as many newlines an we can find.
-LINE:
-  while (1) {
+  LINE: while (1) {
 
     # Autodetect is done, or it never started.  Parse some buffer!
     unless ($self->[AUTODETECT_STATE]) {
@@ -164,9 +167,10 @@ LINE:
 
       # Test the first character to see if it completes the previous
       # potentially partial newline.
-      if ( substr($self->[FRAMING_BUFFER], 0, 1) eq
-           ( $self->[INPUT_REGEXP] eq "\x0D" ? "\x0A" : "\x0D" )
-         ) {
+      if (
+        substr($self->[FRAMING_BUFFER], 0, 1) eq
+        ( $self->[INPUT_REGEXP] eq "\x0D" ? "\x0A" : "\x0D" )
+      ) {
 
         # Combine the first character with the previous newline, and
         # discard the newline from the buffer.  This is two statements
@@ -215,8 +219,7 @@ sub get_one {
   my $self = shift;
 
   # Process as many newlines an we can find.
-LINE:
-  while (1) {
+  LINE: while (1) {
 
     # Autodetect is done, or it never started.  Parse some buffer!
     unless ($self->[AUTODETECT_STATE]) {
@@ -265,9 +268,10 @@ LINE:
 
       # Test the first character to see if it completes the previous
       # potentially partial newline.
-      if ( substr($self->[FRAMING_BUFFER], 0, 1) eq
-           ( $self->[INPUT_REGEXP] eq "\x0D" ? "\x0A" : "\x0D" )
-         ) {
+      if (
+        substr($self->[FRAMING_BUFFER], 0, 1) eq
+        ( $self->[INPUT_REGEXP] eq "\x0D" ? "\x0A" : "\x0D" )
+      ) {
 
         # Combine the first character with the previous newline, and
         # discard the newline from the buffer.  This is two statements
