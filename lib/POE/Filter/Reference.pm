@@ -131,7 +131,6 @@ sub new {
 
   my $self = bless {
     buffer    => '',
-    expecting => undef,
     thaw      => $thaw,
     freeze    => $freeze,
     compress  => $compression,
@@ -170,22 +169,16 @@ sub get_one {
 
   {% use_bytes %}
 
-  while (
-    defined($self->{expecting}) or
-    (
-      ($self->{buffer} =~ s/^(\d+)\0//s) and
-      ($self->{expecting} = $1)
-    )
-  ) {
-    return [ ] if length($self->{buffer}) < $self->{expecting};
-
-    my $chunk = substr($self->{buffer}, 0, $self->{expecting});
-    substr($self->{buffer}, 0, $self->{expecting}) = '';
-    undef $self->{expecting};
-
-    $chunk = uncompress($chunk) if $self->{compress};
-    return [ $self->{thaw}->( $chunk ) ];
-  }
+	if (
+		$self->{buffer} =~ /^(\d+)\0/ and
+		length($self->{buffer}) >= $1 + length($1) + 1
+	) {
+		substr($self->{buffer}, 0, length($1) + 1) = "";
+		my $return = substr($self->{buffer}, 0, $1);
+		substr($self->{buffer}, 0, $1) = "";
+		$return = uncompress($return) if $self->{compress};
+		return [ $self->{thaw}->($return) ];
+	}
 
   return [ ];
 }
