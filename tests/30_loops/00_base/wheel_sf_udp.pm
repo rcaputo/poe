@@ -5,23 +5,23 @@
 
 use strict;
 use lib qw(./mylib ../mylib ../lib ./lib);
-use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use Socket;
+use Test::More;
 
 use POE qw( Wheel::SocketFactory );
 
 my $max_send_count = 10;
 
-test_setup(0, "Network access (and permission) required to run this test")
-  unless -f 'run_network_tests';
+unless (-f "run_network_tests") {
+  plan skip_all => "Network access (and permission) required to run this test";
+}
 
-# Congratulations! We made it this far!
-test_setup(13);
+plan tests => 10;
 
 ###############################################################################
 # Both a UDP server and a client in one session.  This is a contrived
@@ -75,32 +75,29 @@ sub udp_start {
 sub udp_stop {
   my $heap = $_[HEAP];
 
-  &ok_if( 1, $heap->{test_one} );
-  &ok_if( 2, $heap->{test_two} );
+  ok($heap->{test_one}, "test one");
+  ok($heap->{test_two}, "test two");
 
-  &ok_unless(5,  $heap->{peer_a_recv_error});
-  &ok_unless(6,  $heap->{peer_a_send_error});
-  &ok_unless(7,  $heap->{peer_a_sock_error});
+  ok(!$heap->{peer_a_recv_error}, "peer a no recv errors");
+  ok(!$heap->{peer_a_send_error}, "peer a no send errors");
+  ok(!$heap->{peer_a_sock_error}, "peer a no sock errors");
 
-  &ok_unless(8,  $heap->{peer_b_recv_error});
-  &ok_unless(9,  $heap->{peer_b_send_error});
-  &ok_unless(10, $heap->{peer_b_sock_error});
+  ok(!$heap->{peer_b_recv_error}, "peer b no recv errors");
+  ok(!$heap->{peer_b_send_error}, "peer b no send errors");
+  ok(!$heap->{peer_b_sock_error}, "peer b no sock errors");
 
-  &ok_if(
-    11,
+  ok(
     $heap->{peer_a_send_count} == $max_send_count,
-    "only sent $heap->{peer_a_send_count}"
+    "peer a sent $heap->{peer_a_send_count}"
   );
-  &ok_if(
-    12, $heap->{peer_b_send_count} == $max_send_count,
-    "only sent $heap->{peer_b_send_count}"
+  ok(
+    $heap->{peer_b_send_count} == $max_send_count,
+    "peer b sent $heap->{peer_b_send_count}"
   );
 }
 
 sub udp_peer_a_socket {
   my ($kernel, $heap, $socket) = @_[KERNEL, HEAP, ARG0];
-
-  &ok(3);
 
   delete $heap->{peer_a_setup_wheel};
   $heap->{peer_a_socket_handle} = $socket;
@@ -121,8 +118,6 @@ sub udp_peer_a_socket {
 
 sub udp_peer_b_socket {
   my ($kernel, $heap, $socket) = @_[KERNEL, HEAP, ARG0];
-
-  &ok(4);
 
   delete $heap->{peer_b_setup_wheel};
   $heap->{peer_b_socket_handle} = $socket;
@@ -232,8 +227,5 @@ POE::Session->create(
 );
 
 $poe_kernel->run();
-
-&ok(13);
-&results;
 
 1;

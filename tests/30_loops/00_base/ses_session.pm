@@ -6,7 +6,6 @@
 use strict;
 
 use lib qw(./mylib ../mylib ../lib ./lib);
-use TestSetup;
 
 BEGIN {
   sub POE::Kernel::ASSERT_DEFAULT () { 1 }
@@ -14,8 +13,7 @@ BEGIN {
   sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 }
 
-test_setup(39);
-
+use Test::More tests => 38;
 use POE;
 
 ### Test parameters and results.
@@ -27,10 +25,6 @@ my $sigpipe_caught = 0;
 my $sender_count   = 0;
 my $got_heap_count = 0;
 my $default_count  = 0;
-my $get_active_session_within = 0;
-my $get_active_session_before = 0;
-my $get_active_session_after  = 0;
-my $get_active_session_heap   = 0;
 
 die "machine count must be even" if $machine_count & 1;
 
@@ -208,11 +202,13 @@ POE::Session->create(
       }
     },
     _stop => sub {
-      $get_active_session_within = (
-        $_[KERNEL]->get_active_session() == $_[SESSION]
+      ok(
+        $_[KERNEL]->get_active_session() == $_[SESSION],
+        "get_active_session within session"
       );
-      $get_active_session_heap = (
-        $_[KERNEL]->get_active_session()->get_heap() == $_[HEAP]
+      ok(
+        $_[KERNEL]->get_active_session()->get_heap() == $_[HEAP],
+        "get_heap during stop"
       );
     },
   }
@@ -356,74 +352,79 @@ POE::Session->create(
 #------------------------------------------------------------------------------
 # Main loop.
 
-$get_active_session_before = $poe_kernel->get_active_session() == $poe_kernel;
+ok(
+  $poe_kernel->get_active_session() == $poe_kernel,
+  "get_active_session before POE::Kernel->run()"
+);
+
 POE::Kernel->run();
-$get_active_session_after = $poe_kernel->get_active_session() == $poe_kernel;
+
+ok(
+  $poe_kernel->get_active_session() == $poe_kernel,
+  "get_active_session after POE::Kernel->run()"
+);
 
 #------------------------------------------------------------------------------
 # Final tests.
 
 # Now make sure they've run.
 for (my $i=0; $i<$machine_count; $i++) {
-  print 'not ' unless $completions[$i] == $event_count;
-  print 'ok ', $i+1, "\n";
+  ok(
+    $completions[$i] == $event_count,
+    "test $i ran"
+  );
 }
 
 # Were all the signals caught?
-if ($^O eq 'MSWin32' or $^O eq 'MacOS') {
-  print "ok 11 # skipped: $^O does not support signals.\n";
-  print "ok 12 # skipped: $^O does not support signals.\n";
-}
-else {
-  print 'not ' unless $sigalrm_caught == $event_count;
-  print "ok 11\n";
+SKIP: {
+  if ($^O eq "MSWin32" or $^O eq "MacOS") {
+    skip "$^O does not support signals", 2;
+  }
 
-  print 'not ' unless $sigpipe_caught == $event_count;
-  print "ok 12\n";
+  ok(
+    $sigalrm_caught == $event_count,
+    "caught enough SIGALRMs"
+  );
+
+  ok(
+    $sigpipe_caught == $event_count,
+    "caught enough SIGPIPEs"
+  );
 }
 
 # Did the postbacks work?
-print 'not ' unless $postback_test;
-print "ok 13\n";
-
-print 'not ' unless $callback_test;
-print "ok 14\n";
-
-# Were the various get_active_session() calls correct?
-print 'not ' unless $get_active_session_within;
-print "ok 15\n";
-
-print 'not ' unless $get_active_session_before;
-print "ok 16\n";
-
-print 'not ' unless $get_active_session_after;
-print "ok 17\n";
-
-# Was the get_heap() call correct?
-print 'not ' unless $get_active_session_heap;
-print "ok 18\n";
+ok( $postback_test, "postback test" );
+ok( $callback_test, "callback test" );
 
 # Gratuitous tests to appease the coverage gods.
-print 'not ' unless (
-  ARG1 == ARG0+1 and ARG2 == ARG1+1 and ARG3 == ARG2+1 and
-  ARG4 == ARG3+1 and ARG5 == ARG4+1 and ARG6 == ARG5+1 and
-  ARG7 == ARG6+1 and ARG8 == ARG7+1 and ARG9 == ARG8+1
+ok(
+  (ARG1 == ARG0+1) && (ARG2 == ARG1+1) && (ARG3 == ARG2+1) &&
+  (ARG4 == ARG3+1) && (ARG5 == ARG4+1) && (ARG6 == ARG5+1) &&
+  (ARG7 == ARG6+1) && (ARG8 == ARG7+1) && (ARG9 == ARG8+1),
+  "ARG constants are good"
 );
-print "ok 19\n";
 
-print 'not ' unless $sender_count == $machine_count * $event_count;
-print "ok 20\n";
+ok(
+  $sender_count == $machine_count * $event_count,
+  "sender_count"
+);
 
-print 'not ' unless $default_count == ($machine_count * $event_count);
-print "ok 21\n";
+ok(
+  $default_count == $machine_count * $event_count,
+  "default_count"
+);
 
-print 'not ' unless $got_heap_count == $machine_count;
-print "ok 22\n";
+ok(
+  $got_heap_count == $machine_count,
+  "got_heap_count"
+);
 
 # Object/package sessions.
 for (0..3) {
-  print 'not ' unless $objpack[$_] == $event_count;
-  print 'ok ', $_ + 23, "\n";
+  ok(
+    $objpack[$_] == $event_count,
+    "object/package session $_ event count"
+  );
 }
 
 my $sessions_destroyed = 0;
@@ -525,75 +526,93 @@ POE::MySession->create(
 
       my $expected;
       if ($] >= 5.004 and $] < 5.005) {
-        warn(
-          "# Note: Perl 5.004-ish appears to leak sessions.\n",
-          "#       Consider upgrading to Perl 5.005_04 or beyond.\n",
-        );
+        diag( "Note: We find your choice of Perl versions disturbing" );
+        diag( "primarily due to the number of bugs POE triggers within" );
+        diag( "it.  You should seriously consider upgrading." );
         $expected = 0;
       }
       else {
         $expected = 3;
       }
 
-      print 'not ' unless $sessions_destroyed == $expected;
-      print "ok 27 # dest $sessions_destroyed sessions (expected $expected)\n";
+      ok(
+        $sessions_destroyed == $expected,
+        "$sessions_destroyed sessions destroyed (expected $expected)"
+      );
 
       # 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
       # data inside the heap is surviving the session DESTROY. This
       # isnt possible in a sane and normal world. So if this is giving
-      # you fits, please consider upgrading perl to at least 5.6.1.
+      # you fits, consider it a sign that your "legacy perl" fetish is
+      # bizarre and harmful.
       my $expected;
-      if($] >= 5.006 or ($] >= 5.004 and $] < 5.005)) {
+      if ($] >= 5.006 or ($] >= 5.004 and $] < 5.005)) {
         $expected = 3;
       } else {
         $expected = 2;
+        diag( "Your version of Perl is rather buggy.  Consider upgrading." );
       }
-      print 'not ' unless $objects_destroyed == $expected;
-      print "ok 28 # dest $objects_destroyed objects (expected $expected)\n";
+
+      ok(
+        $objects_destroyed == $expected,
+        "$objects_destroyed objects destroyed (expected $expected)"
+      );
     }
   }
 );
 
-$poe_kernel->run;
-print 'not ' unless $stop_called == 0;
-print "ok 29\n";
-print 'not ' unless $child_called == 0;
-print "ok 30\n";
-print 'not ' unless $parent_called == 0;
-print "ok 31\n";
+POE::Kernel->run();
+
+ok(
+  $stop_called == 0,
+  "_stop wasn't called"
+);
+
+ok(
+  $child_called == 0,
+  "_child wasn't called"
+);
+
+ok(
+  $parent_called == 0,
+  "_parent wasn't called"
+);
 
 my $expected;
 if ($] >= 5.004 and $] < 5.005) {
-  warn(
-    "# Note: Perl 5.004-ish appears to leak sessions.\n",
-    "#       Consider upgrading to Perl 5.005_04 or beyond.\n",
-  );
+  diag( "Seriously.  We've had to create special cases just to cater" );
+  diag( "to your freakish 'legacy buggy perl' fetish.  Consider upgrading" );
   $expected = 0;
 }
 else {
   $expected = 4;
 }
 
-print 'not ' unless $sessions_destroyed == $expected;
-print "ok 32 # dest $sessions_destroyed sessions (expected $expected)\n";
+ok(
+  $sessions_destroyed == $expected,
+  "destroyed $sessions_destroyed sessions (expected $expected)"
+);
 
 # 5.004 and 5.005 have some nasty gc issues. Near as I can tell,
 # data inside the heap is surviving the session DESTROY. This
-# isnt possible in a sane and normal world. So if this is giving
-# you fits, please consider upgrading perl to at least 5.6.1.
+# isnt possible in a sane and normal world.
 my $expected;
 if($] >= '5.006') {
   $expected = 4;
 }
 elsif ($] == 5.005_04) {
   $expected = 3;
+  diag( "Here's yet another special test case to work around memory" );
+  diag( "leaks in Perl $]." );
 }
 else {
   $expected = 4;
 }
 
-print "not " unless $objects_destroyed == $expected;
-print "ok 33 # dest $objects_destroyed objects (expected $expected)\n";
+ok(
+  $objects_destroyed == $expected,
+  "destroyed $objects_destroyed objects (expected $expected)"
+);
 
 # This simple session just makes sure we can start another Session and
 # another Kernel.  If all goes well, it'll dispatch some events and
@@ -611,42 +630,36 @@ print "ok 33 # dest $objects_destroyed objects (expected $expected)\n";
 # Meanwhile, these tests will be skipped under Tk if Perl is 5.8.0 or
 # beyond, and it's not built for threading.
 
-use Config;
-if (
-  $] >= 5.008 and
-  exists $INC{"Tk.pm"} and
-  !$Config{useithreads}
-) {
-  foreach (34..39) {
-    print(
-      "not ok $_ # Skip: Restarting Tk dumps core in single-threaded perl $]\n"
-    );
-  }
-}
-else {
+SKIP: {
+  use Config;
+  skip "Restarting Tk dumps core in single-threaded perl $]", 6 if (
+    $] >= 5.008 and
+    exists $INC{"Tk.pm"} and
+    !$Config{useithreads}
+  );
+
   POE::Session->create(
     options => { trace => 1, default => 1, debug => 1 },
     inline_states => {
       _start => sub {
-        print "ok 34\n";
+        pass("restarted event loop session _start");
         $_[KERNEL]->yield("woot");
         $_[KERNEL]->delay(narf => 1);
       },
       woot => sub {
-        print "ok 36\n";
+        pass("restarted event loop session yield()");
       },
       narf => sub {
-        print "ok 37\n";
+        pass("restarted event loop session timer delay()");
       },
       _stop => sub {
-        print "ok 38\n";
+        pass("restarted event loop session _stop");
       },
     }
   );
 
-  print "ok 35\n";
   POE::Kernel->run();
-  print "ok 39\n";
+  pass("restarted event loop returned normally");
 }
 
 1;

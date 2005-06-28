@@ -5,7 +5,6 @@
 
 use strict;
 use lib qw(./mylib ../mylib ../lib ./lib);
-use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
@@ -22,12 +21,13 @@ use POE qw(
 
 my $tcp_server_port = 31909;
 
-test_setup(0, "Network access (and permission) required to run this test")
-  unless -f 'run_network_tests';
+use Test::More;
 
-# Congratulations! We made it this far!
-test_setup(12);
-ok(1);
+unless (-f "run_network_tests") {
+  plan skip_all => "Network access (and permission) required to run this test";
+}
+
+plan tests => 9;
 
 ###############################################################################
 # A generic server session.
@@ -80,13 +80,8 @@ sub sss_line {
 sub sss_error {
   my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
 
-  if ($errnum) {
-    $heap->{test_two} = 0;
-    &not_ok(3);
-  }
-  else {
-    &ok(3);
-  }
+  ok(!$errnum, "sss error");
+  $heap->{test_two} = 0 if $errnum;
 
   delete $heap->{wheel};
 }
@@ -96,8 +91,9 @@ sub sss_flush {
 }
 
 sub sss_stop {
-  &ok_if(2, $_[HEAP]->{test_two});
-  &ok_if(4, $_[HEAP]->{put_count} == $_[HEAP]->{flush_count});
+  my $heap = $_[HEAP];
+  ok($heap->{test_two}, "test two");
+  ok($heap->{put_count} == $heap->{flush_count}, "flushed all put data");
 }
 
 ###############################################################################
@@ -118,9 +114,9 @@ sub client_tcp_start {
 }
 
 sub client_tcp_stop {
-  &ok_if(5, $_[HEAP]->{test_five});
-  &ok(6);
-  &ok_if(7, $_[HEAP]->{test_seven});
+  my ($kernel, $heap) = @_[KERNEL, HEAP];
+  ok($heap->{test_five}, "test five");
+  ok($heap->{test_seven}, "test seven");
   $_[KERNEL]->post( tcp_server => 'shutdown' );
 }
 
@@ -144,8 +140,8 @@ sub client_tcp_connected {
   $heap->{put_count}   = 1;
   $heap->{wheel}->put( '1: this is a test' );
 
-  &ok_if(11, $heap->{wheel}->get_driver_out_octets() == 19);
-  &ok_if(12, $heap->{wheel}->get_driver_out_messages() == 1);
+  ok($heap->{wheel}->get_driver_out_octets() == 19, "buffered 19 octets");
+  ok($heap->{wheel}->get_driver_out_messages() == 1, "buffered 1 message");
 }
 
 sub client_tcp_got_line {
@@ -156,7 +152,7 @@ sub client_tcp_got_line {
     $heap->{wheel}->put( '2: ' . $line );
   }
   elsif ($line =~ s/^2: //) {
-    &ok_if(8, $line eq 'this is a test');
+    ok($line eq 'this is a test', "received test message");
     delete $heap->{wheel};
   }
 }
@@ -183,25 +179,25 @@ sub client_tcp_got_flush {
 ###############################################################################
 # Start the TCP server and client.
 
-POE::Component::Server::TCP->new
-  ( Port     => $tcp_server_port,
-    Address  => '127.0.0.1',
-    Alias    => 'tcp_server',
-    Acceptor => sub {
-      &sss_new(@_[ARG0..ARG2]);
-      # This next badness is just for testing.
-      my $sockname = $_[HEAP]->{listener}->getsockname();
-      delete $_[HEAP]->{listener};
+POE::Component::Server::TCP->new(
+  Port     => $tcp_server_port,
+  Address  => '127.0.0.1',
+  Alias    => 'tcp_server',
+  Acceptor => sub {
+    &sss_new(@_[ARG0..ARG2]);
+    # This next badness is just for testing.
+    my $sockname = $_[HEAP]->{listener}->getsockname();
+    delete $_[HEAP]->{listener};
 
-      my ($port, $addr) = sockaddr_in($sockname);
-      $addr = inet_ntoa($addr);
-      &ok_if(
-        10,
-        ($addr eq '127.0.0.1') &&
-        ($port == $tcp_server_port)
-      );
-    },
-  );
+    my ($port, $addr) = sockaddr_in($sockname);
+    $addr = inet_ntoa($addr);
+    ok(
+      ($addr eq '127.0.0.1') &&
+      ($port == $tcp_server_port),
+      "received connection"
+    );
+  },
+);
 
 POE::Session->create(
   inline_states => {
@@ -216,9 +212,6 @@ POE::Session->create(
 
 ### main loop
 
-$poe_kernel->run();
-
-&ok(9);
-&results;
+POE::Kernel->run();
 
 1;

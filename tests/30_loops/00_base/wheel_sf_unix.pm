@@ -5,7 +5,6 @@
 
 use strict;
 use lib qw(./mylib ../mylib ../lib ./lib);
-use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
@@ -26,10 +25,13 @@ BEGIN {
   }
 
   if ($error) {
+    # Not using Test::More so we can avoid Tk::exit.
     print "1..0 # Skip $error\n";
     CORE::exit();
   }
 }
+
+use Test::More tests => 12;
 
 use POE qw(
   Wheel::SocketFactory
@@ -39,10 +41,6 @@ use POE qw(
 );
 
 my $unix_server_socket = '/tmp/poe-usrv';
-
-# Congratulations! We made it this far!
-test_setup(15);
-&ok(1);
 
 ###############################################################################
 # A generic server session.
@@ -92,13 +90,8 @@ sub sss_line {
 sub sss_error {
   my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
 
-  if ($errnum) {
-    $heap->{test_six} = 0;
-    &not_ok(8);
-  }
-  else {
-    &ok(8);
-  }
+  ok(!$errnum, "sss error");
+  $heap->{test_six} = 0 if $errnum;
 
   delete $heap->{wheel};
 }
@@ -108,8 +101,12 @@ sub sss_flush {
 }
 
 sub sss_stop {
-  &ok_if(6,  $_[HEAP]->{test_six});
-  &ok_if(10, $_[HEAP]->{put_count} == $_[HEAP]->{flush_count});
+  my $heap = $_[HEAP];
+  ok($heap->{test_six}, "test six");
+  ok(
+    $_[HEAP]->{put_count} == $_[HEAP]->{flush_count},
+    "flushed everything we put"
+  );
 }
 
 ###############################################################################
@@ -132,18 +129,19 @@ sub server_unix_start {
 }
 
 sub server_unix_stop {
-  delete $_[HEAP]->{wheel};
+  my $heap = $_[HEAP];
 
-  &ok_if(2,  $_[HEAP]->{test_two});
-  &ok_if(11, $_[HEAP]->{client_count} == 1);
+  delete $heap->{wheel};
+
+  ok($heap->{test_two}, "test two");
+  ok($heap->{client_count} == 1, "only one client");
 
   unlink $unix_server_socket if -e $unix_server_socket;
 }
 
 sub server_unix_answered {
-  &ok(5);
   $_[HEAP]->{client_count}++;
-  &sss_new(@_[ARG0..ARG2]);
+  sss_new(@_[ARG0..ARG2]);
 }
 
 sub server_unix_error {
@@ -165,7 +163,10 @@ sub server_unix_child {
   }
   if ($_[ARG0] eq 'lose') {
     delete $_[HEAP]->{wheel};
-    &ok_if(9, $_[ARG1] == $_[HEAP]->{child});
+    ok(
+      $_[ARG1] == $_[HEAP]->{child},
+      "lost expected child session"
+    );
   }
 }
 
@@ -187,9 +188,9 @@ sub client_unix_start {
 }
 
 sub client_unix_stop {
-  &ok_if(3, $_[HEAP]->{test_three});
-  &ok_if(4, $_[HEAP]->{test_four});
-  &ok(7);
+  my $heap = $_[HEAP];
+  ok($heap->{test_three}, "test three");
+  ok($heap->{test_four}, "test four");
 }
 
 sub client_unix_connected {
@@ -211,8 +212,14 @@ sub client_unix_connected {
   $heap->{put_count}   = 1;
   $heap->{wheel}->put( '1: this is a test' );
 
-  &ok_if(14, $heap->{wheel}->get_driver_out_octets() == 19);
-  &ok_if(15, $heap->{wheel}->get_driver_out_messages() == 1);
+  ok(
+    $heap->{wheel}->get_driver_out_octets() == 19,
+    "buffered 19 octets"
+  );
+  ok(
+    $heap->{wheel}->get_driver_out_messages() == 1,
+    "buffered 1 message"
+  );
 }
 
 sub client_unix_got_line {
@@ -223,7 +230,10 @@ sub client_unix_got_line {
     $heap->{wheel}->put( '2: ' . $line );
   }
   elsif ($line =~ s/^2: //) {
-    &ok_if(13, $line eq 'this is a test');
+    ok(
+      $line eq 'this is a test',
+      "received expected text"
+    );
     delete $heap->{wheel};
   }
 }
@@ -273,9 +283,8 @@ POE::Session->create(
 
 ### main loop
 
-$poe_kernel->run();
+POE::Kernel->run();
 
-&ok(12);
-&results;
+pass("run() returned normally");
 
 1;

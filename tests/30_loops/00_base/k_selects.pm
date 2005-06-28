@@ -6,13 +6,12 @@
 use strict;
 
 use lib qw(./mylib ../mylib ../lib ./lib);
-use TestSetup;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-test_setup(16);
+use Test::More tests => 17;
 
 use POE qw(Pipe::OneWay Pipe::TwoWay);
 
@@ -20,10 +19,6 @@ use POE qw(Pipe::OneWay Pipe::TwoWay);
 
 my $pair_count = 5;
 my $chat_count = 5;
-
-### Register for individual test results.
-
-my @test_results;
 
 # What to do here?  Create ten master sessions that create socket
 # pairs.  Each master session spawns a slave session and gives it the
@@ -37,36 +32,30 @@ my @test_results;
 ### Master session.
 
 sub master_start {
-  my ($kernel, $heap, $test_index) = @_[KERNEL, HEAP, ARG0];
-
-  $test_index *= 2;
+  my ($kernel, $heap ) = @_[KERNEL, HEAP, ARG0];
 
   my ($master_read, $master_write, $slave_read, $slave_write) =
     POE::Pipe::TwoWay->new();
 
-  unless (defined $master_read) {
-    $test_results[$test_index] = $test_results[$test_index + 1] = undef;
-    return;
-  }
+  ok( defined($master_read), "master: created two-way pipe for testing" );
 
   # Listen on the uplink_read side.
   $kernel->select_read($master_read, 'input');
 
   # Give the other side to a newly spawned session.
-  POE::Session->create
-    ( inline_states =>
-      { _start => \&slave_start,
-        _stop  => \&slave_stop,
-        input  => \&slave_got_input,
-        resume => \&slave_resume_read,
-        output => \&slave_put_output,
-      },
-      args     => [ $slave_read, $slave_write, $test_index + 1 ],
-    );
+  POE::Session->create(
+    inline_states => {
+      _start => \&slave_start,
+      _stop  => \&slave_stop,
+      input  => \&slave_got_input,
+      resume => \&slave_resume_read,
+      output => \&slave_put_output,
+    },
+    args     => [ $slave_read, $slave_write ],
+  );
 
   # Save some values for later.
   $heap->{write}      = $master_write;
-  $heap->{test_index} = $test_index;
   $heap->{test_count} = 0;
   $heap->{queue}      = [ ];
 
@@ -78,7 +67,10 @@ sub master_stop {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
 
   # Determine if we were successful.
-  $test_results[$heap->{test_index}] = ($heap->{test_count} == $chat_count);
+  ok(
+    $heap->{test_count} == $chat_count,
+    "master: expected number of messages"
+  );
 }
 
 sub master_got_input {
@@ -112,8 +104,9 @@ sub master_put_output {
   # If there is a message queued, write it.
   if (@{$heap->{queue}}) {
     my $message = shift @{$heap->{queue}};
-    die $!
-      unless syswrite($handle, $message, length($message)) == length($message);
+    die $!  unless (
+      syswrite($handle, $message, length($message)) == length($message)
+    );
   }
 
   # Otherwise pause the write select.
@@ -146,7 +139,10 @@ sub slave_stop {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
 
   # Determine if we were successful.
-  $test_results[$heap->{test_index}] = ($heap->{test_count} == $chat_count);
+  ok(
+    $heap->{test_count} == $chat_count,
+    "slave: expected number of messages"
+  );
 }
 
 # Resume reading after a brief delay.
@@ -195,8 +191,9 @@ sub slave_put_output {
   # If there is a message queued, write it.
   if (@{$heap->{queue}}) {
     my $message = shift @{$heap->{queue}};
-    die $!
-      unless syswrite($handle, $message, length($message)) == length($message);
+    die $! unless (
+      syswrite($handle, $message, length($message)) == length($message)
+    );
 
     # Kludge.  We requested quit, so go ahead and quit.
     $kernel->select_write($handle) if $message eq 'quit';
@@ -210,84 +207,69 @@ sub slave_put_output {
 
 ### Main loop.
 
-print "ok 1\n";
-
 # Spawn a group of master sessions.
 
 for (my $index = 0; $index < $pair_count; $index++) {
-  POE::Session->create
-    ( inline_states =>
-      { _start => \&master_start,
-        _stop  => \&master_stop,
-        _child => sub { },
-        input  => \&master_got_input,
-        output => \&master_put_output,
-      },
-      args     => [ $index ],
-    );
+  POE::Session->create(
+    inline_states => {
+      _start => \&master_start,
+      _stop  => \&master_stop,
+      _child => sub { },
+      input  => \&master_got_input,
+      output => \&master_put_output,
+    },
+    args     => [ $index ],
+  );
 }
 
 # Spawn a quick and dirty session to test a new bug found in
 # _internal_select.
 
-POE::Session->create
-  ( inline_states =>
-    { _start => sub {
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      my $conduit;
+      $conduit = "inet" if $^O eq "MSWin32";
 
-        my $conduit;
-        $conduit = "inet" if $^O eq "MSWin32";
+      my ($r, $w) = POE::Pipe::OneWay->new($conduit);
 
-        my ($r, $w) = POE::Pipe::OneWay->new($conduit);
-
-        my $kernel = $_[KERNEL];
-        $kernel->select_read($r, "input");
-        $kernel->select_write($r, "output");
-        $kernel->select_write($r);
-        $kernel->select_write($r, "output");
-        $kernel->select($r);
-        print "ok 2\n";
-      },
-      _stop => sub { },
+      my $kernel = $_[KERNEL];
+      $kernel->select_read($r, "input");
+      $kernel->select_write($r, "output");
+      $kernel->select_write($r);
+      $kernel->select_write($r, "output");
+      $kernel->select($r);
     },
-  );
-
-print "ok 3\n";
+    _stop => sub { },
+  },
+);
 
 # Now run them until they're done.
-$poe_kernel->run();
-
-# Now make sure they've run.
-for (my $index = 0; $index < $pair_count << 1; $index++) {
-  print "not " unless $test_results[$index];
-  print "ok ", $index + 4, "\n";
-}
-
-print "ok 14\n";
+POE::Kernel->run();
 
 # Try a re-entrant version.
-POE::Session->create
-  ( inline_states =>
-    { _start => sub {
-        $_[HEAP]->{count} = 0;
-        $_[KERNEL]->yield("increment");
-      },
-      increment => sub {
-        my ($kernel, $heap) = @_[KERNEL, HEAP];
-        if ($heap->{count} < 10) {
-          $kernel->yield("increment");
-          $heap->{count}++;
-        }
-      },
-      _stop => sub {
-        print "not " unless $_[HEAP]->{count} == 10;
-        print "ok 15\n";
-      },
-    }
-  );
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      $_[HEAP]->{count} = 0;
+      $_[KERNEL]->yield("increment");
+    },
+    increment => sub {
+      my ($kernel, $heap) = @_[KERNEL, HEAP];
+      if ($heap->{count} < 10) {
+        $kernel->yield("increment");
+        $heap->{count}++;
+      }
+    },
+    _stop => sub {
+      ok( $_[HEAP]->{count} == 10, "re-entered event loop ran" );
+    },
+  }
+);
 
 # Verify that the main loop can run yet again.
-$poe_kernel->run();
+POE::Kernel->run();
 
-print "ok 16\n";
+pass("second event loop run exited normally");
 
 1;

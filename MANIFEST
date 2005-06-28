@@ -73,7 +73,6 @@ mylib/Test/Harness.pm
 mylib/Test/Harness/Assert.pm
 mylib/Test/Harness/Iterator.pm
 mylib/Test/Harness/Straps.pm
-mylib/TestSetup.pm
 mylib/coverage.perl
 mylib/cpan-test.perl
 mylib/cvs-log.perl

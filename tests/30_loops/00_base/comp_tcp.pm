@@ -5,12 +5,15 @@
 
 use strict;
 use lib qw(./mylib ../mylib ../lib ./lib);
-use TestSetup;
 
-test_setup(0, "Network access (and permission) required to run this test")
-  unless -f 'run_network_tests';
+BEGIN {
+  unless (-f "run_network_tests") {
+    print "1..0: Network access (and permission) required to run this test\n";
+    CORE::exit();
+  }
+}
 
-test_setup(18);
+use Test::More tests => 18;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
@@ -36,24 +39,24 @@ POE::Component::Server::TCP->new(
             ErrorEvent   => 'got_error',
             FlushedEvent => 'got_flush',
           );
-          ok(1);
+          pass("acceptor server got client connection");
         },
         _stop => sub {
-          ok(2);
+          pass("acceptor server stopped the client session");
         },
         got_input => sub {
           my ($heap, $input) = @_[HEAP, ARG0];
-          ok(3);
+          pass("acceptor server received input");
           $heap->{wheel}->put("echo: $input");
           $heap->{shutdown} = 1 if $input eq "quit";
         },
         got_error => sub {
           my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
-          print "server got $operation error $errnum: $errstr\n";
+          print "acceptor server got $operation error $errnum: $errstr\n";
         },
         got_flush => sub {
           my $heap = $_[HEAP];
-          ok(4);
+          pass("acceptor server flushed output");
           delete $heap->{wheel} if $heap->{shutdown};
         },
       },
@@ -69,23 +72,23 @@ POE::Component::Server::TCP->new(
   Alias => 'input_server',
   ClientInput => sub {
     my ($heap, $input) = @_[HEAP, ARG0];
-    ok(5);
+    pass("callback server got input");
     $heap->{client}->put("echo: $input");
     $heap->{shutdown} = 1 if $input eq "quit";
   },
   ClientError => sub {
     my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
-    print "server got $operation error $errnum: $errstr\n";
+    print "callback server got $operation error $errnum: $errstr\n";
     delete $heap->{client};
   },
   ClientFlushed => sub {
-    ok(6);
+    pass("callback server flushed output");
   },
   ClientConnected => sub {
-    ok(7);
+    pass("callback server got client connection");
   },
   ClientDisconnected => sub {
-    ok(8);
+    pass("callback server got client disconnected");
   },
 );
 
@@ -96,32 +99,35 @@ POE::Component::Client::TCP->new(
   RemotePort    => 31401,
 
   Connected => sub {
-    ok(9);
+    pass("acceptor client connected");
     $_[HEAP]->{server}->put( "quit" );
   },
 
   ConnectError => sub {
     my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
-    print "server got $operation error $errnum: $errstr\n";
+    print "acceptor client got $operation error $errnum: $errstr\n";
   },
 
   Disconnected => sub {
-    ok(10);
+    pass("acceptor client disconnected");
     $_[KERNEL]->post( acceptor_server => 'shutdown' );
   },
 
   ServerInput => sub {
     my ($heap, $input) = @_[HEAP, ARG0];
-    ok(11);
+    pass("acceptor client got input");
   },
 
   ServerError => sub {
     my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
-    ok(17) if $operation eq 'read' and $errnum == 0;
+    ok(
+      ($operation eq "read") && ($errnum == 0),
+      "acceptor client got read error 0 (EOF)"
+    );
   },
 
   ServerFlushed => sub {
-    ok(12);
+    pass("acceptor client flushed output");
   },
 );
 
@@ -132,39 +138,40 @@ POE::Component::Client::TCP->new(
   RemotePort    => 31402,
 
   Connected => sub {
-    ok(13);
+    pass("callback client connected");
     $_[HEAP]->{server}->put( "quit" );
   },
 
   ConnectError => sub {
     my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
-    print "client got $operation error $errnum: $errstr\n";
+    print "callback client got $operation error $errnum: $errstr\n";
   },
 
   Disconnected => sub {
-    ok(14);
+    pass("callback client disconnected");
     $_[KERNEL]->post( input_server => 'shutdown' );
   },
 
   ServerInput => sub {
     my ($heap, $input) = @_[HEAP, ARG0];
-    ok(15);
+    pass("callback client got input");
   },
 
   ServerError => sub {
     my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
-    ok(18) if $operation eq 'read' and $errnum == 0;
+    ok(
+      ($operation eq "read") && ($errnum == 0),
+      "callback client got read error 0 (EOF)"
+    );
   },
 
   ServerFlushed => sub {
-    ok(16);
+    pass("callback client flushed output");
   },
 );
 
 # Run the tests.
 
-$poe_kernel->run();
-
-results();
+POE::Kernel->run();
 
 1;

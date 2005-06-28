@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 # $Id$
+# vim: filetype=perl
 
 # Exercises filter changing.  A lot of this code comes from Philip
 # Gwyn's filterchange.perl sample.
@@ -7,7 +8,7 @@
 use strict;
 use lib qw(./mylib ../mylib ../lib ./lib);
 
-use TestSetup qw(ok not_ok results test_setup ok_if many_not_ok);
+use Test::More;
 use MyOtherFreezer;
 
 sub DEBUG () { 0 }
@@ -16,10 +17,11 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-use POE qw( Wheel::ReadWrite Driver::SysRW
-            Filter::Block Filter::Line Filter::Reference Filter::Stream
-            Pipe::OneWay Pipe::TwoWay
-          );
+use POE qw(
+  Wheel::ReadWrite Driver::SysRW
+  Filter::Block Filter::Line Filter::Reference Filter::Stream
+  Pipe::OneWay Pipe::TwoWay
+);
 
 # Showstopper here.  Try to build a pair of file handles.  This will
 # try a pair of pipe()s and socketpair().  If neither succeeds, then
@@ -27,14 +29,15 @@ use POE qw( Wheel::ReadWrite Driver::SysRW
 # will be tested on my test platforms.
 
 # Socketpair.  Read and write handles are the same.
-my ($master_read, $master_write, $slave_read, $slave_write) =
-  POE::Pipe::TwoWay->new();
+my ($master_read, $master_write, $slave_read, $slave_write) = (
+  POE::Pipe::TwoWay->new()
+);
 unless (defined $master_read) {
-  &test_setup(0, "Could not create a pipe in any form.");
+  plan skip_all => "Could not create a pipe in any form."
 }
 
 # Set up tests, and go.
-&test_setup(55);
+plan tests => 41;
 
 ### Skim down to PARTIAL BUFFER TESTS to find the partial buffer
 ### get_pending tests.  Those tests can run stand-alone without the
@@ -66,42 +69,42 @@ sub DR () { 'do ' . REFERENCE }
 sub DB () { 'do ' . BLOCK     }
 
 # Script that drives the master session.
-my @master_script =
-  ( DL, # line      -> line
-    'rot13 1 kyriel',
-    DS, # line      -> stream
-    'rot13 2 addi',
-    DS, # stream    -> stream
-    'rot13 3 attyz',
-    DL, # stream    -> line
-    'rot13 4 crimson',
-    DR, # line      -> reference
-    'rot13 5 crysflame',
-    DR, # reference -> reference
-    'rot13 6 dngor',
-    DL, # reference -> line
-    'rot13 7 freeside',
-    DB, # line      -> block
-    'rot13 8 halfjack',
-    DB, # block     -> block
-    'rot13 9 lenzo',
-    DS, # block     -> stream
-    'rot13 10 mendel',
-    DR, # stream    -> reference
-    'rot13 11 purl',
-    DB, # reference -> block
-    'rot13 12 roderick',
-    DR, # block     -> reference
-    'rot13 13 shizukesa',
-    DS, # reference -> stream
-    'rot13 14 simon',
-    DB, # stream    -> block
-    'rot13 15 sky',
-    DL, # o/` and that brings us back to line o/`
-    'rot13 16 stimps',
+my @master_script = (
+  DL, # line      -> line
+  'rot13 1 kyriel',
+  DS, # line      -> stream
+  'rot13 2 addi',
+  DS, # stream    -> stream
+  'rot13 3 attyz',
+  DL, # stream    -> line
+  'rot13 4 crimson',
+  DR, # line      -> reference
+  'rot13 5 crysflame',
+  DR, # reference -> reference
+  'rot13 6 dngor',
+  DL, # reference -> line
+  'rot13 7 freeside',
+  DB, # line      -> block
+  'rot13 8 halfjack',
+  DB, # block     -> block
+  'rot13 9 lenzo',
+  DS, # block     -> stream
+  'rot13 10 mendel',
+  DR, # stream    -> reference
+  'rot13 11 purl',
+  DB, # reference -> block
+  'rot13 12 roderick',
+  DR, # block     -> reference
+  'rot13 13 shizukesa',
+  DS, # reference -> stream
+  'rot13 14 simon',
+  DB, # stream    -> block
+  'rot13 15 sky',
+  DL, # o/` and that brings us back to line o/`
+  'rot13 16 stimps',
 
-    'done',
-  );
+  'done',
+);
 
 ### Helpers to wrap payloads in mode-specific envelopes.  Stream and
 ### line modes don't need envelopes.
@@ -119,11 +122,7 @@ sub wrap_payload {
 
 sub unwrap_payload {
   my ($mode, $payload) = @_;
-
-  if ($mode eq REFERENCE) {
-    $payload = $$payload;
-  }
-
+  $payload = $$payload if $mode eq REFERENCE;
   return $payload;
 }
 
@@ -133,15 +132,15 @@ sub unwrap_payload {
 sub slave_start {
   my $heap = $_[HEAP];
 
-  $heap->{wheel} = POE::Wheel::ReadWrite->new
-    ( InputHandle  => $slave_read,
-      OutputHandle => $slave_write,
-      Filter       => POE::Filter::Line->new(),
-      Driver       => POE::Driver::SysRW->new(),
-      InputEvent   => 'got_input',
-      FlushedEvent => 'got_flush',
-      ErrorEvent   => 'got_error',
-    );
+  $heap->{wheel} = POE::Wheel::ReadWrite->new(
+    InputHandle  => $slave_read,
+    OutputHandle => $slave_write,
+    Filter       => POE::Filter::Line->new(),
+    Driver       => POE::Driver::SysRW->new(),
+    InputEvent   => 'got_input',
+    FlushedEvent => 'got_flush',
+    ErrorEvent   => 'got_error',
+  );
 
   $heap->{current_mode} = LINE;
   $heap->{shutting_down} = 0;
@@ -156,38 +155,37 @@ sub slave_stop {
 sub slave_input {
   my ($heap, $input) = @_[HEAP, ARG0];
   my $mode = $heap->{current_mode};
-  $input = &unwrap_payload( $mode, $input );
+  $input = unwrap_payload( $mode, $input );
   DEBUG and warn "S: got $mode input: $input\n";
 
   # Asking us to switch modes.  Whee!
   if ($input =~ /^do (.+)$/) {
     my $response = "will $1";
     if ($1 eq LINE) {
-      $heap->{wheel}->put( &wrap_payload( $mode, $response ) );
+      $heap->{wheel}->put( wrap_payload( $mode, $response ) );
       $heap->{wheel}->set_filter( POE::Filter::Line->new() );
       $heap->{current_mode} = $1;
     }
     elsif ($1 eq STREAM) {
-      $heap->{wheel}->put( &wrap_payload( $mode, $response ) );
+      $heap->{wheel}->put( wrap_payload( $mode, $response ) );
       $heap->{wheel}->set_filter( POE::Filter::Stream->new() );
       $heap->{current_mode} = $1;
     }
     elsif ($1 eq REFERENCE) {
-      $heap->{wheel}->put( &wrap_payload( $mode, $response ) );
-      $heap->{wheel}->set_filter( POE::Filter::Reference->new
-                                  ( 'MyOtherFreezer'
-                                  )
-                                );
+      $heap->{wheel}->put( wrap_payload( $mode, $response ) );
+      $heap->{wheel}->set_filter(
+        POE::Filter::Reference->new('MyOtherFreezer')
+      );
       $heap->{current_mode} = $1;
     }
     elsif ($1 eq BLOCK) {
-      $heap->{wheel}->put( &wrap_payload( $mode, $response ) );
+      $heap->{wheel}->put( wrap_payload( $mode, $response ) );
       $heap->{wheel}->set_filter( POE::Filter::Block->new() );
       $heap->{current_mode} = $1;
     }
     # Don't know; don't care; why bother?
     else {
-      $heap->{wheel}->put( &wrap_payload( $mode, "wont $response" ) );
+      $heap->{wheel}->put( wrap_payload( $mode, "wont $response" ) );
     }
     DEBUG and warn "S: switched to $1 filter\n";
     return;
@@ -197,16 +195,16 @@ sub slave_input {
   if ($input =~ /^rot13\s+(\d+)\s+(.+)$/) {
     my ($test_number, $query, $response) = ($1, $2, $2);
     $response =~ tr[a-zA-Z][n-za-mN-ZA-M];
-    $heap->{wheel}->put( &wrap_payload( $mode,
-                                        "rot13 $test_number $query=$response"
-                                      ) );
+    $heap->{wheel}->put(
+      wrap_payload( $mode, "rot13 $test_number $query=$response" )
+    );
     return;
   }
 
   # Telling us we're done.
   if ($input eq 'done') {
     DEBUG and warn "S: shutting down upon request\n";
-    $heap->{wheel}->put( &wrap_payload( $mode, 'done' ) );
+    $heap->{wheel}->put( wrap_payload( $mode, 'done' ) );
     $heap->{shutting_down} = 1;
     return;
   }
@@ -216,7 +214,7 @@ sub slave_input {
     delete $heap->{wheel};
   }
   else {
-    $heap->{wheel}->put( &wrap_payload( $mode, 'oops' ) );
+    $heap->{wheel}->put( wrap_payload( $mode, 'oops' ) );
     $heap->{shutting_down} = 1;
   }
 }
@@ -244,15 +242,15 @@ sub slave_error {
 sub master_start {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
 
-  $heap->{wheel}   = POE::Wheel::ReadWrite->new
-    ( InputHandle  => $master_read,
-      OutputHandle => $master_write,
-      Filter       => POE::Filter::Line->new(),
-      Driver       => POE::Driver::SysRW->new(),
-      InputEvent   => 'got_input',
-      FlushedEvent => 'got_flush',
-      ErrorEvent   => 'got_error',
-    );
+  $heap->{wheel}   = POE::Wheel::ReadWrite->new(
+    InputHandle  => $master_read,
+    OutputHandle => $master_write,
+    Filter       => POE::Filter::Line->new(),
+    Driver       => POE::Driver::SysRW->new(),
+    InputEvent   => 'got_input',
+    FlushedEvent => 'got_flush',
+    ErrorEvent   => 'got_error',
+  );
 
   $heap->{current_mode}  = LINE;
   $heap->{script_step}   = 0;
@@ -270,7 +268,7 @@ sub master_input {
   my ($kernel, $heap, $input) = @_[KERNEL, HEAP, ARG0];
 
   my $mode = $heap->{current_mode};
-  $input = &unwrap_payload( $mode, $input );
+  $input = unwrap_payload( $mode, $input );
   DEBUG and warn "M: got $mode input: $input\n";
 
   # Telling us they've switched modes.  Whee!
@@ -284,10 +282,9 @@ sub master_input {
       $heap->{current_mode} = $1;
     }
     elsif ($1 eq REFERENCE) {
-      $heap->{wheel}->set_filter( POE::Filter::Reference->new
-                                  ( 'MyOtherFreezer'
-                                  )
-                                );
+      $heap->{wheel}->set_filter(
+        POE::Filter::Reference->new('MyOtherFreezer')
+      );
       $heap->{current_mode} = $1;
     }
     elsif ($1 eq BLOCK) {
@@ -308,15 +305,7 @@ sub master_input {
   if ($input =~ /^rot13\s+(\d+)\s+(.*?)=(.*?)$/) {
     my ($test_number, $query, $response) = ($1, $2, $3);
     $query =~ tr[a-zA-Z][n-za-mN-ZA-M];
-    if ($query eq $response) {
-      &ok($test_number);
-      DEBUG and warn "M: got ok rot13 response\n";
-    }
-    else {
-      &not_ok($test_number);
-      DEBUG and warn "M: got bad rot13 response\n";
-    }
-
+    ok( $query eq $response, "got rot13 response $response" );
     $kernel->yield( 'do_cmd' );
     return;
   }
@@ -332,7 +321,7 @@ sub master_input {
     delete $heap->{wheel};
   }
   else {
-    $heap->{wheel}->put( &wrap_payload( $mode, 'oops' ) );
+    $heap->{wheel}->put( wrap_payload( $mode, 'oops' ) );
     $heap->{shutting_down} = 1;
   }
 }
@@ -342,12 +331,12 @@ sub master_do_next_command {
 
   my $script_step = $heap->{script_step}++;
   if ($script_step < @master_script) {
-    DEBUG and
-      warn "M: is sending cmd $script_step: $master_script[$script_step]\n";
-    $heap->{wheel}->put( &wrap_payload( $heap->{current_mode},
-                                        $master_script[$script_step],
-                                      )
-                       );
+    DEBUG and warn(
+      "M: is sending cmd $script_step: $master_script[$script_step]\n"
+    );
+    $heap->{wheel}->put(
+      wrap_payload( $heap->{current_mode}, $master_script[$script_step] )
+    );
   }
   else {
     DEBUG and warn "M: is done sending commands...\n";
@@ -382,28 +371,28 @@ sub master_error {
 # because "stream" eats everything all at once, ruining the data
 # beyond it.  That's okay with handshaking (above), but not here.
 
-my @streamed_script =
-  ( DL, # line      -> line
-    'kyriel',
-    DR, # line      -> reference
-    'coral',
-    DR, # reference -> reference
-    'drforr',
-    DB, # reference -> block
-    'fimmtiu',
-    DB, # block     -> block
-    'sungo',
-    DR, # block     -> reference
-    'dynweb',
-    DL, # reference -> line
-    'sky',
-    DB, # line      -> block
-    'braderuna',
-    DL, # o/` and that brings us back to line o/`
-    'fletch',
+my @streamed_script = (
+  DL, # line      -> line
+  'kyriel',
+  DR, # line      -> reference
+  'coral',
+  DR, # reference -> reference
+  'drforr',
+  DB, # reference -> block
+  'fimmtiu',
+  DB, # block     -> block
+  'sungo',
+  DR, # block     -> reference
+  'dynweb',
+  DL, # reference -> line
+  'sky',
+  DB, # line      -> block
+  'braderuna',
+  DL, # o/` and that brings us back to line o/`
+  'fletch',
 
-    'done',
-  );
+  'done',
+);
 
 sub streamed_start {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
@@ -411,14 +400,14 @@ sub streamed_start {
   my ($read, $write) = POE::Pipe::OneWay->new();
   die $! unless defined $read;
 
-  $heap->{stream} = POE::Wheel::ReadWrite->new
-    ( InputHandle  => $read,
-      OutputHandle => $write,
-      Filter       => POE::Filter::Line->new(),
-      Driver       => POE::Driver::SysRW->new(),
-      InputEvent   => 'got_input',
-      ErrorEvent   => 'got_error',
-    );
+  $heap->{stream} = POE::Wheel::ReadWrite->new(
+    InputHandle  => $read,
+    OutputHandle => $write,
+    Filter       => POE::Filter::Line->new(),
+    Driver       => POE::Driver::SysRW->new(),
+    InputEvent   => 'got_input',
+    ErrorEvent   => 'got_error',
+  );
 
   # Start in line mode.
   my $current_mode = $heap->{current_mode} = LINE;
@@ -428,7 +417,7 @@ sub streamed_start {
   foreach my $step (@streamed_script) {
 
     # Send whatever it is in the current mode.
-    $heap->{stream}->put( &wrap_payload( $current_mode, $step ) );
+    $heap->{stream}->put( wrap_payload( $current_mode, $step ) );
 
     # Switch to the next mode if we should.
     if ($step =~ /^do (\S+)/) {
@@ -438,10 +427,9 @@ sub streamed_start {
         $heap->{stream}->set_output_filter( POE::Filter::Line->new() ),
       }
       elsif ($current_mode eq REFERENCE) {
-        $heap->{stream}->set_output_filter( POE::Filter::Reference->new
-                                            ( 'MyOtherFreezer'
-                                            )
-                                          ),
+        $heap->{stream}->set_output_filter(
+          POE::Filter::Reference->new('MyOtherFreezer')
+        );
       }
       elsif ($current_mode eq BLOCK) {
         $heap->{stream}->set_output_filter( POE::Filter::Block->new() ),
@@ -456,11 +444,12 @@ sub streamed_start {
 sub streamed_input {
   my ($kernel, $heap, $wrapped_input) = @_[KERNEL, HEAP, ARG0];
 
-  my $input = &unwrap_payload( $heap->{current_mode}, $wrapped_input );
+  my $input = unwrap_payload( $heap->{current_mode}, $wrapped_input );
 
-  &ok_if( 37 + $heap->{current_step},
-          ($input eq $streamed_script[$heap->{current_step}++])
-        );
+  ok(
+    $input eq $streamed_script[$heap->{current_step}++],
+    "unwrapped payload ($input) matches expectation"
+  );
 
   if ($input =~ /^do (\S+)/) {
     my $current_mode = $heap->{current_mode} = $1;
@@ -469,10 +458,9 @@ sub streamed_input {
       $heap->{stream}->set_input_filter( POE::Filter::Line->new() ),
     }
     elsif ($current_mode eq REFERENCE) {
-      $heap->{stream}->set_input_filter( POE::Filter::Reference->new
-                                         ( 'MyOtherFreezer'
-                                         )
-                                       ),
+      $heap->{stream}->set_input_filter(
+        POE::Filter::Reference->new('MyOtherFreezer')
+      );
     }
     elsif ($current_mode eq BLOCK) {
       $heap->{stream}->set_input_filter( POE::Filter::Block->new() ),
@@ -491,45 +479,43 @@ sub streamed_input {
 ### Handshaking tests.
 
 # Start the slave/server session first.
-POE::Session->create
-  ( inline_states =>
-    { _start    => \&slave_start,
-      _stop     => \&slave_stop,
-      got_input => \&slave_input,
-      got_flush => \&slave_flush,
-      got_error => \&slave_error,
-    }
-  );
+POE::Session->create(
+  inline_states => {
+    _start    => \&slave_start,
+    _stop     => \&slave_stop,
+    got_input => \&slave_input,
+    got_flush => \&slave_flush,
+    got_error => \&slave_error,
+  }
+);
 
 # Start the master/client session last.
-POE::Session->create
-  ( inline_states =>
-    { _start    => \&master_start,
-      _stop     => \&master_stop,
-      got_input => \&master_input,
-      got_flush => \&master_flush,
-      got_error => \&master_error,
-      do_cmd    => \&master_do_next_command,
-    }
-  );
+POE::Session->create(
+  inline_states => {
+    _start    => \&master_start,
+    _stop     => \&master_stop,
+    got_input => \&master_input,
+    got_flush => \&master_flush,
+    got_error => \&master_error,
+    do_cmd    => \&master_do_next_command,
+  }
+);
 
 ### Streamed filter transition tests.  These are all run together.
 ### The object is to figure out how to unglom things.
 
-POE::Session->create
-  ( inline_states =>
-    { _start    => \&streamed_start,
-      _stop     => sub { }, # placeholder for stricture test
-      got_input => \&streamed_input,
-    }
-  );
+POE::Session->create(
+  inline_states => {
+    _start    => \&streamed_start,
+    _stop     => sub { }, # placeholder for stricture test
+    got_input => \&streamed_input,
+  }
+);
 
 # Begin the handshaking and streaming tests.  I think this is an
 # improvement over forking.
 
-$poe_kernel->run();
-
-&ok(17);
+POE::Kernel->run();
 
 ### PARTIAL BUFFER TESTS.  (1) Create each test filter; (2) stuff each
 ### filter with a whole message and a part of one; (3) check that one
@@ -538,73 +524,59 @@ $poe_kernel->run();
 ### undef.
 
 # Line filter.
-{ my $filter = POE::Filter::Line->new();
+{
+  my $filter = POE::Filter::Line->new();
   my $return = $filter->get( [ "whole line\x0D\x0A", "partial line" ] );
-  if (defined $return) {
-    &ok(18);
-    &ok_if(19, @$return == 1);
-    &ok_if(20, $return->[0] eq 'whole line');
-    my $pending = $filter->get_pending();
-    if (defined $pending) {
-      &ok(21);
-      &ok_if(22, @$pending == 1);
-      &ok_if(23, $pending->[0] eq 'partial line');
-    }
-    else {
-      &many_not_ok(21, 23);
-    }
-  }
-  else {
-    &many_not_ok(18, 23);
-  }
+  is_deeply(
+    $return, [ "whole line" ],
+    "parsed only whole line from input"
+  );
+
+  my $pending = $filter->get_pending();
+  is_deeply(
+    $pending, [ "partial line" ],
+    "partial line is waiting in buffer"
+  );
 }
 
 # Block filter.
-{ my $filter = POE::Filter::Block->new( BlockSize => 64 );
+{
+  my $filter = POE::Filter::Block->new( BlockSize => 64 );
   my $return = $filter->get( [ pack('A64', "whole block"), "partial block" ] );
-  if (defined $return) {
-    &ok(24);
-    &ok_if(25, @$return == 1);
-    &ok_if(26, $return->[0] eq pack('A64', 'whole block'));
-    my $pending = $filter->get_pending();
-    if (defined $pending) {
-      &ok(27);
-      &ok_if(28, @$pending == 1);
-      &ok_if(29, $pending->[0] eq 'partial block');
-    }
-    else {
-      &many_not_ok(27, 29);
-    }
-  }
-  else {
-    &many_not_ok(24, 29);
-  }
+  is_deeply(
+    $return, [ pack("A64", "whole block") ],
+    "parsed only whole block from input"
+  );
+
+  my $pending = $filter->get_pending();
+  is_deeply(
+    $pending, [ "partial block" ],
+    "partial block is waiting in buffer"
+  );
 }
 
 # Reference filter.
-{ my $filter = POE::Filter::Line->new();
-  my $return = $filter->get( [ "whole line\x0D\x0A", "partial line" ] );
-  if (defined $return) {
-    &ok(30);
-    &ok_if(31, @$return == 1);
-    &ok_if(32, $return->[0] eq 'whole line');
-    my $pending = $filter->get_pending();
-    if (defined $pending) {
-      &ok(33);
-      &ok_if(34, @$pending == 1);
-      &ok_if(35, $pending->[0] eq 'partial line');
-    }
-    else {
-      &many_not_ok(33, 35);
-    }
-  }
-  else {
-    &many_not_ok(30, 35);
-  }
+{
+  my $filter = POE::Filter::Reference->new();
+  my $original_reference = \"whole_reference";
+  my $serialized_reference = $filter->put( [ $original_reference ] );
+
+  my $return = $filter->get(
+    [
+      $serialized_reference->[0], "100\0partial reference"
+    ]
+  );
+
+  is_deeply(
+    $return, [ $original_reference ],
+    "parsed only whole reference from input"
+  );
+
+  my $pending = $filter->get_pending();
+  is_deeply(
+    $pending, [ "100\0partial reference" ],
+    "partial reference is waiting in buffer"
+  );
 }
-
-&ok(36);
-
-&results;
 
 exit;

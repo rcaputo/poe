@@ -6,7 +6,6 @@
 
 use strict;
 use lib qw(./mylib ../mylib ../lib ./lib);
-use TestSetup;
 use Socket;
 
 BEGIN {
@@ -31,6 +30,8 @@ BEGIN {
     }
   }
 
+  # Not Test::More, because I'm pretty sure skip_all calls Perl's
+  # regular exit().
   if ($error) {
     print "1..0 # Skip $error\n";
     CORE::exit();
@@ -46,8 +47,7 @@ use POE qw( Component::Client::TCP Component::Server::TCP );
 my $tcp_server_port = 31909;
 
 # Congratulations! We made it this far!
-test_setup(5);
-ok(1);
+use Test::More tests => 3;
 
 warn(
   "\n",
@@ -93,15 +93,17 @@ sub server_got_flush {
 
 sub server_got_disconnect {
   my $heap = $_[HEAP];
-  ok_if(2, $heap->{put_count} == $heap->{flush_count});
+  ok(
+    $heap->{put_count} == $heap->{flush_count},
+    "server put_count matches flush_count"
+  );
 }
 
 sub server_got_error {
   my ($syscall, $errno, $error) = @_[ARG0..ARG2];
-  ok(
-    2,
-    "skipped: AF_INET6 probably not supported ($syscall error $errno: $error)"
-  );
+  SKIP: {
+    skip "AF_INET6 probably not supported ($syscall error $errno: $error)", 1
+  }
 }
 
 ###############################################################################
@@ -134,7 +136,10 @@ sub client_got_input {
     $heap->{server}->put( '2: ' . $line );
   }
   elsif ($line =~ s/^2: //) {
-    &ok_if(3, $line eq 'this is a test');
+    ok(
+      $line eq "this is a test",
+      "received input"
+    );
     $kernel->post(server => "shutdown");
     $kernel->yield("shutdown");
   }
@@ -146,26 +151,21 @@ sub client_got_flush {
 
 sub client_got_disconnect {
   my $heap = $_[HEAP];
-  ok_if(4, $heap->{put_count} == $heap->{flush_count});
+  ok(
+    $heap->{put_count} == $heap->{flush_count},
+    "client put_count matches flush_count"
+  );
 }
 
 sub client_got_connect_error {
   my ($syscall, $errno, $error) = @_[ARG0..ARG2];
-  ok(
-    3,
-    "skipped: AF_INET6 probably not supported ($syscall error $errno: $error)"
-  );
-  ok(
-    4,
-    "skipped: AF_INET6 probably not supported ($syscall error $errno: $error)"
-  );
+  SKIP: {
+    skip "AF_INET6 probably not supported ($syscall error $errno: $error)", 2;
+  }
 }
 
 ### main loop
 
-$poe_kernel->run();
-
-ok(5);
-results;
+POE::Kernel->run();
 
 1;
