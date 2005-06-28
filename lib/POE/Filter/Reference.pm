@@ -169,16 +169,16 @@ sub get_one {
 
   {% use_bytes %}
 
-	if (
-		$self->{buffer} =~ /^(\d+)\0/ and
-		length($self->{buffer}) >= $1 + length($1) + 1
-	) {
-		substr($self->{buffer}, 0, length($1) + 1) = "";
-		my $return = substr($self->{buffer}, 0, $1);
-		substr($self->{buffer}, 0, $1) = "";
-		$return = uncompress($return) if $self->{compress};
-		return [ $self->{thaw}->($return) ];
-	}
+  if (
+    $self->{buffer} =~ /^(\d+)\0/ and
+    length($self->{buffer}) >= $1 + length($1) + 1
+  ) {
+    substr($self->{buffer}, 0, length($1) + 1) = "";
+    my $return = substr($self->{buffer}, 0, $1);
+    substr($self->{buffer}, 0, $1) = "";
+    $return = uncompress($return) if $self->{compress};
+    return [ $self->{thaw}->($return) ];
+  }
 
   return [ ];
 }
