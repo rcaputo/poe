@@ -215,6 +215,11 @@ sub new {
   croak "sessions no longer require a kernel reference as the first parameter"
     if ((@states > 1) && (ref($states[0]) eq 'POE::Kernel'));
 
+  carp(
+    "POE::Session->new() is deprecated.  Please use create() instead.\n",
+    "See http://www.nntp.perl.org/group/perl.poe/2613 for more information."
+  );
+
   my $self = $type->instantiate (\@states);
 
   # Scan all arguments.  It mainly expects them to be in pairs, except
