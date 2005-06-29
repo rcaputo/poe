@@ -462,6 +462,31 @@ state for a file HANDLE in a particular mode.
 
 =back
 
+=head1 HOW POE FINDS LOOP BRIDGES
+
+The first time POE::Kernel is used, it examines the modules currently
+loaded in memory and tries to load an appropriate POE::Loop subclass
+based on what it discovers.
+
+Firstly, if a POE::Loop class is manually loaded before POE::Kernel,
+then that will be used.  End of story.
+
+If one isn't, POE::Kernel iterates through %INC to discover which
+modules are already loaded.  For each of them, it tries to load a
+similarly-named POE::XS::Loop class, then it tries a corresponding
+POE::Loop class.  For example, if IO::Poll is loaded, POE::Kernel
+tries
+
+  use POE::XS::Loop::IO_Poll;
+  use POE::Loop::IO_Poll;
+
+POE::Loop::Select is the fallback event loop.  It's loaded if none of
+the currently loaded modules has its own POE::Loop class.
+
+It can't be repeated often enough that event loops must be loaded
+before POE::Kernel.  Otherwise POE::Kernel will not detect the event
+loop you want to use, and the wrong POE::Loop class will be loaded.
+
 =head1 SEE ALSO
 
 L<POE>, L<POE::Loop::Event>, L<POE::Loop::Gtk>, L<POE::Loop::IO_Poll>,
