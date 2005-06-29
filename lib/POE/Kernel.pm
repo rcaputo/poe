@@ -634,6 +634,8 @@ sub sig {
   my ($self, $signal, $event_name) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call sig() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined signal in sig()" unless defined $signal;
     _carp(
       "<us> The '$event_name' event is one of POE's own.  Its " .
@@ -1268,6 +1270,11 @@ sub session_alloc {
 sub detach_myself {
   my $self = shift;
 
+  if (ASSERT_USAGE) {
+    _confess "<us> must call detach_myself() from a running session"
+      if $kr_active_session == $self;
+  }
+
   # Can't detach from the kernel.
   if ($self->_data_ses_get_parent($kr_active_session) == $self) {
     $! = EPERM;
@@ -1308,6 +1315,11 @@ sub detach_myself {
 
 sub detach_child {
   my ($self, $child) = @_;
+
+  if (ASSERT_USAGE) {
+    _confess "<us> must call detach_child() from a running session"
+      if $kr_active_session == $self;
+  }
 
   my $child_session = $self->_resolve_session($child);
   unless (defined $child_session) {
@@ -1419,6 +1431,8 @@ sub yield {
   my ($self, $event_name, @etc) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call yield() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> event name is undefined in yield()"
       unless defined $event_name;
     _carp(
@@ -1565,6 +1579,8 @@ sub alarm {
   my ($self, $event_name, $time, @etc) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call alarm() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> event name is undefined in alarm()"
       unless defined $event_name;
     _carp(
@@ -1602,6 +1618,8 @@ sub alarm_add {
   my ($self, $event_name, $time, @etc) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call alarm_add() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined event name in alarm_add()"
       unless defined $event_name;
     _confess "<us> undefined time in alarm_add()" unless defined $time;
@@ -1630,6 +1648,8 @@ sub delay {
   my ($self, $event_name, $delay, @etc) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call delay() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined event name in delay()" unless defined $event_name;
     _carp(
       "<us> The '$event_name' event is one of POE's own.  Its " .
@@ -1657,6 +1677,8 @@ sub delay_add {
   my ($self, $event_name, $delay, @etc) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call delay_add() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined event name in delay_add()"
       unless defined $event_name;
     _confess "<us> undefined time in delay_add()" unless defined $delay;
@@ -1685,6 +1707,11 @@ sub delay_add {
 
 sub alarm_set {
   my ($self, $event_name, $time, @etc) = @_;
+
+  if (ASSERT_USAGE) {
+    _confess "<us> must call alarm_set() from a running session"
+      if $kr_active_session == $self;
+  }
 
   unless (defined $event_name) {
     $self->_explain_usage("undefined event name in alarm_set()");
@@ -1718,6 +1745,11 @@ sub alarm_set {
 sub alarm_remove {
   my ($self, $alarm_id) = @_;
 
+  if (ASSERT_USAGE) {
+    _confess "<us> must call alarm_remove() from a running session"
+      if $kr_active_session == $self;
+  }
+
   unless (defined $alarm_id) {
     $self->_explain_usage("undefined alarm id in alarm_remove()");
     $! = EINVAL;
@@ -1745,6 +1777,11 @@ sub alarm_remove {
 sub alarm_adjust {
   my ($self, $alarm_id, $delta) = @_;
 
+  if (ASSERT_USAGE) {
+    _confess "<us> must call alarm_adjust() from a running session"
+      if $kr_active_session == $self;
+  }
+
   unless (defined $alarm_id) {
     $self->_explain_usage("undefined alarm id in alarm_adjust()");
     $! = EINVAL;
@@ -1769,6 +1806,11 @@ sub alarm_adjust {
 
 sub delay_set {
   my ($self, $event_name, $seconds, @etc) = @_;
+
+  if (ASSERT_USAGE) {
+    _confess "<us> must call delay_set() from a running session"
+      if $kr_active_session == $self;
+  }
 
   unless (defined $event_name) {
     $self->_explain_usage("undefined event name in delay_set()");
@@ -1801,6 +1843,11 @@ sub delay_set {
 sub delay_adjust {
   my ($self, $alarm_id, $seconds) = @_;
 
+  if (ASSERT_USAGE) {
+    _confess "<us> must call delay_adjust() from a running session"
+      if $kr_active_session == $self;
+  }
+
   unless (defined $alarm_id) {
     $self->_explain_usage("undefined delay id in delay_adjust()");
     $! = EINVAL;
@@ -1823,6 +1870,11 @@ sub delay_adjust {
 
 sub alarm_remove_all {
   my $self = shift;
+
+  if (ASSERT_USAGE) {
+    _confess "<us> must call alarm_remove_all() from a running session"
+      if $kr_active_session == $self;
+  }
 
   # This should never happen, actually.
   _trap "unknown session in alarm_remove_all call"
@@ -1862,6 +1914,8 @@ sub select {
   my ($self, $handle, $event_r, $event_w, $event_e, @args) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call select() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined filehandle in select()" unless defined $handle;
     _confess "<us> invalid filehandle in select()"
       unless defined fileno($handle);
@@ -1891,6 +1945,8 @@ sub select_read {
   my ($self, $handle, $event_name, @args) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call select_read() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined filehandle in select_read()"
       unless defined $handle;
     _confess "<us> invalid filehandle in select_read()"
@@ -1912,6 +1968,8 @@ sub select_write {
   my ($self, $handle, $event_name, @args) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call select_write() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined filehandle in select_write()"
       unless defined $handle;
     _confess "<us> invalid filehandle in select_write()"
@@ -1933,6 +1991,8 @@ sub select_expedite {
   my ($self, $handle, $event_name, @args) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call select_expedite() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined filehandle in select_expedite()"
       unless defined $handle;
     _confess "<us> invalid filehandle in select_expedite()"
@@ -1955,6 +2015,8 @@ sub select_pause_write {
   my ($self, $handle) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call select_pause_write() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined filehandle in select_pause_write()"
       unless defined $handle;
     _confess "<us> invalid filehandle in select_pause_write()"
@@ -1974,6 +2036,8 @@ sub select_resume_write {
   my ($self, $handle) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call select_resume_write() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined filehandle in select_resume_write()"
       unless defined $handle;
     _confess "<us> invalid filehandle in select_resume_write()"
@@ -1993,6 +2057,8 @@ sub select_pause_read {
   my ($self, $handle) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call select_pause_read() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined filehandle in select_pause_read()"
       unless defined $handle;
     _confess "<us> invalid filehandle in select_pause_read()"
@@ -2012,6 +2078,8 @@ sub select_resume_read {
   my ($self, $handle) = @_;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call select_resume_read() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined filehandle in select_resume_read()"
       unless defined $handle;
     _confess "<us> invalid filehandle in select_resume_read()"
@@ -2240,14 +2308,17 @@ sub state {
   $state_alias = $event unless defined $state_alias;
 
   if (ASSERT_USAGE) {
+    _confess "<us> must call state() from a running session"
+      if $kr_active_session == $self;
     _confess "<us> undefined event name in state()" unless defined $event;
     _confess "<us> can't call state() outside a session" if (
       $kr_active_session == $self
     );
   };
 
-  if ( (ref($kr_active_session) ne '') &&
-       (ref($kr_active_session) ne 'POE::Kernel')
+  if (
+    (ref($kr_active_session) ne '') &&
+    (ref($kr_active_session) ne 'POE::Kernel')
   ) {
     $kr_active_session->register_state($event, $state_code, $state_alias);
     return 0;
