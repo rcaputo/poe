@@ -49,13 +49,8 @@ my $tcp_server_port = 31909;
 # Congratulations! We made it this far!
 use Test::More tests => 3;
 
-warn(
-  "\n",
-  "***\n",
-  "*** This test may hang if your firewall blocks IPv6\n",
-  "*** packets across your localhost interface.\n",
-  "***\n",
-);
+diag( "This test may hang if your firewall blocks IPv6" );
+diag( "packets across your localhost interface." );
 
 ###############################################################################
 # Start the TCP server.

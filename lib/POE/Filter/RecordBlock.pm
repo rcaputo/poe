@@ -3,6 +3,7 @@
 package POE::Filter::RecordBlock;
 
 use strict;
+use POE::Filter;
 
 use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
@@ -36,16 +37,7 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
-
-sub get {
-  my ($self, $data) = @_;
-  my @result;
-  push @{$self->[GETBUFFER]}, @$data;
-  while (@{$self->[GETBUFFER]} >= $self->[BLOCKSIZE]) {
-    push @result, [ splice @{$self->[GETBUFFER]}, 0, $self->[BLOCKSIZE] ];
-  }
-  \@result;
-}
+# get() is inherited from POE::Filter.
 
 #------------------------------------------------------------------------------
 # 2001-07-27 RCC: Add get_one_start() and get_one() to correct filter
@@ -60,7 +52,7 @@ sub get_one {
   my $self = shift;
 
   return [ ] unless @{$self->[GETBUFFER]} >= $self->[BLOCKSIZE];
-  return [ splice @{$self->[GETBUFFER]}, 0, $self->[BLOCKSIZE] ];
+  return [ [ splice @{$self->[GETBUFFER]}, 0, $self->[BLOCKSIZE] ] ];
 }
 
 #------------------------------------------------------------------------------

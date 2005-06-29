@@ -9,6 +9,7 @@
 package POE::Filter::Stackable;
 
 use strict;
+use POE::Filter;
 
 use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
@@ -36,38 +37,45 @@ sub new {
 
 sub get_one_start {
   my ($self, $data) = @_;
-
-  $self->[FILTERS]->[0]->get_one_start ($data);
+  $self->[FILTERS]->[0]->get_one_start($data);
 }
+
+# RCC 2005-06-28: get_one() needs to strobe through all the filters
+# regardless whether there's data to input to each.  This is because a
+# later filter in the chain may produce multiple things from one piece
+# of input.  If we stop even though there's no subsequent input, we
+# may lose something.
+#
+# Keep looping through the filters we manage until get_one() returns a
+# record, or until none of the filters exchange data.
 
 sub get_one {
   my ($self) = @_;
 
-  if (@{$self->[FILTERS]} == 1) {
-    return $self->[FILTERS]->[0]->get_one;
+  my $return = [ ];
+
+  while (!@$return) {
+    my $exchanged = 0;
+
+    foreach my $filter (@{$self->[FILTERS]}) {
+
+      # If we have something to input to the next filter, do that.
+      if (@$return) {
+        $filter->get_one_start($return);
+        $exchanged++;
+      }
+
+      # Get what we can from the current filter.
+      $return = $filter->get_one();
+    }
+
+    last unless $exchanged;
   }
-  my $result = [];
-  for (my $i = 1; $i < @{$self->[FILTERS]}; $i++) {
-    my $last = $self->[FILTERS]->[$i - 1];
-    my $this = $self->[FILTERS]->[$i];
-    do {
-      my $data = $last->get_one;
-      last unless (@$data);
-      $this->get_one_start ($data);
-      $result = $this->get_one;
-    } until (@$result > 0);
-  }
-  return $result;
+
+  return $return;
 }
 
-sub get {
-  my ($self, $data) = @_;
-  foreach my $filter (@{$self->[FILTERS]}) {
-    $data = $filter->get($data);
-    last unless @$data;
-  }
-  $data;
-}
+# get() is inherited from POE::Filter.
 
 #------------------------------------------------------------------------------
 

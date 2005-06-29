@@ -16,6 +16,24 @@ sub new {
   croak "$type is not meant to be used directly";
 }
 
+# Return all the messages possible to parse in the current input
+# buffer.  This uses the newer get_one_start() and get_one(), which is
+# implementation dependent.
+
+sub get {
+  my ($self, $stream) = @_;
+  my @return;
+
+  $self->get_one_start($stream);
+  while (1) {
+    my $next = $self->get_one();
+    last unless @$next;
+    push @return, @$next;
+  }
+
+  return \@return;
+}
+
 #------------------------------------------------------------------------------
 1;
 

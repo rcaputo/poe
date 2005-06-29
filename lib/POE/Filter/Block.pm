@@ -4,6 +4,7 @@ package POE::Filter::Block;
 use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
+use POE::Filter;
 
 use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
@@ -79,47 +80,7 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
-
-sub get {
-  my ($self, $stream) = @_;
-  my @blocks;
-  $self->[FRAMING_BUFFER] .= join '', @{$stream};
-
-  {% use_bytes %}
-
-  # If a block size is specified, then frame input into blocks of that
-  # size.
-  if (defined $self->[BLOCK_SIZE]) {
-    while (length($self->[FRAMING_BUFFER]) >= $self->[BLOCK_SIZE]) {
-      push @blocks, substr($self->[FRAMING_BUFFER], 0, $self->[BLOCK_SIZE]);
-      substr($self->[FRAMING_BUFFER], 0, $self->[BLOCK_SIZE]) = '';
-    }
-  }
-
-  # Otherwise we're doing the variable-length block thing. Look for a
-  # length marker, and then pull off a chunk of that length.  Repeat.
-
-  else {
-    while (
-      defined($self->[EXPECTED_SIZE]) ||
-      defined(
-        $self->[EXPECTED_SIZE] = $self->[DECODER]->(\$self->[FRAMING_BUFFER])
-      )
-    ) {
-      last if (length $self->[FRAMING_BUFFER] < $self->[EXPECTED_SIZE]);
-
-      # TODO - Four-arg substr() would be better here, but it's not
-      # compatible with Perl as far back as we support.
-      my $chunk = substr($self->[FRAMING_BUFFER], 0, $self->[EXPECTED_SIZE]);
-      substr($self->[FRAMING_BUFFER], 0, $self->[EXPECTED_SIZE]) = '';
-      $self->[EXPECTED_SIZE] = undef;
-
-      push @blocks, $chunk;
-    }
-  }
-
-  \@blocks;
-}
+# get() is inherited from POE::Filter.
 
 #------------------------------------------------------------------------------
 # 2001-07-27 RCC: The get_one() variant of get() allows Wheel::Xyz to

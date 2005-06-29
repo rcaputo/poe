@@ -3,6 +3,7 @@
 package POE::Filter::Stream;
 
 use strict;
+use POE::Filter;
 
 use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
@@ -18,12 +19,7 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
-
-sub get {
-  my ($self, $stream) = @_;
-  my $buffer = join('', @$stream);
-  [ $buffer ];
-}
+# get() is inherited from POE::Filter.
 
 #------------------------------------------------------------------------------
 # 2001-07-27 RCC: The get_one() variant of get() allows Wheel::Xyz to

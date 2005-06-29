@@ -15,6 +15,7 @@ package POE::Filter::HTTPD;
 use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
+use POE::Filter;
 
 use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
@@ -44,6 +45,8 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
+# Cannot inherit get() from POE::Filter since this filter doesn't have
+# a get_one() interface.
 
 sub get {
   my ($self, $stream) = @_;

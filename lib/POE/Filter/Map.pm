@@ -3,6 +3,7 @@
 package POE::Filter::Map;
 
 use strict;
+use POE::Filter;
 
 use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
@@ -43,11 +44,7 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
-
-sub get {
-  my ($self, $data) = @_;
-  [ map &{$self->[CODEGET] || $self->[CODEBOTH]}, @$data ];
-}
+# get() is inherited from POE::Filter.
 
 #------------------------------------------------------------------------------
 

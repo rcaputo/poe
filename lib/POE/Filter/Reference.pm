@@ -7,6 +7,7 @@ package POE::Filter::Reference;
 use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
+use POE::Filter;
 
 use vars qw($VERSION @ISA);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
