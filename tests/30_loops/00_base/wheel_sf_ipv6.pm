@@ -15,7 +15,7 @@ BEGIN {
   if ( length($@) or not exists($INC{"Socket6.pm"}) ) {
     $error = "Socket6 is needed for IPv6 tests";
   }
-  elsif ($^O eq "Cygwin") {
+  elsif ($^O eq "cygwin") {
     $error = "IPv6 is not available on Cygwin, even if Socket6 is installed";
   }
   else {
