@@ -148,8 +148,8 @@ my $program = (
 my $coderef_flush_count = 0;
 
 SKIP: {
-  skip "Wheel::Run + Tk + ActiveState Perl + CODE Program = pain", 2
-    if $^O eq "MSWin32" and exists $INC{"Tk.pm"};
+#  skip "Wheel::Run + Tk + ActiveState Perl + CODE Program = pain", 2
+#    if $^O eq "MSWin32" and exists $INC{"Tk.pm"};
 
   my $program = sub {
     $! = 1;

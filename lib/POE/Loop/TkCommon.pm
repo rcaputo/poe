@@ -161,7 +161,7 @@ sub loop_run {
 }
 
 sub loop_halt {
-  $poe_main_window->destroy();
+  # Do nothing.
 }
 
 1;

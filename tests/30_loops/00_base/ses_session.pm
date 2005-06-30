@@ -631,12 +631,12 @@ ok(
 # beyond, and it's not built for threading.
 
 SKIP: {
-  use Config;
-  skip "Restarting Tk dumps core in single-threaded perl $]", 6 if (
-    $] >= 5.008 and
-    exists $INC{"Tk.pm"} and
-    !$Config{useithreads}
-  );
+#  use Config;
+#  skip "Restarting Tk dumps core in single-threaded perl $]", 6 if (
+#    $] >= 5.008 and
+#    exists $INC{"Tk.pm"} and
+#    !$Config{useithreads}
+#  );
 
   POE::Session->create(
     options => { trace => 1, default => 1, debug => 1 },
