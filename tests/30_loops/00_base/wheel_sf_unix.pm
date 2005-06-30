@@ -23,6 +23,9 @@ BEGIN {
   elsif ($^O eq "MSWin32" or $^O eq "MacOS") {
     $error = "$^O does not support UNIX sockets";
   }
+  elsif ($^O eq "cygwin") {
+    $error = "UNIX sockets on $^O always block";
+  }
 
   if ($error) {
     # Not using Test::More so we can avoid Tk::exit.

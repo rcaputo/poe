@@ -92,8 +92,18 @@ ok( $d->get_out_messages_buffered() == 1, "one message buffered" );
 }
 
 # Remaining tests require some live handles.
+# cygwin seems to block on syswrite() and close() even though a handle
+# is non-blocking.  Force the pipe to use Internet domain sockets.
+# This solves the syswrite() problem.  Later we call shutdown(2) on
+# the write side rather than close(), which solves that end of things.
 
-my ($r, $w) = POE::Pipe::OneWay->new();
+my ($r, $w);
+if ($^O eq "cygwin") {
+  ($r, $w) = POE::Pipe::OneWay->new("inet");
+}
+else {
+  ($r, $w) = POE::Pipe::OneWay->new();
+}
 die "can't open a pipe: $!" unless $r;
 
 nonblocking($w);
@@ -121,7 +131,12 @@ ok($d->get_out_messages_buffered() == 0, "buffer exhausted");
 # Get() returns undef ($! == 0) on EOF.
 
 { write_until_pipe_is_full($d, $w);
-  close($w);
+  if ($^O eq "cygwin") {
+    shutdown($w, 2);
+  }
+  else {
+    close($w);
+  }
 
   open(SAVE_STDERR, ">&STDERR") or die $!;
   close(STDERR) or die $!;
@@ -143,6 +158,9 @@ ok($d->get_out_messages_buffered() == 0, "buffer exhausted");
 
 { open(SAVE_STDERR, ">&STDERR") or die $!;
   close(STDERR) or die $!;
+
+  # Make sure $w is closed.  Sometimes, like on Cygwin, it isn't.
+  close $w;
 
   $! = 0;
   my $error_left = $d->flush($w);
