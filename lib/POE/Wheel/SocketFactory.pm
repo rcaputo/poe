@@ -46,56 +46,6 @@ sub MY_SOCKET_SELECTED () { 12 }
 
 # Provide dummy constants for systems that don't have them.
 BEGIN {
-  if ($^O eq 'MSWin32') {
-
-    # Constants are evaluated first so they exist when the code uses
-    # them.
-    eval( '*F_GETFL       = sub {     0 };' .
-          '*F_SETFL       = sub {     0 };' .
-
-          # Garrett Goebel's patch to support non-blocking connect()
-          # or MSWin32 follows.  His notes on the matter:
-          #
-          # As my patch appears to turn on the overlapped attributes
-          # for all successive sockets... it might not be the optimal
-          # solution. But it works for me ;)
-          #
-          # A better Win32 approach would probably be to:
-          # o  create a dummy socket
-          # o  cache the value of SO_OPENTYPE
-          # o  set the overlapped io attribute
-          # o  close dummy socket
-          #
-          # o  create our sock
-          #
-          # o  create a dummy socket
-          # o  restore previous value of SO_OPENTYPE
-          # o  close dummy socket
-          #
-          # This way we'd only be turning on the overlap attribute for
-          # the socket we created... and not all subsequent sockets.
-
-          '*SO_OPENTYPE = sub () { 0x7008 };' .
-          '*SO_SYNCHRONOUS_ALERT    = sub () { 0x10 };' .
-          '*SO_SYNCHRONOUS_NONALERT = sub () { 0x20 };'
-        );
-    die if $@;
-
-    # Turn on socket overlapped IO attribute per MSKB: Q181611.  This
-    # concludes Garrett's patch.
-
-    eval( 'socket(POE, AF_INET, SOCK_STREAM, getprotobyname("tcp"))' .
-          'or die "socket failed: $!";' .
-          'my $opt = unpack("I", getsockopt(POE, SOL_SOCKET, SO_OPENTYPE));' .
-          '$opt &= ~(SO_SYNCHRONOUS_ALERT|SO_SYNCHRONOUS_NONALERT);' .
-          'setsockopt(POE, SOL_SOCKET, SO_OPENTYPE, $opt);' .
-          'close POE;'
-
-          # End of Garrett's patch.
-        );
-    die if $@;
-  }
-
   unless (exists $INC{"Socket6.pm"}) {
     eval "*Socket6::AF_INET6 = sub () { ~0 }";
     eval "*Socket6::PF_INET6 = sub () { ~0 }";
@@ -112,39 +62,47 @@ sub DOM_INET  () { 'inet'  }  # INET domain socket
 sub DOM_INET6 () { 'inet6' }  # INET v6 domain socket
 
 # AF_XYZ and PF_XYZ may be different.
-my %map_family_to_domain =
-  ( AF_UNIX,  DOM_UNIX,  PF_UNIX,  DOM_UNIX,
-    AF_INET,  DOM_INET,  PF_INET,  DOM_INET,
-    &Socket6::AF_INET6, DOM_INET6,
-    &Socket6::PF_INET6, DOM_INET6,
-  );
+my %map_family_to_domain = (
+  AF_UNIX,  DOM_UNIX,  PF_UNIX,  DOM_UNIX,
+  AF_INET,  DOM_INET,  PF_INET,  DOM_INET,
+  &Socket6::AF_INET6, DOM_INET6,
+  &Socket6::PF_INET6, DOM_INET6,
+);
 
 sub SVROP_LISTENS () { 'listens' }  # connect/listen sockets
 sub SVROP_NOTHING () { 'nothing' }  # connectionless sockets
 
 # Map family/protocol pairs to connection or connectionless
 # operations.
-my %supported_protocol =
-  ( DOM_UNIX,  { none => SVROP_LISTENS },
-    DOM_INET,  { tcp  => SVROP_LISTENS,
-                 udp  => SVROP_NOTHING,
-               },
-    DOM_INET6, { tcp  => SVROP_LISTENS,
-                 udp  => SVROP_NOTHING,
-               },
-  );
+my %supported_protocol = (
+  DOM_UNIX, {
+    none => SVROP_LISTENS
+  },
+  DOM_INET, {
+    tcp  => SVROP_LISTENS,
+    udp  => SVROP_NOTHING,
+  },
+  DOM_INET6, {
+    tcp  => SVROP_LISTENS,
+    udp  => SVROP_NOTHING,
+  },
+);
 
 # Sane default socket types for each supported protocol.  -><- Maybe
 # this structure can be combined with %supported_protocol?
-my %default_socket_type =
-  ( DOM_UNIX,  { none => SOCK_STREAM },
-    DOM_INET,  { tcp  => SOCK_STREAM,
-                 udp  => SOCK_DGRAM,
-               },
-    DOM_INET6, { tcp  => SOCK_STREAM,
-                 udp  => SOCK_DGRAM,
-               },
-  );
+my %default_socket_type = (
+  DOM_UNIX, {
+    none => SOCK_STREAM
+  },
+  DOM_INET, {
+    tcp  => SOCK_STREAM,
+    udp  => SOCK_DGRAM,
+  },
+  DOM_INET6, {
+    tcp  => SOCK_STREAM,
+    udp  => SOCK_DGRAM,
+  },
+);
 
 #------------------------------------------------------------------------------
 # Perform system-dependent translations on Unix addresses, if
@@ -183,51 +141,53 @@ sub _define_accept_state {
   my $event_failure = \$self->[MY_EVENT_FAILURE];
   my $unique_id     =  $self->[MY_UNIQUE_ID];
 
-  $poe_kernel->state
-    ( $self->[MY_STATE_ACCEPT] = ref($self) . "($unique_id) -> select accept",
-      sub {
-        # prevents SEGV
-        0 && CRIMSON_SCOPE_HACK('<');
+  $poe_kernel->state(
+    $self->[MY_STATE_ACCEPT] = ref($self) . "($unique_id) -> select accept",
+    sub {
+      # prevents SEGV
+      0 && CRIMSON_SCOPE_HACK('<');
 
-        # subroutine starts here
-        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+      # subroutine starts here
+      my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-        my $new_socket = gensym;
-        my $peer = accept($new_socket, $handle);
+      my $new_socket = gensym;
+      my $peer = accept($new_socket, $handle);
 
-        if ($peer) {
-          my ($peer_addr, $peer_port);
-          if ( $domain eq DOM_UNIX ) {
-            $peer_addr = $peer_port = undef;
-          }
-          elsif ( $domain eq DOM_INET ) {
-            ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
-          }
-          elsif ( $domain eq DOM_INET6 ) {
-            $peer = getpeername($new_socket);
-            ($peer_port, $peer_addr) = Socket6::unpack_sockaddr_in6($peer);
-          }
-          else {
-            die "sanity failure: socket domain == $domain";
-          }
-          $k->call( $me, $$event_success,
-                    $new_socket, $peer_addr, $peer_port,
-                    $unique_id
-                  );
+      if ($peer) {
+        my ($peer_addr, $peer_port);
+        if ( $domain eq DOM_UNIX ) {
+          $peer_addr = $peer_port = undef;
         }
-        elsif ($! != EWOULDBLOCK) {
-          $$event_failure &&
-            $k->call( $me, $$event_failure,
-                      'accept', ($!+0), $!, $unique_id
-                    );
+        elsif ( $domain eq DOM_INET ) {
+          ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
         }
+        elsif ( $domain eq DOM_INET6 ) {
+          $peer = getpeername($new_socket);
+          ($peer_port, $peer_addr) = Socket6::unpack_sockaddr_in6($peer);
+        }
+        else {
+          die "sanity failure: socket domain == $domain";
+        }
+        $k->call(
+          $me, $$event_success,
+          $new_socket, $peer_addr, $peer_port,
+          $unique_id
+        );
       }
-    );
+      elsif ($! != EWOULDBLOCK) {
+        $$event_failure && $k->call(
+          $me, $$event_failure,
+          'accept', ($!+0), $!, $unique_id
+        );
+      }
+    }
+  );
 
   $self->[MY_SOCKET_SELECTED] = 'yes';
-  $poe_kernel->select_read( $self->[MY_SOCKET_HANDLE],
-                            $self->[MY_STATE_ACCEPT]
-                          );
+  $poe_kernel->select_read(
+    $self->[MY_SOCKET_HANDLE],
+    $self->[MY_STATE_ACCEPT]
+  );
 }
 
 #------------------------------------------------------------------------------
@@ -255,10 +215,101 @@ sub _define_connect_state {
   my $mine_success    = \$self->[MY_MINE_SUCCESS];
   my $mine_failure    = \$self->[MY_MINE_FAILURE];
 
-  $poe_kernel->state
-    ( $self->[MY_STATE_CONNECT] = ( ref($self) .
-                                    "($unique_id) -> select connect"
-                                  ),
+  $poe_kernel->state(
+    $self->[MY_STATE_CONNECT] = (
+      ref($self) .  "($unique_id) -> select connect"
+    ),
+    sub {
+      # This prevents SEGV in older versions of Perl.
+      0 && CRIMSON_SCOPE_HACK('<');
+
+      # Grab some values and stop watching the socket.
+      my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+
+      _shutdown(
+        $socket_selected, $socket_handle,
+        $state_accept, $state_connect,
+        $mine_success, $event_success,
+        $mine_failure, $event_failure,
+      );
+
+      # Throw a failure if the connection failed.
+      $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
+      if ($!) {
+        (defined $$event_failure) and $k->call(
+          $me, $$event_failure,
+          'connect', ($!+0), $!, $unique_id
+        );
+        return;
+      }
+
+      # Get the remote address, or throw an error if that fails.
+      my $peer = getpeername($handle);
+      if ($!) {
+        (defined $$event_failure) and $k->call(
+          $me, $$event_failure,
+          'getpeername', ($!+0), $!, $unique_id
+        );
+        return;
+      }
+
+      # Parse the remote address according to the socket's domain.
+      my ($peer_addr, $peer_port);
+
+      # UNIX sockets have some trouble with peer addresses.
+      if ($domain eq DOM_UNIX) {
+        if (defined $peer) {
+          eval {
+            $peer_addr = unpack_sockaddr_un($peer);
+          };
+          undef $peer_addr if length $@;
+        }
+      }
+
+      # INET socket stacks tend not to.
+      elsif ($domain eq DOM_INET) {
+        if (defined $peer) {
+          eval {
+            ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
+          };
+          if (length $@) {
+            $peer_port = $peer_addr = undef;
+          }
+        }
+      }
+
+      # INET6 socket stacks tend not to.
+      elsif ($domain eq DOM_INET6) {
+        if (defined $peer) {
+          eval {
+            ($peer_port, $peer_addr) = Socket6::unpack_sockaddr_in6($peer);
+          };
+          if (length $@) {
+            $peer_port = $peer_addr = undef;
+          }
+        }
+      }
+
+      # What are we doing here?
+      else {
+        die "sanity failure: socket domain == $domain";
+      }
+
+      # Tell the session it went okay.  Also let go of the socket.
+      $k->call(
+        $me, $$event_success,
+        $handle, $peer_addr, $peer_port, $unique_id
+      );
+    }
+  );
+
+  # Cygwin expects an error state registered to expedite.  This code
+  # is nearly identical the stuff above.
+  if ($^O eq "cygwin") {
+    $poe_kernel->state(
+      $self->[MY_STATE_ERROR] = (
+        ref($self) .  "($unique_id) -> connect error"
+      ),
       sub {
         # This prevents SEGV in older versions of Perl.
         0 && CRIMSON_SCOPE_HACK('<');
@@ -266,123 +317,34 @@ sub _define_connect_state {
         # Grab some values and stop watching the socket.
         my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
 
-  _shutdown(
-    $socket_selected, $socket_handle,
-    $state_accept, $state_connect,
-    $mine_success, $event_success,
-    $mine_failure, $event_failure,
-  );
+        _shutdown(
+          $socket_selected, $socket_handle,
+          $state_accept, $state_connect,
+          $mine_success, $event_success,
+          $mine_failure, $event_failure,
+        );
 
         # Throw a failure if the connection failed.
         $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
         if ($!) {
-          (defined $$event_failure) and
-            $k->call( $me, $$event_failure,
-                      'connect', ($!+0), $!, $unique_id
-                    );
+          (defined $$event_failure) and $k->call(
+            $me, $$event_failure, 'connect', ($!+0), $!, $unique_id
+          );
           return;
         }
-
-        # Get the remote address, or throw an error if that fails.
-        my $peer = getpeername($handle);
-        if ($!) {
-          (defined $$event_failure) and
-            $k->call( $me, $$event_failure,
-                      'getpeername', ($!+0), $!, $unique_id
-                    );
-          return;
-        }
-
-        # Parse the remote address according to the socket's domain.
-        my ($peer_addr, $peer_port);
-
-        # UNIX sockets have some trouble with peer addresses.
-        if ($domain eq DOM_UNIX) {
-          if (defined $peer) {
-            eval {
-              $peer_addr = unpack_sockaddr_un($peer);
-            };
-            undef $peer_addr if length $@;
-          }
-        }
-
-        # INET socket stacks tend not to.
-        elsif ($domain eq DOM_INET) {
-          if (defined $peer) {
-            eval {
-              ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
-            };
-            if (length $@) {
-              $peer_port = $peer_addr = undef;
-            }
-          }
-        }
-
-        # INET6 socket stacks tend not to.
-        elsif ($domain eq DOM_INET6) {
-          if (defined $peer) {
-            eval {
-              ($peer_port, $peer_addr) = Socket6::unpack_sockaddr_in6($peer);
-            };
-            if (length $@) {
-              $peer_port = $peer_addr = undef;
-            }
-          }
-        }
-
-        # What are we doing here?
-        else {
-          die "sanity failure: socket domain == $domain";
-        }
-
-        # Tell the session it went okay.  Also let go of the socket.
-        $k->call( $me, $$event_success,
-                  $handle, $peer_addr, $peer_port, $unique_id
-                );
       }
     );
-
-  # Cygwin expects an error state registered to expedite.  This code
-  # is nearly identical the stuff above.
-  if ($^O eq "cygwin") {
-    $poe_kernel->state
-      ( $self->[MY_STATE_ERROR] = ( ref($self) .
-                                    "($unique_id) -> connect error"
-                                  ),
-        sub {
-          # This prevents SEGV in older versions of Perl.
-          0 && CRIMSON_SCOPE_HACK('<');
-
-          # Grab some values and stop watching the socket.
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-
-    _shutdown(
-      $socket_selected, $socket_handle,
-      $state_accept, $state_connect,
-      $mine_success, $event_success,
-      $mine_failure, $event_failure,
+    $poe_kernel->select_expedite(
+      $self->[MY_SOCKET_HANDLE],
+      $self->[MY_STATE_ERROR]
     );
-
-          # Throw a failure if the connection failed.
-          $! = unpack('i', getsockopt($handle, SOL_SOCKET, SO_ERROR));
-          if ($!) {
-            (defined $$event_failure) and
-              $k->call( $me, $$event_failure,
-                        'connect', ($!+0), $!, $unique_id
-                      );
-            return;
-          }
-        }
-      );
-    $poe_kernel->select_expedite( $self->[MY_SOCKET_HANDLE],
-                                  $self->[MY_STATE_ERROR]
-                                );
   }
 
   $self->[MY_SOCKET_SELECTED] = 'yes';
-  $poe_kernel->select_write( $self->[MY_SOCKET_HANDLE],
-                             $self->[MY_STATE_CONNECT]
-                           );
+  $poe_kernel->select_write(
+    $self->[MY_SOCKET_HANDLE],
+    $self->[MY_STATE_CONNECT]
+  );
 }
 
 #------------------------------------------------------------------------------
@@ -425,18 +387,21 @@ sub event {
 
   $self->[MY_SOCKET_SELECTED] = 'yes';
   if (defined $self->[MY_STATE_ACCEPT]) {
-    $poe_kernel->select_read($self->[MY_SOCKET_HANDLE],
-                             $self->[MY_STATE_ACCEPT]
-                            );
+    $poe_kernel->select_read(
+      $self->[MY_SOCKET_HANDLE],
+      $self->[MY_STATE_ACCEPT]
+     );
   }
   elsif (defined $self->[MY_STATE_CONNECT]) {
-    $poe_kernel->select_write( $self->[MY_SOCKET_HANDLE],
-                               $self->[MY_STATE_CONNECT]
-                             );
+    $poe_kernel->select_write(
+      $self->[MY_SOCKET_HANDLE],
+      $self->[MY_STATE_CONNECT]
+    );
     if ($^O eq "cygwin") {
-      $poe_kernel->select_expedite( $self->[MY_SOCKET_HANDLE],
-                                    $self->[MY_STATE_ERROR]
-                                  );
+      $poe_kernel->select_expedite(
+        $self->[MY_SOCKET_HANDLE],
+        $self->[MY_STATE_ERROR]
+      );
     }
   }
   else {
@@ -479,23 +444,24 @@ sub new {
 
   # Create the SocketServer.  Cache a copy of the socket handle.
   my $socket_handle = gensym();
-  my $self = bless
-    ( [ $socket_handle,                   # MY_SOCKET_HANDLE
-        &POE::Wheel::allocate_wheel_id(), # MY_UNIQUE_ID
-        $event_success,                   # MY_EVENT_SUCCESS
-        $event_failure,                   # MY_EVENT_FAILURE
-        undef,                            # MY_SOCKET_DOMAIN
-        undef,                            # MY_STATE_ACCEPT
-        undef,                            # MY_STATE_CONNECT
-        undef,                            # MY_MINE_SUCCESS
-        undef,                            # MY_MINE_FAILURE
-        undef,                            # MY_SOCKET_PROTOCOL
-        undef,                            # MY_SOCKET_TYPE
-        undef,                            # MY_STATE_ERROR
-        undef,                            # MY_SOCKET_SELECTED
-      ],
-      $type
-    );
+  my $self = bless(
+    [
+      $socket_handle,                   # MY_SOCKET_HANDLE
+      &POE::Wheel::allocate_wheel_id(), # MY_UNIQUE_ID
+      $event_success,                   # MY_EVENT_SUCCESS
+      $event_failure,                   # MY_EVENT_FAILURE
+      undef,                            # MY_SOCKET_DOMAIN
+      undef,                            # MY_STATE_ACCEPT
+      undef,                            # MY_STATE_CONNECT
+      undef,                            # MY_MINE_SUCCESS
+      undef,                            # MY_MINE_FAILURE
+      undef,                            # MY_SOCKET_PROTOCOL
+      undef,                            # MY_SOCKET_TYPE
+      undef,                            # MY_STATE_ERROR
+      undef,                            # MY_SOCKET_SELECTED
+    ],
+    $type
+  );
 
   # Default to Internet sockets.
   my $domain = delete $params{SocketDomain};
@@ -506,9 +472,9 @@ sub new {
   # testing duplicates of.
   my $abstract_domain = $map_family_to_domain{$self->[MY_SOCKET_DOMAIN]};
   unless (defined $abstract_domain) {
-    $poe_kernel->yield( $event_failure,
-                        'domain', 0, '', $self->[MY_UNIQUE_ID]
-                      );
+    $poe_kernel->yield(
+      $event_failure, 'domain', 0, '', $self->[MY_UNIQUE_ID]
+    );
     return $self;
   }
 
@@ -531,17 +497,21 @@ sub new {
 
   # Internet sockets use protocols.  Default the INET protocol to tcp,
   # and try to resolve it.
-  elsif ( $abstract_domain eq DOM_INET or
-          $abstract_domain eq DOM_INET6
-        ) {
-    my $socket_protocol =
-      (defined $params{SocketProtocol}) ? $params{SocketProtocol} : 'tcp';
+  elsif (
+    $abstract_domain eq DOM_INET or
+    $abstract_domain eq DOM_INET6
+  ) {
+    my $socket_protocol = (
+      (defined $params{SocketProtocol})
+      ? $params{SocketProtocol}
+      : 'tcp'
+    );
 
     if ($socket_protocol !~ /^\d+$/) {
       unless ($socket_protocol = getprotobyname($socket_protocol)) {
-        $poe_kernel->yield( $event_failure,
-                            'getprotobyname', $!+0, $!, $self->[MY_UNIQUE_ID]
-                          );
+        $poe_kernel->yield(
+          $event_failure, 'getprotobyname', $!+0, $!, $self->[MY_UNIQUE_ID]
+        );
         return $self;
       }
     }
@@ -551,9 +521,9 @@ sub new {
     # programmer wonder why things fail later.
     $protocol_name = lc(getprotobynumber($socket_protocol));
     unless ($protocol_name) {
-      $poe_kernel->yield( $event_failure,
-                          'getprotobynumber', $!+0, $!, $self->[MY_UNIQUE_ID]
-                        );
+      $poe_kernel->yield(
+        $event_failure, 'getprotobynumber', $!+0, $!, $self->[MY_UNIQUE_ID]
+      );
       return $self;
     }
 
@@ -579,17 +549,65 @@ sub new {
       $default_socket_type{$abstract_domain}->{$protocol_name};
   }
 
+  # o  create a dummy socket
+  # o  cache the value of SO_OPENTYPE in $win32_socket_opt
+  # o  set the overlapped io attribute
+  # o  close dummy socket
+  my $win32_socket_opt;
+  if ( POE::Kernel::RUNNING_IN_HELL) {
+
+    # Constants are evaluated first so they exist when the code uses
+    # them.
+    eval {
+      *SO_OPENTYPE     = sub () { 0x7008 };
+      *SO_SYNCHRONOUS_ALERT    = sub () { 0x10 };
+      *SO_SYNCHRONOUS_NONALERT = sub () { 0x20 };
+    };
+    die "Could not install SO constants [$@]" if $@;
+
+    # Turn on socket overlapped IO attribute per MSKB: Q181611. 
+
+    eval {
+      socket(POE, AF_INET, SOCK_STREAM, getprotobyname("tcp"))
+        or die "socket failed: $!";
+      my $opt = unpack("I", getsockopt(POE, SOL_SOCKET, SO_OPENTYPE()));
+      $win32_socket_opt = $opt;
+      $opt &= ~(SO_SYNCHRONOUS_ALERT()|SO_SYNCHRONOUS_NONALERT());
+      setsockopt(POE, SOL_SOCKET, SO_OPENTYPE(), $opt);
+      close POE;
+    };
+
+    die if $@;
+  }
+
   # Create the socket.
-  unless (socket( $socket_handle, $self->[MY_SOCKET_DOMAIN],
-                  $self->[MY_SOCKET_TYPE], $self->[MY_SOCKET_PROTOCOL]
-                )
+  unless (
+    socket( $socket_handle, $self->[MY_SOCKET_DOMAIN],
+      $self->[MY_SOCKET_TYPE], $self->[MY_SOCKET_PROTOCOL]
+    )
   ) {
-    $poe_kernel->yield( $event_failure,
-                        'socket', $!+0, $!, $self->[MY_UNIQUE_ID]
-                      );
+    $poe_kernel->yield(
+      $event_failure, 'socket', $!+0, $!, $self->[MY_UNIQUE_ID]
+    );
     return $self;
   }
 
+  # o  create a dummy socket
+  # o  restore previous value of SO_OPENTYPE
+  # o  close dummy socket
+  #
+  # This way we'd only be turning on the overlap attribute for
+  # the socket we created... and not all subsequent sockets.
+  if ( POE::Kernel::RUNNING_IN_HELL) {
+    eval {
+      socket(POE, AF_INET, SOCK_STREAM, getprotobyname("tcp"))
+        or die "socket failed: $!";
+      setsockopt(POE, SOL_SOCKET, SO_OPENTYPE(), $win32_socket_opt);
+      close POE;
+    };
+
+    die if $@;
+  }
   DEBUG && warn "socket";
 
   #------------------#
@@ -666,14 +684,13 @@ sub new {
            )
      )
   {
-    setsockopt($socket_handle, SOL_SOCKET, SO_REUSEADDR, 1)
-      or do {
-        $poe_kernel->yield(
-          $event_failure,
-          'setsockopt', $!+0, $!, $self->[MY_UNIQUE_ID]
-        );
-        return $self;
-      };
+    setsockopt($socket_handle, SOL_SOCKET, SO_REUSEADDR, 1) or do {
+      $poe_kernel->yield(
+        $event_failure,
+        'setsockopt', $!+0, $!, $self->[MY_UNIQUE_ID]
+      );
+      return $self;
+    };
   }
 
   #-------------#
@@ -776,11 +793,6 @@ sub new {
         $self->[MY_SOCKET_DOMAIN], $self->[MY_SOCKET_TYPE],
       );
 
-# Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
-# TODO - Remove this if nothing needs it.
-#      $bind_address =
-#        Socket6::gethostbyname2($bind_address, $self->[MY_SOCKET_DOMAIN]);
-
       if (@info < 5) {  # unless defined $bind_address
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield(
@@ -791,18 +803,6 @@ sub new {
       }
 
       $bind_address = $info[3];
-
-# Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
-# TODO - Remove this if nothing needs it.
-#      $bind_address = Socket6::pack_sockaddr_in6($bind_port, $bind_address);
-#      warn unpack "H*", $bind_address;
-#      unless (defined $bind_address) {
-#        $poe_kernel->yield( $event_failure,
-#                            "pack_sockaddr_in6", $!+0, $!,
-#                            $self->[MY_UNIQUE_ID]
-#                          );
-#        return $self;
-#      }
     }
   }
 
@@ -903,14 +903,6 @@ sub new {
         }
 
         $error_tag = "getaddrinfo";
-
-# Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
-# TODO - Remove this if nothing needs it.
-#        $connect_address =
-#          Socket6::gethostbyname2( $params{RemoteAddress},
-#                                   $self->[MY_SOCKET_DOMAIN]
-#                                 );
-#        $error_tag = "gethostbyname2";
       }
       else {
         die "unknown domain $abstract_domain";
@@ -936,10 +928,6 @@ sub new {
         $error_tag = "pack_sockaddr_in";
       }
       elsif ($abstract_domain eq DOM_INET6) {
-# Deprecated Socket6 interfaces.  Solaris, for one, does not use them.
-# TODO - Remove this if nothing needs it.
-#        $connect_address =
-#          Socket6::pack_sockaddr_in6($remote_port, $connect_address);
         $error_tag = "pack_sockaddr_in6";
       }
       else {
