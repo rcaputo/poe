@@ -83,7 +83,7 @@ sub sss_block {
   my ($kernel, $heap, $block) = @_[KERNEL, HEAP, ARG0];
   DEBUG and warn "sss got block";
   $heap->{read_count}++;
-  $kernel->delay( ev_timeout => 5 );
+  $kernel->delay( ev_timeout => 7 );
 }
 
 sub sss_error {
