@@ -1279,8 +1279,7 @@ B<previous> value of OPTION_NAME.
 The final form sets several options, returning a hashref containing
 pairs of option names and their B<previous> values.
 
-  my $old_values = $_[SESSION]->option(
-    trace => $new_trace_value,
+  my $old_values = $_[SESSION]->option( trace => $new_trace_value,
     debug => $new_debug_value,
   );
   print "Old option values:\n";
@@ -1288,139 +1287,76 @@ pairs of option names and their B<previous> values.
     print "$option = $old_value\n";
   }
 
-=item postback EVENT_NAME, PARAMETER_LIST
+=item postback EVENT_NAME, EVENT_PARAMETERS
 
-postback() creates anonymous coderefs which, when called, post
-EVENT_NAME events back to the session whose postback() method was
-called.  Postbacks hold external references on the sessions they're
-created for, so they keep their sessions alive.
+=item callback EVENT_NAME, EVENT_PARAMETERS
 
-The EVENT_NAME event includes two fields, both of which are list
-references.  C<ARG0> contains a reference to the PARAMETER_LIST passed
-to C<postback()>.  This is the "request" field.  C<ARG1> holds a
-reference to the parameters passed to the coderef when it's called.
-That's the "response" field.
+postback() and callback() create anonymous coderefs that may be used
+as callbacks for other libraries.  A contrived example:
 
-This creates a Tk button that posts an "ev_counters_begin" event to
-C<$session> whenever it's pressed.
+  my $postback = $session->postback( event_one => 1, 2, 3 );
+  my $callback = $session->callback( event_two => 5, 6, 7 );
 
-  $poe_tk_main_window->Button(
+  use File::Find;
+  find( $callback, @directories_to_search );
+
+  $poe_main_window->Button(
     -text    => 'Begin Slow and Fast Alarm Counters',
-    -command => $session->postback( 'ev_counters_begin' )
+    -command => $postback,
   )->pack;
 
-C<postback()> works wherever a callback does.  Another good use of
-postbacks is for request/response protocols between sessions.  For
-example, a client session will post an event to a server session.  The
-client may include a postback as part of its request event, or the
-server may build a postback based on C<$_[SENDER]> and an event name
-either pre-arranged or provided by the client.
+When called, postbacks and callbacks fire POE events.  Postbacks use
+$kernel->post(), and callbacks use $kernel->call().  See POE::Kernel
+for post() and call() documentation.
 
-Since C<postback()> is a Session method, you can call it on
-C<$_[SESSION]> to create a postback for the current session.  In this
-case, the client gives its postback to the server, and the server
-would call the postback to return a response event.
+Each takes an EVENT_NAME, which is the name of the event to fire when
+called.  Any other EVENT_PARAMETERS are passed to the event's handler
+as a list reference in ARG0.
 
-  # This code is in a client session.  SESSION is this session, so it
-  # refers to the client.
-  my $client_postback = $_[SESSION]->postback( reply_event_name => $data );
+Calling C<<$postback->("a", "b", "c")>> results in event_one's handler
+being called with the following arguments:
 
-The other case is where the server creates a postback to respond to a
-client.  Here, it calls C<postback()> on C<$_[SENDER]> to create a
-postback that will respond to the request's sender.
-
-  # This code is in a server session.  SENDER is the session that sent
-  # a request event: the client session.
-  my $client_postback = $_[SENDER]->postback( reply_event_name => $data );
-
-In the following code snippets, Servlet is a session that acts like a
-tiny daemon.  It receives requests from "client" sessions, performs
-some long-running task, and eventually posts responses back.  Client
-sends requests to Servlet and eventually receives its responses.
-
-  # Aliases are a common way for daemon sessions to advertise
-  # themselves.  They also provide convenient targets for posted
-  # requests.  Part of Servlet's initialization is setting its alias.
-
-  sub Servlet::_start {
-    ...;
-    $_[KERNEL]->alias_set( 'server' );
+  sub handle_event_one {
+    my $passed_through = $_[ARG0];  # [ 1, 2, 3 ]
+    my $passed_back    = $_[ARG1];  # [ "a", "b", "c" ]
   }
 
-  # This function accepts a request event.  It creates a postback
-  # based on the sender's information, and it saves the postback until
-  # it's ready to be used.  Postbacks keep their sessions alive, so
-  # this also ensures that the client will wait for a response.
+Calling C<<$callback->("m", "n", "o")>> does the same:
 
-  sub Servlet::accept_request_event {
-    my ($heap, $sender, $reply_to, @request_args) =
-      @_[HEAP, SENDER, ARG0, ARG1..$#_];
-
-    # Set the request in motion based on @request_args.  This may take
-    # a while.
-
-    ...;
-
-    # Create a postback, and hold onto it so we'll have a way to
-    # respond back to the client session when the request has
-    # finished.
-
-    $heap->{postback}->{$sender} =
-      $sender->postback( $reply_to, @request_args );
+  sub handle_event_two {
+    my $passed_through = $_[ARG0];  # [ 5, 6, 7 ]
+    my $passed_back    = $_[ARG1];  # [ "m", "n", "o" ]
   }
 
-  # When the server is ready to respond, it retrieves the postback and
-  # calls it with the response's values.  The postback acts like a
-  # "wormhole" back to the client session.  Letting the postback fall
-  # out of scope destroys it, so it will stop keeping the session
-  # alive.  The response event, however, will take up where the
-  # postback left off, so the client will still linger at least as
-  # long as it takes to receive its response.
+Therefore you can use ARG0 to pass state through a callback, while
+ARG1 contains information provided by the external library to its
+callbacks.
 
-  sub Servlet::ready_to_respond {
-    my ($heap, $sender, @response_values) = @_[HEAP, ARG0, ARG1..$#_];
+Postbacks and callbacks use reference counts to keep the sessions they
+are called upon alive.  This prevents sessions from disappearing while
+other code expects them to handle callbacks.  The Tk Button code above
+is an example of this in action.  The session will not stop until the
+widget releases its postback.
 
-    my $postback = delete $heap->{postback}->{$sender};
-    $postback->( @response_values );
-  }
+The difference between postback() and callback() is subtle but can
+cause all manner of grief if you are not aware of it.  Postback
+handlers are not called right away since they are triggered by events
+posted through the queue.  Callback handlers are invoked immediately
+since they are triggered by call().
 
-  # This is the client's side of the transaction.  Here it posts a
-  # request to the "server" alias.
+Some libraries expect their callbacks to be invoked immediately.  They
+may go so far as to set up global variables for the duration of the
+callback.  File::Find is such a library.  Each callback receives a new
+filename in $_.  Delaying these callbacks until later means that $_
+will not contain expected values.  It is necessary to use callback()
+in these cases.
 
-  sub Client::request {
-    my $kernel = $_[KERNEL];
+Most libraries pass state to their callbacks as parameters.
+Generally, postback() is the way to go.
 
-    # Assemble a request for the server.
-    my @request = ( 1, 2, 3 );
-
-    # Post the request to the server.
-    $kernel->post( server => accept_request_event => reply_to => @request );
-  }
-
-  # Here's where the client receives its response.  Postback events
-  # have two parameters: a request block and a response block.  Both
-  # are array references containing the parameters given to the
-  # postback at construction time and at use time, respectively.
-
-  sub Client::reply_to {
-    my ($session, $request, $response) = @_[SESSION, ARG0, ARG1];
-
-    print "Session ", $session->ID, " requested: @$request\n";
-    print "Session ", $session->ID, " received : @$response\n";
-  }
-
-=item callback EVENT_NAME, PARAMETER_LIST
-
-callback() creates anonymous coderefs just like postback(), but
-instead of using $poe_kernel->post() it uses $poe_kernel->call() so
-that the event occurs synchronously, i.e. without any delay.  This is
-helpful when the data you're dealing with can change immediately after
-the callback is called.  By the time a postback() event is dispatched,
-the underlying data is long gone.
-
-callback() may also be used when your callback needs to return a
-value.  For instance, GUIs often expect a true value from a callback
-to indicate an event was handled, and a false value otherwise.
+Since postback() and callback() are Session methods, they may be
+called on $_[SESSION] or $_[SENDER], depending on particular needs.
+There are usually better ways to interact between sessions, however.
 
 =item get_heap
 
@@ -1787,9 +1723,6 @@ levels and the mechanics of signal propagation.
 States are always evaluated in a scalar context.  States that must
 return more than one value should therefore return them as a reference
 to something bigger.
-
-Signal handlers' return values are significant.  L<POE::Kernel>'s
-"Signal Watcher Methods" sections covers this is detail.
 
 States may not return references to objects in the "POE" namespace.
 The Kernel will stringify these references to prevent them from
