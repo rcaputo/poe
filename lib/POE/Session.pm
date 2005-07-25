@@ -892,7 +892,6 @@ sub callback {
 
   my $callback = bless sub {
     $POE::Kernel::poe_kernel->call( $id, $event, [ @etc ], [ @_ ] );
-    return 0;
   }, 'POE::Session::AnonEvent';
 
   $anonevent_parent_id{$callback} = $id;
