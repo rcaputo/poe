@@ -929,7 +929,7 @@ sub _dispatch_event {
   # Dispatch the event, at long last.
   my $before;
   if (TRACE_STATISTICS) {
-      $before = time();
+    $before = time();
   }
   my $return;
   if (wantarray) {
@@ -939,8 +939,13 @@ sub _dispatch_event {
       )
     ];
   }
-  else {
+  elsif (defined wantarray) {
     $return = $session->_invoke_state(
+      $source_session, $event, $etc, $file, $line, $fromstate
+    );
+  }
+  else {
+    $session->_invoke_state(
       $source_session, $event, $etc, $file, $line, $fromstate
     );
   }
@@ -1441,10 +1446,10 @@ sub yield {
     ) if exists $poes_own_events{$event_name};
   };
 
-  $self->_data_ev_enqueue
-    ( $kr_active_session, $kr_active_session, $event_name, ET_POST, \@etc,
-      (caller)[1,2], $kr_active_event, time(),
-    );
+  $self->_data_ev_enqueue(
+    $kr_active_session, $kr_active_session, $event_name, ET_POST, \@etc,
+    (caller)[1,2], $kr_active_event, time(),
+  );
 
   undef;
 }
