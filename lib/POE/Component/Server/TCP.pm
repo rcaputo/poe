@@ -246,7 +246,7 @@ sub new {
               }
 
               $heap->{client} = POE::Wheel::ReadWrite->new(
-                Handle       => $socket,
+                Handle       => splice(@_, ARG0, 1),
                 Driver       => POE::Driver::SysRW->new(),
                 @filters,
                 InputEvent   => 'tcp_server_got_input',
@@ -254,17 +254,16 @@ sub new {
                 FlushedEvent => 'tcp_server_got_flush',
               );
 
-              $kernel->yield(tcp_server_client_connected => @_[ARG0 .. $#_]);
+              $client_connected->(@_);
             },
 
             # To quiet ASSERT_STATES.
             _child  => sub { },
 
-            tcp_server_client_connected => $client_connected,
-
             tcp_server_got_input => sub {
               return if $_[HEAP]->{shutdown};
               $client_input->(@_);
+              undef;
             },
             tcp_server_got_error => sub {
               unless ($_[ARG0] eq 'accept' and $_[ARG1] == ECONNABORTED) {
@@ -306,7 +305,7 @@ sub new {
           package_states => $package_states,
           object_states  => $object_states,
 
-          args => $args,
+          args => [ $socket, $args ],
         );
       };
     }

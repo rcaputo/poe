@@ -385,7 +385,15 @@ sub DESTROY {
 
   # Turn off the select.  This is a problem if a wheel is being
   # swapped, since it will turn off selects for the other wheel.
-  $poe_kernel->select($self->[HANDLE_INPUT]);
+  if ($self->[HANDLE_INPUT]) {
+    $poe_kernel->select($self->[HANDLE_INPUT]);
+    $self->[HANDLE_INPUT] = undef;
+  }
+
+  if ($self->[HANDLE_OUTPUT]) {
+    $poe_kernel->select($self->[HANDLE_OUTPUT]);
+    $self->[HANDLE_OUTPUT] = undef;
+  }
 
   if ($self->[STATE_READ]) {
     $poe_kernel->state($self->[STATE_READ]);

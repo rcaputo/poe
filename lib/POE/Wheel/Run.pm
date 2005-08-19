@@ -27,13 +27,13 @@ BEGIN {
   }
 
   if (POE::Kernel::RUNNING_IN_HELL) {
-      eval    { require Win32::Console; };
-      if ($@) { die "Win32::Console failed to load:\n$@" }
-      else    { Win32::Console->import(); };
+    eval    { require Win32::Console; };
+    if ($@) { die "Win32::Console failed to load:\n$@" }
+    else    { Win32::Console->import(); };
 
-      eval    { require Win32API::File; };
-      if ($@) { die "Win32API::File but failed to load:\n$@" }
-      else    { Win32API::File->import( qw(FdGetOsFHandle) ); };
+    eval    { require Win32API::File; };
+    if ($@) { die "Win32API::File but failed to load:\n$@" }
+    else    { Win32API::File->import( qw(FdGetOsFHandle) ); };
   }
 
   # How else can I get them out?!
@@ -148,13 +148,12 @@ sub new {
   my $conduit = delete $params{Conduit};
   my $stdio_type;
   if (defined $conduit) {
-    croak "$type\'s Conduit type ($conduit) is unknown"
-      if (
-        $conduit ne 'pipe' and
-        $conduit ne 'pty'  and
-        $conduit ne 'socketpair' and
-        $conduit ne 'inet'
-      );
+    croak "$type\'s Conduit type ($conduit) is unknown" if (
+      $conduit ne 'pipe' and
+      $conduit ne 'pty'  and
+      $conduit ne 'socketpair' and
+      $conduit ne 'inet'
+    );
     unless ($conduit eq "pty") {
       $stdio_type = $conduit;
       $conduit = "pipe";
@@ -478,20 +477,20 @@ sub new {
       # Give up with a plain exit if we must.
       # On win32 cannot _exit as it will kill *all* threads, meaning parent too
       unless (POE::Kernel::RUNNING_IN_HELL) {
-    eval { POSIX::_exit(0);  };
-    eval { kill KILL => $$;  };
-    eval { exec("$^X -e 0"); };
+        eval { POSIX::_exit(0);  };
+        eval { kill KILL => $$;  };
+        eval { exec("$^X -e 0"); };
       };
       exit(0);
     } else {
-  if (ref($program) eq 'ARRAY') {
-    exec(@$program, @$prog_args)
-      or die "can't exec (@$program) in child pid $$: $!";
-  }
-  else {
-    exec(join(" ", $program, @$prog_args))
-      or die "can't exec ($program) in child pid $$: $!";
-  }
+      if (ref($program) eq 'ARRAY') {
+        exec(@$program, @$prog_args)
+          or die "can't exec (@$program) in child pid $$: $!";
+      }
+      else {
+        exec(join(" ", $program, @$prog_args))
+          or die "can't exec ($program) in child pid $$: $!";
+      }
     }
     die "insanity check passed";
   }
@@ -654,11 +653,10 @@ sub _define_stdout_reader {
             }
           }
           else {
-            $$error_event and
-              $k->call(
-                $me, $$error_event,
-                'read', ($!+0), $!, $unique_id, 'STDOUT'
-              );
+            $$error_event and $k->call(
+              $me, $$error_event,
+              'read', ($!+0), $!, $unique_id, 'STDOUT'
+            );
             unless (--$$is_active) {
               $k->call( $me, $$close_event, $unique_id )
                 if defined $$close_event;
@@ -753,11 +751,10 @@ sub _define_stderr_reader {
             }
           }
           else {
-            $$error_event and
-              $k->call(
-                $me, $$error_event,
-                'read', ($!+0), $!, $unique_id, 'STDERR'
-              );
+            $$error_event and $k->call(
+              $me, $$error_event,
+              'read', ($!+0), $!, $unique_id, 'STDERR'
+            );
             unless (--$$is_active) {
               $k->call( $me, $$close_event, $unique_id )
                 if defined $$close_event;
@@ -784,11 +781,10 @@ sub _define_stderr_reader {
             }
           }
           else {
-            $$error_event and
-              $k->call(
-                $me, $$error_event,
-                'read', ($!+0), $!, $unique_id, 'STDERR'
-              );
+            $$error_event and $k->call(
+              $me, $$error_event,
+              'read', ($!+0), $!, $unique_id, 'STDERR'
+            );
             unless (--$$is_active) {
               $k->call( $me, $$close_event, $unique_id )
                 if defined $$close_event;
