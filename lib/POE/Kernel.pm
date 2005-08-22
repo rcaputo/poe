@@ -485,7 +485,7 @@ sub test_loop {
 
       # Try for the XS version first.  If it fails, try the plain
       # version.  If that fails, we're up a creek.
-      my $module = "POE/XS/Loop/$module.pm";
+      $module = "POE/XS/Loop/$module.pm";
       unless (find_loop($module)) {
         $module =~ s|XS/||;
         next unless (find_loop($module));

@@ -190,7 +190,7 @@ sub loop_do_timeslice {
 
     if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
-      my $hits = select(
+      my $hits = CORE::select(
         my $rout = $loop_vectors[MODE_RD],
         my $wout = $loop_vectors[MODE_WR],
         my $eout = $loop_vectors[MODE_EX],
@@ -295,7 +295,7 @@ sub loop_do_timeslice {
         sleep($timeout);
       }
       else {
-        select(undef, undef, undef, $timeout);
+				CORE::select(undef, undef, undef, $timeout);
       }
     }
   }
