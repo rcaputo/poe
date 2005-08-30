@@ -400,8 +400,6 @@ sub DESTROY {
     $self->[STATE_READ] = undef;
   }
 
-  $poe_kernel->select($self->[HANDLE_OUTPUT]);
-
   if ($self->[STATE_WRITE]) {
     $poe_kernel->state($self->[STATE_WRITE]);
     $self->[STATE_WRITE] = undef;
