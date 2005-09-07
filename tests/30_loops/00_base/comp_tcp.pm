@@ -79,7 +79,6 @@ POE::Component::Server::TCP->new(
   ClientError => sub {
     my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
     print "callback server got $operation error $errnum: $errstr\n";
-    delete $heap->{client};
   },
   ClientFlushed => sub {
     pass("callback server flushed output");
