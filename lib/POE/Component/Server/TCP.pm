@@ -274,7 +274,9 @@ sub new {
               undef;
             },
             tcp_server_got_error => sub {
-              DEBUG and warn "$$: $alias child Error ARG0=$_[ARG0] ARG1=$_[ARG1]";
+              DEBUG and warn(
+                "$$: $alias child Error ARG0=$_[ARG0] ARG1=$_[ARG1]"
+              );
               unless ($_[ARG0] eq 'accept' and $_[ARG1] == ECONNABORTED) {
                 $client_error->(@_);
                 if ($_[HEAP]->{shutdown_on_error}) {
@@ -310,7 +312,9 @@ sub new {
             },
             _stop => sub {
               ## concurrency on close
-              DEBUG and warn "$$: $alias _stop accept_session = $accept_session";
+              DEBUG and warn(
+                "$$: $alias _stop accept_session = $accept_session"
+              );
               if( defined $accept_session ) {
                 $_[KERNEL]->call( $accept_session, 'disconnected' );
               }
@@ -318,7 +322,10 @@ sub new {
                 # This means that the Server::TCP was shutdown before
                 # this connection closed.  So it doesn't really matter that
                 # we can't decrement the connection counter.
-                DEBUG and warn "$$: $_[HEAP]->{alias} Disconnected from a connection without POE::Component::Server::TCP parent";
+                DEBUG and warn(
+                  "$$: $_[HEAP]->{alias} Disconnected from a connection ",
+                  "without POE::Component::Server::TCP parent"
+                );
               }
               return;
             },
@@ -346,10 +353,16 @@ sub new {
   my $orig_accept_callback = $accept_callback;
   $accept_callback = sub {
     $_[HEAP]->{connections}++;
-    DEBUG and warn "$$: $_[HEAP]->{alias} Connection opened ($_[HEAP]->{connections} open)";
+    DEBUG and warn(
+      "$$: $_[HEAP]->{alias} Connection opened ",
+      "($_[HEAP]->{connections} open)"
+    );
     if( $_[HEAP]->{concurrency} != -1 and $_[HEAP]->{listener} ) {
       if( $_[HEAP]->{connections} >= $_[HEAP]->{concurrency} ) {
-        DEBUG and warn "$$: $_[HEAP]->{alias} Concurrent connection limit reached, pausing accept";
+        DEBUG and warn(
+          "$$: $_[HEAP]->{alias} Concurrent connection limit reached, ",
+          "pausing accept"
+        );
         $_[HEAP]->{listener}->pause_accept()
       }
     }
@@ -393,10 +406,16 @@ sub new {
       # conncurrency on close.
       disconnected => sub {
         $_[HEAP]->{connections}--;
-        DEBUG and warn "$$: $_[HEAP]->{alias} Connection closed ($_[HEAP]->{connections} open)";
+        DEBUG and warn(
+          "$$: $_[HEAP]->{alias} Connection closed ",
+          "($_[HEAP]->{connections} open)"
+        );
         if( $_[HEAP]->{concurrency} != -1 and $_[HEAP]->{listener} ) {
           if( $_[HEAP]->{connections} == ($_[HEAP]->{concurrency}-1) ) {
-            DEBUG and warn "$$: $_[HEAP]->{alias} Concurrent connection limit reestablished, resuming accept";
+            DEBUG and warn(
+              "$$: $_[HEAP]->{alias} Concurrent connection limit ",
+              "reestablished, resuming accept"
+            );
             $_[HEAP]->{listener}->resume_accept();
           }
         }
@@ -404,11 +423,24 @@ sub new {
 
       set_concurrency => sub {
         $_[HEAP]->{concurrency} = $_[ARG0];
-        DEBUG and warn "$$: $_[HEAP]->{alias} Concurrent connection limit = $_[HEAP]->{concurrency}";
+        DEBUG and warn(
+          "$$: $_[HEAP]->{alias} Concurrent connection ",
+          "limit = $_[HEAP]->{concurrency}"
+        );
         if( $_[HEAP]->{concurrency} != -1 and $_[HEAP]->{listener} ) {
           if( $_[HEAP]->{connections} >= $_[HEAP]->{concurrency} ) {
-            DEBUG and warn "$$: $_[HEAP]->{alias} Concurrent connection limit reached, pausing accept";
+            DEBUG and warn(
+              "$$: $_[HEAP]->{alias} Concurrent connection limit ",
+              "reached, pausing accept"
+            );
             $_[HEAP]->{listener}->pause_accept()
+          }
+          else {
+            DEBUG and warn(
+              "$$: $_[HEAP]->{alias} Concurrent connection limit ",
+              "reestablished, resuming accept"
+            );
+            $_[HEAP]->{listener}->resume_accept();
           }
         }
       },
@@ -558,15 +590,15 @@ POE::Component::Server::TCP - a simplified TCP server
   $heap->{shutdown}    = shutdown flag (check to see if shutting down)
   $heap->{shutdown_on_error} = Automatically disconnect on error.
 
-	### Accepted public events.
+  ### Accepted public events.
 
-	# Start shutting down this connection.
+  # Start shutting down this connection.
   $kernel->yield( "shutdown" );
 
-	# Stop listening for connections.
+  # Stop listening for connections.
   $kernel->post( server => "shutdown" );
 
-	# Set the maximum number of simultaneous connections.
+  # Set the maximum number of simultaneous connections.
   $kernel->call( server => set_concurrency => $count );
 
   ### Responding to a client.
@@ -850,8 +882,8 @@ Started is optional.
 
 Controls the number of connections that may be open at the same time.
 Defaults to -1, which means unlimited number of simutaneous connections.
-0 means no connections.  This value may be set via the C<set_currency>
-event, see L<EVENTS>.
+0 means no connections.  This value may be set via the
+C<set_concurrency> event, see L<EVENTS>.
 
 Note that if you define the C<Acceptor> callback, you will have to inform
 the TCP server session that a connection was closed. This is done by sending
@@ -868,7 +900,8 @@ Example:
       inline_states => {
         _start => sub {
           # ....
-          $_[HEAP]->{server_tcp} = $_[SENDER]->ID;  # remember who our parent is
+          # remember who our parent is
+          $_[HEAP]->{server_tcp} = $_[SENDER]->ID;
           # ....
         },
         got_client_disconnect => sub {
