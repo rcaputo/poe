@@ -99,7 +99,7 @@ use_ok("POE::Filter::Line");
 SKIP: {
   skip("Perl $] doesn't support qr//", 2) if $] < 5.005;
 
-  my $compiled_regexp = qr/[xy]/;
+  my $compiled_regexp = eval "qr/[xy]/";
   my $filter = POE::Filter::Line->new(
     InputRegexp   => $compiled_regexp,
     OutputLiteral => '!',

@@ -79,7 +79,7 @@ BEGIN {
 
   sub OPEN {
     $_[0]->CLOSE if defined($_[0]->FILENO);
-    @_ == 2 ? open($_[0], $_[1]) : open($_[0], $_[1], $_[2]);
+    open(@_);
   }
 
   sub READ     { read($_[0],$_[1],$_[2]) }

@@ -61,7 +61,8 @@ sub _start {
       open(STDERR, ">$devnull");
       while (sysread($input_stream, $buffer, 1024 * 32)) {
         last if $buffer =~ /kill/;
-        syswrite($output_stream, "child [$$] read: $buffer");
+        my $l = "child [$$] read: $buffer";
+        syswrite($output_stream,$l,length($l));
       }
     },
     StdoutEvent => 'output'

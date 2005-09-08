@@ -525,7 +525,7 @@ POE::MySession->create(
       POE::Kernel->stop();
 
       my $expected;
-      if ($] >= 5.004 and $] < 5.005) {
+      if ($] >= 5.004 and $] < 5.00405) {
         diag( "Note: We find your choice of Perl versions disturbing" );
         diag( "primarily due to the number of bugs POE triggers within" );
         diag( "it.  You should seriously consider upgrading." );
@@ -546,7 +546,7 @@ POE::MySession->create(
       # you fits, consider it a sign that your "legacy perl" fetish is
       # bizarre and harmful.
       my $expected;
-      if ($] >= 5.006 or ($] >= 5.004 and $] < 5.005)) {
+      if ($] >= 5.006 or ($] >= 5.004 and $] < 5.00405)) {
         $expected = 3;
       } else {
         $expected = 2;
@@ -579,7 +579,7 @@ ok(
 );
 
 my $expected;
-if ($] >= 5.004 and $] < 5.005) {
+if ($] >= 5.004 and $] < 5.00405) {
   diag( "Seriously.  We've had to create special cases just to cater" );
   diag( "to your freakish 'legacy buggy perl' fetish.  Consider upgrading" );
   $expected = 0;
@@ -600,7 +600,7 @@ my $expected;
 if($] >= '5.006') {
   $expected = 4;
 }
-elsif ($] == 5.005_04) {
+elsif ($] == 5.005_04 or $] == 5.004_05) {
   $expected = 3;
   diag( "Here's yet another special test case to work around memory" );
   diag( "leaks in Perl $]." );
