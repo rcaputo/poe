@@ -18,6 +18,8 @@ use POE::Filter::Line;
 use POE::Wheel::ReadWrite;
 use POE::Wheel::SocketFactory;
 
+sub DEBUG () { 0 }
+
 # Create the server.  This is just a handy way to encapsulate
 # POE::Session->create().  Because the states are so small, it uses
 # real inline coderefs.
@@ -43,6 +45,7 @@ sub new {
   my $hname   = delete $param{Hostname};
   my $port    = delete $param{Port};
   my $domain  = delete $param{Domain};
+  my $concurrency = delete $param{Concurrency};
 
   foreach (
     qw(
@@ -84,6 +87,9 @@ sub new {
   my $server_started      = delete $param{Started};
 
   # Defaults.
+
+  $concurrency = -1 unless defined $concurrency;
+  my $accept_session;
 
   if (!defined $address && defined $hname) {
     $address = inet_aton($hname);
@@ -192,6 +198,8 @@ sub new {
     unless (defined $accept_callback) {
       $accept_callback = sub {
         my ($socket, $remote_addr, $remote_port) = @_[ARG0, ARG1, ARG2];
+
+
         $session_type->create(
           @$session_params,
           inline_states => {
@@ -266,6 +274,7 @@ sub new {
               undef;
             },
             tcp_server_got_error => sub {
+              DEBUG and warn "$$: $alias child Error ARG0=$_[ARG0] ARG1=$_[ARG1]";
               unless ($_[ARG0] eq 'accept' and $_[ARG1] == ECONNABORTED) {
                 $client_error->(@_);
                 if ($_[HEAP]->{shutdown_on_error}) {
@@ -276,13 +285,16 @@ sub new {
             },
             tcp_server_got_flush => sub {
               my $heap = $_[HEAP];
+              DEBUG and warn "$$: $alias child Flush";
               $client_flushed->(@_);
               if ($heap->{shutdown}) {
+                DEBUG and warn "$$: $alias child Flush, callback";
                 $client_disconnected->(@_);
                 delete $heap->{client};
               }
             },
             shutdown => sub {
+              DEBUG and warn "$$: $alias child Shutdown";
               my $heap = $_[HEAP];
               $heap->{shutdown} = 1;
               if (defined $heap->{client}) {
@@ -290,12 +302,26 @@ sub new {
                   $heap->{got_an_error} or
                   not $heap->{client}->get_driver_out_octets()
                 ) {
+                  DEBUG and warn "$$: $alias child Shutdown, callback";
                   $client_disconnected->(@_);
                   delete $heap->{client};
                 }
               }
             },
-            _stop => sub {},
+            _stop => sub {
+              ## concurrency on close
+              DEBUG and warn "$$: $alias _stop accept_session = $accept_session";
+              if( defined $accept_session ) {
+                $_[KERNEL]->call( $accept_session, 'disconnected' );
+              }
+              else {
+                # This means that the Server::TCP was shutdown before
+                # this connection closed.  So it doesn't really matter that
+                # we can't decrement the connection counter.
+                DEBUG and warn "$$: $_[HEAP]->{alias} Disconnected from a connection without POE::Component::Server::TCP parent";
+              }
+              return;
+            },
 
             # User supplied states.
             %$inline_states
@@ -316,10 +342,24 @@ sub new {
     carp "$mi doesn't recognize \"$_\" as a parameter";
   }
 
+  ## verify concurrency on accept
+  my $orig_accept_callback = $accept_callback;
+  $accept_callback = sub {
+    $_[HEAP]->{connections}++;
+    DEBUG and warn "$$: $_[HEAP]->{alias} Connection opened ($_[HEAP]->{connections} open)";
+    if( $_[HEAP]->{concurrency} != -1 and $_[HEAP]->{listener} ) {
+      if( $_[HEAP]->{connections} >= $_[HEAP]->{concurrency} ) {
+        DEBUG and warn "$$: $_[HEAP]->{alias} Concurrent connection limit reached, pausing accept";
+        $_[HEAP]->{listener}->pause_accept()
+      }
+    }
+    $orig_accept_callback->(@_);
+  };
+
   # Create the session, at long last.  This is done inline so that
   # closures can customize it.
 
-  $session_type->create(
+  $accept_session = $session_type->create(
     @$session_params,
     inline_states => {
       _start => sub {
@@ -327,6 +367,9 @@ sub new {
           $_[HEAP]->{alias} = $alias;
           $_[KERNEL]->alias_set( $alias );
         }
+
+        $_[HEAP]->{concurrency} = $concurrency;
+        $_[HEAP]->{connections} = 0;
 
         $_[HEAP]->{listener} = POE::Wheel::SocketFactory->new(
           ( ($domain == AF_UNIX or $domain == PF_UNIX)
@@ -347,6 +390,29 @@ sub new {
       # We accepted a connection.  Do something with it.
       tcp_server_got_connection => $accept_callback,
 
+      # conncurrency on close.
+      disconnected => sub {
+        $_[HEAP]->{connections}--;
+        DEBUG and warn "$$: $_[HEAP]->{alias} Connection closed ($_[HEAP]->{connections} open)";
+        if( $_[HEAP]->{concurrency} != -1 and $_[HEAP]->{listener} ) {
+          if( $_[HEAP]->{connections} == ($_[HEAP]->{concurrency}-1) ) {
+            DEBUG and warn "$$: $_[HEAP]->{alias} Concurrent connection limit reestablished, resuming accept";
+            $_[HEAP]->{listener}->resume_accept();
+          }
+        }
+      },
+
+      set_concurrency => sub {
+        $_[HEAP]->{concurrency} = $_[ARG0];
+        DEBUG and warn "$$: $_[HEAP]->{alias} Concurrent connection limit = $_[HEAP]->{concurrency}";
+        if( $_[HEAP]->{concurrency} != -1 and $_[HEAP]->{listener} ) {
+          if( $_[HEAP]->{connections} >= $_[HEAP]->{concurrency} ) {
+            DEBUG and warn "$$: $_[HEAP]->{alias} Concurrent connection limit reached, pausing accept";
+            $_[HEAP]->{listener}->pause_accept()
+          }
+        }
+      },
+
       # Shut down.
       shutdown => sub {
         delete $_[HEAP]->{listener};
@@ -355,12 +421,18 @@ sub new {
       },
 
       # Dummy states to prevent warnings.
-      _stop   => sub { return 0 },
+      _stop   => sub {
+        DEBUG and warn "$$: $_[HEAP]->{alias} _stop";
+        undef($accept_session);
+        return 0;
+      },
       _child  => sub { },
     },
 
     args => $args,
   );
+
+  $accept_session = $accept_session->ID;
 
   # Return undef so nobody can use the POE::Session reference.  This
   # isn't very friendly, but it saves grief later.
@@ -371,21 +443,20 @@ sub new {
 # server.
 
 sub _default_server_error {
-  warn(
+  warn("$$: ".
     'Server ', $_[SESSION]->ID,
     " got $_[ARG0] error $_[ARG1] ($_[ARG2])\n"
   );
   delete $_[HEAP]->{listener};
 }
 
-# The default client error handler logs to STDERR and shuts down the
-# server.
+# The default client error handler logs to STDERR
 
 sub _default_client_error {
   my ($syscall, $errno, $error) = @_[ARG0..ARG2];
   unless ($syscall eq "read" and ($errno == 0 or $errno == ECONNRESET)) {
     $error = "(no error)" unless $errno;
-    warn(
+    warn("$$: ".
       'Client session ', $_[SESSION]->ID,
       " got $syscall error $errno ($error)\n"
     );
@@ -404,7 +475,7 @@ POE::Component::Server::TCP - a simplified TCP server
 
   use POE qw(Component::Server::TCP);
 
-  # First form just accepts connections.
+  ### First form just accepts connections.
 
   POE::Component::Server::TCP->new(
     Port     => $bind_port,
@@ -416,7 +487,7 @@ POE::Component::Server::TCP - a simplified TCP server
     Error    => \&error_handler,  # Optional.
   );
 
-  # Second form accepts and handles connections.
+  ### Second form also handles connections.
 
   POE::Component::Server::TCP->new(
     Port     => $bind_port,
@@ -426,6 +497,7 @@ POE::Component::Server::TCP - a simplified TCP server
     Alias    => $session_alias,     # Optional.
     Error    => \&error_handler,    # Optional.
     Args     => [ "arg0", "arg1" ], # Optional.
+    Concurrency => -1,              # Optional.
 
     SessionType   => "POE::Session::Abc",           # Optional.
     SessionParams => [ options => { debug => 1 } ], # Optional.
@@ -446,7 +518,7 @@ POE::Component::Server::TCP - a simplified TCP server
     ObjectStates  => [ ... ],
   );
 
-  # Call signatures for handlers.
+  ### Call signatures for handlers.
 
   sub accept_handler {
     my ($socket, $remote_address, $remote_port) = @_[ARG0, ARG1, ARG2];
@@ -476,7 +548,7 @@ POE::Component::Server::TCP - a simplified TCP server
     # no special parameters
   }
 
-  # Reserved HEAP variables:
+  ### Reserved HEAP variables:
 
   $heap->{listener}    = SocketFactory (only Acceptor and Error callbacks)
   $heap->{client}      = ReadWrite     (only in ClientXyz callbacks)
@@ -486,12 +558,18 @@ POE::Component::Server::TCP - a simplified TCP server
   $heap->{shutdown}    = shutdown flag (check to see if shutting down)
   $heap->{shutdown_on_error} = Automatically disconnect on error.
 
-  # Accepted public events.
+	### Accepted public events.
 
-  $kernel->yield( "shutdown" )           # initiate shutdown in a connection
-  $kernel->post( server => "shutdown" )  # stop listening for connections
+	# Start shutting down this connection.
+  $kernel->yield( "shutdown" );
 
-  # Responding to a client.
+	# Stop listening for connections.
+  $kernel->post( server => "shutdown" );
+
+	# Set the maximum number of simultaneous connections.
+  $kernel->call( server => set_concurrency => $count );
+
+  ### Responding to a client.
 
   $heap->{client}->put(@things_to_send);
 
@@ -768,6 +846,40 @@ Its parameters are the usual for a session's _start handler.
 
 Started is optional.
 
+=item Concurrency => SCALAR
+
+Controls the number of connections that may be open at the same time.
+Defaults to -1, which means unlimited number of simutaneous connections.
+0 means no connections.  This value may be set via the C<set_currency>
+event, see L<EVENTS>.
+
+Note that if you define the C<Acceptor> callback, you will have to inform
+the TCP server session that a connection was closed. This is done by sending
+a C<disconnected> event to your session's parent. This is only necessary if
+you define an C<Acceptor> callback.  For C<ClientInput>, it's all handled
+for you.
+
+Example:
+
+  Acceptor => sub {
+    # ....
+    POE::Session->create(
+      # ....
+      inline_states => {
+        _start => sub {
+          # ....
+          $_[HEAP]->{server_tcp} = $_[SENDER]->ID;  # remember who our parent is
+          # ....
+        },
+        got_client_disconnect => sub {
+          # ....
+          $_[KERNEL]->post( $_[HEAP]->{server_tcp} => 'disconnected' );
+          # ....
+        }
+      }
+    );
+  }
+
 =back
 
 =head1 EVENTS
@@ -784,6 +896,17 @@ that's listening for connections and removing the TCP server's alias,
 if one is set.
 
 Active connections are not shut down until they disconnect.
+
+=item disconnected
+
+Inform the TCP server that a connection was closed.  This is only necessary
+when using C<Concurrency> is set and you are using an L<Acceptor> callback.
+
+=item set_concurrency
+
+Set the number of simultaneous connections.  See L<Concurrency> above.
+
+  $kernel->call( "tcp_server_alias", "set_concurrency", $max_count );
 
 =back
 
