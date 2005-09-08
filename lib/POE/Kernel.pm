@@ -469,54 +469,56 @@ sub test_loop {
   # explicitly.
   if (defined $used_first) {
     load_loop($used_first);
+    return;
   }
-  else {
-    foreach my $file (keys %INC) {
-      next if (substr ($file, -3) ne '.pm');
-      my @split_dirs = File::Spec->splitdir($file);
 
-      # Create a module name by replacing the path separators with
-      # dashes and removing ".pm"
-      my $module = join("_", @split_dirs);
-      substr($module, -3) = "";
+  foreach my $file (keys %INC) {
+    next if (substr ($file, -3) ne '.pm');
+    my @split_dirs = File::Spec->splitdir($file);
 
-      # Skip the module name if it isn't legal.
-      next if $module =~ /[^\w\.]/;
+    # Create a module name by replacing the path separators with
+    # underscores and removing ".pm"
+    my $module = join("_", @split_dirs);
+    substr($module, -3) = "";
 
-      # Try for the XS version first.  If it fails, try the plain
-      # version.  If that fails, we're up a creek.
-      $module = "POE/XS/Loop/$module.pm";
-      unless (find_loop($module)) {
-        $module =~ s|XS/||;
-        next unless (find_loop($module));
-      }
+    # Skip the module name if it isn't legal.
+    next if $module =~ /[^\w\.]/;
 
-      if (defined $used_first and $used_first ne $module) {
-        die(
-          "*\n",
-          "* POE can't use multiple event loops at once.\n",
-          "* You used $used_first and $module.\n",
-          "* Specify the loop you want as an argument to POE\n",
-          "*  use POE qw(Loop::Select);\n",
-          "* or;\n",
-          "*  use POE::Kernel { loop => 'Select' };\n",
-          "*\n",
-        );
-      }
-
-      $used_first = $module;
+    # Try for the XS version first.  If it fails, try the plain
+    # version.  If that fails, we're up a creek.
+    $module = "POE/XS/Loop/$module.pm";
+    unless (find_loop($module)) {
+      $module =~ s|XS/||;
+      next unless (find_loop($module));
     }
 
-    unless (defined $used_first) {
-      $used_first = "POE/XS/Loop/Select.pm";
-      unless (find_loop($used_first)) {
-        $used_first =~ s/XS\///;
-      }
+    if (defined $used_first and $used_first ne $module) {
+      die(
+        "*\n",
+        "* POE can't use multiple event loops at once.\n",
+        "* You used $used_first and $module.\n",
+        "* Specify the loop you want as an argument to POE\n",
+        "*  use POE qw(Loop::Select);\n",
+        "* or;\n",
+        "*  use POE::Kernel { loop => 'Select' };\n",
+        "*\n",
+      );
     }
-    substr($used_first, -3) = "";
-    $used_first =~ s|/|::|g;
-    load_loop($used_first);
+
+    $used_first = $module;
   }
+
+  # No loop found.  Default to our internal select() loop.
+  unless (defined $used_first) {
+    $used_first = "POE/XS/Loop/Select.pm";
+    unless (find_loop($used_first)) {
+      $used_first =~ s/XS\///;
+    }
+  }
+
+  substr($used_first, -3) = "";
+  $used_first =~ s|/|::|g;
+  load_loop($used_first);
 }
 
 #------------------------------------------------------------------------------

@@ -39,6 +39,20 @@ use IO::Poll qw(
   POLLRDNORM POLLWRNORM POLLRDBAND POLLERR POLLHUP POLLNVAL
 );
 
+# Many systems' IO::Poll don't define POLLRDNORM.
+# Usually upgrading IO::Poll helps.
+BEGIN {
+  my $x = eval { POLLRDNORM };
+  if ($@ or not defined $x) {
+    warn(
+      "Your IO::Poll doesn't define POLLRDNORM.  Falling back to IO::Select.\n"
+    );
+    require POE::Loop::Select;
+    POE::Loop::Select->import();
+    die "not really dying";
+  }
+}
+
 my %poll_fd_masks;
 
 # Allow $^T to change without affecting our internals.
