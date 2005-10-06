@@ -56,6 +56,14 @@ callbacks, time or alarm callbacks, and filehandle activity callbacks.
 The rest of the bridge interface is administrative trivia such as
 initializing, executing, and finalizing event loop.
 
+POE::Kernel uses POE::Loop classes internally as a result of detecting
+which event loop is loaded before POE is.  You should almost never
+need to C<use> a POE::Loop class directly, although there is some
+early support for doing so in cases where it's absolutely necessary.
+
+See L<POE::Kernel/"Using POE with Other Event Loops"> for details
+about actually using POE with other event loops.
+
 =head1 GENERAL NOTES
 
 An event loop bridge is not a proper object in itself.  Rather, it is
