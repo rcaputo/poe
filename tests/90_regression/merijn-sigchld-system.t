@@ -18,7 +18,12 @@ use Test::More tests => 2;
 my $command = "/bin/true";
 
 SKIP: {
-	skip( "$command is necessary for this test", 2 ) unless -x $command;
+	my @commands = grep { -x } qw(/bin/true /usr/bin/true);
+	skip( "Couldn't find a command to run under system()", 2 ) unless @commands;
+
+	my $command = shift @commands;
+
+	diag( "Using '$command' as our thing to run under system()" );
 	
 	POE::Session->create(
 		inline_states => {
