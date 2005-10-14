@@ -159,6 +159,7 @@ tests/30_loops/00_base/wheel_tail.pm
 tests/90_regression/averell-callback-ret.t
 tests/90_regression/broeren-win32-nbio.t
 tests/90_regression/ferrari-server-unix.t
+tests/90_regression/merijn-sigchld-system.t
 tests/90_regression/neyuki_detach.t
 tests/90_regression/rt1648-tied-stderr.t
 tests/90_regression/steinert-passed-wheel.t
