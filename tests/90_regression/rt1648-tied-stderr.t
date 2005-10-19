@@ -31,12 +31,17 @@ tie *STDERR, 'Test::Tie::Handle';
 POE::Session->create(
   inline_states => {
     _start => sub {
-      my ($kernel, $heap) = @_[KERNEL, HEAP];
+      my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
+      
+      $_[KERNEL]->sig( 'CHLD', 'sigchld' );
+      $_[KERNEL]->refcount_increment( $session->ID, "teapot" );
+      diag( "Installing CHLD signal Handler" );
       my $wheel = POE::Wheel::Run->new(
         Program     => [ 'sh', '-c', 'echo "My stderr" >/dev/stderr' ],
         StderrEvent => 'stderr'
       );
       $heap->{wheel} = $wheel;
+      $heap->{pid} = $wheel->PID;
       $kernel->delay(shutdown => 3);
       $heap->{got_stderr} = 0;
     },
@@ -47,6 +52,14 @@ POE::Session->create(
     },
     shutdown => sub {
       delete $_[HEAP]->{wheel};
+    },
+    sigchld => sub {
+      diag( "Got SIGCHLD for PID $_[ARG1]" );
+      if ($_[ARG1] == $_[HEAP]->{pid}) {
+        diag( "PID Matches, removing CHLD handler" );
+        $_[KERNEL]->sig( 'CHLD' );
+	$_[KERNEL]->refcount_decrement( $_[SESSION]->ID, "teapot" );
+      }
     },
     _stop => sub {
       ok( $_[HEAP]->{got_stderr}, "received STDERR despite it being tied");
