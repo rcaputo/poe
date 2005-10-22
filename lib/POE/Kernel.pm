@@ -193,7 +193,7 @@ sub ET_MASK_USER () { ~(ET_GC | ET_SCPOLL | ET_STAT) }
 # Temporary signal subtypes, used during signal dispatch semantics
 # deprecation and reformation.
 
-sub ET_SIGNAL_RECURSIVE () { 0x0800 }  # Explicitly requested signal.
+sub ET_SIGNAL_RECURSIVE () { 0x1000 }  # Explicitly requested signal.
 sub ET_SIGNAL_ANY () { ET_SIGNAL | ET_SIGNAL_RECURSIVE }
 
 # A hash of reserved names.  It's used to test whether someone is
