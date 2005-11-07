@@ -53,7 +53,9 @@ sub loop_watch_signal {
 
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
-    $SIG{$signal} = "DEFAULT";
+# We should never twiddle $SIG{CH?LD} under poe, unless we want to override
+# system() and friends. --hachi
+#    $SIG{$signal} = "DEFAULT";
     $self->_data_sig_begin_polling();
     return;
   }
@@ -73,7 +75,9 @@ sub loop_ignore_signal {
 
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
     $self->_data_sig_cease_polling();
-    $SIG{$signal} = "IGNORE";
+# We should never twiddle $SIG{CH?LD} under poe, unless we want to override
+# system() and friends. --hachi
+#    $SIG{$signal} = "IGNORE";
     return;
   }
 
