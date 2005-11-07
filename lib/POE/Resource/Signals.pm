@@ -146,10 +146,32 @@ sub _data_sig_finalize {
   return $finalized_ok;
 }
 
+### Count the number of refcount slots used for a particular
+### session in signal watchers.
+
+sub _data_sig_count_ses {
+  my ($self, $session) = @_;
+
+  if (exists( $kr_sessions_to_signals{$session} )) {
+    return scalar keys %{$kr_sessions_to_signals{$session}};
+  }
+  else {
+    return 0;
+  }
+}
+
 ### Add a signal to a session.
 
 sub _data_sig_add {
   my ($self, $session, $signal, $event) = @_;
+
+  unless (
+    exists($kr_sessions_to_signals{$session}) and
+    exists($kr_sessions_to_signals{$session}->{$signal})
+  ) {
+    $self->_data_ses_refcount_inc( $session );
+  }
+  
   $kr_sessions_to_signals{$session}->{$signal} = $event;
   $kr_signals{$signal}->{$session} = $event;
 
@@ -167,6 +189,13 @@ sub _data_sig_add {
 
 sub _data_sig_remove {
   my ($self, $session, $signal) = @_;
+
+  if (
+    exists($kr_sessions_to_signals{$session}) and
+    exists($kr_sessions_to_signals{$session}->{$signal})
+  ) {
+    $self->_data_ses_refcount_dec( $session );
+  }
 
   delete $kr_sessions_to_signals{$session}->{$signal};
   delete $kr_sessions_to_signals{$session}

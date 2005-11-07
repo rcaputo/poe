@@ -414,7 +414,8 @@ sub _data_ses_collect_garbage {
       scalar(keys(%{$ss->[SS_CHILDREN]})) +
       $self->_data_handle_count_ses($session) +
       $self->_data_extref_count_ses($session) +
-      $self->_data_alias_count_ses($session)
+      $self->_data_alias_count_ses($session) + 
+      $self->_data_sig_count_ses($session)
     );
 
     # The calculated reference count really ought to match the one
