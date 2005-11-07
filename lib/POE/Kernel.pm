@@ -1101,18 +1101,30 @@ sub run {
   # So run() can be called as a class method.
   POE::Kernel->new unless (defined $poe_kernel);
   my $self = $poe_kernel;
-
+  
   # Flag that run() was called.
   $kr_run_warning |= KR_RUN_CALLED;
 
-  # All signals must be explicitly watched now.  We do it here because
-  # it's too early in initialize_kernel_session.
-  $self->_data_sig_add($self, "IDLE", EN_SIGNAL);
+  # Don't run the loop if we have no sessions
+  # Loop::Event will blow up, so we're doing this sanity check
+  if ( $self->_data_ses_count() == 0 ) {
+    # Emit noise only if we are under debug mode
+    if ( ASSERT_DATA ) {
+	_warn("Not running the event loop because we have no sessions!\n");
+    }
+  } else {
+    # All signals must be explicitly watched now.  We do it here because
+    # it's too early in initialize_kernel_session.
+    $self->_data_sig_add($self, "IDLE", EN_SIGNAL);
 
-  $self->loop_run();
+    # Run the loop!
+    $self->loop_run();
+    
+    # Cleanup
+    $self->finalize_kernel();
+  }
 
   # Clean up afterwards.
-  $self->finalize_kernel();
   $kr_run_warning |= KR_RUN_DONE;
 }
 
