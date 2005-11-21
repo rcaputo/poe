@@ -143,6 +143,14 @@ sub _data_sig_finalize {
 
   %_safe_signals = ();
 
+  {
+    local $!;
+    until ((my $pid = waitpid( -1, 0 )) == -1) {
+      _warn( "Child process PID:$pid reaped: $!\n" );
+      $finalized_ok = 0;
+    }
+  }
+
   return $finalized_ok;
 }
 
