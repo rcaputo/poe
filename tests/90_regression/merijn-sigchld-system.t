@@ -13,13 +13,13 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use POE;
 
-use Test::More tests => 2;
+use Test::More tests => 3;
 
 my $command = "/bin/true";
 
 SKIP: {
 	my @commands = grep { -x } qw(/bin/true /usr/bin/true);
-	skip( "Couldn't find a command to run under system()", 2 ) unless @commands;
+	skip( "Couldn't find a command to run under system()", 3 ) unless @commands;
 
 	my $command = shift @commands;
 
@@ -30,13 +30,22 @@ SKIP: {
 			_start => sub {
 				diag( "SIG{CHLD}: $SIG{CHLD}" );
 				is( system( $command ), 0, "System returns properly" );
+				diag( '$!: ' . $! );
+				$! = undef;
 				
 				$_[KERNEL]->sig( 'CHLD', 'chld' );
 				
 				diag( "SIG{CHLD}: $SIG{CHLD}" );
 				is( system( $command ), 0, "System returns properly" );
+				diag( '$!: ' . $! );
+				$! = undef;
 				
 				$_[KERNEL]->sig( 'CHLD' );
+
+				diag( "SIG{CHLD}: $SIG{CHLD}" );
+				is( system( $command ), 0, "System returns properly" );
+				diag( '$!: ' . $! );
+				$! = undef;
 			},
 			chld => sub {
 				diag( "Caught child" );
