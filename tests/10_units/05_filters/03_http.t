@@ -15,7 +15,7 @@ BEGIN {
             eval " use Test::More skip_all => 'HTTP::Request is needed for these tests.' ";
         } else {
             eval {
-                eval " use Test::More tests => 56; ";
+                eval " use Test::More tests => 57; ";
                 use_ok('POE::Filter::HTTPD');
             }
         }
@@ -139,8 +139,11 @@ Connection: Keep-Alive
       skip("simple post: Please upgrade HTTP::Request to $required_http_request_version or later", 1)
         if $^O eq "MSWin32" and $HTTP::Request::VERSION < $required_http_request_version;
 
-      is($req->content, "I=like&tasty=pie\n",
+      is($req->content, "I=like&tasty=pie",
         'simple post: HTTP::Request object contains proper content');
+
+      is( length($req->content), $req->header('Content-Length'),
+        'simple post: Content is the right length');
     }
 
     is($req->header('Content-Type'), 'application/x-www-form-urlencoded',
