@@ -167,57 +167,57 @@ POE::Session->create(
 
       $test_trace = "";
       $kernel->call( a1_1 => 'detach_self' );
-      ok(
-        $test_trace eq '(c 1 lose a1_1)(p a1_1 1 kernel)',
+      is(
+        $test_trace, '(c 1 lose a1_1)(p a1_1 1 kernel)',
         "a1_1 detached itself"
       );
 
       $test_trace = '';
       $kernel->call( a2_1 => 'detach_self' );
-      ok(
-        $test_trace eq '(c 2 lose a2_1)(p a2_1 2 kernel)',
+      is(
+        $test_trace, '(c 2 lose a2_1)(p a2_1 2 kernel)',
         "a2_1 detached itself"
       );
 
       $test_trace = '';
       $kernel->call( a3_1 => 'detach_self' );
-      ok(
-        $test_trace eq '(c 3 lose a3_1)(p a3_1 3 kernel)',
+      is(
+        $test_trace, '(c 3 lose a3_1)(p a3_1 3 kernel)',
         "a3_1 detached itself"
       );
 
       $test_trace = '';
       $kernel->call( a1 => detach_child => 'a1_2' );
-      ok(
-        $test_trace eq '(c 1 lose a1_2)(p a1_2 1 kernel)',
+      is(
+        $test_trace, '(c 1 lose a1_2)(p a1_2 1 kernel)',
         "a1 detached child a1_2"
       );
 
       $test_trace = '';
       $kernel->call( a2 => detach_child => 'a2_2' );
-      ok(
-        $test_trace eq '(c 2 lose a2_2)(p a2_2 2 kernel)',
+      is(
+        $test_trace, '(c 2 lose a2_2)(p a2_2 2 kernel)',
         "a2 detached child a2_2"
       );
 
       $test_trace = '';
       $kernel->call( a3 => detach_child => 'a3_2' );
-      ok(
-        $test_trace eq '(c 3 lose a3_2)(p a3_2 3 kernel)',
+      is(
+        $test_trace, '(c 3 lose a3_2)(p a3_2 3 kernel)',
         "a3 detached child a3_2"
       );
 
       $test_trace = '';
       $kernel->call( a1 => 'detach_self' );
-      ok(
-        $test_trace eq '(c main lose 1)(p 1 main kernel)',
+      is(
+        $test_trace, '(c main lose 1)(p 1 main kernel)',
         "a1 detached itself"
       );
 
       $test_trace = '';
       $kernel->call( main => detach_child => 'a2' );
-      ok(
-        $test_trace eq '(c main lose 2)(p 2 main kernel)',
+      is(
+        $test_trace, '(c main lose 2)(p 2 main kernel)',
         "a2 detached itself"
       );
     },
@@ -268,8 +268,9 @@ substr($test_trace, 0, 1) = '';
 substr($test_trace, -1, 1) = '';
 $test_trace = '(' . (join ')(', sort split /\)\(/, $test_trace) . ')';
 
-ok(
-  $test_trace eq join(
+is(
+  $test_trace,
+  join(
     "",
     "(c 1 lose a1_3)",
     "(c 2 lose a2_3)",
