@@ -934,22 +934,58 @@ sub _dispatch_event {
     $before = time();
   }
   my $return;
-  if (wantarray) {
-    $return = [
+  my $wantarray = wantarray;
+  eval {
+    if ($wantarray) {
+      $return = [
+        $session->_invoke_state(
+          $source_session, $event, $etc, $file, $line, $fromstate
+        )
+      ];
+    }
+    elsif (defined $wantarray) {
+      $return = $session->_invoke_state(
+        $source_session, $event, $etc, $file, $line, $fromstate
+      );
+    }
+    else {
       $session->_invoke_state(
         $source_session, $event, $etc, $file, $line, $fromstate
-      )
-    ];
-  }
-  elsif (defined wantarray) {
-    $return = $session->_invoke_state(
-      $source_session, $event, $etc, $file, $line, $fromstate
+      );
+    }
+  };
+
+  if($@ ne '') {
+    if(TRACE_EVENTS) {
+      _warn(
+        "<ev> exception occurred in $event when invoked on ",
+        $self->_data_alias_loggable($session)
+      );
+    }
+
+    $return = $self->_dispatch_event(
+      $session,
+      $source_session,
+      EN_SIGNAL,
+      ET_SIGNAL,
+      [ 
+        'DIE' => { 
+          source_session => $source_session,
+          dest_session => $session,
+          event => $event,
+          file => $file,
+          line => $line,
+          from_state => $fromstate,
+          error_str => $@,
+        },
+      ],
+      __FILE__,
+      __LINE__,
+      undef,
+      time(),
+      -__LINE__,
     );
-  }
-  else {
-    $session->_invoke_state(
-      $source_session, $event, $etc, $file, $line, $fromstate
-    );
+        
   }
 
   # Clear out the event arguments list, in case there are POE-ish
@@ -1243,6 +1279,7 @@ sub session_alloc {
     }
   }
 
+
   # Register that a session was created.
   $kr_run_warning |= KR_RUN_SESSION;
 
@@ -1250,6 +1287,8 @@ sub session_alloc {
   # we dispatch anything regarding the new session.
   my $new_sid = $self->_data_sid_allocate();
   $self->_data_ses_allocate($session, $new_sid, $kr_active_session);
+
+  my $loggable = $self->_data_alias_loggable($session);
 
   # Tell the new session that it has been created.  Catch the _start
   # state's return value so we can pass it to the parent with the
@@ -1259,6 +1298,12 @@ sub session_alloc {
     EN_START, ET_START, \@args,
     __FILE__, __LINE__, undef, time(), -__LINE__
   );
+  unless($self->_data_ses_exists($session)) {
+    if(TRACE_SESSIONS) {
+      _warn("<ss> ", $loggable, " disappeared during ", EN_START);
+    }
+    return $return;
+  }
 
   # If the child has not detached itself---that is, if its parent is
   # the currently active session---then notify the parent with a
@@ -1269,6 +1314,14 @@ sub session_alloc {
     EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
     __FILE__, __LINE__, undef, time(), -__LINE__
   );
+
+  unless($self->_data_ses_exists($session)) {
+    if(TRACE_SESSIONS) {
+      _warn("<ss> ", $loggable, " disappeared during ", EN_CHILD, " dispatch");
+    }
+    return $return;
+  }
+
 
   # Enqueue a delayed garbage-collection event so the session has time
   # to do its thing before it goes.
@@ -3964,3 +4017,5 @@ Probably lots more.
 Please see L<POE> for more information about authors and contributors.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
