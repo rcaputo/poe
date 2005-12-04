@@ -88,6 +88,14 @@ BEGIN {
     require Time::HiRes;
     Time::HiRes->import(qw(time sleep));
   } if USE_TIME_HIRES();
+
+  # Set up a "constant" sub that lets the user deactivate
+  # automatic exception handling
+  { no strict 'refs';
+    unless(defined &CATCH_EXCEPTIONS) {
+      eval "sub CATCH_EXCEPTIONS () { 1 }";
+    }
+  }
 }
 
 #==============================================================================
@@ -933,9 +941,63 @@ sub _dispatch_event {
   if (TRACE_STATISTICS) {
     $before = time();
   }
+
   my $return;
   my $wantarray = wantarray;
-  eval {
+  if(CATCH_EXCEPTIONS) {
+    eval {
+      if ($wantarray) {
+        $return = [
+          $session->_invoke_state(
+            $source_session, $event, $etc, $file, $line, $fromstate
+          )
+        ];
+      }
+      elsif (defined $wantarray) {
+        $return = $session->_invoke_state(
+          $source_session, $event, $etc, $file, $line, $fromstate
+        );
+      }
+      else {
+        $session->_invoke_state(
+          $source_session, $event, $etc, $file, $line, $fromstate
+        );
+      }
+    };
+
+    if($@ ne '') {
+      if(TRACE_EVENTS) {
+        _warn(
+          "<ev> exception occurred in $event when invoked on ",
+          $self->_data_alias_loggable($session)
+        );
+      }
+
+      $return = $self->_dispatch_event(
+        $session,
+        $source_session,
+        EN_SIGNAL,
+        ET_SIGNAL,
+        [ 
+          'DIE' => { 
+            source_session => $source_session,
+            dest_session => $session,
+            event => $event,
+            file => $file,
+            line => $line,
+            from_state => $fromstate,
+            error_str => $@,
+          },
+        ],
+        __FILE__,
+        __LINE__,
+        undef,
+        time(),
+        -__LINE__,
+      );
+    }
+    
+  } else {
     if ($wantarray) {
       $return = [
         $session->_invoke_state(
@@ -953,40 +1015,8 @@ sub _dispatch_event {
         $source_session, $event, $etc, $file, $line, $fromstate
       );
     }
-  };
-
-  if($@ ne '') {
-    if(TRACE_EVENTS) {
-      _warn(
-        "<ev> exception occurred in $event when invoked on ",
-        $self->_data_alias_loggable($session)
-      );
-    }
-
-    $return = $self->_dispatch_event(
-      $session,
-      $source_session,
-      EN_SIGNAL,
-      ET_SIGNAL,
-      [ 
-        'DIE' => { 
-          source_session => $source_session,
-          dest_session => $session,
-          event => $event,
-          file => $file,
-          line => $line,
-          from_state => $fromstate,
-          error_str => $@,
-        },
-      ],
-      __FILE__,
-      __LINE__,
-      undef,
-      time(),
-      -__LINE__,
-    );
-        
   }
+
 
   # Clear out the event arguments list, in case there are POE-ish
   # things in it. This allows them to destruct happily before we set
@@ -3464,8 +3494,15 @@ handler calls C<sig_handled()>, however, then the program will
 continue to live.
 
 The terminal system signals are: HUP, INT, KILL, QUIT and TERM.  There
-is also one terminal fictitious signal, IDLE, which is used to notify
-leftover sessions when a program has run out of things to do.
+are two terminal fictitious signals, IDLE and DIE. IDLE is used to notify
+leftover sessions when a program has run out of things to do. DIE is 
+used to notify sessions that an exception has occurred.
+
+POE's automatic exception handling can be turned off by setting the
+C<CATCH_EXCEPTIONS> constant subroutine in C<POE::Kernel> to 0 like so:
+
+  sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
+
 
 =item nonmaskable
 

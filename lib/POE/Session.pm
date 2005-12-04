@@ -1809,6 +1809,52 @@ session.  The existing session which created a child becomes its
 A session with children will not spontaneously stop.  In other words,
 the presence of child sessions will keep a parent alive.
 
+=head2 Exceptions
+
+POE traps exceptions that happen within an event. When an exception
+occurs, POE sends the C<DIE> signal to the session that caused the
+exception. This is a terminal signal and will shutdown the POE
+environment unless the session handles the signal and calls
+C<sig_handled()>. 
+
+This behavior can be turned off by setting the C<CATCH_EXCEPTIONS>
+constant subroutine in C<POE::Kernel> to 0 like so:
+
+  sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
+
+The signal handler will be passed a single argument, a hashref,
+containing the following data.
+
+=item source_session
+
+The session from which the event originated
+
+=item dest_session
+
+The session which was the destination of the event. This is also the
+session that caused the exception.
+
+=item event
+
+Name of the event that caused the exception
+
+=item file
+
+The filename of the code which called the problematic event 
+
+=item line
+
+The line number of the code which called the problematic event
+
+=item from_state
+
+The state that was called the problematci event
+
+=item error_str
+
+The value of C<$@>, which contains the error string created by the
+exception.
+
 =head2 Session's Debugging Features
 
 POE::Session contains a two debugging assertions, for now.
