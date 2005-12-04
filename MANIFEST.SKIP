@@ -26,3 +26,4 @@ CVS
 test-output\.err$
 tests/[23]0_.*\.t
 ~$
+run_network_tests
