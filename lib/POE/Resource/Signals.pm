@@ -34,9 +34,15 @@ my %kr_sessions_to_signals;
 
 # Bookkeeping per dispatched signal.
 
-my @kr_signaled_sessions;           # The sessions touched by a signal.
-my $kr_signal_total_handled;        # How many sessions handled a signal.
-my $kr_signal_type;                 # The type of signal being dispatched.
+use vars (
+ '@kr_signaled_sessions',            # The sessions touched by a signal.
+ '$kr_signal_total_handled',         # How many sessions handled a signal.
+ '$kr_signal_type',                  # The type of signal being dispatched.
+);
+
+#my @kr_signaled_sessions;           # The sessions touched by a signal.
+#my $kr_signal_total_handled;        # How many sessions handled a signal.
+#my $kr_signal_type;                 # The type of signal being dispatched.
 
 # A flag to tell whether we're currently polling for signals.
 my $polling_for_signals = 0;

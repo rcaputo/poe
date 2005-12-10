@@ -845,6 +845,10 @@ sub _dispatch_event {
 
       # Step 1a: Reset the handled-signal flags.
 
+      local @POE::Kernel::kr_signaled_sessions;
+      local $POE::Kernel::kr_signal_total_handled;
+      local $POE::Kernel::kr_signal_type;
+
       $self->_data_sig_reset_handled($signal);
 
       my @touched_sessions = ($session);
