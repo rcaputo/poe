@@ -1,6 +1,6 @@
 # $Id$
 
-use Test::More tests => 6; 
+use Test::More tests => 7;
 
 use POE;
 
@@ -32,7 +32,12 @@ POE::Session->create(
 	},
 );
 
-POE::Kernel->run();
+eval {
+	POE::Kernel->run();
+};
+
+ok(length $@, "unhandled exception was propagated");
+like($@, qr/OMG THEY CANCELLED FRIENDS/, '$@contains the correct error message');
 pass("POE environment shut down");
 
 

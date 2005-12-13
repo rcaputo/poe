@@ -905,7 +905,7 @@ sub _dispatch_event {
       $self->_data_sig_free_terminated_sessions();
 
       # Signal completely dispatched.  Thanks for flying!
-      return;
+      return (_data_sig_handled_status())[0];
     }
   }
 
@@ -968,8 +968,14 @@ sub _dispatch_event {
         );
       }
     };
+    
+    # local $@ doesn't work quite the way I expect, but there is a
+    # bit of a problem if an eval{} occurs here because a signal is
+    # dispatched or something.
 
-    if($@ ne '') {
+    my $exception = $@;
+
+    if($exception ne '') {
       if(TRACE_EVENTS) {
         _warn(
           "<ev> exception occurred in $event when invoked on ",
@@ -977,7 +983,7 @@ sub _dispatch_event {
         );
       }
 
-      $return = $self->_dispatch_event(
+      my $handled = $self->_dispatch_event(
         $session,
         $source_session,
         EN_SIGNAL,
@@ -990,7 +996,7 @@ sub _dispatch_event {
             file => $file,
             line => $line,
             from_state => $fromstate,
-            error_str => $@,
+            error_str => $exception,
           },
         ],
         __FILE__,
@@ -999,6 +1005,10 @@ sub _dispatch_event {
         time(),
         -__LINE__,
       );
+
+      unless ($handled) {
+        die( $exception );
+      }
     }
     
   } else {
