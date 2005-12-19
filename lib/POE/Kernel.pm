@@ -81,9 +81,13 @@ BEGIN {
       $time_hires_default = USE_TIME_HIRES();
     }
     else {
-      eval "sub USE_TIME_HIRES () { $time_hires_default }";
+      *USE_TIME_HIRES = sub () { $time_hires_default };
     }
   }
+}
+
+# Second BEGIN block so that USE_TIME_HIRES is treated as a constant.
+BEGIN {
   eval {
     require Time::HiRes;
     Time::HiRes->import(qw(time sleep));
@@ -92,8 +96,8 @@ BEGIN {
   # Set up a "constant" sub that lets the user deactivate
   # automatic exception handling
   { no strict 'refs';
-    unless(defined &CATCH_EXCEPTIONS) {
-      eval "sub CATCH_EXCEPTIONS () { 1 }";
+    unless (defined &CATCH_EXCEPTIONS) {
+      *CATCH_EXCEPTIONS = sub () { 1 };
     }
   }
 }
@@ -248,19 +252,8 @@ sub define_trace {
   foreach my $name (@_) {
     next if defined *{"TRACE_$name"}{CODE};
     my $trace_value = &TRACE_DEFAULT;
-    eval "sub TRACE_$name () { $trace_value }";
-    die if $@;
-  }
-}
-
-# Shorthand for defining an assert constant.
-sub define_assert {
-  no strict 'refs';
-  foreach my $name (@_) {
-    next if defined *{"ASSERT_$name"}{CODE};
-    my $assert_value = &ASSERT_DEFAULT;
-    eval "sub ASSERT_$name () { $assert_value }";
-    die if $@;
+    my $trace_name  = "TRACE_$name";
+    *$trace_name = sub () { $trace_value };
   }
 }
 
@@ -270,6 +263,16 @@ sub define_assert {
 # here.
 
 BEGIN {
+  # Shorthand for defining an assert constant.
+  sub define_assert {
+    no strict 'refs';
+    foreach my $name (@_) {
+      next if defined *{"ASSERT_$name"}{CODE};
+      my $assert_value = &ASSERT_DEFAULT;
+      my $assert_name  = "ASSERT_$name";
+      *$assert_name = sub () { $assert_value };
+    }
+  }
 
   # Assimilate POE_TRACE_* and POE_ASSERT_* environment variables.
   # Environment variables override everything else.
@@ -285,8 +288,7 @@ BEGIN {
 
     BEGIN { $^W = 0; }
 
-    eval "sub $const () { $value }";
-    die if $@;
+    *$const = sub () { $value };
   }
 
   # TRACE_FILENAME is special.
@@ -306,7 +308,7 @@ BEGIN {
   # constants.  Since define_trace() uses TRACE_DEFAULT internally, it
   # can't be used to define TRACE_DEFAULT itself.
 
-  defined &TRACE_DEFAULT or eval "sub TRACE_DEFAULT () { 0 }";
+  defined &TRACE_DEFAULT or *TRACE_DEFAULT = sub () { 0 };
 
   define_trace qw(
     EVENTS FILES PROFILE REFCNT RETVALS SESSIONS SIGNALS STATISTICS
@@ -315,7 +317,7 @@ BEGIN {
   # See the notes for TRACE_DEFAULT, except read ASSERT and assert
   # where you see TRACE and trace.
 
-  defined &ASSERT_DEFAULT or eval "sub ASSERT_DEFAULT () { 0 }";
+  defined &ASSERT_DEFAULT or *ASSERT_DEFAULT = sub () { 0 };
 
   define_assert qw(DATA EVENTS FILES RETVALS USAGE);
 }
@@ -453,13 +455,13 @@ sub find_loop {
 sub load_loop {
   my $loop = shift;
 
-  eval "sub poe_kernel_loop { return \"$loop\"; }";
-  eval "require $loop";
+  *poe_kernel_loop = sub { return "$loop" };
 
   # Modules can die with "not really dying" if they've loaded
   # something else.  This exception prevents the rest of the
   # originally used module from being parsed, so the module it's
   # handed off to takes over.
+  eval "require $loop";
   if ($@ and $@ !~ /not really dying/) {
     die(
       "*\n",
@@ -469,6 +471,7 @@ sub load_loop {
     );
   }
 }
+
 sub test_loop {
   my $used_first = shift;
   local $SIG{__DIE__} = "DEFAULT";
