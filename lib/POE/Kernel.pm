@@ -971,7 +971,7 @@ sub _dispatch_event {
         );
       }
     };
-    
+
     # local $@ doesn't work quite the way I expect, but there is a
     # bit of a problem if an eval{} occurs here because a signal is
     # dispatched or something.
@@ -991,8 +991,8 @@ sub _dispatch_event {
         $source_session,
         EN_SIGNAL,
         ET_SIGNAL,
-        [ 
-          'DIE' => { 
+        [
+          'DIE' => {
             source_session => $source_session,
             dest_session => $session,
             event => $event,
@@ -1013,7 +1013,7 @@ sub _dispatch_event {
         die( $exception );
       }
     }
-    
+
   } else {
     if ($wantarray) {
       $return = [
@@ -1184,7 +1184,7 @@ sub run {
   # So run() can be called as a class method.
   POE::Kernel->new unless (defined $poe_kernel);
   my $self = $poe_kernel;
-  
+
   # Flag that run() was called.
   $kr_run_warning |= KR_RUN_CALLED;
 
@@ -1193,7 +1193,7 @@ sub run {
   if ( $self->_data_ses_count() == 0 ) {
     # Emit noise only if we are under debug mode
     if ( ASSERT_DATA ) {
-	_warn("Not running the event loop because we have no sessions!\n");
+      _warn("Not running the event loop because we have no sessions!\n");
     }
   } else {
     # All signals must be explicitly watched now.  We do it here because
@@ -1202,7 +1202,7 @@ sub run {
 
     # Run the loop!
     $self->loop_run();
-    
+
     # Cleanup
     $self->finalize_kernel();
   }
@@ -3512,7 +3512,7 @@ continue to live.
 
 The terminal system signals are: HUP, INT, KILL, QUIT and TERM.  There
 are two terminal fictitious signals, IDLE and DIE. IDLE is used to notify
-leftover sessions when a program has run out of things to do. DIE is 
+leftover sessions when a program has run out of things to do. DIE is
 used to notify sessions that an exception has occurred.
 
 POE's automatic exception handling can be turned off by setting the
