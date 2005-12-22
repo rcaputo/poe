@@ -11,6 +11,10 @@ BEGIN {
     print "1..0: Network access (and permission) required to run this test\n";
     CORE::exit();
   }
+  if ($^O eq "MSWin32") {
+    print "1..0: Windows sockets aren't as concurrent as those on Unix\n";
+    CORE::exit();
+  }
 }
 
 use Test::More tests => (42);
@@ -80,9 +84,9 @@ sub do_servers {
             my ($heap, $input) = @_[HEAP, ARG0];
             $acceptorN++;
             DEBUG and warn(
-							"$$: acceptor server received input ($input) ",
-							"acceptorN=$acceptorN"
-						);
+              "$$: acceptor server received input ($input) ",
+              "acceptorN=$acceptorN"
+            );
             $heap->{wheel}->put("echo: $input #$acceptorN");
             if($input eq "quit") {
               DEBUG and warn("$$: accept_server quit");
@@ -99,8 +103,8 @@ sub do_servers {
             }
             else {
               warn(
-								"$$: acceptor server got $operation error $errnum: $errstr\n"
-							);
+                "$$: acceptor server got $operation error $errnum: $errstr\n"
+              );
             }
             delete $heap->{wheel};
           },
@@ -132,8 +136,8 @@ sub do_servers {
       my ($heap, $input) = @_[HEAP, ARG0];
       $callbackN++;
       DEBUG and warn(
-				"$$: callback server received input ($input) callbackN=$callbackN"
-			);
+        "$$: callback server received input ($input) callbackN=$callbackN"
+      );
       if($input eq "quit") {
         DEBUG and warn("$$: callback_server quit");
         $_[KERNEL]->post( callback_server => 'shutdown' );
@@ -156,8 +160,8 @@ sub do_servers {
       $connected{callback} ++;
       if( $connected{callback} > 4 ) {
         fail(
-					"callback server got $connected{callback} simultaneous connections"
-				);
+          "callback server got $connected{callback} simultaneous connections"
+        );
       }
       else {
         pass("callback server : $connected{callback} connections open");
@@ -176,8 +180,8 @@ sub do_servers {
 
 sub do_clients {
   foreach my $N (1..21) {
-		DEBUG and warn "$$: SPAWN\n";
-		two_clients($N);
+    DEBUG and warn "$$: SPAWN\n";
+    two_clients($N);
   }
 }
 
