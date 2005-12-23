@@ -48,19 +48,55 @@ my $test_base = "tests";
   my $base_lib = File::Spec->catfile($base_dir,  "00_base");
 
   my %derived_conf = (
-    "10_select" => { module => "",         display => "" },
-    "20_poll"   => { module => "IO::Poll", display => "" },
-    "30_event"  => { module => "Event",    display => "" },
-    "40_gtk"    => { module => "Gtk",      display => 1  },
-    "50_tk"     => { module => "Tk",       display => 1  },
+    "10_select" => {
+			module		=> "",
+			display		=> "",
+		},
+    "20_poll"   => {
+			module		=> "IO::Poll",
+			display		=> "",
+			no_sys		=> [ "MSWin32" ],
+		},
+    "30_event"  => {
+			module		=> "Event",
+			display		=> "",
+		},
+    "40_gtk"    => {
+			module		=> "Gtk",
+			display		=> 1,
+		},
+    "50_tk"     => {
+			module		=> "Tk",
+			display		=> 1,
+		},
   );
 
-  # Turn a specified display flag into the code that tests for a
-  # DISPLAY environment variable.  DISPLAY is not necessary for
-  # ActiveState Perl, at least not for Tk.
+	# Expand flags into code.
 
   foreach my $variables (values %derived_conf) {
     my $module = $variables->{module};
+
+		# If platforms are to be excluded, check for them.
+
+		if (
+			$variables->{no_sys} and
+			grep /^\Q$^O\E/, @{$variables->{no_sys}}
+		) {
+			$variables->{no_sys} = (
+				"\n" .
+				"BEGIN {\n" .
+				"  print qq(1..0 # Skip This test cannot be run on $^O\\n);\n" .
+				"  POSIX::_exit(0);\n" .
+				"}\n"
+			);
+		}
+		else {
+			$variables->{no_sys} = "";
+		}
+
+		# Turn a specified display flag into the code that tests for a
+		# DISPLAY environment variable.  DISPLAY is not necessary for
+		# ActiveState Perl, at least not for Tk.
 
     if ($variables->{display}) {
       if ($^O eq "MSWin32") {
@@ -72,7 +108,7 @@ my $test_base = "tests";
           "BEGIN {\n" .
           "  unless (\$ENV{DISPLAY}) {\n" .
           "    print qq(1..0 # " .
-          "SKIP $module needs a DISPLAY (set one today, okay?)\\n);\n" .
+          "Skip $module needs a DISPLAY (set one today, okay?)\\n);\n" .
           "    POSIX::_exit(0);\n" .
           "  }\n" .
           "}\n"
@@ -89,7 +125,7 @@ my $test_base = "tests";
         "BEGIN {\n" .
         "  eval 'use $module';\n" .
         "  if (\$@) {\n" .
-        "    print qq(1..0 # SKIP $module could not be loaded\\n);\n" .
+        "    print qq(1..0 # Skip $module could not be loaded\\n);\n" .
         "    POSIX::_exit(0);\n" .
         "  }\n" .
         "}\n"
@@ -103,6 +139,7 @@ my $test_base = "tests";
     "\n" .
     "use strict;\n" .
     "use POSIX qw(_exit);\n" .
+		"--no_sys--" .
     "use lib qw(--base_lib--);\n" .
     "--display--" .
     "--module--" .
