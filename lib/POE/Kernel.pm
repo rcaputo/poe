@@ -288,6 +288,7 @@ BEGIN {
 
     BEGIN { $^W = 0; }
 
+    no strict 'refs';
     *$const = sub () { $value };
   }
 
