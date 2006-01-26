@@ -491,7 +491,6 @@ sub set_filter {
   my $buf = $self->[FILTER_INPUT]->get_pending();
   $self->[FILTER_INPUT] = $self->[FILTER_OUTPUT] = $new_filter;
 
-  $self->_define_read_state();
   $self->_transfer_input_buffer($buf);
 }
 
@@ -501,7 +500,6 @@ sub set_input_filter {
   my $buf = $self->[FILTER_INPUT]->get_pending();
   $self->[FILTER_INPUT] = $new_filter;
 
-  $self->_define_read_state();
   $self->_transfer_input_buffer($buf);
 }
 

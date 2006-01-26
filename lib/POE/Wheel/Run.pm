@@ -845,10 +845,6 @@ sub event {
       carp "ignoring unknown Run parameter '$name'";
     }
   }
-
-  $self->_define_stdin_flusher() if defined $redefine_stdin;
-  $self->_define_stdout_reader() if defined $redefine_stdout;
-  $self->_define_stderr_reader() if defined $redefine_stderr;
 }
 
 #------------------------------------------------------------------------------
@@ -1049,7 +1045,6 @@ sub set_stdout_filter {
   my $buf = $self->[FILTER_STDOUT]->get_pending();
   $self->[FILTER_STDOUT] = $new_filter;
 
-  $self->_define_stdout_reader();
   $self->_transfer_stdout_buffer($buf);
 }
 
@@ -1059,7 +1054,6 @@ sub set_stderr_filter {
   my $buf = $self->[FILTER_STDERR]->get_pending();
   $self->[FILTER_STDERR] = $new_filter;
 
-  $self->_define_stderr_reader();
   $self->_transfer_stderr_buffer($buf);
 }
 

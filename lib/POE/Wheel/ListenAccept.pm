@@ -73,8 +73,6 @@ sub event {
       carp "ignoring unknown ListenAccept parameter '$name'";
     }
   }
-
-  $self->_define_accept_state();
 }
 
 #------------------------------------------------------------------------------

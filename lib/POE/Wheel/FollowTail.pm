@@ -435,16 +435,6 @@ sub event {
       carp "ignoring unknown FollowTail parameter '$name'";
     }
   }
-
-  if ($self->[SELF_FOLLOW_MODE] & MODE_TIMER) {
-    $self->_define_timer_states();
-  }
-  elsif ($self->[SELF_FOLLOW_MODE] & MODE_SELECT) {
-    $self->_define_select_states();
-  }
-  else {
-    die;
-  }
 }
 
 #------------------------------------------------------------------------------
