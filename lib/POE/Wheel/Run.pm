@@ -617,96 +617,99 @@ sub _define_stdin_flusher {
 sub _define_stdout_reader {
   my $self = shift;
 
+  # Can't do anything if we don't have a handle.
+  return unless defined $self->[HANDLE_STDOUT];
+
+  # No event?  Unregister the handler and leave.
+  my $stdout_event  = \$self->[EVENT_STDOUT];
+  unless ($$stdout_event) {
+    $poe_kernel->select_read($self->[HANDLE_STDOUT]);
+    return;
+  }
+
+  # If any of these change, then the read state is invalidated and
+  # needs to be redefined.
+  my $unique_id     = $self->[UNIQUE_ID];
+  my $driver        = $self->[DRIVER_STDOUT];
+  my $stdout_filter = $self->[FILTER_STDOUT];
+
+  # These can change without redefining the callback since they're
+  # enclosed by reference.
+  my $is_active     = \$self->[IS_ACTIVE];
+  my $close_event   = \$self->[CLOSE_EVENT];
+  my $error_event   = \$self->[ERROR_EVENT];
+
   # Register the select-read handler for STDOUT.
-  if (defined $self->[HANDLE_STDOUT]) {
+  if (
+    $stdout_filter->can("get_one") and
+    $stdout_filter->can("get_one_start")
+  ) {
+    $poe_kernel->state(
+      $self->[STATE_STDOUT] = ref($self) . "($unique_id) -> select stdout",
+      sub {
+        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
 
-    # If any of these change, then the read state is invalidated and
-    # needs to be redefined.
-    my $unique_id     = $self->[UNIQUE_ID];
-    my $driver        = $self->[DRIVER_STDOUT];
-    my $error_event   = \$self->[ERROR_EVENT];
-    my $close_event   = \$self->[CLOSE_EVENT];
-    my $stdout_filter = $self->[FILTER_STDOUT];
-    my $stdout_event  = \$self->[EVENT_STDOUT];
-    my $is_active     = \$self->[IS_ACTIVE];
-
-    if (
-      $stdout_filter->can("get_one") and
-      $stdout_filter->can("get_one_start")
-    ) {
-      $poe_kernel->state(
-        $self->[STATE_STDOUT] = ref($self) . "($unique_id) -> select stdout",
-        sub {
-          # prevents SEGV
-          0 && CRIMSON_SCOPE_HACK('<');
-
-          # subroutine starts here
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          if (defined(my $raw_input = $driver->get($handle))) {
-            $stdout_filter->get_one_start($raw_input);
-            while (1) {
-              my $next_rec = $stdout_filter->get_one();
-              last unless @$next_rec;
-              foreach my $cooked_input (@$next_rec) {
-                $k->call($me, $$stdout_event, $cooked_input, $unique_id);
-              }
-            }
-          }
-          else {
-            $$error_event and $k->call(
-              $me, $$error_event,
-              'read', ($!+0), $!, $unique_id, 'STDOUT'
-            );
-            unless (--$$is_active) {
-              $k->call( $me, $$close_event, $unique_id )
-                if defined $$close_event;
-            }
-            $k->select_read($handle);
-          }
-        }
-      );
-    }
-
-    # Otherwise we can't get one.
-    else {
-      $poe_kernel->state(
-        $self->[STATE_STDOUT] = ref($self) . "($unique_id) -> select stdout",
-        sub {
-          # prevents SEGV
-          0 && CRIMSON_SCOPE_HACK('<');
-
-          # subroutine starts here
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          if (defined(my $raw_input = $driver->get($handle))) {
-            foreach my $cooked_input (@{$stdout_filter->get($raw_input)}) {
+        # subroutine starts here
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+        if (defined(my $raw_input = $driver->get($handle))) {
+          $stdout_filter->get_one_start($raw_input);
+          while (1) {
+            my $next_rec = $stdout_filter->get_one();
+            last unless @$next_rec;
+            foreach my $cooked_input (@$next_rec) {
               $k->call($me, $$stdout_event, $cooked_input, $unique_id);
             }
           }
-          else {
-            $$error_event and
-              $k->call(
-                $me, $$error_event,
-                'read', ($!+0), $!, $unique_id, 'STDOUT'
-              );
-            unless (--$$is_active) {
-              $k->call( $me, $$close_event, $unique_id )
-                if defined $$close_event;
-            }
-            $k->select_read($handle);
+        }
+        else {
+          $$error_event and $k->call(
+            $me, $$error_event,
+            'read', ($!+0), $!, $unique_id, 'STDOUT'
+          );
+          unless (--$$is_active) {
+            $k->call( $me, $$close_event, $unique_id )
+              if defined $$close_event;
+          }
+          $k->select_read($handle);
+        }
+      }
+    );
+  }
+
+  # Otherwise we can't get one.
+  else {
+    $poe_kernel->state(
+      $self->[STATE_STDOUT] = ref($self) . "($unique_id) -> select stdout",
+      sub {
+        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+
+        # subroutine starts here
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+        if (defined(my $raw_input = $driver->get($handle))) {
+          foreach my $cooked_input (@{$stdout_filter->get($raw_input)}) {
+            $k->call($me, $$stdout_event, $cooked_input, $unique_id);
           }
         }
-      );
-    }
-
-    # register the state's select
-    $poe_kernel->select_read($self->[HANDLE_STDOUT], $self->[STATE_STDOUT]);
+        else {
+          $$error_event and
+            $k->call(
+              $me, $$error_event,
+              'read', ($!+0), $!, $unique_id, 'STDOUT'
+            );
+          unless (--$$is_active) {
+            $k->call( $me, $$close_event, $unique_id )
+              if defined $$close_event;
+          }
+          $k->select_read($handle);
+        }
+      }
+    );
   }
 
-  # Register the select-read handler for STDOUT.
-  else {
-    $poe_kernel->select_read($self->[HANDLE_STDOUT])
-      if defined $self->[HANDLE_STDOUT];
-  }
+  # register the state's select
+  $poe_kernel->select_read($self->[HANDLE_STDOUT], $self->[STATE_STDOUT]);
 }
 
 #------------------------------------------------------------------------------
@@ -716,94 +719,96 @@ sub _define_stdout_reader {
 sub _define_stderr_reader {
   my $self = shift;
 
+  # Can't do anything if we don't have a handle.
+  return unless defined $self->[HANDLE_STDERR];
+
+  # No event?  Unregister the handler and leave.
+  my $stderr_event  = \$self->[EVENT_STDERR];
+  unless ($$stderr_event) {
+    $poe_kernel->select_read($self->[HANDLE_STDERR]);
+    return;
+  }
+
+  my $unique_id     = $self->[UNIQUE_ID];
+  my $driver        = $self->[DRIVER_STDERR];
+  my $stderr_filter = $self->[FILTER_STDERR];
+
+  # These can change without redefining the callback since they're
+  # enclosed by reference.
+  my $error_event   = \$self->[ERROR_EVENT];
+  my $close_event   = \$self->[CLOSE_EVENT];
+  my $is_active     = \$self->[IS_ACTIVE];
+
   # Register the select-read handler for STDERR.
-  if (defined $self->[HANDLE_STDERR]) {
-    # If any of these change, then the read state is invalidated and
-    # needs to be redefined.
-    my $unique_id     = $self->[UNIQUE_ID];
-    my $driver        = $self->[DRIVER_STDERR];
-    my $error_event   = \$self->[ERROR_EVENT];
-    my $close_event   = \$self->[CLOSE_EVENT];
-    my $stderr_filter = $self->[FILTER_STDERR];
-    my $stderr_event  = \$self->[EVENT_STDERR];
-    my $is_active     = \$self->[IS_ACTIVE];
+  if (
+    $stderr_filter->can("get_one") and
+    $stderr_filter->can("get_one_start")
+  ) {
+    $poe_kernel->state(
+      $self->[STATE_STDERR] = ref($self) . "($unique_id) -> select stderr",
+      sub {
+        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
 
-    if (
-      $stderr_filter->can("get_one") and
-      $stderr_filter->can("get_one_start")
-    ) {
-      $poe_kernel->state(
-        $self->[STATE_STDERR] = ref($self) . "($unique_id) -> select stderr",
-        sub {
-          # prevents SEGV
-          0 && CRIMSON_SCOPE_HACK('<');
-
-          # subroutine starts here
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          if (defined(my $raw_input = $driver->get($handle))) {
-            $stderr_filter->get_one_start($raw_input);
-            while (1) {
-              my $next_rec = $stderr_filter->get_one();
-              last unless @$next_rec;
-              foreach my $cooked_input (@$next_rec) {
-                $k->call($me, $$stderr_event, $cooked_input, $unique_id);
-              }
-            }
-          }
-          else {
-            $$error_event and $k->call(
-              $me, $$error_event,
-              'read', ($!+0), $!, $unique_id, 'STDERR'
-            );
-            unless (--$$is_active) {
-              $k->call( $me, $$close_event, $unique_id )
-                if defined $$close_event;
-            }
-            $k->select_read($handle);
-          }
-        }
-      );
-    }
-
-    # Otherwise we can't get_one().
-    else {
-      $poe_kernel->state(
-        $self->[STATE_STDERR] = ref($self) . "($unique_id) -> select stderr",
-        sub {
-          # prevents SEGV
-          0 && CRIMSON_SCOPE_HACK('<');
-
-          # subroutine starts here
-          my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
-          if (defined(my $raw_input = $driver->get($handle))) {
-            foreach my $cooked_input (@{$stderr_filter->get($raw_input)}) {
+        # subroutine starts here
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+        if (defined(my $raw_input = $driver->get($handle))) {
+          $stderr_filter->get_one_start($raw_input);
+          while (1) {
+            my $next_rec = $stderr_filter->get_one();
+            last unless @$next_rec;
+            foreach my $cooked_input (@$next_rec) {
               $k->call($me, $$stderr_event, $cooked_input, $unique_id);
             }
           }
-          else {
-            $$error_event and $k->call(
-              $me, $$error_event,
-              'read', ($!+0), $!, $unique_id, 'STDERR'
-            );
-            unless (--$$is_active) {
-              $k->call( $me, $$close_event, $unique_id )
-                if defined $$close_event;
-            }
-            $k->select_read($handle);
+        }
+        else {
+          $$error_event and $k->call(
+            $me, $$error_event,
+            'read', ($!+0), $!, $unique_id, 'STDERR'
+          );
+          unless (--$$is_active) {
+            $k->call( $me, $$close_event, $unique_id )
+              if defined $$close_event;
+          }
+          $k->select_read($handle);
+        }
+      }
+    );
+  }
+
+  # Otherwise we can't get_one().
+  else {
+    $poe_kernel->state(
+      $self->[STATE_STDERR] = ref($self) . "($unique_id) -> select stderr",
+      sub {
+        # prevents SEGV
+        0 && CRIMSON_SCOPE_HACK('<');
+
+        # subroutine starts here
+        my ($k, $me, $handle) = @_[KERNEL, SESSION, ARG0];
+        if (defined(my $raw_input = $driver->get($handle))) {
+          foreach my $cooked_input (@{$stderr_filter->get($raw_input)}) {
+            $k->call($me, $$stderr_event, $cooked_input, $unique_id);
           }
         }
-      );
-    }
-
-    # register the state's select
-    $poe_kernel->select_read($self->[HANDLE_STDERR], $self->[STATE_STDERR]);
+        else {
+          $$error_event and $k->call(
+            $me, $$error_event,
+            'read', ($!+0), $!, $unique_id, 'STDERR'
+          );
+          unless (--$$is_active) {
+            $k->call( $me, $$close_event, $unique_id )
+              if defined $$close_event;
+          }
+          $k->select_read($handle);
+        }
+      }
+    );
   }
 
-  # Register the select-read handler for STDERR.
-  else {
-    $poe_kernel->select_read($self->[HANDLE_STDERR])
-      if defined $self->[HANDLE_STDERR];
-  }
+  # Register the state's select.
+  $poe_kernel->select_read($self->[HANDLE_STDERR], $self->[STATE_STDERR]);
 }
 
 #------------------------------------------------------------------------------
