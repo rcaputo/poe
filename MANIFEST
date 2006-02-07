@@ -65,7 +65,6 @@ mylib/cpan-test.perl
 mylib/cvs-log.perl
 mylib/Devel/Null.pm
 mylib/events_per_second.pl
-mylib/ExtUtils/AutoInstall.pm
 mylib/gen-meta.perl
 mylib/gen-tests.perl
 mylib/Makefile-5004.pm
