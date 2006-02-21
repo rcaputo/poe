@@ -95,6 +95,10 @@ sub new {
 
   croak "$mi requires a ServerInput parameter" unless defined $input_callback;
 
+  foreach (sort keys %param) {
+    carp "$mi doesn't recognize \"$_\" as a parameter";
+  }
+
   # Defaults.
 
   $session_type = 'POE::Session' unless defined $session_type;
