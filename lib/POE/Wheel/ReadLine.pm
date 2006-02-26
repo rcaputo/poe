@@ -3,7 +3,7 @@
 package POE::Wheel::ReadLine;
 
 use strict;
-use bytes; # don't assume UTF while reading bizarre key sequences
+use bytes;
 
 use vars qw($VERSION);
 $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};

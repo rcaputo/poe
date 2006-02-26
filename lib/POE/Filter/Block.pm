@@ -1,7 +1,6 @@
 # $Id$
 
 package POE::Filter::Block;
-use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 use POE::Filter;
@@ -95,7 +94,8 @@ sub get_one_start {
 sub get_one {
   my $self = shift;
 
-  {% use_bytes %}
+  # Need to check lengths in octets, not characters.
+  use bytes;
 
   # If a block size is specified, then pull off a block of that many
   # bytes.
@@ -136,7 +136,8 @@ sub put {
   my ($self, $blocks) = @_;
   my @raw;
 
-  {% use_bytes %}
+  # Need to check lengths in octets, not characters.
+  use bytes;
 
   # If a block size is specified, then just assume the put is right.
   # This will cause quiet framing errors on the receiving side.  Then

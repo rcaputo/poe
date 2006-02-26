@@ -4,7 +4,6 @@
 # <artur@vogon-solutions.com>.  Partial copyright 1999 Philip Gwyn.
 
 package POE::Filter::Reference;
-use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 use POE::Filter;
@@ -168,7 +167,8 @@ sub get_one_start {
 sub get_one {
   my $self = shift;
 
-  {% use_bytes %}
+  # Need to check lengths in octets, not characters.
+  use bytes;
 
   if (
     $self->{buffer} =~ /^(\d+)\0/ and
@@ -190,7 +190,8 @@ sub get_one {
 sub put {
   my ($self, $references) = @_;
 
-  {% use_bytes %}
+  # Need to check lengths in octets, not characters.
+  use bytes;
 
   my @raw = map {
     my $frozen = $self->{freeze}->($_);

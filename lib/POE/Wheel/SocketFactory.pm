@@ -1,7 +1,6 @@
 # $Id$
 
 package POE::Wheel::SocketFactory;
-use POE::Preprocessor ( isa => "POE::Macro::UseBytes" );
 
 use strict;
 
@@ -713,7 +712,8 @@ sub new {
         : INADDR_ANY
       );
 
-      {% use_bytes %}
+      # Need to check lengths in octets, not characters.
+      use bytes;
 
       # Resolve the bind address if it's not already packed.
       unless (length($bind_address) == 4) {
@@ -785,7 +785,8 @@ sub new {
         }
       }
 
-      {% use_bytes %}
+      # Need to check lengths in octets, not characters.
+      use bytes;
 
       # Resolve the bind address.
       my @info = Socket6::getaddrinfo(

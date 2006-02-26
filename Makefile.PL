@@ -67,10 +67,30 @@ if($ret =~ /^Y$/i) {
 
 print "\n";
 
+# Comment out "use bytes" if it's not supported.
+
+use File::Find;
+my $code;
+if ($] < 5.006) {
+  print "Perl $] does not support bytes.pm.  Commenting it out...\n";
+  $code = 's/^(\s*)(use bytes;).*/$1#$2 # perl version $] at install/';
+}
+else {
+  print "Perl $] supports bytes.pm.  Ensuring it's in...\n";
+  $code = 's/^(\s*)#\s*(use bytes;).*/$1$2/';
+}
+
+find(
+  sub {
+    next unless -f and /\.pm$/;
+    system $^X, "-p", "-i.bak", "-e", $code, $_;
+  },
+  "lib"
+);
+
 # Which kind of makefile should we build?
 
-eval "use 5.005_04";
-if ($@) {
+if ($] < 5.005004) {
   warn(
     "\n",
     "===============================================================\n",
