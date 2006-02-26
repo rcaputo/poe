@@ -83,10 +83,20 @@ else {
 find(
   sub {
     next unless -f and /\.pm$/;
-    system $^X, "-p", "-i.bak", "-e", $code, $_;
+    system($^X, "-p", "-i.pp", "-e", $code, $_) and die "System error: $!";
   },
   "lib"
 );
+
+find(
+  sub {
+    next unless -f and /\.pp$/;
+    unlink $_;
+  },
+  "lib"
+);
+
+print "\n";
 
 # Which kind of makefile should we build?
 
