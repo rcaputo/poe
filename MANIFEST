@@ -28,12 +28,10 @@ lib/POE/Loop/Select.pm
 lib/POE/Loop/Tk.pm
 lib/POE/Loop/TkActiveState.pm
 lib/POE/Loop/TkCommon.pm
-lib/POE/Macro/UseBytes.pm
 lib/POE/NFA.pm
 lib/POE/Pipe.pm
 lib/POE/Pipe/OneWay.pm
 lib/POE/Pipe/TwoWay.pm
-lib/POE/Preprocessor.pm
 lib/POE/Queue.pm
 lib/POE/Queue/Array.pm
 lib/POE/Resource.pm
@@ -95,8 +93,6 @@ samples/thrash.perl
 samples/watermarks.perl
 samples/wheels2.perl
 test.pl
-tests/10_units/01_preprocessor/01_preprocessor.t
-tests/10_units/01_preprocessor/02_macro_usebytes.t
 tests/10_units/02_pipes/01_base.t
 tests/10_units/02_pipes/02_oneway.t
 tests/10_units/02_pipes/03_twoway.t
