@@ -25,7 +25,6 @@ sub CORE_REQUIREMENTS () {
     "Errno"              => 1.09,
     "Exporter"           => 0,
     "File::Spec"         => 0.87,
-    "Filter::Util::Call" => 1.06,
     "IO"                 => 1.20,
     "POSIX"              => 1.02,
     "Socket"             => 1.7,
