@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 
+die "$0 is currently disabled\n";
+
 =head1 NAME
 
 reportupload.pl - upload an xml test report

@@ -226,16 +226,7 @@ Thanks go out to the CPAN testers, who have dedicated resources to
 running new modules on a variety of platforms.  The latest POE tests
 are visible at <http://testers.cpan.org/search?request=dist&dist=POE>.
 
-We maintain our own test results at <http://eekeek.org/poe-tests/>.
-You may participate by running
-
-  perl Makefile.PL
-  make uploadreport
-
-from POE's source directory.  A set of tests will be run, and their
-results will be uploaded to our test page.
-
-We also try to cover all of POE with our test suite, although we only
+We try to cover all of POE with our test suite, although we only
 succeed in exercising about 70% of its code at any given time.  A
 coverage report is online at
 <http://poe.perl.org/?POE's_test_coverage_report>.

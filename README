@@ -44,27 +44,16 @@ or
 Test Results
 ------------
 
-POE is tested before each release, and afterwards by at least two
-groups of people.  Each group posts its results on the web:
-
-  http://eekeek.org/poe-tests/
-    -- Automated test reports by users like you.
+POE is tested before each release and post-release by a group of
+volunteers known as the CPAN Testers.  You can see the public results
+of their work at:
 
   http://testers.cpan.org/search?request=dist&dist=POE
     -- CPAN testers' reports.
 
-POE's ongoing improvement relies on your feedback.  The easiest way to
-let us know how we're doing is to "make reportupload" after building
-POE.
-
-  % make reportupload
-
-Reportupload will test POE, generate a report file, and upload it.  If
-the upload fails, you can send it manually from the form at
-<http://eekeek.org/poe-tests/>.
-
-You can also file bug reports, feature requests, and even success
-stories by e-mailing <bug-POE@rt.cpan.org>.
+POE's ongoing improvement relies on your feedback.  You file bug
+reports, feature requests, and even success stories by e-mailing
+<bug-POE@rt.cpan.org>.
 
 -------------
 Test Coverage

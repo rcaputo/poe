@@ -122,6 +122,8 @@ else {
 }
 
 # And finally, ask the user to run a test report.
+#
+# NOTE: This is currently disabled.  Don't use it.
 # 
 # use Config;
 # my $make = $Config::Config{make};
