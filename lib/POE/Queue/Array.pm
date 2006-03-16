@@ -419,7 +419,7 @@ sub _dump_splice {
 }
 
 ### Reinsert an item into the queue.  It has just been removed by
-### adjust_priority() or set_priority() and needs to be replaced. 
+### adjust_priority() or set_priority() and needs to be replaced.
 ### This tries to be clever by not doing more work than necessary.
 
 sub _reinsert_item {
