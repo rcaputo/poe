@@ -135,7 +135,7 @@ WriteMakefile(
     COMPRESS => 'gzip -9f',
     SUFFIX   => 'gz',
     PREOP    => (
-      './mylib/cvs-log.perl | ' .
+      './mylib/svn-log.perl | ' .
       '/usr/bin/tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES; ' .
       "$^X mylib/gen-meta.perl; " .
       '/bin/cp -f ./META.yml ./$(DISTNAME)-$(VERSION)/META.yml'
