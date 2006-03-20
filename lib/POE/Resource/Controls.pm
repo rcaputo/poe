@@ -3,7 +3,7 @@
 package POE::Resources::Controls;
 
 use vars qw($VERSION);
-$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 # We fold all this stuff back into POE::Kernel
 package POE::Kernel;

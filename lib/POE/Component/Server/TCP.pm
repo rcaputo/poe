@@ -5,7 +5,7 @@ package POE::Component::Server::TCP;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 use Carp qw(carp croak);
 use Socket qw(INADDR_ANY inet_ntoa inet_aton AF_UNIX PF_UNIX);

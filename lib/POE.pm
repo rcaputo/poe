@@ -8,7 +8,7 @@ use Carp qw( croak );
 
 use vars qw($VERSION $REVISION);
 $VERSION = '0.33_02';
-$REVISION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+$REVISION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 sub import {
   my $self = shift;

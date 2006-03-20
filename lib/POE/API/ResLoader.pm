@@ -1,7 +1,7 @@
 package POE::API::ResLoader;
 
 use vars qw($VERSION);
-$VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 sub import {
     my $package = (caller())[0];
@@ -28,11 +28,11 @@ POE::API::ResLoader - provides initialization interface for POE::Resources
 
 =head1 DESCRIPTION
 
-POE::Resource modules needed a uniform standard way of doing stuff 
-whenever they are loaded. This module provides that interface. 
+POE::Resource modules needed a uniform standard way of doing stuff
+whenever they are loaded. This module provides that interface.
 
 On C<use>, this module will run the subroutine reference passed in to it. This
-subroutine can do anything it deems necessary. 
+subroutine can do anything it deems necessary.
 
 =head1 AUTHOR
 
@@ -42,15 +42,15 @@ Matt Cashner (eek+cpan@eekeek.org)
 
 Copyright (c) 2003, Matt Cashner
 
-Permission is hereby granted, free of charge, to any person obtaining 
-a copy of this software and associated documentation files (the 
-"Software"), to deal in the Software without restriction, including 
-without limitation the rights to use, copy, modify, merge, publish, 
-distribute, sublicense, and/or sell copies of the Software, and to 
-permit persons to whom the Software is furnished to do so, subject 
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject
 to the following conditions:
 
-The above copyright notice and this permission notice shall be included 
+The above copyright notice and this permission notice shall be included
 in all copies or substantial portions of the Software.
 
 THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED

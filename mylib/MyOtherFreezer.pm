@@ -6,7 +6,7 @@ package MyOtherFreezer;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = (qw($Revision$ ))[1];
+$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 sub new {
   my $type = shift;
