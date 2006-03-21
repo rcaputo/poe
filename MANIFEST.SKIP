@@ -8,6 +8,7 @@ CVS
 \.ppd$
 \.rej$
 \.rej$
+\.svn
 \.swo$
 \.swp$
 ^Makefile$
@@ -23,7 +24,7 @@ CVS
 ^docs
 ^pm_to_blib$
 ^poe_report\.xml$
+run_network_tests
 test-output\.err$
 tests/[23]0_.*\.t
 ~$
-run_network_tests
