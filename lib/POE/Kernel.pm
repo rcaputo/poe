@@ -7,7 +7,6 @@ use strict;
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
-use POE::Queue::Array;
 use POSIX qw(:fcntl_h :sys_wait_h);
 use Errno qw(ESRCH EINTR ECHILD EPERM EINVAL EEXIST EAGAIN EWOULDBLOCK);
 use Carp qw(carp croak confess cluck);
@@ -21,6 +20,21 @@ use vars qw($poe_kernel $poe_main_window);
 
 #------------------------------------------------------------------------------
 # A cheezy exporter to avoid using Exporter.
+
+my $queue_class;
+
+BEGIN {
+  eval {
+    require POE::XS::Queue::Array;
+    POE::XS::Queue::Array->import();
+    $queue_class = "POE::XS::Queue::Array";
+  };
+  unless ($queue_class) {
+    require POE::Queue::Array;
+    POE::Queue::Array->import();
+    $queue_class = "POE::Queue::Array";
+  }
+}
 
 sub import {
   my ($class, $args) = @_;
@@ -57,7 +71,6 @@ sub import {
 
 #------------------------------------------------------------------------------
 # Perform some optional setup.
-
 
 BEGIN {
   local $SIG{'__DIE__'} = 'DEFAULT';
@@ -731,7 +744,7 @@ sub new {
   unless (defined $poe_kernel) {
 
     # Create our master queue.
-    $kr_queue = POE::Queue::Array->new();
+    $kr_queue = $queue_class->new();
 
     # TODO - Should KR_ACTIVE_SESSIONS and KR_ACTIVE_EVENT be handled
     # by POE::Resource::Sessions?
