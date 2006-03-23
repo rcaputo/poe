@@ -1328,9 +1328,9 @@ sub add_defun {
   $defuns->{$name} = $fn;
 }
 
-# ====================================================
+# -----------------------------------------------------
 # Any variable assignments that we care about
-# ====================================================
+# -----------------------------------------------------
 sub rl_set_keymap {
   my ($self, $arg) = @_;
   $arg = lc($arg);
@@ -1342,11 +1342,11 @@ sub rl_set_keymap {
   $self->[SELF_INSERT_MODE] = 1;
 }
 
-# ====================================================
+# ----------------------------------------------------
 # From here on, we have the helper functions which can
 # be bound to keys. The functions are named after the
 # readline counterparts.
-# ====================================================
+# ----------------------------------------------------
 
 sub rl_self_insert {
   my ($self, $key, $raw_key) = @_;

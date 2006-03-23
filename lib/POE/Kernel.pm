@@ -1679,7 +1679,7 @@ sub call {
 # # Return the names of pending timed events.
 # @event_names = $kernel->queue_peek_alarms( );
 #
-# =item queue_peek_alarms
+#   =item queue_peek_alarms
 #
 # queue_peek_alarms() returns a time-ordered list of event names from
 # the current session that have pending timed events.  If a event
