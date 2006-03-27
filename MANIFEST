@@ -1,3 +1,4 @@
+andyg-filter-switch.perl
 CHANGES
 HISTORY
 lib/POE.pm
@@ -69,7 +70,9 @@ mylib/Makefile-5004.pm
 mylib/Makefile-5005.pm
 mylib/MyOtherFreezer.pm
 mylib/PoeBuildInfo.pm
+mylib/preprocessor.perl
 mylib/reportupload.pl
+mylib/svn-log.perl
 mylib/Test/Harness.pm
 mylib/Test/Harness/Assert.pm
 mylib/Test/Harness/Iterator.pm
