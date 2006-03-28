@@ -24,6 +24,9 @@ my $build = Module::Build->new(
     RECOMMENDED_TIME_HIRES,
   },
   requires          => { CORE_REQUIREMENTS },
+  no_index => {
+    dir => [ "mylib" ]
+  },
 );
 
 $build->dispatch("distmeta");
