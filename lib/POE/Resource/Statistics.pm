@@ -61,7 +61,7 @@ sub _data_stat_finalize {
       }
 
       # Division by zero sucks.
-      $average{blocked}     ||= 0;
+      $average{interval}    ||= 1;
       $average{user_events} ||= 1;
 
       POE::Kernel::_warn(
