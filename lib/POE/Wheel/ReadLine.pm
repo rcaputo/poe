@@ -2266,7 +2266,7 @@ sub rl_complete {
     curs_left(length($rest)-length($partial));
     $self->[SELF_CURSOR_INPUT]   += length($partial)-length($lookfor);
     $self->[SELF_CURSOR_DISPLAY] += length($partial)-length($lookfor);
-    return $self->rl_ding;
+    return $self->rl_ding if @poss == 1;
   }
 
   if ($self->[SELF_LAST] !~ /complete/ && !$self->option('show-all-if-ambiguous')) {
