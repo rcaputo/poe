@@ -37,20 +37,22 @@ unless (-e DIR_TARBALLS) {
 ### directory to our own location.
 
 my $cc = CPANPLUS::Configure->new();
-$cc->_set_build( base => DIR_CPANPLUS );
+$cc->set_conf(
+  base => DIR_CPANPLUS
+);
 
 ### Gather a list of POE components that aren't distributed with POE.
 
 print "Searching CPAN for POE distributions...\n";
 
 my $cp = CPANPLUS::Backend->new($cc);
-my $search = $cp->search( type => "module",
-                          list => [ "^POE::" ],
-                        );
+my @search = $cp->search(
+  type  => "module",
+  allow => [ qr/^POE::/ ],
+);
 
 my %package;
-foreach my $mod (sort keys %$search) {
-  my $obj = $search->{$mod};
+foreach my $obj (sort @search) {
   my $package = $obj->package();
 
   my ($pkg, $ver) = ($package =~ /^(.*?)-([0-9\.\_]+)\.tar\.gz$/);
@@ -154,9 +156,10 @@ foreach my $tarball (@tarballs) {
   my $full_dir = DIR_TESTING . "/$mod";
   warn $full_dir;
 
-  my $local_results = $cp->make( target => "test",
-                                 dirs   => [ $full_dir ],
-                               );
+  my $local_results = $cp->make(
+    target => "test",
+    dirs   => [ $full_dir ],
+  );
 
   while (my ($dir, $stat) = each %$local_results) {
     $results{$dir} = $stat;
