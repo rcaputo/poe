@@ -50,7 +50,10 @@ sub sss_new {
       _stop       => \&sss_stop,
       got_error   => \&sss_error,
       got_block   => \&sss_block,
-      ev_timeout  => sub { delete $_[HEAP]->{wheel} },
+      ev_timeout  => sub {
+        DEBUG and warn "=== sss got timeout";
+        delete $_[HEAP]->{wheel};
+      },
     },
     args => [ $socket, $peer_addr, $peer_port ],
   );
@@ -81,14 +84,14 @@ sub sss_start {
 
 sub sss_block {
   my ($kernel, $heap, $block) = @_[KERNEL, HEAP, ARG0];
-  DEBUG and warn "sss got block";
+  DEBUG and warn "=== sss got block";
   $heap->{read_count}++;
-  $kernel->delay( ev_timeout => 7 );
+  $kernel->delay( ev_timeout => 10 );
 }
 
 sub sss_error {
   my ($heap, $syscall, $errnum, $errstr, $wheel_id) = @_[HEAP, ARG0..ARG3];
-  DEBUG and warn "sss got $syscall error $errnum: $errstr";
+  DEBUG and warn "=== sss got $syscall error $errnum: $errstr";
   if ($errnum) {
     $_[HEAP]->{test_two} = 0;
   }
@@ -96,11 +99,12 @@ sub sss_error {
 
 sub sss_stop {
   my $heap = $_[HEAP];
-  DEBUG and warn "sss stopped";
+  DEBUG and warn "=== sss stopped";
   ok($heap->{test_two}, "test two");
   ok(
     $heap->{read_count} == $max_send_count,
-    "read everything we were sent"
+    "read everything we were sent " .
+    "did($heap->{read_count}) wanted($max_send_count)"
   );
 }
 
@@ -110,7 +114,7 @@ sub sss_stop {
 sub client_tcp_start {
   my $heap = $_[HEAP];
 
-  DEBUG and warn "client tcp started";
+  DEBUG and warn "=== client tcp started";
 
   $heap->{wheel} = POE::Wheel::SocketFactory->new(
     RemoteAddress  => '127.0.0.1',
@@ -161,7 +165,7 @@ sub client_tcp_connected {
     FlushedEvent => 'got_flush_nonexistent',
   );
 
-  DEBUG and warn "client tcp connected";
+  DEBUG and warn "=== client tcp connected";
 
   # Test event changing.
   $heap->{wheel}->event(
@@ -181,13 +185,13 @@ sub client_tcp_connected {
 sub client_tcp_got_alarm {
   my ($kernel, $heap, $line) = @_[KERNEL, HEAP, ARG0];
 
-  DEBUG and warn "client tcp got alarm";
+  DEBUG and warn "=== client tcp got alarm";
 
   $heap->{wheel}->put( '0123456789ABCDEF0123456789ABCDEF' );
 
   $heap->{put_count} += 2;
   if ($heap->{put_count} < $max_send_count) {
-    $kernel->delay( got_alarm => 1 );
+    $kernel->delay( got_alarm => 0.1 );
   }
 }
 
@@ -208,7 +212,7 @@ sub client_tcp_got_error {
 
 sub client_tcp_got_flush {
   $_[HEAP]->{flush_count}++;
-  DEBUG and warn "client_tcp_got_flush";
+  DEBUG and warn "=== client_tcp_got_flush";
   # Delays destruction until all data is out.
   delete $_[HEAP]->{wheel} if $_[HEAP]->{put_count} >= $max_send_count;
 }
@@ -258,19 +262,20 @@ POE::Session->create(
         InputEvent => "got_input",
         ErrorEvent => "got_error",
         ResetEvent => "got_reset",
+  PollInterval => 0.1,
       );
       $kernel->delay(create_file => 1);
       $heap->{sent_count}  = 0;
       $heap->{recv_count}  = 0;
       $heap->{reset_count} = 0;
-      DEBUG and warn "start";
+      DEBUG and warn "=== start";
     },
 
     create_file => sub {
       open(FH, ">./test-tail-file") or die $!;
       print FH "moo\015\012";
       close FH;
-      DEBUG and warn "create";
+      DEBUG and warn "=== create";
       $_[HEAP]->{sent_count}++;
     },
 
@@ -278,7 +283,7 @@ POE::Session->create(
       my ($kernel, $heap) = @_[KERNEL, HEAP];
       $heap->{recv_count}++;
 
-      DEBUG and warn "input";
+      DEBUG and warn "=== input";
 
       unlink "./test-tail-file";
 
@@ -293,17 +298,18 @@ POE::Session->create(
     got_error => sub { warn "error"; die },
 
     got_reset => sub {
-      DEBUG and warn "reset";
+      DEBUG and warn "=== reset";
       $_[HEAP]->{reset_count}++;
     },
 
     _stop => sub {
-      DEBUG and warn "stop";
+      DEBUG and warn "=== stop";
       my $heap = $_[HEAP];
       ok(
         ($heap->{sent_count} == $heap->{recv_count}) &&
         ($heap->{sent_count} == 2),
-        "sent and received everything we should"
+        "sent and received everything we should " .
+        "sent($heap->{sent_count}) recv($heap->{recv_count}) wanted(2)"
       );
       ok($heap->{reset_count} > 0, "reset more than once");
     },
