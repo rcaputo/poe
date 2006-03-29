@@ -283,19 +283,19 @@ sub new {
   # Fork!  Woo-hoo!
   my $pid = fork;
 
-  # Stdio should not be tied.  Resolves rt.cpan.org ticket 1648.
-  if (tied *STDOUT) {
-    carp "Cannot redirect into tied STDOUT.  Untying it";
-    untie *STDOUT;
-  }
-  if (tied *STDERR) {
-    carp "Cannot redirect into tied STDERR.  Untying it";
-    untie *STDERR;
-  }
-
   # Child.  Parent side continues after this block.
   unless ($pid) {
     croak "couldn't fork: $!" unless defined $pid;
+
+    # Stdio should not be tied.  Resolves rt.cpan.org ticket 1648.
+    if (tied *STDOUT) {
+      carp "Cannot redirect into tied STDOUT.  Untying it";
+      untie *STDOUT;
+    }
+    if (tied *STDERR) {
+      carp "Cannot redirect into tied STDERR.  Untying it";
+      untie *STDERR;
+    }
 
     # If running pty, we delay the slave side creation 'til after
     # doing the necessary bits to become our own [unix] session.
@@ -395,30 +395,26 @@ sub new {
     close $stdout_read;
     close $stderr_read if defined $stderr_read;
 
-    # Need to close on Win32 because std handles aren't dup'ed, no
-    # harm elsewhere.  Close STDERR later to not influence possible
-    # die.
-    close STDIN;
-    close STDOUT;
+    # Win32 needs the stdio handles closed before they're reopened
+    # because the standard handles aren't dup'd.
 
     # Redirect STDIN from the read end of the stdin pipe.
+    close STDIN;
     open( STDIN, "<&" . fileno($stdin_read) )
       or die "can't redirect STDIN in child pid $$: $!";
 
     # Redirect STDOUT to the write end of the stdout pipe.
     # The STDOUT_FILENO check snuck in on a patch.  I'm not sure why
     # we care what the file descriptor is.
+    close STDOUT;
     open( STDOUT, ">&" . fileno($stdout_write) )
       or die "can't redirect stdout in child pid $$: $!";
-
-    # Need to close on Win32 because std handles aren't dup'ed, no
-    # harm elsewhere
-    close STDERR;
 
     # Redirect STDERR to the write end of the stderr pipe.  If the
     # stderr pipe's undef, then we use STDOUT.
     # The STDERR_FILENO check snuck in on a patch.  I'm not sure why
     # we care what the file descriptor is.
+    close STDERR;
     open( STDERR, ">&" . fileno($stderr_write) )
       or die "can't redirect stderr in child: $!";
 
@@ -482,7 +478,8 @@ sub new {
         eval { exec("$^X -e 0"); };
       };
       exit(0);
-    } else {
+    }
+    else {
       if (ref($program) eq 'ARRAY') {
         exec(@$program, @$prog_args)
           or die "can't exec (@$program) in child pid $$: $!";
