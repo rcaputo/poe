@@ -121,7 +121,7 @@ sub loop_resume_filehandle {
 sub _poll_for_io {
   if (defined $_handle_poller) {
     $_handle_poller->cancel();
-    undef $_handle_poller;
+    $_handle_poller = undef;
   }
 
   # Determine which files are being watched.
@@ -248,14 +248,7 @@ sub _poll_for_io {
   $poe_kernel->_data_ev_dispatch_due();
 
   # Reset the poller.
-  $_handle_poller = $poe_main_window->afterIdle(
-    [ sub {
-        $_handle_poller->cancel();
-        undef $_handle_poller;
-        $_handle_poller = $poe_main_window->after(100, [\&_poll_for_io]);
-      }
-    ]
-  );
+  $_handle_poller = $poe_main_window->after(100, [\&_poll_for_io]);
 }
 
 1;
