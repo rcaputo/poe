@@ -399,14 +399,14 @@ sub new {
     # because the standard handles aren't dup'd.
 
     # Redirect STDIN from the read end of the stdin pipe.
-    close STDIN;
+    close STDIN if POE::Kernel::RUNNING_IN_HELL;
     open( STDIN, "<&" . fileno($stdin_read) )
       or die "can't redirect STDIN in child pid $$: $!";
 
     # Redirect STDOUT to the write end of the stdout pipe.
     # The STDOUT_FILENO check snuck in on a patch.  I'm not sure why
     # we care what the file descriptor is.
-    close STDOUT;
+    close STDOUT if POE::Kernel::RUNNING_IN_HELL;
     open( STDOUT, ">&" . fileno($stdout_write) )
       or die "can't redirect stdout in child pid $$: $!";
 
@@ -414,7 +414,7 @@ sub new {
     # stderr pipe's undef, then we use STDOUT.
     # The STDERR_FILENO check snuck in on a patch.  I'm not sure why
     # we care what the file descriptor is.
-    close STDERR;
+    close STDERR if POE::Kernel::RUNNING_IN_HELL;
     open( STDERR, ">&" . fileno($stderr_write) )
       or die "can't redirect stderr in child: $!";
 
@@ -471,7 +471,8 @@ sub new {
 
       # Try to exit without triggering END or object destructors.
       # Give up with a plain exit if we must.
-      # On win32 cannot _exit as it will kill *all* threads, meaning parent too
+      # But we can't _exit on Win32 because it KILLS ALL THREADS,
+      # including the parent "process".
       unless (POE::Kernel::RUNNING_IN_HELL) {
         eval { POSIX::_exit(0);  };
         eval { kill KILL => $$;  };
