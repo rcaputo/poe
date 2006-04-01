@@ -546,7 +546,9 @@ sub repaint_input_line {
   print $stdout $sp, normalize($self->[SELF_INPUT]);
 
   if ( $self->[SELF_CURSOR_INPUT] != length( $self->[SELF_INPUT]) ) {
-    curs_left( display_width($self->[SELF_INPUT]) - $self->[SELF_CURSOR_DISPLAY] );
+    curs_left(
+      display_width($self->[SELF_INPUT]) - $self->[SELF_CURSOR_DISPLAY]
+    );
   }
 }
 
@@ -684,15 +686,15 @@ sub global_init {
 
   # Some platforms don't define this constant.
   unless (defined \&POSIX::B38400) {
-  eval "sub POSIX::B38400 () { 0 }";
+    eval "sub POSIX::B38400 () { 0 }";
   }
 
   # Get the terminal speed for Term::Cap.
   $ospeed = POSIX::B38400();
   eval {
-  $termios = POSIX::Termios->new();
-  $termios->getattr();
-  $ospeed = $termios->getospeed() || POSIX::B38400();
+    $termios = POSIX::Termios->new();
+    $termios->getattr();
+    $ospeed = $termios->getospeed() || POSIX::B38400();
   };
 
   # Get the current terminal's capabilities.
@@ -707,21 +709,21 @@ sub global_init {
   $tc_left = "LE";
   eval { $termcap->Trequire($tc_left) };
   if ($@) {
-  $tc_left = "le";
-  eval { $termcap->Trequire($tc_left) };
-  if ($@) {
-  # try out to see if we have a better terminfo defun.
-  # it may well not work (hence eval the lot), but it's worth a shot
-  eval {
-  my @tc = `infocmp -C $term`;
-  chomp(@tc);
-  splice(@tc, 0, 1); # remove header line
-  $ENV{TERMCAP} = join("", @tc);
-  $termcap = Term::Cap->Tgetent( { TERM => $term, OSPEED => $ospeed } );
-  $termcap->Trequire($tc_left);
-  };
-  }
-  die "POE::Wheel::ReadLine requires a termcap that supports LE or le" if $@;
+    $tc_left = "le";
+    eval { $termcap->Trequire($tc_left) };
+    if ($@) {
+      # try out to see if we have a better terminfo defun.
+      # it may well not work (hence eval the lot), but it's worth a shot
+      eval {
+        my @tc = `infocmp -C $term`;
+        chomp(@tc);
+        splice(@tc, 0, 1); # remove header line
+        $ENV{TERMCAP} = join("", @tc);
+        $termcap = Term::Cap->Tgetent( { TERM => $term, OSPEED => $ospeed } );
+        $termcap->Trequire($tc_left);
+      };
+    }
+    die "POE::Wheel::ReadLine requires a termcap that supports LE or le" if $@;
   }
 
   # Terminal size.
@@ -734,6 +736,7 @@ sub global_init {
 
   # Set up console using Term::ReadKey.
   ReadMode('ultra-raw');
+
   # And tell the terminal that we want to be in 'application' mode
   print $termcap->Tputs('ks' => 1) if $termcap->Tputs('ks');
 
@@ -994,7 +997,7 @@ sub apply_key {
   if (exists $mapping->{binding}->{$raw_key}) {
     $fn = $mapping->{binding}->{$raw_key};
   }
-  #print "\r\ninvoking $fn for $key\r\n";$self->repaint_input_line;
+  # print "\r\ninvoking $fn for $key\r\n";$self->repaint_input_line;
   if ($self->[SELF_COUNT] && !grep { $_ eq $fn } @fns_counting) {
     $self->[SELF_COUNT] = int($self->[SELF_COUNT]);
     $self->[SELF_COUNT] ||= 1;
@@ -3335,12 +3338,25 @@ this.  Patches are recommended.
 =head1 GOTCHAS / FAQ
 
 Q: Why do I lose my ReadLine prompt every time I send output to the
-   screen?
+screen?
 
 A: You probably are using print or printf to write screen output.
-   ReadLine doesn't track STDOUT itself, so it doesn't know when to
-   refresh the prompt after you do this.  Use ReadLine's put() method
-   to write lines to the console.
+ReadLine doesn't track STDOUT itself, so it doesn't know when to
+refresh the prompt after you do this.  Use ReadLine's put() method to
+write lines to the console.
+
+Q: None of the editing keystrokes work.  Ctrl-C displays "^c" rather
+than generating an interrupt.  The arrow keys don't scroll through my
+input history.  It's generally a bad experience.
+
+A: You're probably a vi/vim user.  In the absence of a ~/.inputrc
+file, POE::Wheel::ReadLine checks your EDITOR environment variable for
+clues about your editing preference.  If it sees /vi/ in there, it
+starts in vi mode.  You can override this by creating a ~/.inputrc
+file containing the line "set editing-mode emacs", or adding that line
+to your existing ~/.inputrc.  While you're in there, you should
+totally get acquainted with all the other cool stuff you can do with
+.inputrc files.
 
 =head1 AUTHORS & COPYRIGHTS
 
