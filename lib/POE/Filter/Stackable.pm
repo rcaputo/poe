@@ -26,11 +26,22 @@ sub new {
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
 
-  my $self = bless [], $type;
-
-  $self->[FILTERS] = $params{Filters};
+  my $self = bless [
+    $params{Filters}, # FILTERS
+  ], $type;
 
   $self;
+}
+
+sub clone {
+  my $self = shift;
+  my $clone = bless [
+    [ ],    # FILTERS
+  ], ref $self;
+  foreach my $filter ($self->[FILTERS]) {
+    push (@{$clone->[FILTERS]}, $filter->clone());
+  }
+  $clone;
 }
 
 #------------------------------------------------------------------------------

@@ -14,6 +14,11 @@ $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 use Carp qw(carp croak);
 
+sub BUFFER ()   { 0 }
+sub FREEZE ()   { 1 }
+sub THAW ()     { 2 }
+sub COMPRESS () { 3 }
+
 #------------------------------------------------------------------------------
 # Try to require one of the default freeze/thaw packages.
 use vars qw( $DEF_FREEZER $DEF_FREEZE $DEF_THAW );
@@ -129,12 +134,12 @@ sub new {
     }
   }
 
-  my $self = bless {
-    buffer    => '',
-    thaw      => $thaw,
-    freeze    => $freeze,
-    compress  => $compression,
-  }, $type;
+  my $self = bless [
+    '',           # BUFFER
+    $freeze,      # FREEZE
+    $thaw,        # THAW
+    $compression, # COMPRESS
+  ], $type;
   $self;
 }
 
@@ -161,7 +166,7 @@ sub get {
 
 sub get_one_start {
   my ($self, $stream) = @_;
-  $self->{buffer} .= join('', @$stream);
+  $self->[BUFFER] .= join('', @$stream);
 }
 
 sub get_one {
@@ -171,14 +176,14 @@ sub get_one {
   use bytes;
 
   if (
-    $self->{buffer} =~ /^(\d+)\0/ and
-    length($self->{buffer}) >= $1 + length($1) + 1
+    $self->[BUFFER] =~ /^(\d+)\0/ and
+    length($self->[BUFFER]) >= $1 + length($1) + 1
   ) {
-    substr($self->{buffer}, 0, length($1) + 1) = "";
-    my $return = substr($self->{buffer}, 0, $1);
-    substr($self->{buffer}, 0, $1) = "";
-    $return = uncompress($return) if $self->{compress};
-    return [ $self->{thaw}->($return) ];
+    substr($self->[BUFFER], 0, length($1) + 1) = "";
+    my $return = substr($self->[BUFFER], 0, $1);
+    substr($self->[BUFFER], 0, $1) = "";
+    $return = uncompress($return) if $self->[COMPRESS];
+    return [ $self->[THAW]->($return) ];
   }
 
   return [ ];
@@ -194,8 +199,8 @@ sub put {
   use bytes;
 
   my @raw = map {
-    my $frozen = $self->{freeze}->($_);
-    $frozen = compress($frozen) if $self->{compress};
+    my $frozen = $self->[FREEZE]->($_);
+    $frozen = compress($frozen) if $self->[COMPRESS];
     length($frozen) . "\0" . $frozen;
   } @$references;
   \@raw;
@@ -207,8 +212,8 @@ sub put {
 
 sub get_pending {
   my $self = shift;
-  return undef unless length $self->{buffer};
-  return [ $self->{buffer} ];
+  return undef unless length $self->[BUFFER];
+  return [ $self->[BUFFER] ];
 }
 
 ###############################################################################

@@ -11,10 +11,10 @@ $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 use Carp qw(croak);
 
-sub CODEBOTH () { 0 }
-sub CODEGET  () { 1 }
-sub CODEPUT  () { 2 }
-sub BUFFER   () { 3 }
+sub BUFFER   () { 0 }
+sub CODEBOTH () { 1 }
+sub CODEGET  () { 2 }
+sub CODEPUT  () { 3 }
 
 #------------------------------------------------------------------------------
 
@@ -36,15 +36,16 @@ sub new {
   );
 
   my $self = bless [
+    [ ],           # BUFFER
     $params{Code}, # CODEBOTH
     $params{Get},  # CODEGET
     $params{Put},  # CODEPUT
-    [ ],           # BUFFER
   ], $type;
 }
 
 #------------------------------------------------------------------------------
 # get() is inherited from POE::Filter.
+# clone() is inherited from POE::Filter.
 
 #------------------------------------------------------------------------------
 

@@ -36,6 +36,17 @@ sub new {
   ], $type;
 }
 
+sub clone {
+  my $self = shift;
+  my $clone = bless [
+    $self->[0], # BLOCKSIZE
+    [],         # GETBUFFER
+    [],         # PUTBUFFER
+    $self->[3], # CHECKPUT
+  ], ref $self;
+  $clone;
+}
+
 #------------------------------------------------------------------------------
 # get() is inherited from POE::Filter.
 

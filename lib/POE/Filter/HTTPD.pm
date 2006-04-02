@@ -20,6 +20,12 @@ use vars qw($VERSION @ISA);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 @ISA = qw(POE::Filter);
 
+sub BUFFER () { 0 }
+sub TYPE ()   { 1 }
+sub FINISH () { 2 }
+sub HEADER () { 3 }
+sub CLIENT_PROTO () { 4 }
+
 use Carp qw(croak);
 use HTTP::Status qw( status_message RC_BAD_REQUEST RC_OK RC_LENGTH_REQUIRED );
 use HTTP::Request ();
@@ -34,11 +40,13 @@ my $HTTP_1_1 = _http_version("HTTP/1.1");
 
 sub new {
   my $type = shift;
-  my $self = {
-    type   => 0,
-    buffer => '',
-    finish => 0,
-  };
+  my $self = [
+    '',     # BUFFER
+    0,      # TYPE
+    0,      # FINISH
+    undef,  # HEADER
+    undef,  # CLIENT_PROTO
+  ];
   bless $self, $type;
   $self;
 }
@@ -60,7 +68,7 @@ sub get {
   # arrived.  Subsequent get() calls on the same request should not
   # happen.  -><- Maybe this should return [] instead of dying?
 
-  if ($self->{finish}) {
+  if ($self->[FINISH]) {
 
     # This works around a request length vs. actual content length
     # error.  Looks like some browsers (mozilla!) sometimes add on an
@@ -94,15 +102,15 @@ sub get {
 
   # Accumulate data in a framing buffer.
 
-  $self->{buffer} .= join('', @$stream);
+  $self->[BUFFER] .= join('', @$stream);
 
   # If headers were already received, then the framing buffer is
   # purely content.  Return nothing until content-length bytes are in
   # the buffer, then return the entire request.
 
-  if ($self->{header}) {
-    my $buf = $self->{buffer};
-    my $r   = $self->{header};
+  if ($self->[HEADER]) {
+    my $buf = $self->[BUFFER];
+    my $r   = $self->[HEADER];
     my $cl  = $r->content_length() || length($buf) || 0;
 
     # Some browsers (like MSIE 5.01) send extra CRLFs after the
@@ -120,10 +128,10 @@ sub get {
     # PG- CGI.pm only reads Content-Length: bytes from STDIN.
     if (length($buf) >= $cl) {
       $r->content(substr($buf, 0, $cl));
-      $self->{buffer} = substr($buf, $cl);
-      $self->{buffer} =~ s/^\s+//;
+      $self->[BUFFER] = substr($buf, $cl);
+      $self->[BUFFER] =~ s/^\s+//;
 
-      $self->{finish}++;
+      $self->[FINISH]++;
       return [$r];
     }
 
@@ -135,14 +143,14 @@ sub get {
   # don't return anything until we've received a blank line.
 
   return [] unless(
-    $self->{buffer} =~ /(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)/s
+    $self->[BUFFER] =~ /(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)/s
   );
 
   # Copy the buffer for header parsing, and remove the header block
   # from the content buffer.
 
-  my $buf = $self->{buffer};
-  $self->{buffer} =~ s/.*?(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)//s;
+  my $buf = $self->[BUFFER];
+  $self->[BUFFER] =~ s/.*?(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)//s;
 
   # Parse the request line.
 
@@ -157,7 +165,7 @@ sub get {
 
   my $r = HTTP::Request->new($1, URI->new($2));
   $r->protocol($proto);
-  $self->{'httpd_client_proto'} = $proto = _http_version($proto);
+  $self->[CLIENT_PROTO] = $proto = _http_version($proto);
 
   # Add the raw request's headers to the request object we'll be
   # returning.
@@ -181,16 +189,16 @@ sub get {
     $r->push_header($key,$val) if($key);
   }
 
-  $self->{header} = $r;
+  $self->[HEADER] = $r;
 
   # If this is a GET or HEAD request, we won't be expecting a message
   # body.  Finish up.
 
   my $method = $r->method();
   if ($method eq 'GET' or $method eq 'HEAD') {
-    $self->{finish}++;
+    $self->[FINISH]++;
     # We are sending this back, so won't need it anymore.
-    delete $self->{header};
+    delete $self->[HEADER];
     return [$r];
   }
 
@@ -204,7 +212,7 @@ sub get {
 
   my $cl = $r->content_length();
   unless(defined $cl) {
-    if($self->{'httpd_client_proto'} == 9) {
+    if($self->[CLIENT_PROTO] == 9) {
       return [
         $self->build_error(
           RC_BAD_REQUEST,
@@ -232,11 +240,11 @@ sub get {
 
   if (length($buf) >= $cl) {
     $r->content(substr($buf, 0, $cl));
-    $self->{buffer} = substr($buf, $cl);
-    $self->{buffer} =~ s/^\s+//;
-    $self->{finish}++;
+    $self->[BUFFER] = substr($buf, $cl);
+    $self->[BUFFER] =~ s/^\s+//;
+    $self->[FINISH]++;
     # We are sending this back, so won't need it anymore.
-    delete $self->{header};
+    delete $self->[HEADER];
     return [$r];
   }
 
@@ -276,7 +284,7 @@ sub put {
   }
 
   # Allow next request after we're done sending the response.
-  $self->{finish}--;
+  $self->[FINISH]--;
 
   \@raw;
 }

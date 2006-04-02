@@ -11,8 +11,8 @@ $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 use Carp qw(croak);
 
-sub BLOCK_SIZE     () { 0 }
-sub FRAMING_BUFFER () { 1 }
+sub FRAMING_BUFFER () { 0 }
+sub BLOCK_SIZE     () { 1 }
 sub EXPECTED_SIZE  () { 2 }
 sub ENCODER        () { 3 }
 sub DECODER        () { 4 }
@@ -68,8 +68,8 @@ sub new {
   }
 
   my $self = bless [
-    $block_size,  # BLOCK_SIZE
     '',           # FRAMING_BUFFER
+    $block_size,  # BLOCK_SIZE
     undef,        # EXPECTED_SIZE
     $encoder,     # ENCODER
     $decoder,     # DECODER
@@ -77,6 +77,7 @@ sub new {
 
   $self;
 }
+
 
 #------------------------------------------------------------------------------
 # get() is inherited from POE::Filter.

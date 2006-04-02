@@ -18,6 +18,12 @@ sub new {
   $self;
 }
 
+sub clone {
+  my $self = shift;
+  my $buffer = '';
+  my $clone = bless \$buffer, ref $self;
+}
+
 #------------------------------------------------------------------------------
 # get() is inherited from POE::Filter.
 

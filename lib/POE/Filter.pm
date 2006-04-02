@@ -34,6 +34,22 @@ sub get {
   return \@return;
 }
 
+sub clone {
+  my $self = shift;
+  if (ref ($self->[0]) eq 'ARRAY') {
+    return bless [
+      [ ],                      # BUFFER
+      $self->[1 .. $#{$self}],  # everything else
+    ], ref $self;
+  }
+  else {
+    return bless [
+      '',                       # BUFFER
+      $self->[1 .. $#{$self}],  # everything else
+    ], ref $self;
+  }
+}
+
 #------------------------------------------------------------------------------
 1;
 
@@ -154,6 +170,15 @@ filters yet.
 Adding a handshake protocol means the sender will wait until a filter
 change has been acknowledged before going ahead and sending data in
 the new format.
+
+=item clone
+
+clone() makes a copy of the filter, and clears the copy's buffer.
+
+3rd party modules can either implement their own clone() or inherit
+from POE::Filter.  If inheriting, the object MUST be an array-ref
+AND the first element must be the buffer.  The buffer can be either a
+string or an array-ref.
 
 =back
 
