@@ -296,6 +296,7 @@ C-y: yank
 C-]: character-search
 C-_: undo
 del: backward-delete-char
+rubout: backward-delete-char
 
 M-C-g: abort
 M-C-h: backward-kill-word
@@ -647,22 +648,28 @@ sub readable_key {
   foreach my $l (split(//, $raw_key)) {
     if (ord($l) == 0x1B) {
       push(@text, 'Meta-');
-    } elsif (ord($l) < 32) {
+      next;
+    }
+    if (ord($l) < 32) {
       push(@text, 'Control-' . chr(ord($l)+64));
-    } elsif (ord($l) > 128) {
+      next;
+    }
+    if (ord($l) > 127) {
       my $l = ord($l)-128;
       if ($l < 32) {
-        $l = "Control-" . chr(ord($l)+64);
+        $l = "Control-" . chr($l+64);
       }
       push(@text, 'Meta-' . chr($l));
-    } else {
-      push(@text, $l);
+      next;
     }
+    if (ord($l) == 127) {
+      push @text, "^?";
+      next;
+    }
+    push(@text, $l);
   }
   return join("", @text);
 }
-
-
 
 # Calculate the display width of a string.  The display width is
 # sometimes wider than the actual string because some characters are
@@ -755,7 +762,7 @@ sub global_init {
   my $convert_meta = 1;
   for (my $ord = 0; $ord < 256; $ord++) {
     my $str = chr($ord);
-    if ($ord > 126) {
+    if ($ord > 127) {
       if ($convert_meta) {
         $str = "^[";
         if (($ord - 128) < 32) {
@@ -768,6 +775,9 @@ sub global_init {
       }
     } elsif ($ord < 32) {
       $str = '^' . lc(chr($ord+64));
+    }
+    elsif ($ord == 127) {
+      $str = "^?"; # -><- chr(127);
     }
     $normalized_character{chr($ord)} = $str;
     $normalized_extra_width[$ord] = length ( $str ) - 1;
@@ -994,9 +1004,11 @@ sub apply_key {
   my ($self, $key, $raw_key) = @_;
   my $mapping = $self->[SELF_KEYMAP];
   my $fn = $mapping->{default};
+
   if (exists $mapping->{binding}->{$raw_key}) {
     $fn = $mapping->{binding}->{$raw_key};
   }
+
   # print "\r\ninvoking $fn for $key\r\n";$self->repaint_input_line;
   if ($self->[SELF_COUNT] && !grep { $_ eq $fn } @fns_counting) {
     $self->[SELF_COUNT] = int($self->[SELF_COUNT]);
@@ -1221,13 +1233,11 @@ sub rl_re_read_init_file {
       $self->parse_inputrc($input);
     }
   }
+
   if (!$self->option('editing-mode')) {
-    if (exists $ENV{EDITOR} && $ENV{EDITOR} =~ /vi/) {
-      $self->[SELF_OPTIONS]->{'editing-mode'} = 'vi';
-    } else {
-      $self->[SELF_OPTIONS]->{'editing-mode'} = 'emacs';
-    }
+    $self->[SELF_OPTIONS]->{'editing-mode'} = 'emacs';
   }
+
   if ($self->option('editing-mode') eq 'vi') {
     # by default, start in insert mode already
     $self->rl_set_keymap('vi-insert');
@@ -2917,15 +2927,15 @@ my %english_to_termcap = (
 );
 
 my %english_to_key = (
-  'space'     => ' ',
-  'esc'       => '^[',
-  'escape'    => '^[',
-  'tab'       => '^I',
-  'ret'       => '^J',
-  'return'    => '^J',
-  'newline'   => '^M',
-  'lfd'       => '^L',
-  'rubout'    => '^?',
+  'space'     => " ",
+  'esc'       => "\e",
+  'escape'    => "\e",
+  'tab'       => "\cI",
+  'ret'       => "\cJ",
+  'return'    => "\cJ",
+  'newline'   => "\cM",
+  'lfd'       => "\cL",
+  'rubout'    => chr(127),
 );
 
 sub init {
@@ -2958,7 +2968,12 @@ sub decode  {
   return $seq;
 }
 
-sub control { return chr(ord(uc($_[0]))-64) };
+sub control {
+  my $c = shift;
+  return chr(0x7F) if $c eq "?";
+  return chr(ord(uc($c))-64);
+}
+
 sub meta    { return "\x1B" . $_[0] };
 sub bind_key {
   my ($self, $inseq, $fn) = @_;
@@ -3155,9 +3170,8 @@ to modify the readline behaviour.
 Bind a function to a named key sequence. The key sequence can be in
 any of the forms defined within readline(3). The function should
 either be a pre-registered name such as 'self-insert', or it should be
-a reference to a function. The binding is made in the current
-keymap. If you wish to change keymaps, then use the
-rl_set_keymap method.
+a reference to a function. The binding is made in the current keymap.
+If you wish to change keymaps, then use the rl_set_keymap method.
 
 =item add_defun NAME FN
 
