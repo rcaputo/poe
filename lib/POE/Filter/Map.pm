@@ -111,13 +111,22 @@ POE::Filter::Map - POE Data Mapping Filter
 
 =head1 SYNOPSIS
 
-  $filter = POE::Filter::Map->new(Code => sub {...});
-  $filter = POE::Filter::Map->new(Put => sub {...}, Get => sub {...});
+  $filter = POE::Filter::Map->new(
+      Code => sub {...},
+      );
+
+  $filter = POE::Filter::Map->new(
+      Put => sub {...},
+      Get => sub {...},
+      );
+  
   $arrayref_of_transformed_data = $filter->get($arrayref_of_raw_data);
+  
   $arrayref_of_streamable_data = $filter->put($arrayref_of_data);
   $arrayref_of_streamable_data = $filter->put($single_datum);
-  $filter->modify(Code => sub {...});
-  $filter->modify(Put => sub {...}, Get => sub {...});
+  
+  $filter->modify( Code => sub {...} );
+  $filter->modify( Put  => sub {...}, Get => sub {...} );
 
 =head1 DESCRIPTION
 
