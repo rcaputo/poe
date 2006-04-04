@@ -110,14 +110,19 @@ sub new {
     $session_params = [ ];
   }
 
-  my @filter_args;
   $address = '127.0.0.1' unless defined $address;
-  unless (defined $filter) {
-    $filter = "POE::Filter::Line";
-  }
-  elsif (ref($filter) eq 'ARRAY') {
+
+  my @filter_args;
+  if (ref $filter eq 'ARRAY') {
     @filter_args = @$filter;
-    $filter      = shift @filter_args;
+    $filter = shift @filter_args;
+    $filter = $filter->new(@filter_args);
+  } elsif (ref $filter) {
+    $filter = $filter->clone();
+  } elsif (!defined($filter)) {
+    $filter = POE::Filter::Line->new();
+  } else {
+    $filter = $filter->new();
   }
 
   $conn_error_callback = \&_default_error unless defined $conn_error_callback;
@@ -191,7 +196,7 @@ sub new {
           $_[HEAP]->{server} = POE::Wheel::ReadWrite->new
             ( Handle       => $socket,
               Driver       => POE::Driver::SysRW->new(),
-              Filter       => $filter->new(@filter_args),
+              Filter       => $filter,
               InputEvent   => 'got_server_input',
               ErrorEvent   => 'got_server_error',
               FlushedEvent => 'got_server_flush',

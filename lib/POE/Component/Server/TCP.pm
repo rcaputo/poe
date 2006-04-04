@@ -109,54 +109,55 @@ sub new {
   }
 
   if (defined $client_input) {
-    if (defined $client_infilter and defined $client_outfilter) {
 
+    my @filters;
+    if (defined $client_infilter and defined $client_outfilter) {
       @client_infilter_args  = ();
       @client_outfilter_args = ();
 
       if (ref($client_infilter) eq 'ARRAY') {
-         @client_infilter_args = @$client_infilter;
-         $client_infilter      = shift @client_infilter_args;
+        @client_infilter_args = @$client_infilter;
+        $client_infilter      = shift @client_infilter_args;
+        $client_infilter = "POE::Filter::Line"
+         unless _loadfilter($client_infilter);
+        push @filters, "InputFilter", $client_infilter->new(@client_infilter_args);
+      } elsif (ref $client_infilter) {
+        push @filters, "InputFilter", $client_infilter->clone();
+      } else {
+        $client_infilter = "POE::Filter::Line"
+         unless _loadfilter($client_infilter);
+        push @filters, "InputFilter", $client_infilter->new(@client_infilter_args);
       }
 
       if (ref($client_outfilter) eq 'ARRAY') {
-         @client_outfilter_args = @$client_outfilter;
-         $client_outfilter      = shift @client_outfilter_args;
+        @client_outfilter_args = @$client_outfilter;
+        $client_outfilter      = shift @client_outfilter_args;
+        $client_outfilter = "POE::Filter::Line"
+         unless _loadfilter($client_outfilter);
+        push @filters, "OutputFilter", $client_outfilter->new(@client_outfilter_args);
+      } elsif (ref $client_outfilter) {
+        push @filters, "OutputFilter", $client_outfilter->clone();
+      } else {
+        $client_outfilter = "POE::Filter::Line"
+         unless _loadfilter($client_outfilter);
+        push @filters, "OutputFilter", $client_outfilter->new(@client_outfilter_args);
       }
-
-      my $eval = eval {
-        (my $inmod  = $client_infilter)  =~ s!::!/!g;
-        (my $outmod = $client_outfilter) =~ s!::!/!g;
-        require "$inmod.pm";
-        require "$outmod.pm";
-        1;
-      };
-
-      if (!$eval and $@) {
-        carp(
-          "Failed to load [$client_infilter] and [$client_outfilter]\n" .
-          "Reason $@\nUsing defualts "
-        );
-
-        undef($client_infilter);
-        undef($client_outfilter);
-        $client_filter      = "POE::Filter::Line";
-        @client_filter_args = ();
-      }
-
     }
     else {
-       undef($client_infilter);  # just to be safe in case one was defined
-       undef($client_outfilter); # and the other wasn't
+      undef($client_infilter);  # just to be safe in case one was defined
+      undef($client_outfilter); # and the other wasn't
 
-       unless (defined $client_filter) {
-         $client_filter      = "POE::Filter::Line";
-         @client_filter_args = ();
-       }
-       elsif (ref($client_filter) eq 'ARRAY') {
-         @client_filter_args = @$client_filter;
-         $client_filter      = shift @client_filter_args;
-       }
+      unless (defined $client_filter) {
+        @filters = ( Filter => POE::Filter::Line->new(), );
+      }
+      elsif (ref($client_filter) eq 'ARRAY') {
+        @client_filter_args = @$client_filter;
+        $client_filter      = shift @client_filter_args;
+        @filters = ( Filter => $client_filter->new(@client_filter_args), );
+      }
+      elsif (ref $client_filter) {
+        @filters = ( Filter => $client_filter->clone(), );
+      }
     }
 
     $client_error  = \&_default_client_error unless defined $client_error;
@@ -231,27 +232,6 @@ sub new {
               }
 
               $heap->{remote_port} = $remote_port;
-
-              # Alter the filters depending whether they are
-              # discrete input/output ones, or whether they are the
-              # same.  It's useful to note that the input/output
-              # filters may be changed at runtime.
-              my @filters;
-              if ($client_infilter) {
-                @filters = (
-                  InputFilter  => $client_infilter->new(
-                    @client_infilter_args
-                  ),
-                  OutputFilter => $client_outfilter->new(
-                    @client_outfilter_args
-                  ),
-                );
-              }
-              else {
-                @filters = (
-                  Filter => $client_filter->new(@client_filter_args),
-                );
-              }
 
               $heap->{client} = POE::Wheel::ReadWrite->new(
                 Handle       => splice(@_, ARG0, 1),
@@ -469,6 +449,24 @@ sub new {
   # Return undef so nobody can use the POE::Session reference.  This
   # isn't very friendly, but it saves grief later.
   undef;
+}
+
+# Load a filter, return success or failure.
+sub _loadfilter {
+  my ($filter) = @_;
+  my $eval = eval {
+    (my $mod = $filter) =~ s!::!/!g;
+    require "$mod.pm";
+    1;
+  };
+  if (!$eval and $@) {
+    carp(
+      "Failed to load [$filter]\n" .
+      "Reason $@\nUsing defualts "
+    );
+    return 0;
+  }
+  return 1;
 }
 
 # The default server error handler logs to STDERR and shuts down the
