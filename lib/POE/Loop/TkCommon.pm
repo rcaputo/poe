@@ -34,11 +34,15 @@ sub loop_attach_uidestroy {
   $window->OnDestroy(
     sub {
       if ($self->_data_ses_count()) {
+
         $self->_dispatch_event(
           $self, $self,
           EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
           __FILE__, __LINE__, time(), -__LINE__
         );
+
+        # Flag the main loop as done.
+        $_do_one_running = 0;
       }
     }
   );
