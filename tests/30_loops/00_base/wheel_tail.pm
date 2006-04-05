@@ -193,7 +193,8 @@ sub client_tcp_got_alarm {
 
   $heap->{put_count} += 2;
   if ($heap->{put_count} < $max_send_count) {
-    $kernel->delay( got_alarm => 0.1 );
+    # Delay is 1 for slow hardware.
+    $kernel->delay( got_alarm => 1 );
   }
 }
 
