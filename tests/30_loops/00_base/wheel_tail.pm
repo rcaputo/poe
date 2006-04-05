@@ -143,9 +143,11 @@ sub client_tcp_stop {
     $heap->{put_count} == $max_send_count,
     "sent everything we should"
   );
+
+  my $sent_count = $_[HEAP]->{put_count} / 2;
   ok(
-    $heap->{flush_count} == $_[HEAP]->{put_count} / 2,
-    "flushed what we sent"
+    $heap->{flush_count} == $sent_count,
+    "flushed what we sent (flush=$heap->{flush_count}; sent=$sent_count)"
   );
   ok(
     $heap->{test_six},
