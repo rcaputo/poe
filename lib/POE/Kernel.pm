@@ -990,9 +990,9 @@ sub _dispatch_event {
     # bit of a problem if an eval{} occurs here because a signal is
     # dispatched or something.
 
-    my $exception = $@;
+    if( $@ ne '' ) {
+      my $exception = $@;
 
-    if($exception ne '') {
       if(TRACE_EVENTS) {
         _warn(
           "<ev> exception occurred in $event when invoked on ",
