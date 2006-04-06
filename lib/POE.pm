@@ -7,7 +7,7 @@ use strict;
 use Carp qw( croak );
 
 use vars qw($VERSION $REVISION);
-$VERSION = '0.33_02';
+$VERSION = '0.34';
 $REVISION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 sub import {
@@ -141,7 +141,7 @@ the notion of an event driven task.
 
 POE::Wheel classes operate at a slightly higher level.  They plug into
 sessions and perform very common, general tasks.  For example,
-POE::Wheel::ReadWrite performs buffered I/O.  
+POE::Wheel::ReadWrite performs buffered I/O.
 
 Unlike cheese, wheels do not stand alone.  They are customized by
 POE::Driver and POE::Filter classes.  Using the proper filter, a

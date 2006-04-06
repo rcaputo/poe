@@ -23,33 +23,26 @@ release.
 Installing POE
 --------------
 
-See http://poe.perl.org/?Where_to_Get_POE for download sites, Windows
-installation tips, and anonymous CVS instructions.
-
-POE may be installed through the CPAN shell in the usual manner.
+POE can be installed through the CPAN or CPANPLUS shell in the usual
+manner.
 
   % perl -MCPAN -e shell
   cpan> install POE
 
-To install on a Win32 machine using ActiveState's PPM.  If PPM fails,
-try PPM3.
+http://poe.perl.org/?Where_to_Get_POE explains other options for
+obtaining POE, including anonymous Subversion access.
 
-  > ppm install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
-
-or
-
-  > ppm3 install http://unc.dl.sourceforge.net/sourceforge/poe/POE.ppd
+As of version 0.34, we are working to make sure ActiveState's
+automated package system can build POE PPDs itself.  POE's homegrown
+PPD build system is being phased out.
 
 ------------
 Test Results
 ------------
 
-POE is tested before each release and post-release by a group of
-volunteers known as the CPAN Testers.  You can see the public results
-of their work at:
-
-  http://testers.cpan.org/search?request=dist&dist=POE
-    -- CPAN testers' reports.
+The CPAN Testers are a group of volunteers who test new CPAN
+distributions on a number of platforms.  You can see their test
+results at: http://testers.cpan.org/search?request=dist&dist=POE
 
 POE's ongoing improvement relies on your feedback.  You file bug
 reports, feature requests, and even success stories by e-mailing
@@ -69,10 +62,10 @@ it as an accurate gauge of quality.
 What POE Is
 -----------
 
-POE is a networking and multitasking (some say cooperative threading)
-framework for Perl.  It has been in active development since 1996,
-with its first open release in 1998.  O'Reilly's "The Perl Conference"
-(now OSCON's Perl track) named POE "Best New Module" in 1999.
+POE is an event-driven networking and multitasking framework for Perl.
+It has been in active development since 1996, with its first open
+release in 1998.  O'Reilly's "The Perl Conference" (now OSCON's Perl
+track) named POE "Best New Module" in 1999.
 
 POE has been used in mission-critical systems such as internetworked
 financial markets, file systems, commerce and application servers.  It
@@ -80,8 +73,7 @@ has been used in projects ranging from a few lines of code to tens of
 thousands.
 
 POE is compatible with perl versions as old as 5.005_03.  This may
-change as it becomes harder and harder to support old versions of Perl
-over time.
+change as it becomes harder to support old versions of Perl over time.
 
 POE includes an evolving component framework.  Components are
 high-level, modular, reusable pieces of programs.  Several components
@@ -99,4 +91,4 @@ Bye!
 Thanks for reading!
 
 -- 
-Rocco Caputo / rcaputo@cpan.org / poe.perl.org
+Rocco Caputo / rcaputo@cpan.org / http://poe.perl.org/
