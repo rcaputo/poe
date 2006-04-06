@@ -25,7 +25,7 @@ my $build = Module::Build->new(
   },
   requires          => { CORE_REQUIREMENTS },
   no_index => {
-    dir => [ "mylib" ]
+    dir => [ "mylib", "tests" ]
   },
 );
 
