@@ -88,11 +88,11 @@ sub udp_stop {
 
   ok(
     $heap->{peer_a_send_count} == $max_send_count,
-    "peer a sent $heap->{peer_a_send_count}"
+    "peer a sent $heap->{peer_a_send_count} (wanted $max_send_count)"
   );
   ok(
     $heap->{peer_b_send_count} == $max_send_count,
-    "peer b sent $heap->{peer_b_send_count}"
+    "peer b sent $heap->{peer_b_send_count} (wanted $max_send_count)"
   );
 }
 
