@@ -162,9 +162,10 @@ sub test_stop {
   ok($heap->{test}->{path_nine}  == 11, "mixed delay APIs rang properly");
   ok($heap->{test}->{path_ten}   == 1,  "stopped delay should not ring");
 
-  # Here's where we check the overall run time.  Increased to 10s for
-  # extremely slow, overtaxed machines like my NT test platform.
-  ok(time() - $heap->{start_time} <= 10, "tests ran reasonably fast");
+  # Here's where we check the overall run time.  Increased to 15s for
+  # extremely slow, overtaxed machines like my XP system running under
+  # Virtual PC.
+  ok(time() - $heap->{start_time} <= 15, "tests ran reasonably fast");
 
   # And test alarm order.
   ok(
