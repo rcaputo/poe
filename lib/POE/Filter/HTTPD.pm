@@ -20,11 +20,11 @@ use vars qw($VERSION @ISA);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 @ISA = qw(POE::Filter);
 
-sub BUFFER () { 0 }
-sub TYPE ()   { 1 }
-sub FINISH () { 2 }
-sub HEADER () { 3 }
-sub CLIENT_PROTO () { 4 }
+sub BUFFER        () { 0 }
+sub TYPE          () { 1 }
+sub FINISH        () { 2 }
+sub HEADER        () { 3 }
+sub CLIENT_PROTO  () { 4 }
 
 use Carp qw(croak);
 use HTTP::Status qw( status_message RC_BAD_REQUEST RC_OK RC_LENGTH_REQUIRED );

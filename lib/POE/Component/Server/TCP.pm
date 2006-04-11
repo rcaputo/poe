@@ -109,7 +109,6 @@ sub new {
   }
 
   if (defined $client_input) {
-
     my @filters;
     if (defined $client_infilter and defined $client_outfilter) {
       @client_infilter_args  = ();
@@ -118,46 +117,72 @@ sub new {
       if (ref($client_infilter) eq 'ARRAY') {
         @client_infilter_args = @$client_infilter;
         $client_infilter      = shift @client_infilter_args;
-        $client_infilter = "POE::Filter::Line"
-         unless _loadfilter($client_infilter);
-        push @filters, "InputFilter", $client_infilter->new(@client_infilter_args);
-      } elsif (ref $client_infilter) {
+        $client_infilter = "POE::Filter::Line" unless (
+          _loadfilter($client_infilter)
+        );
+        push(
+          @filters,
+          "InputFilter", $client_infilter->new(@client_infilter_args)
+        );
+      }
+      elsif (ref $client_infilter) {
         push @filters, "InputFilter", $client_infilter->clone();
-      } else {
-        $client_infilter = "POE::Filter::Line"
-         unless _loadfilter($client_infilter);
-        push @filters, "InputFilter", $client_infilter->new(@client_infilter_args);
+      }
+      else {
+        $client_infilter = "POE::Filter::Line" unless (
+          _loadfilter($client_infilter)
+        );
+        push(
+          @filters,
+          "InputFilter", $client_infilter->new(@client_infilter_args)
+        );
       }
 
       if (ref($client_outfilter) eq 'ARRAY') {
         @client_outfilter_args = @$client_outfilter;
         $client_outfilter      = shift @client_outfilter_args;
-        $client_outfilter = "POE::Filter::Line"
-         unless _loadfilter($client_outfilter);
-        push @filters, "OutputFilter", $client_outfilter->new(@client_outfilter_args);
-      } elsif (ref $client_outfilter) {
+        $client_outfilter = "POE::Filter::Line" unless (
+          _loadfilter($client_outfilter)
+        );
+        push(
+          @filters,
+          "OutputFilter", $client_outfilter->new(@client_outfilter_args)
+        );
+      }
+      elsif (ref $client_outfilter) {
         push @filters, "OutputFilter", $client_outfilter->clone();
-      } else {
-        $client_outfilter = "POE::Filter::Line"
-         unless _loadfilter($client_outfilter);
-        push @filters, "OutputFilter", $client_outfilter->new(@client_outfilter_args);
+      }
+      else {
+        $client_outfilter = "POE::Filter::Line" unless(
+          _loadfilter($client_outfilter)
+        );
+        push(
+          @filters,
+          "OutputFilter", $client_outfilter->new(@client_outfilter_args)
+        );
       }
     }
-    else {
-      undef($client_infilter);  # just to be safe in case one was defined
-      undef($client_outfilter); # and the other wasn't
-
-      unless (defined $client_filter) {
-        @filters = ( Filter => POE::Filter::Line->new(), );
-      }
-      elsif (ref($client_filter) eq 'ARRAY') {
+    elsif (defined $client_filter) {
+      if (ref($client_filter) eq 'ARRAY') {
         @client_filter_args = @$client_filter;
         $client_filter      = shift @client_filter_args;
         @filters = ( Filter => $client_filter->new(@client_filter_args), );
       }
-      elsif (ref $client_filter) {
+      elsif (ref($client_filter)) {
         @filters = ( Filter => $client_filter->clone(), );
       }
+      else {
+        @filters = ( Filter => $client_filter->new(), );
+      }
+    }
+    elsif (defined($client_infilter) or defined($client_outfilter)) {
+      croak(
+        "Must supply either ClientFilter or both " .
+        "ClientInputFilter and ClientOutputFilter"
+      );
+    }
+    else {
+      @filters = ( Filter => POE::Filter::Line->new(), );
     }
 
     $client_error  = \&_default_client_error unless defined $client_error;

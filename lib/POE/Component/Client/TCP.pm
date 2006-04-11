@@ -54,12 +54,14 @@ sub new {
   $args = [] unless defined $args;
   croak "Args must be an array reference" unless ref($args) eq "ARRAY";
 
-  foreach ( qw( Connected ConnectError Disconnected ServerInput
-                ServerError ServerFlushed Started
-              )
-          ) {
-    croak "$_ must be a coderef"
-      if defined($param{$_}) and ref($param{$_}) ne 'CODE';
+  foreach (
+    qw( Connected ConnectError Disconnected ServerInput
+      ServerError ServerFlushed Started
+    )
+  ) {
+    croak "$_ must be a coderef" if(
+      defined($param{$_}) and ref($param{$_}) ne 'CODE'
+    );
   }
 
   my $conn_callback       = delete $param{Connected};
