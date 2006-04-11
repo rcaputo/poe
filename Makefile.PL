@@ -82,7 +82,7 @@ else {
 
 find(
   sub {
-    next unless -f and /\.pm$/;
+    return unless -f and /\.pm$/;
     system($^X, "-p", "-i.pp", "-e", $code, $_) and die "System error: $!";
   },
   "lib"
@@ -90,7 +90,7 @@ find(
 
 find(
   sub {
-    next unless -f and /\.pp$/;
+    return unless -f and /\.pp$/;
     unlink $_;
   },
   "lib"
