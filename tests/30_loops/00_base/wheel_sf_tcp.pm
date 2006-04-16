@@ -80,7 +80,7 @@ sub sss_line {
 sub sss_error {
   my ($heap, $operation, $errnum, $errstr) = @_[HEAP, ARG0..ARG2];
 
-  ok(!$errnum, "sss error");
+  ok(!$errnum, "sss expecting errnum 0; got $errnum");
   $heap->{test_two} = 0 if $errnum;
 
   delete $heap->{wheel};

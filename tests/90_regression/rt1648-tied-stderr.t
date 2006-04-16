@@ -1,5 +1,6 @@
 #!/usr/bin/perl 
 # $Id$
+# vim: filetype=perl
 
 # Scott Beck reported that tied STDERR breaks POE::Wheel::Run.  He
 # suggested untying STDOUT and STDERR in the child process.  This test
@@ -32,7 +33,7 @@ POE::Session->create(
   inline_states => {
     _start => sub {
       my ($kernel, $session, $heap) = @_[KERNEL, SESSION, HEAP];
-      
+
       $_[KERNEL]->sig( 'CHLD', 'sigchld' );
       $_[KERNEL]->refcount_increment( $session->ID, "teapot" );
       diag( "Installing CHLD signal Handler" );
@@ -58,7 +59,7 @@ POE::Session->create(
       if ($_[ARG1] == $_[HEAP]->{pid}) {
         diag( "PID Matches, removing CHLD handler" );
         $_[KERNEL]->sig( 'CHLD' );
-	$_[KERNEL]->refcount_decrement( $_[SESSION]->ID, "teapot" );
+        $_[KERNEL]->refcount_decrement( $_[SESSION]->ID, "teapot" );
       }
     },
     _stop => sub {
