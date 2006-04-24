@@ -36,18 +36,11 @@ sub get {
 
 sub clone {
   my $self = shift;
-  if (ref ($self->[0]) eq 'ARRAY') {
-    return bless [
-      [ ],                      # BUFFER
-      $self->[1 .. $#{$self}],  # everything else
-    ], ref $self;
-  }
-  else {
-    return bless [
-      '',                       # BUFFER
-      $self->[1 .. $#{$self}],  # everything else
-    ], ref $self;
-  }
+  my $buf = (ref($self->[0]) eq 'ARRAY') ? [ ] : '';
+  return bless [
+    $buf,                     # BUFFER
+    $self->[1 .. $#{$self}],  # everything else
+  ], ref $self;
 }
 
 #------------------------------------------------------------------------------
