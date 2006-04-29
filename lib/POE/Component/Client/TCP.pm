@@ -245,7 +245,10 @@ sub new {
         got_server_flush => sub {
           my $heap = $_[HEAP];
           $flush_callback->(@_);
-          delete $heap->{server} if $heap->{shutdown};
+          if ($heap->{shutdown}) {
+            delete $heap->{server};
+            $disc_callback->(@_);
+          }
         },
 
         shutdown => sub {
