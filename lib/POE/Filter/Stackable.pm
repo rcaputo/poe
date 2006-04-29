@@ -26,11 +26,26 @@ sub new {
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
 
-  my $self = bless [
-    $params{Filters}, # FILTERS
-  ], $type;
+  # Sanity check the filters
+  if ( exists $params{Filters} and defined $params{Filters}
+       and ref( $params{Filters} ) and ref( $params{Filters} ) eq 'ARRAY'
+       and scalar @{ $params{Filters} } > 0 ) {
 
-  $self;
+    # Check the elements
+    foreach my $elem ( @{ $param{Filters} } ) {
+      if ( ! defined $elem or ! UNIVERSAL::isa( $elem, 'POE::Filter' ) ) {
+        croak "Filter element is not a POE::Filter instance!";
+      }
+    }
+
+    my $self = bless [
+      $params{Filters}, # FILTERS
+    ], $type;
+
+    return $self;
+  } else {
+    croak "Filters is not an ARRAY reference!";
+  }
 }
 
 sub clone {
@@ -38,7 +53,7 @@ sub clone {
   my $clone = bless [
     [ ],    # FILTERS
   ], ref $self;
-  foreach my $filter ($self->[FILTERS]) {
+  foreach my $filter (@{$self->[FILTERS]}) {
     push (@{$clone->[FILTERS]}, $filter->clone());
   }
   $clone;
@@ -128,7 +143,8 @@ sub filters {
 sub shift {
   my ($self) = @_;
   my $filter = shift @{$self->[FILTERS]};
-  $self->[FILTERS]->[0]->put($filter->get_pending || []);
+  my $pending = $filter->get_pending;
+  $self->[FILTERS]->[0]->put( $pending ) if $pending;
   $filter;
 }
 
@@ -136,6 +152,14 @@ sub shift {
 
 sub unshift {
   my ($self, @filters) = @_;
+
+  # Sanity check
+  foreach my $elem ( @filters ) {
+    if ( ! defined $elem or ! UNIVERSAL::isa( $elem, 'POE::Filter' ) ) {
+      croak "Filter element is not a POE::Filter instance!";
+    }
+  }
+
   unshift(@{$self->[FILTERS]}, @filters);
 }
 
@@ -143,6 +167,14 @@ sub unshift {
 
 sub push {
   my ($self, @filters) = @_;
+
+  # Sanity check
+  foreach my $elem ( @filters ) {
+    if ( ! defined $elem or ! UNIVERSAL::isa( $elem, 'POE::Filter' ) ) {
+      croak "Filter element is not a POE::Filter instance!";
+    }
+  }
+
   push(@{$self->[FILTERS]}, @filters);
 }
 
@@ -151,7 +183,8 @@ sub push {
 sub pop {
   my ($self) = @_;
   my $filter = pop @{$self->[FILTERS]};
-  $self->[FILTERS]->[-1]->put($filter->get_pending || []);
+  my $pending = $filter->get_pending;
+  $self->[FILTERS]->[-1]->put( $pending ) if $pending;
   $filter;
 }
 
