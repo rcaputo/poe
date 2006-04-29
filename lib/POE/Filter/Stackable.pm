@@ -32,7 +32,7 @@ sub new {
        and scalar @{ $params{Filters} } > 0 ) {
 
     # Check the elements
-    foreach my $elem ( @{ $param{Filters} } ) {
+    foreach my $elem ( @{ $params{Filters} } ) {
       if ( ! defined $elem or ! UNIVERSAL::isa( $elem, 'POE::Filter' ) ) {
         croak "Filter element is not a POE::Filter instance!";
       }
