@@ -338,8 +338,8 @@ appropriate modules before calling their methods.
 The put() method freezes one or more REFERENCES and returns their
 serialized, streamable representations as a list reference.
 
-  $listref = $filter_reference->put([ \%thing_one, \@thing_two ]);
-  foreach (@$listref) {
+  $arrayref = $filter_reference->put([ \%thing_one, \@thing_two ]);
+  foreach (@$arrayref) {
     ...;
   }
 

@@ -431,7 +431,7 @@ sub create {
     }
 
     # Package states are expected to be package-name/list-or-hashref
-    # pairs.  If the second part of the pair is a listref, then the
+    # pairs.  If the second part of the pair is a arrayref, then the
     # package methods are expected to be named after the states
     # they'll handle.  If it's a hashref, then the keys are state
     # names and the values are package methods that implement them.
@@ -495,7 +495,7 @@ sub create {
 
         # Verify that the object is an object.  This may catch simple
         # mistakes; or it may be overkill since it already checks that
-        # $param_value is a listref.
+        # $param_value is a arrayref.
 
         carp "'$object' is not an object" unless ref($object);
 
@@ -1051,7 +1051,7 @@ them aren't hanging around.
 
 =over 2
 
-=item args => LISTREF
+=item args => ARRAYREF
 
 The C<args> parameter accepts a reference to a list of parameters that
 will be passed to the machine's C<_start> state.  They are passed in
@@ -1103,16 +1103,16 @@ corresponding coderefs.
 These states are called "inline" because they can be inline anonymous
 subs.
 
-=item object_states => LISTREF
+=item object_states => ARRAYREF
 
 C<object_states> maps event names to the object methods which will
-handle them.  Its value is a B<listref> of object references and the
-methods to use.  It's a listref because using a hashref would
+handle them.  Its value is a B<arrayref> of object references and the
+methods to use.  It's a arrayref because using a hashref would
 stringify its keys, and the object references would become unusable.
 
 The object's methods can be specified in two ways.
 
-The first form associates a listref to each object reference.  This
+The first form associates a arrayref to each object reference.  This
 form maps each event to an object method with the same name.  In this
 example, C<event_one> is handled by C<$object>'s C<event_one()>
 method.
@@ -1154,16 +1154,16 @@ These two statements are equivalent:
 
 See the option() method for a list of options and values.
 
-=item package_states => LISTREF
+=item package_states => ARRAYREF
 
 C<package_states> maps event names to the package methods which will
 handle them.  It's very similar to C<object_states>.
-C<package_states>' value is a B<listref> of package names and the
-methods to use.  It's a listref for consistency with C<object_states>.
+C<package_states>' value is a B<arrayref> of package names and the
+methods to use.  It's a arrayref for consistency with C<object_states>.
 
 The package's methods can be specified in two ways.
 
-The first form associates a listref to each package name.  This form
+The first form associates a arrayref to each package name.  This form
 maps each event to a package method with the same name.  In this
 example, C<event_ten> is handled by C<Package>'s C<event_ten()>
 method.
@@ -1215,7 +1215,7 @@ Inline states are specified as a scalar mapped to a coderef.
   event_two => sub { ... },
 
 Object states are specified as object references mapped to list or
-hash references.  Objects that are mapped to listrefs will handle
+hash references.  Objects that are mapped to arrayrefs will handle
 events with identically named methods.
 
   $object_one => [ 'event_one', 'event_two' ],
@@ -1226,7 +1226,7 @@ named methods.
   $object_two => { event_ten => 'method_foo', event_eleven => 'method_bar' },
 
 Package states are specified as package names mapped to list or hash
-references.  Package names that are mapped to listrefs will handle
+references.  Package names that are mapped to arrayrefs will handle
 events with identically named methods.
 
   PackageOne => [ 'event_five', 'event_six' ],
@@ -1236,7 +1236,7 @@ differently named methods.
 
   PackageTwo => { event_seven => 'method_baz', event_eight => 'method_quux' },
 
-Arguments for the C<_start> state are specified as listrefs.
+Arguments for the C<_start> state are specified as arrayrefs.
 
   [ 'arg0', 'arg1', ... ],
 
@@ -1245,19 +1245,21 @@ So, in summary, the rules for this constructor are:
   If a scalar appears as the "key" field ...
     If a coderef appears as its "value" ...
       Then it's an inline event handler.
-    If a listref appears as its "value" ...
+    If a arrayref appears as its "value" ...
       Then it's a set of package states with the same names.
     If a hashref appears as its "value" ...
       Then it's a set of package states with possibly different names.
     Otherwise, it's an error.
   If an object reference appears as the "key" field ...
-    If a listref appears as its "value" ...
+    If a arrayref appears as its "value" ...
       Then it's a set of object states with the same names.
     If a hashref appears as its "value" ...
       Then it's a set of object states with possibly different names.
     Otherwise, it's an error.
-  If a listref appears as the "key" field ...
+  If a arrayref appears as the "key" field ...
     Then it's a set of C<_start> arguments, and it has no "value".
+
+... which is a big part of why it's deprecated!
 
 =item option OPTION_NAME
 

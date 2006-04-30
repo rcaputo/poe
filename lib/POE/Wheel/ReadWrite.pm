@@ -703,7 +703,7 @@ been read or flushed.
 
 =over 2
 
-=item put LISTREF_OF_RECORDS
+=item put ARRAYREF_OF_RECORDS
 
 put() queues records for transmission.  They may not be transmitted
 immediately.  ReadWrite uses its Filter to translate the records into

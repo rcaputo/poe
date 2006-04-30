@@ -454,9 +454,9 @@ may get clobbered when defining them for your SessionHandler.  It is
 advised that you stick to defining arguments in the "options" hash such
 as trace and debug. See L<POE::Session> for an example list of options.
 
-=item Args LISTREF
+=item Args ARRAYREF
 
-Args passes the contents of a LISTREF to the Started callback via
+Args passes the contents of a ARRAYREF to the Started callback via
 @_[ARG0..$#_].  It allows a program to pass extra information to the
 session created to handle the client connection.
 

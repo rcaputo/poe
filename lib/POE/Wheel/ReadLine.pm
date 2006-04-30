@@ -533,7 +533,7 @@ sub flush_output_buffer {
   if ( @{ $self->[SELF_PUT_BUFFER] } ) {
     print $stdout @{ $self->[SELF_PUT_BUFFER] };
 
-    # Do not change the interior listref, or the event handlers will
+    # Do not change the interior arrayref, or the event handlers will
     # become confused.
     @{ $self->[SELF_PUT_BUFFER] } = ();
   }
