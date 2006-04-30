@@ -27,7 +27,7 @@ BEGIN {
   }
 }
 
-plan tests => 9;
+plan tests => 8;
 
 # Turn on extra debugging output within this test program.
 sub DEBUG () { 0 }
@@ -369,8 +369,7 @@ SKIP: {
       exists $INC{"POE/Loop/IO_Poll.pm"} or
       exists $INC{"POE/Loop/Event.pm"}
     );
-  ok($pty_flush_count == 3, "pty flushed $pty_flush_count times");
-  ok($pty_flush_count == 3, "pty flushed $pty_flush_count times");
+  ok($pty_flush_count == 3, "pty flushed $pty_flush_count times (wanted 3)");
   ok($coderef_flush_count == 3, "coderef flushed $coderef_flush_count times");
 }
 
