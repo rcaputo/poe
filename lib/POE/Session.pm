@@ -614,9 +614,10 @@ sub _invoke_state {
     }
 
     # Transmogrify the original state transition into a corresponding
-    # _default invocation.
+    # _default invocation.  ARG1 is copied from $etc so it can't be
+		# altered from a distance.
 
-    $etc   = [ $state, $etc ];
+    $etc   = [ $state, [@$etc] ];
     $state = EN_DEFAULT;
   }
 

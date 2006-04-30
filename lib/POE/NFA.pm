@@ -352,8 +352,9 @@ sub _invoke_state {
 
     $handler = $self->[SELF_CURRENT]->{+EN_DEFAULT};
 
-    # Fix up ARG0.. for _default.
-    $args  = [ $event, $args ];
+    # Transform the parameters for _default.  ARG1 and beyond are
+		# copied so they can't be altered at a distance.
+    $args  = [ $event, [@$args] ];
     $event = EN_DEFAULT;
   }
 
