@@ -34,6 +34,11 @@ sub new {
     defined($params{Code}) or
     (defined($params{Get}) and defined($params{Put}))
   );
+  croak "Code element is not a subref"
+    unless (defined $params{Code} and ref $params{Code} eq 'CODE');
+  croak "Get or Put element is not a subref"
+    unless ((defined $params{Get} and ref $params{Get} eq 'CODE')
+    and (defined $params{Put} and ref $params{Put} eq 'CODE'));
 
   my $self = bless [
     [ ],           # BUFFER
@@ -89,6 +94,7 @@ sub modify {
   my ($self, %params) = @_;
   for (keys %params) {
     next unless ($_ eq 'Put') || ($_ eq 'Get') || ($_ eq 'Code');
+    croak "$_ element must be a subref" unless ref $params{$_} eq 'CODE';
     $self->[
       {
         Put  => CODEPUT,
