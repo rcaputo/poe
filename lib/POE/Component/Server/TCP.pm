@@ -110,81 +110,23 @@ sub new {
 
   if (defined $client_input) {
     my @filters;
-    if (defined $client_infilter and defined $client_outfilter) {
-      @client_infilter_args  = ();
-      @client_outfilter_args = ();
-
-      if (ref($client_infilter) eq 'ARRAY') {
-        @client_infilter_args = @$client_infilter;
-        $client_infilter      = shift @client_infilter_args;
-        $client_infilter = "POE::Filter::Line" unless (
-          _loadfilter($client_infilter)
-        );
-        push(
-          @filters,
-          "InputFilter", $client_infilter->new(@client_infilter_args)
-        );
-      }
-      elsif (ref $client_infilter) {
-        push @filters, "InputFilter", $client_infilter->clone();
-      }
-      else {
-        $client_infilter = "POE::Filter::Line" unless (
-          _loadfilter($client_infilter)
-        );
-        push(
-          @filters,
-          "InputFilter", $client_infilter->new(@client_infilter_args)
-        );
-      }
-
-      if (ref($client_outfilter) eq 'ARRAY') {
-        @client_outfilter_args = @$client_outfilter;
-        $client_outfilter      = shift @client_outfilter_args;
-        $client_outfilter = "POE::Filter::Line" unless (
-          _loadfilter($client_outfilter)
-        );
-        push(
-          @filters,
-          "OutputFilter", $client_outfilter->new(@client_outfilter_args)
-        );
-      }
-      elsif (ref $client_outfilter) {
-        push @filters, "OutputFilter", $client_outfilter->clone();
-      }
-      else {
-        $client_outfilter = "POE::Filter::Line" unless(
-          _loadfilter($client_outfilter)
-        );
-        push(
-          @filters,
-          "OutputFilter", $client_outfilter->new(@client_outfilter_args)
-        );
+    # Parse Client*Filter args
+    if (defined $client_infilter or defined $client_outfilter) {
+      @filters = (
+        "InputFilter"  => _load_filter($client_infilter),
+        "OutputFilter" => _load_filter($client_outfilter)
+      );
+      if (defined $client_filter) {
+        carp "Using ClientFilter with ClientInputFilter or ClientOutputFilter is a noop";
       }
     }
     elsif (defined $client_filter) {
-      if (ref($client_filter) eq 'ARRAY') {
-        @client_filter_args = @$client_filter;
-        $client_filter      = shift @client_filter_args;
-        @filters = ( Filter => $client_filter->new(@client_filter_args), );
-      }
-      elsif (ref($client_filter)) {
-        @filters = ( Filter => $client_filter->clone(), );
-      }
-      else {
-        @filters = ( Filter => $client_filter->new(), );
-      }
-    }
-    elsif (defined($client_infilter) or defined($client_outfilter)) {
-      croak(
-        "Must supply either ClientFilter or both " .
-        "ClientInputFilter and ClientOutputFilter"
-      );
+      @filters = ( "Filter" => _load_filter($client_filter) );
     }
     else {
       @filters = ( Filter => POE::Filter::Line->new(), );
     }
-
+    
     $client_error  = \&_default_client_error unless defined $client_error;
     $client_connected    = sub {} unless defined $client_connected;
     $client_disconnected = sub {} unless defined $client_disconnected;
@@ -476,22 +418,47 @@ sub new {
   undef;
 }
 
-# Load a filter, return success or failure.
-sub _loadfilter {
-  my ($filter) = @_;
-  my $eval = eval {
-    (my $mod = $filter) =~ s!::!/!g;
-    require "$mod.pm";
-    1;
-  };
-  if (!$eval and $@) {
-    carp(
-      "Failed to load [$filter]\n" .
-      "Reason $@\nUsing defualts "
-    );
-    return 0;
-  }
-  return 1;
+# Get something: either arrayref, ref, or string
+# Return filter
+sub _load_filter {
+    my $filter = shift;
+    if (ref ($filter) eq 'ARRAY') {
+        my @args = @$filter;
+        $filter = shift @args;
+        if ( _test_filter($filter) ){
+            return $filter->new(@args);
+        } else {
+            return POE::Filter::Line->new(@args);
+        }
+    }
+    elsif (ref $filter) {
+        return $filter->clone();
+    }
+    else {
+        if ( _test_filter($filter) ) {
+            return $filter->new();
+        } else {
+            return POE::Filter::Line->new();
+        }
+    }
+}
+
+# Test if a Filter can be loaded, return sucess or failure
+sub _test_filter {
+    my $filter = shift;
+    my $eval = eval {
+        (my $mod = $filter) =~ s!::!/!g;
+        require "$mod.pm";
+        1;
+    };
+    if (!$eval and $@) {
+        carp(
+          "Failed to load [$filter]\n" .
+          "Reason $@\nUsing defualt POE::Filter::Line "
+        );
+        return 0;
+    }
+    return 1;
 }
 
 # The default server error handler logs to STDERR and shuts down the

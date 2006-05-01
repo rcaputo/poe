@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-BEGIN { @INC = ('/share/immute/svn/poelib', @INC); }
+#BEGIN { @INC = ('/share/immute/svn/poe/poe/lib', @INC); }
 sub DEBUG () { 0 }
 
 use POE qw/
