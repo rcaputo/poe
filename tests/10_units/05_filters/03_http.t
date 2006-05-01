@@ -15,7 +15,7 @@ BEGIN {
             eval " use Test::More skip_all => 'HTTP::Request is needed for these tests.' ";
         } else {
             eval {
-                eval " use Test::More tests => 57; ";
+                eval " use Test::More tests => 64; ";
                 use_ok('POE::Filter::HTTPD');
             }
         }
@@ -248,5 +248,32 @@ SKIP: { # simple put {{{
             ok(1);
         }
     }
+
+} # }}}
+
+{ # options request {{{
+
+    my $request = HTTP::Request->new('OPTIONS', '*');
+    $request->protocol('HTTP/1.0');
+
+    my $filter = POE::Filter::HTTPD->new();
+
+    my $data;
+    eval { $data = $filter->get([ $request->as_string ]); };
+    ok(!$@, 'options: get() throws no exceptions');
+    ok(defined $data, "options: get() returns something");
+    is(ref $data, 'ARRAY', 'options: get() returns list of requests');
+    is(scalar @$data, 1, 'options: get() returned single request');
+
+    my $req = shift @$data;
+
+    is(ref $req, 'HTTP::Request',
+        'options: get() returns HTTP::Request object');
+
+    is($req->method, 'OPTIONS',
+        'options: HTTP::Request object contains proper HTTP method');
+
+    is($req->url, '*',
+        'options: HTTP::Request object contains proper URI');
 
 } # }}}

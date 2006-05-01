@@ -78,7 +78,7 @@ sub get {
 
     my @dump;
     my $offset = 0;
-    $stream = join("", @$stream);
+    $stream = $self->[BUFFER].join("", @$stream);
     while (length $stream) {
       my $line = substr($stream, 0, 16);
       substr($stream, 0, 16) = '';
@@ -221,6 +221,13 @@ sub get {
           "Please verify your HTTP version and transaction content."
         )
       ];
+    }
+    elsif ($method eq 'OPTIONS') {
+      $self->[FINISH]++;
+      # OPTIONS requests can have an optional content length
+      # See http://www.faqs.org/rfcs/rfc2616.html, section 9.2
+      delete $self->[HEADER];
+      return [$r];
     }
     else {
       return [
