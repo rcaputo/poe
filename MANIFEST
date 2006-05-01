@@ -157,6 +157,7 @@ tests/90_regression/averell-callback-ret.t
 tests/90_regression/broeren-win32-nbio.t
 tests/90_regression/cfedde-filter-httpd.t
 tests/90_regression/ferrari-server-unix.t
+tests/90_regression/immute-server-tcp-filter.t
 tests/90_regression/merijn-sigchld-system.t
 tests/90_regression/neyuki_detach.t
 tests/90_regression/rt14444-arg1.t
