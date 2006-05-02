@@ -35,10 +35,10 @@ sub new {
     (defined($params{Get}) and defined($params{Put}))
   );
   croak "Code element is not a subref"
-    unless (defined $params{Code} and ref $params{Code} eq 'CODE');
+    unless (defined $params{Code} ? ref $params{Code} eq 'CODE' : 1);
   croak "Get or Put element is not a subref"
-    unless ((defined $params{Get} and ref $params{Get} eq 'CODE')
-    and (defined $params{Put} and ref $params{Put} eq 'CODE'));
+    unless ((defined $params{Get} ? (ref $params{Get} eq 'CODE') : 1)
+      and   (defined $params{Put} ? (ref $params{Put} eq 'CODE') : 1));
 
   my $self = bless [
     [ ],           # BUFFER
