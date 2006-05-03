@@ -9,12 +9,11 @@ use vars qw($VERSION @ISA);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 @ISA = qw(POE::Filter);
 
-use Carp qw(croak);
+use Carp qw(croak carp);
 
 sub BUFFER   () { 0 }
-sub CODEBOTH () { 1 }
-sub CODEGET  () { 2 }
-sub CODEPUT  () { 3 }
+sub CODEGET  () { 1 }
+sub CODEPUT  () { 2 }
 
 #------------------------------------------------------------------------------
 
@@ -23,23 +22,20 @@ sub new {
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
 
-  # -><- It might be better here for Code to set Get and Put first,
-  # and then have Get and/or Put override that.  During the filter's
-  # normal running (in the hotter code path), you won't need to keep
-  # checking CODEBOTH or (CODEGET OR CODEPUT).  Rather, you'll just
-  # check CODEGET or CODEPUT (depending on the direction data is
-  # headed).
-
   croak "$type requires a Code or both Get and Put parameters" unless (
     defined($params{Code}) or
-    ( defined($params{Get}) and defined($params{Put}) )
+    (defined($params{Get}) and defined($params{Put}))
   );
+  croak "Code element is not a subref"
+    unless (defined $params{Code} ? ref $params{Code} eq 'CODE' : 1);
+  croak "Get or Put element is not a subref"
+    unless ((defined $params{Get} ? (ref $params{Get} eq 'CODE') : 1)
+      and   (defined $params{Put} ? (ref $params{Put} eq 'CODE') : 1));
 
   my $self = bless [
     [ ],           # BUFFER
-    $params{Code}, # CODEBOTH
-    $params{Get},  # CODEGET
-    $params{Put},  # CODEPUT
+    $params{Code} || $params{Get},  # CODEGET
+    $params{Code} || $params{Put},  # CODEPUT
   ], $type;
 }
 
@@ -64,7 +60,7 @@ sub get_one {
   while (@{$self->[BUFFER]}) {
     my $next_record = shift @{$self->[BUFFER]};
     return [ $next_record ] if (
-      grep &{$self->[CODEGET] || $self->[CODEBOTH]}, $next_record
+      grep { $self->[CODEGET]->($_) } $next_record
     );
   }
 
@@ -75,7 +71,7 @@ sub get_one {
 
 sub put {
   my ($self, $data) = @_;
-  [ grep &{$self->[CODEPUT] || $self->[CODEBOTH]}, @$data ];
+  [ grep { $self->[CODEPUT]->($_) } @$data ];
 }
 
 #------------------------------------------------------------------------------
@@ -92,15 +88,19 @@ sub get_pending {
 
 sub modify {
   my ($self, %params) = @_;
+
   for (keys %params) {
-    next unless ($_ eq 'Put') || ($_ eq 'Get') || ($_ eq 'Code');
-    $self->[
-      {
-        Put  => CODEPUT,
-        Get  => CODEGET,
-        Code => CODEBOTH
-       }->{$_}
-     ] = $params{$_};
+    (carp("Modify $_ element must be given a coderef") and next) unless (ref $params{$_} eq 'CODE');
+    if (lc eq 'code') {
+        $self->[CODEGET] = $params{$_};
+        $self->[CODEPUT] = $params{$_};
+    }
+    elsif (lc eq 'put') {
+        $self->[CODEPUT] = $params{$_};
+    }
+    elsif (lc eq 'get') {
+        $self->[CODEGET] = $params{$_};
+    }
   }
 }
 
