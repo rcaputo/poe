@@ -37,10 +37,11 @@ sub get {
 sub clone {
   my $self = shift;
   my $buf = (ref($self->[0]) eq 'ARRAY') ? [ ] : '';
-  return bless [
+  my $nself = bless [
     $buf,                     # BUFFER
-    $self->[1 .. $#{$self}],  # everything else
+    @$self[1..$#$self],  # everything else
   ], ref $self;
+  return $nself;    
 }
 
 #------------------------------------------------------------------------------
