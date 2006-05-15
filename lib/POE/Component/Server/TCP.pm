@@ -73,7 +73,6 @@ sub new {
     }
   }
 
-  my (@client_filter_args, @client_infilter_args, @client_outfilter_args);
   my $client_connected    = delete $param{ClientConnected};
   my $client_disconnected = delete $param{ClientDisconnected};
   my $client_error        = delete $param{ClientError};
@@ -109,24 +108,6 @@ sub new {
   }
 
   if (defined $client_input) {
-    my @filters;
-    # Parse Client*Filter args
-    if (defined $client_infilter or defined $client_outfilter) {
-      @filters = (
-        "InputFilter"  => _load_filter($client_infilter),
-        "OutputFilter" => _load_filter($client_outfilter)
-      );
-      if (defined $client_filter) {
-        carp "Using ClientFilter with ClientInputFilter or ClientOutputFilter is a noop";
-      }
-    }
-    elsif (defined $client_filter) {
-      @filters = ( "Filter" => _load_filter($client_filter) );
-    }
-    else {
-      @filters = ( Filter => POE::Filter::Line->new(), );
-    }
-    
     $client_error  = \&_default_client_error unless defined $client_error;
     $client_connected    = sub {} unless defined $client_connected;
     $client_disconnected = sub {} unless defined $client_disconnected;
@@ -203,7 +184,7 @@ sub new {
               $heap->{client} = POE::Wheel::ReadWrite->new(
                 Handle       => splice(@_, ARG0, 1),
                 Driver       => POE::Driver::SysRW->new(),
-                @filters,
+                _get_filters($client_filter, $client_infilter, $client_outfilter), 
                 InputEvent   => 'tcp_server_got_input',
                 ErrorEvent   => 'tcp_server_got_error',
                 FlushedEvent => 'tcp_server_got_flush',
@@ -415,9 +396,29 @@ sub new {
 
   # Return undef so nobody can use the POE::Session reference.  This
   # isn't very friendly, but it saves grief later.
+  # Maybe we can at least return the session ID?
   undef;
 }
 
+sub _get_filters {
+    my ($client_filter, $client_infilter, $client_outfilter) = @_;
+    if (defined $client_infilter or defined $client_outfilter) {
+      return (
+        "InputFilter"  => _load_filter($client_infilter),
+        "OutputFilter" => _load_filter($client_outfilter)
+      );
+      if (defined $client_filter) {
+        carp "Using ClientFilter with ClientInputFilter or ClientOutputFilter is a noop";
+      }
+    }
+    elsif (defined $client_filter) {
+     return ( "Filter" => _load_filter($client_filter) );
+    }
+    else {
+      return ( Filter => POE::Filter::Line->new(), );
+    }
+
+}
 # Get something: either arrayref, ref, or string
 # Return filter
 sub _load_filter {
