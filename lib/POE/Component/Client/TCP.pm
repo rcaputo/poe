@@ -114,19 +114,6 @@ sub new {
 
   $address = '127.0.0.1' unless defined $address;
 
-  my @filter_args;
-  if (ref $filter eq 'ARRAY') {
-    @filter_args = @$filter;
-    $filter = shift @filter_args;
-    $filter = $filter->new(@filter_args);
-  } elsif (ref $filter) {
-    $filter = $filter->clone();
-  } elsif (!defined($filter)) {
-    $filter = POE::Filter::Line->new();
-  } else {
-    $filter = $filter->new();
-  }
-
   $conn_error_callback = \&_default_error unless defined $conn_error_callback;
   $error_callback      = \&_default_io_error unless defined $error_callback;
 
@@ -198,7 +185,7 @@ sub new {
           $_[HEAP]->{server} = POE::Wheel::ReadWrite->new
             ( Handle       => $socket,
               Driver       => POE::Driver::SysRW->new(),
-              Filter       => $filter,
+              Filter       => _get_filter($filter),
               InputEvent   => 'got_server_input',
               ErrorEvent   => 'got_server_error',
               FlushedEvent => 'got_server_flush',
@@ -287,6 +274,21 @@ sub new {
       package_states => $package_states,
       object_states  => $object_states,
     );
+}
+
+sub _get_filter {
+  my $filter = shift;
+  if (ref $filter eq 'ARRAY') {
+    my @filter_args = @$filter;
+    $filter = shift @filter_args;
+    return $filter->new(@filter_args);
+  } elsif (ref $filter) {
+    return $filter->clone();
+  } elsif (!defined($filter)) {
+    return POE::Filter::Line->new();
+  } else {
+    return $filter->new();
+  }
 }
 
 # The default error handler logs to STDERR and shuts down the socket.
