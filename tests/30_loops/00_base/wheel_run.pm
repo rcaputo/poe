@@ -363,8 +363,8 @@ POE::Kernel->run();
 
 
 SKIP: {
-  skip "ptys not available", 3 unless POE::Wheel::Run::PTY_AVAILABLE;
-  skip "The underlying event loop has trouble with ptys on $^O", 3
+  skip "ptys not available", 2 unless POE::Wheel::Run::PTY_AVAILABLE;
+  skip "The underlying event loop has trouble with ptys on $^O", 2
     if $^O eq "darwin" and (
       exists $INC{"POE/Loop/IO_Poll.pm"} or
       exists $INC{"POE/Loop/Event.pm"}
