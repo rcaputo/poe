@@ -153,7 +153,6 @@ sub get {
   $self->[BUFFER] =~ s/.*?(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)//s;
 
   # Parse the request line.
-
   if ($buf !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
     return [
       $self->build_error(RC_BAD_REQUEST, "Request line parse failure.")
@@ -278,7 +277,7 @@ sub put {
 
     my $status_line = "$proto $code";
     $status_line   .= " ($status_message)"  if $status_message ne $message;
-    $status_line   .= " $message";
+    $status_line   .= " $message" if length($message);
 
     # Use network newlines, and be sure not to mangle newlines in the
     # response's content.
