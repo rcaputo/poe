@@ -5,8 +5,6 @@
 use warnings;
 use strict;
 
-use HTTP::Response;
-use Data::Dumper;
 use Test::More tests => 2;
 
 use constant PORT => 31416;
