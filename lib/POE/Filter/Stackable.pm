@@ -26,10 +26,9 @@ sub new {
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
 
+  $params{Filters} = [ ] unless defined $params{Filters};
   # Sanity check the filters
-  if ( exists $params{Filters} and defined $params{Filters}
-       and ref( $params{Filters} ) and ref( $params{Filters} ) eq 'ARRAY'
-       and scalar @{ $params{Filters} } > 0 ) {
+  if ( ref $params{Filters} eq 'ARRAY') {
 
     # Check the elements
     foreach my $elem ( @{ $params{Filters} } ) {
