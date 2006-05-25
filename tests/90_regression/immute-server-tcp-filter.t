@@ -1,6 +1,17 @@
 #!/usr/bin/perl
+# $Id$
+# vim: filetype=perl
+
 use strict;
 use warnings;
+
+BEGIN {
+  eval "use HTTP::Request";
+  if ($@) {
+    print "1..0 # skip - HTTP::Request needed to test POE::Filter::HTTPD\n";
+    exit;
+  }
+}
 
 #BEGIN { @INC = ('/share/immute/svn/poe/poe/lib', @INC); }
 sub DEBUG () { 0 }

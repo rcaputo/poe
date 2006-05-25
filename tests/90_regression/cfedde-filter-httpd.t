@@ -5,6 +5,14 @@
 use warnings;
 use strict;
 
+BEGIN {
+  eval "use HTTP::Request";
+  if ($@) {
+    print "1..0 # skip - HTTP::Request needed to test POE::Filter::HTTPD\n";
+    exit;
+  }
+}
+
 use Test::More tests => 2;
 
 use constant PORT => 31416;
