@@ -36,17 +36,17 @@ warn "*** Ignores: $ignores";
   warn "*** PERL5OPT = $perl5_options";
   local $ENV{PERL5OPT} = $perl5_options;
 
-  my $harness_switches = "$hps $perl5_options";
-  $harness_switches =~ s/^\s+//;
-  $harness_switches =~ s/\s+$//;
-  warn "*** HARNESS_PERL_SWITCHES = $harness_switches";
-
+  #my $harness_switches = "$hps $perl5_options";
+  #$harness_switches =~ s/^\s+//;
+  #$harness_switches =~ s/\s+$//;
+  #warn "*** HARNESS_PERL_SWITCHES = $harness_switches";
 
   #local $ENV{HARNESS_PERL_SWITCHES} = $harness_switches;
 
   if (@ARGV) {
     foreach my $test (@ARGV) {
-      system( $^X, $hps, $test ) and exit($? >> 8);
+      print "running: $^X $hps $test\n";
+      system( $^X, (length($hps) ? $hps : ()), $test ) and exit($? >> 8);
     }
   }
   else {
@@ -54,6 +54,6 @@ warn "*** Ignores: $ignores";
   }
 }
 
-system( $^X, $cover, $output_dir ) and exit($? >> 8);
+system( $^X, $cover, "-ignore_re", "^tests/", $output_dir ) and exit($? >> 8);
 
 exit;
