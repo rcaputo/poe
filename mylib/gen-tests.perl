@@ -25,12 +25,13 @@ my $test_base = "tests";
     "use strict;\n" .
     "use POSIX qw(_exit);\n" .
     "use lib qw(--base_lib--);\n" .
+    "use Test::More;\n # this setups autoflushing" .
     "\n" .
     "\$ENV{POE_IMPLEMENTATION} = '--implementation--';\n" .
     "\n" .
-    "require '--base_file--';\n" .
+    "do '--base_file--';\n" .
     "\n" .
-    "POSIX::_exit(0);\n"
+    "CORE::exit 0;\n"
   );
 
   derive_files(
@@ -141,12 +142,13 @@ my $test_base = "tests";
     "use POSIX qw(_exit);\n" .
 		"--no_sys--" .
     "use lib qw(--base_lib--);\n" .
+    "use Test::More;\n # this setups autoflushing" .
     "--display--" .
     "--module--" .
     "\n" .
-    "require '--base_file--';\n" .
+    "do '--base_file--';\n" .
     "\n" .
-    "POSIX::_exit(0);\n"
+    "CORE::exit 0;\n"
   );
 
   derive_files(
