@@ -69,13 +69,7 @@ mylib/Makefile-5005.pm
 mylib/MyOtherFreezer.pm
 mylib/PoeBuildInfo.pm
 mylib/preprocessor.perl
-mylib/reportupload.pl
 mylib/svn-log.perl
-mylib/Test/Harness.pm
-mylib/Test/Harness/Assert.pm
-mylib/Test/Harness/Iterator.pm
-mylib/Test/Harness/Straps.pm
-mylib/testreport.pl
 README
 samples/create.perl
 samples/fakelogin.perl
