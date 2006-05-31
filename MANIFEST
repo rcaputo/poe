@@ -58,6 +58,7 @@ Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP
 META.yml
+mylib/commitrelay.pl
 mylib/coverage.perl
 mylib/cpan-test.perl
 mylib/Devel/Null.pm
@@ -69,6 +70,7 @@ mylib/Makefile-5005.pm
 mylib/MyOtherFreezer.pm
 mylib/PoeBuildInfo.pm
 mylib/preprocessor.perl
+mylib/smoker.perl
 mylib/svn-log.perl
 README
 samples/create.perl
