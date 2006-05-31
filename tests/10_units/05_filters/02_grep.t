@@ -3,7 +3,7 @@
 # Exercises Filter::Grep without POE
 
 use strict;
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 use Data::Dumper; $Data::Dumper::Indent=1;
 use POE::Filter::Grep;
 use Test::More tests => 17; # FILL ME IN

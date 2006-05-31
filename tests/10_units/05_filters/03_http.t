@@ -6,7 +6,7 @@
 
 use strict;
 
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 
 BEGIN {
     if (-f 'run_network_tests') {

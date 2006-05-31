@@ -4,7 +4,7 @@
 # Tests session detaching.
 
 use strict;
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 
 # Trace output local to this test program.
 sub DEBUG () { 0 }

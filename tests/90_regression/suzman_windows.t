@@ -6,7 +6,7 @@
 # plain Perl signals, so mileage may vary.
 
 use strict;
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 
 use Test::More;
 

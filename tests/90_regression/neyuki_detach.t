@@ -3,7 +3,7 @@
 
 use strict;
 
-use lib qw(./mylib ../mylib ./lib ../lib ../../lib);
+use lib qw(./mylib ../mylib);
 
 $| = 1;
 

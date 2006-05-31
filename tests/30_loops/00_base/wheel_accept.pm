@@ -4,7 +4,7 @@
 # Exercises the ListenAccept wheel.
 
 use strict;
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 use IO::Socket;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

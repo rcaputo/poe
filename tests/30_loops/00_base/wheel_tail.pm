@@ -5,7 +5,7 @@
 # -><- Needs tests for Seek and SeekBack.
 
 use strict;
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 use Socket;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

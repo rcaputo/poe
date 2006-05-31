@@ -5,7 +5,7 @@
 # depends on ASSERT_DEFAULT being 0.  All the other tests enable it.
 
 use strict;
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 0 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }

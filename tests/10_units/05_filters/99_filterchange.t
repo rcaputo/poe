@@ -6,7 +6,7 @@
 # Gwyn's filterchange.perl sample.
 
 use strict;
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 
 use Test::More;
 use MyOtherFreezer;

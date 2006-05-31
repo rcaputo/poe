@@ -2,7 +2,7 @@
 # $Id$
 
 use strict;
-use lib qw(./mylib ../mylib ../lib ./lib);
+use lib qw(./mylib ../mylib);
 use Socket;
 
 use Test::More;

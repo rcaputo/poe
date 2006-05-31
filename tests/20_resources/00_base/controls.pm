@@ -2,7 +2,7 @@
 
 use strict;
 
-use lib qw(./mylib ./lib);
+use lib qw(./mylib ../mylib);
 use Test::More tests => 27;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }

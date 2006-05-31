@@ -5,7 +5,7 @@
 
 use strict;
 
-use lib qw(./mylib ./lib);
+use lib qw(./mylib ../mylib);
 
 use Test::More tests => 37;
 
