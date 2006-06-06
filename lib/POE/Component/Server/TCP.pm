@@ -51,11 +51,26 @@ sub new {
     qw(
       Acceptor Error ClientInput ClientConnected ClientDisconnected
       ClientError ClientFlushed
+      ClientLow ClientHigh
     )
   ) {
     croak "$_ must be a coderef"
       if defined($param{$_}) and ref($param{$_}) ne 'CODE';
   }
+
+  my $high_mark_level = delete $param{HighMark};
+  my $low_mark_level  = delete $param{LowMark};
+  my $high_event      = delete $param{ClientHigh};
+  my $low_event       = delete $param{ClientLow};
+
+  # this is ugly, but now its elegant :)  grep++
+  my $foo = grep { defined $_ } ($high_mark_level, $low_mark_level, $high_event, $low_event);
+  if ($foo > 0) {
+    croak "If you use the Mark settings, you must define all four" unless $foo == 4;
+  }
+
+  $high_event = sub { } unless defined $high_event;
+  $low_event  = sub { } unless defined $low_event;
 
   my $accept_callback = delete $param{Acceptor};
   my $error_callback  = delete $param{Error};
@@ -188,10 +203,20 @@ sub new {
                 InputEvent   => 'tcp_server_got_input',
                 ErrorEvent   => 'tcp_server_got_error',
                 FlushedEvent => 'tcp_server_got_flush',
+                do {
+                  $foo ? return (
+                    HighMark => $high_mark_level,
+                    HighEvent => 'tcp_server_got_high',
+                    LowMark => $low_mark_level,
+                    LowEvent => 'tcp_server_got_low',
+                  ) : ();
+                },
               );
 
               $client_connected->(@_);
             },
+            tcp_server_got_high => $high_event,
+            tcp_server_got_low => $low_event,
 
             # To quiet ASSERT_STATES.
             _child  => sub { },

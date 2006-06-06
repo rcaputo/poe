@@ -57,12 +57,27 @@ sub new {
   foreach (
     qw( Connected ConnectError Disconnected ServerInput
       ServerError ServerFlushed Started
+      ServerHigh ServerLow
     )
   ) {
     croak "$_ must be a coderef" if(
       defined($param{$_}) and ref($param{$_}) ne 'CODE'
     );
   }
+
+  my $high_mark_level = delete $param{HighMark};
+  my $low_mark_level  = delete $param{LowMark};
+  my $high_event      = delete $param{ServerHigh};
+  my $low_event       = delete $param{ServerLow};
+
+  # this is ugly, but now its elegant :)  grep++
+  my $foo = grep { defined $_ } ($high_mark_level, $low_mark_level, $high_event, $low_event);
+  if ($foo > 0) {
+    croak "If you use the Mark settings, you must define all four" unless $foo == 4;
+  }
+
+  $high_event = sub { } unless defined $high_event;
+  $low_event  = sub { } unless defined $low_event;
 
   my $conn_callback       = delete $param{Connected};
   my $conn_error_callback = delete $param{ConnectError};
@@ -189,11 +204,21 @@ sub new {
               InputEvent   => 'got_server_input',
               ErrorEvent   => 'got_server_error',
               FlushedEvent => 'got_server_flush',
+              do {
+                  $foo ? return (
+                    HighMark => $high_mark_level,
+                    HighEvent => 'got_high',
+                    LowMark => $low_mark_level,
+                    LowEvent => 'got_low',
+                  ) : ();
+                },
             );
 
           $heap->{connected} = 1;
           $conn_callback->(@_);
         },
+        got_high => $high_event,
+        got_low => $low_event,
 
         got_connect_error => sub {
           my $heap = $_[HEAP];
