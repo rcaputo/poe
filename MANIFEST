@@ -92,6 +92,7 @@ tests/10_units/02_pipes/01_base.t
 tests/10_units/02_pipes/02_oneway.t
 tests/10_units/02_pipes/03_twoway.t
 tests/10_units/03_base/01_poe.t
+tests/10_units/03_base/02_api_ctl.t
 tests/10_units/03_base/02_api_resloader.t
 tests/10_units/03_base/03_component.t
 tests/10_units/03_base/04_driver.t
