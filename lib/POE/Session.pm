@@ -216,9 +216,9 @@ sub new {
     if ((@states > 1) && (ref($states[0]) eq 'POE::Kernel'));
 
   croak(
-		"POE::Session->new() has been deprecated for over a year.  Please\n",
-		"use create() instead.  http://www.nntp.perl.org/group/perl.poe/2613\n",
-		"discusses the deprecation.\n",
+    "POE::Session->new() has been deprecated for over a year.  Please\n",
+    "use create() instead.  http://www.nntp.perl.org/group/perl.poe/2613\n",
+    "discusses the deprecation.\n",
   );
 }
 
@@ -469,7 +469,7 @@ sub _invoke_state {
 
     # Transmogrify the original state transition into a corresponding
     # _default invocation.  ARG1 is copied from $etc so it can't be
-		# altered from a distance.
+    # altered from a distance.
 
     $etc   = [ $state, [@$etc] ];
     $state = EN_DEFAULT;
@@ -491,7 +491,7 @@ sub _invoke_state {
         undef,                          # unused #6
         $file,                          # caller file name
         $line,                          # caller file line
-    $fromstate,            # caller state
+        $fromstate,                     # caller state
         @$etc                           # args
       );
   }

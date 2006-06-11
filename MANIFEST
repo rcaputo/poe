@@ -138,6 +138,7 @@ tests/30_loops/00_base/k_aliases.pm
 tests/30_loops/00_base/k_detach.pm
 tests/30_loops/00_base/k_selects.pm
 tests/30_loops/00_base/k_signals.pm
+tests/30_loops/00_base/sbk_signal_init.pm
 tests/30_loops/00_base/ses_nfa.pm
 tests/30_loops/00_base/ses_session.pm
 tests/30_loops/00_base/wheel_accept.pm

@@ -67,7 +67,8 @@ sub loop_initialize {
 }
 
 sub loop_finalize {
-  # does nothing
+  my $self = shift;
+  $self->loop_ignore_all_signals();
 }
 
 #------------------------------------------------------------------------------

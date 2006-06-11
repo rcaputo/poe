@@ -65,6 +65,8 @@ sub loop_finalize {
       POE::Kernel::_warn "<rc> LOOP VECTOR LEAK: $mode_name = $bits\a\n";
     }
   }
+
+  $self->loop_ignore_all_signals();
 }
 
 #------------------------------------------------------------------------------
@@ -295,7 +297,7 @@ sub loop_do_timeslice {
         sleep($timeout);
       }
       else {
-				CORE::select(undef, undef, undef, $timeout);
+        CORE::select(undef, undef, undef, $timeout);
       }
     }
   }

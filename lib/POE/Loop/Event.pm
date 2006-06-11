@@ -41,6 +41,8 @@ sub loop_initialize {
 }
 
 sub loop_finalize {
+  my $self = shift;
+
   foreach my $fd (0..$#fileno_watcher) {
     next unless defined $fileno_watcher[$fd];
     foreach my $mode (MODE_RD, MODE_WR, MODE_EX) {
@@ -48,6 +50,10 @@ sub loop_finalize {
         "Mode $mode watcher for fileno $fd is defined during loop finalize"
       ) if defined $fileno_watcher[$fd]->[$mode];
     }
+  }
+
+  foreach my $signal (keys %signal_watcher) {
+    $self->loop_ignore_signal($signal);
   }
 }
 

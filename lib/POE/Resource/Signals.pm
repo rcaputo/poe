@@ -95,13 +95,15 @@ sub _data_sig_initialize {
 
       # Nonexistent signals, and ones which are globally unhandled.
       next if (
-        $signal =~ /^( NUM\d+
-                     |__[A-Z0-9]+__
-                     |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
-                     |RTMIN|RTMAX|SETS
-                     |SEGV
-                     |
-                     )$/x
+        $signal =~ /^
+          ( NUM\d+
+          |__[A-Z0-9]+__
+          |ALL|CATCHALL|DEFER|HOLD|IGNORE|MAX|PAUSE
+          |RTMIN|RTMAX|SETS
+          |SEGV
+          |
+          )
+        $/x
       );
 
       # Windows doesn't have a SIGBUS, but the debugger causes SIGBUS
@@ -111,13 +113,15 @@ sub _data_sig_initialize {
       # Apache uses SIGCHLD and/or SIGCLD itself, so we can't.
       next if $signal =~ /^CH?LD$/ and exists $INC{'Apache.pm'};
 
-      # Reset the signal handler.  Some signal handlers are set to
-      # IGNORE, while most are kept to DEFAULT.  The event loop will
-      # know what to do.
-      $self->loop_ignore_signal($signal);
-
       $_safe_signals{$signal} = 1;
     }
+
+    # Reset some important signal handlers.  The rest remain
+    # untouched.
+
+    $self->loop_ignore_signal("CHLD") if exists $SIG{CHLD};
+    $self->loop_ignore_signal("CLD")  if exists $SIG{CLD};
+    $self->loop_ignore_signal("PIPE") if exists $SIG{PIPE};
   }
 }
 

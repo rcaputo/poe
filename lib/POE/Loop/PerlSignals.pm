@@ -18,6 +18,10 @@ package POE::Kernel;
 use strict;
 use POE::Kernel;
 
+# Flag so we know which signals are watched.  Used to reset those
+# signals during finalization.
+my %signal_watched;
+
 #------------------------------------------------------------------------------
 # Signal handlers/callbacks.
 
@@ -51,6 +55,8 @@ sub _loop_signal_handler_pipe {
 sub loop_watch_signal {
   my ($self, $signal) = @_;
 
+  $signal_watched{$signal} = 1;
+
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
 # We should never twiddle $SIG{CH?LD} under poe, unless we want to override
@@ -73,6 +79,8 @@ sub loop_watch_signal {
 sub loop_ignore_signal {
   my ($self, $signal) = @_;
 
+  delete $signal_watched{$signal};
+
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
     $self->_data_sig_cease_polling();
 # We should never twiddle $SIG{CH?LD} under poe, unless we want to override
@@ -87,6 +95,13 @@ sub loop_ignore_signal {
   }
 
   $SIG{$signal} = "DEFAULT";
+}
+
+sub loop_ignore_all_signals {
+  my $self = shift;
+  foreach my $signal (keys %signal_watched) {
+    $self->loop_ignore_signal($signal);
+  }
 }
 
 1;
