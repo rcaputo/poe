@@ -131,6 +131,8 @@ sub get {
       $self->[BUFFER] = substr($buf, $cl);
       $self->[BUFFER] =~ s/^\s+//;
 
+      # We are sending this back, so won't need it anymore.
+      $self->[HEADER] = undef;
       $self->[FINISH]++;
       return [$r];
     }
@@ -197,7 +199,7 @@ sub get {
   if ($method eq 'GET' or $method eq 'HEAD') {
     $self->[FINISH]++;
     # We are sending this back, so won't need it anymore.
-    delete $self->[HEADER];
+    $self->[HEADER] = undef;
     return [$r];
   }
 
@@ -225,7 +227,7 @@ sub get {
       $self->[FINISH]++;
       # OPTIONS requests can have an optional content length
       # See http://www.faqs.org/rfcs/rfc2616.html, section 9.2
-      delete $self->[HEADER];
+      $self->[HEADER] = undef;
       return [$r];
     }
     else {
@@ -250,7 +252,7 @@ sub get {
     $self->[BUFFER] =~ s/^\s+//;
     $self->[FINISH]++;
     # We are sending this back, so won't need it anymore.
-    delete $self->[HEADER];
+    $self->[HEADER] = undef;
     return [$r];
   }
 
