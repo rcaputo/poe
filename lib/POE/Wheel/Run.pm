@@ -151,10 +151,11 @@ sub new {
     croak "$type\'s Conduit type ($conduit) is unknown" if (
       $conduit ne 'pipe' and
       $conduit ne 'pty'  and
+      $conduit ne 'pty-pipe' and
       $conduit ne 'socketpair' and
       $conduit ne 'inet'
     );
-    unless ($conduit eq "pty") {
+    unless ($conduit =~ /^pty(-pipe)?$/) {
       $stdio_type = $conduit;
       $conduit = "pipe";
     }
@@ -250,11 +251,17 @@ sub new {
   croak "could not create semaphore pipe: $!" unless defined $sem_pipe_read;
 
   # Use IO::Pty if requested.  IO::Pty turns on autoflush for us.
-  if ($conduit eq 'pty') {
+  if ($conduit =~ /^pty(-pipe)?$/) {
     croak "IO::Pty is not available" unless PTY_AVAILABLE;
 
     $stdin_write = $stdout_read = IO::Pty->new();
     croak "could not create master pty: $!" unless defined $stdout_read;
+
+    if ($conduit eq "pty-pipe") {
+      ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
+      croak "could not make stderr pipes: $!"
+        unless defined $stderr_read and defined $stderr_write;
+    }
   }
 
   # Use pipes otherwise.
@@ -299,15 +306,17 @@ sub new {
 
     # If running pty, we delay the slave side creation 'til after
     # doing the necessary bits to become our own [unix] session.
-    if ($conduit eq 'pty') {
+    if ($conduit =~ /^pty(-pipe)?$/) {
 
       # Become a new unix session.
       # Program 19.3, APITUE.  W. Richard Stevens built my hot rod.
       eval 'setsid()' unless $no_setsid;
 
       # Open the slave side of the pty.
-      $stdin_read = $stdout_write = $stderr_write = $stdin_write->slave();
+      $stdin_read = $stdout_write = $stdin_write->slave();
       croak "could not create slave pty: $!" unless defined $stdin_read;
+      ## for a simple pty conduit, stderr is wedged into stdout:
+      $stderr_write = $stdout_write if $conduit eq 'pty';
 
       # Acquire a controlling terminal.  Program 19.3, APITUE.
       if (defined TIOCSCTTY and not defined CIBAUD) {
@@ -1195,7 +1204,9 @@ process.  By default it will try various forms of inter-process
 communication to build a pipe between the parent and child processes.
 If a particular method is preferred, it can be set to "pipe",
 "socketpair", or "inet".  It may also be set to "pty" if the child
-process should have its own pseudo tty.
+process should have its own pseudo tty.  Setting it to "pty-pipe"
+gives the child process a stdin and stdout pseudo-tty, but keeps
+stderr as a pipe, rather than merging stdout and stderr as with "pty".
 
 The reasons to define this parameter would be if you want to use
 "pty", if the default pipe type doesn't work properly on your
