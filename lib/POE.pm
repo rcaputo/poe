@@ -132,21 +132,20 @@ multitasking and networking framework, encompassing and providing a
 consistent interface to other event loops such as Event and the Tk and
 Gtk toolkits.
 
-POE is written in layers, each building upon the previous.  It's
+POE is written in layers, each building upon previous ones.  It's
 therefore possible to use POE at varying levels of abstraction.
 
-The lowest level uses POE::Kernel and POE::Session.  The former class
-acts as POE's event watcher and dispatcher.  The latter encapsulates
-the notion of an event driven task.
+The most basic layer is comprised of POE::Kernel and POE::Session.
+The former class acts as POE's event watcher and dispatcher, while the
+latter encapsulates the notion of an event driven task.
 
 POE::Wheel classes operate at a slightly higher level.  They plug into
 sessions and perform very common, general tasks.  For example,
-POE::Wheel::ReadWrite performs buffered I/O.
-
-Unlike cheese, wheels do not stand alone.  They are customized by
-POE::Driver and POE::Filter classes.  Using the proper filter, a
-ReadWrite wheel can read and write streams, lines, fixed-length
-blocks, HTTP requests and responses, and so on.
+POE::Wheel::ReadWrite performs buffered I/O.  Unlike cheese, wheels do
+not stand alone.  They are customized by POE::Driver and POE::Filter
+classes.  Using the appropriate filter, a ReadWrite wheel can read and
+write streams, lines, fixed-length blocks, HTTP requests and
+responses, and so on.
 
 The highest level of POE programming uses components.  They may
 perform narrowly defined tasks, such as POE::Component::Child (on the
