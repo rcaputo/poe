@@ -3049,21 +3049,6 @@ interface.
 
 =over 2
 
-=item alarm_adjust ALARM_ID, DELTA
-
-alarm_adjust adjusts an existing alarm by a number of seconds, the
-DELTA, which may be positive or negative.  On success, it returns the
-new absolute alarm time.
-
-  # Move the alarm 10 seconds back in time.
-  $new_time = $kernel->alarm_adjust( $alarm_id, -10 );
-
-On failure, it returns false and sets $! to a reason for the failure.
-That may be EINVAL if the alarm ID or the delta are bad values.  It
-could also be ESRCH if the alarm doesn't exist (perhaps it already was
-dispatched).  $! may also contain EPERM if the alarm doesn't belong to
-the session trying to adjust it.
-
 =item alarm_set EVENT_NAME, TIME, PARAMETER_LIST
 
 =item alarm_set EVENT_NAME, TIME
@@ -3080,6 +3065,21 @@ alarm_set sets $! and returns false if it fails.  $! will be EINVAL if
 one of the function's parameters is bogus.
 
 See: alarm_remove,
+
+=item alarm_adjust ALARM_ID, DELTA
+
+alarm_adjust adjusts an existing alarm by a number of seconds, the
+DELTA, which may be positive or negative.  On success, it returns the
+new absolute alarm time.
+
+  # Move the alarm 10 seconds back in time.
+  $new_time = $kernel->alarm_adjust( $alarm_id, -10 );
+
+On failure, it returns false and sets $! to a reason for the failure.
+That may be EINVAL if the alarm ID or the delta are bad values.  It
+could also be ESRCH if the alarm doesn't exist (perhaps it already was
+dispatched).  $! may also contain EPERM if the alarm doesn't belong to
+the session trying to adjust it.
 
 =item alarm_remove ALARM_ID
 
