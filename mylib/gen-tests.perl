@@ -25,11 +25,11 @@ my $test_base = "tests";
     "use strict;\n" .
     "use POSIX qw(_exit);\n" .
     "use lib qw(--base_lib--);\n" .
-    "use Test::More;\n # this setups autoflushing" .
+    "use Test::More; # this setups autoflushing\n" .
     "\n" .
     "\$ENV{POE_IMPLEMENTATION} = '--implementation--';\n" .
     "\n" .
-    "do '--base_file--';\n" .
+    "require '--base_file--';\n" .
     "\n" .
     "CORE::exit 0;\n"
   );
@@ -142,11 +142,11 @@ my $test_base = "tests";
     "use POSIX qw(_exit);\n" .
 		"--no_sys--" .
     "use lib qw(--base_lib--);\n" .
-    "use Test::More;\n # this setups autoflushing" .
+    "use Test::More; # this setups autoflushing\n" .
     "--display--" .
     "--module--" .
     "\n" .
-    "do '--base_file--';\n" .
+    "require '--base_file--';\n" .
     "\n" .
     "CORE::exit 0;\n"
   );
