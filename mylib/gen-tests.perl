@@ -23,7 +23,6 @@ my $test_base = "tests";
     "# \$Id\$\n" .
     "\n" .
     "use strict;\n" .
-    "use POSIX qw(_exit);\n" .
     "use lib qw(--base_lib--);\n" .
     "use Test::More;\n" .
     "\n" .
@@ -88,7 +87,7 @@ my $test_base = "tests";
         "BEGIN {\n" .
         "  \$| = 1;\n" .
         "  print qq(1..0 # Skip This test cannot be run on $^O\\n);\n" .
-        "  POSIX::_exit(0);\n" .
+        "  CORE::exit(0);\n" .
         "}\n"
       );
     }
@@ -112,7 +111,7 @@ my $test_base = "tests";
           "    \$| = 1;\n" .
           "    print qq(1..0 # " .
           "Skip $module needs a DISPLAY (set one today, okay?)\\n);\n" .
-          "    POSIX::_exit(0);\n" .
+          "    CORE::exit(0);\n" .
           "  }\n" .
           "}\n"
         );
@@ -130,7 +129,7 @@ my $test_base = "tests";
         "  if (\$@) {\n" .
         "    \$| = 1;\n" .
         "    print qq(1..0 # Skip $module could not be loaded\\n);\n" .
-        "    POSIX::_exit(0);\n" .
+        "    CORE::exit(0);\n" .
         "  }\n" .
         "}\n"
       );
@@ -142,15 +141,16 @@ my $test_base = "tests";
     "# \$Id\$\n" .
     "\n" .
     "use strict;\n" .
-    "use POSIX qw(_exit);\n" .
     "--no_sys--" .
     "use lib qw(--base_lib--);\n" .
     "use Test::More;\n" .
+    "use POSIX qw(_exit);\n" .
     "--display--" .
     "--module--" .
     "\n" .
     "require '--base_file--';\n" .
     "\n" .
+    "_exit 0 if \$^O eq 'MSWin32';\n" .
     "CORE::exit 0;\n"
   );
 

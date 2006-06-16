@@ -361,7 +361,6 @@ POE::Kernel->run();
 
 ### Post-run tests.
 
-
 SKIP: {
   skip "ptys not available", 2 unless POE::Wheel::Run::PTY_AVAILABLE;
   skip "The underlying event loop has trouble with ptys on $^O", 2
