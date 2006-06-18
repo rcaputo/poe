@@ -103,7 +103,7 @@ sub new {
   # Defaults.
 
   $concurrency = -1 unless defined $concurrency;
-  my $accept_session;
+  my $accept_session_id;
 
   if (!defined $address && defined $hname) {
     $address = inet_aton($hname);
@@ -199,7 +199,7 @@ sub new {
               $heap->{client} = POE::Wheel::ReadWrite->new(
                 Handle       => splice(@_, ARG0, 1),
                 Driver       => POE::Driver::SysRW->new(),
-                _get_filters($client_filter, $client_infilter, $client_outfilter), 
+                _get_filters($client_filter, $client_infilter, $client_outfilter),
                 InputEvent   => 'tcp_server_got_input',
                 ErrorEvent   => 'tcp_server_got_error',
                 FlushedEvent => 'tcp_server_got_flush',
@@ -266,10 +266,10 @@ sub new {
             _stop => sub {
               ## concurrency on close
               DEBUG and warn(
-                "$$: $alias _stop accept_session = $accept_session"
+                "$$: $alias _stop accept_session = $accept_session_id"
               );
-              if( defined $accept_session ) {
-                $_[KERNEL]->call( $accept_session, 'disconnected' );
+              if( defined $accept_session_id ) {
+                $_[KERNEL]->call( $accept_session_id, 'disconnected' );
               }
               else {
                 # This means that the Server::TCP was shutdown before
@@ -322,10 +322,11 @@ sub new {
     $orig_accept_callback->(@_);
   };
 
-  # Create the session, at long last.  This is done inline so that
-  # closures can customize it.
+  # Create the session, at long last.
+  # This is done inline so that closures can customize it.
+  # We save the accept session's ID to avoid self reference.
 
-  $accept_session = $session_type->create(
+  $accept_session_id = $session_type->create(
     @$session_params,
     inline_states => {
       _start => sub {
@@ -408,19 +409,17 @@ sub new {
       # Dummy states to prevent warnings.
       _stop   => sub {
         DEBUG and warn "$$: $_[HEAP]->{alias} _stop";
-        undef($accept_session);
+        undef($accept_session_id);
         return 0;
       },
       _child  => sub { },
     },
 
     args => $args,
-  );
+  )->ID;
 
-  $accept_session = $accept_session->ID;
-
-  # Return the session ID
-  return $accept_session;
+  # Return the session ID.
+  return $accept_session_id;
 }
 
 sub _get_filters {
@@ -633,7 +632,7 @@ difficult.  A tutorial at http://poe.perl.org/ describes how.
 =head1 CONSTRUCTOR PARAMETERS
 
 The new() method can accept quite a lot of parameters.  It will return
-the session ID of the accecptor session.  One must use callbacks to 
+the session ID of the accecptor session.  One must use callbacks to
 check for errors rather than the return value of new().
 
 POE::Component::Server::TCP supplies common defaults for most
