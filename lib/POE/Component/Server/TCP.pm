@@ -969,15 +969,19 @@ This component currently does not accept many of the options that
 POE::Wheel::SocketFactory does.
 
 This component will not bind to several addresses at once.  This may
-be a limitation in SocketFactory.
+be a limitation in SocketFactory, but it's not by design.
 
 This component needs more complex error handling which appends for
 construction errors and replaces for runtime errors, instead of
 replacing for all.
 
+Some use cases require different session classes for the listener and
+the connection handlers.  This isn't currently supported.  Please send
+patches. :)
+
 =head1 AUTHORS & COPYRIGHTS
 
-POE::Component::Server::TCP is Copyright 2000-2001 by Rocco Caputo.
+POE::Component::Server::TCP is Copyright 2000-2006 by Rocco Caputo.
 All rights are reserved.  POE::Component::Server::TCP is free
 software, and it may be redistributed and/or modified under the same
 terms as Perl itself.

@@ -690,16 +690,18 @@ POE::Wheel::ReadWrite, POE::Filter
 
 =head1 CAVEATS
 
-This may not be suitable for complex client tasks.
+This may not be suitable for complex client tasks.  After a point, it
+becomes easier to roll a custom client using POE::Wheel::SocketFactory
+and POE::Wheel::ReadWrite.
 
 This looks nothing like what Ann envisioned.
 
 =head1 AUTHORS & COPYRIGHTS
 
-POE::Component::Client::TCP is Copyright 2001 by Rocco Caputo.  All
-rights are reserved.  POE::Component::Client::TCP is free software,
-and it may be redistributed and/or modified under the same terms as
-Perl itself.
+POE::Component::Client::TCP is Copyright 2001-2006 by Rocco Caputo.
+All rights are reserved.  POE::Component::Client::TCP is free
+software, and it may be redistributed and/or modified under the same
+terms as Perl itself.
 
 POE::Component::Client::TCP is based on code, used with permission,
 from Ann Barcomb E<lt>kudra@domaintje.comE<gt>.
