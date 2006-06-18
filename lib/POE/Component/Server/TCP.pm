@@ -419,10 +419,8 @@ sub new {
 
   $accept_session = $accept_session->ID;
 
-  # Return undef so nobody can use the POE::Session reference.  This
-  # isn't very friendly, but it saves grief later.
-  # Maybe we can at least return the session ID?
-  undef;
+  # Return the session ID
+  return $accept_session;
 }
 
 sub _get_filters {
@@ -525,7 +523,7 @@ POE::Component::Server::TCP - a simplified TCP server
 
   ### First form just accepts connections.
 
-  POE::Component::Server::TCP->new(
+  my $acceptor_session_id = POE::Component::Server::TCP->new(
     Port     => $bind_port,
     Address  => $bind_address,    # Optional.
     Hostname => $bind_hostname,   # Optional.
@@ -537,7 +535,7 @@ POE::Component::Server::TCP - a simplified TCP server
 
   ### Second form also handles connections.
 
-  POE::Component::Server::TCP->new(
+  my $acceptor_session_id = POE::Component::Server::TCP->new(
     Port     => $bind_port,
     Address  => $bind_address,      # Optional.
     Hostname => $bind_hostname,     # Optional.
@@ -634,9 +632,9 @@ difficult.  A tutorial at http://poe.perl.org/ describes how.
 
 =head1 CONSTRUCTOR PARAMETERS
 
-The new() method can accept quite a lot of parameters.  It always
-returns undef, however.  One must use callbacks to check for errors
-rather than the return value of new().
+The new() method can accept quite a lot of parameters.  It will return
+the session ID of the accecptor session.  One must use callbacks to 
+check for errors rather than the return value of new().
 
 POE::Component::Server::TCP supplies common defaults for most
 callbacks and handlers.

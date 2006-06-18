@@ -140,7 +140,7 @@ sub new {
   # Spawn the session that makes the connection and then interacts
   # with what was connected to.
 
-  $session_type->create
+  return $session_type->create
     ( @$session_params,
       inline_states =>
       { _start => sub {
@@ -298,7 +298,7 @@ sub new {
       # User supplied states.
       package_states => $package_states,
       object_states  => $object_states,
-    );
+    )->ID;
 }
 
 sub _get_filter {
@@ -361,7 +361,7 @@ POE::Component::Client::TCP - a simplified TCP client
 
   # Complete usage.
 
-  POE::Component::Client::TCP->new
+  my $session_id = POE::Component::Client::TCP->new
     ( RemoteAddress  => "127.0.0.1",
       RemotePort     => "chargen",
       BindAddress    => "127.0.0.1",
@@ -449,6 +449,10 @@ callbacks and handlers.  The authors hope that clients can be created
 with as little work as possible.
 
 =head1 Constructor Parameters
+
+The new() method can accept quite a lot of parameters.  It will return
+the session ID of the accecptor session.  One must use callbacks to 
+check for errors rather than the return value of new().
 
 =over 2
 
