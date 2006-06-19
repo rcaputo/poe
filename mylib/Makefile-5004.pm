@@ -54,8 +54,9 @@ WriteMakefile(
     FILES => CLEAN_FILES,
   },
 
-  PL_FILES    => { },
+  PL_FILES  => { },
   PREREQ_PM => { CORE_REQUIREMENTS },
+  PM_FILTER => 'mylib/preprocessor.perl',
 );
 
 1;

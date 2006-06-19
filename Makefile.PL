@@ -67,37 +67,6 @@ if($ret =~ /^Y$/i) {
 
 print "\n";
 
-# Comment out "use bytes" if it's not supported.
-
-use File::Find;
-my $code;
-if ($] < 5.006) {
-  print "Perl $] does not support bytes.pm.  Commenting it out...\n";
-  $code = 's/^(\s*)(use bytes;).*/$1#$2 # perl version $] at install/';
-}
-else {
-  print "Perl $] supports bytes.pm.  Ensuring it's in...\n";
-  $code = 's/^(\s*)#\s*(use bytes;).*/$1$2/';
-}
-
-find(
-  sub {
-    return unless -f and /\.pm$/;
-    system($^X, "-p", "-i.pp", "-e", $code, $_) and die "System error: $!";
-  },
-  "lib"
-);
-
-find(
-  sub {
-    return unless -f and /\.pp$/;
-    unlink $_;
-  },
-  "lib"
-);
-
-print "\n";
-
 # Which kind of makefile should we build?
 
 if ($] < 5.005004) {
@@ -120,25 +89,5 @@ if ($] < 5.005004) {
 else {
   require "./mylib/Makefile-5005.pm";
 }
-
-# And finally, ask the user to run a test report.
-#
-# NOTE: This is currently disabled.  Don't use it.
-# 
-# use Config;
-# my $make = $Config::Config{make};
-# 
-# print(
-#   "\n",
-#   "=======================================================================\n",
-#   "\n",
-#   "Please consider running '$make uploadreport' to create and upload a\n",
-#   "test report.  You can see samples of other test reports by visitng\n",
-#   "http://eekeek.org/poe-tests/\n",
-#   "\n",
-#   "Thank you.\n",
-#   "\n",
-#   "=======================================================================\n",
-# );
 
 0;
