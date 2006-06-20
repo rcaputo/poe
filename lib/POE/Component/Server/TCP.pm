@@ -684,16 +684,16 @@ Later on, the 'chargen' service can be shut down with:
 
 =item Args => ARRAYREF
 
-Args passes the contents of a ARRAYREF to the ClientConnected callback
-via @_[ARG0..$#_].  It allows you to send extra information to the
-sessions that handle each client connection.
+Args passes the ARRAYREF to the ClientConnected callback as ARG0.
+It allows you to send extra information to the sessions that handle 
+each client connection.
 
 =item ClientConnected => CODEREF
 
 ClientConnected sets the callback used to notify each new client
 session that it is started.  ClientConnected callbacks receive the
 usual POE parameters, plus a copy of whatever was specified in the
-component's C<Args> constructor parameter.
+component's C<Args> constructor parameter, as ARG0.
 
 The ClientConnected callback will not be called within the same
 session context twice.
