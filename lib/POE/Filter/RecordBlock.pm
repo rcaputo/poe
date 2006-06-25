@@ -25,7 +25,7 @@ sub new {
   my %params = @_;
 
   croak "BlockSize must be greater than 0" unless (
-    defined($params{BlockSize}) || ($params{BlockSize} < 1)
+    defined($params{BlockSize}) && ($params{BlockSize} > 0)
   );
 
   my $self = bless [
@@ -77,7 +77,7 @@ sub put {
       push @{$self->[PUTBUFFER]}, @$_;
     }
     while (@{$self->[PUTBUFFER]} >= $self->[BLOCKSIZE]) {
-      push @result, splice @{$self->[GETBUFFER]}, 0, $self->[BLOCKSIZE];
+      push @result, splice @{$self->[PUTBUFFER]}, 0, $self->[BLOCKSIZE];
     }
   }
   else {
@@ -182,6 +182,20 @@ POE::Filter::RecordBlock::put_pending
 
 The put_pending() method returns an arrayref of any records that are
 waiting to be sent.
+
+=item *
+
+POE::Filter::RecordBlock::blocksize
+
+The blocksize() method takes one optional parameter, the new blocksize.
+It returns the current blocksize.
+
+=item *
+
+POE::Filter::RecordBlock::checkput
+
+The checkput() method takes one optional parameter, the new state of the
+CheckPut flag.  It returns the current CheckPut flag.
 
 =item *
 
