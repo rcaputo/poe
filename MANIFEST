@@ -117,6 +117,7 @@ tests/10_units/05_filters/07_reference.t
 tests/10_units/05_filters/08_stream.t
 tests/10_units/05_filters/50_stackable.t
 tests/10_units/05_filters/99_filterchange.t
+tests/10_units/05_filters/TestFilter.pm
 tests/10_units/06_queues/01_array.t
 tests/10_units/07_exceptions/01_normal.t
 tests/10_units/07_exceptions/02_turn_off.t

@@ -7,14 +7,17 @@
 
 use strict;
 use lib qw(./mylib ../mylib);
+use lib qw(tests/10_units/05_filters);
 
-use Test::More tests => 20;
+use TestFilter;
+use Test::More tests => 20 + $COUNT_FILTER_INTERFACE;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use_ok("POE::Filter::Block");
+test_filter_interface("POE::Filter::Block");
 
 # Test block filter in fixed-length mode.
 {

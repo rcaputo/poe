@@ -11,13 +11,13 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-use POE::Filter::Stackable;
-use POE::Filter::Grep;
-use POE::Filter::Map;
-use POE::Filter::RecordBlock;
-use POE::Filter::Line;
+use Test::More tests => 30;
 
-use Test::More tests => 22;
+use_ok('POE::Filter::Stackable');
+use_ok('POE::Filter::Grep');
+use_ok('POE::Filter::Map');
+use_ok('POE::Filter::RecordBlock');
+use_ok('POE::Filter::Line');
 
 # Create a filter stack to test.
 
@@ -50,6 +50,12 @@ ok(defined($filter_stack), "filter stack created");
 
 my $block = $filter_stack->get( [ "test one (1)!test two (2)!" ] );
 ok(!@$block, "partial get returned nothing");
+
+my $pending = $filter_stack->get_pending();
+is_deeply(
+  $pending, [ "(((test one (1))))" ],
+  "filter stack has correct get_pending"
+);
 
 $block = $filter_stack->get( [ "test three (3)!test four (100)!" ] );
 is_deeply(
@@ -94,64 +100,79 @@ foreach my $compare (@test_list) {
 my $map_next = $map->get_one();
 ok(!@$map_next, "nothing left to get from map filter");
 
-# Grep
-
-my $grep = POE::Filter::Grep->new( Code => sub { $_ & 1 } );
-$grep->get_one_start( [ @test_list ] );
-
-my $grep_pending = join '', @{$grep->get_pending()};
-ok($grep_pending eq '11235', "grep filter's parser buffer verifies");
-
-foreach my $compare (@test_list) {
-  next unless $compare & 1;
-  my $next = $grep->get_one();
-  is_deeply($next, [ $compare ], "grep filter get_one() returns [$compare]");
-}
-
-my $grep_next = $grep->get_one();
-ok(!@$grep_next, "nothing left to get from grep filter");
-
 ### Go back and test more of Stackable.
 
-my @filters_should_be = qw( Line Map Grep RecordBlock );
+{
+  my @filters_should_be = qw( Line Map Grep RecordBlock );
+  my @filters_are  = $filter_stack->filter_types();
+  is_deeply(\@filters_are, \@filters_should_be,
+    "filter types stacked correctly");
 
-my $filters_are  = join ' --- ', $filter_stack->filter_types();
-my $filters_test = join ' --- ', @filters_should_be;
+  my @filters_also_should_be = map { "POE::Filter::$_" } @filters_should_be;
+  my @filters_also_are = map { ref($_) } $filter_stack->filters();
+  is_deeply(\@filters_also_are, \@filters_also_should_be,
+    "filters stacked correctly");
+}
 
-ok($filters_test eq $filters_are, "filter types stacked correctly");
+# test pushing and popping
+{
+  my @filters_strlist = map { "$_" } $filter_stack->filters();
 
-my $filters_also_are  = (
-  join ' --- ', map { ref($_) } $filter_stack->filters()
-);
-my $filters_also_test = (
-  join ' --- ', map { 'POE::Filter::' . $_ } @filters_should_be
-);
+  my $filter_pop = $filter_stack->pop();
+  ok(
+    ref($filter_pop) eq "POE::Filter::RecordBlock",
+    "popped the correct filter"
+  );
 
-ok(
-  $filters_also_test eq $filters_also_are,
-  "filters stacked correctly"
-);
+  my $filter_shift = $filter_stack->shift();
+  ok(
+    ref($filter_shift) eq 'POE::Filter::Line',
+    "shifted the correct filter"
+  );
 
-my $filter_pop = $filter_stack->pop();
-ok(
-  ref($filter_pop) eq "POE::Filter::RecordBlock",
-  "popped the correct filter"
-);
+  $filter_stack->push( $filter_pop );
+  $filter_stack->unshift( $filter_shift );
 
-my $filter_shift = $filter_stack->shift();
-ok(
-  ref($filter_shift) eq 'POE::Filter::Line',
-  "shifted the correct filter"
-);
+  my @filters_strlist_end = map { "$_" } $filter_stack->filters();
+  is_deeply(\@filters_strlist_end, \@filters_strlist,
+    "repushed, reshifted filters are in original order");
+}
 
-$filter_stack->push( $filter_pop );
-$filter_stack->unshift( $filter_shift );
+# push error checking
+{
+  my @filters_strlist = map { "$_" } $filter_stack->filters();
 
-my $filters_are_again = join ' --- ', $filter_stack->filter_types();
+  eval { $filter_stack->push(undef) };
+  ok(!!$@, "undef is not a filter");
 
-ok(
-  $filters_test eq $filters_are_again,
-  "repushed, reshifted filters are in order"
-);
+  eval { $filter_stack->push(['i am not a filter']) };
+  ok(!!$@, "bare references are not filters");
+
+  eval { $filter_stack->push(bless(['i am not a filter'], "foo$$")) };
+  ok(!!$@, "random blessed references are not filters");
+  # not blessed into a package that ISA POE::Filter
+
+  eval { $filter_stack->push(123, "two not-filter things") };
+  ok(!!$@, "multiple non-filters are not filters");
+
+  my @filters_strlist_end = map { "$_" } $filter_stack->filters();
+  is_deeply(\@filters_strlist_end, \@filters_strlist,
+    "filters unchanged despite errors");
+}
+
+# test cloning
+{
+  my @filters_strlist = map { "$_" } $filter_stack->filters();
+  my @filter_types = $filter_stack->filter_types();
+
+  my $new_stack = $filter_stack->clone();
+
+  isnt("$new_stack", "$filter_stack", "cloned stack is different");
+  isnt(join('---', @filters_strlist),
+    join('---', $new_stack->filters()),
+    "filters are different");
+  is_deeply(\@filter_types, [$new_stack->filter_types()],
+    "but types are the same");
+}
 
 exit 0;

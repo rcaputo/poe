@@ -6,48 +6,55 @@
 
 use strict;
 use lib qw(./mylib ../mylib);
+use lib qw(tests/10_units/05_filters);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-use Test::More tests => 14;
+use TestFilter;
+use Test::More tests => 18 + $COUNT_FILTER_INTERFACE + 2*$COUNT_FILTER_STANDARD;
 
 use_ok("POE::Filter::Line");
+test_filter_interface("POE::Filter::Line");
+
+test_new("new(): even number of args", "one", "two", "odd");
+test_new("new(): empty Literal", Literal => "");
+# What is Regexp?  I see InputRegexp, but not Regexp
+test_new("new(): Literal and Regexp", Regexp => "\r", Literal => "\n");
+test_new("new(): Literal and InputRegexp", InputRegexp => "\r", Literal => "\n");
+test_new("new(): Literal and InputLiteral", InputLiteral => "\r", Literal => "\n");
+test_new("new(): Literal and OutputLiteral", OutputLiteral => "\r", Literal => "\n");
+test_new("new(): InputLiteral and InputRegexp", InputRegexp => "\r", InputLiteral => "\n");
+
+sub test_new {
+    my ($name, @args) = @_;
+    eval { POE::Filter::Line->new(@args); };
+    ok(!(!$@), $name);
+}
 
 # Test the line filter in default mode.
-
 {
   my $filter = POE::Filter::Line->new();
+  isa_ok($filter, 'POE::Filter::Line');
 
-  my $received = $filter->get( [ "a\x0D", "b\x0A", "c\x0D\x0A", "d\x0A\x0D" ] );
-  is_deeply(
-    $received, [ "a", "b", "c", "d" ],
-    "line serializer stripped newlines on input"
-  );
-
-  my $sent = $filter->put($received);
-  is_deeply(
-    $sent, [ "a\x0D\x0A", "b\x0D\x0A", "c\x0D\x0A", "d\x0D\x0A" ],
-    "line serializer added newlines to output"
+  test_filter_standard(
+    $filter,
+    [ "a\x0D", "b\x0A", "c\x0D\x0A", "d\x0A\x0D" ],
+    [ "a", "b", "c", "d" ],
+    [ "a\x0D\x0A", "b\x0D\x0A", "c\x0D\x0A", "d\x0D\x0A" ],
   );
 }
 
 # Test the line filter in literal mode.
-
 {
   my $filter = POE::Filter::Line->new( Literal => 'x' );
 
-  my $received = $filter->get( [ "axa", "bxb", "cxc", "dxd" ] );
-  is_deeply(
-    $received, [ "a", "ab", "bc", "cd" ],
-    "literal mode line filter parsed input"
-  );
-
-  my $sent = $filter->put( $received );
-  is_deeply(
-    $sent, [ "ax", "abx", "bcx", "cdx" ],
-    "literal mode line filter serialized output"
+  test_filter_standard(
+    $filter,
+    [ "axa", "bxb", "cxc", "dxd" ],
+    [ "a", "ab", "bc", "cd" ],
+    [ "ax", "abx", "bcx", "cdx" ],
   );
 }
 

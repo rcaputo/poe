@@ -6,17 +6,20 @@
 
 use strict;
 use lib qw(./mylib ../mylib);
+use lib qw(tests/10_units/05_filters);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
+use TestFilter;
 use Test::More;
-use POE::Filter::Reference;
 use Symbol qw(delete_package);
 
+use POE::Filter::Reference;
+
 # Determine whether we can run these tests.
-BEGIN: {
+BEGIN {
   local $SIG{__WARN__} = sub { };
   my $reference = eval { POE::Filter::Reference->new(); };
   if (length $@) {
@@ -28,7 +31,11 @@ BEGIN: {
   }
 }
 
-plan tests => 11;
+BEGIN {
+  plan tests => 11 + $COUNT_FILTER_INTERFACE;
+}
+
+test_filter_interface('POE::Filter::Reference');
 
 # A trivial, special-case serializer and reconstitutor.
 

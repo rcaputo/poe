@@ -5,18 +5,31 @@
 
 use strict;
 use lib qw(./mylib ../mylib);
+use lib qw(tests/10_units/05_filters);
 
-use Test::More tests => 8;
+use TestFilter;
+use Test::More tests => 9 + $COUNT_FILTER_INTERFACE + $COUNT_FILTER_STANDARD;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-BEGIN { use_ok("POE::Filter::Stream") }
+use_ok("POE::Filter::Stream");
+test_filter_interface("POE::Filter::Stream");
 
-my $filter = new POE::Filter::Stream;
+my $filter = POE::Filter::Stream->new;
+isa_ok($filter, 'POE::Filter::Stream');
 my @test_fodder = qw(a bc def ghij klmno);
 
+# General test
+test_filter_standard(
+  $filter,
+  [qw(a bc def ghij klmno)],
+  [qw(abcdefghijklmno)],
+  [qw(abcdefghijklmno)],
+);
+
+# Specific tests for stream filter
 { my $received = $filter->get( \@test_fodder );
   ok(
     eq_array($received, [ 'abcdefghijklmno' ]),
