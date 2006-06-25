@@ -144,6 +144,8 @@ tests/30_loops/00_base/sbk_signal_init.pm
 tests/30_loops/00_base/ses_nfa.pm
 tests/30_loops/00_base/ses_session.pm
 tests/30_loops/00_base/wheel_accept.pm
+tests/30_loops/00_base/wheel_curses.pm
+tests/30_loops/00_base/wheel_readline.pm
 tests/30_loops/00_base/wheel_run.pm
 tests/30_loops/00_base/wheel_sf_ipv6.pm
 tests/30_loops/00_base/wheel_sf_tcp.pm
