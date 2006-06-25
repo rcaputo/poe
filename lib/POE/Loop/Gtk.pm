@@ -313,7 +313,7 @@ __END__
 
 =head1 NAME
 
-POE::Loop::Event - a bridge that supports Gtk's event loop from POE
+POE::Loop::Gtk - a bridge that supports Gtk's event loop from POE
 
 =head1 SYNOPSIS
 
