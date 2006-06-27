@@ -300,6 +300,9 @@ sub loop_do_timeslice {
 }
 
 sub loop_run {
+  unless (defined $_watcher_timer) {
+    $_watcher_timer = Gtk->idle_add(\&_loop_resume_timer);
+  }
   Gtk->main;
 }
 
