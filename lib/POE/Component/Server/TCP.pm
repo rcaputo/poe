@@ -8,7 +8,7 @@ use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 use Carp qw(carp croak);
-use Socket qw(INADDR_ANY inet_ntoa inet_aton AF_UNIX PF_UNIX);
+use Socket qw(INADDR_ANY inet_ntoa inet_aton AF_INET AF_UNIX PF_UNIX);
 use Errno qw(ECONNABORTED ECONNRESET);
 
 # Explicit use to import the parameter constants.
@@ -44,7 +44,7 @@ sub new {
   my $address = delete $param{Address};
   my $hname   = delete $param{Hostname};
   my $port    = delete $param{Port};
-  my $domain  = delete $param{Domain};
+  my $domain  = delete($param{Domain}) || AF_INET;
   my $concurrency = delete $param{Concurrency};
 
   foreach (
@@ -181,8 +181,7 @@ sub new {
               # to pull most of this into a base class and derive
               # TCP and UNIX versions from that.
               if (
-                defined $domain and
-                ($domain == AF_UNIX or $domain == PF_UNIX)
+                $domain == AF_UNIX or $domain == PF_UNIX
               ) {
                 $heap->{remote_ip} = "LOCAL";
               }
