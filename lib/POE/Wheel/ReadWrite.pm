@@ -73,8 +73,10 @@ sub new {
 
     # If neither Filter, InputFilter or OutputFilter is defined, then
     # they default to POE::Filter::Line.
-    unless (defined $in_filter or defined $out_filter) {
-      $in_filter = $out_filter = POE::Filter::Line->new();
+    unless (defined $in_filter and defined $out_filter) {
+      my $new_filter = POE::Filter::Line->new();
+      $in_filter = $new_filter unless defined $in_filter;
+      $out_filter = $new_filter unless defined $out_filter;
     }
   }
 
