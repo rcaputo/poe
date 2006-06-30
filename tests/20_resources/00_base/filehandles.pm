@@ -10,6 +10,8 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use POE;
 use POE::Pipe::TwoWay;
+use IO::File;
+use Tie::Handle;
 
 # Bring in some constants to save us some typing.
 sub MODE_RD () { POE::Kernel::MODE_RD }
@@ -29,7 +31,149 @@ sub SH_HANDLE    () { POE::Kernel::SH_HANDLE    }
 sub SH_REFCOUNT  () { POE::Kernel::SH_REFCOUNT  }
 sub SH_MODECOUNT () { POE::Kernel::SH_MODECOUNT }
 
-use Test::More tests => 139;
+use Test::More tests => 192;
+
+### Factoried out common tests
+
+# 1 subtest
+sub verify_handle_structure {
+  my ($name, $handle_info) = @_;
+
+  my $expected_handles = {
+    $poe_kernel => do {
+      my %h;
+      for (@$handle_info) {
+        my ($fh, $modes) = @$_;
+
+        my $rd = $modes =~ /r/ ? 1 : 0;
+        my $wr = $modes =~ /w/ ? 1 : 0;
+        my $ex = $modes =~ /x/ ? 1 : 0;
+        die "woops: $modes" if $modes =~ /[^rwx]/;
+
+        $h{$fh} = [
+          $fh,                # SH_HANDLE
+          $rd + $wr + $ex,    # SH_REFCOUNT
+          [                   # SH_MODECOUNT
+            $rd,              #   MODE_RD
+            $wr,              #   MODE_WR
+            $ex,              #   MODE_EX
+          ],
+        ];
+      };
+      \%h;
+    },
+  };
+
+  my %handles = $poe_kernel->_data_handle_handles();
+  is_deeply(
+    \%handles,
+    $expected_handles,
+    "$name: session to handles map"
+  );
+}
+
+# 3 subtests
+sub verify_handle_sessions {
+  my ($name, $fh, $read_event, $write_event, $exp_event) = @_;
+
+  my $make_expected = sub {
+    my ($event) = @_;
+    return +{} unless defined $event;
+    return +{
+      $poe_kernel => {
+        $fh => [
+          $fh,           # HSS_HANDLE
+          $poe_kernel,   # HSS_SESSION
+          $event,        # HSS_STATE
+          [ ],           # HSS_ARGS
+        ]
+      }
+    };
+  };
+
+  my ($ses_r, $ses_w, $ses_e) =
+    $poe_kernel->_data_handle_fno_sessions(fileno($fh));
+
+  is_deeply(
+    $ses_r,
+    $make_expected->($read_event),
+    "$name: fileno read session"
+  );
+  is_deeply(
+    $ses_w,
+    $make_expected->($write_event),
+    "$name: fileno write session"
+  );
+  is_deeply(
+    $ses_e,
+    $make_expected->($exp_event),
+    "$name: fileno expedite session"
+  );
+}
+
+# 7 subtests
+sub verify_handle_refcounts {
+  my ($name, $fh, $modes) = @_;
+
+  my $expected_rd = $modes =~ /r/ ? 1 : 0;
+  my $expected_wr = $modes =~ /w/ ? 1 : 0;
+  my $expected_ex = $modes =~ /x/ ? 1 : 0;
+  die "woops: $modes" if $modes =~ /[^rwx]/;
+
+  {
+    my ($tot, $rd, $wr, $ex) = $poe_kernel->_data_handle_fno_refcounts(
+      fileno($fh)
+    );
+    is(
+      $tot,
+      $expected_rd + $expected_wr + $expected_ex,
+      "$name: fd total refcount"
+    );
+    is( $rd, $expected_rd, "$name: fd read refcount" );
+    is( $wr, $expected_wr, "$name: fd write refcount" );
+    is( $ex, $expected_ex, "$name: fd expedite refcount" );
+  }
+
+  {
+    my ($rd, $wr, $ex) = $poe_kernel->_data_handle_fno_evcounts(
+      fileno($fh)
+    );
+    ok( $rd == 0, "$name: event read refcount" );
+    ok( $wr == 0, "$name: event write refcount" );
+    ok( $ex == 0, "$name: event expedite refcount" );
+  }
+}
+
+# 6 subtests
+sub verify_handle_state {
+  my ($name, $fh, $rd_str, $wr_str, $ex_str) = @_;
+  # string format: 'AR', A - actual, R - requested
+
+  my $parse_str = sub {
+    my ($str) = @_;
+    return [ map { +{
+        's' => HS_STOPPED,
+        'p' => HS_PAUSED,
+        'r' => HS_RUNNING }->{$_} }
+      split //, $str ];
+  };
+
+  my $rd = $parse_str->($rd_str);
+  my $wr = $parse_str->($wr_str);
+  my $ex = $parse_str->($ex_str);
+
+  my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
+    $poe_kernel->_data_handle_fno_states(fileno($fh));
+
+  ok( $r_act == $$rd[0], "$name: read actual state" );
+  ok( $r_req == $$rd[1], "$name: read requested state" );
+  ok( $w_act == $$wr[0], "$name: write actual state" );
+  ok( $w_req == $$wr[1], "$name: write requested state" );
+  ok( $e_act == $$ex[0], "$name: expedite actual state" );
+  ok( $e_req == $$ex[1], "$name: expedite requested state" );
+}
+
+### Tests
 
 # Get a baseline reference count for the session, to use as
 # comparison.
@@ -40,105 +184,33 @@ my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new("inet");
 ok(defined($a_read), "created a two-way pipe");
 
 # Add a filehandle in read mode.
-
 $poe_kernel->_data_handle_add($a_read, MODE_RD, $poe_kernel, "event-rd", []);
 
 # Verify reference counts.
-
 ok(
   $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1,
   "first read add: session reference count"
 );
-
-{
-  my ($tot, $rd, $wr, $ex) = $poe_kernel->_data_handle_fno_refcounts(
-    fileno($a_read)
-  );
-  ok( $tot == 1, "first read add: fd total refcount" );
-  ok( $rd  == 1, "first read add: fd read refcount" );
-  ok( $wr  == 0, "first read add: fd write refcount" );
-  ok( $ex  == 0, "first read add: fd expedite refcount" );
-}
-
-{
-  my ($rd, $wr, $ex) = $poe_kernel->_data_handle_fno_evcounts(
-    fileno($a_read)
-  );
-  ok( $rd == 0, "first read add: event read refcount" );
-  ok( $wr == 0, "first read add: event write refcount" );
-  ok( $ex == 0, "first read add: event expedite refcount" );
-}
+verify_handle_refcounts(
+  "first read add", $a_read, "r"
+);
 
 # Verify the handle's state.
-
-{
-  my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($a_read));
-
-  ok( $r_act == HS_RUNNING, "first read add: read actual state" );
-  ok( $r_req == HS_RUNNING, "first read add: read requested state" );
-  ok( $w_act == HS_PAUSED,  "first read add: write actual state" );
-  ok( $w_req == HS_PAUSED,  "first read add: write requested state" );
-  ok( $e_act == HS_PAUSED,  "first read add: expedite actual state" );
-  ok( $e_req == HS_PAUSED,  "first read add: expedite requested state" );
-}
+verify_handle_state(
+  "first read add", $a_read,
+  "rr", "pp", "pp"
+);
 
 # Verify the handle's sessions.
-
-{
-  my ($ses_r, $ses_w, $ses_e) =
-    $poe_kernel->_data_handle_fno_sessions(fileno($a_read));
-
-  is_deeply(
-    $ses_r, {
-      $poe_kernel => {
-        $a_read => [
-          $a_read,      # HSS_HANDLE
-          $poe_kernel,  # HSS_SESSION
-          "event-rd",   # HSS_STATE
-          [ ],          # HSS_ARGS
-        ]
-      }
-    },
-    "first read add: fileno read session"
-  );
-
-  is_deeply(
-    $ses_w, {
-    },
-    "first read add: fileno write session"
-  );
-
-  is_deeply(
-    $ses_e, {
-    },
-    "first read add: fileno expedite session"
-  );
-}
+verify_handle_sessions(
+  "first read add", $a_read, "event-rd", undef, undef
+);
 
 # Verify the handle structure.
-
-{
-  my %handles = $poe_kernel->_data_handle_handles();
-
-  is_deeply(
-    \%handles,
-    {
-      $poe_kernel => {
-        $a_read => [
-          $a_read,      # SH_HANDLE
-          1,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            1,            # SH_MODECOUNT MODE_RD
-            0,            # SH_MODECOUNT MODE_WR
-            0,            # SH_MODECOUNT MODE_EX
-          ],
-        ],
-      },
-    },
-    "first read add: session to handles map"
-  );
-}
+verify_handle_structure(
+  "first read add",
+  [ [$a_read => 'r'] ],
+);
 
 # Add a second handle in read mode.
 
@@ -151,102 +223,26 @@ ok(
   "second read add: session reference count"
 );
 
-{
-  my ($tot, $rd, $wr, $ex) = $poe_kernel->_data_handle_fno_refcounts(
-    fileno($b_read)
-  );
-  ok( $tot == 1, "second read add: fd total refcount" );
-  ok( $rd  == 1, "second read add: fd read refcount" );
-  ok( $wr  == 0, "second read add: fd write refcount" );
-  ok( $ex  == 0, "second read add: fd expedite refcount" );
-}
-
-{
-  my ($rd, $wr, $ex) = $poe_kernel->_data_handle_fno_evcounts(
-    fileno($b_read)
-  );
-  ok( $rd == 0, "second read add: event read refcount" );
-  ok( $wr == 0, "second read add: event write refcount" );
-  ok( $ex == 0, "second read add: event expedite refcount" );
-}
+verify_handle_refcounts(
+  "second read add", $b_read, "r"
+);
 
 # Verify the handle's state.
-
-{ my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($b_read));
-
-  ok( $r_act == HS_RUNNING, "second read add: read actual state" );
-  ok( $r_req == HS_RUNNING, "second read add: read requested state" );
-  ok( $w_act == HS_PAUSED,  "second read add: write actual state" );
-  ok( $w_req == HS_PAUSED,  "second read add: write requested state" );
-  ok( $e_act == HS_PAUSED,  "second read add: expedite actual state" );
-  ok( $e_req == HS_PAUSED,  "second read add: expedite requested state" );
-}
+verify_handle_state(
+  "second read add", $b_read,
+  "rr", "pp", "pp"
+);
 
 # Verify the handle's sessions.
-
-{ my ($ses_r, $ses_w, $ses_e) =
-    $poe_kernel->_data_handle_fno_sessions(fileno($b_read));
-
-  is_deeply(
-    $ses_r, {
-      $poe_kernel => {
-        $b_read => [
-          $b_read,      # HSS_HANDLE
-          $poe_kernel,  # HSS_SESSION
-          "event-rd",   # HSS_STATE
-          [ ],          # HSS_ARGS
-        ]
-      }
-    },
-    "second read add: fileno read session"
-  );
-
-  is_deeply(
-    $ses_w, {
-    },
-    "second read add: fileno write session"
-  );
-
-  is_deeply(
-    $ses_e, {
-    },
-    "second read add: fileno expedite session"
-  );
-}
+verify_handle_sessions(
+  "second read add", $b_read, "event-rd", undef, undef
+);
 
 # Verify the handle structure.
-
-{
-  my %handles = $poe_kernel->_data_handle_handles();
-
-  is_deeply(
-    \%handles,
-    {
-      $poe_kernel => {
-        $a_read => [
-          $a_read,      # SH_HANDLE
-          1,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            1,          #   MODE_RD
-            0,          #   MODE_WR
-            0,          #   MODE_EX
-          ],
-        ],
-        $b_read => [
-          $b_read,      # SH_HANDLE
-          1,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            1,          #   MODE_RD
-            0,          #   MODE_WR
-            0,          #   MODE_EX
-          ],
-        ],
-      },
-    },
-    "second read add: session to handles map"
-  );
-}
+verify_handle_structure(
+  "second read add",
+  [ [$a_read => 'r'], [$b_read => 'r'] ],
+);
 
 # Add a third filehandle in write mode.
 
@@ -255,119 +251,34 @@ $poe_kernel->_data_handle_add($a_write, MODE_WR, $poe_kernel, "event-wr", []);
 # Verify reference counts.  Total reference count doesn't go up
 # because this is a duplicate fileno of a previous one.
 # -><- May not be true on all systems!  Argh!
+die "woops, we've assumed that write handles have same fileno as read handles"
+  unless fileno($a_write) == fileno($a_read);
 
 ok(
   $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2,
   "third write add: session reference count"
 );
 
-{
-  my ($tot, $rd, $wr, $ex) = $poe_kernel->_data_handle_fno_refcounts(
-    fileno($a_write)
-  );
-  ok( $tot == 2, "third write add: fd total refcount" );
-  ok( $rd  == 1, "third write add: fd read refcount" );
-  ok( $wr  == 1, "third write add: fd write refcount" );
-  ok( $ex  == 0, "third write add: fd expedite refcount" );
-}
-
-{
-  my ($rd, $wr, $ex) = $poe_kernel->_data_handle_fno_evcounts(
-    fileno($a_write)
-  );
-  ok( $rd == 0, "third write add: event read refcount" );
-  ok( $wr == 0, "third write add: event write refcount" );
-  ok( $ex == 0, "third write add: event expedite refcount" );
-}
+verify_handle_refcounts(
+  "third write add", $a_write, "rw"
+);
 
 # Verify the handle's state.
-
-{
-  my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($a_write));
-
-  ok( $r_act == HS_RUNNING, "third write add: read actual state" );
-  ok( $r_req == HS_RUNNING, "third write add: read requested state" );
-  ok( $w_act == HS_RUNNING, "third write add: write actual state" );
-  ok( $w_req == HS_RUNNING, "third write add: write requested state" );
-  ok( $e_act == HS_PAUSED,  "third write add: expedited actual state" );
-  ok( $e_req == HS_PAUSED,  "third write add: expedited requested state" );
-}
+verify_handle_state(
+  "third write add", $a_write,
+  "rr", "rr", "pp"
+);
 
 # Verify the handle's sessions.
-
-{
-  my ($ses_r, $ses_w, $ses_e) = $poe_kernel->_data_handle_fno_sessions(
-    fileno($a_write)
-  );
-
-  is_deeply(
-    $ses_r, {
-      $poe_kernel => {
-        $a_read => [
-          $a_read,      # HSS_HANDLE
-          $poe_kernel,  # HSS_SESSION
-          "event-rd",   # HSS_STATE
-          [ ],          # HSS_ARGS
-        ]
-      }
-    },
-    "third write add: fileno read session"
-  );
-
-  is_deeply(
-    $ses_w, {
-      $poe_kernel => {
-        $a_write => [
-          $a_write,     # HSS_HANDLE
-          $poe_kernel,  # HSS_STATE
-          "event-wr",   # HSS_STATE
-          [ ],          # HSS_ARGS
-        ]
-      }
-    },
-    "third write add: fileno write session"
-  );
-
-  is_deeply(
-    $ses_e, {
-    },
-    "third write add: fileno expedite session"
-  );
-}
+verify_handle_sessions(
+  "third write add", $a_write, "event-rd", "event-wr", undef
+);
 
 # Verify the handle structure.
-
-{
-  my %handles = $poe_kernel->_data_handle_handles();
-
-  is_deeply(
-    \%handles,
-    {
-      $poe_kernel => {
-        $b_read => [
-          $b_read,      # SH_HANDLE
-          1,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            1,            # SH_MODECOUNT MODE_RD
-            0,            # SH_MODECOUNT MODE_WR
-            0,            # SH_MODECOUNT MODE_EX
-          ],
-        ],
-        $a_read => [
-          $a_read,      # SH_HANDLE
-          2,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            1,            # SH_MODECOUNT MODE_RD
-            1,            # SH_MODECOUNT MODE_WR
-            0,            # SH_MODECOUNT MODE_EX
-          ],
-        ],
-      },
-    },
-    "third write add: session to handles map"
-  );
-}
+verify_handle_structure(
+  "third write add",
+  [ [$a_read => 'rw'], [$b_read => 'r'] ],
+);
 
 # Add a fourth filehandle in exception mode.
 
@@ -380,112 +291,26 @@ ok(
   "fourth expedite add: session reference count"
 );
 
-{
-  my ($tot, $rd, $wr, $ex) = $poe_kernel->_data_handle_fno_refcounts(
-    fileno($b_write)
-  );
-  ok( $tot == 2, "fourth expedite add: fd total refcount" );
-  ok( $rd  == 1, "fourth expedite add: fd read refcount" );
-  ok( $wr  == 0, "fourth expedite add: fd write refcount" );
-  ok( $ex  == 1, "fourth expedite add: fd expedite refcount" );
-}
-
-{
-  my ($rd, $wr, $ex) = $poe_kernel->_data_handle_fno_evcounts(
-    fileno($b_write)
-  );
-  ok( $rd == 0, "fourth expedite add: event read refcount" );
-  ok( $wr == 0, "fourth expedite add: event write refcount" );
-  ok( $ex == 0, "fourth expedite add: event expedite refcount" );
-}
+verify_handle_refcounts(
+  "fourth expedite add", $b_write, "rx"
+);
 
 # Verify the handle's state.
-
-{
-  my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($b_write));
-
-  ok( $r_act == HS_RUNNING, "fourth expedite add: read actual state" );
-  ok( $r_req == HS_RUNNING, "fourth expedite add: read requested state" );
-  ok( $w_act == HS_PAUSED,  "fourth expedite add: write actual state" );
-  ok( $w_req == HS_PAUSED,  "fourth expedite add: write requested state" );
-  ok( $e_act == HS_RUNNING, "fourth expedite add: expedite actual state" );
-  ok( $e_req == HS_RUNNING, "fourth expedite add: expedite requested state" );
-}
+verify_handle_state(
+  "fourth expedite add", $b_write,
+  "rr", "pp", "rr"
+);
 
 # Verify the handle's sessions.
-
-{
-  my ($ses_r, $ses_w, $ses_e) =
-    $poe_kernel->_data_handle_fno_sessions(fileno($b_write));
-
-  is_deeply(
-    $ses_r, {
-      $poe_kernel => {
-        $b_write => [
-          $b_write,     # HSS_HANDLE
-          $poe_kernel,  # HSS_SESSION
-          "event-rd",   # HSS_STATE
-          [ ],          # HSS_ARGS
-        ]
-      }
-    },
-    "fourth expedite add: fileno read session"
-  );
-
-  is_deeply(
-    $ses_w, {
-    },
-    "fourth expedite add: fileno write session"
-  );
-
-  is_deeply(
-    $ses_e, {
-      $poe_kernel => {
-        $b_write => [
-          $b_write,     # HSS_HANDLE
-          $poe_kernel,  # HSS_SESSION
-          "event-ex",   # HSS_STATE
-          [ ],          # HSS_ARGS
-        ]
-      }
-    },
-    "fourth expedite add: fileno expedite session"
-  );
-}
+verify_handle_sessions(
+  "fourth expedite add", $b_write, "event-rd", undef, "event-ex"
+);
 
 # Verify the handle structure.
-
-{
-  my %handles = $poe_kernel->_data_handle_handles();
-
-  is_deeply(
-    \%handles,
-    {
-      $poe_kernel => {
-        $b_read => [
-          $b_read,      # SH_HANDLE
-          2,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            1,            # SH_MODECOUNT MODE_RD
-            0,            # SH_MODECOUNT MODE_WR
-            1,            # SH_MODECOUNT MODE_EX
-          ],
-        ],
-        $a_read => [
-          $a_read,      # SH_HANDLE
-          2,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            1,            # SH_MODECOUNT MODE_RD
-            1,            # SH_MODECOUNT MODE_WR
-            0,            # SH_MODECOUNT MODE_EX
-          ],
-        ],
-      },
-    },
-    "fourth expedite add: session to handles map"
-  );
-}
+verify_handle_structure(
+  "third write add",
+  [ [$a_read => 'rw'], [$b_read => 'rx'] ],
+);
 
 # Test various handles.
 ok(
@@ -560,17 +385,10 @@ $poe_kernel->_data_handle_enqueue_ready(MODE_WR, fileno($a_read));
 
 # Enqueuing ready events pauses the actual states of the filehandles,
 # but leaves them intact.
-{
-  my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($a_read));
-
-  ok($r_act == HS_PAUSED,   "dequeue one: read actual state");
-  ok($r_req == HS_RUNNING,  "dequeue one: read requested state");
-  ok($w_act == HS_PAUSED,   "dequeue one: write actual state");
-  ok($w_req == HS_RUNNING,  "dequeue one: write requested state");
-  ok($e_act == HS_PAUSED,   "dequeue one: expedite actual state");
-  ok($e_req == HS_PAUSED,   "dequeue one: expedite requested state");
-}
+verify_handle_state(
+  "dequeue one", $a_read,
+  "pr", "pr", "pp"
+);
 
 # Base refcount increases by two for each enqueued event.
 ok(
@@ -582,16 +400,10 @@ ok(
 # events are dispatched.
 $poe_kernel->_data_handle_pause($a_read, MODE_RD);
 
-{ my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($a_read));
-
-  ok($r_act == HS_PAUSED,   "pause one: read actual state");
-  ok($r_req == HS_PAUSED,   "pause one: read requested state");
-  ok($w_act == HS_PAUSED,   "pause one: write actual state");
-  ok($w_req == HS_RUNNING,  "pause one: write requested state");
-  ok($e_act == HS_PAUSED,   "pause one: expedite actual state");
-  ok($e_req == HS_PAUSED,   "pause one: expedite requested state");
-}
+verify_handle_state(
+  "pause one", $a_read,
+  "pp", "pr", "pp"
+);
 
 # Dispatch the event, and verify the session's status.  The sleep()
 # call is to simulate slow systems, which always dispatch the events
@@ -599,32 +411,20 @@ $poe_kernel->_data_handle_pause($a_read, MODE_RD);
 sleep(1);
 $poe_kernel->_data_ev_dispatch_due();
 
-{ my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($a_read));
-
-  ok($r_act == HS_PAUSED,    "dispatch one: read actual state");
-  ok($r_req == HS_PAUSED,    "dispatch one: read requested state");
-  ok($w_act == HS_RUNNING,   "dispatch one: write actual state");
-  ok($w_req == HS_RUNNING,   "dispatch one: write requested state");
-  ok($e_act == HS_PAUSED,    "dispatch one: expedite actual state");
-  ok($e_req == HS_PAUSED,    "dispatch one: expedite requested state");
-}
+verify_handle_state(
+  "dispatch one", $a_read,
+  "pp", "rr", "pp"
+);
 
 # Resume a handle, and verify its status.  Since there are no
 # outstanding events for the handle, change both the requested and
 # actual flags.
 $poe_kernel->_data_handle_resume($a_read, MODE_RD);
 
-{ my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($a_read));
-
-  ok($r_act == HS_RUNNING,  "resume one: read actual state");
-  ok($r_req == HS_RUNNING,  "resume one: read requested state");
-  ok($w_act == HS_RUNNING,  "resume one: write actual state");
-  ok($w_req == HS_RUNNING,  "resume one: write requested state");
-  ok($e_act == HS_PAUSED,   "resume one: expedite actual state");
-  ok($e_req == HS_PAUSED,   "resume one: expedite requested state");
-}
+verify_handle_state(
+  "resume one", $a_read,
+  "rr", "rr", "pp"
+);
 
 # Try out some other handle methods.
 ok(
@@ -649,105 +449,26 @@ ok(
   "first remove: session reference count"
 );
 
-{
-  my ($tot, $rd, $wr, $ex) = $poe_kernel->_data_handle_fno_refcounts(
-    fileno($a_read)
-  );
-  ok($tot == 1, "first remove: fd total refcount");
-  ok($rd  == 0, "first remove: fd read refcount");
-  ok($wr  == 1, "first remove: fd write refcount");
-  ok($ex  == 0, "first remove: fd expedite refcount");
-}
-
-{
-  my ($rd, $wr, $ex) = $poe_kernel->_data_handle_fno_evcounts(
-    fileno($a_read)
-  );
-  ok($rd == 0, "first remove: event read refcount");
-  ok($wr == 0, "first remove: event write refcount");
-  ok($ex == 0, "first remove: event expeite refcount");
-}
+verify_handle_refcounts(
+  "first remove", $a_read, "w"
+);
 
 # Verify the handle's state.
-
-{
-  my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
-    $poe_kernel->_data_handle_fno_states(fileno($a_read));
-
-  ok($r_act == HS_STOPPED, "first remove: read actual state");
-  ok($r_req == HS_STOPPED, "first remove: read requested state");
-  ok($w_act == HS_RUNNING, "first remove: write actual state");
-  ok($w_req == HS_RUNNING, "first remove: write requested state");
-  ok($e_act == HS_PAUSED,  "first remove: expedite actual state");
-  ok($e_req == HS_PAUSED,  "first remove: expedite requested state");
-}
+verify_handle_state(
+  "first remove", $a_read,
+  "ss", "rr", "pp"
+);
 
 # Verify the handle's sessions.
-
-{
-  my ($ses_r, $ses_w, $ses_e) = $poe_kernel->_data_handle_fno_sessions(
-    fileno($a_read)
-  );
-
-  is_deeply(
-    $ses_r, {
-    },
-    "first remove: fileno read session"
-  );
-
-  is_deeply(
-    $ses_w, {
-      $poe_kernel => {
-        $a_write => [
-          $a_write,     # HSS_HANDLE
-          $poe_kernel,  # HSS_STATE
-          "event-wr",   # HSS_STATE
-          [ ],          # HSS_ARGS
-        ]
-      }
-    },
-    "first remove: fileno write session"
-  );
-
-  is_deeply(
-    $ses_e, {
-    },
-    "first remove: fileno expedite session"
-  );
-}
+verify_handle_sessions(
+  "first remove", $a_read, undef, "event-wr", undef
+);
 
 # Verify the handle structure.
-
-{
-  my %handles = $poe_kernel->_data_handle_handles();
-
-  is_deeply(
-    \%handles,
-    {
-      $poe_kernel => {
-        $b_read => [
-          $b_read,      # SH_HANDLE
-          2,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            1,            # SH_MODECOUNT MODE_RD
-            0,            # SH_MODECOUNT MODE_WR
-            1,            # SH_MODECOUNT MODE_EX
-          ],
-        ],
-        $a_read => [
-          $a_read,      # SH_HANDLE
-          1,            # SH_REFCOUNT
-          [             # SH_MODECOUNT
-            0,            # SH_MODECOUNT MODE_RD
-            1,            # SH_MODECOUNT MODE_WR
-            0,            # SH_MODECOUNT MODE_EX
-          ],
-        ],
-      },
-    },
-    "first remove: session to handles map"
-  );
-}
+verify_handle_structure(
+  "third write add",
+  [ [$a_read => 'w'], [$b_read => 'rx'] ],
+);
 
 # Remove a filehandle and verify the structures.
 $poe_kernel->_data_handle_remove($a_write, MODE_WR, $poe_kernel);
@@ -770,11 +491,108 @@ ok(
   "nonexistent remove: session reference count"
 );
 
+# Now test some special cases
+
+# regular file filehandle
+{
+  my $fh = IO::File->new($0, "r+");
+  $poe_kernel->_data_handle_add($fh, MODE_RD, $poe_kernel, "event-rd", []);
+  $poe_kernel->_data_handle_add($fh, MODE_WR, $poe_kernel, "event-wr", []);
+
+  verify_handle_refcounts("regular file", $fh, "rw");
+  verify_handle_state("regular file", $fh, "rr", "rr", "pp");
+  verify_handle_sessions("regular file", $fh, "event-rd", "event-wr", undef);
+  verify_handle_structure("regular file",
+    [ [$fh => 'rw'], [$b_read => 'rx'] ]);
+
+  # now pause the handle, check it's paused,
+  # then add it again, and check that this resumes it
+  $poe_kernel->_data_handle_pause($fh, MODE_RD);
+  verify_handle_state("regular file - paused", $fh, "pp", "rr", "pp");
+  $poe_kernel->_data_handle_add($fh, MODE_RD, $poe_kernel, "event-rd", []);
+  verify_handle_state("regular file - resumed", $fh, "rr", "rr", "pp");
+
+  # get a new handle for the same FD, and try to add it
+  # --- this should fail
+  {
+    my $dup_fh = IO::Handle->new_from_fd(fileno($fh), "r");
+    eval {
+      $poe_kernel->_data_handle_add($dup_fh, MODE_RD, $poe_kernel,
+        "event-rd", []);
+    };
+    ok($@ ne '', "failure when adding different handle but same FD");
+  }
+
+  $poe_kernel->_data_handle_remove($fh, MODE_RD, $poe_kernel);
+  $poe_kernel->_data_handle_remove($fh, MODE_WR, $poe_kernel);
+
+  ok(
+    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1,
+    "regular file: session reference count"
+  );
+  ok(
+    !$poe_kernel->_data_handle_is_good($fh, MODE_WR)
+    && !$poe_kernel->_data_handle_is_good($fh, MODE_RD),
+    "regular file: handle removed fully"
+  );
+}
+
+# tied filehandle
+SKIP: {
+  BEGIN {
+    package My::TiedHandle;
+    use vars qw(@ISA);
+    @ISA = qw( Tie::StdHandle IO::Handle );
+  }
+  my $fh = IO::Handle->new;
+  tie *$fh, 'My::TiedHandle';
+
+  open *$fh, "+<$0" or skip("couldn't open tied handle: $!", 19);
+
+  $poe_kernel->_data_handle_add($fh, MODE_WR, $poe_kernel, "event-wr", []);
+  $poe_kernel->_data_handle_add($fh, MODE_EX, $poe_kernel, "event-ex", []);
+
+  verify_handle_refcounts("tied fh", $fh, "wx");
+  verify_handle_state("tied fh", $fh, "pp", "rr", "rr");
+  verify_handle_sessions("tied fh", $fh, undef, "event-wr", "event-ex");
+  verify_handle_structure("tied fh",
+    [ [$fh => 'wx'], [$b_read => 'rx'] ]);
+
+  $poe_kernel->_data_handle_remove($fh, MODE_WR, $poe_kernel);
+  $poe_kernel->_data_handle_remove($fh, MODE_EX, $poe_kernel);
+
+  ok(
+    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1,
+    "tied fh: session reference count"
+  );
+  ok(
+    !$poe_kernel->_data_handle_is_good($fh, MODE_WR)
+    && !$poe_kernel->_data_handle_is_good($fh, MODE_EX),
+    "tied fh: handle removed fully"
+  );
+}
+
+# Enqueue an event for a handle that we're about to remove
+$poe_kernel->_data_handle_enqueue_ready(MODE_RD, fileno($b_write));
+# add back a write handle
+$poe_kernel->_data_handle_add(\*STDOUT, MODE_WR, $poe_kernel, "event-wr", []);
+
+verify_handle_structure(
+  "before final remove all",
+  [ [$b_read => 'rx'], [\*STDOUT => 'w'] ],
+);
+
 # Remove all handles for the session.  And verify the structures.
 $poe_kernel->_data_handle_clear_session($poe_kernel);
 ok(
   !$poe_kernel->_data_handle_is_good($b_write, MODE_EX),
   "final remove all: session reference count"
+);
+
+# Check again that all handles are gone
+ok(
+  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount,
+  "session reference count is back to base count"
 );
 
 # Make sure everything shuts down cleanly.
