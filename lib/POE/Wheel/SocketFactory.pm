@@ -45,7 +45,10 @@ sub MY_SOCKET_SELECTED () { 12 }
 
 # Provide dummy constants for systems that don't have them.
 BEGIN {
-  unless (exists $INC{"Socket6.pm"}) {
+  if (eval { require Socket6 }) {
+    Socket6->import();
+  }
+  else {
     eval "*Socket6::AF_INET6 = sub () { ~0 }";
     eval "*Socket6::PF_INET6 = sub () { ~0 }";
   }
