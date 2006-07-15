@@ -507,9 +507,9 @@ sub new {
   close $stdout_write if defined $stdout_write;
   close $stderr_write if defined $stderr_write;
 
-  my $handle_count = 0;
-  $handle_count++ if defined $stdout_read;
-  $handle_count++ if defined $stderr_read;
+	my $active_count = 0;
+	$active_count++ if $stdout_event and $stdout_read;
+	$active_count++ if $stderr_event and $stderr_read;
 
   my $self = bless [
     &POE::Wheel::allocate_wheel_id(),  # UNIQUE_ID
@@ -518,7 +518,7 @@ sub new {
     $program,       # PROGRAM
     $pid,           # CHILD_PID
     $conduit,       # CONDUIT_TYPE
-    $handle_count,  # IS_ACTIVE
+    $active_count,  # IS_ACTIVE
     $close_on_call, # CLOSE_ON_CALL
     $stdio_type,    # STDIO_TYPE
     # STDIN
@@ -857,6 +857,12 @@ sub event {
       carp "ignoring unknown Run parameter '$name'";
     }
   }
+
+	# Recalculate the active handles count.
+	my $active_count = 0;
+	$active_count++ if $self->[EVENT_STDOUT] and $self->[HANDLE_STDOUT];
+	$active_count++ if $self->[EVENT_STDERR] and $self->[HANDLE_STDERR];
+	$self->[IS_ACTIVE] = $active_count;
 }
 
 #------------------------------------------------------------------------------
@@ -1125,35 +1131,33 @@ POE::Wheel::Run - event driven fork/exec with added value
   $program = [ '/usr/bin/cat', '-' ];
 
   $wheel = POE::Wheel::Run->new(
+    # Set the program to execute, and optionally some parameters.
     Program     => $program,
-    ProgramArgs => \@program_args,     # Parameters for $program.
-    Priority    => +5,                 # Adjust priority.  May need to be root.
-    User        => getpwnam('nobody'), # Adjust UID. May need to be root.
-    Group       => getgrnam('nobody'), # Adjust GID. May need to be root.
-    ErrorEvent  => 'oops',             # Event to emit on errors.
-    CloseEvent  => 'child_closed',     # Child closed all output.
+    ProgramArgs => \@program_args,
 
-    StdinEvent  => 'stdin',  # Event to emit when stdin is flushed to child.
-    StdoutEvent => 'stdout', # Event to emit with child stdout information.
-    StderrEvent => 'stderr', # Event to emit with child stderr information.
+    # Define I/O events to emit.  Most are optional.
+    StdinEvent  => 'stdin',     # Flushed all data to the child's STDIN.
+    StdoutEvent => 'stdout',    # Received data from the child's STDOUT.
+    StderrEvent => 'stderr',    # Received data from the child's STDERR.
+    ErrorEvent  => 'oops',          # An I/O error occurred.
+    CloseEvent  => 'child_closed',  # Child closed all output handles.
 
-    # Specify different I/O formats.
+    # Optionally adjust the child process priority, user ID, and/or
+    # group ID.  You may need to be root to do this.
+    Priority    => +5,
+    User        => scalar(getpwnam 'nobody'),
+    Group       => getgrnam('nobody'),
+
+    # Optionally specify different I/O formats.
     StdinFilter  => POE::Filter::Line->new(),   # Child accepts input as lines.
     StdoutFilter => POE::Filter::Stream->new(), # Child output is a stream.
     StderrFilter => POE::Filter::Line->new(),   # Child errors are lines.
 
-    # Set StdinFilter and StdoutFilter together.
+    # Shorthand to set StdinFilter and StdoutFilter together.
     StdioFilter => POE::Filter::Line->new(),    # Or some other filter.
-
-    # Specify different I/O methods.
-    StdinDriver  => POE::Driver::SysRW->new(),  # Defaults to SysRW.
-    StdoutDriver => POE::Driver::SysRW->new(),  # Same.
-    StderrDriver => POE::Driver::SysRW->new(),  # Same.
-
-    # Set StdinDriver and StdoutDriver together.
-    StdioDriver  => POE::Driver::SysRW->new(),
   );
 
+  # Information about the wheel and its process.
   print "Unique wheel ID is  : ", $wheel->ID;
   print "Wheel's child PID is: ", $wheel->PID;
 
@@ -1161,8 +1165,7 @@ POE::Wheel::Run - event driven fork/exec with added value
   $wheel->put( 'input for the child' );
 
   # Kill the child.
-  $wheel->kill();  # TERM by default
-  $wheel->kill(9);
+  $wheel->kill(9);  # TERM by default.
 
 =head1 DESCRIPTION
 
