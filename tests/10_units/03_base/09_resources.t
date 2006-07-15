@@ -16,7 +16,8 @@ use_ok('POE::Resources');
     
     # a state machine
     my $state = $requires{$resource};
-    $requires{$resource} = "test bug: no new state! (from: $state)";
+    my $visible_state = $state || "undef";
+    $requires{$resource} = "test bug: no new state! (from: $visible_state)";
     unless (defined $state) {
       # should be looking for XS version first
       if ($xs) {
