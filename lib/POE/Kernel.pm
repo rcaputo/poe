@@ -297,7 +297,7 @@ BEGIN {
     # wrapped in quotes.
     my $value = $val;
     $value =~ tr['"][]d;
-    $value = qq("$value") if $value =~ /\D/;
+    $value = qq($value) if $value =~ /\D/;
 
     BEGIN { $^W = 0; }
 
