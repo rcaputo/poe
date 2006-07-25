@@ -1267,6 +1267,9 @@ same time.
 
 =item StderrEvent
 
+See L<EVENTS AND PARAMETERS> below for a more detailed description of
+these events and their parameters.
+
 C<CloseEvent> contains the name of an event to emit when the child
 process closes all its output handles.  This is a consistent
 notification that the child will not be sending any more output.  It
@@ -1275,17 +1278,13 @@ accepting input.
 
 C<ErrorEvent> contains the name of an event to emit if something
 fails.  It is optional and if omitted, the wheel will not notify its
-session if any errors occur.  The event receives 5 parameters as
-follows: ARG0 = the return value of syscall(), ARG1 = errno() - the
-numeric value of the error generated, ARG2 = error() - a descriptive
-for the given error, ARG3 = the wheel id, and ARG4 = the handle on
-which the error occurred (stdout, stderr, etc.)
+session if any errors occur.
 
 Wheel::Run requires at least one of the following three events:
 
 C<StdinEvent> contains the name of an event that Wheel::Run emits
-whenever all its output has been flushed to the child process' STDIN
-handle.
+whenever everything queued by its put() method has been flushed to the
+child's STDIN handle.
 
 C<StdoutEvent> and C<StderrEvent> contain names of events that
 Wheel::Run emits whenever the child process writes something to its
@@ -1477,8 +1476,9 @@ whenever an error occurs.  Every error event comes with four
 parameters:
 
 C<ARG0> contains the name of the operation that failed.  It may be
-'read' or 'write' or 'fork' or 'exec' or something.  The actual values
-aren't yet defined.  Note: This is not necessarily a function name.
+'read', 'write', 'fork', 'exec' or the name of some other function or
+task.  The actual values aren't yet defined.  Note: This is not
+necessarily a function name.
 
 C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
 respectively.
@@ -1511,9 +1511,9 @@ StdinEvent's C<ARG0> parameter contains its wheel's unique ID.
 =item StderrEvent
 
 StdoutEvent and StderrEvent contain names for events that Wheel::Run
-emits whenever the child process makes output.  StdoutEvent contains
-information the child wrote to its STDOUT handle, and StderrEvent
-includes whatever arrived from the child's STDERR handle.
+emits whenever the child process generates new output.  StdoutEvent
+contains information the child wrote to its STDOUT handle, and
+StderrEvent includes whatever arrived from the child's STDERR handle.
 
 Both of these events come with two parameters.  C<ARG0> contains the
 information that the child wrote.  C<ARG1> holds the wheel's unique
