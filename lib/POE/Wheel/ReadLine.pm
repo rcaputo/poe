@@ -1151,12 +1151,15 @@ sub history_truncate_file {
   $file ||= "$ENV{HOME}/.history";
   open(HIST, $file) or return undef;
   my @hist = <HIST>;
+  chomp(@hist);
   close(HIST);
+
   if ((scalar @hist) > $lines) {
     open(HIST, ">$file") or return undef;
     if ($lines) {
-      splice(@hist, -$lines);
-      print HIST @{$self->[SELF_HIST_LIST]} = @hist;
+      splice(@hist, 0, (scalar @hist)-$lines);
+      @{$self->[SELF_HIST_LIST]} = @hist;
+      print HIST join("\n", @hist) . "\n";
     } else {
       @{$self->[SELF_HIST_LIST]} = ();
     }
