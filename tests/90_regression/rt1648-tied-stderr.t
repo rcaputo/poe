@@ -23,6 +23,8 @@ BEGIN {
   }
 }
 
+sub DEBUG () { 0 }
+
 use Test::More tests => 1;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
@@ -36,7 +38,7 @@ POE::Session->create(
 
       $_[KERNEL]->sig( 'CHLD', 'sigchld' );
       $_[KERNEL]->refcount_increment( $session->ID, "teapot" );
-      diag( "Installing CHLD signal Handler" );
+      DEBUG and diag( "Installing CHLD signal Handler" );
       my $wheel = POE::Wheel::Run->new(
         Program     => [ 'sh', '-c', 'echo "My stderr" >/dev/stderr' ],
         StderrEvent => 'stderr'
@@ -55,9 +57,9 @@ POE::Session->create(
       delete $_[HEAP]->{wheel};
     },
     sigchld => sub {
-      diag( "Got SIGCHLD for PID $_[ARG1]" );
+      DEBUG and diag( "Got SIGCHLD for PID $_[ARG1]" );
       if ($_[ARG1] == $_[HEAP]->{pid}) {
-        diag( "PID Matches, removing CHLD handler" );
+        DEBUG and diag( "PID Matches, removing CHLD handler" );
         $_[KERNEL]->sig( 'CHLD' );
         $_[KERNEL]->refcount_decrement( $_[SESSION]->ID, "teapot" );
       }
