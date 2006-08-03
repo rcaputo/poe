@@ -18,40 +18,41 @@ use Test::More tests => 3;
 my $command = "/bin/true";
 
 SKIP: {
-	my @commands = grep { -x } qw(/bin/true /usr/bin/true);
-	skip( "Couldn't find a command to run under system()", 3 ) unless @commands;
+  my @commands = grep { -x } qw(/bin/true /usr/bin/true);
+  skip( "Couldn't find a 'true' to run under system()", 3 ) unless @commands;
 
-	my $command = shift @commands;
+  my $command = shift @commands;
 
-	diag( "Using '$command' as our thing to run under system()" );
-	
-	POE::Session->create(
-		inline_states => {
-			_start => sub {
-				diag( "SIG{CHLD}: $SIG{CHLD}" );
-				is( system( $command ), 0, "System returns properly" );
-				diag( '$!: ' . $! );
-				$! = undef;
-				
-				$_[KERNEL]->sig( 'CHLD', 'chld' );
-				
-				diag( "SIG{CHLD}: $SIG{CHLD}" );
-				is( system( $command ), 0, "System returns properly" );
-				diag( '$!: ' . $! );
-				$! = undef;
-				
-				$_[KERNEL]->sig( 'CHLD' );
+  diag( "Using '$command' as our thing to run under system()" );
 
-				diag( "SIG{CHLD}: $SIG{CHLD}" );
-				is( system( $command ), 0, "System returns properly" );
-				diag( '$!: ' . $! );
-				$! = undef;
-			},
-			chld => sub {
-				diag( "Caught child" );
-			},
-		}
-	);
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        is(
+          system( $command ), 0,
+          "System returns properly chld($SIG{CHLD}) err($!)"
+        );
+        $! = undef;
+
+        $_[KERNEL]->sig( 'CHLD', 'chld' );
+        is(
+          system( $command ), 0,
+          "System returns properly chld($SIG{CHLD}) err($!)"
+        );
+        $! = undef;
+
+        $_[KERNEL]->sig( 'CHLD' );
+        is(
+          system( $command ), 0,
+          "System returns properly chld($SIG{CHLD}) err($!)"
+        );
+        $! = undef;
+      },
+      chld => sub {
+        diag( "Caught child" );
+      },
+    }
+  );
 }
 
 POE::Kernel->run();
