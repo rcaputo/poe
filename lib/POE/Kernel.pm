@@ -1024,6 +1024,10 @@ sub _dispatch_event {
       );
 
       unless ($handled) {
+        # Put our internal state back together before we throw the
+        # exception.
+        $kr_active_session = $hold_active_session;
+        $kr_active_event   = $hold_active_event;
         die( $exception );
       }
     }
