@@ -36,7 +36,6 @@ sub loop_initialize {
   $_watcher_timer = Event->timer(
     cb     => \&_loop_event_callback,
     after  => 0,
-    parked => 1,
   );
 }
 
