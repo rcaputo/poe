@@ -137,7 +137,7 @@ WriteMakefile(
   PL_FILES       => { },
   NO_META        => 1,
   PREREQ_PM      => { CORE_REQUIREMENTS },
-  PM_FILTER      => 'mylib/preprocessor.perl',
+  PM_FILTER      => "$^X mylib/preprocessor.perl",
 );
 
 1;
