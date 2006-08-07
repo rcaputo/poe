@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 # $Id$
-# vim: set filetype=perl
+# vim: filetype=perl
 
 # Exercises Filter::Reference without the rest of POE.
 
