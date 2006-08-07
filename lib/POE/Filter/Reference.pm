@@ -99,16 +99,15 @@ sub new {
     }
     else {
       # A package name?
-      my $package = $freezer;
-
-      $package =~ s(::)(\/)g;
-      delete $INC{$package . ".pm"};
+      my $path = $freezer;
+      $path =~ s{::}{/}g;
 
       eval {
-        local $^W=0;
-        require "$package.pm";
-        import $freezer ();
+        local $^W = 0;
+        require "$path.pm";
+        $freezer->import();
       };
+
       carp $@ if $@;
 
       ($freeze, $thaw) = _get_methods($freezer);
