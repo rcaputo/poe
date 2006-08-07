@@ -585,9 +585,9 @@ SKIP: {
     );
     push @verify, [ \*STDOUT => 'w' ];
   }
-}
 
-verify_handle_structure("before final remove all", \@verify);
+  verify_handle_structure("before final remove all", \@verify);
+}
 
 # Remove all handles for the session.  And verify the structures.
 $poe_kernel->_data_handle_clear_session($poe_kernel);
