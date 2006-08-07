@@ -161,6 +161,7 @@ tests/90_regression/merijn-sigchld-system.t
 tests/90_regression/neyuki_detach.t
 tests/90_regression/rt14444-arg1.t
 tests/90_regression/rt1648-tied-stderr.t
+tests/90_regression/rt19908-merlyn-stop.t
 tests/90_regression/steinert-passed-wheel.t
 tests/90_regression/steinert-recursive-signal.t
 tests/90_regression/steinert-signal-integrity.t
