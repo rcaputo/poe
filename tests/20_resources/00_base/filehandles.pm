@@ -572,15 +572,22 @@ SKIP: {
   );
 }
 
-# Enqueue an event for a handle that we're about to remove
-$poe_kernel->_data_handle_enqueue_ready(MODE_RD, fileno($b_write));
-# add back a write handle
-$poe_kernel->_data_handle_add(\*STDOUT, MODE_WR, $poe_kernel, "event-wr", []);
+{
+  # Enqueue an event for a handle that we're about to remove
+  $poe_kernel->_data_handle_enqueue_ready(MODE_RD, fileno($b_write));
+  my @verify = ( [ $b_read => 'rx' ] );
 
-verify_handle_structure(
-  "before final remove all",
-  [ [$b_read => 'rx'], [\*STDOUT => 'w'] ],
-);
+  # Add back a write handle.  Can't select on non-sockets on
+  # MSWin32, so we skip this check on that platform.
+  if ($^O ne "MSWin32") {
+    $poe_kernel->_data_handle_add(
+      \*STDOUT, MODE_WR, $poe_kernel, "event-wr", []
+    );
+    push @verify, [ \*STDOUT => 'w' ];
+  }
+}
+
+verify_handle_structure("before final remove all", \@verify);
 
 # Remove all handles for the session.  And verify the structures.
 $poe_kernel->_data_handle_clear_session($poe_kernel);

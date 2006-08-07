@@ -355,7 +355,9 @@ sub _data_handle_add {
           $handle,
           0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
           \$set_it
-        ) or _trap "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
+        ) or _trap(
+          "ioctl($handle, FIONBIO, $set_it) fails: errno " . ($!+0) . " = $!\n"
+        );
       }
     }
 
