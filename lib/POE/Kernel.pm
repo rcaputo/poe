@@ -1271,8 +1271,15 @@ sub DESTROY {
   # created but run() was never called.
 
   unless ($kr_run_warning & KR_RUN_CALLED) {
-    _warn("POE::Kernel's run() method was never called.\n")
-      if $kr_run_warning & KR_RUN_SESSION;
+    if ($kr_run_warning & KR_RUN_SESSION) {
+      _warn(
+        "Sessions were started, but POE::Kernel's run() method was never\n",
+        "called to execute them.  This usually happens because an error\n",
+        "occurred before POE::Kernel->run() could be called.  Please fix\n",
+        "any errors above this notice, and be sure that POE::Kernel->run()\n",
+        "is called.\n",
+      );
+    }
   }
 }
 

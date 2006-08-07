@@ -408,18 +408,27 @@ sub _data_handle_add {
             $why = "closed";
           }
           elsif (fileno($handle) == fileno($other_handle)) {
-            $why = "still open";
+            $why = "open";
           }
           else {
-            $why = "open as different fd";
+            $why = "open with different file descriptor";
           }
 
-          _trap(
-            $self->_data_alias_loggable($session),
-            " can't watch $handle in mode $mode: ",
-            $self->_data_alias_loggable($hdl_rec->[HSS_SESSION]),
-            " is already watching it as $other_handle ($why)"
+          _warn(
+            "A session was caught watching two different file handles that\n",
+            "reference the same file descriptor in the same mode ($mode).\n",
+            "This error is usually caused by a file descriptor leak.  The\n",
+            "most common cause is explicitly closing filehandles without\n",
+            "first unregistering them from POE.\n",
+            "\n",
+            "Some possibly helpful information:\n",
+            "  Session    : ", $self->_data_alias_loggable($session), "\n",
+            "  Old handle : $other_handle (currently $why)\n",
+            "  New handle : $handle\n",
+            "\n",
+            "Please correct the program and try again.\n",
           );
+          exit -1;
         }
       }
       _trap "internal inconsistency";
