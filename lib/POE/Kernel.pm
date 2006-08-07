@@ -965,7 +965,7 @@ sub _dispatch_event {
 
   my $return;
   my $wantarray = wantarray;
-  if(CATCH_EXCEPTIONS) {
+  if (CATCH_EXCEPTIONS) {
     eval {
       if ($wantarray) {
         $return = [
@@ -990,7 +990,7 @@ sub _dispatch_event {
     # bit of a problem if an eval{} occurs here because a signal is
     # dispatched or something.
 
-    if( $@ ne '' ) {
+    if ( $@ ne '' and !($type & ET_STOP) ) {
       my $exception = $@;
 
       if(TRACE_EVENTS) {
@@ -1032,7 +1032,8 @@ sub _dispatch_event {
       }
     }
 
-  } else {
+  }
+  else {
     if ($wantarray) {
       $return = [
         $session->_invoke_state(
