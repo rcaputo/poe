@@ -11,8 +11,8 @@ use_ok('POE::Resources');
   my %requires;
   local *CORE::GLOBAL::require = sub {
     my $name = shift;
-    my ($resource) = $name =~ m{Resource/(\w+)\.pm};
-    my $xs = $name =~ m{/XS/};
+    my ($resource) = $name =~ m{Resource(?:/|::)(\w+)};
+    my $xs = $name =~ m{(?:/|::)XS(?:/|::)};
     
     # a state machine
     my $state = $requires{$resource};
