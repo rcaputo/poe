@@ -10,6 +10,13 @@ if ($^O ne "MSWin32") {
   plan skip_all => "This test examines ActiveState Perl behavior.";
 }
 
+BEGIN {
+  eval 'use Win32::Console';
+  if ($@) {
+    plan skip_all => "Win32::Console is required for this test.";
+  }
+}
+
 plan tests => 2;
 
 my $obj = new MyDebug;
