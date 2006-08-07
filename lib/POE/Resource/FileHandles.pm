@@ -415,7 +415,7 @@ sub _data_handle_add {
           }
 
           if ($session eq $watch_session) {
-            _warn(
+            _die(
               "A session was caught watching two different file handles that\n",
               "reference the same file descriptor in the same mode ($mode).\n",
               "This error is usually caused by a file descriptor leak.  The\n",
@@ -431,7 +431,7 @@ sub _data_handle_add {
             );
           }
           else {
-            _warn(
+            _die(
               "Two sessions were caught watching the same file descriptor\n",
               "in the same mode ($mode).  This error is usually caused by\n",
               "a file descriptor leak.  The most common cause is explicitly\n",
@@ -447,7 +447,6 @@ sub _data_handle_add {
               "Please correct the program and try again.\n",
             );
           }
-          exit -1;
         }
       }
       _trap "internal inconsistency";
