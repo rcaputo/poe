@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# $Id$
 # vim: filetype=perl
 
 use strict;
