@@ -99,18 +99,28 @@ sub new {
     }
     else {
       # A package name?
-      my $path = $freezer;
-      $path =~ s{::}{/}g;
-
-      eval {
-        local $^W = 0;
-        require "$path.pm";
-        $freezer->import();
-      };
-
-      carp $@ if $@;
-
+      # First, find out if the package has the necessary methods.
       ($freeze, $thaw) = _get_methods($freezer);
+
+      # If not, try to reload the module.
+      unless ($freeze and $thaw) {
+        my $path = $freezer;
+        $path =~ s{::}{/}g;
+        $path .= '.pm';
+
+        # Force a reload if necessary.  This is naive and can leak
+        # memory, so we only do it until we get the desired methods.
+        delete $INC{$path};
+
+        eval {
+          local $^W = 0;
+          require $path;
+          $freezer->import();
+        };
+
+        carp $@ if $@;
+        ($freeze, $thaw) = _get_methods($freezer);
+      }
     }
   }
 
