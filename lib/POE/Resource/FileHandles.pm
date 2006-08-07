@@ -414,20 +414,39 @@ sub _data_handle_add {
             $why = "open with different file descriptor";
           }
 
-          _warn(
-            "A session was caught watching two different file handles that\n",
-            "reference the same file descriptor in the same mode ($mode).\n",
-            "This error is usually caused by a file descriptor leak.  The\n",
-            "most common cause is explicitly closing filehandles without\n",
-            "first unregistering them from POE.\n",
-            "\n",
-            "Some possibly helpful information:\n",
-            "  Session    : ", $self->_data_alias_loggable($session), "\n",
-            "  Old handle : $other_handle (currently $why)\n",
-            "  New handle : $handle\n",
-            "\n",
-            "Please correct the program and try again.\n",
-          );
+          if ($session eq $watch_session) {
+            _warn(
+              "A session was caught watching two different file handles that\n",
+              "reference the same file descriptor in the same mode ($mode).\n",
+              "This error is usually caused by a file descriptor leak.  The\n",
+              "most common cause is explicitly closing a filehandle without\n",
+              "first unregistering it from POE.\n",
+              "\n",
+              "Some possibly helpful information:\n",
+              "  Session    : ", $self->_data_alias_loggable($session), "\n",
+              "  Old handle : $other_handle (currently $why)\n",
+              "  New handle : $handle\n",
+              "\n",
+              "Please correct the program and try again.\n",
+            );
+          }
+          else {
+            _warn(
+              "Two sessions were caught watching the same file descriptor\n",
+              "in the same mode ($mode).  This error is usually caused by\n",
+              "a file descriptor leak.  The most common cause is explicitly\n",
+              "closing a filehandle without first unregistering it from POE.\n",
+              "\n",
+              "Some possibly helpful information:\n",
+              "  Old session: ",
+              $self->_data_alias_loggable($hdl_rec->[HSS_SESSION]), "\n",
+              "  Old handle : $other_handle (currently $why)\n",
+              "  New session: ", $self->_data_alias_loggable($session), "\n",
+              "  New handle : $handle\n",
+              "\n",
+              "Please correct the program and try again.\n",
+            );
+          }
           exit -1;
         }
       }
