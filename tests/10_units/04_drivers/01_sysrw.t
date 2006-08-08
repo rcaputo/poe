@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: filetype=perl
 
 use strict;
 
@@ -126,7 +127,10 @@ while (flush_remaining_buffer($d, $w)) {
   read_until_pipe_is_empty($d, $r);
 }
 
-ok($d->get_out_messages_buffered() == 0, "buffer exhausted");
+{
+  my $out_messages = $d->get_out_messages_buffered();
+  ok($out_messages == 0, "buffer exhausted (got $out_messages wanted 0)");
+}
 
 # Get() returns undef ($! == 0) on EOF.
 
