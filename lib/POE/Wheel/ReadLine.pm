@@ -28,10 +28,10 @@ my ($trk_rows, $trk_cols);
 
 # Private STDIN and STDOUT.
 my $stdin  = gensym();
-open($stdin, "<&0") or die "Can't open private STDIN";
+open($stdin, "<&0") or die "Can't open private STDIN: $!";
 
 my $stdout = gensym;
-open($stdout, ">&1") or die "Can't open private STDOUT";
+open($stdout, ">&1") or die "Can't open private STDOUT: $!";
 
 # Offsets into $self.
 sub SELF_INPUT          () {  0 }
