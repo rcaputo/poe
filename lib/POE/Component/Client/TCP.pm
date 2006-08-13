@@ -573,14 +573,22 @@ POE::Component::Server::TCP will create IPv6 sockets.
 =item Filter
 
 Filter specifies the type of filter that will parse input from a
-server.  It may either be a scalar or a list reference.  If it is a
-scalar, it will contain a POE::Filter class name.  If it is a list
-reference, the first item in the list will be a POE::Filter class
-name, and the remaining items will be constructor parameters for the
-filter.  For example, this changes the line separator to a vertical
-pipe:
+server.  It may either be a scalar, a list reference or a POE::Filter
+reference.
+If it is a scalar, it will contain a POE::Filter class name.
+
+  Filter => "POE::Filter::Line",
+
+If it is a list reference, the first item in the list will be a 
+POE::Filter class name, and the remaining items will be constructor
+parameters for the filter.  For example, this changes the line separator
+to a vertical pipe:
 
   Filter => [ "POE::Filter::Line", Literal => "|" ],
+
+If it is an object, it will be clone()'d.
+
+  Filter => POE::Filter::Line->new()
 
 Filter is optional.  The component will supply a "POE::Filter::Line"
 instance none is specified.  If you supply a different value for

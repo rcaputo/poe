@@ -551,9 +551,9 @@ POE::Component::Server::TCP - a simplified TCP server
     ClientDisconnected => \&handle_client_disconnect, # Optional.
     ClientError        => \&handle_client_error,      # Optional.
     ClientFlushed      => \&handle_client_flush,      # Optional.
-    ClientFilter       => "POE::Filter::Xyz",         # Optional.
-    ClientInputFilter  => "POE::Filter::Xyz",         # Optional.
-    ClientOutputFilter => "POE::Filter::Xyz",         # Optional.
+    ClientFilter       => POE::Filter::Xyz->new()",   # Optional.
+    ClientInputFilter  => POE::Filter::Xyz->new(),    # Optional.
+    ClientOutputFilter => POE::Filter::Xyz->new(),    # Optional.
     ClientShutdownOnError => 0,                       # Optional.
 
     # Optionally define other states for the client session.
@@ -728,12 +728,13 @@ shutdown, not the error, that invokes ClientDisconnected callbacks.
 
 =item ClientFilter => ARRAYREF
 
+=item ClientFilter => OBJECT
+
 ClientFilter specifies the type of filter that will parse input from
 each client, and optionally any constructor arguments used to create
 each filter instance.
 
-It takes a POE::Filter class name rather than an object because the
-component must create a new instance for each connection.
+It can take a class name, an arrayref, or a POE::Filter object.
 
 If ClientFilter contains a SCALAR, it defines the name of the
 POE::Filter class.  Default constructor parameters will be used to
@@ -748,6 +749,11 @@ line separator to a vertical bar:
 
   ClientFilter => [ "POE::Filter::Line", Literal => "|" ],
 
+If ClientFilter contains an object, it will have a clone method called
+on it each time a client connects.
+
+  ClientFilter => POE::Filter::Block->new()
+
 ClientFilter is optional.  The component will use "POE::Filter::Line"
 if it is omitted.
 
@@ -758,9 +764,13 @@ that filter class.
 
 =item ClientInputFilter => ARRAYREF
 
+=item ClientInputFilter => OBJECT
+
 =item ClientOutputFilter => SCALAR
 
 =item ClientOutputFilter => ARRAYREF
+
+=item ClientOutputFilter => OBJECT
 
 ClientInputFilter and ClientOutputFilter act like ClientFilter, but
 they allow programs to specify different filters for input and output.
@@ -770,6 +780,7 @@ Usage is the same as ClientFilter.
 
   ClientInputFilter  => [ "POE::Filter::Line", Literal => "|" ],
   ClientOutputFilter => "POE::Filter::Stream",
+  ClientInputFilter  => POE::Filter::Block->new(),
 
 =item ClientInput => CODEREF
 
