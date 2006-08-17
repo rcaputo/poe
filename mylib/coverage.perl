@@ -7,19 +7,24 @@
 use strict;
 use Cwd;
 use Getopt::Long;
+use Config;
+use File::Spec;
 
 #   HARNESS_PERL_SWITCHES=$(perl mylib/coverage.perl --coverflags) prove -br tests/10_units/
 
 my ($opt_coverflags, $opt_prove, $opt_noclean);
+my ($cover, $prove, $make) =
+  (File::Spec->catfile($Config{bin}, "/cover"),
+    File::Spec->catfile($Config{bin}, "prove"),
+    $Config{make});
 GetOptions(
   'coverflags' => \$opt_coverflags,
   'prove' => sub { $opt_prove = 1; die "!FINISH" },
   'noclean' => \$opt_noclean,
+  'path-cover=s' => \$cover,
+  'path-prove=s' => \$prove,
+  'path-make=s' => \$make,
 ) or die "$0: usage\n";
-
-my $cover = `which cover`; chomp $cover;
-my $prove = `which prove`; chomp $prove;
-my $make  = `which make`;  chomp $make;
 
 my $output_dir = cwd() . "/cover_db";
 
@@ -60,8 +65,8 @@ unless ($opt_noclean) {
   local $ENV{HARNESS_PERL_SWITCHES} = $harness_switches;
 
   if ($opt_prove) {
-    warn "*** proving: $^X $prove @ARGV";
-    system( $^X, $prove, @ARGV ) and exit($? >> 8);
+    warn "*** proving: $prove @ARGV";
+    system( $prove, @ARGV ) and exit($? >> 8);
   }
   elsif (@ARGV) {
     # it might be more useful to punt to prove(1), but prove isn't always
