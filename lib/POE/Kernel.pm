@@ -990,7 +990,7 @@ sub _dispatch_event {
     # bit of a problem if an eval{} occurs here because a signal is
     # dispatched or something.
 
-    if ( $@ ne '' and !($type & ET_STOP) ) {
+    if (ref($@) or $@ ne '') {
       my $exception = $@;
 
       if(TRACE_EVENTS) {
@@ -1000,28 +1000,31 @@ sub _dispatch_event {
         );
       }
 
-      my $handled = $self->_dispatch_event(
-        $session,
-        $source_session,
-        EN_SIGNAL,
-        ET_SIGNAL,
-        [
-          'DIE' => {
-            source_session => $source_session,
-            dest_session => $session,
-            event => $event,
-            file => $file,
-            line => $line,
-            from_state => $fromstate,
-            error_str => $exception,
-          },
-        ],
-        __FILE__,
-        __LINE__,
-        undef,
-        time(),
-        -__LINE__,
-      );
+      my $handled;
+      if ($type & ~ET_STOP) {
+        $handled = $self->_dispatch_event(
+          $session,
+          $source_session,
+          EN_SIGNAL,
+          ET_SIGNAL,
+          [
+            'DIE' => {
+              source_session => $source_session,
+              dest_session => $session,
+              event => $event,
+              file => $file,
+              line => $line,
+              from_state => $fromstate,
+              error_str => $exception,
+            },
+          ],
+          __FILE__,
+          __LINE__,
+          undef,
+          time(),
+          -__LINE__,
+        );
+      }
 
       unless ($handled) {
         # Put our internal state back together before we throw the
@@ -1031,7 +1034,6 @@ sub _dispatch_event {
         die( $exception );
       }
     }
-
   }
   else {
     if ($wantarray) {
