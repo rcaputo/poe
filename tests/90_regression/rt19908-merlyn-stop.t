@@ -23,4 +23,5 @@ POE::Session->create(
 );
 
 POE::Kernel->run();
+$SIG{ALRM} = "IGNORE";
 pass("stopped");
