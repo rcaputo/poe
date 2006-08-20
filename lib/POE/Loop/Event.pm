@@ -22,16 +22,8 @@ my %signal_watcher;
 #------------------------------------------------------------------------------
 # Loop construction and destruction.
 
-sub _our_event_exception_handler {
-  my ($event, $message) = @_;
-  warn $message;
-  exit 1;
-}
-
 sub loop_initialize {
   my $self = shift;
-
-  $Event::DIED = \&_our_event_exception_handler;
 
   $_watcher_timer = Event->timer(
     cb     => \&_loop_event_callback,
@@ -288,11 +280,14 @@ sub _loop_select_callback {
 # The event loop itself.
 
 sub loop_do_timeslice {
-  die "doing timeslices currently not supported in the Event loop";
+  Event::one_event();
 }
 
 sub loop_run {
-  Event::loop();
+  my $self = shift;
+  while ($self->_data_ses_count()) {
+    $self->loop_do_timeslice();
+  }
 }
 
 sub loop_halt {
