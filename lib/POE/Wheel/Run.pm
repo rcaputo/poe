@@ -507,9 +507,9 @@ sub new {
   close $stdout_write if defined $stdout_write;
   close $stderr_write if defined $stderr_write;
 
-	my $active_count = 0;
-	$active_count++ if $stdout_event and $stdout_read;
-	$active_count++ if $stderr_event and $stderr_read;
+  my $active_count = 0;
+  $active_count++ if $stdout_event and $stdout_read;
+  $active_count++ if $stderr_event and $stderr_read;
 
   my $self = bless [
     &POE::Wheel::allocate_wheel_id(),  # UNIQUE_ID
@@ -858,11 +858,11 @@ sub event {
     }
   }
 
-	# Recalculate the active handles count.
-	my $active_count = 0;
-	$active_count++ if $self->[EVENT_STDOUT] and $self->[HANDLE_STDOUT];
-	$active_count++ if $self->[EVENT_STDERR] and $self->[HANDLE_STDERR];
-	$self->[IS_ACTIVE] = $active_count;
+  # Recalculate the active handles count.
+  my $active_count = 0;
+  $active_count++ if $self->[EVENT_STDOUT] and $self->[HANDLE_STDOUT];
+  $active_count++ if $self->[EVENT_STDERR] and $self->[HANDLE_STDERR];
+  $self->[IS_ACTIVE] = $active_count;
 }
 
 #------------------------------------------------------------------------------
