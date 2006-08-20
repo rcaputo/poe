@@ -594,6 +594,7 @@ sub _test_if_kernel_is_idle {
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
       "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
       "<rc> | Procs  : ", $self->_data_sig_child_procs(), "\n",
+      "<rc> | Signals: ", $self->_data_sig_count(), "\n",
       "<rc> `---------------------------\n",
       "<rc> ..."
      );
@@ -603,7 +604,8 @@ sub _test_if_kernel_is_idle {
     $kr_queue->get_item_count() > $idle_queue_size or
     $self->_data_handle_count() or
     $self->_data_extref_count() or
-    $self->_data_sig_child_procs()
+    $self->_data_sig_child_procs() or
+    $self->_data_sig_count()
   ) {
     $self->_data_ev_enqueue(
       $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
@@ -781,6 +783,7 @@ sub new {
     $self->_data_stat_initialize() if TRACE_STATISTICS;
     $self->_data_sig_initialize();
     $self->_data_magic_initialize();
+    $self->_data_alias_initialize();
 
     # These other subsystems don't have strange interactions.
     $self->_data_handle_initialize($kr_queue);
@@ -1000,31 +1003,28 @@ sub _dispatch_event {
         );
       }
 
-      my $handled;
-      if ($type & ~ET_STOP) {
-        $handled = $self->_dispatch_event(
-          $session,
-          $source_session,
-          EN_SIGNAL,
-          ET_SIGNAL,
-          [
-            'DIE' => {
-              source_session => $source_session,
-              dest_session => $session,
-              event => $event,
-              file => $file,
-              line => $line,
-              from_state => $fromstate,
-              error_str => $exception,
-            },
-          ],
-          __FILE__,
-          __LINE__,
-          undef,
-          time(),
-          -__LINE__,
-        );
-      }
+      my $handled = $self->_dispatch_event(
+        $session,
+        $source_session,
+        EN_SIGNAL,
+        ET_SIGNAL,
+        [
+          'DIE' => {
+            source_session => $source_session,
+            dest_session => $session,
+            event => $event,
+            file => $file,
+            line => $line,
+            from_state => $fromstate,
+            error_str => $exception,
+          },
+        ],
+        __FILE__,
+        __LINE__,
+        undef,
+        time(),
+        -__LINE__,
+      );
 
       unless ($handled) {
         # Put our internal state back together before we throw the
@@ -3553,7 +3553,6 @@ POE's automatic exception handling can be turned off by setting the
 C<CATCH_EXCEPTIONS> constant subroutine in C<POE::Kernel> to 0 like so:
 
   sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
-
 
 =item nonmaskable
 

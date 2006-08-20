@@ -171,12 +171,28 @@ sub _data_sig_finalize {
 sub _data_sig_count_ses {
   my ($self, $session) = @_;
 
-  if (exists( $kr_sessions_to_signals{$session} )) {
-    return scalar keys %{$kr_sessions_to_signals{$session}};
+  return 0 unless exists $kr_sessions_to_signals{$session};
+  return scalar keys %{$kr_sessions_to_signals{$session}};
+}
+
+# Return a count of signals watched by sessions that aren't the
+# Kernel.  Also, don't count IDLE or ZOMBIE signals, otherwise a
+# program watching for them will never receive them.
+#
+# TODO - This is slow, and it's called relatively often.  We should
+# maintain a reference count as signals are added ard removed rather
+# than recalculate the count each time.
+
+sub _data_sig_count {
+  my $signal_count;
+  foreach my $session (keys %kr_sessions_to_signals) {
+    next if $session eq $poe_kernel;
+    foreach my $signal (keys %{$kr_sessions_to_signals{$session}}) {
+      next if $signal eq "IDLE" or $signal eq "ZOMBIE";
+      $signal_count++;
+    }
   }
-  else {
-    return 0;
-  }
+  return $signal_count;
 }
 
 ### Add a signal to a session.
@@ -190,7 +206,7 @@ sub _data_sig_add {
   ) {
     $self->_data_ses_refcount_inc( $session );
   }
-  
+
   $kr_sessions_to_signals{$session}->{$signal} = $event;
   $kr_signals{$signal}->{$session} = $event;
 
