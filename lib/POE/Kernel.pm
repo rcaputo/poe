@@ -124,6 +124,11 @@ BEGIN {
 my $kr_active_session;
 my $kr_active_event;
 
+# Needs to be lexical so that POE::Resource::Events can see it
+# change.  TODO - Something better?  Maybe we call a method in
+# POE::Resource::Events to trigger the exception there?
+use vars qw($kr_exception);
+
 # The Kernel's master queue.
 my $kr_queue;
 
@@ -1003,6 +1008,10 @@ sub _dispatch_event {
         );
       }
 
+      # While it looks like we're checking the signal handler's return
+      # value, we actually aren't.  _dispatch_event() for signals
+      # returns whether the signal was handled.  See the return at the
+      # end of "Step 3" in the signal handling procedure.
       my $handled = $self->_dispatch_event(
         $session,
         $source_session,
@@ -1026,12 +1035,10 @@ sub _dispatch_event {
         -__LINE__,
       );
 
+      # An exception has occurred.  Set a global that we can check at
+      # the uppermost level.
       unless ($handled) {
-        # Put our internal state back together before we throw the
-        # exception.
-        $kr_active_session = $hold_active_session;
-        $kr_active_event   = $hold_active_event;
-        die( $exception );
+        $kr_exception = $exception;
       }
     }
   }
@@ -1161,6 +1168,7 @@ sub _initialize_kernel_session {
 
   $self->loop_initialize();
 
+  $kr_exception = undef;
   $kr_active_session = $self;
   $self->_data_ses_allocate($self, $self->ID(), undef);
 }
@@ -1203,7 +1211,7 @@ sub run_one_timeslice {
 
 sub run {
   # So run() can be called as a class method.
-  POE::Kernel->new unless (defined $poe_kernel);
+  POE::Kernel->new unless defined $poe_kernel;
   my $self = $poe_kernel;
 
   # Flag that run() was called.
