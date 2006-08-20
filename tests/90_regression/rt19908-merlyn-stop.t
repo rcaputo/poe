@@ -6,10 +6,12 @@
 # loop.  He's right.  This tests rt.cpan.org ticket 19908.
 
 use POE;
-use Test::More tests => 2;
+use Test::More tests => 3;
 
 $SIG{ALRM} = sub { exit };
 alarm(5);
+
+my $stop_count = 0;
 
 POE::Session->create(
   inline_states => {
@@ -17,11 +19,13 @@ POE::Session->create(
       pass("started");
     },
     _stop => sub {
-      die "stop";
+      $stop_count++;
+      die "stop\n";
     },
   }
 );
 
-POE::Kernel->run();
+eval { POE::Kernel->run() };
 $SIG{ALRM} = "IGNORE";
-pass("stopped");
+ok($@ eq "stop\n", "stopped due to a 'stop' exception (in _stop)");
+ok($stop_count == 1, "stopped after one _stop");
