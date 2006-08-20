@@ -156,7 +156,9 @@ POE::Session->create(
 
     # Do nothing here.  The timer exists just to keep the session
     # alive.  Once it's dispatched, the session can exit.
-    reaping_time_is_up => sub { },
+    reaping_time_is_up => sub {
+      $_[KERNEL]->sig( CHLD => undef );
+    },
   },
 );
 
@@ -211,7 +213,10 @@ POE::Session->create(
     got_pipe => sub {
       $_[HEAP]->{pipe}++;
     },
-    wait_for_signals => sub { },
+    wait_for_signals => sub {
+      $_[KERNEL]->sig( USR1 => undef );
+      $_[KERNEL]->sig( PIPE => undef );
+    },
     _stop => sub {
       ok($_[HEAP]->{usr1} == 1, "caught SIGUSR1");
       ok($_[HEAP]->{pipe} == 1, "caught SIGPIPE");

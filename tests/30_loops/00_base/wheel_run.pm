@@ -306,6 +306,7 @@ SKIP: {
       bye => sub {
         DEBUG and warn "bye";
         delete $_[HEAP]->{wheel};
+        $_[KERNEL]->sig( CHLD => undef );
         $_[KERNEL]->delay(bye => undef);
       },
 

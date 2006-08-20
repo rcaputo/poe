@@ -42,10 +42,12 @@ POE::Session->create(
     child_handler => sub {
       pass("handled real SIGCHLD");
       $_[KERNEL]->delay(timeout => undef);
+      $_[KERNEL]->sig(CHLD => undef);
     },
     _stop => sub { },
     timeout => sub {
       fail("handled real SIGCHLD");
+      $_[KERNEL]->sig(CHLD => undef);
     },
   }
 );
