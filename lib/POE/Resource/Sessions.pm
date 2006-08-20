@@ -447,8 +447,16 @@ sub _data_ses_count {
 # Dispatch _stop to a session, removing it from the kernel's data
 # structures as a side effect.
 
+my %already_stopping;
+
 sub _data_ses_stop {
   my ($self, $session) = @_;
+
+  # Don't stop a session that's already in the throes of stopping.
+  # This can happen with exceptions, during die() in _stop.  It can
+  # probably be removed if exceptions are.
+  return if exists $already_stopping{$session};
+  $already_stopping{$session} = 1;
 
   if (ASSERT_DATA) {
     _trap("stopping a nonexistent session")
@@ -509,6 +517,8 @@ sub _data_ses_stop {
   unless (keys %kr_sessions) {
     $self->loop_halt();
   }
+
+  delete $already_stopping{$session};
 }
 
 1;
