@@ -13,7 +13,7 @@ BEGIN {
   }
 }
 
-use Test::More tests => 18;
+use Test::More tests => 30;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
@@ -70,6 +70,7 @@ POE::Component::Server::TCP->new(
 POE::Component::Server::TCP->new(
   Port => 31402,
   Alias => 'input_server',
+  ClientFilter => [ "POE::Filter::Line", Literal => "\n" ],
   ClientInput => sub {
     my ($heap, $input) = @_[HEAP, ARG0];
     pass("callback server got input");
@@ -90,6 +91,59 @@ POE::Component::Server::TCP->new(
     pass("callback server got client disconnected");
   },
 );
+
+# Test that the constructor of PoCo::Client::TCP is strict in what it
+# accepts as valid arguments
+{
+  eval { POE::Component::Client::TCP->new(
+    RemoteAddress => "1.2.3.4", Odd => "Elephant", "Of Arguments") };
+  ok($@ =~ /odd|even/,
+    "Client::TCP constructor requires even number of parameters");
+
+  my %base_args = (
+    RemoteAddress => '127.0.0.1',
+    RemotePort => 31401,
+    Connected => sub { },
+    ConnectError => sub { },
+    Disconnected => sub { },
+    ServerInput => sub { },
+    ServerError => sub { },
+    ServerFlushed => sub { },
+  );
+  my $test_missing = sub {
+    my ($args, $remove) = @_;
+    delete $$args{$_} for @$remove;
+    eval { POE::Component::Client::TCP->new( %$args ) };
+    ok($@ ne '', "Client::TCP constructor requires " . join(", ", @$remove));
+  };
+  $test_missing->({%base_args}, ["RemoteAddress"]);
+  $test_missing->({%base_args}, ["RemotePort"]);
+  $test_missing->({%base_args}, ["ServerInput"]);
+  my %mark_args = (%base_args,
+    HighMark => 256, LowMark => 64,
+    ServerHigh => sub { }, ServerLow => sub { }
+  );
+  $test_missing->({%mark_args}, ["LowMark", "ServerHigh", "ServerLow"]);
+  $test_missing->({%mark_args}, ["HighMark", "ServerHigh", "ServerLow"]);
+  $test_missing->({%mark_args}, ["HighMark", "LowMark", "ServerLow"]);
+  $test_missing->({%mark_args}, ["HighMark", "LowMark", "ServerHigh"]);
+
+  my $test_notref = sub {
+    my $which = shift;
+    eval { POE::Component::Client::TCP->new( %base_args,
+        $which => "Not a reference" ) };
+    ok($@ =~ /$which.*reference/i,
+      "Client::TCP constructor requires $which to be a reference");
+  };
+  $test_notref->("InlineStates");
+  $test_notref->("PackageStates");
+  $test_notref->("ObjectStates");
+
+  eval { POE::Component::Client::TCP->new( %base_args,
+      SessionParams => sub { "Not an array reference" }) };
+  ok($@ =~ /SessionParams/,
+    "Client::TCP constructor requires SessionParams to be an array reference");
+}
 
 # A client to connect to acceptor_server.
 
@@ -135,6 +189,7 @@ POE::Component::Client::TCP->new(
 POE::Component::Client::TCP->new(
   RemoteAddress => '127.0.0.1',
   RemotePort    => 31402,
+  Filter => [ "POE::Filter::Line", Literal => "\n" ],
 
   Connected => sub {
     pass("callback client connected");
