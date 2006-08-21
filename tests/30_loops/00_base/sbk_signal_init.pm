@@ -11,7 +11,7 @@ use strict;
 use Test::More tests => 1;
 
 BEGIN {
-	$SIG{ALRM} = \&dispatch_normal_signal;
+  $SIG{ALRM} = \&dispatch_normal_signal;
 }
 
 my $signal_dispatched = 0;
