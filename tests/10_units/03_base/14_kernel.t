@@ -1,10 +1,13 @@
 #!/usr/bin/perl -w
 
+# This file contains tests for the _public_ POE::Kernel interface
+
 use strict;
 
-use Test::More tests => 4;
+use Test::More tests => 6;
+use vars qw($poe_kernel);
 
-BEGIN { eval "use POE::Kernel"; ok(!$@, "kernel loads"); }
+BEGIN { use_ok("POE::Kernel"); }
 
 # Start with errors.
 
@@ -25,5 +28,8 @@ ok(
   !$@,
   "specifying which loop to load works"
 );
+
+ok( defined($poe_kernel), "POE::Kernel exports $poe_kernel" );
+ok( UNIVERSAL::isa($poe_kernel, "POE::Kernel"), "  which contains a kernel" );
 
 exit 0;
