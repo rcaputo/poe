@@ -34,7 +34,7 @@ BEGIN {
 
   sub STD_TEST_COUNT () { 8 }
 
-  plan tests => 4 + 18 + 8 + 8 + 8*STD_TEST_COUNT;
+  plan tests => 4 + 15 + 8 + 8 + 8*STD_TEST_COUNT;
 }
 
 # Turn on extra debugging output within this test program.
@@ -90,6 +90,26 @@ END
     "sub { \$! = 1; " . $text . " }";
   die $@ if $@;
 }
+
+my $shutdown_program = sub {
+  my $out = shift;
+  my $err = shift;
+  select STDERR; $| = 1; select STDOUT; $| = 1;
+  local $/ = q(!);
+  local $\ = q(!);
+  my $flag = 0;
+  $SIG{ALRM} = sub { die };
+  eval {
+    alarm(3);
+    while (<STDIN>) {
+      chomp;
+      if (/flag (\d+)/) { $flag = $1 }
+      elsif (/out (\S+)/) { print STDOUT "$out: $1" }
+    }
+  };
+  alarm(0);
+  print STDOUT "$out: got eof $flag";
+};
 # }}}
 
 { # manage a global timeout {{{
@@ -261,7 +281,8 @@ my $x__ = 0;
 sub main_stop {
   my $heap = $_[HEAP];
   is( $heap->{flushes}, $heap->{flushes_expected},
-    "$heap->{label} flush count ($$)" );
+    "$heap->{label} flush count ($$)" )
+    unless $heap->{ignore_flushes};
   DEBUG and warn "$heap->{label}: _stop ($$)";
 }
 
@@ -299,12 +320,14 @@ sub main_close {
   is('close', $heap->{expected}->[0][1][0],
     "$heap->{label} close");
   is($_[HEAP]->{wheel}->get_driver_out_octets, 0,
-    "$heap->{label} driver_out_octets at close");
+    "$heap->{label} driver_out_octets at close")
+    unless $heap->{ignore_flushes};
   is($_[HEAP]->{wheel}->get_driver_out_messages, 0,
-    "$heap->{label} driver_out_messages at close");
+    "$heap->{label} driver_out_messages at close")
+    unless $heap->{ignore_flushes};
   delete $_[HEAP]->{wheel};
   timeout_decref();
-  $kernel->sig("CHLD");
+  $kernel->sig("CHLD" => undef);
   DEBUG and warn "$heap->{label}: close";
 }
 
@@ -322,10 +345,11 @@ sub main_sigchld {
 }
 
 sub create_test_session {
-  my ($label, $program, $conduit, $expected) = @_;
+  my ($label, $program, $conduit, $expected, $ignore_flushes) = @_;
 
   my $sess = POE::Session->create(
     args => [$label, $program, $conduit, $expected],
+    heap => { ignore_flushes => $ignore_flushes },
     inline_states => {
       _start => \&main_start,
       _stop => \&main_stop,
@@ -395,6 +419,8 @@ sub create_constructor_session {
           );
         };
         ok(!(!$@), "new: Program is needed");
+
+        timeout_poke();
       },
     },
   );
@@ -434,10 +460,11 @@ my @killing_expected = (
   [ ["kill"], ["close"] ],
 );
 my @shutdown_expected = (
+  [ "flag 1", undef],
   [ "out init", ["stdout", "init", "out"] ],
-  [ "notify eof flag", ["stdout", "flag", "out"] ],
-  [ ["shutdown_stdin"], ["close"] ], #["stdout", "got eof", "out"] ],
-#  [ ["kill"], ["close"] ],
+  [ ["shutdown_stdin"], undef],
+  [ "flag 2", ["stdout", "got eof 1", "out"] ],
+  [ ["kill"], ["close"] ],
 );
 
 my @chld_programs = (
@@ -464,10 +491,11 @@ create_test_session(
 );
 # test shutdown_stdin
 create_test_session(
-  "string/shutdown",
-  $chld_program_string,
+  "coderef/shutdown",
+  $shutdown_program,
   "pipe",
   \@shutdown_expected,
+  1, # ignore flush counts etc
 );
 
 for my $chld_program (@chld_programs) {
