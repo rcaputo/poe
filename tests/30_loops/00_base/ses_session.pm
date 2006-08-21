@@ -115,7 +115,7 @@ POE::Session->create(
       # One last timer so the session lingers long enough to catch
       # the final signal.
       else {
-        $_[KERNEL]->delay( nonexistent_state => 1 );
+        $_[KERNEL]->delay( done_waiting => 1 );
       }
     },
     sigalrm_target => sub {
@@ -125,6 +125,10 @@ POE::Session->create(
     sigpipe_target => sub {
       $sigpipe_caught++ if $_[ARG0] eq 'PIPE';
       $_[KERNEL]->sig_handled();
+    },
+    done_waiting => sub {
+      $_[KERNEL]->sig( ALRM => undef );
+      $_[KERNEL]->sig( PIPE => undef );
     },
   }
 );
