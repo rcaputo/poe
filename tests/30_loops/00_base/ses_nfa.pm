@@ -10,7 +10,7 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-use Test::More tests => 20;
+use Test::More tests => 28;
 
 use POE qw(NFA);
 
@@ -112,7 +112,7 @@ POE::Session->create(
 ### This is a Fibonacci number servlet.  Post it a request with the F
 ### number you want, and it calculates and returns it.
 
-package Server;
+package FibServer;
 use POE::NFA;
 
 POE::NFA->spawn(
@@ -169,7 +169,7 @@ POE::NFA->spawn(
 ### This is a Fibonacci client.  It asks for F numbers and checks the
 ### responses vs. expectations.
 
-package Client;
+package FibClient;
 use POE::Session;
 
 my $test_number = 11;
@@ -210,6 +210,65 @@ POE::Session->create(
     _stop => sub { 0 },
   },
 );
+
+### This tests using POE::Kernel->state() with a POE::NFA in the same way
+### attaching a wheel to a session does
+### Also tests options, and (call|post)backs
+
+package DynamicStates;
+use POE::NFA;
+
+POE::NFA->spawn(
+  inline_states => {
+    initial => {
+      start => sub {
+        $_[KERNEL]->alias_set( 'dynamicstates' );
+        $_[MACHINE]->goto_state( 'listen', 'send' );
+        $_[KERNEL]->state("test_wheel_event" => sub {
+            POE::Kernel->yield("happened");
+          } );
+
+        # test options
+        my $orig = $_[MACHINE]->option(default => 1);
+        my $rv = $_[MACHINE]->option('default');
+        Test::More::ok($rv, "set default option successfully");
+        $rv = $_[MACHINE]->option('default' => $orig);
+        Test::More::ok($rv, "reset default option successfully");
+        my $rv = $_[MACHINE]->option('default');
+        Test::More::ok(!($rv xor $orig), "reset default option successfully");
+
+        # test (post|call)backs
+        $_[MACHINE]->callback("callback")->();
+        $_[MACHINE]->postback("postback")->();
+      },
+      _default => sub { 0 },
+      callback => sub {
+        Test::More::pass("POE::NFA::callback");
+      },
+      postback => sub {
+        Test::More::fail("POE::NFA::postback");
+      },
+    },
+    listen => {
+      send => sub {
+        $_[KERNEL]->yield("test_wheel_event");
+      },
+      happened => sub {
+        Test::More::pass("wheel event happened");
+        Test::More::is($_[MACHINE]->get_current_state(), $_[STATE],
+          "get_current_state returns the same as \$_[STATE]");
+        Test::More::is_deeply($_[MACHINE]->get_runstate(), $_[RUNSTATE],
+          "get_runstate returns the same as \$_[RUNSTATE]");
+      },
+      callback => sub {
+        Test::More::fail("POE::NFA::callback");
+      },
+      postback => sub {
+        Test::More::pass("POE::NFA::postback");
+      },
+    },
+  },
+)->goto_state("initial", "start");
 
 ### Run everything until it's all done.
 
