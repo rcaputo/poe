@@ -7,6 +7,8 @@ use IO::File;
 use Test::More tests => 28;
 use POE qw(Filter::Map Driver::SysRW Pipe::TwoWay);
 
+sub DEBUG () { 0 }
+
 use_ok('POE::Wheel::ReadWrite');
 can_ok('POE::Wheel::ReadWrite',
   qw( new put event set_filter set_input_filter set_output_filter
@@ -31,6 +33,7 @@ sub test_dispatcher {
       },
       run_next => sub {
         if (@tests) {
+	  warn "dispatching $tests[0]" if DEBUG;
           eval { (shift @tests)->() };
           if ($@) { warn $@; exit 1; }
           # POE isn't very good at dieing hard
@@ -134,6 +137,14 @@ sub part2 {
   print $tmpfile $TMPDATA;
   seek $tmpfile, 0, 0 or
     do { print STDERR "seek failed: $!"; exit 1 };
+    
+  if ($^O eq "MSWin32") {
+    SKIP: {
+      skip( "part2 doesn't work on windows", 13 );
+    }
+    $poe_kernel->post("test_dispatcher" => "run_next");
+    return;
+  }
 
   POE::Session->create(
     inline_states => {
