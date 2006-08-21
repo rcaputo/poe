@@ -13,7 +13,7 @@ BEGIN {
   sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 }
 
-use Test::More tests => 38;
+use Test::More tests => 44;
 use POE;
 
 ### Test parameters and results.
@@ -115,7 +115,7 @@ POE::Session->create(
       # One last timer so the session lingers long enough to catch
       # the final signal.
       else {
-        $_[KERNEL]->delay( done_waiting => 1 );
+        $_[KERNEL]->delay( nonexistent_state => 1 );
       }
     },
     sigalrm_target => sub {
@@ -125,10 +125,6 @@ POE::Session->create(
     sigpipe_target => sub {
       $sigpipe_caught++ if $_[ARG0] eq 'PIPE';
       $_[KERNEL]->sig_handled();
-    },
-    done_waiting => sub {
-      $_[KERNEL]->sig( ALRM => undef );
-      $_[KERNEL]->sig( PIPE => undef );
     },
   }
 );
@@ -352,6 +348,35 @@ POE::Session->create(
   ],
   args => [ 3 ],
 );
+
+#------------------------------------------------------------------------------
+# Test changing options
+POE::Session->create(
+  inline_states => {
+    _start => sub {
+      my $orig = $_[SESSION]->option(default => 1);
+      Test::More::ok($orig, "option original value");
+      my $rv = $_[SESSION]->option('default');
+      Test::More::ok($rv, "set default option successfully");
+      $rv = $_[SESSION]->option('default' => $orig);
+      Test::More::ok($rv, "reset default option successfully");
+      my $rv = $_[SESSION]->option('default');
+      Test::More::ok(!($rv xor $orig), "reset default option successfully");
+
+      $_[KERNEL]->yield("idle");
+    },
+    idle => sub { },
+  },
+  options => { default => 1 },
+);
+
+#------------------------------------------------------------------------------
+# Test deprecation of new(), test invalid arguments to create()
+eval { POE::Session->new("foo" => sub { } ) };
+ok($@ ne '', "new() is deprecated");
+
+eval { POE::Session->create("an", "odd", "number", "of", "elephants") };
+ok($@ ne '', "create() doesn't accept an odd number of args");
 
 #------------------------------------------------------------------------------
 # Main loop.
