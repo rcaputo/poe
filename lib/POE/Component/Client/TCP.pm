@@ -71,9 +71,10 @@ sub new {
   my $low_event       = delete $param{ServerLow};
 
   # this is ugly, but now its elegant :)  grep++
-  my $foo = grep { defined $_ } ($high_mark_level, $low_mark_level, $high_event, $low_event);
-  if ($foo > 0) {
-    croak "If you use the Mark settings, you must define all four" unless $foo == 4;
+  my $using_watermarks = grep { defined $_ }
+    ($high_mark_level, $low_mark_level, $high_event, $low_event);
+  if ($using_watermarks > 0 and $using_watermarks != 4) {
+    croak "If you use the Mark settings, you must define all four";
   }
 
   $high_event = sub { } unless defined $high_event;
@@ -105,7 +106,7 @@ sub new {
   croak "PackageStates must be a list or array reference"
     unless ref($package_states) eq 'ARRAY';
 
-  croak "ObjectsStates must be a list or array reference"
+  croak "ObjectStates must be a list or array reference"
     unless ref($object_states) eq 'ARRAY';
 
   # Errors.
@@ -205,7 +206,7 @@ sub new {
               ErrorEvent   => 'got_server_error',
               FlushedEvent => 'got_server_flush',
               do {
-                  $foo ? return (
+                  $using_watermarks ? return (
                     HighMark => $high_mark_level,
                     HighEvent => 'got_high',
                     LowMark => $low_mark_level,
