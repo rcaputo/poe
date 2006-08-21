@@ -1,12 +1,12 @@
 # $Id$
 # vim: filetype=perl
 
-use warnings;
-use strict;
-
 # Yuval Kogman's test case for edge issues with rethrowing unhandled
 # die() exceptions and re-calling run() after it's returned due to
 # such exceptions.
+
+use warnings;
+use strict;
 
 use Test::More tests => 9;
 

@@ -2453,9 +2453,17 @@ sub refcount_decrement {
   }
 
   my $refcount = $self->_data_extref_dec($session, $tag);
-  $self->_data_ses_collect_garbage($session);
 
-  # trace it here
+  # We don't need to garbage-test the decremented session if the
+  # reference count is nonzero.  Likewise, we don't need to GC it if
+  # it's the current session under the assumption that it will be GC
+  # tested when the current event dispatch is through.
+
+  if ( !$refcount and $kr_active_session->ID ne $session_id ) {
+    $self->_data_ses_collect_garbage($session);
+  }
+
+  # -><- trace it here
   return $refcount;
 }
 

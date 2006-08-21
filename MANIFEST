@@ -127,6 +127,7 @@ tests/20_resources/00_base/caller_state.pm
 tests/20_resources/00_base/controls.pm
 tests/20_resources/00_base/events.pm
 tests/20_resources/00_base/extrefs.pm
+tests/20_resources/00_base/extrefs_gc.pm
 tests/20_resources/00_base/filehandles.pm
 tests/20_resources/00_base/sessions.pm
 tests/20_resources/00_base/sids.pm
