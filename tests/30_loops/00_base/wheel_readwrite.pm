@@ -5,6 +5,8 @@ use warnings;
 use IO::File;
 
 use Test::More tests => 28;
+
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw(Filter::Map Driver::SysRW Pipe::TwoWay);
 
 sub DEBUG () { 0 }
@@ -33,7 +35,7 @@ sub test_dispatcher {
       },
       run_next => sub {
         if (@tests) {
-	  warn "dispatching $tests[0]" if DEBUG;
+          warn "dispatching $tests[0]" if DEBUG;
           eval { (shift @tests)->() };
           if ($@) { warn $@; exit 1; }
           # POE isn't very good at dieing hard
@@ -48,7 +50,8 @@ sub test_dispatcher {
         } else {
           $_[HEAP]->{$_[ARG1]->ID}++;
         }
-      }
+      },
+      _stop => sub { },
     },
   );
 }
@@ -118,6 +121,7 @@ sub part1 {
         test_new("new(): mark events need levels",
           Handle => \*DATA, LowEvent => 'low', HighEvent => 'high');
       },
+      _stop => sub { },
     },
   );
 }
@@ -137,8 +141,15 @@ sub part2 {
   print $tmpfile $TMPDATA;
   seek $tmpfile, 0, 0 or
     do { print STDERR "seek failed: $!"; exit 1 };
-    
-  if ($^O eq "MSWin32") {
+
+  if (exists $INC{'Tk.pm'}) {
+    SKIP: {
+      skip( "part2 doesn't work with Tk", 13 );
+    }
+    $poe_kernel->post("test_dispatcher" => "run_next");
+    return;
+  }
+  elsif ($^O eq "MSWin32") {
     SKIP: {
       skip( "part2 doesn't work on windows", 13 );
     }
@@ -200,7 +211,7 @@ sub part2_wrong {
 # two phases, first we do reads w/ pauses,  then we do writes w/ pauses.
 
 sub part2_input {
-  my ($heap, $input, $id) = @_[HEAP, ARG0, ARG1]; 
+  my ($heap, $input, $id) = @_[HEAP, ARG0, ARG1];
 
   $heap->{read_lines}++;
   $heap->{"called_input"}++;
@@ -208,7 +219,7 @@ sub part2_input {
   unless ($heap->{check_filters}++) {
     &part2_check_filters;
   }
-  
+
   if ($heap->{read_machine} eq "start") {
     $heap->{wheel}->pause_input;
     $heap->{read_machine} = "paused";
@@ -310,10 +321,10 @@ sub part2_stop {
 # Part 3 - Changing watermarks (testing with a pipe) {{{
 sub part3 {
   POE::Session->create(
-    inline_states => { _start => sub { } },
+    inline_states => { _start => sub { }, _stop => sub { } },
   );
   return; # skip
-  
+
   # create the pipe
   my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new("inet");
   # flow is $b_write --> $a_read
@@ -361,7 +372,8 @@ sub part3 {
       },
       flushed => sub { }, #print "flushed\n" },
       high => sub { print "high\n"; $_[HEAP]->{state} = "high"; },
-      low => sub { print "low\n" }
+      low => sub { print "low\n" },
+      _stop => sub { },
     },
   );
 
@@ -398,6 +410,7 @@ sub part3 {
           delete $heap->{wheel};
         }
       },
+      _stop => sub { },
     },
   );
 }
