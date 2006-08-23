@@ -20,6 +20,8 @@ foreach my $die_on_bad_exit ( 0, 1 ) {
         _start => sub {
           POE::Session->create(
             inline_states => {
+              stdout => sub { },
+              stdin => sub { },
               _start => sub {
                 my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
 
@@ -66,7 +68,7 @@ foreach my $die_on_bad_exit ( 0, 1 ) {
                 ) != 0;
               }
             },
-            heap => { program => sub { exit $exit } },
+            heap => { program => [ $^X, "-wle", "exit $exit" ] },
           );
         },
         _stop => sub { },
