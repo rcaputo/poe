@@ -81,10 +81,7 @@ END
   $text =~ s/\n/ /g;
 
   my $os_quote = ($^O eq 'MSWin32') ? q(") : q(');
-  $chld_program_string =
-    "$^X -we $os_quote" .
-    $text .
-    "CORE::exit 0; $os_quote";
+  $chld_program_string = [ $^X, "-we", "$text CORE::exit 0" ];
 
   $chld_program_coderef = eval
     "sub { \$! = 1; " . $text . " }";
@@ -193,7 +190,7 @@ sub main_perform_state {
   return unless defined $heap->{expected}->[0][0];
 
   my $action = $heap->{expected}->[0][0];
-  
+
   unless (ref $action) {
     DEBUG and warn "$heap->{label}: performing put state: $action";
     $heap->{wheel}->put( $action );
@@ -523,7 +520,7 @@ for my $chld_program (@chld_programs) {
         exists $INC{"POE/Loop/IO_Poll.pm"} or
         exists $INC{"POE/Loop/Event.pm"}
       );
-    
+
     create_test_session(
       "$chld_name/pty",
       $chld_code, # program
