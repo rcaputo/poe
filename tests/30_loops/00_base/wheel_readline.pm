@@ -11,7 +11,21 @@ use lib qw(./mylib ../mylib);
 #sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 #sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-use Test::More tests => 2;
+use Test::More;
+
+BEGIN {
+  my $error;
+  if ($^O eq "MSWin32" and !-t STDIN ) {
+	$error = "$^O not running on terminal";
+  }
+
+  if ($error) {
+    plan skip_all => $error;
+    CORE::exit();
+  }
+
+  plan tests => 2;
+}
 
 use POE;
 
