@@ -11,6 +11,7 @@ use Test::More;
 # We can't test_setup(0, "reason") because that calls exit().  And Tk
 # will croak if you call BEGIN { exit() }.  And that croak will cause
 # this test to FAIL instead of skip.
+our $RUNNING_WIN32;
 BEGIN {
   my $error;
   if ($^O eq "MacOS") {
@@ -25,6 +26,8 @@ BEGIN {
     elsif (exists $INC{"Event.pm"}) {
       $error = "$^O\'s fork() emulation breaks Event";
     }
+    
+    $RUNNING_WIN32 = 1;
   }
 
   if ($error) {
@@ -479,21 +482,25 @@ create_test_session(
   undef,
   \@pause_resume_expected,
 );
-# testing killing, and PID
-create_test_session(
-  "string/killing",
-  $chld_program_string,
-  undef,
-  \@killing_expected,
-);
-# test shutdown_stdin
-create_test_session(
-  "coderef/shutdown",
-  $shutdown_program,
-  "pipe",
-  \@shutdown_expected,
-  1, # ignore flush counts etc
-);
+SKIP: {
+  skip "PIDs and shutdown don't work on windows", 13
+    if $RUNNING_WIN32;
+  # testing killing, and PID
+  create_test_session(
+    "string/killing",
+    $chld_program_string,
+    undef,
+    \@killing_expected,
+  ); # needs to be skipped on windows
+  # test shutdown_stdin
+  create_test_session(
+    "coderef/shutdown",
+    $shutdown_program,
+    "pipe",
+    \@shutdown_expected,
+    1, # ignore flush counts etc
+  );
+}
 
 for my $chld_program (@chld_programs) {
   my ($chld_name, $chld_code) = @$chld_program;
@@ -504,13 +511,18 @@ for my $chld_program (@chld_programs) {
     undef, # conduit
     \@two_stream_expected # expected
   );
-  create_test_session(
-    "$chld_name/pipe",
-    $chld_code, # program
-    "pipe", # conduit
-    \@two_stream_expected # expected
-  );
-
+  
+  SKIP: {
+    skip "$chld_name/pipe: doesn't work on windows", STD_TEST_COUNT
+      if $RUNNING_WIN32;
+    create_test_session(
+      "$chld_name/pipe",
+      $chld_code, # program
+      "pipe", # conduit
+      \@two_stream_expected # expected
+    );
+  }
+  
   SKIP: {
     skip "$chld_name/pty: IO::Pty is needed for this test.", 2*STD_TEST_COUNT
       unless POE::Wheel::Run::PTY_AVAILABLE;
