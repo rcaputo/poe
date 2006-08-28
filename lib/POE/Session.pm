@@ -1510,11 +1510,6 @@ its custom parameter list is preserved as a reference in C<ARG1>.
 All the other C<_default> parameters are the same as the unhandled
 event's, with the exception of C<STATE>, which becomes C<_default>.
 
-It is highly recommended that C<_default> handlers always return
-false.  C<_default> handlers will often catch signals, so they must
-return false if the signals are expected to stop a program.  Otherwise
-only SIGKILL will work.
-
 L<POE::Kernel> discusses signal handlers in "Signal Watcher Methods".
 It also covers the pitfalls of C<_default> states in more detail
 
@@ -1673,7 +1668,7 @@ POE traps exceptions that happen within an event. When an exception
 occurs, POE sends the C<DIE> signal to the session that caused the
 exception. This is a terminal signal and will shutdown the POE
 environment unless the session handles the signal and calls
-C<sig_handled()>. 
+C<sig_handled()>.
 
 This behavior can be turned off by setting the C<CATCH_EXCEPTIONS>
 constant subroutine in C<POE::Kernel> to 0 like so:
@@ -1698,7 +1693,7 @@ Name of the event that caused the exception
 
 =item file
 
-The filename of the code which called the problematic event 
+The filename of the code which called the problematic event
 
 =item line
 
