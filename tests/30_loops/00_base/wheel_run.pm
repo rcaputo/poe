@@ -26,7 +26,7 @@ BEGIN {
     elsif (exists $INC{"Event.pm"}) {
       $error = "$^O\'s fork() emulation breaks Event";
     }
-    
+
     $RUNNING_WIN32 = 1;
   }
 
@@ -65,7 +65,7 @@ select STDERR; $| = 1; select STDOUT; $| = 1;
 my $eof_counter = 0;
 OUTER: while (1) {
   $eof_counter++;
-  exit if $eof_counter > 10;
+  CORE::exit if $eof_counter > 10;
   while (<STDIN>) {
     chomp;
     $eof_counter = 0;
@@ -98,9 +98,9 @@ my $shutdown_program = sub {
   local $/ = q(!);
   local $\ = q(!);
   my $flag = 0;
-  $SIG{ALRM} = sub { die };
+  $SIG{ALRM} = sub { die "alarm\n" };
   eval {
-    alarm(3);
+    alarm(5);
     while (<STDIN>) {
       chomp;
       if (/flag (\d+)/) { $flag = $1 }
@@ -108,7 +108,12 @@ my $shutdown_program = sub {
     }
   };
   alarm(0);
-  print STDOUT "$out: got eof $flag";
+  if ($@ eq "alarm\n") {
+    print STDOUT "$out: got alarm";
+  }
+  else {
+    print STDOUT "$out: got eof $flag";
+  }
 };
 # }}}
 
@@ -130,7 +135,7 @@ my $shutdown_program = sub {
         check_timeout => sub {
           unless ($timeout_poked) {
             warn "inactivity timeout reached!";
-            exit 1;
+            CORE::exit 1;
           } else {
             $timeout_poked = 0;
             $_[KERNEL]->delay(check_timeout => TIMEOUT_HALFTIME);
@@ -178,7 +183,7 @@ my $shutdown_program = sub {
 # each session in &create_test_session
 sub do_nonexistent {
   warn "$_[STATE] called on session ".$_[SESSION]->ID." ($_[HEAP]->{label})";
-  exit 1;
+  CORE::exit 1;
 }
 
 sub do_error {
@@ -209,7 +214,7 @@ sub main_perform_state {
     $heap->{wheel}->shutdown_stdin();
   } else {
     warn "weird action @$action, this is a bug in the test script";
-    exit 1;
+    CORE::exit 1;
   }
 
   # sometimes we don't have anything to wait for, so
@@ -511,7 +516,7 @@ for my $chld_program (@chld_programs) {
     undef, # conduit
     \@two_stream_expected # expected
   );
-  
+
   SKIP: {
     skip "$chld_name/pipe: doesn't work on windows", STD_TEST_COUNT
       if $RUNNING_WIN32;
@@ -522,7 +527,7 @@ for my $chld_program (@chld_programs) {
       \@two_stream_expected # expected
     );
   }
-  
+
   SKIP: {
     skip "$chld_name/pty: IO::Pty is needed for this test.", 2*STD_TEST_COUNT
       unless POE::Wheel::Run::PTY_AVAILABLE;
