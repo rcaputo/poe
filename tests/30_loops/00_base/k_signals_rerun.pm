@@ -8,7 +8,13 @@
 use warnings;
 use strict;
 
-use Test::More tests => 9;
+use Test::More;
+
+if ($^O eq "MSWin32" and exists $INC{'Event.pm'}) {
+  plan skip_all => "Event can't catch SIGCHLD on $^O";
+}
+
+plan tests => 9;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE qw/Wheel::Run/;
