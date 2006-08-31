@@ -201,7 +201,7 @@ sub main_perform_state {
 
   unless (ref $action) {
     DEBUG and warn "$heap->{label}: performing put state: $action";
-    $heap->{wheel}->put( $action );
+    eval { $heap->{wheel}->put( $action ) };
   } elsif ($action->[0] =~ m/^(?:pause|resume)_std(?:out|err)$/) {
     my $method = $action->[0];
     DEBUG and warn "$heap->{label}: performing method state: $method";

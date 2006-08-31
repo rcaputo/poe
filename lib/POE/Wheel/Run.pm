@@ -907,6 +907,12 @@ sub DESTROY {
 
 sub put {
   my ($self, @chunks) = @_;
+
+  # Avoid big bada boom if someone put()s on a dead wheel.
+  croak "Called put() on a wheel without an open STDIN handle" unless (
+    $self->[HANDLE_STDIN]
+  );
+
   if (
     $self->[OCTETS_STDIN] =  # assignment on purpose
     $self->[DRIVER_STDIN]->put($self->[FILTER_STDIN]->put(\@chunks))
@@ -953,7 +959,11 @@ sub shutdown_stdin {
   $poe_kernel->select_write($self->[HANDLE_STDIN], undef);
 
   eval { local $^W = 0; shutdown($self->[HANDLE_STDIN], 1) };
-  close $self->[HANDLE_STDIN] if $@;
+  if ($@ or $self->[HANDLE_STDIN] != $self->[HANDLE_STDOUT]) {
+    close $self->[HANDLE_STDIN];
+  }
+
+  $self->[HANDLE_STDIN] = undef;
 }
 
 #------------------------------------------------------------------------------
