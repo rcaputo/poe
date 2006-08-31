@@ -91,6 +91,7 @@ sub reaper {
   ok(!$heap->{counter}, "child has exited when the counter ran out");
   $self->{subprocess} = undef;
   $kernel->sig_handled;
+  $kernel->sig(CHLD => undef);
 }
 
 sub next {
