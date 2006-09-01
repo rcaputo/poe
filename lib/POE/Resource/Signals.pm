@@ -3,7 +3,7 @@
 # The data necessary to manage signals, and the accessors to get at
 # that data in a sane fashion.
 
-package POE::Resources::Signals;
+package POE::Resource::Signals;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
@@ -528,7 +528,7 @@ __END__
 
 =head1 NAME
 
-POE::Resources::Signals - signal management for POE::Kernel
+POE::Resource::Signals - signal management for POE::Kernel
 
 =head1 SYNOPSIS
 

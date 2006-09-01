@@ -3,7 +3,7 @@
 # Session IDs: The data to maintain them, and accessors to get at them
 # sanely from other files.
 
-package POE::Resources::SIDs;
+package POE::Resource::SIDs;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
@@ -89,7 +89,7 @@ __END__
 
 =head1 NAME
 
-POE::Resources::SIDs - session ID management for POE::Kernel
+POE::Resource::SIDs - session ID management for POE::Kernel
 
 =head1 SYNOPSIS
 

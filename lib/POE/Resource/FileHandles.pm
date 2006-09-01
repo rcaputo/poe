@@ -3,7 +3,7 @@
 # Manage file handles, associated descriptors, and read/write modes
 # thereon.
 
-package POE::Resources::FileHandles;
+package POE::Resource::FileHandles;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
@@ -808,7 +808,7 @@ __END__
 
 =head1 NAME
 
-POE::Resources::FileHandles - manage file handles on behalf of POE::Kernel
+POE::Resource::FileHandles - manage file handles on behalf of POE::Kernel
 
 =head1 SYNOPSIS
 

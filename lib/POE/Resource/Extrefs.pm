@@ -4,7 +4,7 @@
 # on sessions, and the accessors to get at them sanely from other
 # files.
 
-package POE::Resources::Extrefs;
+package POE::Resource::Extrefs;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
@@ -167,7 +167,7 @@ __END__
 
 =head1 NAME
 
-POE::Resources::Extrefs - tagged "extra" ref. count management for POE::Kernel
+POE::Resource::Extrefs - tagged "extra" ref. count management for POE::Kernel
 
 =head1 SYNOPSIS
 

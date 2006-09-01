@@ -32,3 +32,34 @@ sub initialize {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+POE::Resources - loader of POE resources
+
+=head1 SYNOPSIS
+
+  POE::Resources->initialize(); # intended to be used within the kernel
+
+=head1 DESCRIPTION
+
+Internally POE's kernel is split up into the different resources that it
+manages.  Each resource may be handled by a pure perl module, or by an
+XS module.  This module is used internally by the kernel to load the
+correct modules.
+
+For each resource type, initialize first tries to load C<POE::XS::Resource::*>
+and then falls back to C<POE::Resource::*>.
+
+=head1 SEE ALSO
+
+L<POE::Resource>
+
+=head1 AUTHORS & LICENSING
+
+Please see L<POE> for more information about its authors,
+contributors, and POE's licensing.
+
+=cut

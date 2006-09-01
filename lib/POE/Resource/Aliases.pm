@@ -3,7 +3,7 @@
 # Manage the POE::Kernel data structures necessary to keep track of
 # session aliases.
 
-package POE::Resources::Aliases;
+package POE::Resource::Aliases;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
@@ -138,7 +138,7 @@ __END__
 
 =head1 NAME
 
-POE::Resources::Aliases - manage session aliases for POE::Kernel
+POE::Resource::Aliases - manage session aliases for POE::Kernel
 
 =head1 SYNOPSIS
 

@@ -1,6 +1,6 @@
 # $Id$
 
-package POE::Resources::Controls;
+package POE::Resource::Controls;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};

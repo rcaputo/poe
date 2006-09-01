@@ -2,7 +2,7 @@
 
 # Manage session data structures on behalf of POE::Kernel.
 
-package POE::Resources::Sessions;
+package POE::Resource::Sessions;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
@@ -527,7 +527,7 @@ __END__
 
 =head1 NAME
 
-POE::Resources::Sessions - manage session data structures for POE::Kernel
+POE::Resource::Sessions - manage session data structures for POE::Kernel
 
 =head1 SYNOPSIS
 

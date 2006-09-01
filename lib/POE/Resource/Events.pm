@@ -2,7 +2,7 @@
 
 # Data and accessors to manage POE's events.
 
-package POE::Resources::Events;
+package POE::Resource::Events;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
@@ -281,7 +281,7 @@ __END__
 
 =head1 NAME
 
-POE::Resources::Events - manage events for POE::Kernel
+POE::Resource::Events - manage events for POE::Kernel
 
 =head1 SYNOPSIS
 

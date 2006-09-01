@@ -5,7 +5,7 @@
 # None of this stuff will activate unless TRACE_STATISTICS or
 # TRACE_PROFILE are enabled.
 
-package POE::Resources::Statistics;
+package POE::Resource::Statistics;
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
