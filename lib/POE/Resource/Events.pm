@@ -233,7 +233,8 @@ sub _data_ev_dispatch_due {
   }
 
   my $now = time();
-  while (defined(my $next_time = $kr_queue->get_next_priority())) {
+  my $next_time;
+  while (defined($next_time = $kr_queue->get_next_priority())) {
     last if $next_time > $now;
 
     my ($due_time, $id, $event) = $kr_queue->dequeue_next();
@@ -270,6 +271,8 @@ sub _data_ev_dispatch_due {
       die $exception;
     }
   }
+
+  $self->loop_reset_time_watcher($next_time);
 }
 
 1;

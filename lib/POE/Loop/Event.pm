@@ -146,17 +146,20 @@ sub loop_attach_uidestroy {
 
 sub loop_resume_time_watcher {
   my ($self, $next_time) = @_;
+  ($_watcher_timer and $next_time) or return;
   $_watcher_timer->at($next_time);
   $_watcher_timer->start();
 }
 
 sub loop_reset_time_watcher {
   my ($self, $next_time) = @_;
+  $_watcher_timer or return;
   $self->loop_pause_time_watcher();
   $self->loop_resume_time_watcher($next_time);
 }
 
 sub loop_pause_time_watcher {
+  $_watcher_timer or return;
   $_watcher_timer->stop();
 }
 
@@ -229,24 +232,6 @@ sub _loop_event_callback {
   $self->_data_ev_dispatch_due();
   $self->_test_if_kernel_is_idle();
 
-  # Register the next timed callback if there are events left.
-
-  my $next_time = $self->get_next_event_time();
-  if (defined $next_time) {
-    $_watcher_timer->at($next_time);
-    $_watcher_timer->start();
-
-    # POE::Kernel's signal polling loop always keeps oe event in the
-    # queue.  We test for an idle kernel if the queue holds only one
-    # event.  A more generic method would be to keep counts of user
-    # vs. kernel events, and GC the kernel when the user events drop
-    # to 0.
-
-    if ($self->_data_ses_count() == 1) {
-      $self->_test_if_kernel_is_idle();
-    }
-  }
-
   # Transferring control back to Event; this is idle time.
   $last_time = time() if TRACE_STATISTICS;
 }
@@ -292,6 +277,7 @@ sub loop_run {
 
 sub loop_halt {
   $_watcher_timer->stop();
+  $_watcher_timer = undef;
   Event::unloop_all(0);
 }
 

@@ -23,7 +23,7 @@ use strict;
 use Tk qw(DoOneEvent DONT_WAIT ALL_EVENTS);
 
 my $_watcher_time;
-my $_do_one_running = 0;
+my $_waiting_for_event = 0;
 
 #------------------------------------------------------------------------------
 # Signal handler maintenance functions.
@@ -42,7 +42,7 @@ sub loop_attach_uidestroy {
         );
 
         # Flag the main loop as done.
-        $_do_one_running = 0;
+        $_waiting_for_event = 0;
       }
     }
   );
@@ -53,18 +53,13 @@ sub loop_attach_uidestroy {
 
 sub loop_resume_time_watcher {
   my ($self, $next_time) = @_;
-
   $self->loop_pause_time_watcher();
-
   my $timeout = $next_time - time();
-  if ($timeout < 0) {
-    $_do_one_running = 0;
-    return;
-  }
 
-  $_do_one_running = 1;
+  return if $timeout < 0;
+  $_waiting_for_event = 1;
   $_watcher_time = $poe_main_window->after(
-    $timeout * 1000, [ sub { $_do_one_running = 0 } ]
+    $timeout * 1000, [ sub { $_waiting_for_event = 0 } ]
   );
 }
 
@@ -79,6 +74,7 @@ sub loop_pause_time_watcher {
     $_watcher_time->cancel();
     $_watcher_time = undef;
   }
+    $_waiting_for_event = 0;
 }
 
 # TODO - Ton Hospel's Tk event loop doesn't mix alarms and immediate
@@ -140,18 +136,19 @@ sub loop_do_timeslice {
 
   # Check for a hung kernel.
   $self->_test_if_kernel_is_idle();
-
   my $now;
   $now = time() if TRACE_STATISTICS;
 
+  # Idle until the next POE event is due.  Process at least one event
+  # to update the waiting flag, then block until a POE event is ready.
   DoOneEvent(DONT_WAIT | ALL_EVENTS);
-  while ($_do_one_running) {
+  while ($_waiting_for_event) {
     DoOneEvent(ALL_EVENTS);
   }
 
   $self->_data_stat_add('idle_seconds', time() - $now) if TRACE_STATISTICS;
 
-  # Dispatch whatever events are due.
+  # Dispatch whatever events are due.  Update the next dispatch time.
   $self->_data_ev_dispatch_due();
 }
 
