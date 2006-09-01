@@ -45,12 +45,13 @@ sub MY_SOCKET_SELECTED () { 12 }
 
 # Provide dummy constants for systems that don't have them.
 BEGIN {
-  if (eval { require Socket6 }) {
-    Socket6->import();
-  }
-  else {
-    eval "*Socket6::AF_INET6 = sub () { ~0 }";
-    eval "*Socket6::PF_INET6 = sub () { ~0 }";
+  eval {
+    require Socket6;
+    my $x = &Socket6::AF_INET6;
+  };
+  if ($@) {
+    *Socket6::AF_INET6 = sub () { ~0 };
+    *Socket6::PF_INET6 = sub () { ~0 };
   }
 }
 
