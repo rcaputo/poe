@@ -15,8 +15,11 @@ use Test::More;
 
 BEGIN {
   my $error;
-  if ($^O eq "MSWin32" and !-t STDIN ) {
-	$error = "$^O not running on terminal";
+  if ($^O eq "MSWin32") {
+    $error = "$^O cannot multiplex terminals";
+  }
+  elsif (!-t STDIN ) {
+    $error = "not running in a terminal";
   }
 
   if ($error) {
