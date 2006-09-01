@@ -1491,7 +1491,8 @@ task.  The actual values aren't yet defined.  Note: This is not
 necessarily a function name.
 
 C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
-respectively.
+respectively.  C<"$!"> will eq C<""> for read error 0 (child process
+closed STDOUT or STDERR).
 
 C<ARG3> contains the wheel's unique ID.
 
@@ -1505,6 +1506,7 @@ A sample error event handler:
 
   sub error_state {
     my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
+    $errstr = "remote end closed" if $operation eq "read" and !$errnum;
     warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
   }
 
