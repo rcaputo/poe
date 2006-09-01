@@ -13,6 +13,10 @@ use Symbol qw(gensym);
 use POE qw( Wheel );
 use POSIX ();
 
+if ($^O eq "MSWin32") {
+  die "$^O cannot run " . __PACKAGE__;
+}
+
 # Things we'll need to interact with the terminal.
 use Term::Cap ();
 use Term::ReadKey qw( ReadKey ReadMode GetTerminalSize );
@@ -691,18 +695,10 @@ sub build_search_prompt {
 sub global_init {
   return if $initialised;
 
-  # Some platforms don't define this constant.
-  unless (defined \&POSIX::B38400) {
-    eval "sub POSIX::B38400 () { 0 }";
-  }
-
   # Get the terminal speed for Term::Cap.
-  $ospeed = POSIX::B38400();
-  eval {
-    $termios = POSIX::Termios->new();
-    $termios->getattr();
-    $ospeed = $termios->getospeed() || POSIX::B38400();
-  };
+  $termios = POSIX::Termios->new();
+  $termios->getattr();
+  $ospeed = $termios->getospeed() || eval { POSIX::B38400() } || 0;
 
   # Get the current terminal's capabilities.
   $term = $ENV{TERM} || 'vt100';
