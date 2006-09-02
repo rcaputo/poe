@@ -18,8 +18,12 @@ BEGIN {
   if ($^O eq "MSWin32") {
     $error = "$^O cannot multiplex terminals";
   }
-  elsif (!-t STDIN ) {
+  elsif (!-t STDIN) {
     $error = "not running in a terminal";
+  }
+  else {
+    eval "use Term::ReadKey";
+    $error = "This test requires Term::ReadKey" if $@;
   }
 
   if ($error) {
