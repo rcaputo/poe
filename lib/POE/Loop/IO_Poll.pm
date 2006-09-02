@@ -298,6 +298,7 @@ sub loop_do_timeslice {
 
         # This is where they're gathered.
 
+        my (@rd_ready, @wr_ready, @ex_ready);
         while (@filenos) {
           my ($fd, $got_mask) = splice(@filenos, 0, 2);
           next unless $got_mask;
@@ -311,7 +312,7 @@ sub loop_do_timeslice {
               POE::Kernel::_warn "<fh> enqueuing read for fileno $fd";
             }
 
-            $self->_data_handle_enqueue_ready(MODE_RD, $fd);
+            push @rd_ready, $fd;
           }
 
           if ( $watch_mask & POLLWRNORM and
@@ -321,7 +322,7 @@ sub loop_do_timeslice {
               POE::Kernel::_warn "<fh> enqueuing write for fileno $fd";
             }
 
-            $self->_data_handle_enqueue_ready(MODE_WR, $fd);
+            push @wr_ready, $fd;
           }
 
           if ( $watch_mask & POLLRDBAND and
@@ -331,9 +332,13 @@ sub loop_do_timeslice {
               POE::Kernel::_warn "<fh> enqueuing expedite for fileno $fd";
             }
 
-            $self->_data_handle_enqueue_ready(MODE_EX, $fd);
+            push @ex_ready, $fd;
           }
         }
+
+        @rd_ready and $self->_data_handle_enqueue_ready(MODE_RD, @rd_ready);
+        @wr_ready and $self->_data_handle_enqueue_ready(MODE_WR, @wr_ready);
+        @ex_ready and $self->_data_handle_enqueue_ready(MODE_EX, @ex_ready);
       }
     }
 
