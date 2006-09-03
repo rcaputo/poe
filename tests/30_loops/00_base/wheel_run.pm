@@ -285,6 +285,10 @@ sub main_start {
 my $x__ = 0;
 sub main_stop {
   my $heap = $_[HEAP];
+  # Callback timing is different for Gtk.
+  $heap->{flushes_expected}++ if (
+    exists $INC{'Gtk.pm'} and $heap->{label} eq 'string/pause_resume'
+  );
   is( $heap->{flushes}, $heap->{flushes_expected},
     "$heap->{label} flush count ($$)" )
     unless $heap->{ignore_flushes};
