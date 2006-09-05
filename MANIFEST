@@ -106,7 +106,9 @@ tests/10_units/03_base/11_assert_usage.t
 tests/10_units/03_base/12_assert_retval.t
 tests/10_units/03_base/13_assert_data.t
 tests/10_units/03_base/14_kernel.t
-tests/10_units/03_base/14_kernel_internal.t
+tests/10_units/03_base/15_kernel_internal.t
+tests/10_units/03_base/16_explicit_loop.t
+tests/10_units/03_base/17_explicit_loop_fail.t
 tests/10_units/04_drivers/01_sysrw.t
 tests/10_units/05_filters/01_block.t
 tests/10_units/05_filters/02_grep.t
