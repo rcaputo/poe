@@ -48,7 +48,7 @@ sub import {
     if ($@) {
       warn $@;
       push @failed, "Kernel"
-    };
+    }
   }
 
   # Load all the others.
