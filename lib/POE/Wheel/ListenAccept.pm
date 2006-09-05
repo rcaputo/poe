@@ -162,6 +162,16 @@ about it.
 
 This wheel neither needs nor includes a put() method.
 
+=head1 CONSTRUCTOR
+
+=over
+
+=item new
+
+new() creates a new wheel, returning the wheels reference.
+
+=back
+
 =head1 PUBLIC METHODS
 
 =over 2

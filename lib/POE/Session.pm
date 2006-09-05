@@ -1657,6 +1657,8 @@ constant subroutine in C<POE::Kernel> to 0 like so:
 The signal handler will be passed a single argument, a hashref,
 containing the following data.
 
+=over 2
+
 =item source_session
 
 The session from which the event originated
@@ -1686,6 +1688,8 @@ The state that was called the problematci event
 
 The value of C<$@>, which contains the error string created by the
 exception.
+
+=back
 
 =head2 Session's Debugging Features
 

@@ -53,6 +53,16 @@ correct modules.
 For each resource type, initialize first tries to load C<POE::XS::Resource::*>
 and then falls back to C<POE::Resource::*>.
 
+=head1 METHODS
+
+=over
+
+=item initialize
+
+Used internally by the kernel.
+
+=back
+
 =head1 SEE ALSO
 
 L<POE::Resource>

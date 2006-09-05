@@ -451,9 +451,15 @@ with as little work as possible.
 
 =head1 Constructor Parameters
 
+=over
+
+=item new
+
 The new() method can accept quite a lot of parameters.  It will return
 the session ID of the accecptor session.  One must use callbacks to 
 check for errors rather than the return value of new().
+
+=back
 
 =over 2
 

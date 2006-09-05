@@ -1453,6 +1453,12 @@ tend to be reluctant to exit when their terminals are closed.
 
 The kill() method will send SIGTERM if SIGNAL is undef or omitted.
 
+=item get_driver_out_messages
+
+=item get_driver_out_octets
+
+Return driver statistics.
+
 =back
 
 =head1 EVENTS AND PARAMETERS

@@ -92,7 +92,7 @@ sub get {
     }
 
     return [
-      $self->build_error(
+      $self->_build_error(
         RC_BAD_REQUEST,
         "Did not want any more data.  Got this:" .
         "<p><pre>" . join("", @dump) . "</pre></p>"
@@ -157,7 +157,7 @@ sub get {
   # Parse the request line.
   if ($buf !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
     return [
-      $self->build_error(RC_BAD_REQUEST, "Request line parse failure.")
+      $self->_build_error(RC_BAD_REQUEST, "Request line parse failure.")
     ];
   }
   my $proto = $3 || "HTTP/0.9";
@@ -215,7 +215,7 @@ sub get {
   unless(defined $cl) {
     if($self->[CLIENT_PROTO] == 9) {
       return [
-        $self->build_error(
+        $self->_build_error(
           RC_BAD_REQUEST,
           "POST request detected in an HTTP 0.9 transaction. " .
           "POST is not a valid HTTP 0.9 transaction type. " .
@@ -232,14 +232,14 @@ sub get {
     }
     else {
       return [
-        $self->build_error(RC_LENGTH_REQUIRED, "No content length found.")
+        $self->_build_error(RC_LENGTH_REQUIRED, "No content length found.")
       ];
     }
   }
 
   unless ($cl =~ /^\d+$/) {
     return [
-      $self->build_error(
+      $self->_build_error(
         RC_BAD_REQUEST,
         "Content length contains non-digits."
       )
@@ -321,7 +321,7 @@ sub _http_version {
 # Build a basic response, given a status, a content type, and some
 # content.
 
-sub build_basic_response {
+sub _build_basic_response {
   my ($self, $content, $content_type, $status) = @_;
 
   # Need to check lengths in octets, not characters.
@@ -339,14 +339,14 @@ sub build_basic_response {
   return $response;
 }
 
-sub build_error {
+sub _build_error {
   my($self, $status, $details) = @_;
 
   $status  ||= RC_BAD_REQUEST;
   $details ||= '';
   my $message = status_message($status) || "Unknown Error";
 
-  return $self->build_basic_response(
+  return $self->_build_basic_response(
     ( "<html>" .
       "<head>" .
       "<title>Error $status: $message</title>" .

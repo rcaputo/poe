@@ -111,7 +111,7 @@ my %default_socket_type = (
 # Perform system-dependent translations on Unix addresses, if
 # necessary.
 
-sub condition_unix_address {
+sub _condition_unix_address {
   my ($address) = @_;
 
   # OS/2 would like sockets to use backwhacks, and please place them
@@ -827,7 +827,7 @@ sub new {
         return $self;
       }
 
-      $bind_address = &condition_unix_address($params{BindAddress});
+      $bind_address = &_condition_unix_address($params{BindAddress});
       $bind_address = pack_sockaddr_un($bind_address);
       unless ($bind_address) {
         $poe_kernel->yield(
@@ -954,7 +954,7 @@ sub new {
     # understands.
     elsif ($abstract_domain eq DOM_UNIX) {
 
-      $connect_address = condition_unix_address($params{RemoteAddress});
+      $connect_address = _condition_unix_address($params{RemoteAddress});
       $connect_address = pack_sockaddr_un($connect_address);
       unless (defined $connect_address) {
         $poe_kernel->yield(

@@ -226,16 +226,17 @@ components do not need to know there are multiple filters.
 
 =over 4
 
-=item *
-
-POE::Filter::Stackable::new( ... )
+=item new
 
 The new() method creates the Stackable filter.  It accepts an optional
 parameter "Filters" that specifies an arrayref of initial filters.  If
 no filters are given, Stackable will pass data through unchanged; this
 is true if there are no filters present at any time.
 
-=item *
+=item pop
+=item shift
+=item push
+=item unshift
 
 POE::Filter::Stackable::pop()
 POE::Filter::Stackable::shift()
@@ -246,17 +247,13 @@ These methods all function identically to the perl builtin functions
 of the same name.  push() and unshift() will return the new number of
 filters inside the Stackable filter.
 
-=item *
-
-POE::Filter::Stackable::filter_types
+=item filter_types
 
 The filter_types() method returns a list of types for the filters
 inside the Stackable filter, in order from near to far; for example,
 qw(Block HTTPD).
 
-=item *
-
-POE::Filter::Stackable::filters
+=item filters
 
 The filters() method returns a list of the objects inside the
 Stackable filter, in order from near to far.

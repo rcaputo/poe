@@ -630,12 +630,18 @@ difficult.  A tutorial at http://poe.perl.org/ describes how.
 
 =head1 CONSTRUCTOR PARAMETERS
 
+=over
+
+=item new
+
 The new() method can accept quite a lot of parameters.  It will return
 the session ID of the accecptor session.  One must use callbacks to
 check for errors rather than the return value of new().
 
 POE::Component::Server::TCP supplies common defaults for most
 callbacks and handlers.
+
+=back
 
 =over 2
 

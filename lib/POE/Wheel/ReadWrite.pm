@@ -701,6 +701,16 @@ ReadWrite performs buffered, select-based I/O on filehandles.  It
 generates events for common file conditions, such as when data has
 been read or flushed.
 
+=head1 CONSTRUCTOR
+
+=over
+
+=item new
+
+new() creates a new wheel, returning the wheels reference.
+
+=back
+
 =head1 PUBLIC METHODS
 
 =over 2
@@ -794,6 +804,12 @@ filehandle for data.
 Some applications require the remote end to shut down a socket before
 they will continue.  These methods map directly to shutdown() for the
 wheel's input and output sockets.
+
+=item get_driver_out_octets
+
+=item get_driver_out_messages
+
+Return driver statistics.
 
 =back
 

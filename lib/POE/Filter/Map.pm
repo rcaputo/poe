@@ -139,7 +139,7 @@ the C<map> builtin function.
 
 =over 4
 
-=item *
+=item modify
 
 POE::Filter::Map::modify
 

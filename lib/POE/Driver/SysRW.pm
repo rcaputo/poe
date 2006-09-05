@@ -210,6 +210,40 @@ consumption with corresponding throughput penalties.
 
   my $driver = POE::Driver::SysRW->new;
 
+=item get FILEHANDLE
+
+get() immediately tries to read information from a filehandle.  It
+returns a reference to an array containing whatever it managed to
+read, or an empty array if nothing could be read.  It returns undef on
+error, and $! will be set.
+
+The arrayref get() returns is suitable for passing to any
+POE::Filter's get() method.  This is exactly what the ReadWrite wheel
+does with it.
+
+=item put ARRAYREF
+
+put() places raw data chunks into the driver's output queue.  it
+accepts a reference to a list of raw data chunks, and it returns the
+number of octets remaining in its output queue.
+
+Some drivers may flush data immediately from their put() methods.
+
+=item flush FILEHANDLE
+
+flush() attempts to flush some data from the driver's output queue to
+the FILEHANDLE.  It returns the number of octets remaining in the
+output queue after the flush attempt.
+
+flush() does the physical write, counterpoint to get's read.  If
+flush() fails for any reason, $! will be set with the reason for its
+failure.  Otherwise $! will be zero.
+
+=item get_out_messages_buffered
+
+This data accessor returns the number of messages in the driver's
+output queue.  Partial messages are counted as whole ones.
+
 =back
 
 =head1 DESIGN NOTES

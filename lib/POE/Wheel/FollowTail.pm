@@ -528,6 +528,16 @@ appended to its file.
 
 This is a read-only wheel so it does not include a put() method.
 
+=head1 CONSTRUCTOR
+
+=over 
+
+=item new
+
+new() creates a new wheel, returning the wheels reference.
+
+=back
+
 =head1 PUBLIC METHODS
 
 =over 2

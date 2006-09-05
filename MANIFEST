@@ -88,6 +88,8 @@ samples/thrash.perl
 samples/watermarks.perl
 samples/wheels2.perl
 test.pl
+tests/00_pod_tests/01_pod.t
+tests/00_pod_tests/02_pod_coverage.t
 tests/10_units/02_pipes/01_base.t
 tests/10_units/02_pipes/02_oneway.t
 tests/10_units/02_pipes/03_twoway.t

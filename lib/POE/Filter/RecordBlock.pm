@@ -165,7 +165,7 @@ block.
 
 =over 4
 
-=item *
+=item new
 
 POE::Filter::RecordBlock::new
 
@@ -176,21 +176,21 @@ blocksize checking is turned on.  Note that if this is the case,
 flushing pending records to be put is your responsibility (see
 put_pending()).
 
-=item *
+=item put_pending
 
 POE::Filter::RecordBlock::put_pending
 
 The put_pending() method returns an arrayref of any records that are
 waiting to be sent.
 
-=item *
+=item blocksize
 
 POE::Filter::RecordBlock::blocksize
 
 The blocksize() method takes one optional parameter, the new blocksize.
 It returns the current blocksize.
 
-=item *
+=item checkput
 
 POE::Filter::RecordBlock::checkput
 

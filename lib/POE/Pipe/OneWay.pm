@@ -165,6 +165,16 @@ So anyway, the syntax is pretty easy:
 
 And now you have a pipe with a read side and a write side.
 
+=head1 CONSTRUCTOR
+
+=over 
+
+=item new
+
+  my ($read, $write) = POE::Pipe::OneWay->new();
+
+=back
+
 =head1 DEBUGGING
 
 It's possible to force POE::Pipe::OneWay to use one of its underlying

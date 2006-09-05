@@ -135,7 +135,7 @@ the C<grep> builtin function.
 
 =over 4
 
-=item *
+=item modify
 
 POE::Filter::Grep::modify
 

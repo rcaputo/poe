@@ -185,6 +185,16 @@ And now you have an unbuffered pipe with two read/write sides, A and
 B.  Writing to C<$a_write> passes data to C<$b_read>, and writing to
 C<$b_write> passes data to C<$a_read>.
 
+=head1 CONSTRUCTOR
+
+=over
+
+=item new
+
+  my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new();
+
+=back
+
 =head1 DEBUGGING
 
 It's possible to force POE::Pipe::TwoWay to use one of its underlying
