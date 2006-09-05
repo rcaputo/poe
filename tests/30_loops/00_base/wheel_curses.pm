@@ -6,7 +6,6 @@
 use strict;
 use lib qw(./mylib ../mylib);
 
-sub DEBUG () { 0 }
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 #sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 #sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
@@ -50,6 +49,7 @@ BEGIN {
 }
 
 BEGIN {
+  plan skip_all => "Need help with Curses functions blocking under ptys";
   plan tests => 5;
   use_ok('POE');
   use_ok('POE::Wheel::Curses');
@@ -111,8 +111,7 @@ sub test_keystroke {
 
   $heap->{child_input} .= $input;
   if ($heap->{child_input} =~ /!/) {
-    close STDOUT;
-    delete $heap->{curses};
+    delete $heap->{curses}; }
     delete $heap->{readwrite};
     ok( $heap->{child_input} eq "this is a test!", "got keystrokes" );
   }

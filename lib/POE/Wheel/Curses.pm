@@ -61,7 +61,7 @@ sub new {
   timeout(0);
 
   keypad(1);
-  # intrflush(0);
+  intrflush(0);
   meta(1);
   typeahead(-1);
 
