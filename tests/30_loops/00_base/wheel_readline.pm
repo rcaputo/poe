@@ -15,23 +15,84 @@ sub DEBUG () { 0 }
 # that contain text to "type" in a particular order, and a "done" line
 # that should contain the final input from Wheel::ReadLine.
 
-my $enter = "\012";
-my $bs    = "\010";
-
 my @tests = (
   {
     name => "plain typing",
     step => [
-      "this is a test$enter",
+      "this is a test",  # plain typing
+      "\cJ",            # accept-line
     ],
     done => "this is a test",
   },
   {
     name => "backspace",
     step => [
-      "this is a test$bs$bs$bs${bs}TEST$enter",
+      "this is a test",
+      "\cH\cH\cH\cH",    # backward-delete-char
+      "TEST",
+      "\cA",            # beginning-of-line
+      "\cA",            # beginning-of-line (fail)
+      "\cD",            # delete-char
+      "T",
+      "\cJ",
     ],
-    done => "this is a TEST",
+    done => "This is a TEST",
+  },
+  {
+    name => "forward/backward",
+    step => [
+      "one three five",
+      "\cA",            # beginning-of-line
+      "\cB",            # backward-char (fail)
+      "\cF\cF\cF two",  # forward-char
+      "\cE",            # end-of-line
+      "\cE",            # end-of-line (fail)
+      "\cD",            # delete-char (fail)
+      "\cB\cB\cB\cB",   # backward-char
+      "four \cJ",
+    ],
+    done => "one two three four five",
+  },
+  {
+    name => "delete words",
+    step => [
+      "one two three",
+      "\ed",            # kill-word (fail)
+      "\e\cH",          # backward-kill-word
+      "four",
+      "\cA",
+      "\e\cH",          # backward-kill-word (fail)
+      "\ed",            # kill-word
+      "\cJ",
+    ],
+    done => "two four",
+  },
+  {
+    name => "case changes",
+    step => [
+      "LOWER upper other",
+      "\cA\cF\cF\cF",
+      "\el",            # downcase-word
+      "\ef",            # forward-word
+      "\eb",            # backward-word
+      "\cF\cF\cF",
+      "\eu",            # upcase-word
+      "\ec",            # capitalize-word
+      "\cJ",
+    ],
+    done => "LOWer uppER Other",
+  },
+  {
+    name => "transpose",
+    step => [
+      "one two 12",
+      "\cb",
+      "\cT",            # transpose-chars
+      "\eb\eb",
+      "\et",            # transpose-words
+      "\cJ",
+    ],
+    done => "two one 21",
   },
 );
 
@@ -204,7 +265,7 @@ sub test_readline_input {
     fail("$name - got test input prematurely");
   }
   else {
-    ok( $test->{done} eq $input, $name );
+    is( $input, $test->{done}, $name );
   }
 
   $kernel->yield("start_next_test");
@@ -216,6 +277,7 @@ sub test_start_next {
   if (@tests) {
     $heap->{test} = shift @tests;
     $kernel->yield("step_this_test");
+    $heap->{readline}->get("next step");
     return;
   }
 
@@ -230,19 +292,80 @@ sub test_step {
   my $next_step = shift @{$heap->{test}{step}};
   unless ($next_step) {
     DEBUG and warn "$heap->{test}{name} - done with test\n";
-    $kernel->yield("start_next_test");
     return;
   }
 
   if (DEBUG) {
     my $output_next_step = $next_step;
-    $output_next_step =~ s/$bs/{BS}/g;
-    $output_next_step =~ s/$enter/{ENTER}/g;
+    $output_next_step =~ s/[\x00-\x1F\x7F]/./g;
     warn "$heap->{test}{name} - typing ($output_next_step)\n";
   }
 
-  $heap->{readline}->get("next step");
   $heap->{readwrite}->put($next_step);
+  $kernel->yield("step_this_test");
 }
 
 1;
+
+__END__
+
+TODO: These are emacs key bindings for things we haven't yet tested.
+
+C-]: character-search
+C-_: undo
+C-c: interrupt
+C-g: abort
+C-i: complete
+C-k: kill-line
+C-l: clear-screen
+C-n: next-history
+C-p: previous-history
+C-q: poe-wheel-debug
+C-r: reverse-search-history
+C-s: forward-search-history
+C-u: unix-line-discard
+C-v: quoted-insert
+C-w: unix-word-rubout
+C-xC-g: abort
+C-xC-r: re-read-init-file
+C-xDel: backward-kill-line
+C-xk: dump-key
+C-xm: dump-macros
+C-xv: dump-variables
+C-y: yank
+M-#: insert-comment
+M-&: tilde-expand
+M-*: insert-completions
+M--: digit-argument
+M-.: yank-last-arg
+M-0: digit-argument
+M-1: digit-argument
+M-2: digit-argument
+M-3: digit-argument
+M-4: digit-argument
+M-5: digit-argument
+M-6: digit-argument
+M-7: digit-argument
+M-8: digit-argument
+M-9: digit-argument
+M-<: beginning-of-history
+M->: end-of-history
+M-?: possible-completions
+M-C-[: complete
+M-C-]: character-search-backward
+M-C-g: abort
+M-C-i: tab-insert
+M-C-j: vi-editing-mode
+M-C-r: revert-line
+M-C-y: yank-nth-arg
+M-\: delete-horizontal-space
+M-_: yank-last-arg
+M-n: non-incremental-forward-search-history
+M-p: non-incremental-reverse-search-history
+M-r: revert-line
+M-space: set-mark
+M-y: yank-pop
+M-~: tilde-expand
+down: next-history
+ins: overwrite-mode
+up: previous-history
