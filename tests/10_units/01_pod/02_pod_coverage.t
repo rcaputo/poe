@@ -15,7 +15,8 @@ my %special = ( 'POE' => 0,
 		'POE::Component' => 0,
 		'POE::Loop' => 0,
 		'POE::Resource' => 0,
-		'POE::Wheel::ReadLine' => 0,
+		'POE::Wheel::ReadLine' => { also_private => [ qr/^[A-Z0-9_]+$/, qr/^rl_/, qr/^(idle_state|read_state|option|search)$/, ],
+	       				    coverage_class => 'Pod::Coverage::CountParents' },
 );
 
 my @modules = all_modules();

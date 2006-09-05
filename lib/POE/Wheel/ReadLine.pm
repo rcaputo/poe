@@ -100,7 +100,7 @@ my $tc_left = undef;
 my $trk_cols = undef;
 my $trk_rows = undef;
 
-sub curs_left {
+sub _curs_left {
   my $amount = shift;
 
   if ($tc_left eq "LE") {
@@ -504,7 +504,7 @@ INPUTRC
 #------------------------------------------------------------------------------
 # Helper functions.
 
-sub vislength {
+sub _vislength {
   return 0 unless $_[0];
   my $len = length($_[0]);
   while ($_[0] =~ m{(\\\[.*?\\\])}g) {
@@ -514,23 +514,23 @@ sub vislength {
 }
 
 # Wipe the current input line.
-sub wipe_input_line {
+sub _wipe_input_line {
   my ($self) = shift;
 
   # Clear the current prompt and input, and home the cursor.
-  curs_left( $self->[SELF_CURSOR_DISPLAY] + vislength($self->[SELF_PROMPT]));
+  _curs_left( $self->[SELF_CURSOR_DISPLAY] + _vislength($self->[SELF_PROMPT]));
 
   if ( $tc_has_ce ) {
     print $stdout $termcap->Tputs( 'ce', 1 );
   } else {
-    my $wlen = vislength($self->[SELF_PROMPT]) + display_width($self->[SELF_INPUT]);
+    my $wlen = _vislength($self->[SELF_PROMPT]) + _display_width($self->[SELF_INPUT]);
     print $stdout ( ' ' x $wlen);
-    curs_left($wlen);
+    _curs_left($wlen);
   }
 }
 
 # Helper to flush any buffered output.
-sub flush_output_buffer {
+sub _flush_output_buffer {
   my ($self) = shift;
 
   # Flush anything buffered.
@@ -544,33 +544,33 @@ sub flush_output_buffer {
 }
 
 # Set up the prompt and input line like nothing happened.
-sub repaint_input_line {
+sub _repaint_input_line {
   my ($self) = shift;
   my $sp = $self->[SELF_PROMPT];
   $sp =~ s{\\[\[\]]}{}g;
-  print $stdout $sp, normalize($self->[SELF_INPUT]);
+  print $stdout $sp, _normalize($self->[SELF_INPUT]);
 
   if ( $self->[SELF_CURSOR_INPUT] != length( $self->[SELF_INPUT]) ) {
-    curs_left(
-      display_width($self->[SELF_INPUT]) - $self->[SELF_CURSOR_DISPLAY]
+    _curs_left(
+      _display_width($self->[SELF_INPUT]) - $self->[SELF_CURSOR_DISPLAY]
     );
   }
 }
 
-sub clear_to_end {
+sub _clear_to_end {
   my ($self) = @_;
   if (length $self->[SELF_INPUT]) {
     if ($tc_has_ce) {
       print $stdout $termcap->Tputs( 'ce', 1 );
     } else {
-      my $display_width = display_width($self->[SELF_INPUT]);
+      my $display_width = _display_width($self->[SELF_INPUT]);
       print $stdout ' ' x $display_width;
-      curs_left($display_width);
+      _curs_left($display_width);
     }
   }
 }
 
-sub delete_chars {
+sub _delete_chars {
   my ($self, $from, $howmany) = @_;
   # sanitize input
   if ($howmany < 0) {
@@ -583,16 +583,16 @@ sub delete_chars {
   }
 
   my $old = substr($self->[SELF_INPUT], $from, $howmany);
-  my $killed_width = display_width($old);
+  my $killed_width = _display_width($old);
   substr($self->[SELF_INPUT], $from, $howmany) = '';
   if ($self->[SELF_CURSOR_INPUT] > $from) {
-    my $newdisp = length(normalize(substr($self->[SELF_INPUT], 0, $from)));
-    curs_left($self->[SELF_CURSOR_DISPLAY] - $newdisp);
+    my $newdisp = length(_normalize(substr($self->[SELF_INPUT], 0, $from)));
+    _curs_left($self->[SELF_CURSOR_DISPLAY] - $newdisp);
     $self->[SELF_CURSOR_INPUT] = $from;
     $self->[SELF_CURSOR_DISPLAY] = $newdisp;
   }
 
-  my $normal_remaining = normalize(substr($self->[SELF_INPUT], $from));
+  my $normal_remaining = _normalize(substr($self->[SELF_INPUT], $from));
   print $stdout $normal_remaining;
   my $normal_remaining_length = length($normal_remaining);
 
@@ -603,7 +603,7 @@ sub delete_chars {
     $normal_remaining_length += $killed_width;
   }
 
-  curs_left($normal_remaining_length)
+  _curs_left($normal_remaining_length)
   if $normal_remaining_length;
 
   return $old;
@@ -612,8 +612,8 @@ sub delete_chars {
 sub search {
   my ($self, $rebuild) = @_;
   if ($rebuild) {
-    $self->wipe_input_line;
-    $self->build_search_prompt;
+    $self->_wipe_input_line;
+    $self->_build_search_prompt;
   }
   # find in history....
   my $found = 0;
@@ -633,20 +633,20 @@ sub search {
     last;
   }
   $self->rl_ding unless $found;
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
 }
 
 # Return a normalized version of a string.  This includes destroying
 # 8th-bit-set characters, turning them into strange multi-byte
 # sequences.  Apologies to everyone; please let me know of a portable
 # way to deal with this.
-sub normalize {
+sub _normalize {
   local $_ = shift;
   s/([^ -~])/$normalized_character{$1}/g;
   return $_;
 }
 
-sub readable_key {
+sub _readable_key {
   my ($raw_key) = @_;
   my @text = ();
   foreach my $l (split(//, $raw_key)) {
@@ -679,20 +679,20 @@ sub readable_key {
 # sometimes wider than the actual string because some characters are
 # represented on the terminal as multiple characters.
 
-sub display_width {
+sub _display_width {
   local $_ = shift;
   my $width = length;
   $width += $normalized_extra_width[ord] foreach (m/([\x00-\x1F\x7F-\xFF])/g);
   return $width;
 }
 
-sub build_search_prompt {
+sub _build_search_prompt {
   my ($self) = @_;
   $self->[SELF_PROMPT] = $self->[SELF_SEARCH_PROMPT];
   $self->[SELF_PROMPT] =~ s{%s}{$self->[SELF_SEARCH]};
 }
 
-sub global_init {
+sub _global_init {
   return if $initialised;
 
   # Get the terminal speed for Term::Cap.
@@ -855,7 +855,7 @@ sub new {
       [],           # SELF_UNDO
     ], $class;
 
-    global_init();
+    _global_init();
     $self->rl_re_read_init_file();
   }
 
@@ -920,9 +920,9 @@ sub idle_state {
   my ($self) = $_[OBJECT];
 
   if (@{$self->[SELF_PUT_BUFFER]}) {
-    $self->wipe_input_line;
-    $self->flush_output_buffer;
-    $self->repaint_input_line;
+    $self->_wipe_input_line;
+    $self->_flush_output_buffer;
+    $self->_repaint_input_line;
   }
 
   # No more timer.
@@ -955,7 +955,7 @@ sub read_state {
     # Build-multi character codes and make the keystroke printable.
     $self->[SELF_KEY_BUILD] .= $raw_key;
     $raw_key = $self->[SELF_KEY_BUILD];
-    my $key = normalize($raw_key);
+    my $key = _normalize($raw_key);
 
     if ($self->[SELF_PENDING_FN]) {
       my $old = $self->[SELF_INPUT];
@@ -990,13 +990,13 @@ sub read_state {
       ]
     );
     $self->[SELF_KEY_BUILD] = '';
-    $self->apply_key($key, $raw_key);
+    $self->_apply_key($key, $raw_key);
 
     pop(@{$self->[SELF_UNDO]}) if ($old eq $self->[SELF_INPUT]);
   }
 }
 
-sub apply_key {
+sub _apply_key {
   my ($self, $key, $raw_key) = @_;
   my $mapping = $self->[SELF_KEYMAP];
   my $fn = $mapping->{default};
@@ -1005,7 +1005,7 @@ sub apply_key {
     $fn = $mapping->{binding}->{$raw_key};
   }
 
-  # print "\r\ninvoking $fn for $key\r\n";$self->repaint_input_line;
+  # print "\r\ninvoking $fn for $key\r\n";$self->_repaint_input_line;
   if ($self->[SELF_COUNT] && !grep { $_ eq $fn } @fns_counting) {
     $self->[SELF_COUNT] = int($self->[SELF_COUNT]);
     $self->[SELF_COUNT] ||= 1;
@@ -1078,14 +1078,14 @@ sub put {
   ) {
 
     # Only clear the input line if we're reading input already
-    $self->wipe_input_line if ($self->[SELF_READING_LINE]);
+    $self->_wipe_input_line if ($self->[SELF_READING_LINE]);
 
     # Print the new stuff.
-    $self->flush_output_buffer;
+    $self->_flush_output_buffer;
     print $stdout @lines;
 
     # Only repaint the input if we're reading a line.
-    $self->repaint_input_line if ($self->[SELF_READING_LINE]);
+    $self->_repaint_input_line if ($self->[SELF_READING_LINE]);
 
     return;
   }
@@ -1185,7 +1185,7 @@ sub option {
   return $self->[SELF_OPTIONS]->{$arg};
 }
 
-sub init_keymap {
+sub _init_keymap {
   my ($self, $default, @names) = @_;
   my $name = $names[0];
   if (!exists $defuns->{$default}) {
@@ -1205,26 +1205,26 @@ sub init_keymap {
 sub rl_re_read_init_file {
   my ($self) = @_;
 
-  $self->init_keymap('self-insert', 'emacs');
-  $self->init_keymap('ding', 'vi-command', 'vi');
-  $self->init_keymap('self-insert', 'vi-insert');
+  $self->_init_keymap('self-insert', 'emacs');
+  $self->_init_keymap('ding', 'vi-command', 'vi');
+  $self->_init_keymap('self-insert', 'vi-insert');
 
   # searching
-  my $isearch = $self->init_keymap('search-finish', 'isearch');
-  my $vi_search = $self->init_keymap('search-finish', 'vi-search');
-  $self->parse_inputrc($search_inputrc);
+  my $isearch = $self->_init_keymap('search-finish', 'isearch');
+  my $vi_search = $self->_init_keymap('search-finish', 'vi-search');
+  $self->_parse_inputrc($search_inputrc);
 
   # A keymap to take the VI range specification commands
   # used by the -to commands (e.g. change-to, etc)
-  $self->init_keymap('vi-end-spec', 'vi-specification');
+  $self->_init_keymap('vi-end-spec', 'vi-specification');
 
-  $self->parse_inputrc($defaults_inputrc);
+  $self->_parse_inputrc($defaults_inputrc);
 
   $self->rl_set_keymap('vi');
-  $self->parse_inputrc($vi_inputrc);
+  $self->_parse_inputrc($vi_inputrc);
 
   $self->rl_set_keymap('emacs');
-  $self->parse_inputrc($emacs_inputrc);
+  $self->_parse_inputrc($emacs_inputrc);
 
   my $personal = exists $ENV{INPUTRC} ? $ENV{INPUTRC} : "$ENV{HOME}/.inputrc";
   foreach my $file ($personal) {
@@ -1233,7 +1233,7 @@ sub rl_re_read_init_file {
       local $/ = undef;
       $input = <IN>;
       close(IN);
-      $self->parse_inputrc($input);
+      $self->_parse_inputrc($input);
     }
   }
 
@@ -1256,7 +1256,7 @@ sub rl_re_read_init_file {
   }
 }
 
-sub parse_inputrc {
+sub _parse_inputrc {
   my ($self, $input, $depth) = @_;
   $depth ||= 0;
   my @cond = (); # allows us to nest conditionals.
@@ -1288,7 +1288,7 @@ sub parse_inputrc {
         if ($depth > 10) {
           print STDERR "WARNING: ignoring 'include $parms[1] directive, since we're too deep";
         } else {
-          $self->parse_inputrc($input, $depth+1);
+          $self->_parse_inputrc($input, $depth+1);
         }
       }
     } else {
@@ -1311,12 +1311,12 @@ sub parse_inputrc {
 }
 
 # take a key and output it in a form nice to read...
-sub dump_key_line {
+sub _dump_key_line {
   my ($self, $key, $raw_key) = @_;
   if (exists $self->[SELF_KEYMAP]->{prefix}->{$raw_key}) {
     $self->[SELF_PENDING_FN] = sub {
       my ($k, $rk) = @_;
-      $self->dump_key_line($key.$k, $raw_key.$rk);
+      $self->_dump_key_line($key.$k, $raw_key.$rk);
     };
     return;
   }
@@ -1329,8 +1329,8 @@ sub dump_key_line {
     $fn = "[coderef]";
   }
 
-  print "\x0D\x0A" . readable_key($raw_key) . ": " . $fn . "\x0D\x0A";
-  $self->repaint_input_line;
+  print "\x0D\x0A" . _readable_key($raw_key) . ": " . $fn . "\x0D\x0A";
+  $self->_repaint_input_line;
 }
 
 sub bind_key {
@@ -1370,15 +1370,15 @@ sub rl_self_insert {
   if ($self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
     if ($self->[SELF_INSERT_MODE]) {
       # Insert.
-      my $normal = normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]));
+      my $normal = _normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]));
       substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 0) = $raw_key;
       print $stdout $key, $normal;
       $self->[SELF_CURSOR_INPUT] += length($raw_key);
       $self->[SELF_CURSOR_DISPLAY] += length($key);
-      curs_left(length($normal));
+      _curs_left(length($normal));
     } else {
       # Overstrike.
-      my $replaced_width = display_width(
+      my $replaced_width = _display_width(
         substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], length($raw_key))
       );
       substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], length($raw_key)) = $raw_key;
@@ -1389,13 +1389,13 @@ sub rl_self_insert {
 
       # Expand or shrink the display if unequal replacement.
       if (length($key) != $replaced_width) {
-        my $rest = normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]));
+        my $rest = _normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]));
         # Erase trailing screen cruft if it's shorter.
         if (length($key) < $replaced_width) {
           $rest .= ' ' x ($replaced_width - length($key));
         }
         print $stdout $rest;
-        curs_left(length($rest));
+        _curs_left(length($rest));
       }
     }
   } else {
@@ -1420,7 +1420,7 @@ sub rl_insert_macro {
 sub rl_insert_comment {
   my ($self) = @_;
   my $comment = $self->option('comment-begin');
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   if ($self->[SELF_COUNT]) {
     if (substr($self->[SELF_INPUT], 0, length($comment)) eq $comment) {
       substr($self->[SELF_INPUT], 0, length($comment)) = "";
@@ -1431,21 +1431,21 @@ sub rl_insert_comment {
   } else {
     $self->[SELF_INPUT] = $comment . $self->[SELF_INPUT];
   }
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
   $self->rl_accept_line;
 }
 
 sub rl_revert_line {
   my ($self) = @_;
   return $self->rl_ding unless scalar @{$self->[SELF_UNDO]};
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   (
     $self->[SELF_INPUT],
     $self->[SELF_CURSOR_INPUT],
     $self->[SELF_CURSOR_DISPLAY]
   ) = @{$self->[SELF_UNDO]->[0]};
   $self->[SELF_UNDO] = [];
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
 }
 
 sub rl_yank_last_arg {
@@ -1483,7 +1483,7 @@ sub rl_yank_nth_arg {
 sub rl_dump_key {
   my ($self) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my ($k,$rk) = @_; $self->dump_key_line($k, $rk)
+    my ($k,$rk) = @_; $self->_dump_key_line($k, $rk)
   };
 }
 
@@ -1492,13 +1492,13 @@ sub rl_dump_macros {
   print $stdout "\x0D\x0A";
   my $c = 0;
   foreach my $macro (keys %{$self->[SELF_KEYMAP]->{macros}}) {
-    print $stdout '"' . normalize($macro) . "\": \"$self->[SELF_KEYMAP]->{macros}->{$macro}\"\x0D\x0A";
+    print $stdout '"' . _normalize($macro) . "\": \"$self->[SELF_KEYMAP]->{macros}->{$macro}\"\x0D\x0A";
     $c++;
   }
   if (!$c) {
     print "# no macros defined\x0D\x0A";
   }
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
 }
 
 sub rl_dump_variables {
@@ -1512,7 +1512,7 @@ sub rl_dump_variables {
   if (!$c) {
     print "# no variables defined\x0D\x0A";
   }
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
 }
 
 sub rl_set_mark {
@@ -1533,7 +1533,7 @@ sub rl_digit_argument {
 sub rl_beginning_of_line {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT]) {
-    curs_left($self->[SELF_CURSOR_DISPLAY]);
+    _curs_left($self->[SELF_CURSOR_DISPLAY]);
     $self->[SELF_CURSOR_DISPLAY] = $self->[SELF_CURSOR_INPUT] = 0;
   }
 }
@@ -1544,12 +1544,12 @@ sub rl_end_of_line {
   $max-- if ($self->[SELF_KEYMAP]->{name} =~ /vi/);
   if ($self->[SELF_CURSOR_INPUT] < $max) {
     my $right_string = substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]);
-    print normalize($right_string);
-    my $right = display_width($right_string);
+    print _normalize($right_string);
+    my $right = _display_width($right_string);
     if ($self->[SELF_KEYMAP]->{name} =~ /vi/) {
       $self->[SELF_CURSOR_DISPLAY] += $right - 1;
       $self->[SELF_CURSOR_INPUT] = length($self->[SELF_INPUT]) - 1;
-      curs_left(1);
+      _curs_left(1);
     } else {
       $self->[SELF_CURSOR_DISPLAY] += $right;
       $self->[SELF_CURSOR_INPUT] = length($self->[SELF_INPUT]);
@@ -1561,8 +1561,8 @@ sub rl_backward_char {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT]) {
     $self->[SELF_CURSOR_INPUT]--;
-    my $left = display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1));
-    curs_left($left);
+    my $left = _display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1));
+    _curs_left($left);
     $self->[SELF_CURSOR_DISPLAY] -= $left;
   }
   else {
@@ -1575,7 +1575,7 @@ sub rl_forward_char {
   my $max = length($self->[SELF_INPUT]);
   $max-- if ($self->[SELF_KEYMAP]->{name} =~ /vi/);
   if ($self->[SELF_CURSOR_INPUT] < $max) {
-    my $normal = normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1));
+    my $normal = _normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1));
     print $stdout $normal;
     $self->[SELF_CURSOR_INPUT]++;
     $self->[SELF_CURSOR_DISPLAY] += length($normal);
@@ -1588,8 +1588,8 @@ sub rl_forward_word {
   my ($self, $key) = @_;
   if (substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\W*\w+)/) {
     $self->[SELF_CURSOR_INPUT] += length($1);
-    my $right = display_width($1);
-    print normalize($1);
+    my $right = _display_width($1);
+    print _normalize($1);
     $self->[SELF_CURSOR_DISPLAY] += $right;
   } else {
     $self->rl_ding;
@@ -1600,8 +1600,8 @@ sub rl_backward_word {
   my ($self, $key) = @_;
   if (substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]) =~ /(\w+\W*)$/) {
     $self->[SELF_CURSOR_INPUT] -= length($1);
-    my $left = display_width($1);
-    curs_left($left);
+    my $left = _display_width($1);
+    _curs_left($left);
     $self->[SELF_CURSOR_DISPLAY] -= $left;
   } else {
     $self->rl_ding;
@@ -1612,7 +1612,7 @@ sub rl_backward_kill_word {
   my ($self) = @_;
   if ($self->[SELF_CURSOR_INPUT]) {
     substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]) =~ /(\w*\W*)$/;
-    my $kill = $self->delete_chars($self->[SELF_CURSOR_INPUT] - length($1), length($1));
+    my $kill = $self->_delete_chars($self->[SELF_CURSOR_INPUT] - length($1), length($1));
     push(@{$self->[SELF_KILL_RING]}, $kill);
   } else {
     $self->rl_ding;
@@ -1621,7 +1621,7 @@ sub rl_backward_kill_word {
 
 sub rl_kill_region {
   my ($self) = @_;
-  my $kill = $self->delete_chars($self->[SELF_CURSOR_INPUT], $self->[SELF_CURSOR_INPUT] - $self->[SELF_MARK]);
+  my $kill = $self->_delete_chars($self->[SELF_CURSOR_INPUT], $self->[SELF_CURSOR_INPUT] - $self->[SELF_MARK]);
   push(@{$self->[SELF_KILL_RING]}, $kill);
 }
 
@@ -1629,7 +1629,7 @@ sub rl_kill_word {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
     substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\W*\w*\W*)/;
-    my $kill = $self->delete_chars($self->[SELF_CURSOR_INPUT], length($1));
+    my $kill = $self->_delete_chars($self->[SELF_CURSOR_INPUT], length($1));
     push(@{$self->[SELF_KILL_RING]}, $kill);
   } else {
     $self->rl_ding;
@@ -1639,7 +1639,7 @@ sub rl_kill_word {
 sub rl_kill_line {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
-    my $kill = $self->delete_chars($self->[SELF_CURSOR_INPUT], length($self->[SELF_INPUT]) - $self->[SELF_CURSOR_INPUT]);
+    my $kill = $self->_delete_chars($self->[SELF_CURSOR_INPUT], length($self->[SELF_INPUT]) - $self->[SELF_CURSOR_INPUT]);
     push(@{$self->[SELF_KILL_RING]}, $kill);
   } else {
     $self->rl_ding;
@@ -1650,7 +1650,7 @@ sub rl_unix_word_rubout {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT]) {
     substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]) =~ /(\S*\s*)$/;
-    my $kill = $self->delete_chars($self->[SELF_CURSOR_INPUT] - length($1), length($1));
+    my $kill = $self->_delete_chars($self->[SELF_CURSOR_INPUT] - length($1), length($1));
     push(@{$self->[SELF_KILL_RING]}, $kill);
   } else {
     $self->rl_ding;
@@ -1665,7 +1665,7 @@ sub rl_delete_horizontal_space {
   my $right = length($1);
 
   if ($left + $right) {
-    $self->delete_chars($self->[SELF_CURSOR_INPUT] - $left, $left + $right);
+    $self->_delete_chars($self->[SELF_CURSOR_INPUT] - $left, $left + $right);
   } else {
     $self->rl_ding;
   }
@@ -1701,7 +1701,7 @@ sub rl_abort {
   );
   $self->[SELF_READING_LINE] = 0;
   $self->[SELF_HIST_INDEX] = @{$self->[SELF_HIST_LIST]};
-  $self->flush_output_buffer;
+  $self->_flush_output_buffer;
 }
 
 sub rl_interrupt {
@@ -1716,7 +1716,7 @@ sub rl_interrupt {
   $self->[SELF_READING_LINE] = 0;
   $self->[SELF_HIST_INDEX] = @{$self->[SELF_HIST_LIST]};
 
-  $self->flush_output_buffer;
+  $self->_flush_output_buffer;
 }
 
 # Delete a character.  On an empty line, it throws an
@@ -1737,12 +1737,12 @@ sub rl_delete_char {
     $self->[SELF_READING_LINE] = 0;
     $self->[SELF_HIST_INDEX] = @{$self->[SELF_HIST_LIST]};
 
-    $self->flush_output_buffer;
+    $self->_flush_output_buffer;
     return;
   }
 
   if ($self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
-    $self->delete_chars($self->[SELF_CURSOR_INPUT], 1);
+    $self->_delete_chars($self->[SELF_CURSOR_INPUT], 1);
   } else {
     $self->rl_ding;
   }
@@ -1751,7 +1751,7 @@ sub rl_delete_char {
 sub rl_backward_delete_char {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT]) {
-    $self->delete_chars($self->[SELF_CURSOR_INPUT]-1, 1);
+    $self->_delete_chars($self->[SELF_CURSOR_INPUT]-1, 1);
   } else {
     $self->rl_ding;
   }
@@ -1761,8 +1761,8 @@ sub rl_accept_line {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
     my $right_string = substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]);
-    print normalize($right_string);
-    my $right = display_width($right_string);
+    print _normalize($right_string);
+    my $right = _display_width($right_string);
     $self->[SELF_CURSOR_DISPLAY] += $right;
     $self->[SELF_CURSOR_INPUT] = length($self->[SELF_INPUT]);
   }
@@ -1778,7 +1778,7 @@ sub rl_accept_line {
   $poe_kernel->yield( $self->[SELF_EVENT_INPUT], $self->[SELF_INPUT], $self->[SELF_UNIQUE_ID] );
   $self->[SELF_READING_LINE] = 0;
   $self->[SELF_HIST_INDEX] = @{$self->[SELF_HIST_LIST]};
-  $self->flush_output_buffer;
+  $self->_flush_output_buffer;
   ReadMode('restore');
   ($trk_cols, $trk_rows) = GetTerminalSize($stdout);
   if ($self->[SELF_KEYMAP]->{name} =~ /vi/) {
@@ -1788,25 +1788,25 @@ sub rl_accept_line {
 
 sub rl_clear_screen {
   my ($self, $key) = @_;
-  my $left = display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]));
+  my $left = _display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]));
   $termcap->Tputs( 'cl', 1, $stdout );
   my $sp = $self->[SELF_PROMPT];
   $sp =~ s{\\[\[\]]}{}g;
-  print $stdout $sp, normalize($self->[SELF_INPUT]);
-  curs_left($left) if $left;
+  print $stdout $sp, _normalize($self->[SELF_INPUT]);
+  _curs_left($left) if $left;
 }
 
 sub rl_transpose_chars {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT] > 0 and $self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
-    my $width_left = display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT] - 1, 1));
+    my $width_left = _display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT] - 1, 1));
 
     my $transposition = reverse substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT] - 1, 2);
     substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT] - 1, 2) = $transposition;
 
-    curs_left($width_left);
-    print $stdout normalize($transposition);
-    curs_left($width_left);
+    _curs_left($width_left);
+    print $stdout _normalize($transposition);
+    _curs_left($width_left);
   } else {
     $self->rl_ding;
   }
@@ -1853,18 +1853,18 @@ sub rl_transpose_words {
 
   $self->[SELF_INPUT] = $previous . $right . $space . $left . $rest;
 
-  if ($self->[SELF_CURSOR_DISPLAY] - display_width($previous)) {
-    curs_left($self->[SELF_CURSOR_DISPLAY] - display_width($previous));
+  if ($self->[SELF_CURSOR_DISPLAY] - _display_width($previous)) {
+    _curs_left($self->[SELF_CURSOR_DISPLAY] - _display_width($previous));
   }
-  print $stdout normalize($right . $space . $left);
+  print $stdout _normalize($right . $space . $left);
   $self->[SELF_CURSOR_INPUT] = length($previous. $left . $space . $right);
-  $self->[SELF_CURSOR_DISPLAY] = display_width($previous . $left . $space . $right);
+  $self->[SELF_CURSOR_DISPLAY] = _display_width($previous . $left . $space . $right);
 }
 
 sub rl_unix_line_discard {
   my ($self, $key) = @_;
   if (length $self->[SELF_INPUT]) {
-    my $kill = $self->delete_chars(0, $self->[SELF_CURSOR_INPUT]);
+    my $kill = $self->_delete_chars(0, $self->[SELF_CURSOR_INPUT]);
     push(@{$self->[SELF_KILL_RING]}, $kill);
   } else {
     $self->rl_ding;
@@ -1876,10 +1876,10 @@ sub rl_kill_whole_line {
   if (length $self->[SELF_INPUT]) {
     # Back up to the beginning of the line.
     if ($self->[SELF_CURSOR_INPUT]) {
-      curs_left($self->[SELF_CURSOR_DISPLAY]);
+      _curs_left($self->[SELF_CURSOR_DISPLAY]);
       $self->[SELF_CURSOR_DISPLAY] = $self->[SELF_CURSOR_INPUT] = 0;
     }
-    $self->clear_to_end;
+    $self->_clear_to_end;
 
     # Clear the input buffer.
     push(@{$self->[SELF_KILL_RING]}, $self->[SELF_INPUT]);
@@ -1920,15 +1920,15 @@ sub rl_previous_history {
 
     # Move cursor to start of input.
     if ($self->[SELF_CURSOR_INPUT]) {
-        curs_left($self->[SELF_CURSOR_DISPLAY]);
+        _curs_left($self->[SELF_CURSOR_DISPLAY]);
     }
-    $self->clear_to_end;
+    $self->_clear_to_end;
 
     # Move the history cursor back, set the new input
     # buffer, and show what the user's editing.  Set the
     # cursor to the end of the new line.
     my $normal;
-    print $stdout $normal = normalize($self->[SELF_INPUT] = $self->[SELF_HIST_LIST]->[--$self->[SELF_HIST_INDEX]]);
+    print $stdout $normal = _normalize($self->[SELF_INPUT] = $self->[SELF_HIST_LIST]->[--$self->[SELF_HIST_INDEX]]);
     $self->[SELF_UNDO] = [ [ $self->[SELF_INPUT], 0, 0 ] ]; # reset undo info
     $self->[SELF_CURSOR_INPUT] = length($self->[SELF_INPUT]);
     $self->[SELF_CURSOR_DISPLAY] = length($normal);
@@ -1944,19 +1944,19 @@ sub rl_next_history {
   if ($self->[SELF_HIST_INDEX] < @{$self->[SELF_HIST_LIST]}) {
     # Move cursor to start of input.
     if ($self->[SELF_CURSOR_INPUT]) {
-      curs_left($self->[SELF_CURSOR_DISPLAY]);
+      _curs_left($self->[SELF_CURSOR_DISPLAY]);
     }
-    $self->clear_to_end;
+    $self->_clear_to_end;
 
     my $normal;
     if (++$self->[SELF_HIST_INDEX] == @{$self->[SELF_HIST_LIST]}) {
       # Just past the end of the history.  Whatever was
       # there when we left it.
-      print $stdout $normal = normalize($self->[SELF_INPUT] = $self->[SELF_INPUT_HOLD]);
+      print $stdout $normal = _normalize($self->[SELF_INPUT] = $self->[SELF_INPUT_HOLD]);
     } else {
       # There's something in the history list.  Make that
       # the current line.
-      print $stdout $normal = normalize($self->[SELF_INPUT] = $self->[SELF_HIST_LIST]->[$self->[SELF_HIST_INDEX]]);
+      print $stdout $normal = _normalize($self->[SELF_INPUT] = $self->[SELF_HIST_LIST]->[$self->[SELF_HIST_INDEX]]);
     }
 
     $self->[SELF_UNDO] = [ [ $self->[SELF_INPUT], 0, 0 ] ]; # reset undo info
@@ -1980,15 +1980,15 @@ sub rl_beginning_of_history {
 
     # Move cursor to start of input.
     if ($self->[SELF_CURSOR_INPUT]) {
-      curs_left($self->[SELF_CURSOR_DISPLAY]);
+      _curs_left($self->[SELF_CURSOR_DISPLAY]);
     }
-    $self->clear_to_end;
+    $self->_clear_to_end;
 
     # Move the history cursor back, set the new input
     # buffer, and show what the user's editing.  Set the
     # cursor to the end of the new line.
     print $stdout my $normal =
-      normalize($self->[SELF_INPUT] = $self->[SELF_HIST_LIST]->[$self->[SELF_HIST_INDEX] = 0]);
+      _normalize($self->[SELF_INPUT] = $self->[SELF_HIST_LIST]->[$self->[SELF_HIST_INDEX] = 0]);
     $self->[SELF_CURSOR_INPUT] = length($self->[SELF_INPUT]);
     $self->[SELF_CURSOR_DISPLAY] = length($normal);
     $self->[SELF_UNDO] = [ [ $self->[SELF_INPUT], 0, 0 ] ]; # reset undo info
@@ -2010,13 +2010,13 @@ sub rl_end_of_history {
 
     # Move cursor to start of input.
     if ($self->[SELF_CURSOR_INPUT]) {
-      curs_left($self->[SELF_CURSOR_DISPLAY]);
+      _curs_left($self->[SELF_CURSOR_DISPLAY]);
     }
-    $self->clear_to_end;
+    $self->_clear_to_end;
 
     # Move the edit line down to the last history line.
     $self->[SELF_HIST_INDEX] = @{$self->[SELF_HIST_LIST]} - 1;
-    print $stdout my $normal = normalize($self->[SELF_INPUT] = $self->[SELF_HIST_LIST]->[$self->[SELF_HIST_INDEX]]);
+    print $stdout my $normal = _normalize($self->[SELF_INPUT] = $self->[SELF_HIST_LIST]->[$self->[SELF_HIST_INDEX]]);
     $self->[SELF_CURSOR_INPUT] = length($self->[SELF_INPUT]);
     $self->[SELF_CURSOR_DISPLAY] = length($normal);
     $self->[SELF_UNDO] = [ [ $self->[SELF_INPUT], 0, 0 ] ]; # reset undo info
@@ -2027,20 +2027,20 @@ sub rl_end_of_history {
 
 sub rl_forward_search_history {
   my ($self, $key) = @_;
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->[SELF_PREV_PROMPT] = $self->[SELF_PROMPT];
   $self->[SELF_SEARCH_PROMPT] = '(forward-i-search)`%s\': ';
   $self->[SELF_SEARCH_MAP] = $self->[SELF_KEYMAP];
   $self->[SELF_SEARCH_DIR] = +1;
   $self->[SELF_SEARCH_KEY] = $key;
-  $self->build_search_prompt;
-  $self->repaint_input_line;
+  $self->_build_search_prompt;
+  $self->_repaint_input_line;
   $self->rl_set_keymap('isearch');
 }
 
 sub rl_reverse_search_history {
   my ($self, $key) = @_;
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->[SELF_PREV_PROMPT] = $self->[SELF_PROMPT];
   $self->[SELF_SEARCH_PROMPT] = '(reverse-i-search)`%s\': ';
   $self->[SELF_SEARCH_MAP] = $self->[SELF_KEYMAP];
@@ -2048,8 +2048,8 @@ sub rl_reverse_search_history {
   $self->[SELF_SEARCH_KEY] = $key;
   # start at the previous line...
   $self->[SELF_HIST_INDEX]-- if $self->[SELF_HIST_INDEX];
-  $self->build_search_prompt;
-  $self->repaint_input_line;
+  $self->_build_search_prompt;
+  $self->_repaint_input_line;
   $self->rl_set_keymap('isearch');
 }
 
@@ -2069,9 +2069,9 @@ sub rl_capitalize_word {
     ) = $word;
 
     # Display the new text; move the cursor after it.
-    print $stdout $space, normalize($word);
+    print $stdout $space, _normalize($word);
     $self->[SELF_CURSOR_INPUT] += length($space . $word);
-    $self->[SELF_CURSOR_DISPLAY] += length($space) + display_width($word);
+    $self->[SELF_CURSOR_DISPLAY] += length($space) + _display_width($word);
   } else {
     $self->rl_ding;
   }
@@ -2089,9 +2089,9 @@ sub rl_upcase_word {
       $self->[SELF_CURSOR_INPUT] + length($space),
       length($word)
     ) = $word;
-    print $stdout $space, normalize($word);
+    print $stdout $space, _normalize($word);
     $self->[SELF_CURSOR_INPUT] += length($space . $word);
-    $self->[SELF_CURSOR_DISPLAY] += length($space) + display_width($word);
+    $self->[SELF_CURSOR_DISPLAY] += length($space) + _display_width($word);
   } else {
     $self->rl_ding;
   }
@@ -2110,9 +2110,9 @@ sub rl_downcase_word {
       $self->[SELF_CURSOR_INPUT] + length($space),
       length($word)
     ) = $word;
-    print $stdout $space, normalize($word);
+    print $stdout $space, _normalize($word);
     $self->[SELF_CURSOR_INPUT] += length($space . $word);
-    $self->[SELF_CURSOR_DISPLAY] += length($space) + display_width($word);
+    $self->[SELF_CURSOR_DISPLAY] += length($space) + _display_width($word);
   } else {
     $self->rl_ding;
   }
@@ -2154,21 +2154,21 @@ sub rl_tilde_expand {
     my $dir = (getpwnam($user))[7];
     if (!$dir) {
       print "\x0D\x0Ausername '$user' not found\x0D\x0A";
-      $self->repaint_input_line;
+      $self->_repaint_input_line;
       return $self->rl_ding;
     }
-    $self->wipe_input_line;
+    $self->_wipe_input_line;
     substr($self->[SELF_INPUT], length($left), length($user) + 1) = $dir; # +1 for tilde
     $self->[SELF_CURSOR_INPUT] += length($dir) - length($user) - 1;
     $self->[SELF_CURSOR_DISPLAY] += length($dir) - length($user) - 1;
-    $self->repaint_input_line;
+    $self->_repaint_input_line;
     return 1;
   } else {
     return $self->rl_ding;
   }
 }
 
-sub complete_match {
+sub _complete_match {
   my ($self) = @_;
   my $lookfor = substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]);
   $lookfor =~ /(\S+)$/;
@@ -2189,7 +2189,7 @@ sub complete_match {
   return @poss;
 }
 
-sub complete_list {
+sub _complete_list {
   my ($self, @poss) = @_;
   my $width = 0;
   if ($self->option('print-completions-horizontally') eq 'on') {
@@ -2214,17 +2214,17 @@ sub complete_list {
       print $stdout $word . "\x0D\x0A";
     }
   }
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
 }
 
 sub rl_possible_completions {
   my ($self, $key) = @_;
 
-  my @poss = $self->complete_match;
+  my @poss = $self->_complete_match;
   if (scalar @poss == 0) {
     return $self->rl_ding;
   }
-  $self->complete_list(@poss);
+  $self->_complete_list(@poss);
 }
 
 sub rl_complete {
@@ -2234,7 +2234,7 @@ sub rl_complete {
   $lookfor =~ /(\S+)$/;
   $lookfor = $1;
   my $point = $self->[SELF_CURSOR_INPUT] - length($lookfor);
-  my @poss = $self->complete_match;
+  my @poss = $self->_complete_match;
   if (scalar @poss == 0) {
     return $self->rl_ding;
   }
@@ -2243,7 +2243,7 @@ sub rl_complete {
     substr($self->[SELF_INPUT], $point, $self->[SELF_CURSOR_INPUT]) = $poss[0];
     my $rest = substr($self->[SELF_INPUT], $point+length($lookfor));
     print $stdout $rest;
-    curs_left(length($rest)-length($poss[0]));
+    _curs_left(length($rest)-length($poss[0]));
     $self->[SELF_CURSOR_INPUT] += length($poss[0])-length($lookfor);
     $self->[SELF_CURSOR_DISPLAY] += length($poss[0])-length($lookfor);
     return 1;
@@ -2280,7 +2280,7 @@ sub rl_complete {
     substr($self->[SELF_INPUT], $point, $self->[SELF_CURSOR_INPUT]) = $partial;
     my $rest = substr($self->[SELF_INPUT], $point+length($lookfor));
     print $stdout $rest;
-    curs_left(length($rest)-length($partial));
+    _curs_left(length($rest)-length($partial));
     $self->[SELF_CURSOR_INPUT]   += length($partial)-length($lookfor);
     $self->[SELF_CURSOR_DISPLAY] += length($partial)-length($lookfor);
     return $self->rl_ding if @poss == 1;
@@ -2289,13 +2289,13 @@ sub rl_complete {
   if ($self->[SELF_LAST] !~ /complete/ && !$self->option('show-all-if-ambiguous')) {
     return $self->rl_ding;
   }
-  $self->complete_list(@poss);
+  $self->_complete_list(@poss);
   return 0;
 }
 
 sub rl_insert_completions {
   my ($self) = @_;
-  my @poss = $self->complete_match;
+  my @poss = $self->_complete_match;
   if (scalar @poss == 0) {
     return $self->rl_ding;
   }
@@ -2323,13 +2323,13 @@ sub rl_ding {
 
 sub rl_redraw_current_line {
   my ($self) = @_;
-  $self->wipe_input_line;
-  $self->repaint_input_line;
+  $self->_wipe_input_line;
+  $self->_repaint_input_line;
 }
 
 sub rl_poe_wheel_debug {
   my ($self, $key) = @_;
-  my $left = display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]));
+  my $left = _display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]));
   my $sp = $self->[SELF_PROMPT];
   $sp =~ s{\\[\[\]]}{}g;
   print( $stdout
@@ -2338,9 +2338,9 @@ sub rl_poe_wheel_debug {
    "cursor_input($self->[SELF_CURSOR_INPUT]) ",
    "cursor_display($self->[SELF_CURSOR_DISPLAY]) ",
    "term_columns($trk_cols)\x0D\x0A",
-   $sp, normalize($self->[SELF_INPUT])
+   $sp, _normalize($self->[SELF_INPUT])
   );
-  curs_left($left) if $left;
+  _curs_left($left) if $left;
 }
 
 sub rl_vi_movement_mode {
@@ -2353,7 +2353,7 @@ sub rl_vi_append_mode {
   my ($self) = @_;
   if ($self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
     # we can't just call forward-char, coz we don't want bell to ring.
-    my $normal = normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1));
+    my $normal = _normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1));
     print $stdout $normal;
     $self->[SELF_CURSOR_INPUT]++;
     $self->[SELF_CURSOR_DISPLAY] += length($normal);
@@ -2404,7 +2404,7 @@ sub rl_vi_eof_maybe {
     $self->[SELF_READING_LINE] = 0;
     $self->[SELF_HIST_INDEX] = @{$self->[SELF_HIST_LIST]};
 
-    $self->flush_output_buffer;
+    $self->_flush_output_buffer;
     return 0;
   } else {
     return $self->rl_ding;
@@ -2430,8 +2430,8 @@ sub rl_vi_next_word {
   my ($self, $key) = @_;
   if (substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\s*\S+\s)/) {
     $self->[SELF_CURSOR_INPUT] += length($1);
-    my $right = display_width($1);
-    print normalize($1);
+    my $right = _display_width($1);
+    print _normalize($1);
     $self->[SELF_CURSOR_DISPLAY] += $right;
   } else {
     return $self->rl_ding;
@@ -2444,10 +2444,10 @@ sub rl_vi_end_word {
     $self->rl_forward_char;
     if (substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\s*\S+)/) {
       $self->[SELF_CURSOR_INPUT] += length($1)-1;
-      my $right = display_width($1);
-      print normalize($1);
+      my $right = _display_width($1);
+      print _normalize($1);
       $self->[SELF_CURSOR_DISPLAY] += $right-1;
-      curs_left(1);
+      _curs_left(1);
     }
   } else {
     return $self->rl_ding;
@@ -2511,8 +2511,8 @@ sub rl_vi_first_print {
   substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\s*)/;
   if (length($1)) {
     $self->[SELF_CURSOR_INPUT] += length($1);
-    my $right = display_width($1);
-    print normalize($1);
+    my $right = _display_width($1);
+    print _normalize($1);
     $self->[SELF_CURSOR_DISPLAY] += $right;
   }
 }
@@ -2520,11 +2520,11 @@ sub rl_vi_first_print {
 sub rl_vi_delete {
   my ($self) = @_;
   if ($self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
-    $self->delete_chars($self->[SELF_CURSOR_INPUT], 1);
+    $self->_delete_chars($self->[SELF_CURSOR_INPUT], 1);
     if ($self->[SELF_INPUT] && $self->[SELF_CURSOR_INPUT] >= length($self->[SELF_INPUT])) {
       $self->[SELF_CURSOR_INPUT]--;
       $self->[SELF_CURSOR_DISPLAY]--;
-      curs_left(1);
+      _curs_left(1);
     }
   } else {
     return $self->rl_ding;
@@ -2537,7 +2537,7 @@ sub rl_vi_put {
   return $self->rl_ding unless ($pos);
   $pos--;
   if ($self->[SELF_INPUT] && $key eq 'p') {
-    my $normal = normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1));
+    my $normal = _normalize(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1));
     print $stdout $normal;
     $self->[SELF_CURSOR_INPUT]++;
     $self->[SELF_CURSOR_DISPLAY] += length($normal);
@@ -2546,7 +2546,7 @@ sub rl_vi_put {
   if ($self->[SELF_CURSOR_INPUT] >= length($self->[SELF_INPUT])) {
     $self->[SELF_CURSOR_INPUT]--;
     $self->[SELF_CURSOR_DISPLAY]--;
-    curs_left(1);
+    _curs_left(1);
   }
 }
 
@@ -2570,13 +2570,13 @@ sub rl_vi_end_spec {
 sub rl_vi_spec_end_of_line {
   my ($self) = @_;
   $self->rl_set_keymap('vi');
-  $self->vi_apply_spec($self->[SELF_CURSOR_INPUT], length($self->[SELF_INPUT]) - $self->[SELF_CURSOR_INPUT]);
+  $self->_vi_apply_spec($self->[SELF_CURSOR_INPUT], length($self->[SELF_INPUT]) - $self->[SELF_CURSOR_INPUT]);
 }
 
 sub rl_vi_spec_beginning_of_line {
   my ($self) = @_;
   $self->rl_set_keymap('vi');
-  $self->vi_apply_spec(0, $self->[SELF_CURSOR_INPUT]);
+  $self->_vi_apply_spec(0, $self->[SELF_CURSOR_INPUT]);
 }
 
 sub rl_vi_spec_first_print {
@@ -2589,7 +2589,7 @@ sub rl_vi_spec_first_print {
     $from = $len;
     $len = $tmp - $from;
   }
-  $self->vi_apply_spec($from, $len);
+  $self->_vi_apply_spec($from, $len);
 }
 
 
@@ -2603,7 +2603,7 @@ sub rl_vi_spec_word {
     $len = length($word);
   }
   $self->rl_set_keymap('vi');
-  $self->vi_apply_spec($from, $len);
+  $self->_vi_apply_spec($from, $len);
 }
 
 sub rl_character_search {
@@ -2631,7 +2631,7 @@ sub rl_vi_spec_forward_char {
   $self->[SELF_PENDING_FN] = sub {
     my $key = shift;
     return $self->rl_ding unless substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /(.*)$key/;
-    $self->vi_apply_spec($self->[SELF_CURSOR_INPUT], length($1));
+    $self->_vi_apply_spec($self->[SELF_CURSOR_INPUT], length($1));
   }
 }
 
@@ -2647,11 +2647,11 @@ sub rl_vi_spec_mark {
       $pos += $len;
       $len = -$len;
     }
-    $self->vi_apply_spec($pos, $len);
+    $self->_vi_apply_spec($pos, $len);
   }
 }
 
-sub vi_apply_spec {
+sub _vi_apply_spec {
   my ($self, $from, $howmany) = @_;
   &{$self->[SELF_PENDING]}($from, $howmany);
   $self->[SELF_PENDING] = undef if ($self->[SELF_COUNT] <= 1);
@@ -2674,11 +2674,11 @@ sub rl_vi_delete_to {
   my ($self, $key) = @_;
   $self->[SELF_PENDING] = sub {
     my ($from, $howmany) = @_;
-    $self->delete_chars($from, $howmany);
+    $self->_delete_chars($from, $howmany);
     if ($self->[SELF_INPUT] && $self->[SELF_CURSOR_INPUT] >= length($self->[SELF_INPUT])) {
       $self->[SELF_CURSOR_INPUT]--;
       $self->[SELF_CURSOR_DISPLAY]--;
-      curs_left(1);
+      _curs_left(1);
     }
     $self->rl_set_keymap('vi');
   };
@@ -2693,7 +2693,7 @@ sub rl_vi_change_to {
   my ($self, $key) = @_;
   $self->[SELF_PENDING] = sub {
     my ($from, $howmany) = @_;
-    $self->delete_chars($from, $howmany);
+    $self->_delete_chars($from, $howmany);
     $self->rl_set_keymap('vi-insert');
   };
   if ($key eq 'C') {
@@ -2747,9 +2747,9 @@ sub rl_vi_set_mark  {
 
 sub rl_search_abort {
   my ($self) = @_;
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->[SELF_PROMPT] = $self->[SELF_PREV_PROMPT];
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
   $self->[SELF_KEYMAP] = $self->[SELF_SEARCH_MAP];
   $self->[SELF_SEARCH_MAP] = undef;
   $self->[SELF_SEARCH] = undef;
@@ -2757,13 +2757,13 @@ sub rl_search_abort {
 
 sub rl_search_finish {
   my ($self, $key, $raw) = @_;
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->[SELF_PROMPT] = $self->[SELF_PREV_PROMPT];
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
   $self->[SELF_KEYMAP] = $self->[SELF_SEARCH_MAP];
   $self->[SELF_SEARCH_MAP] = undef;
   $self->[SELF_SEARCH] = undef;
-  $self->apply_key($key, $raw);
+  $self->_apply_key($key, $raw);
 }
 
 sub rl_search_key {
@@ -2779,7 +2779,7 @@ sub rl_vi_search_key {
 
 sub rl_vi_search {
   my ($self, $key) = @_;
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->[SELF_SEARCH_MAP] = $self->[SELF_KEYMAP];
   if ($key eq '/' && $self->[SELF_HIST_INDEX] < scalar @{$self->[SELF_HIST_LIST]}) {
     $self->[SELF_SEARCH_DIR] = -1;
@@ -2790,13 +2790,13 @@ sub rl_vi_search {
   $self->[SELF_INPUT] = $key;
   $self->[SELF_CURSOR_INPUT] = 1;
   $self->[SELF_CURSOR_DISPLAY] = 1;
-  $self->repaint_input_line;
+  $self->_repaint_input_line;
   $self->rl_set_keymap('vi-search');
 }
 
 sub rl_vi_search_accept {
   my ($self) = @_;
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->[SELF_CURSOR_INPUT] = 0;
   $self->[SELF_CURSOR_DISPLAY] = 0;
   $self->[SELF_INPUT] =~ s{^[/?]}{};
@@ -2817,7 +2817,7 @@ sub rl_vi_search_again {
     $self->[SELF_HIST_INDEX] = (scalar @{$self->[SELF_HIST_LIST]}) - 1;
     return $self->rl_ding;
   }
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->search(0);
 }
 
@@ -2840,7 +2840,7 @@ sub rl_isearch_again {
 
 sub rl_non_incremental_forward_search_history {
   my ($self) = @_;
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->[SELF_CURSOR_INPUT] = 0;
   $self->[SELF_CURSOR_DISPLAY] = 0;
   $self->[SELF_SEARCH_DIR] = +1;
@@ -2855,7 +2855,7 @@ sub rl_non_incremental_reverse_search_history {
     $self->[SELF_HIST_INDEX] = 0;
     return $self->rl_ding;
   }
-  $self->wipe_input_line;
+  $self->_wipe_input_line;
   $self->[SELF_CURSOR_INPUT] = 0;
   $self->[SELF_CURSOR_DISPLAY] = 0;
   $self->[SELF_SEARCH_DIR] = -1;
@@ -3018,7 +3018,7 @@ sub bind_key {
 
   $self->{binding}->{$seq} = $fn if length $seq;
   $self->{macros}->{$seq} = $macro if $macro;
-  #print "bound $inseq (" . POE::Wheel::ReadLine::normalize($seq) . ") to $fn in map $self->{name}\r\n";
+  #print "bound $inseq (" . POE::Wheel::ReadLine::_normalize($seq) . ") to $fn in map $self->{name}\r\n";
 
   if (length($seq) > 1) {
     # XXX: Should store rawkey prefixes, to avoid the ^ problem.
@@ -3103,6 +3103,16 @@ The default editing mode will be emacs-style, although this can be
 configured by setting the 'editing-mode' variable within the
 inputrc, or by setting the EDITOR environment variable.
 
+=head1 CONSTRUCTOR
+
+=over
+
+=item new
+
+new() creates a new wheel, returning the wheels reference.
+
+=back
+
 =head1 PUBLIC METHODS
 
 =head2 History List Management
@@ -3163,6 +3173,10 @@ resume its quiescent state wherein it ignores keystrokes.
 
 The quiet period between input events gives a program the opportunity
 to change the prompt or process lines before the next one arrives.
+
+=item put TEXT
+
+Print the given text to the terminal.
 
 =item Attribs
 
