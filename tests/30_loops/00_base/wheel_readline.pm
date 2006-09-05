@@ -19,7 +19,7 @@ my @tests = (
   {
     name => "plain typing",
     step => [
-      "this is a test",  # plain typing
+      "this is a test", # plain typing
       "\cJ",            # accept-line
     ],
     done => "this is a test",
@@ -28,10 +28,10 @@ my @tests = (
     name => "backspace",
     step => [
       "this is a test",
-      "\cH\cH\cH\cH",    # backward-delete-char
+      "\cH\cH\cH\cH",   # backward-delete-char
       "TEST",
       "\cA",            # beginning-of-line
-      "\cA",            # beginning-of-line (fail)
+      "\cA",            # beginning-of-line (fail bol)
       "\cD",            # delete-char
       "T",
       "\cJ",
@@ -43,11 +43,15 @@ my @tests = (
     step => [
       "one three five",
       "\cA",            # beginning-of-line
-      "\cB",            # backward-char (fail)
+      "\cB",            # backward-char (fail bol)
+      "\eb",            # backward-word (fail bol)
+      "\cH",            # backward-delete-char (fail bol)
       "\cF\cF\cF two",  # forward-char
       "\cE",            # end-of-line
-      "\cE",            # end-of-line (fail)
-      "\cD",            # delete-char (fail)
+      "\cE",            # end-of-line (fail eol)
+      "\cF",            # forward-char (fail eol)
+      "\cD",            # delete-char (fail eol)
+      "\ef",            # forward-word (fail eol)
       "\cB\cB\cB\cB",   # backward-char
       "four \cJ",
     ],
@@ -57,11 +61,11 @@ my @tests = (
     name => "delete words",
     step => [
       "one two three",
-      "\ed",            # kill-word (fail)
+      "\ed",            # kill-word (fail eol)
       "\e\cH",          # backward-kill-word
       "four",
       "\cA",
-      "\e\cH",          # backward-kill-word (fail)
+      "\e\cH",          # backward-kill-word (fail bol)
       "\ed",            # kill-word
       "\cJ",
     ],
@@ -78,6 +82,10 @@ my @tests = (
       "\cF\cF\cF",
       "\eu",            # upcase-word
       "\ec",            # capitalize-word
+      "\cE",
+      "\el",            # downcase-word (fail eol)
+      "\eu",            # upcase-word (fail eol)
+      "\ec",            # capitalize-word (fail eol)
       "\cJ",
     ],
     done => "LOWer uppER Other",
@@ -90,6 +98,8 @@ my @tests = (
       "\cT",            # transpose-chars
       "\eb\eb",
       "\et",            # transpose-words
+      "\cA\cT",         # transpose-chars (fail bol)
+      "\cE\cT",         # transpose-chars (fail eol)
       "\cJ",
     ],
     done => "two one 21",
@@ -277,6 +287,9 @@ sub test_start_next {
   if (@tests) {
     $heap->{test} = shift @tests;
     $kernel->yield("step_this_test");
+    $heap->{readline}->get("next step");
+
+    # Second get to instrument a test for this sort of thing.
     $heap->{readline}->get("next step");
     return;
   }
