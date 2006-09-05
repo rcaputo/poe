@@ -1628,7 +1628,7 @@ sub rl_kill_region {
 sub rl_kill_word {
   my ($self, $key) = @_;
   if ($self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
-    substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ s/^(\W*\w*\W*)//;
+    substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\W*\w*\W*)/;
     my $kill = $self->delete_chars($self->[SELF_CURSOR_INPUT], length($1));
     push(@{$self->[SELF_KILL_RING]}, $kill);
   } else {
