@@ -8,9 +8,11 @@ use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 use Carp qw(croak);
-use Curses qw(  initscr start_color cbreak raw noecho nonl nodelay timeout keypad intrflush
-    meta typeahead mousemask ALL_MOUSE_EVENTS clear refresh endwin COLS
-  );
+use Curses qw(
+  initscr start_color cbreak raw noecho nonl nodelay timeout keypad
+  intrflush meta typeahead mousemask ALL_MOUSE_EVENTS clear refresh
+  endwin COLS
+);
 use POSIX qw(:fcntl_h);
 use POE qw( Wheel );
 
@@ -59,7 +61,7 @@ sub new {
   timeout(0);
 
   keypad(1);
-  intrflush(0);
+  # intrflush(0);
   meta(1);
   typeahead(-1);
 
