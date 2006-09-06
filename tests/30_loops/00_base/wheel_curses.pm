@@ -11,14 +11,16 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 #sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use Test::More;
-
-use IO::Pty;
 use Symbol qw(gensym);
 
 BEGIN {
   if ($^O eq "MSWin32") {
     plan skip_all => "Can't multiplex consoles in $^O";
   }
+
+  eval "use IO::Pty";
+  plan skip_all => 'IO::Pty not available' if $@;
+
   eval { require Curses };
   plan skip_all => 'Curses not available' if $@;
 }
