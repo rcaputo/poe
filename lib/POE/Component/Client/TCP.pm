@@ -271,8 +271,6 @@ sub new {
           $kernel->alarm_remove( delete $heap->{ctimeout_id} )
             if exists $heap->{ctimeout_id};
 
-          $kernel->alias_remove($alias) if defined $alias;
-
           if ($heap->{connected}) {
             if (defined $heap->{server}) {
               if (
@@ -287,6 +285,8 @@ sub new {
           else {
             delete $heap->{server};
           }
+
+          $kernel->alias_remove($alias) if defined $alias;
         },
 
         # User supplied states.
