@@ -724,16 +724,6 @@ the entire POE distribution.
 
 This wheel can't tail pipes and consoles on some systems.
 
-Because this wheel is cooperatively multitasked, it may lose records
-just prior to a file reset.  For a more robust way to watch files,
-consider using POE::Wheel::Run and your operating system's native
-"tail" utility instead.
-
-  $heap->{tail} = POE::Wheel::Run->new(
-    Program     => [ "/usr/bin/tail", "-f", $file_name ],
-    StdoutEvent => "log_record",
-  );
-
 =head1 AUTHORS & COPYRIGHTS
 
 Please see L<POE> for more information about authors and contributors.
