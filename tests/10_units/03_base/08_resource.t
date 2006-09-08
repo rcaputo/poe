@@ -1,15 +1,11 @@
 #!/usr/bin/perl -w
+# $Id$
+# vim: filetype=perl
 
 use strict;
 
-use Test::More tests => 2;
+use Test::More tests => 1;
 
 BEGIN { use_ok("POE::Resource") }
-
-eval { my $x = POE::Resource->new() };
-ok(
-  $@ && $@ =~ /not meant to be used directly/,
-  "don't instantiate POE::Resource"
-);
 
 exit 0;

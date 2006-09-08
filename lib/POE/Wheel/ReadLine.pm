@@ -866,12 +866,12 @@ sub new {
   $self->[SELF_STATE_IDLE] = (
     ref($self) . "(" . $self->[SELF_UNIQUE_ID] . ") -> input timeout"
   );
-  $poe_kernel->state($self->[SELF_STATE_IDLE], $self, 'idle_state');
+  $poe_kernel->state($self->[SELF_STATE_IDLE], $self, '_idle_state');
 
   $self->[SELF_STATE_READ] = (
     ref($self) . "(" . $self->[SELF_UNIQUE_ID] . ") -> select read"
   );
-  $poe_kernel->state($self->[SELF_STATE_READ], $self, 'read_state');
+  $poe_kernel->state($self->[SELF_STATE_READ], $self, '_read_state');
 
   return $self;
 }
@@ -916,7 +916,7 @@ sub DESTROY {
 # See the comments for &_define_read_state for more information about
 # these closure tricks.
 
-sub idle_state {
+sub _idle_state {
   my ($self) = $_[OBJECT];
 
   if (@{$self->[SELF_PUT_BUFFER]}) {
@@ -929,7 +929,7 @@ sub idle_state {
   $self->[SELF_HAS_TIMER] = 0;
 }
 
-sub read_state {
+sub _read_state {
   my ($self, $k) = @_[OBJECT, KERNEL];
 
   # Read keys, non-blocking, as long as there are some.

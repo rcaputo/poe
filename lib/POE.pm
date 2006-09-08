@@ -66,14 +66,6 @@ sub import {
   @failed and croak "could not import qw(" . join(' ', @failed) . ")";
 }
 
-#------------------------------------------------------------------------------
-
-sub new {
-  my $type = shift;
-  croak "$type is not meant to be used directly";
-}
-
-#------------------------------------------------------------------------------
 1;
 
 __END__

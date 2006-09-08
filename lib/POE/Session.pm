@@ -36,7 +36,8 @@ sub EN_SIGNAL       () { '_signal' }
 # here.
 
 # Shorthand for defining an assert constant.
-sub define_assert {
+
+sub _define_assert {
   no strict 'refs';
   foreach my $name (@_) {
 
@@ -59,7 +60,7 @@ sub define_assert {
 }
 
 # Shorthand for defining a trace constant.
-sub define_trace {
+sub _define_trace {
   no strict 'refs';
 
   BEGIN { $^W = 0 };
@@ -109,8 +110,8 @@ BEGIN {
     }
   };
 
-  define_assert("STATES");
-  define_trace("DESTROY");
+  _define_assert("STATES");
+  _define_trace("DESTROY");
 }
 
 #------------------------------------------------------------------------------

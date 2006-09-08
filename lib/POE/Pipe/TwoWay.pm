@@ -40,14 +40,14 @@ sub new {
       );
   }
 
-  while (my $try_type = $self->get_next_preference()) {
+  while (my $try_type = $self->_get_next_preference()) {
     return ($a_read, $a_write, $b_read, $b_write) if
       $self->_try_type(
         $try_type,
         \$a_read, \$a_write,
         \$b_read, \$b_write
       );
-    $self->shift_preference();
+    $self->_shift_preference();
   }
 
   # There's nothing left to try.
@@ -117,7 +117,7 @@ sub _try_type {
   # Try a pair of plain INET sockets.
   if ($type eq "inet") {
     eval {
-      ($$a_read, $$b_read) = $self->make_socket();
+      ($$a_read, $$b_read) = $self->_make_socket();
     };
 
     # Sockets failed.

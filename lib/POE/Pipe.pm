@@ -50,11 +50,11 @@ else {
   @preference = qw(socketpair pipe inet);
 }
 
-sub get_next_preference {
+sub _get_next_preference {
   return $preference[0];
 }
 
-sub shift_preference {
+sub _shift_preference {
   shift @preference;
 }
 
@@ -150,7 +150,7 @@ sub _start_blocking {
 # Make a socket.  This is a homebrew socketpair() for systems that
 # don't support it.  The things I must do to make Windows happy.
 
-sub make_socket {
+sub _make_socket {
 
   ### Server side.
 

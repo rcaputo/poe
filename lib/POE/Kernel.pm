@@ -62,7 +62,7 @@ sub import {
 
   unless (UNIVERSAL::can('POE::Kernel', 'poe_kernel_loop')) {
     $loop =~ s/^((POE::)?Loop::)?/POE::Loop::/ if defined $loop;
-    test_loop($loop);
+    _test_loop($loop);
     # Bootstrap the kernel.  This is inherited from a time when multiple
     # kernels could be present in the same Perl process.
     POE::Kernel->new() if UNIVERSAL::can('POE::Kernel', 'poe_kernel_loop');
@@ -265,7 +265,7 @@ sub LARGE_QUEUE_SIZE () { 512 }
 # Debugging and configuration constants.
 
 # Shorthand for defining a trace constant.
-sub define_trace {
+sub _define_trace {
   no strict 'refs';
   foreach my $name (@_) {
     next if defined *{"TRACE_$name"}{CODE};
@@ -282,7 +282,7 @@ sub define_trace {
 
 BEGIN {
   # Shorthand for defining an assert constant.
-  sub define_assert {
+  sub _define_assert {
     no strict 'refs';
     foreach my $name (@_) {
       next if defined *{"ASSERT_$name"}{CODE};
@@ -329,7 +329,7 @@ BEGIN {
 
   defined &TRACE_DEFAULT or *TRACE_DEFAULT = sub () { 0 };
 
-  define_trace qw(
+  _define_trace qw(
     EVENTS FILES PROFILE REFCNT RETVALS SESSIONS SIGNALS STATISTICS
   );
 
@@ -338,7 +338,7 @@ BEGIN {
 
   defined &ASSERT_DEFAULT or *ASSERT_DEFAULT = sub () { 0 };
 
-  define_assert qw(DATA EVENTS FILES RETVALS USAGE);
+  _define_assert qw(DATA EVENTS FILES RETVALS USAGE);
 }
 
 # An "idle" POE::Kernel may still have events enqueued.  These events
@@ -462,7 +462,7 @@ sub _die {
 #------------------------------------------------------------------------------
 # Adapt POE::Kernel's personality to whichever event loop is present.
 
-sub find_loop {
+sub _find_loop {
   my ($mod) = @_;
 
   foreach my $dir (@INC) {
@@ -471,7 +471,7 @@ sub find_loop {
   return 0;
 }
 
-sub load_loop {
+sub _load_loop {
   my $loop = shift;
 
   *poe_kernel_loop = sub { return "$loop" };
@@ -491,14 +491,14 @@ sub load_loop {
   }
 }
 
-sub test_loop {
+sub _test_loop {
   my $used_first = shift;
   local $SIG{__DIE__} = "DEFAULT";
 
   # First see if someone wants to load a POE::Loop or XS version
   # explicitly.
   if (defined $used_first) {
-    load_loop($used_first);
+    _load_loop($used_first);
     return;
   }
 
@@ -517,9 +517,9 @@ sub test_loop {
     # Try for the XS version first.  If it fails, try the plain
     # version.  If that fails, we're up a creek.
     $module = "POE/XS/Loop/$module.pm";
-    unless (find_loop($module)) {
+    unless (_find_loop($module)) {
       $module =~ s|XS/||;
-      next unless (find_loop($module));
+      next unless (_find_loop($module));
     }
 
     if (defined $used_first and $used_first ne $module) {
@@ -541,14 +541,14 @@ sub test_loop {
   # No loop found.  Default to our internal select() loop.
   unless (defined $used_first) {
     $used_first = "POE/XS/Loop/Select.pm";
-    unless (find_loop($used_first)) {
+    unless (_find_loop($used_first)) {
       $used_first =~ s/XS\///;
     }
   }
 
   substr($used_first, -3) = "";
   $used_first =~ s|/|::|g;
-  load_loop($used_first);
+  _load_loop($used_first);
 }
 
 #------------------------------------------------------------------------------
@@ -1522,7 +1522,7 @@ sub detach_child {
   return 1;
 }
 
-### Helpful accessors.  -><- Most of these are not documented.
+### Helpful accessors.
 
 sub get_active_session {
   return $kr_active_session;
@@ -1532,10 +1532,12 @@ sub get_active_event {
   return $kr_active_event;
 }
 
+# FIXME - Should this exist?
 sub get_event_count {
   return $kr_queue->get_item_count();
 }
 
+# FIXME - Should this exist?
 sub get_next_event_time {
   return $kr_queue->get_next_priority();
 }
@@ -3445,16 +3447,28 @@ operations such as connect() to signal an exception.
 
 select_expedite() does not return a meaningful value.
 
+=item select_pause_read FILE_HANDLE
+
+=item select_resume_read FILE_HANDLE
+
 =item select_pause_write FILE_HANDLE
 
 =item select_resume_write FILE_HANDLE
 
-select_pause_write() temporarily pauses event generation when a
-FILE_HANDLE can be written to.  select_resume_write() turns event
-generation back on.
+select_pause_read() and select_pause_write() temporarily pause events
+that are generated when a FILE_HANDLE can be read from or written to,
+respectively.
 
-These functions are more efficient than select_write() because they
-don't perform full resource management.
+select_resume_read() and select_resume_write() turn events back on.
+
+These functions are more efficient than select_read() and
+select_write() because they don't perform full resource management
+within POE::Kernel.
+
+Pause and resume a filehandle's readable events:
+
+  $kernel->select_pause_read( $filehandle );
+  $kernel->select_resume_read( $filehandle );
 
 Pause and resume a filehandle's writable events:
 

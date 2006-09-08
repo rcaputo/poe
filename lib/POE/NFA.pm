@@ -41,7 +41,8 @@ sub STACK_EVENT         () { 1 }
 #------------------------------------------------------------------------------
 
 # Shorthand for defining a trace constant.
-sub define_trace {
+
+sub _define_trace {
   no strict 'refs';
   foreach my $name (@_) {
     next if defined *{"TRACE_$name"}{CODE};
@@ -90,7 +91,7 @@ BEGIN {
     }
   };
 
-  define_trace("DESTROY");
+  _define_trace("DESTROY");
 }
 
 #------------------------------------------------------------------------------

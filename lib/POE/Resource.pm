@@ -5,13 +5,6 @@ package POE::Resource;
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
-use Carp qw(croak);
-
-sub new {
-  my $type = shift;
-  croak "$type is a virtual base class and not meant to be used directly";
-}
-
 1;
 
 __END__

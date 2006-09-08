@@ -1,15 +1,11 @@
 #!/usr/bin/perl -w
+# $Id$
+# vim: filetype=perl
 
 use strict;
 
-use Test::More tests => 2;
+use Test::More tests => 1;
 
 BEGIN { use_ok("POE::Loop") }
-
-eval { my $x = POE::Loop->new() };
-ok(
-  $@ && $@ =~ /not meant to be used directly/,
-  "don't instantiate POE::Loop"
-);
 
 exit 0;
