@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: /branches/poe-tests/tests/30_loops/00_base/wheel_tail.pm 10644 2006-05-29T17:02:47.597324Z bsmith  $
+# $Id$
 
 # Exercises Wheel::ReadLine
 
@@ -140,8 +140,6 @@ BEGIN {
   }
 }
 
-plan tests => scalar(@tests);
-
 use Symbol qw(gensym);
 use POSIX qw(
   sysconf setsid _SC_OPEN_MAX ECHO ICANON IEXTEN ISIG BRKINT ICRNL
@@ -210,7 +208,17 @@ END {
   }
 }
 
-use POE qw(Filter::Stream Wheel::ReadLine Wheel::ReadWrite);
+use POE qw(Filter::Stream Wheel::ReadWrite);
+
+eval "use POE::Wheel::ReadLine";
+if ($@ and $@ =~ /requires a termcap/) {
+  my $error = $@;
+  $error =~ s/ at \S+ line \d+.*//;
+  $error =~ s/\s+/ /g;
+  plan skip_all => $error;
+}
+
+plan tests => scalar(@tests);
 
 ### Session to run the tests.
 
