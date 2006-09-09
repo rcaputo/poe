@@ -1237,6 +1237,51 @@ using the first form.
 
 =back
 
+=head2 Subclassing
+
+There are a few methods available to help people trying to subclass
+L<POE::Session>.
+
+=over 2
+
+=item instantiate
+
+When you want to subclass L<POE::Session>, you may want to allow for extra
+parameters to be passed to the constructor, and maybe store some extra data
+in the object structure.
+
+The easiest way to do this is by overriding the instantiate method, which
+creates an empty object for you, and is passed a reference to the hash of
+parameters passed to create().
+
+When overriding it, be sure to first call the parent classes instantiate
+method, so you have a reference to the empty object. Then you should remove
+all the extra parameters from the hash of parameters you get passed, so
+L<POE::Session>'s create() doesn't croak when it encounters parameters it
+doesn't know.
+
+Also, don't forget to return the reference to the object (optionally already
+filled with your data; try to keep out of the places where L<POE::Session>
+stores its stuff, or it'll get overwritten)
+
+=item try_alloc
+
+At the end of L<POE::Session>'s create() method, try_alloc() is called.
+This tells the POE Kernel to allocate an actual session with the object
+just created.
+
+If you want to fiddle with the object the constructor just created, to
+modify parameters that already exist in the base L<POE::Session> class,
+based on your extra parameters for example, this is the place to do it.
+override the try_alloc() method, do your evil, and end with calling
+the parent try_alloc(), returning its return value.
+
+try_alloc() is passed the arguments for the _start state (the contents of
+the listref passed in the 'args' parameter for create()). Make sure to pass
+this on to the parent method (after maybe fiddling with that too).
+
+=back
+
 =head1 PREDEFINED EVENT FIELDS
 
 Each session maintains its unique runtime context.  Sessions pass
@@ -1716,7 +1761,6 @@ false.  See the option() function earlier in this document for details
 about the "default" option.
 
 =back
-
 
 =head1 SEE ALSO
 

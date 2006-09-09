@@ -46,8 +46,6 @@ my %special = (
         ? ( )
         : (
           'register_state',        # Should become _register_state.
-          'instantiate',          # Public or private?
-          'try_alloc',            # Public or private?
         )
       )
     ],
