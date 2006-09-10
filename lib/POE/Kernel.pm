@@ -599,7 +599,6 @@ sub _test_if_kernel_is_idle {
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
       "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
       "<rc> | Procs  : ", $self->_data_sig_child_procs(), "\n",
-      "<rc> | Signals: ", $self->_data_sig_count(), "\n",
       "<rc> `---------------------------\n",
       "<rc> ..."
      );
@@ -609,8 +608,7 @@ sub _test_if_kernel_is_idle {
     $kr_queue->get_item_count() > $idle_queue_size or
     $self->_data_handle_count() or
     $self->_data_extref_count() or
-    $self->_data_sig_child_procs() or
-    $self->_data_sig_count()
+    $self->_data_sig_child_procs()
   ) {
     $self->_data_ev_enqueue(
       $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],

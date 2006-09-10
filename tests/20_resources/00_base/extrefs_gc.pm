@@ -43,6 +43,7 @@ POE::Session->create(
   inline_states => {
     _start => sub {
       $_[KERNEL]->sig( IDLE => 'got_sigidle' );
+      $_[KERNEL]->alias_set("stayin_alive");
     },
     got_sigidle => sub {
       $sigidle++;

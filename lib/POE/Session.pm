@@ -1046,8 +1046,8 @@ Inline states were specified as a scalar mapped to a coderef.
 The equivalent for create() is
 
   inline_states => {
-  	event_one => \&state_one,
-	event_two => sub { ... },
+    event_one => \&state_one,
+    event_two => sub { ... },
   },
 
 Object states were specified as object references mapped to list or

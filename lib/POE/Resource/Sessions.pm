@@ -394,7 +394,6 @@ sub _data_ses_collect_garbage {
       "<rc> | child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
       "<rc> | handles in use: ", $self->_data_handle_count_ses($session), "\n",
       "<rc> | aliases in use: ", $self->_data_alias_count_ses($session), "\n",
-      "<rc> | sig watchers  : ", $self->_data_sig_count_ses($session), "\n",
       "<rc> | extra refs    : ", $self->_data_extref_count_ses($session), "\n",
       "<rc> +---------------------------------------------------\n",
     );
@@ -405,6 +404,7 @@ sub _data_ses_collect_garbage {
         "<rc> +---------------------------------------------------\n",
       );
     }
+    _carp "<rc> | called";
   }
 
   if (ASSERT_DATA) {
@@ -415,8 +415,7 @@ sub _data_ses_collect_garbage {
       scalar(keys(%{$ss->[SS_CHILDREN]})) +
       $self->_data_handle_count_ses($session) +
       $self->_data_extref_count_ses($session) +
-      $self->_data_alias_count_ses($session) +
-      $self->_data_sig_count_ses($session)
+      $self->_data_alias_count_ses($session)
     );
 
     # The calculated reference count really ought to match the one
@@ -508,7 +507,7 @@ sub _data_ses_stop {
   $self->_data_ses_free($session);
 
   # GC the parent, if there is one.
-  if (defined $parent) {
+  if (defined $parent and $parent != $self) {
     $self->_data_ses_collect_garbage($parent);
   }
 

@@ -165,47 +165,10 @@ sub _data_sig_finalize {
   return $finalized_ok;
 }
 
-### Count the number of refcount slots used for a particular
-### session in signal watchers.
-
-sub _data_sig_count_ses {
-  my ($self, $session) = @_;
-
-  return 0 unless exists $kr_sessions_to_signals{$session};
-  return scalar keys %{$kr_sessions_to_signals{$session}};
-}
-
-# Return a count of signals watched by sessions that aren't the
-# Kernel.  Also, don't count IDLE or ZOMBIE signals, otherwise a
-# program watching for them will never receive them.
-#
-# TODO - This is slow, and it's called relatively often.  We should
-# maintain a reference count as signals are added ard removed rather
-# than recalculate the count each time.
-
-sub _data_sig_count {
-  my $signal_count;
-  foreach my $session (keys %kr_sessions_to_signals) {
-    next if $session eq $poe_kernel;
-    foreach my $signal (keys %{$kr_sessions_to_signals{$session}}) {
-      next if $signal eq "IDLE" or $signal eq "ZOMBIE";
-      $signal_count++;
-    }
-  }
-  return $signal_count;
-}
-
 ### Add a signal to a session.
 
 sub _data_sig_add {
   my ($self, $session, $signal, $event) = @_;
-
-  unless (
-    exists($kr_sessions_to_signals{$session}) and
-    exists($kr_sessions_to_signals{$session}->{$signal})
-  ) {
-    $self->_data_ses_refcount_inc( $session );
-  }
 
   $kr_sessions_to_signals{$session}->{$signal} = $event;
   $kr_signals{$signal}->{$session} = $event;
@@ -224,13 +187,6 @@ sub _data_sig_add {
 
 sub _data_sig_remove {
   my ($self, $session, $signal) = @_;
-
-  if (
-    exists($kr_sessions_to_signals{$session}) and
-    exists($kr_sessions_to_signals{$session}->{$signal})
-  ) {
-    $self->_data_ses_refcount_dec( $session );
-  }
 
   delete $kr_sessions_to_signals{$session}->{$signal};
   delete $kr_sessions_to_signals{$session}
@@ -357,8 +313,12 @@ sub _data_sig_free_terminated_sessions {
     # -><- Implicit signal reaping.  This is deprecated behavior and
     # will eventually be removed.  See the commented out tests in
     # t/res/signals.t.
+    #
+    # Don't reap the parent if it's the kernel.  It still needs to be
+    # a part of the system for finalization in certain cases.
     foreach my $touched_session (@kr_signaled_sessions) {
       next unless $self->_data_ses_exists($touched_session);
+      next if $touched_session == $self;
       $self->_data_ses_collect_garbage($touched_session);
     }
   }
