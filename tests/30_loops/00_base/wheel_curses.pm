@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: /branches/poe-tests/tests/30_loops/00_base/wheel_tail.pm 10644 2006-05-29T17:02:47.597324Z bsmith  $
+# $Id$
 
 # Exercises Wheel::Curses
 

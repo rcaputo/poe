@@ -395,6 +395,7 @@ sub _data_ses_collect_garbage {
       "<rc> | handles in use: ", $self->_data_handle_count_ses($session), "\n",
       "<rc> | aliases in use: ", $self->_data_alias_count_ses($session), "\n",
       "<rc> | extra refs    : ", $self->_data_extref_count_ses($session), "\n",
+      "<rc> | pid count     : ", $self->_data_sig_pids_ses($session), "\n",
       "<rc> +---------------------------------------------------\n",
     );
     unless ($ss->[SS_REFCOUNT]) {
@@ -415,7 +416,8 @@ sub _data_ses_collect_garbage {
       scalar(keys(%{$ss->[SS_CHILDREN]})) +
       $self->_data_handle_count_ses($session) +
       $self->_data_extref_count_ses($session) +
-      $self->_data_alias_count_ses($session)
+      $self->_data_alias_count_ses($session) +
+      $self->_data_sig_pids_ses($session)
     );
 
     # The calculated reference count really ought to match the one

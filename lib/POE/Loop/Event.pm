@@ -7,6 +7,10 @@ package POE::Loop::Event;
 
 use strict;
 
+# Include common signal handling.  Signals should be safe now, and for
+# some reason Event isn't dispatching SIGCHLD to me circa POE r2084.
+use POE::Loop::PerlSignals;
+
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
@@ -43,99 +47,11 @@ sub loop_finalize {
     }
   }
 
-  foreach my $signal (keys %signal_watcher) {
-    $self->loop_ignore_signal($signal);
-  }
-}
-
-#------------------------------------------------------------------------------
-# Signal handlers/callbacks.
-
-sub _loop_signal_handler_generic {
-  if (TRACE_SIGNALS) {
-    POE::Kernel::_warn "<sg> Enqueuing generic SIG$_[0] event";
-  }
-
-  $poe_kernel->_data_ev_enqueue(
-    $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
-    __FILE__, __LINE__, undef, time(),
-  );
-}
-
-sub _loop_signal_handler_pipe {
-  if (TRACE_SIGNALS) {
-    POE::Kernel::_warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
-  }
-
-  $poe_kernel->_data_ev_enqueue(
-    $poe_kernel->get_active_session(), $poe_kernel,
-    EN_SIGNAL, ET_SIGNAL, [ $_[0]->w->signal ],
-    __FILE__, __LINE__, undef, time(),
-  );
-}
-
-sub _loop_signal_handler_child {
-  if (TRACE_SIGNALS) {
-    POE::Kernel::_warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
-  }
-
-  $poe_kernel->_idle_queue_grow();
-  $poe_kernel->_data_ev_enqueue(
-    $poe_kernel, $poe_kernel, EN_SCPOLL, ET_SCPOLL, [ ],
-    __FILE__, __LINE__, undef, time(),
-  );
+  $self->loop_ignore_all_signals();
 }
 
 #------------------------------------------------------------------------------
 # Signal handler maintenance functions.
-
-sub loop_watch_signal {
-  my ($self, $signal) = @_;
-
-  # Child process has stopped.  We use Event's safe SIGCHLD handler.
-  if ($signal eq 'CHLD' or $signal eq 'CLD') {
-    $SIG{$signal} = "DEFAULT";
-    $signal_watcher{CHLD} = Event->signal(
-      signal => $signal,
-      cb     => \&_loop_signal_handler_child
-    );
-    return;
-  }
-
-  # Broken pipe.
-  if ($signal eq 'PIPE') {
-    $SIG{$signal} = "DEFAULT";
-    $signal_watcher{$signal} = Event->signal(
-      signal => $signal,
-      cb     => \&_loop_signal_handler_pipe
-    );
-    return;
-  }
-
-  # Event doesn't like watching nonmaskable signals.
-  return if $signal eq 'KILL' or $signal eq 'STOP';
-
-  # Everything else.
-  $signal_watcher{$signal} = Event->signal(
-    signal => $signal,
-    cb     => \&_loop_signal_handler_generic
-  );
-}
-
-sub loop_ignore_signal {
-  my ($self, $signal) = @_;
-
-  if (defined $signal_watcher{$signal}) {
-    $signal_watcher{$signal}->stop();
-    delete $signal_watcher{$signal};
-  }
-
-  # Certain kinds of signals should be ignored by default.
-  if ($signal =~ /^(CH?LD|PIPE)$/) {
-    $SIG{$signal} = "IGNORE";
-    return;
-  }
-}
 
 sub loop_attach_uidestroy {
   # does nothing

@@ -32,6 +32,21 @@ my %kr_sessions_to_signals;
 #    ...,
 #  );
 
+my %kr_pids_to_events;
+# { $pid =>
+#   { $session =>
+#     [ $blessed_session,   # PID_SESSION
+#       $event_name,        # PID_EVENT
+#     ]
+#   }
+# }
+
+my %kr_sessions_to_pids;
+# { $session => { $pid => 1 } }
+
+sub PID_SESSION () { 0 }
+sub PID_EVENT   () { 1 }
+
 # Bookkeeping per dispatched signal.
 
 use vars (
@@ -55,6 +70,7 @@ my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
 
 sub _data_sig_preload {
   $poe_kernel->[KR_SIGNALS] = \%kr_signals;
+  $poe_kernel->[KR_PIDS]    = \%kr_pids_to_events;
 }
 use POE::API::ResLoader \&_data_sig_preload;
 
@@ -152,12 +168,26 @@ sub _data_sig_finalize {
     }
   }
 
+  while (my ($ses, $pid_rec) = each(%kr_sessions_to_pids)) {
+    $finalized_ok = 0;
+    my @pids = keys %$pid_rec;
+    _warn "!!! Leaked session to PID map: $ses -> (@pids)\n";
+  }
+
+  while (my ($pid, $ses_rec) = each(%kr_pids_to_events)) {
+    $finalized_ok = 0;
+    _warn "!!! Leaked PID to event map: $pid\n";
+    while (my ($ses, $event_rec) = each %$ses_rec) {
+      _warn "!!!\t$ses -> $event_rec->[PID_EVENT]\n";
+    }
+  }
+
   %_safe_signals = ();
 
   unless (RUNNING_IN_HELL) {
     local $!;
     until ((my $pid = waitpid( -1, 0 )) == -1) {
-      _warn( "Child process PID:$pid reaped: $!\n" ) if ($pid);
+      _warn( "!!! Child process PID:$pid reaped: $!\n" ) if $pid;
       $finalized_ok = 0;
     }
   }
@@ -171,15 +201,33 @@ sub _data_sig_add {
   my ($self, $session, $signal, $event) = @_;
 
   $kr_sessions_to_signals{$session}->{$signal} = $event;
+  $self->_data_sig_signal_watch($session, $signal);
   $kr_signals{$signal}->{$session} = $event;
+}
+
+sub _data_sig_signal_watch {
+  my ($self, $session, $signal) = @_;
 
   # First session to watch the signal.
   # Ask the event loop to watch the signal.
   if (
-    (keys %{$kr_signals{$signal}} == 1) and
-    (exists $_safe_signals{$signal})
+    !exists($kr_signals{$signal}) and
+    exists($_safe_signals{$signal}) and
+    ($signal ne "CHLD" or !exists($kr_sessions_to_pids{$session}))
   ) {
     $self->loop_watch_signal($signal);
+  }
+}
+
+sub _data_sig_signal_ignore {
+  my ($self, $session, $signal) = @_;
+
+  if (
+    !exists($kr_signals{$signal}) and
+    exists($_safe_signals{$signal}) and
+    ($signal ne "CHLD" or !exists($kr_sessions_to_pids{$session}))
+  ) {
+    $self->loop_ignore_signal($signal);
   }
 }
 
@@ -197,9 +245,7 @@ sub _data_sig_remove {
   # Last watcher for that signal.  Stop watching it internally.
   unless (keys %{$kr_signals{$signal}}) {
     delete $kr_signals{$signal};
-    if (exists $_safe_signals{$signal}) {
-      $self->loop_ignore_signal($signal);
-    }
+    $self->_data_sig_signal_ignore($session, $signal);
   }
 }
 
@@ -211,10 +257,61 @@ sub _data_sig_remove {
 
 sub _data_sig_clear_session {
   my ($self, $session) = @_;
-  return unless exists $kr_sessions_to_signals{$session}; # avoid autoviv
-  foreach (keys %{$kr_sessions_to_signals{$session}}) {
-    $self->_data_sig_remove($session, $_);
+
+  if (exists $kr_sessions_to_signals{$session}) { # avoid autoviv
+    foreach (keys %{$kr_sessions_to_signals{$session}}) {
+      $self->_data_sig_remove($session, $_);
+    }
   }
+
+  if (exists $kr_sessions_to_pids{$session}) { # avoid autoviv
+    foreach (keys %{$kr_sessions_to_pids{$session}}) {
+      $self->_data_sig_pid_ignore($session, $_);
+    }
+  }
+}
+
+### Watch and ignore PIDs.
+
+sub _data_sig_pid_watch {
+  my ($self, $session, $pid, $event) = @_;
+
+  $kr_pids_to_events{$pid}{$session} = [
+    $session, # PID_SESSION
+    $event,   # PID_EVENT
+  ];
+
+  $self->_data_sig_signal_watch($session, "CHLD");
+
+  $kr_sessions_to_pids{$session}{$pid} = 1;
+  $self->_data_ses_refcount_inc($session);
+}
+
+sub _data_sig_pid_ignore {
+  my ($self, $session, $pid) = @_;
+
+  # Remove PID to event mapping.
+
+  delete $kr_pids_to_events{$pid}{$session};
+  delete $kr_pids_to_events{$pid} unless (
+    keys %{$kr_pids_to_events{$pid}}
+  );
+
+  # Remove session to PID mapping.
+
+  delete $kr_sessions_to_pids{$session}{$pid};
+  unless (keys %{$kr_sessions_to_pids{$session}}) {
+    delete $kr_sessions_to_pids{$session};
+    $self->_data_sig_signal_ignore($session, "CHLD");
+  }
+
+  $self->_data_ses_refcount_dec($session);
+}
+
+sub _data_sig_pids_ses {
+  my ($self, $session) = @_;
+  return 0 unless exists $kr_sessions_to_pids{$session};
+  return scalar keys %{$kr_sessions_to_pids{$session}};
 }
 
 ### Return a signal's type, or SIGTYPE_BENIGN if it's not special.
@@ -349,6 +446,7 @@ sub _data_sig_begin_polling {
 }
 
 sub _data_sig_cease_polling {
+  return if keys %kr_pids_to_events;
   $polling_for_signals = 0;
 }
 
@@ -378,7 +476,6 @@ sub _data_sig_handle_poll_event {
 
   my $pid;
   while ($pid = waitpid(-1, WNOHANG)) {
-
     # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
     # event and loop around again.
 
@@ -389,6 +486,23 @@ sub _data_sig_handle_poll_event {
           _warn("<sg> POE::Kernel detected SIGCHLD (pid=$pid; exit=$?)");
         }
 
+        # Check for explicit SIGCHLD watchers, and enqueue explicit
+        # events for them.
+
+        if (exists $kr_pids_to_events{$pid}) {
+          my @sessions_to_clear;
+          while (my ($ses_key, $ses_rec) = each %{$kr_pids_to_events{$pid}}) {
+            $self->_data_ev_enqueue(
+              $ses_rec->[PID_SESSION], $self, $ses_rec->[PID_EVENT], ET_SIGCLD,
+              [ 'CHLD', $pid, $? ],
+              __FILE__, __LINE__, undef, time(),
+            );
+            push @sessions_to_clear, $ses_rec->[PID_SESSION];
+          }
+          $self->_data_sig_pid_ignore($_, $pid) foreach @sessions_to_clear;
+        }
+
+        # Kick off a SIGCHLD cascade.
         $self->_data_ev_enqueue(
           $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
           __FILE__, __LINE__, undef, time(),
@@ -466,6 +580,7 @@ sub _data_sig_handle_poll_event {
 
 # Are there child processes worth waiting for?
 # We don't really care if we're not polling for signals.
+# TODO - Will this change?
 
 sub _data_sig_child_procs {
   return unless $polling_for_signals;
