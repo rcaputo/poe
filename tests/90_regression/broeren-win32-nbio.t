@@ -14,7 +14,7 @@ BEGIN {
 
   eval 'use Win32::Console';
   if ($@) {
-    plan skip_all => "Win32::Console is required for this test.";
+    plan skip_all => "Win32::Console is required on $^O - try ActivePerl";
   }
 }
 

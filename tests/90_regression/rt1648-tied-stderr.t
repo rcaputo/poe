@@ -15,7 +15,13 @@ BEGIN {
     $error = "$^O does not support fork";
   }
   elsif ($^O eq "MSWin32") {
-    $error = "$^O does not support fork/exec properly";
+    eval "use Win32::Console";
+    if ($@) {
+      $error = "Win32::Console is required on $^O - try ActivePerl";
+    }
+    else {
+      $error = "$^O does not support fork/exec properly";
+    }
   }
   if ($error) {
     print "1..0 # Skip $error\n";

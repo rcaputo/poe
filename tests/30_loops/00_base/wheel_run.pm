@@ -21,7 +21,7 @@ BEGIN {
   if ($^O eq "MSWin32") {
     eval 'use Win32::Console';
     if ($@) {
-      $error = "$^O needs Win32::Console for this test";
+      $error = "Win32::Console is required on $^O - try ActivePerl";
     }
     elsif (exists $INC{"Event.pm"}) {
       $error = "$^O\'s fork() emulation breaks Event";
