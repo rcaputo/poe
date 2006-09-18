@@ -630,8 +630,8 @@ sub _explain_resolve_failure {
   }
 
   $! = ESRCH;
-  TRACE_RETVALS  and _carp    "<rv> session not resolved: $!";
-  ASSERT_RETVALS and _confess "<rv> session not resolved: $!";
+  TRACE_RETVALS  and _carp "<rv> session not resolved: $!";
+  ASSERT_RETVALS and _carp "<rv> session not resolved: $!";
 }
 
 ### Explain why a function is returning unsuccessfully.
