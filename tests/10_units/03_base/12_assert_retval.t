@@ -7,7 +7,7 @@
 use strict;
 use lib qw(./mylib);
 
-use Test::More tests => 28;
+use Test::More tests => 22;
 
 sub POE::Kernel::ASSERT_RETVALS () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
@@ -17,44 +17,6 @@ BEGIN { use_ok("POE") }
 # Disable any "didn't call run" warnings.
 
 POE::Kernel->run();
-
-# Session resolution.
-
-eval { $poe_kernel->signal(moo => "signal") };
-ok(
-  $@ && $@ =~ /session not resolved/,
-  "unresolvable session in signal"
-);
-
-eval { $poe_kernel->detach_child("moo") };
-ok(
-  $@ && $@ =~ /session not resolved/,
-  "unresolvable session in detach_child"
-);
-
-eval { $poe_kernel->post(moo => "bar") };
-ok(
-  $@ && $@ =~ /session not resolved/,
-  "unresolvable session in post"
-);
-
-eval { $poe_kernel->call(moo => "bar") };
-ok(
-  $@ && $@ =~ /session not resolved/,
-  "unresolvable session in call"
-);
-
-eval { $poe_kernel->alias_resolve("moo") };
-ok(
-  $@ && $@ =~ /session not resolved/,
-  "unresolvable session in alias_resolve"
-);
-
-eval { $poe_kernel->alias_list("moo") };
-ok(
-  $@ && $@ =~ /session not resolved/,
-  "unresolvable session in alias_list"
-);
 
 # Strange return values.
 
