@@ -11,12 +11,15 @@ use strict;
 use Test::More;
 
 if ($^O eq "MSWin32") {
-  if (exists $INC{'Tk.pm'}) {
-    plan skip_all => "Perl crashes in this test with Tk on $^O";
-  }
   eval 'use Win32::Console';
   if ($@) {
     plan skip_all => "Win32::Console is required on $^O - try ActivePerl";
+  }
+  if (exists $INC{'Tk.pm'}) {
+    plan skip_all => "Perl crashes in this test with Tk on $^O";
+  }
+  if (exists $INC{'Event.pm'}) {
+    plan skip_all => "Perl crashes in this test with Event on $^O";
   }
 }
 
