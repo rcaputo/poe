@@ -882,12 +882,6 @@ sub new {
 sub DESTROY {
   my $self = shift;
 
-  # TODO - This module keeps several references to $self in anonymous
-  # subroutines.  These $self-references keep the wheel from dying
-  # until well after its parent session is gone.  The following
-  # return() statement is a cheezy workaround for this problem.
-  return if $poe_kernel->get_active_session == $poe_kernel;
-
   # Stop selecting on the handle.
   $poe_kernel->select($stdin);
 
