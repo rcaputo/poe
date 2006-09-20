@@ -3,12 +3,7 @@
 
 use Test::More;
 eval "use Test::Pod::Coverage 1.00";
-plan skip_all => "Test::Pod::Coverage 1.00 required for testing POD coverage"
-  if $@;
-plan skip_all => 'set POE_TEST_POD or POE_TEST_POD_STRICT to enable this test'
-  unless $ENV{POE_TEST_POD} or $ENV{POE_TEST_POD_STRICT};
-
-my $strict = $ENV{POE_TEST_POD_STRICT};
+plan skip_all => "Test::Pod::Coverage 1.00 required for testing POD coverage" if $@;
 
 # These are the default Pod::Coverage options.
 my $default_opts = {
@@ -23,63 +18,28 @@ my $default_opts = {
 # options you want to keep.
 
 my %special = (
-  'POE::Kernel' => {
-    also_private => [
-      qr/^[A-Z0-9_]+$/,
-      ( $strict
-        ? ( )
-        : (
-          'finalize_kernel',      # Should be _finalize_kernel.
-          'get_event_count',      # Should this exist?
-          'get_next_event_time',  # Should this exist?
-          'new',                  # Definitely private.  Necessary?
-          'queue_peek_alarms',    # Public or private?
-          'session_alloc',        # Should be documented.
-        )
-      )
-    ],
-  },
-  'POE::Session' => {
-    also_private => [
-      qr/^[A-Z0-9_]+$/,
-      ( $strict
-        ? ( )
-        : (
-          'register_state',        # Should become _register_state.
-        )
-      )
-    ],
-  },
-  'POE::NFA' => {
-    also_private => [
-      qr/^[A-Z0-9_]+$/,
-      ( $strict
-        ? ( )
-        : (
-          'register_state',        # Should become _register_state.
-        )
-      )
-    ],
-  },
   'POE::Wheel::ReadLine' => {
     also_private => [
       qr/^[A-Z0-9_]+$/,            # Constants subs.
       qr/^rl_/,                    # Keystroke callbacks.
-      ( $strict
-        ? ( )
-        : (
-          'option',                # Should this be public or private?
-          'search',                # Should this be public or private?
-        )
-      )
     ],
-    coverage_class => 'Pod::Coverage::CountParents'
+    coverage_class => 'Pod::Coverage::CountParents',
   },
 );
 
+# Get the list of modules
 my @modules = all_modules();
-
 plan tests => scalar @modules;
+
+# Failed test 'Pod coverage on POE::Loop::Tk'
+# Failed test 'Pod coverage on POE::Loop::TkActiveState'
+# That's because Tk isn't loaded...
+eval "require Tk";
+my $forgetTk = 0;
+if ( $@ ) {
+  # remove those modules
+  $forgetTk = 1;
+}
 
 foreach my $module ( @modules ) {
   my $opts = $default_opts;
@@ -96,6 +56,13 @@ foreach my $module ( @modules ) {
       skip "$module", 1 unless $special{$module};
       $opts = $special{$module} if ref $special{$module} eq 'HASH';
     }
+
+    # Skip Tk Stuff
+    if ( $forgetTk and $module =~ /^POE::Loop::Tk/ ) {
+      skip "Not checking $module because no Tk installed", 1;
+    }
+
+    # Finally!
     pod_coverage_ok( $module, $opts );
   }
 }
