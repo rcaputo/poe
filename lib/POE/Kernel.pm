@@ -1197,7 +1197,7 @@ sub _initialize_kernel_session {
 
 # Do post-run cleanup.
 
-sub finalize_kernel {
+sub _finalize_kernel {
   my $self = shift;
 
   # Disable signal watching since there's now no place for them to go.
@@ -1226,7 +1226,7 @@ sub run_one_timeslice {
   return undef unless $self->_data_ses_count();
   $self->loop_do_timeslice();
   unless ($self->_data_ses_count()) {
-    $self->finalize_kernel();
+    $self->_finalize_kernel();
     $kr_run_warning |= KR_RUN_DONE;
   }
 }
@@ -1255,7 +1255,7 @@ sub run {
     $self->loop_run();
 
     # Cleanup
-    $self->finalize_kernel();
+    $self->_finalize_kernel();
   }
 
   # Clean up afterwards.
@@ -1715,39 +1715,6 @@ sub call {
 
   $! = 0;
   return;
-}
-
-#------------------------------------------------------------------------------
-# Peek at pending alarms.  Returns a list of pending alarms.  This
-# function is deprecated; its lack of documentation is by design.
-# Here's the old POD, in case you're interested.
-#
-# # Return the names of pending timed events.
-# @event_names = $kernel->queue_peek_alarms( );
-#
-#   =item queue_peek_alarms
-#
-# queue_peek_alarms() returns a time-ordered list of event names from
-# the current session that have pending timed events.  If a event
-# handler has more than one pending timed event, it will be listed
-# that many times.
-#
-#   my @pending_timed_events = $kernel->queue_peek_alarms();
-
-sub queue_peek_alarms {
-  my $self = shift;
-
-  my $alarm_count = $self->_data_ev_get_count_to($kr_active_session);
-
-  my $my_alarm = sub {
-    return 0 unless $_[0]->[EV_TYPE] & ET_ALARM;
-    return 0 unless $_[0]->[EV_SESSION] == $kr_active_session;
-    return 1;
-  };
-
-  return( map { $_->[ITEM_PAYLOAD]->[EV_NAME] }
-          $kr_queue->peek_items($my_alarm, $alarm_count)
-        );
 }
 
 #==============================================================================
@@ -2513,7 +2480,7 @@ sub state {
     (ref($kr_active_session) ne '') &&
     (ref($kr_active_session) ne 'POE::Kernel')
   ) {
-    $kr_active_session->register_state($event, $state_code, $state_alias);
+    $kr_active_session->_register_state($event, $state_code, $state_alias);
     return 0;
   }
 
@@ -3909,6 +3876,37 @@ tediously need to include C<SESSION> with every call.
 
 get_active_event() returns the currently active event name or an
 empty string if called outside any event.
+
+=item get_event_count
+
+get_event_count() returns the number of pending events in the queue.
+
+WARNING: probably will be B<DEPRECATED> in the future!
+
+=item get_next_event_time
+
+get_next_event_time() returns the priority of the next event ( look
+at POE::Queue for more information as it's actually $queue->get_next_priority )
+
+WARNING: probably will be B<DEPRECATED> in the future!
+
+=back
+
+=head2 Kernel Internal Methods
+
+Those methods are primarily used by other POE modules and are not for public
+consumption.
+
+=over 2
+
+=item new
+
+Accepts no arguments and returns a singleton POE::Kernel instance.
+
+=item session_alloc
+
+Allocates a session in the Kernel - does not create it! Fires off the _start event
+with the arguments given.
 
 =back
 

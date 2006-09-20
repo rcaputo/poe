@@ -281,7 +281,7 @@ sub create {
       while (my ($state, $handler) = each(%$param_value)) {
         croak "inline state for '$state' needs a CODE reference"
           unless (ref($handler) eq 'CODE');
-        $self->register_state($state, $handler);
+        $self->_register_state($state, $handler);
       }
     }
 
@@ -311,7 +311,7 @@ sub create {
 
         if (ref($handlers) eq 'ARRAY') {
           foreach my $method (@$handlers) {
-            $self->register_state($method, $package, $method);
+            $self->_register_state($method, $package, $method);
           }
         }
 
@@ -320,7 +320,7 @@ sub create {
 
         elsif (ref($handlers) eq 'HASH') {
           while (my ($state, $method) = each %$handlers) {
-            $self->register_state($state, $package, $method);
+            $self->_register_state($state, $package, $method);
           }
         }
 
@@ -359,7 +359,7 @@ sub create {
 
         if (ref($handlers) eq 'ARRAY') {
           foreach my $method (@$handlers) {
-            $self->register_state($method, $object, $method);
+            $self->_register_state($method, $object, $method);
           }
         }
 
@@ -368,7 +368,7 @@ sub create {
 
         elsif (ref($handlers) eq 'HASH') {
           while (my ($state, $method) = each %$handlers) {
-            $self->register_state($state, $object, $method);
+            $self->_register_state($state, $object, $method);
           }
         }
 
@@ -518,7 +518,7 @@ sub _invoke_state {
 #------------------------------------------------------------------------------
 # Add, remove or replace states in the session.
 
-sub register_state {
+sub _register_state {
   my ($self, $name, $handler, $method) = @_;
   $method = $name unless defined $method;
 

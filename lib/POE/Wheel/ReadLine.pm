@@ -609,7 +609,7 @@ sub _delete_chars {
   return $old;
 }
 
-sub search {
+sub _search {
   my ($self, $rebuild) = @_;
   if ($rebuild) {
     $self->_wipe_input_line;
@@ -2763,7 +2763,7 @@ sub rl_search_finish {
 sub rl_search_key {
   my ($self, $key) = @_;
   $self->[SELF_SEARCH] .= $key;
-  $self->search(1);
+  $self->_search(1);
 }
 
 sub rl_vi_search_key {
@@ -2795,7 +2795,7 @@ sub rl_vi_search_accept {
   $self->[SELF_CURSOR_DISPLAY] = 0;
   $self->[SELF_INPUT] =~ s{^[/?]}{};
   $self->[SELF_SEARCH] = $self->[SELF_INPUT] if $self->[SELF_INPUT];
-  $self->search(0);
+  $self->_search(0);
   $self->[SELF_KEYMAP] = $self->[SELF_SEARCH_MAP];
   $self->[SELF_SEARCH_MAP] = undef;
 }
@@ -2812,7 +2812,7 @@ sub rl_vi_search_again {
     return $self->rl_ding;
   }
   $self->_wipe_input_line;
-  $self->search(0);
+  $self->_search(0);
 }
 
 sub rl_isearch_again {
@@ -2829,7 +2829,7 @@ sub rl_isearch_again {
     $self->[SELF_HIST_INDEX] = (scalar @{$self->[SELF_HIST_LIST]}) - 1;
     return $self->rl_ding;
   }
-  $self->search(1);
+  $self->_search(1);
 }
 
 sub rl_non_incremental_forward_search_history {
@@ -2839,7 +2839,7 @@ sub rl_non_incremental_forward_search_history {
   $self->[SELF_CURSOR_DISPLAY] = 0;
   $self->[SELF_SEARCH_DIR] = +1;
   $self->[SELF_SEARCH] = substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]);
-  $self->search(0);
+  $self->_search(0);
 }
 
 sub rl_non_incremental_reverse_search_history {
@@ -2854,7 +2854,7 @@ sub rl_non_incremental_reverse_search_history {
   $self->[SELF_CURSOR_DISPLAY] = 0;
   $self->[SELF_SEARCH_DIR] = -1;
   $self->[SELF_SEARCH] = substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]);
-  $self->search(0);
+  $self->_search(0);
 }
 
 sub rl_undo {
@@ -3189,6 +3189,10 @@ If you wish to change keymaps, then use the rl_set_keymap method.
 
 Create a new (global) function definition which may be then bound to a
 key.
+
+=item option NAME
+
+Returns the option named NAME or an empty string.
 
 =back
 

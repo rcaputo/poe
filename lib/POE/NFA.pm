@@ -420,7 +420,7 @@ sub _invoke_state {
 # limited to a single state.  I think they'll go in a hidden internal
 # state, or something.
 
-sub register_state {
+sub _register_state {
   my ($self, $name, $handler, $method) = @_;
   $method = $name unless defined $method;
 

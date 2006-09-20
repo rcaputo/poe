@@ -18,6 +18,28 @@ BEGIN { use_ok("POE") }
 # Test the ID-based alarm API.  Start several test paths.  Each path
 # exercises 
 
+# We need this because queue_peek_alarms was deprecated
+BEGIN {
+ package POE::Kernel;
+
+ sub queue_peek_alarms {
+  my $self = shift;
+  my $session = $self->get_active_session;
+
+  my $alarm_count = $self->_data_ev_get_count_to($session);
+
+  my $my_alarm = sub {
+    return 0 unless $_[0]->[EV_TYPE] & ET_ALARM;
+    return 0 unless $_[0]->[EV_SESSION] == $session;
+    return 1;
+  };
+
+  return( map { $_->[ITEM_PAYLOAD]->[EV_NAME] }
+    $self->[KR_QUEUE]->peek_items($my_alarm, $alarm_count)
+  );
+ }
+}
+
 sub test_start {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
 
