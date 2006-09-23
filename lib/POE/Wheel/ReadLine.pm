@@ -3388,6 +3388,22 @@ to your existing ~/.inputrc.  While you're in there, you should
 totally get acquainted with all the other cool stuff you can do with
 .inputrc files.
 
+Q: Why doesn't POE::Wheel::ReadLine work on Windows?  Term::ReadLine
+does.
+
+A: POE::Wheel::ReadLine requires select(), because that's what POE
+uses by default to detect keystrokes without blocking.  About half the
+flavors of Perl on Windows implement select() in terms of the same
+function in the WinSock library, which limits select() to working only
+with sockets.  Your console isn't a socket, so select() doesn't work
+with your version of Perl on Windows.
+
+Really good workarounds are possible but don't exist as of this
+writing.  They involve writing a special POE::Loop for Windows that
+either uses a Win32-specific module for better multiplexing, that
+polls for input, or that uses blocking I/O watchers in separate
+threads.
+
 =head1 AUTHORS & COPYRIGHTS
 
 Rocco Caputo - Original author.
