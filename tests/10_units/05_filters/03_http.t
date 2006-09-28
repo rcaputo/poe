@@ -281,7 +281,7 @@ END
   my $req = POST 'http://localhost:1234/foobar.html',
       [ 'I' => 'like', 'honey' => 'with peas' ];
   $req->protocol('HTTP/1.1');
-  my @req_frags = unpack("(a2)*", $req->as_string);
+  my @req_frags = $req->as_string() =~ m/(..)/sg;
   my $filter = POE::Filter::HTTPD->new;
 
   #my $pending_ok = 0;
