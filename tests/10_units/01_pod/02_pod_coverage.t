@@ -31,16 +31,6 @@ my %special = (
 my @modules = all_modules();
 plan tests => scalar @modules;
 
-# Failed test 'Pod coverage on POE::Loop::Tk'
-# Failed test 'Pod coverage on POE::Loop::TkActiveState'
-# That's because Tk isn't loaded...
-eval "require Tk";
-my $forgetTk = 0;
-if ( $@ ) {
-  # remove those modules
-  $forgetTk = 1;
-}
-
 foreach my $module ( @modules ) {
   my $opts = $default_opts;
 
@@ -57,10 +47,9 @@ foreach my $module ( @modules ) {
       $opts = $special{$module} if ref $special{$module} eq 'HASH';
     }
 
-    # Skip Tk Stuff
-    if ( $forgetTk and $module =~ /^POE::Loop::Tk/ ) {
-      skip "Not checking $module because no Tk installed", 1;
-    }
+    # Skip modules that can't load for some reason.
+    eval "require $module";
+    skip "Not checking $module ...", 1 if $@;
 
     # Finally!
     pod_coverage_ok( $module, $opts );
