@@ -3420,7 +3420,7 @@ select_expedite() starts or stops the kernel from watching to see if a
 filehandle can be read from "out-of-band".  This is most useful for
 datagram sockets where an out-of-band condition is meaningful.  In
 most cases it can be ignored.  An EVENT_NAME event will be enqueued
-whatever the filehandle can be read from out-of-band.  The optional
+whenever the filehandle can be read from out-of-band.  The optional
 ADDITIONAL_PARAMETERS will be passed to the input callback after the
 usual I/O parameters.
 

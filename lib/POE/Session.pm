@@ -1421,7 +1421,7 @@ in cases where a single state handles several different events.
 
   sub some_state {
     print(
-      "some_state in session ", $_[SESSION]-ID,
+      "some_state in session ", $_[SESSION]->ID,
       " was invoked as ", $_[STATE], "\n"
     );
   }
@@ -1451,7 +1451,7 @@ The file, line number, and state from which this state was called.
 =head1 PREDEFINED EVENT NAMES
 
 POE contains helpers which, in order to help, need to emit predefined
-events.  These events all being with a single leading underscore, and
+events.  These events all begin with a single leading underscore, and
 it's recommended that sessions not post leading-underscore events
 unless they know what they're doing.
 
@@ -1670,7 +1670,7 @@ C<postback()> method was created to fill this need.
 C<postback()> creates coderefs suitable to be used in traditional
 callbacks.  When invoked as callbacks, these coderefs post their
 parameters as POE events.  This lets POE interact with nearly every
-callback currently in existing, and most future ones.
+callback currently in existence, and most future ones.
 
 =head2 Job Control and Family Values
 
