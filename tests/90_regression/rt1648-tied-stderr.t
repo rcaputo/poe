@@ -71,7 +71,7 @@ POE::Session->create(
       }
     },
     _stop => sub {
-      ok( $_[HEAP]->{got_stderr}, "received STDERR despite it being tied");
+      ok($_[HEAP]->{got_stderr}, "should receive STDERR even when tied");
     },
   },
 );
