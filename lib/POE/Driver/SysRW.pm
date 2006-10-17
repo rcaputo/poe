@@ -111,8 +111,9 @@ sub get {
   return [ ] if $! == EAGAIN or $! == EWOULDBLOCK;
 
   # In perl 5.005_04 on FreeBSD, $! is not set properly unless this
-  # silly no-op is executed.  TODO - Make it optimizable at compile
-  # time.
+  # silly no-op is executed.  Turn off warnings in case $result isn't
+  # defined.  TODO - Make it optimizable at compile time.
+  local $^W = 0;
   $result = "$result";
 
   # fatal sysread error
