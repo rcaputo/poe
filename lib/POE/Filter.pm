@@ -73,7 +73,8 @@ business of using lines.
 =head1 PUBLIC FILTER METHODS
 
 These methods are the generic Filter interface, and every filter must
-implement them.  Specific filters may have additional methods.
+implement them or inherit them from this base class.  Specific filters
+may have additional methods.
 
 =over 2
 
