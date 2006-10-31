@@ -73,14 +73,6 @@ check_for_modules(
   RECOMMENDED_TIME_HIRES,
   "Tk"              => 800.027,
   "URI"             => 1.30,
-  (
-    ($^O eq "MSWin32")
-    ? (
-      "Win32::Console" => 0.031,
-      "Win32API::File" => 0.05,
-    )
-    : ()
-  ),
 );
 
 ### Generate dynamic test files.

@@ -29,6 +29,14 @@ sub CORE_REQUIREMENTS () {
     "POSIX"              => 1.02,
     "Socket"             => 1.7,
     "Test::Harness"      => 2.26,
+    (
+      ($^O eq "MSWin32")
+      ? (
+        "Win32::Console" => 0.031,
+        "Win32API::File" => 0.05,
+      )
+      : ()
+    ),
   )
 }
 
