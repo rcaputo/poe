@@ -28,8 +28,6 @@ unless (grep /^--default$/, @ARGV) {
     "\n",
     "Prompts may be bypassed by running:\n",
     "   $^X $0 --default\n",
-     "\n",
-    "Only necessary modules will be installed by default.\n",
     "\n",
     "====================================================================\n",
     "\n",
@@ -39,15 +37,10 @@ unless (grep /^--default$/, @ARGV) {
 # Should we skip the network tests?
 
 my $prompt = qq|
-POE's test suite requires a functional network.
-However, we can skip those tests requiring network
-access if you would like.
+Some of POE's tests require a functional network.
+You can skip these tests if you'd like.
 
-Would you like to skip the network tests?
-
-|;
-
-$prompt .= "(Any text other than Y or y will be taken as a no)";
+Would you like to skip the network tests?|;
 
 my $ret = "n";
 if (grep /^--default$/, @ARGV) {
