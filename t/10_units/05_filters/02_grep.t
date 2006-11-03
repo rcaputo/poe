@@ -4,7 +4,7 @@
 
 use strict;
 use lib qw(./mylib ../mylib);
-use lib qw(tests/10_units/05_filters);
+use lib qw(t/10_units/05_filters);
 
 use Data::Dumper; $Data::Dumper::Indent=1;
 

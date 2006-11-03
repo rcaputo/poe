@@ -3,7 +3,7 @@
 # Exercises POE::Filter::RecordBlock without the rest of POE
 
 use strict;
-use lib qw(tests/10_units/05_filters);
+use lib qw(t/10_units/05_filters);
 
 use TestFilter;
 use Test::More tests => 21 + $COUNT_FILTER_INTERFACE + $COUNT_FILTER_STANDARD;

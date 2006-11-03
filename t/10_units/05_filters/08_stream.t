@@ -5,7 +5,7 @@
 
 use strict;
 use lib qw(./mylib ../mylib);
-use lib qw(tests/10_units/05_filters);
+use lib qw(t/10_units/05_filters);
 
 use TestFilter;
 use Test::More tests => 9 + $COUNT_FILTER_INTERFACE + $COUNT_FILTER_STANDARD;

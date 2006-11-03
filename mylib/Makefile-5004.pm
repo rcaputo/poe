@@ -7,6 +7,7 @@ use ExtUtils::MakeMaker;
 
 use lib qw(./mylib);
 use PoeBuildInfo qw(
+  TEST_FILES
   CLEAN_FILES
   CORE_REQUIREMENTS
 );
@@ -52,6 +53,10 @@ WriteMakefile(
 
   clean => {
     FILES => CLEAN_FILES,
+  },
+
+  test => {
+    TESTS => TEST_FILES,
   },
 
   PL_FILES  => { },

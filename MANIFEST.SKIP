@@ -26,5 +26,5 @@ CVS
 ^poe_report\.xml$
 run_network_tests
 test-output\.err$
-tests/[23]0_.*\.t
+t/[23]0_.*\.t
 ~$

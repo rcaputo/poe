@@ -6,7 +6,7 @@
 
 use strict;
 use lib qw(./mylib ../mylib);
-use lib qw(tests/10_units/05_filters);
+use lib qw(t/10_units/05_filters);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }

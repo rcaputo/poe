@@ -12,6 +12,7 @@ use base qw(Exporter);
 use vars qw(@EXPORT_OK);
 
 @EXPORT_OK = qw(
+  TEST_FILES
   CLEAN_FILES
   CORE_REQUIREMENTS
   DIST_ABSTRACT
@@ -58,22 +59,31 @@ sub CLEAN_FILES () {
     poe_report.xml
     run_network_tests
     test-output.err
-    tests/20_resources/10_perl
-    tests/20_resources/10_perl/*
-    tests/20_resources/20_xs
-    tests/20_resources/20_xs/*
-    tests/30_loops/10_select
-    tests/30_loops/10_select/*
-    tests/30_loops/20_poll
-    tests/30_loops/20_poll/*
-    tests/30_loops/30_event
-    tests/30_loops/30_event/*
-    tests/30_loops/40_gtk
-    tests/30_loops/40_gtk/*
-    tests/30_loops/50_tk
-    tests/30_loops/50_tk/*
+    t/20_resources/10_perl
+    t/20_resources/10_perl/*
+    t/20_resources/20_xs
+    t/20_resources/20_xs/*
+    t/30_loops/10_select
+    t/30_loops/10_select/*
+    t/30_loops/20_poll
+    t/30_loops/20_poll/*
+    t/30_loops/30_event
+    t/30_loops/30_event/*
+    t/30_loops/40_gtk
+    t/30_loops/40_gtk/*
+    t/30_loops/50_tk
+    t/30_loops/50_tk/*
   );
   "@clean_files";
+}
+
+sub TEST_FILES () {
+  my @test_files = qw(
+    t/*.t
+    t/*/*.t
+    t/*/*/*.t
+  );
+  "@test_files";
 }
 
 1;
