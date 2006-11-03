@@ -304,9 +304,8 @@ sub loop_do_timeslice {
           next unless $got_mask;
 
           my $watch_mask = $poll_fd_masks{$fd};
-
           if ( $watch_mask & POLLRDNORM and
-               $got_mask & (POLLRDNORM | POLLHUP | POLLERR)
+               $got_mask & (POLLRDNORM | POLLHUP | POLLERR | POLLNVAL)
              ) {
             if (TRACE_FILES) {
               POE::Kernel::_warn "<fh> enqueuing read for fileno $fd";
@@ -316,7 +315,7 @@ sub loop_do_timeslice {
           }
 
           if ( $watch_mask & POLLWRNORM and
-               $got_mask & (POLLWRNORM | POLLHUP | POLLERR)
+               $got_mask & (POLLWRNORM | POLLHUP | POLLERR | POLLNVAL)
              ) {
             if (TRACE_FILES) {
               POE::Kernel::_warn "<fh> enqueuing write for fileno $fd";
@@ -326,7 +325,7 @@ sub loop_do_timeslice {
           }
 
           if ( $watch_mask & POLLRDBAND and
-               $got_mask & (POLLRDBAND | POLLHUP | POLLERR)
+               $got_mask & (POLLRDBAND | POLLHUP | POLLERR | POLLNVAL)
              ) {
             if (TRACE_FILES) {
               POE::Kernel::_warn "<fh> enqueuing expedite for fileno $fd";
