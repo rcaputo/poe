@@ -176,8 +176,9 @@ assume that something doesn't exist if it's not there.
 
 There are also some helper classes.  POE::Pipe is the base class for
 POE::Pipe::OneWay and POE::Pipe::TwoWay.  They are portable pipe
-creation functions, mainly for POE's test suite.  POE::Preprocessor is
-a macro language implemented as a source filter.
+creation functions, mainly for POE's test suite.  POE::Preprocessor, a
+macro language implemented as a source filter, has been split off into
+its own distribution: Filter::Template.
 
 POE is a relatively large system.  It includes internal classes that
 allow it to be customized without needing to know too much about the
@@ -345,8 +346,6 @@ POE::Loop, POE::Loop::Event, POE::Loop::Gtk, POE::Loop::IO_Poll,
 POE::Loop::Select, POE::Loop::Tk
 
 POE::Pipe, POE::Pipe::OneWay, POE::Pipe::TwoWay
-
-POE::Preprocessor
 
 POE::Queue, POE::Queue::Array
 

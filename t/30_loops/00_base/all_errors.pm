@@ -38,7 +38,6 @@ print "1..0 # most of these should move into other test files\n";
 #  # Clean up after destructive tests.
 #  sub test_cleanup {
 #    # Not used in POE::Kernel now.
-#    # POE::Preprocessor->clear_package( 'POE::Kernel' );
 #
 #    delete @INC{ @files_to_unuse };
 #    use Symbol qw(delete_package);
