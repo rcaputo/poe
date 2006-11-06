@@ -622,10 +622,10 @@ sub _test_if_kernel_is_idle {
 ### Explain why a session could not be resolved.
 
 sub _explain_resolve_failure {
-  my ($self, $whatever) = @_;
+  my ($self, $whatever, $nonfatal) = @_;
   local $Carp::CarpLevel = 2;
 
-  if (ASSERT_DATA) {
+  if (ASSERT_DATA and !$nonfatal) {
     _trap "<dt> Cannot resolve ``$whatever'' into a session reference";
   }
 
@@ -2309,7 +2309,7 @@ sub alias_resolve {
 
   my $session = $self->_resolve_session($name);
   unless (defined $session) {
-    $self->_explain_resolve_failure($name);
+    $self->_explain_resolve_failure($name, "nonfatal");
     return;
   }
 
@@ -2324,7 +2324,7 @@ sub alias_list {
     $self->_resolve_session($search_session || $kr_active_session);
 
   unless (defined $session) {
-    $self->_explain_resolve_failure($search_session);
+    $self->_explain_resolve_failure($search_session, "nonfatal");
     return;
   }
 

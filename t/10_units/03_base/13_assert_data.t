@@ -10,7 +10,7 @@ use lib qw(./mylib);
 # _explain_resolve_failure
 # session_alloc
 
-use Test::More tests => 9;
+use Test::More tests => 7;
 
 sub POE::Kernel::ASSERT_DATA    () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
@@ -45,18 +45,6 @@ eval { $poe_kernel->call(moo => "bar") };
 ok(
   $@ && $@ =~ /Cannot resolve ``moo'' into a session reference/,
   "unresolvable session in call"
-);
-
-eval { $poe_kernel->alias_resolve("moo") };
-ok(
-  $@ && $@ =~ /Cannot resolve ``moo'' into a session reference/,
-  "unresolvable session in alias_resolve"
-);
-
-eval { $poe_kernel->alias_list("moo") };
-ok(
-  $@ && $@ =~ /Cannot resolve ``moo'' into a session reference/,
-  "unresolvable session in alias_list"
 );
 
 # Double session allocation.
