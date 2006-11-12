@@ -52,8 +52,18 @@ sub new {
 }
 
 #------------------------------------------------------------------------------
-# Cannot inherit get() from POE::Filter since this filter doesn't have
-# a get_one() interface.
+
+sub get_one_start {
+    my ($self, $stream) = @_;
+    return if ( $self->[FINISH] );
+    $stream = [ $stream ] unless ( ref( $stream ) );
+    $self->[BUFFER] .= join( '', @$stream );
+}
+
+sub get_one {
+    my ($self) = @_;
+    return ( $self->[FINISH] ) ? [] : $self->get( [] );
+}
 
 sub get {
   my ($self, $stream) = @_;
