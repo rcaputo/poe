@@ -314,6 +314,14 @@ sub _data_sig_pids_ses {
   return scalar keys %{$kr_sessions_to_pids{$session}};
 }
 
+sub _data_sig_pids_is_ses_watching {
+  my ($self, $session, $pid) = @_;
+	return(
+		exists($kr_sessions_to_pids{$session}) &&
+		exists($kr_sessions_to_pids{$session}{$pid})
+	);
+}
+
 ### Return a signal's type, or SIGTYPE_BENIGN if it's not special.
 
 sub _data_sig_type {

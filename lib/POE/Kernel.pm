@@ -752,7 +752,7 @@ sub sig_child {
   if (defined $event_name) {
     $self->_data_sig_pid_watch($kr_active_session, $pid, $event_name);
   }
-  else {
+  elsif ($self->_data_sig_pids_is_ses_watching($kr_active_session, $pid)) {
     $self->_data_sig_pid_ignore($kr_active_session, $pid);
   }
 }
