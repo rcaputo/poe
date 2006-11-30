@@ -204,26 +204,6 @@ sub try_alloc {
 }
 
 #------------------------------------------------------------------------------
-# Classic style constructor.  This is unofficially deprecated in
-# favor of the create() constructor.  Its DWIM nature does things
-# people don't mean, so create() is a little more explicit.
-
-sub new {
-  my ($type, @states) = @_;
-
-  my @args;
-
-  croak "sessions no longer require a kernel reference as the first parameter"
-    if ((@states > 1) && (ref($states[0]) eq 'POE::Kernel'));
-
-  croak(
-    "POE::Session->new() has been deprecated for over a year.  Please\n",
-    "use create() instead.  http://www.nntp.perl.org/group/perl.poe/2613\n",
-    "discusses the deprecation.\n",
-  );
-}
-
-#------------------------------------------------------------------------------
 # New style constructor.  This uses less DWIM and more DWIS, and it's
 # more comfortable for some folks; especially the ones who don't quite
 # know WTM.
@@ -872,11 +852,9 @@ session, and then fires off its C<_start> state, possibly with some
 parameters.
 
 create's parameters look like a hash of name/value pairs, but it's
-really just a list.  create() is preferred over the older, more DWIMmy
-new() constructor because each kind of parameter is explicitly named.
-This makes it easier for maintainers to understand the constructor
-call, and it lets the constructor unambiguously recognize and validate
-parameters.
+really just a list.  This is so the the constructor can unambiguously
+recognize and validate parameters and the programmer/maintainers know
+what events is being dispatched to what.
 
 C<create()> returns a reference to the newly created session but B<it
 is recommended not to save this>.  POE::Kernel manages sessions and
@@ -1020,80 +998,6 @@ C<handler_twelve()> method.
   ];
 
 =back
-
-=item new LOTS_OF_STUFF
-
-WARNING: C<new()> is deprecated as per POE's roadmap.
-
-C<new()> was Session's older constructor.  Its design was clever at the
-time, but it didn't expand well.
-
-C<new()> returned a reference to the newly created session but B<it is
-recommended not to save this>.  POE::Kernel manages sessions and will
-ensure timely destruction of them as long as extra references to them
-aren't hanging around.
-
-Inline states, object states, package states, and _start arguments were
-all inferred by their contexts.  This context sensitivity made it
-harder for maintainers to understand what's going on, and it allowed
-errors to be interpreted as different behavior.
-
-Inline states were specified as a scalar mapped to a coderef.
-
-  event_one => \&state_one,
-  event_two => sub { ... },
-
-The equivalent for create() is
-
-  inline_states => {
-    event_one => \&state_one,
-    event_two => sub { ... },
-  },
-
-Object states were specified as object references mapped to list or
-hash references.  Objects that are mapped to arrayrefs will handle
-events with identically named methods.
-
-  $object_one => [ 'event_one', 'event_two' ],
-
-Objects that are mapped to hashrefs can handle events with differently
-named methods.
-
-  $object_two => { event_ten => 'method_foo', event_eleven => 'method_bar' },
-
-the equivalent of these for create is as follows
-
-  object_states => [
-    $object_one => [ 'event_one', 'event_two' ],
-    $object_two => { event_ten => 'method_foo', event_eleven => 'method_bar' },
-  ],
-
-Package states were specified as package names mapped to list or hash
-references.  Package names that are mapped to arrayrefs will handle
-events with identically named methods.
-
-  PackageOne => [ 'event_five', 'event_six' ],
-
-Package names that are mapped to hashrefs can handle events with
-differently named methods.
-
-  PackageTwo => { event_seven => 'method_baz', event_eight => 'method_quux' },
-
-For these, the equivalent create() syntax is
-
-  package_states => [
-    PackageOne => [ 'event_five', 'event_six' ],
-    PackageTwo => { event_seven => 'method_baz', event_eight => 'method_quux' },
-  ],
-  
-Arguments for the C<_start> state were specified as arrayrefs.
-
-  [ 'arg0', 'arg1', ... ],
-
-
-And this is how to do it for create()
-
-  args => [ 'arg0', 'arg1', ... ],
 
 =item option OPTION_NAME
 
@@ -1562,8 +1466,8 @@ created before $poe_kernel->run() is called will have C<KERNEL> as
 their parents.
 
 C<ARG0..$#_> contain the parameters passed into the Session's
-constructor.  See Session's C<new()> and C<create()> methods for more
-information on passing parameters to new sessions.
+constructor.  See Session's C<create()> method for more information
+on passing parameters to new sessions.
 
 =item _stop
 
