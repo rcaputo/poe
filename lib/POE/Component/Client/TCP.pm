@@ -272,6 +272,7 @@ sub new {
             if exists $heap->{ctimeout_id};
 
           if ($heap->{connected}) {
+            $heap->{connected} = 0;
             if (defined $heap->{server}) {
               if (
                 $heap->{got_an_error} or
