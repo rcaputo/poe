@@ -176,4 +176,5 @@ t/90_regression/steinert-recursive-signal.t
 t/90_regression/steinert-signal-integrity.t
 t/90_regression/suzman_windows.t
 t/90_regression/ton-stop-corruption.t
+t/90_regression/whjackson-followtail.t
 TODO
