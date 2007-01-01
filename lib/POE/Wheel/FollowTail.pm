@@ -353,6 +353,24 @@ sub _define_timer_states {
                   if $new_stat[7] < $last_stat->[7];
               };
 
+              # The file may have rolled.  Try one more read before moving on.
+              if (
+                defined $$handle and
+                defined(my $raw_input = $driver->get($$handle))
+              ) {
+
+                # First read the remainder of the file.
+                # Got input.  Read a bunch of it, then poll again right away.
+                if (@$raw_input) {
+                  TRACE_POLL and warn "<poll> " . time . " raw input\n";
+                  foreach my $cooked_input (@{$filter->get($raw_input)}) {
+                    TRACE_POLL and warn "<poll> " . time . " cooked input\n";
+                    $k->call($ses, $$event_input, $cooked_input, $unique_id);
+                  }
+                }
+                $k->yield($$state_read) if defined $$state_read;
+              }
+
               @$last_stat = @new_stat;
               close $$handle if defined $$handle;
               $$handle = _open_file($filename);
