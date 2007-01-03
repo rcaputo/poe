@@ -71,10 +71,10 @@ sub loop_reset_time_watcher {
 sub loop_pause_time_watcher {
   my $self = shift;
   if (defined $_watcher_time) {
-    $_watcher_time->cancel();
+    $_watcher_time->cancel() if $_watcher_time->can("cancel");
     $_watcher_time = undef;
   }
-    $_waiting_for_event = 0;
+  $_waiting_for_event = 0;
 }
 
 # TODO - Ton Hospel's Tk event loop doesn't mix alarms and immediate
