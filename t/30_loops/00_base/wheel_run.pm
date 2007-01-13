@@ -23,6 +23,9 @@ BEGIN {
     if ($@) {
       $error = "Win32::Console is required on $^O - try ActivePerl";
     }
+    elsif (exists $INC{"Tk.pm"}) {
+      $error = "$^O with Tk seems to hang on this test";
+    }
     elsif (exists $INC{"Event.pm"}) {
       $error = "$^O\'s fork() emulation breaks Event";
     }
