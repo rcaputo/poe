@@ -1422,6 +1422,11 @@ If C<Program> holds an array reference, it will executed as
 exec(@$array).  This form of exec() doesn't expand shell
 metacharacters.
 
+On MSWin32, L<Win32::Process> is used to spawn the new process. POE::Wheel::Run
+joins C<Program> and C<ProgramArgs> with spaces to form the commandline that
+Win32::Process::Create requires. Any spaces will cause items to be wrapped in double
+quotes.
+
 If C<Program> holds a code reference, it will be called in the forked
 child process, and then the child will exit.  This allows Wheel::Run
 to fork off bits of long-running code which can accept STDIN input and
