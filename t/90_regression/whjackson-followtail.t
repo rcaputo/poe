@@ -5,11 +5,25 @@
 use strict;
 use warnings;
 
-use Test::More tests => 10;
+use Test::More;
 use POE qw(Wheel::FollowTail);
 
-my $LOG     = 'test_log';
-my $OLD_LOG = 'test_log.1';
+use constant LOG     => 'test_log';
+use constant OLD_LOG => 'test_log.1';
+
+# TODO - Perhaps POE::Wheel::FollowTail should close its file at the
+# end of a poll and reopen it at the start of the next?  At least on
+# silly systems like DOS^H^H^HWindows?
+
+{
+  open my $fh, '>>', LOG or die "open failed: $!";
+  unless (rename LOG, OLD_LOG) {
+    plan skip_all => "$^O cannot rename files that are open";
+  }
+  close $fh;
+  unlink LOG, OLD_LOG;
+  plan tests => 10;
+}
 
 my @expected = (
   [ append_to_log => "a"  ],
@@ -57,7 +71,7 @@ sub _start_handler {
   $heap->{wheel} = POE::Wheel::FollowTail->new(
     InputEvent   => 'input_event',
     ResetEvent   => 'reset_event',
-    Filename     => $LOG,
+    Filename     => LOG,
     PollInterval => 4,
   );
 
@@ -90,7 +104,7 @@ sub reset_handler {
 
 sub roll_log {
   logger roll_log => 0;
-  rename $LOG, $OLD_LOG or die "rename failed: $!";
+  rename LOG, OLD_LOG or die "rename failed: $!";
   return;
 }
 
@@ -98,7 +112,7 @@ sub append_to_log {
   my $line = $_[ARG0];
   logger append_to_log => $line;
 
-  open my $fh, '>>', $LOG     or die "open failed: $!";
+  open my $fh, '>>', LOG      or die "open failed: $!";
   print {$fh} "$line\n";
   close $fh                   or die "close failed: $!";
 
@@ -111,8 +125,8 @@ sub done {
   logger done => 0;
 
   # cleanup the test log files
-  unlink $LOG     or die "unlink failed: $!";
-  unlink $OLD_LOG or die "unlink failed: $!";
+  unlink LOG     or die "unlink failed: $!";
+  unlink OLD_LOG or die "unlink failed: $!";
 
   # delete the wheel so the POE session can end
   delete $heap->{wheel};
