@@ -2,8 +2,8 @@
 # vim: filetype=perl
 
 use Test::More;
-eval "use Test::Pod::Coverage 1.00";
-plan skip_all => "Test::Pod::Coverage 1.00 required for testing POD coverage" if $@;
+eval "use Test::Pod::Coverage 1.08";
+plan skip_all => "Test::Pod::Coverage 1.08 required for testing POD coverage" if $@;
 
 # These are the default Pod::Coverage options.
 my $default_opts = {
