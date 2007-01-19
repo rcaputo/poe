@@ -9,6 +9,18 @@ use lib qw(./mylib ../mylib);
 
 sub DEBUG () { 0 }
 
+# Set the INPUTRC environment variable to a nonexistent file.  This
+# prevents users from overriding the behaviors of keystrokes we user
+# here.
+
+BEGIN {
+  foreach my $candidate (qw(nonexistent moo deleteme please-dont-exist)) {
+    next if -f $candidate;
+    $ENV{INPUTRC} = $candidate;
+    last;
+  }
+}
+
 ### Tests to run.
 #
 # Each test consists of a "name" for test reporting, a series of steps
