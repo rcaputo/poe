@@ -34,13 +34,6 @@ BEGIN {
     eval    { require Win32API::File; };
     if ($@) { die "Win32API::File but failed to load:\n$@" }
     else    { Win32API::File->import( qw(FdGetOsFHandle) ); };
-
-    eval    { require Win32::Process; };
-    if ($@) { die "Win32::Process but failed to load:\n$@" }
-    else    { Win32::Process->import( qw(INFINITE CREATE_NEW_PROCESS_GROUP) ); };
-
-    eval    { require Win32; };
-    if ($@) { die "Win32 but failed to load:\n$@" }
   }
 
   # How else can I get them out?!
@@ -109,8 +102,6 @@ sub FILTER_STDERR () { 21 }
 sub DRIVER_STDERR () { 22 }
 sub EVENT_STDERR  () { 23 }
 sub STATE_STDERR  () { 24 }
-
-sub MSWIN32_GROUP_PID () { 25 }
 
 # Used to work around a bug in older perl versions.
 sub CRIMSON_SCOPE_HACK ($) { 0 }
@@ -442,10 +433,8 @@ sub new {
 
     # Tell the parent that the stdio has been set up.
     close $sem_pipe_read;
-    unless ( POE::Kernel::RUNNING_IN_HELL and ref($program) ne 'CODE' ) {
-      print $sem_pipe_write "go\n";
-      close $sem_pipe_write;
-    }
+    print $sem_pipe_write "go\n";
+    close $sem_pipe_write;
 
     if (POE::Kernel::RUNNING_IN_HELL)  {
       # The Win32 pseudo fork sets up the std handles in the child
@@ -500,65 +489,16 @@ sub new {
       };
       exit(0);
     }
-
-    # RUNNING_IN_HELL use Win32::Process to create a pucker new 
-    # shiny process. It'll inherit our processes handles which is
-    # neat.
-    if ( POE::Kernel::RUNNING_IN_HELL ) {
-	my $exitcode = 0;
-        # Close any close-on-exec file descriptors.  Except STDIN,
-        # STDOUT, and STDERR, of course.
-        if ($close_on_call) {
-          for (0..MAX_OPEN_FDS-1) {
-            next if fileno(STDIN) == $_;
-            next if fileno(STDOUT) == $_;
-            next if fileno(STDERR) == $_;
-            POSIX::close($_);
-          }
-        }
-
-        my ($appname, $cmdline);
-	
-        if (ref($program) eq 'ARRAY') {
-	  $appname = $program->[0] =~ /\s/ ? qq{"$program->[0]"} : $program->[0];
-	  $cmdline = join(' ', map { /\s/ ? qq{"$_"} : $_ } (@$program, @$prog_args) );
-        }
-        else {
-	  $appname = $program =~ /\s/ ? qq{"$program"} : $program;
-	  $cmdline = join(' ', map { /\s/ ? qq{"$_"} : $_ } ($program, @$prog_args) );
-        }
-
-	my $w32process;
-
-	unless ( Win32::Process::Create( $w32process, $appname, $cmdline, 1, 0x00000200, '.' ) ) {
-	  print $sem_pipe_write "go\n";
-  	  close $sem_pipe_write;
-	  die Win32::FormatMessage( Win32::GetLastError() );
-	}
-	else {
-	  my $w32pid = $w32process->GetProcessID();
-	  print $sem_pipe_write "$w32pid\n";
-	  close $sem_pipe_write;
-	  $w32process->Wait(0xFFFFFFFF);
-	  $w32process->GetExitCode($exitcode);
-	}
-
-        # In case flushing them wasn't good enough.
-        close STDOUT if defined fileno(STDOUT);
-        close STDERR if defined fileno(STDERR);
-
-        exit($exitcode);
-    }
-
-    if (ref($program) eq 'ARRAY') {
-      exec(@$program, @$prog_args)
-        or die "can't exec (@$program) in child pid $$: $!";
-    }
     else {
-      exec(join(" ", $program, @$prog_args))
-        or die "can't exec ($program) in child pid $$: $!";
+      if (ref($program) eq 'ARRAY') {
+        exec(@$program, @$prog_args)
+          or die "can't exec (@$program) in child pid $$: $!";
+      }
+      else {
+        exec(join(" ", $program, @$prog_args))
+          or die "can't exec ($program) in child pid $$: $!";
+      }
     }
-
     die "insanity check passed";
   }
 
@@ -600,13 +540,10 @@ sub new {
     $stderr_driver, # DRIVER_STDERR
     $stderr_event,  # EVENT_STDERR
     undef,          # STATE_STDERR
-    undef,          # MSWIN32_GROUP_PID
   ], $type;
 
   # Wait here while the child sets itself up.
-  my $chldout = <$sem_pipe_read>;
-  chomp $chldout;
-  $self->[MSWIN32_GROUP_PID] = $chldout if POE::Kernel::RUNNING_IN_HELL and $chldout ne 'go';
+  <$sem_pipe_read>;
   close $sem_pipe_read;
   close $sem_pipe_write;
 
@@ -1185,12 +1122,7 @@ sub PID {
 sub kill {
   my ($self, $signal) = @_;
   $signal = 'TERM' unless defined $signal;
-  if ( $self->[MSWIN32_GROUP_PID] ) {
-    Win32::Process::KillProcess( $self->[MSWIN32_GROUP_PID], 0 );
-  }
-  else {
-    eval { kill $signal, $self->[CHILD_PID] };
-  }
+  eval { kill $signal, $self->[CHILD_PID] };
 }
 
 ###############################################################################
@@ -1421,11 +1353,6 @@ Shell metacharacters will be expanded in this form.
 If C<Program> holds an array reference, it will executed as
 exec(@$array).  This form of exec() doesn't expand shell
 metacharacters.
-
-On MSWin32, L<Win32::Process> is used to spawn the new process. POE::Wheel::Run
-joins C<Program> and C<ProgramArgs> with spaces to form the commandline that
-Win32::Process::Create requires. Any spaces will cause items to be wrapped in double
-quotes.
 
 If C<Program> holds a code reference, it will be called in the forked
 child process, and then the child will exit.  This allows Wheel::Run
