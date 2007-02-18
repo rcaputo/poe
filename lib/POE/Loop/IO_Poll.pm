@@ -350,7 +350,7 @@ sub loop_do_timeslice {
         sleep($timeout);
       }
       else {
-        select(undef, undef, undef, $timeout);
+        CORE::select(undef, undef, undef, $timeout);
       }
     }
   }

@@ -10,6 +10,9 @@ use_ok('POE::API::Ctl');
 # should have exported 'poectl'
 ok( *poectl{CODE} == *POE::API::Ctl::poectl{CODE}, "poectl exported" );
 
+# no-op to reuse these things and avoid a warning
+1 if *poectl{CODE} == *POE::API::Ctl::poectl{CODE};
+
 # poectl takes 0, 1 or 2 parameters
 my $rv = do { local $SIG{__WARN__} = sub { };
   poectl('one', 'two', 'three', 'four') };

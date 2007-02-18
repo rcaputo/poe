@@ -306,9 +306,8 @@ BEGIN {
     $value =~ tr['"][]d;
     $value = qq($value) if $value =~ /\D/;
 
-    BEGIN { $^W = 0; }
-
     no strict 'refs';
+    local $^W = 0;
     *$const = sub () { $value };
   }
 
