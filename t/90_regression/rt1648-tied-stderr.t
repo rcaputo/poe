@@ -46,7 +46,7 @@ POE::Session->create(
       $_[KERNEL]->refcount_increment( $session->ID, "teapot" );
       DEBUG and diag( "Installing CHLD signal Handler" );
       my $wheel = POE::Wheel::Run->new(
-        Program     => [ 'sh', '-c', 'echo "My stderr" >/dev/stderr' ],
+        Program     => [ $^X, '-e', 'warn "OK"' ],
         StderrEvent => 'stderr'
       );
       $heap->{wheel} = $wheel;
