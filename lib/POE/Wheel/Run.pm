@@ -1156,7 +1156,7 @@ POE::Wheel::Run - event driven fork/exec with added value
     # group ID.  You may need to be root to do this.
     Priority    => +5,
     User        => scalar(getpwnam 'nobody'),
-    Group       => getgrnam('nobody'),
+    Group       => scalar(getgrnam 'nobody'),
 
     # Optionally specify different I/O formats.
     StdinFilter  => POE::Filter::Line->new(),   # Child accepts input as lines.
