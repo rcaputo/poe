@@ -715,22 +715,24 @@ new() creates a new wheel, returning the wheels reference.
 
 =over 2
 
-=item put ARRAYREF_OF_RECORDS
+=item put RECORDS
 
-put() queues records for transmission.  They may not be transmitted
-immediately.  ReadWrite uses its Filter to translate the records into
-a form suitable for writing.  It uses its Driver to queue and send
-them.
+put() queues one or more RECORDS for transmission.  Each record is of
+a form dictated by POE::Wheel::ReadWrite's current output filter.
+ReadWrite uses its output filter to translate the records into a form
+suitable for writing to a stream.  It uses the currently configured
+driver to buffer and send them.
 
-put() accepts a list of records.  It returns a boolean value
-indicating whether the wheel's high-water mark has been reached.  It
-always returns false if a wheel doesn't have a high-water mark set.
+put() accepts a list of records.  If a high water mark has been set,
+it returns a Boolean value indicating whether the driver's output
+buffer has reached that level.  It always returns false if a high
+water mark has not been set.
 
-This will quickly fill a wheel's output queue if it has a high-water
-mark set.  Otherwise it will loop infinitely, eventually exhausting
-memory.
+This example will quickly fill a wheel's output queue if it has a
+high water mark set.  Otherwise it will loop infinitely, eventually
+exhausting memory and crashing.
 
-  1 while $wheel->put( &get_next_thing_to_send );
+  1 while $wheel->put( get_next_thing_to_send() );
 
 =item event EVENT_TYPE => EVENT_NAME, ...
 
