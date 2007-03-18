@@ -1258,7 +1258,7 @@ sub _parse_inputrc {
   foreach my $line (split(/\n+/, $input)) {
     next if $line =~ /^#/;
     if ($line =~ /^\$(.*)/) {
-      my (@parms) = split(/[   +=]/,$1);
+      my (@parms) = split(/[ \t+=]/,$1);
       if ($parms[0] eq 'if') {
         my $bool = 0;
         if ($parms[1] eq 'mode') {
@@ -1280,9 +1280,14 @@ sub _parse_inputrc {
         pop(@cond);
       } elsif ($parms[0] eq 'include') {
         if ($depth > 10) {
-          print STDERR "WARNING: ignoring 'include $parms[1] directive, since we're too deep";
+          print STDERR "WARNING: ignoring ``include $parms[1] directive, since we're too deep''";
         } else {
-          $self->_parse_inputrc($input, $depth+1);
+          my $fh = gensym;
+          if (open $fh, "< $parms[1]\0") {
+            my $contents = do { local $/; <$fh> };
+            close $fh;
+            $self->_parse_inputrc($contents, $depth+1);
+          }
         }
       }
     } else {
