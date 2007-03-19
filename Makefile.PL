@@ -83,4 +83,4 @@ else {
   require "./mylib/Makefile-5005.pm";
 }
 
-0;
+1;
