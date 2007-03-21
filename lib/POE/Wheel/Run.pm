@@ -543,7 +543,10 @@ sub new {
   ], $type;
 
   # Wait here while the child sets itself up.
-  <$sem_pipe_read>;
+  {
+    local $/ = "\n";
+    <$sem_pipe_read>;
+  }
   close $sem_pipe_read;
   close $sem_pipe_write;
 
