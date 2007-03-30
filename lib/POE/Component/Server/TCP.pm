@@ -63,10 +63,12 @@ sub new {
   my $high_event      = delete $param{ClientHigh};
   my $low_event       = delete $param{ClientLow};
 
-  # this is ugly, but now its elegant :)  grep++
-  my $foo = grep { defined $_ } ($high_mark_level, $low_mark_level, $high_event, $low_event);
-  if ($foo > 0) {
-    croak "If you use the Mark settings, you must define all four" unless $foo == 4;
+  my $mark_param_count = (
+    grep { defined $_ }
+    ($high_mark_level, $low_mark_level, $high_event, $low_event)
+  );
+  if ($mark_param_count and $mark_param_count < 4) {
+    croak "If you use the Mark settings, you must define all four";
   }
 
   $high_event = sub { } unless defined $high_event;
@@ -198,18 +200,25 @@ sub new {
               $heap->{client} = POE::Wheel::ReadWrite->new(
                 Handle       => splice(@_, ARG0, 1),
                 Driver       => POE::Driver::SysRW->new(),
-                _get_filters($client_filter, $client_infilter, $client_outfilter),
+                _get_filters(
+                  $client_filter,
+                  $client_infilter,
+                  $client_outfilter
+                ),
                 InputEvent   => 'tcp_server_got_input',
                 ErrorEvent   => 'tcp_server_got_error',
                 FlushedEvent => 'tcp_server_got_flush',
-                do {
-                  $foo ? return (
-                    HighMark => $high_mark_level,
+
+                (
+                  $mark_param_count
+                  ? (
+                    HighMark  => $high_mark_level,
                     HighEvent => 'tcp_server_got_high',
-                    LowMark => $low_mark_level,
-                    LowEvent => 'tcp_server_got_low',
-                  ) : ();
-                },
+                    LowMark   => $low_mark_level,
+                    LowEvent  => 'tcp_server_got_low',
+                  )
+                  : ()
+                ),
               );
 
               $client_connected->(@_);
@@ -429,7 +438,9 @@ sub _get_filters {
         "OutputFilter" => _load_filter($client_outfilter)
       );
       if (defined $client_filter) {
-        carp "Using ClientFilter with ClientInputFilter or ClientOutputFilter is a noop";
+        carp(
+          "ClientFilter ignored with ClientInputFilter or ClientOutputFilter"
+        );
       }
     }
     elsif (defined $client_filter) {
@@ -440,6 +451,7 @@ sub _get_filters {
     }
 
 }
+
 # Get something: either arrayref, ref, or string
 # Return filter
 sub _load_filter {
