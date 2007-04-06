@@ -19,6 +19,7 @@ use Socket qw(
   pack_sockaddr_in pack_sockaddr_un inet_aton SOMAXCONN
 );
 use IO::Handle ();
+use FileHandle ();
 use POE qw( Wheel );
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
