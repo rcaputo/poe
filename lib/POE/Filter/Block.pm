@@ -96,7 +96,7 @@ sub get_one {
   my $self = shift;
 
   # Need to check lengths in octets, not characters.
-  use bytes;
+  BEGIN { eval { require bytes } and bytes->import; }
 
   # If a block size is specified, then pull off a block of that many
   # bytes.
@@ -138,7 +138,7 @@ sub put {
   my @raw;
 
   # Need to check lengths in octets, not characters.
-  use bytes;
+  BEGIN { eval { require bytes } and bytes->import; }
 
   # If a block size is specified, then just assume the put is right.
   # This will cause quiet framing errors on the receiving side.  Then

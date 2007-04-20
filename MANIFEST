@@ -68,7 +68,6 @@ mylib/Makefile-5004.pm
 mylib/Makefile-5005.pm
 mylib/MyOtherFreezer.pm
 mylib/PoeBuildInfo.pm
-mylib/preprocessor.perl
 mylib/svn-log.perl
 README
 examples/create.perl

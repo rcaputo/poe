@@ -3,7 +3,7 @@
 package POE::Wheel::ReadLine;
 
 use strict;
-use bytes;
+BEGIN { eval { require bytes } and bytes->import; }
 
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};

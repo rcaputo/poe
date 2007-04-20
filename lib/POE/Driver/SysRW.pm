@@ -58,7 +58,7 @@ sub put {
   my $old_queue_octets = $self->[TOTAL_OCTETS_LEFT];
 
   # Need to check lengths in octets, not characters.
-  use bytes;
+  BEGIN { eval { require bytes } and bytes->import; }
 
   foreach (grep { length } @$chunks) {
     $self->[TOTAL_OCTETS_LEFT] += length;
@@ -126,7 +126,7 @@ sub flush {
   my ($self, $handle) = @_;
 
   # Need to check lengths in octets, not characters.
-  use bytes;
+  BEGIN { eval { require bytes } and bytes->import; }
 
   # syswrite() it, like we're supposed to
   while (@{$self->[OUTPUT_QUEUE]}) {

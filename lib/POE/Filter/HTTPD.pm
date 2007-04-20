@@ -69,7 +69,7 @@ sub get {
   my ($self, $stream) = @_;
 
   # Need to check lengths in octets, not characters.
-  use bytes;
+  BEGIN { eval { require bytes } and bytes->import; }
 
   # Why?
   local($_);
@@ -335,7 +335,7 @@ sub _build_basic_response {
   my ($self, $content, $content_type, $status) = @_;
 
   # Need to check lengths in octets, not characters.
-  use bytes;
+  BEGIN { eval { require bytes } and bytes->import; }
 
   $content_type ||= 'text/html';
   $status       ||= RC_OK;

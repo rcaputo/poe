@@ -718,7 +718,7 @@ sub new {
       );
 
       # Need to check lengths in octets, not characters.
-      use bytes;
+      BEGIN { eval { require bytes } and bytes->import; }
 
       # Resolve the bind address if it's not already packed.
       unless (length($bind_address) == 4) {
@@ -791,7 +791,7 @@ sub new {
       }
 
       # Need to check lengths in octets, not characters.
-      use bytes;
+      BEGIN { eval { require bytes } and bytes->import; }
 
       # Resolve the bind address.
       my @info = Socket6::getaddrinfo(

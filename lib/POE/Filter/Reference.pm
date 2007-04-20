@@ -182,7 +182,7 @@ sub get_one {
   my $self = shift;
 
   # Need to check lengths in octets, not characters.
-  use bytes;
+  BEGIN { eval { require bytes } and bytes->import; }
 
   if (
     $self->[BUFFER] =~ /^(\d+)\0/ and
@@ -205,7 +205,7 @@ sub put {
   my ($self, $references) = @_;
 
   # Need to check lengths in octets, not characters.
-  use bytes;
+  BEGIN { eval { require bytes } and bytes->import; }
 
   my @raw = map {
     my $frozen = $self->[FREEZE]->($_);
