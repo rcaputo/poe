@@ -205,7 +205,7 @@ sub get {
   # If this is a GET or HEAD request, we won't be expecting a message
   # body.  Finish up.
 
-  my $method = $r->method();
+  my $method = uc $r->method();
   if ($method eq 'GET' or $method eq 'HEAD') {
     $self->[FINISH]++;
     # We are sending this back, so won't need it anymore.

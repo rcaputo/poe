@@ -24,7 +24,7 @@ BEGIN {
 }
 
 BEGIN {
-  plan tests => 88;
+  plan tests => 91;
 }
 
 use_ok('POE::Filter::HTTPD');
@@ -189,7 +189,7 @@ SKIP: { # simple put {{{
 
     isa_ok($req, 'HTTP::Request',
         'simple put: get() returns HTTP::Request object');
-    
+
     check_fields($req, {
         method => 'PUT',
         url => 'http://localhost/foo.mhtml',
@@ -390,7 +390,6 @@ TODO: { # wishlist for supporting get_pending! {{{
   $SIG{__DIE__} = \&Carp::croak;
   my $chunks = $filter->put([$res]);
   is(ref($chunks), 'ARRAY', 'put: returns arrayref');
-  
 } # }}}
 
 { # really, really garbage requests get rejected, but goofy ones accepted {{{
@@ -429,4 +428,18 @@ TODO: { # wishlist for supporting get_pending! {{{
     check_error_response($data, RC_LENGTH_REQUIRED,
       'unsupported method: length required');
   }
+} # }}}
+
+{ # strange method {{{
+  my $filter = POE::Filter::HTTPD->new;
+  my $req = HTTP::Request->new("GEt", "/");
+  my $parsed_req = $filter->get([ $req->as_string ])->[0];
+  check_fields(
+    $parsed_req, {
+      protocol => 'HTTP/0.9',
+      method => 'GEt',
+      uri => '/',
+    },
+    "mixed case method"
+  );
 } # }}}
