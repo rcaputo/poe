@@ -605,6 +605,18 @@ sub resume_input {
   $poe_kernel->select_resume_read( $self->[HANDLE_INPUT] );
 }
 
+# Return the wheel's input handle
+sub get_input_handle {
+  my $self = shift;
+  return $self->[HANDLE_INPUT];
+}
+
+# Return the wheel's output handle
+sub get_output_handle {
+  my $self = shift;
+  return $self->[HANDLE_OUTPUT];
+}
+
 # Shutdown the socket for reading.
 sub shutdown_input {
   my $self = shift;
@@ -798,6 +810,14 @@ corresponding output buffer) from being overwhelmed.
 
 resume_input() instructs the wheel to resume checking its input
 filehandle for data.
+
+=item get_input_handle
+
+=item get_output_handle
+
+These methods return the input and output handles (usually the same
+thing, but sometimes not).  Please use sparingly.  Remember odd 
+references will screw with POE's internals.
 
 =item shutdown_input
 
