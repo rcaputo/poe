@@ -62,10 +62,7 @@ use vars (
 # A flag to tell whether we're currently polling for signals.
 my $polling_for_signals = 0;
 
-# A flag determining whether there are child processes.  Starts true
-# so our waitpid() loop can run at least once.  Starts false when
-# running in an Apache handler so our SIGCHLD hijinx don't interfere
-# with the web server.
+# A flag determining whether there are child processes.
 my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
 
 sub _data_sig_preload {
@@ -104,6 +101,11 @@ my %_safe_signals;
 
 sub _data_sig_initialize {
   my $self = shift;
+
+  # Initialize this to a true value so our waitpid() loop can run at
+  # least once.  Starts false when running in an Apache handler so our
+  # SIGCHLD hijinx don't interfere with the web server.
+  $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
 
   # In case we're called multiple times.
   unless (keys %_safe_signals) {
@@ -316,10 +318,10 @@ sub _data_sig_pids_ses {
 
 sub _data_sig_pids_is_ses_watching {
   my ($self, $session, $pid) = @_;
-	return(
-		exists($kr_sessions_to_pids{$session}) &&
-		exists($kr_sessions_to_pids{$session}{$pid})
-	);
+  return(
+    exists($kr_sessions_to_pids{$session}) &&
+    exists($kr_sessions_to_pids{$session}{$pid})
+  );
 }
 
 ### Return a signal's type, or SIGTYPE_BENIGN if it's not special.
