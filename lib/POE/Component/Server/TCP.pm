@@ -372,6 +372,13 @@ sub new {
           "$$: $_[HEAP]->{alias} Connection closed ",
           "($_[HEAP]->{connections} open)"
         );
+        if ($_[HEAP]->{connections} < 0) {
+          warn(
+            "Excessive 'disconnected' event ",
+            "from $_[CALLER_FILE] at line $_[CALLER_LINE]\n"
+          );
+          $_[HEAP]->{connections} = 0;
+        }
         if( $_[HEAP]->{concurrency} != -1 and $_[HEAP]->{listener} ) {
           if( $_[HEAP]->{connections} == ($_[HEAP]->{concurrency}-1) ) {
             DEBUG and warn(
