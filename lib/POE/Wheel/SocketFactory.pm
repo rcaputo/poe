@@ -46,15 +46,21 @@ sub MY_SOCKET_SELECTED () { 12 }
 # know you've broken his module.
 
 # Provide dummy constants for systems that don't have them.
+# Test and provide for each constant separately, per suggestion in
+# rt.cpan.org 27250.
 BEGIN {
   eval {
     require Socket6;
     my $x = &Socket6::AF_INET6;
   };
-  if ($@) {
-    *Socket6::AF_INET6 = sub () { ~0 };
-    *Socket6::PF_INET6 = sub () { ~0 };
-  }
+	*Socket6::AF_INET6 = sub () { ~0 } if $@;
+
+	eval {
+    require Socket6;
+    my $x = &Socket6::PF_INET6;
+	};
+
+	*Socket6::PF_INET6 = sub () { ~0 } if $@;
 }
 
 #------------------------------------------------------------------------------
