@@ -53,14 +53,14 @@ BEGIN {
     require Socket6;
     my $x = &Socket6::AF_INET6;
   };
-	*Socket6::AF_INET6 = sub () { ~0 } if $@;
+  *Socket6::AF_INET6 = sub () { ~0 } if $@;
 
-	eval {
+  eval {
     require Socket6;
     my $x = &Socket6::PF_INET6;
-	};
+  };
 
-	*Socket6::PF_INET6 = sub () { ~0 } if $@;
+  *Socket6::PF_INET6 = sub () { ~0 } if $@;
 }
 
 #------------------------------------------------------------------------------
