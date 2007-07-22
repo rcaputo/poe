@@ -33,19 +33,6 @@ sub import {
 my $queue_seq = 0;
 my %item_priority;
 
-# Theoretically, linear array search performance begins to suffer
-# after a queue grows large enough.  This is the largest queue size
-# before searches are performed as binary lookups.
-#
-# TODO - It might save us some runtime if we switch a method between
-# the large and small queue implementations rather than perform a
-# queue size check all the time.
-#
-# TODO - It might not be that slow to do a binary search all the time.
-# Benchmarks are needed.
-
-sub LARGE_QUEUE_SIZE () { 512 }
-
 ### A very simple constructor.
 
 sub new {
@@ -65,11 +52,11 @@ sub enqueue {
   1 while exists $item_priority{$item_id = ++$queue_seq};
   $item_priority{$item_id} = $priority;
 
-  my $item_to_enqueue =
-    [ $priority, # ITEM_PRIORITY
-      $item_id,  # ITEM_ID
-      $payload,  # ITEM_PAYLOAD
-    ];
+  my $item_to_enqueue = [
+    $priority, # ITEM_PRIORITY
+    $item_id,  # ITEM_ID
+    $payload,  # ITEM_PAYLOAD
+  ];
 
   # Special case: No items in the queue.  The queue IS the item.
   unless (@$self) {
@@ -100,24 +87,8 @@ sub enqueue {
     return $item_id;
   }
 
-  # A small queue is scanned linearly on the assumptions that (a) the
-  # linear search has less overhead than a binary search for small
-  # queues, and (b) most items will be posted for "now" or some future
-  # time, which tends to place them at the end of the queue.
-
-  if (@$self < LARGE_QUEUE_SIZE) {
-    my $index = @$self;
-    $index--
-      while ( $index and
-              $priority < $self->[$index-1]->[ITEM_PRIORITY]
-            );
-    splice @$self, $index, 0, $item_to_enqueue;
-    DEBUG and warn $self->_dump_splice($index);
-    return $item_id;
-  }
-
-  # And finally, we have this large queue, and the program has already
-  # wasted enough time.  Insert the item using a binary seek.
+  # And finally we have a nontrivial queue.  Insert the item using a
+  # binary seek.
 
   $self->_insert_item(0, $#$self, $priority, $item_to_enqueue);
   return $item_id;
@@ -160,9 +131,8 @@ sub get_item_count {
   return scalar @$self;
 }
 
-### Internal method to insert an item in a large queue.  Performs a
-### binary seek between two bounds to find the insertion point.  We
-### accept the bounds as parameters because the alarm adjustment
+### Internal method to insert an item using a binary seek and splice.
+### We accept the bounds as parameters because the alarm adjustment
 ### functions may also use it.
 
 sub _insert_item {
@@ -171,44 +141,24 @@ sub _insert_item {
   while (1) {
     my $midpoint = ($upper + $lower) >> 1;
 
-    # Upper and lower bounds crossed.  No match; insert at the lower
-    # bound point.
+    # Upper and lower bounds crossed.  Insert at the lower point.
     if ($upper < $lower) {
       splice @$self, $lower, 0, $item;
       DEBUG and warn $self->_dump_splice($lower);
       return;
     }
 
-    # The key at the midpoint is too high.  The item just below the
-    # midpoint becomes the new upper bound.
+    # We're looking for a priority lower than the one at the midpoint.
+    # Set the new upper point to just before the midpoint.
     if ($priority < $self->[$midpoint]->[ITEM_PRIORITY]) {
       $upper = $midpoint - 1;
       next;
     }
 
-    # The key at the midpoint is too low.  The item just above the
-    # midpoint becomes the new lower bound.
-    if ($priority > $self->[$midpoint]->[ITEM_PRIORITY]) {
-      $lower = $midpoint + 1;
-      next;
-    }
-
-    # The key matches the one at the midpoint.  Scan towards higher
-    # keys until the midpoint points to an item with a higher key.
-    # Insert the new item before it.
-    $midpoint++
-      while ( ($midpoint < @$self)
-              and ( $priority ==
-                    $self->[$midpoint]->[ITEM_PRIORITY]
-                  )
-            );
-    splice @$self, $midpoint, 0, $item;
-    DEBUG and warn $self->_dump_splice($midpoint);
-    return;
+    # We're looking for a priority greater or equal to the one at the
+    # midpoint.  The new lower bound is just after the midpoint.
+    $lower = $midpoint + 1;
   }
-
-  # We should never reach this point.
-  die;
 }
 
 ### Internal method to find a queue item by its priority and ID.  We
@@ -219,64 +169,38 @@ sub _insert_item {
 sub _find_item {
   my ($self, $id, $priority) = @_;
 
-  # Small queue.  Assume a linear search is faster.
-  if (@$self < LARGE_QUEUE_SIZE) {
-    my $index = @$self;
-    while ($index--) {
-      return $index if $id == $self->[$index]->[ITEM_ID];
-    }
-    die "internal inconsistency: event should have been found";
-  }
-
-  # Use a binary seek on larger queues.
+  # Use a binary seek.
 
   my $upper = $#$self; # Last index of @$self.
   my $lower = 0;
   while (1) {
     my $midpoint = ($upper + $lower) >> 1;
 
-    # The streams have crossed.  That's bad.
-    if ($upper < $lower) {
-      my @priorities = map {$_->[ITEM_PRIORITY]} @$self;
-      warn "internal inconsistency: event should have been found";
-      die "these should be in numeric order: @priorities";
-    }
+    # Upper and lower bounds crossed.  The lower point is aimed at an
+    # element with a priority higher than our target.
+    last if $upper < $lower;
 
-    # The key at the midpoint is too high.  The element just below
-    # the midpoint becomes the new upper bound.
+    # We're looking for a priority lower than the one at the midpoint.
+    # Set the new upper point to just before the midpoint.
     if ($priority < $self->[$midpoint]->[ITEM_PRIORITY]) {
       $upper = $midpoint - 1;
       next;
     }
 
-    # The key at the midpoint is too low.  The element just above
-    # the midpoint becomes the new lower bound.
-    if ($priority > $self->[$midpoint]->[ITEM_PRIORITY]) {
-      $lower = $midpoint + 1;
-      next;
-    }
-
-    # The key (priority) matches the one at the midpoint.  This may be
-    # in the middle of a pocket of events with the same priority, so
-    # we'll have to search back and forth for one with the ID we're
-    # looking for.  Unfortunately.
-    my $linear_point = $midpoint;
-    while ( $linear_point >= 0 and
-            $priority == $self->[$linear_point]->[ITEM_PRIORITY]
-          ) {
-      return $linear_point if $self->[$linear_point]->[ITEM_ID] == $id;
-      $linear_point--;
-    }
-    $linear_point = $midpoint;
-    while ( (++$linear_point < @$self) and
-            ($priority == $self->[$linear_point]->[ITEM_PRIORITY])
-          ) {
-      return $linear_point if $self->[$linear_point]->[ITEM_ID] == $id;
-    }
-
-    # If we get this far, then the event hasn't been found.
-    die "internal inconsistency: event should have been found";
+    # We're looking for a priority greater or equal to the one at the
+    # midpoint.  The new lower bound is just after the midpoint.
+    $lower = $midpoint + 1;
   }
+
+  # The lower index is pointing to an element with a priority higher
+  # than our target.  Scan backwards until we find the item with the
+  # target ID.
+  while ($lower-- >= 0) {
+    return $lower if $self->[$lower]->[ITEM_ID] == $id;
+  }
+
+  die "should never get here... maybe the queue is out of order";
+
 }
 
 ### Remove an item by its ID.  Takes a coderef filter, too, for
@@ -354,9 +278,9 @@ sub adjust_priority {
     return;
   }
 
-  # Nothing to do if the delta is zero.  -><- Actually we may need to
-  # ensure that the item is moved to the end of its current priority
-  # bucket, since it should have "moved".
+  # Nothing to do if the delta is zero.
+  # -><- Actually we may need to ensure that the item is moved to the
+  # end of its current priority bucket, since it should have "moved".
   return $self->[$item_index]->[ITEM_PRIORITY] unless $delta;
 
   # Remove the item, and adjust its priority.
@@ -380,9 +304,9 @@ sub set_priority {
     return;
   }
 
-  # Nothing to do if the old and new priorities match.  -><- Actually
-  # we may need to ensure that the item is moved to the end of its
-  # current priority bucket, since it should have "moved".
+  # Nothing to do if the old and new priorities match.
+  # -><- Actually we may need to ensure that the item is moved to the
+  # end of its current priority bucket, since it should have "moved".
   return $new_priority if $new_priority == $old_priority;
 
   # Find that darn item.
@@ -419,8 +343,9 @@ sub _dump_splice {
     my $after = $self->[$index+1]->[ITEM_PRIORITY];
     push @return, "after($after)";
     my @priorities = map {$_->[ITEM_PRIORITY]} @$self;
-    confess "out of order: $at should be < $after (@priorities)"
-      if $at >= $after;
+    confess "out of order: $at should be < $after (@priorities)" if (
+      $at >= $after
+    );
   }
   return "@return";
 }
@@ -432,9 +357,10 @@ sub _dump_splice {
 sub _reinsert_item {
   my ($self, $new_priority, $delta, $item_index, $item) = @_;
 
-  # Now insert it back.  The special cases are duplicates from
-  # enqueue(), but the small and large queue cases avoid unnecessarily
-  # scanning the queue.
+  # Now insert it back.
+  # The special cases are duplicates from enqueue().  We use the delta
+  # (direction) of the move and the old item index to narrow down the
+  # subsequent nontrivial insert if none of the special cases apply.
 
   # Special case: No events in the queue.  The queue IS the item.
   unless (@$self) {
@@ -463,35 +389,6 @@ sub _reinsert_item {
   if (@$self == 2) {
     splice @$self, 1, 0, $item;
     DEBUG and warn $self->_dump_splice(1);
-    return $new_priority;
-  }
-
-  # Small queue.  Perform a reverse linear search (see enqueue() for
-  # assumptions).  We don't consider the entire queue size; only the
-  # number of items between the $item_index and the end of the queue
-  # pointed at by $delta.
-
-  # The item has been moved towards the queue's tail, which is nearby.
-  if ($delta > 0 and (@$self - $item_index) < LARGE_QUEUE_SIZE) {
-    my $index = $item_index;
-    $index++
-      while ( $index < @$self and
-              $new_priority >= $self->[$index]->[ITEM_PRIORITY]
-            );
-    splice @$self, $index, 0, $item;
-    DEBUG and warn $self->_dump_splice($index);
-    return $new_priority;
-  }
-
-  # The item has been moved towards the queue's head, which is nearby.
-  if ($delta < 0 and $item_index < LARGE_QUEUE_SIZE) {
-    my $index = $item_index;
-    $index--
-      while ( $index and
-              $new_priority < $self->[$index-1]->[ITEM_PRIORITY]
-            );
-    splice @$self, $index, 0, $item;
-    DEBUG and warn $self->_dump_splice($index);
     return $new_priority;
   }
 
