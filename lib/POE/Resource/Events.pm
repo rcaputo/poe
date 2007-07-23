@@ -272,7 +272,14 @@ sub _data_ev_dispatch_due {
     }
   }
 
-  $self->loop_reset_time_watcher($next_time);
+  # Tell the event loop to wait for the next event, if there is one.
+  # Otherwise we're going to wait indefinitely for some other event.
+  if (defined $next_time) {
+    $self->loop_reset_time_watcher($next_time);
+  }
+  else {
+    $self->loop_pause_time_watcher();
+  }
 }
 
 1;
