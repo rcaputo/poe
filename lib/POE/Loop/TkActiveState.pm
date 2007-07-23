@@ -152,7 +152,7 @@ sub _poll_for_io {
 
     if (@filenos) {
       # Check filehandles, or wait for a period of time to elapse.
-      my $hits = select(
+      my $hits = CORE::select(
         my $rout = $loop_vectors[MODE_RD],
         my $wout = $loop_vectors[MODE_WR],
         my $eout = $loop_vectors[MODE_EX],
