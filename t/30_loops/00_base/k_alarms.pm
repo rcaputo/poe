@@ -342,17 +342,17 @@ POE::Session->create(
       ok($test_array[1] == 1,         "alarm 14 remove: time is correct");
       ok($test_array[2] == 14,        "alarm 14 remove: data is correct");
 
-      my $test_15 = $kernel->delay_set( test_15 => 1 => 15 );
-
-      # Have time stand still so we can test against it.  Heisenberg
-      # strikes again!
+      # Have time stand still so we can test against it.
+      # Heisenberg strikes again!
       my $now = time;
+
+      my $test_15 = $kernel->delay_set( test_15 => 1 => 15 );
 
       my $test_scalar = $kernel->alarm_remove( $test_15 );
       ok($test_scalar->[0] eq 'test_15', "alarm 15 remove: name is correct");
       ok(
-        ( $test_scalar->[1] <= $now + 2 and
-          $test_scalar->[1] >= $now - 2
+        ( $test_scalar->[1] <= $now + 3 and
+          $test_scalar->[1] >= $now
         ),  "alarm 15 remove: time is correct"
       );
       ok($test_scalar->[2] == 15, "alarm 15 remove: data is correct");
