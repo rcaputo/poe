@@ -49,18 +49,17 @@ sub MY_SOCKET_SELECTED () { 12 }
 # Test and provide for each constant separately, per suggestion in
 # rt.cpan.org 27250.
 BEGIN {
-  eval {
-    require Socket6;
-    my $x = &Socket6::AF_INET6;
-  };
-  *Socket6::AF_INET6 = sub () { ~0 } if $@;
-
-  eval {
-    require Socket6;
-    my $x = &Socket6::PF_INET6;
-  };
-
-  *Socket6::PF_INET6 = sub () { ~0 } if $@;
+  eval { require Socket6 };
+  if ($@) {
+    *Socket6::AF_INET6 = sub () { ~0 };
+    *Socket6::PF_INET6 = sub () { ~0 };
+  }
+  else {
+    eval { my $x = &Socket6::AF_INET6 };
+    *Socket6::AF_INET6 = sub () { ~0 } if $@;
+    eval { my $x = &Socket6::PF_INET6 };
+    *Socket6::PF_INET6 = sub () { ~0 } if $@;
+  }
 }
 
 #------------------------------------------------------------------------------
