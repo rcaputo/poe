@@ -22,14 +22,15 @@ use vars qw(@EXPORT_OK);
 
 sub CORE_REQUIREMENTS () {
   (
-    "Carp"               => 0,
-    "Errno"              => 1.09,
-    "Exporter"           => 0,
-    "File::Spec"         => 0.87,
-    "IO::Handle"         => 1.27,
-    "POSIX"              => 1.02,
-    "Socket"             => 1.7,
-    "Test::Harness"      => 2.26,
+    "Carp"              => 0,
+    "Errno"             => 1.09,
+    "Exporter"          => 0,
+    "File::Spec"        => 0.87,
+    "IO::Handle"        => 1.27,
+    "POSIX"             => 1.02,
+    "Socket"            => 1.7,
+    "Test::Harness"     => 2.26,
+    "Storable"          => 2.16,
     (
       ($^O eq "MSWin32")
       ? (
