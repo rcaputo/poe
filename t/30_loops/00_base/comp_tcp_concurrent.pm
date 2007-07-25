@@ -31,6 +31,8 @@ use POE qw( Component::Server::TCP Wheel::ReadWrite Component::Client::TCP );
 
 #use POE::API::Peek;
 
+my ($acceptor_port, $callback_port);
+
 sub DEBUG () { 0 }
 
 do_servers();
@@ -49,9 +51,15 @@ sub do_servers {
   # Create a server.  This one uses Acceptor to create a session of the
   # program's devising.
   POE::Component::Server::TCP->new(
-    Port => 31401,
+    Port => 0,
     Alias => 'acceptor_server',
     Concurrency => 1,
+    Started => sub {
+      use Socket qw(sockaddr_in);
+      $acceptor_port = (
+        sockaddr_in($_[HEAP]->{listener}->getsockname())
+      )[0];
+    },
     Acceptor => sub {
       my ($socket, $peer_addr, $peer_port) = @_[ARG0..ARG2];
 
@@ -127,8 +135,14 @@ sub do_servers {
   # Create a server.  This one uses ClientXyz to process clients instead
   # of a user-defined session.
   POE::Component::Server::TCP->new(
-    Port => 31402,
+    Port => 0,
     Alias => 'callback_server',
+    Started => sub {
+      use Socket qw(sockaddr_in);
+      $callback_port = (
+        sockaddr_in($_[HEAP]->{listener}->getsockname())
+      )[0];
+    },
     Concurrency => 4,
     # ClientShutdownOnError => 0,
 
@@ -194,7 +208,7 @@ sub two_clients {
   # A client to connect to acceptor_server.
   POE::Component::Client::TCP->new(
     RemoteAddress => '127.0.0.1',
-    RemotePort    => 31401,
+    RemotePort    => $acceptor_port,
     Alias         => "acceptor client $N",
 
     Connected => sub {
@@ -239,7 +253,7 @@ sub two_clients {
 
   POE::Component::Client::TCP->new(
     RemoteAddress => '127.0.0.1',
-    RemotePort    => 31402,
+    RemotePort    => $callback_port,
     Alias         => "callback client $N",
 
     Connected => sub {

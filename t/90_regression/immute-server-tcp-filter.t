@@ -27,7 +27,7 @@ use HTTP::Response;
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
 use Test::More tests => 12; # FILL MEE IN!
-my $PORT = '64130';
+my $server_port;
 
 DEBUG and print "HTTPD: $POE::Filter::HTTPD::VERSION\n";
 DO_TEST("Single String", [ ClientFilter => 'POE::Filter::HTTPD' ]);
@@ -52,7 +52,7 @@ POE::Session->create(
     _start => sub {
         my $h = $_[HEAP];
         POE::Component::Server::TCP->new(
-            Port => ($PORT),
+            Port => 0,
             @$FILTER,
             ClientInput => sub {
                 DEBUG and print "Got Client Input\n";
@@ -65,21 +65,28 @@ POE::Session->create(
                 $_[HEAP]->{client}->put($response);
                 $_[KERNEL]->yield('shutdown');
             },
-            Started => sub { $h->{id} = $_[SESSION]->ID; DEBUG and print "Server Started\n"; },
+            Started => sub {
+              $h->{id} = $_[SESSION]->ID;
+              use Socket qw(sockaddr_in);
+              $server_port = (
+                sockaddr_in($_[HEAP]->{listener}->getsockname())
+              )[0];
+              DEBUG and print "Server Started on port $server_port\n";
+            },
         );
         $_[KERNEL]->delay('test_server', 1);
         $_[KERNEL]->delay('kill_server', 5);
     },
     kill_server => sub { $_[KERNEL]->post($_[HEAP]->{id}, 'shutdown'); },
-    test_server => sub { 
+    test_server => sub {
         DEBUG and print "Creating Client Socket\n";
         my $wheel = POE::Wheel::SocketFactory->new(
-            RemotePort     => $PORT,
+            RemotePort     => $server_port,
             RemoteAddress  => '127.0.0.1',
             SuccessEvent   => "_connected",
             FailureEvent   => "_fail_connect",
         );
-        $_[HEAP]->{wheel} = $wheel;        
+        $_[HEAP]->{wheel} = $wheel;
     },
     _connected => sub {
         DEBUG and print "Creating ReadWrite\n";
@@ -101,7 +108,7 @@ POE::Session->create(
         delete $_[HEAP]->{rw};
         ok(defined $_[HEAP]->{flag}, "Testing Filter Combo: $TEST");
     },
-    
+
   },
 );
 POE::Kernel->run;

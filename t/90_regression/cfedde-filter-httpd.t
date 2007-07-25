@@ -15,7 +15,7 @@ BEGIN {
 
 use Test::More tests => 2;
 
-use constant PORT => 31416;
+my $port;
 
 use POE qw(
   Component::Client::TCP
@@ -28,8 +28,14 @@ use POE qw(
 #
 
 POE::Component::Server::TCP->new(
-  Port         => PORT,
+  Port         => 0,
   ClientFilter => 'POE::Filter::HTTPD',
+  Started => sub {
+    use Socket qw(sockaddr_in);
+    $port = (
+      sockaddr_in($_[HEAP]->{listener}->getsockname())
+    )[0];
+  },
 
   ClientInput => sub {
     my ( $kernel, $heap, $request ) = @_[ KERNEL, HEAP, ARG0 ];
@@ -39,7 +45,7 @@ POE::Component::Server::TCP->new(
 
 POE::Component::Client::TCP->new (
   RemoteAddress => '127.0.0.1',
-  RemotePort => PORT,
+  RemotePort => $port,
   ServerInput => sub {
     diag("Server Input: $_[ARG0]");
   }
@@ -47,7 +53,7 @@ POE::Component::Client::TCP->new (
 
 POE::Component::Client::TCP->new (
   RemoteAddress => '127.0.0.1',
-  RemotePort => PORT,
+  RemotePort => $port,
   Connected => sub {
     ok 1, 'client connected';
     $_[HEAP]->{server}->put( "GET / 1.0\015\012\015\012");

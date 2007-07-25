@@ -21,12 +21,20 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use POE qw( Component::Server::TCP Wheel::ReadWrite Component::Client::TCP );
 
+my ($acceptor_port, $callback_port);
+
 # Create a server.  This one uses Acceptor to create a session of the
 # program's devising.
 
 POE::Component::Server::TCP->new(
-  Port => 31401,
+  Port => 0,
   Alias => 'acceptor_server',
+  Started => sub {
+    use Socket qw(sockaddr_in);
+    $acceptor_port = (
+      sockaddr_in($_[HEAP]->{listener}->getsockname())
+    )[0];
+  },
   Acceptor => sub {
     my ($socket, $peer_addr, $peer_port) = @_[ARG0..ARG2];
     POE::Session->create(
@@ -68,9 +76,15 @@ POE::Component::Server::TCP->new(
 # of a user-defined session.
 
 POE::Component::Server::TCP->new(
-  Port => 31402,
+  Port => 0,
   Alias => 'input_server',
   ClientFilter => [ "POE::Filter::Line", Literal => "\n" ],
+  Started => sub {
+    use Socket qw(sockaddr_in);
+    $callback_port = (
+      sockaddr_in($_[HEAP]->{listener}->getsockname())
+    )[0];
+  },
   ClientInput => sub {
     my ($heap, $input) = @_[HEAP, ARG0];
     pass("callback server got input");
@@ -149,7 +163,7 @@ POE::Component::Server::TCP->new(
 
 POE::Component::Client::TCP->new(
   RemoteAddress => '127.0.0.1',
-  RemotePort    => 31401,
+  RemotePort    => $acceptor_port,
 
   Connected => sub {
     pass("acceptor client connected");
@@ -188,7 +202,7 @@ POE::Component::Client::TCP->new(
 
 POE::Component::Client::TCP->new(
   RemoteAddress => '127.0.0.1',
-  RemotePort    => 31402,
+  RemotePort    => $callback_port,
   Filter => [ "POE::Filter::Line", Literal => "\n" ],
 
   Connected => sub {

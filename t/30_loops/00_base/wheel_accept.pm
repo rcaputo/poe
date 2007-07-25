@@ -20,12 +20,14 @@ unless (-f "run_network_tests") {
 
 plan tests => 2;
 
+my $bound_port;
+
 ### A listening session.
 sub listener_start {
   my $heap = $_[HEAP];
 
   my $listening_socket = IO::Socket::INET->new(
-    LocalPort => 14195,               # some random port
+    LocalPort => 0,
     Listen    => 5,
     Proto     => 'tcp',
     Reuse     => 'yes',
@@ -39,6 +41,8 @@ sub listener_start {
     fail("listening socket accepted connections");
     return;
   }
+
+  $bound_port = (sockaddr_in(getsockname($listening_socket)))[0];
 
   $heap->{listener_wheel} = POE::Wheel::ListenAccept->new(
     Handle      => $listening_socket,
@@ -79,7 +83,7 @@ sub listener_got_timeout {
 sub connector_start {
   $_[HEAP]->{connector_wheel} = POE::Wheel::SocketFactory->new(
     RemoteAddress => '127.0.0.1',
-    RemotePort    => 14195,
+    RemotePort    => $bound_port,
     SuccessEvent  => 'got_connection',
     FailureEvent  => 'got_error',
   );
