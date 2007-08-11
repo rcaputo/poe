@@ -8,7 +8,7 @@ use lib qw(./mylib ../mylib);
 
 BEGIN {
   unless (-f "run_network_tests") {
-    print "1..0: Network access (and permission) required to run this test\n";
+    print "1..0 # Skip Network access (and permission) required to run this test\n";
     CORE::exit();
   }
 }

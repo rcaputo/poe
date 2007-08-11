@@ -13,7 +13,7 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 # use Test::More;
 
-print "1..0 # most of these should move into other test files\n";
+print "1..0 # Skip most of these should move into other test files\n";
 
 #use POSIX qw(:errno_h);
 #use Socket;

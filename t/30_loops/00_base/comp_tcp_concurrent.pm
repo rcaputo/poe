@@ -8,11 +8,11 @@ use lib qw(./mylib ../mylib);
 
 BEGIN {
   unless (-f "run_network_tests") {
-    print "1..0: Network access (and permission) required to run this test\n";
+    print "1..0 # Skip Network access (and permission) required to run this test\n";
     CORE::exit();
   }
   if ($^O eq "MSWin32") {
-    print "1..0: Windows sockets aren't as concurrent as those on Unix\n";
+    print "1..0 # Skip Windows sockets aren't as concurrent as those on Unix\n";
     CORE::exit();
   }
 }
