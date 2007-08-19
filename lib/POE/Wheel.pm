@@ -62,7 +62,7 @@ it's destroyed.
 
 =head1 COMMON PUBLIC WHEEL METHODS
 
-These methods are the generic Wheel interface, and every filter must
+These methods are the generic Wheel interface, and every wheel must
 implement them.
 
 =over 2
