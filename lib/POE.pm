@@ -219,28 +219,6 @@ By design, it's possible to implement new POE::Kernel guts by creating
 another POE::Resource class.  One can then expose the functionality
 with a new POE::API mix-in.
 
-=head1 USING POE
-
-POE's C<import> method implements some magic to cut down on the amount
-of necessary setup.
-
-For starters, C<use POE> will automatically include POE::Kernel.  And
-it will also include POE::Session if a session type isn't specified.
-Most programs need both of these modules, so POE gives you them for
-free.
-
-Modules can also be included on the C<use POE> line.  The leading
-"POE::" should be omitted when using POE this way:
-
-  use POE qw(Component::Client::TCP).
-
-This is a somewhat abbreviated version of:
-
-  use POE;
-  use POE::Kernel;
-  use POE::Session;
-  use POE::Component::Client::TCP;
-
 =head1 DOCUMENTATION ROADMAP
 
 You're reading the main POE documentation.  It's the general entry
@@ -254,6 +232,12 @@ POE::Session.  Methods are documented in the classes that implement
 them.  Broader concepts are covered in the most appropriate class, and
 sometimes they are divided among classes that share in their
 implementation.
+
+=head2 Basic Usage
+
+Basic usage, even for POE.pm, is documented in POE::Kernel.  That's
+where most of POE's work is done, and POE.pm is little more than a
+class loader.
 
 =head2 @_[KERNEL, HEAP, etc.]
 
@@ -642,6 +626,9 @@ wildly popular Net::IRC library.
 
 Please contact the author if you've been forgotten and would like to
 be included here.
+
+TODO - This section has fallen into disrepair.  A POE historian needs
+to cull the CHANGES for the names of major contributors.
 
 =back
 
