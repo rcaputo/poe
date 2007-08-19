@@ -76,7 +76,8 @@ sub get {
 
   # Sanity check.  "finish" is set when a request has completely
   # arrived.  Subsequent get() calls on the same request should not
-  # happen.  -><- Maybe this should return [] instead of dying?
+  # happen.
+  # TODO Maybe this should return [] instead of dying?
 
   if ($self->[FINISH]) {
 

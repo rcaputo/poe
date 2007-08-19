@@ -364,7 +364,7 @@ sub new {
     my @safe_signals = $poe_kernel->_data_sig_get_safe_signals();
     @SIG{@safe_signals} = ("DEFAULT") x @safe_signals;
 
-    # -><- How to pass events to the parent process?  Maybe over a
+    # TODO How to pass events to the parent process?  Maybe over a
     # expedited (OOB) filehandle.
 
     # Fix the child process' priority.  Don't bother doing this if it
@@ -375,26 +375,26 @@ sub new {
       eval {
         if (defined(my $priority = getpriority(0, $$))) {
           unless (setpriority(0, $$, $priority + $priority_delta)) {
-            # -><- can't set child priority
+            # TODO can't set child priority
           }
         }
         else {
-          # -><- can't get child priority
+          # TODO can't get child priority
         }
       };
       if ($@) {
-        # -><- can't get child priority
+        # TODO can't get child priority
       }
     }
 
-    # Fix the group ID.  -><- Add getgrnam so group IDs can be
-    # specified by name.  -><- Warn if not superuser to begin with.
+    # Fix the group ID.  TODO Add getgrnam so group IDs can be
+    # specified by name.  TODO Warn if not superuser to begin with.
     if (defined $group_id) {
       $( = $) = $group_id;
     }
 
-    # Fix the user ID.  -><- Add getpwnam so user IDs can be specified
-    # by name.  -><- Warn if not superuser to begin with.
+    # Fix the user ID.  TODO Add getpwnam so user IDs can be specified
+    # by name.  TODO Warn if not superuser to begin with.
     if (defined $user_id) {
       $< = $> = $user_id;
     }

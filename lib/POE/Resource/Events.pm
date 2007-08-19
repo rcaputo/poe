@@ -123,7 +123,7 @@ sub _data_ev_clear_session {
   croak if delete $post_count{$session};
 }
 
-# -><- Alarm maintenance functions may move out to a separate
+# TODO Alarm maintenance functions may move out to a separate
 # POE::Resource module in the future.  Why?  Because alarms may
 # eventually be managed by something other than the event queue.
 # Especially if we incorporate a proper Session scheduler.  Be sure to
@@ -150,7 +150,7 @@ sub _data_ev_clear_alarm_by_name {
 
 ### Remove a specific alarm by its ID.  This is in the events section
 ### because alarms are currently implemented as events with future due
-### times.  -><- It's possible to remove non-alarms; is that wrong?
+### times.  TODO It's possible to remove non-alarms; is that wrong?
 
 sub _data_ev_clear_alarm_by_id {
   my ($self, $session, $alarm_id) = @_;

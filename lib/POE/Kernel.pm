@@ -251,7 +251,7 @@ sub CHILD_LOSE   () { 'lose'   }  # The session is no longer this one's child.
 sub CHILD_CREATE () { 'create' }  # The session was created as a child of this.
 
 # Argument offsets for different types of internally generated events.
-# -><- Exporting (EXPORT_OK) these would let people stop depending on
+# TODO Exporting (EXPORT_OK) these would let people stop depending on
 # positions for them.
 
 sub EA_SEL_HANDLE () { 0 }
@@ -933,7 +933,7 @@ sub _dispatch_event {
         }
       }
       else {
-        # -><- This is ugly repeated code.  See the block just above
+        # TODO This is ugly repeated code.  See the block just above
         # the else.
 
         $touched_index = @touched_sessions;
@@ -1132,7 +1132,7 @@ sub _dispatch_event {
   }
 
   # Bail out of post-dispatch processing if the session has been
-  # stopped.  -><- This is extreme overhead.
+  # stopped.  TODO This is extreme overhead.
   return unless $self->_data_ses_exists($session);
 
   # If this invocation is a user event, see if the destination session
@@ -1144,12 +1144,12 @@ sub _dispatch_event {
   # We avoid testing if the source and destination are the same
   # because at some point we'll hit a user event that will catch it.
   #
-  # -><- We test whether the sessions exist.  They should, but we've
+  # TODO We test whether the sessions exist.  They should, but we've
   # been getting double-free errors lately.  I think we should avoid
   # the double free some other way, but this is the most expedient
   # method.
   #
-  # -><- It turns out that POE::NFA->stop() may have discarded
+  # TODO It turns out that POE::NFA->stop() may have discarded
   # sessions already, so we need to do the GC test anyway.  Maybe some
   # sort of mark-and-sweep can avoid redundant tests.
 
@@ -1503,7 +1503,7 @@ sub detach_child {
     return;
   }
 
-  # Can't detach if it belongs to the kernel.  -><- We shouldn't need
+  # Can't detach if it belongs to the kernel.  TODO We shouldn't need
   # to check for this.
   if ($kr_active_session == $self) {
     $! = EPERM;
@@ -1655,7 +1655,7 @@ sub call {
   # Dispatch the event right now, bypassing the queue altogether.
   # This tends to be a Bad Thing to Do.
 
-  # -><- The difference between synchronous and asynchronous events
+  # TODO The difference between synchronous and asynchronous events
   # should be made more clear in the documentation, so that people
   # have a tendency not to abuse them.  I discovered in xws that that
   # mixing the two types makes it harder than necessary to write
@@ -1883,7 +1883,7 @@ sub alarm_set {
     );
 }
 
-# Remove an alarm by its ID.  -><- Now that alarms and events have
+# Remove an alarm by its ID.  TODO Now that alarms and events have
 # been recombined, this will remove an event by its ID.  However,
 # nothing returns an event ID, so nobody knows what to remove.
 
@@ -2421,7 +2421,7 @@ sub refcount_increment {
   }
 
   my $refcount = $self->_data_extref_inc($session, $tag);
-  # -><- trace it here
+  # TODO trace it here
   return $refcount;
 }
 
@@ -2453,7 +2453,7 @@ sub refcount_decrement {
     $self->_data_ses_collect_garbage($session);
   }
 
-  # -><- trace it here
+  # TODO trace it here
   return $refcount;
 }
 
@@ -2483,7 +2483,7 @@ sub state {
     return 0;
   }
 
-  # -><- A terminal signal (such as UIDESTROY) kills a session.  The
+  # TODO A terminal signal (such as UIDESTROY) kills a session.  The
   # Kernel deallocates the session, which cascades destruction to its
   # HEAP.  That triggers a Wheel's destruction, which calls
   # $kernel->state() to remove a state from the session.  The session,

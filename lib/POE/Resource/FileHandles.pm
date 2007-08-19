@@ -625,7 +625,7 @@ sub _data_handle_remove {
   }
 
   # SS_HANDLES - Remove the select from the session, assuming there is
-  # a session to remove it from.  -><- Key it on fileno?
+  # a session to remove it from.  TODO Key it on fileno?
 
   if (
     exists($kr_ses_to_handle{$session}) and
@@ -753,7 +753,7 @@ sub _data_handle_clear_session {
   }
 }
 
-# -><- Testing accessors.  Maybe useful for introspection.  May need
+# TODO Testing accessors.  Maybe useful for introspection.  May need
 # modification before that.
 
 sub _data_handle_fno_refcounts {

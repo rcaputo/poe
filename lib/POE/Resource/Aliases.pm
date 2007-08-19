@@ -52,14 +52,14 @@ sub _data_alias_finalize {
 
 # Add an alias to a session.
 #
-# -><- This has a potential problem: setting the same alias twice on a
+# TODO This has a potential problem: setting the same alias twice on a
 # session will increase the session's reference count twice.  Removing
 # the alias will only decrement it once.  That potentially causes
 # reference counts that never go away.  The public interface for this
 # function, alias_set(), does not allow this to occur.  We should add
 # a test to make sure it never does.
 #
-# -><- It is possible to add aliases to sessions that do not exist.
+# TODO It is possible to add aliases to sessions that do not exist.
 # The public alias_set() function prevents this from happening.
 
 sub _data_alias_add {
@@ -71,7 +71,7 @@ sub _data_alias_add {
 
 # Remove an alias from a session.
 #
-# -><- Happily allows the removal of aliases from sessions that don't
+# TODO Happily allows the removal of aliases from sessions that don't
 # exist.  This will cause problems with reference counting.
 
 sub _data_alias_remove {

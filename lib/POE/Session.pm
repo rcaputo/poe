@@ -281,7 +281,7 @@ sub create {
       my @param_value = @$param_value;
       while (my ($package, $handlers) = splice(@param_value, 0, 2)) {
 
-        # -><- What do we do if the package name has some sort of
+        # TODO What do we do if the package name has some sort of
         # blessing?  Do we use the blessed thingy's package, or do we
         # maybe complain because the user might have wanted to make
         # object states instead?

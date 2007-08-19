@@ -127,7 +127,7 @@ sub get_one_start {
   $self->[FRAMING_BUFFER] .= join '', @$stream;
 }
 
-# -><- There is a lot of code duplicated here.  What can be done?
+# TODO There is a lot of code duplicated here.  What can be done?
 
 sub get_one {
   my $self = shift;

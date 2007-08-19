@@ -188,7 +188,7 @@ sub loop_do_timeslice {
     );
   }
 
-  # Avoid looking at filehandles if we don't need to.  -><- The added
+  # Avoid looking at filehandles if we don't need to.  TODO The added
   # code to make this sleep is non-optimal.  There is a way to do this
   # in fewer tests.
 

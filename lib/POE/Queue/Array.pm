@@ -279,7 +279,7 @@ sub adjust_priority {
   }
 
   # Nothing to do if the delta is zero.
-  # -><- Actually we may need to ensure that the item is moved to the
+  # TODO Actually we may need to ensure that the item is moved to the
   # end of its current priority bucket, since it should have "moved".
   return $self->[$item_index]->[ITEM_PRIORITY] unless $delta;
 
@@ -305,7 +305,7 @@ sub set_priority {
   }
 
   # Nothing to do if the old and new priorities match.
-  # -><- Actually we may need to ensure that the item is moved to the
+  # TODO Actually we may need to ensure that the item is moved to the
   # end of its current priority bucket, since it should have "moved".
   return $new_priority if $new_priority == $old_priority;
 

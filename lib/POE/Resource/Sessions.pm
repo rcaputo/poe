@@ -105,7 +105,7 @@ sub _data_ses_allocate {
 # garbage collection for the session itself because that should
 # already have happened.
 #
-# -><- This is yet another place where resources will need to register
+# TODO This is yet another place where resources will need to register
 # a function.  Every resource's _data_???_clear_session is called
 # here.
 

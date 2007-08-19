@@ -117,7 +117,7 @@ sub loop_resume_filehandle {
 # This is the select loop itself.  We do a Bad Thing here by polling
 # for socket activity, but it's necessary with ActiveState's Tk.
 #
-# -><- We should really stop the poller when there are no handles to
+# TODO We should really stop the poller when there are no handles to
 # watch and resume it as needed.
 
 sub _poll_for_io {
@@ -142,7 +142,7 @@ sub _poll_for_io {
     );
   }
 
-  # Avoid looking at filehandles if we don't need to.  -><- The added
+  # Avoid looking at filehandles if we don't need to.  TODO The added
   # code to make this sleep is non-optimal.  There is a way to do this
   # in fewer tests.
 

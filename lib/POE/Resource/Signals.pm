@@ -355,7 +355,7 @@ sub _data_sig_explicitly_watched {
 }
 
 ### Return the signals watched by a session and the events they
-### generate.  -><- Used mainly for testing, but may also be useful
+### generate.  TODO Used mainly for testing, but may also be useful
 ### for introspection.
 
 sub _data_sig_watched_by_session {
@@ -371,7 +371,7 @@ sub _data_sig_watchers {
 }
 
 ### Return the current signal's handled status.
-### -><- Used for testing.
+### TODO Used for testing.
 
 sub _data_sig_handled_status {
   return(
@@ -417,7 +417,7 @@ sub _data_sig_free_terminated_sessions {
     }
   }
   else {
-    # -><- Implicit signal reaping.  This is deprecated behavior and
+    # TODO Implicit signal reaping.  This is deprecated behavior and
     # will eventually be removed.  See the commented out tests in
     # t/res/signals.t.
     #
@@ -481,7 +481,7 @@ sub _data_sig_handle_poll_event {
 
   # Reap children for as long as waitpid(2) says something
   # interesting has happened.
-  # -><- This has a possibility of an infinite loop, but so far it
+  # TODO This has a possibility of an infinite loop, but so far it
   # hasn't hasn't happened.
 
   my $pid;
@@ -550,7 +550,7 @@ sub _data_sig_handle_poll_event {
       next;
     }
 
-    # No child processes exist.  -><- This is different than
+    # No child processes exist.  TODO This is different than
     # children being present but running.  Maybe this condition
     # could halt polling entirely, and some UNIVERSAL::fork wrapper
     # could restart polling when processes are forked.

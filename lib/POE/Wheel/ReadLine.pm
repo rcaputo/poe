@@ -767,7 +767,7 @@ sub _global_init {
       $str = '^' . lc(chr($ord+64));
     }
     elsif ($ord == 127) {
-      $str = "^?"; # -><- chr(127);
+      $str = "^?";
     }
     $normalized_character{chr($ord)} = $str;
     $normalized_extra_width[$ord] = length ( $str ) - 1;

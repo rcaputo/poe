@@ -98,7 +98,7 @@ my %supported_protocol = (
   },
 );
 
-# Sane default socket types for each supported protocol.  -><- Maybe
+# Sane default socket types for each supported protocol.  TODO Maybe
 # this structure can be combined with %supported_protocol?
 my %default_socket_type = (
   DOM_UNIX, {

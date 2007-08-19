@@ -42,14 +42,14 @@ sub _data_extref_finalize {
 # time the tag is used in the session, then increment the session's
 # reference count as well.  Returns the tag's new reference count.
 #
-# -><- Allows incrementing reference counts on sessions that don't
+# TODO Allows incrementing reference counts on sessions that don't
 # exist, but the public interface catches that.
 
 sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
   my $refcount = ++$kr_extra_refs{$session}->{$tag};
 
-  # -><- We could probably get away with only incrementing the
+  # TODO We could probably get away with only incrementing the
   # session's master refcount once, as long as any extra refcount is
   # positive.  Then the session reference count would be a flag
   # instead of a counter.
@@ -69,7 +69,7 @@ sub _data_extref_inc {
 # if the count reaches zero.  Return the new reference count or undef
 # if the tag doesn't exist.
 #
-# -><- Allows negative reference counts, and the resulting hilarity.
+# TODO Allows negative reference counts, and the resulting hilarity.
 # Hopefully the public interface won't allow it.
 
 sub _data_extref_dec {
