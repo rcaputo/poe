@@ -14,6 +14,20 @@ use POE::Loop::PerlSignals;
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
+=for poe_tests
+
+sub skip_tests {
+  return "Event tests require the Event module" if (
+    do { eval "use Event"; $@ }
+  );
+  my $test_name = shift;
+  if ($test_name eq "k_signals_rerun" and $^O eq "MSWin32") {
+    return "This test crashes Perl when run with Tk on $^O";
+  }
+}
+
+=cut
+
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
 
@@ -225,3 +239,6 @@ Please see L<POE> for more information about authors, contributors,
 and POE's licensing.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.

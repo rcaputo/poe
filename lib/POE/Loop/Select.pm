@@ -13,6 +13,12 @@ use POE::Loop::PerlSignals;
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
+=for poe_tests
+
+sub skip_tests { return }
+
+=cut
+
 # Everything plugs into POE::Kernel.
 package POE::Kernel;
 
@@ -356,3 +362,6 @@ Please see L<POE> for more information about authors, contributors,
 and POE's licensing.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.

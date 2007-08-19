@@ -16,6 +16,17 @@ use POE::Loop::PerlSignals;
 # Everything plugs into POE::Kernel;
 package POE::Kernel;
 
+=for poe_tests
+
+sub skip_tests {
+  return "IO::Poll is not 100% compatible with $^O" if $^O eq "MSWin32";
+  return "IO::Poll tests require the IO::Poll module" if (
+    do { eval "use IO::Poll"; $@ }
+  );
+}
+
+=cut
+
 use strict;
 
 # Be sure we're using a contemporary version of IO::Poll.  There were
@@ -404,3 +415,6 @@ Please see L<POE> for more information about authors, contributors,
 and POE's licensing.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.
