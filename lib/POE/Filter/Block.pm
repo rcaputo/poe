@@ -119,8 +119,8 @@ sub get_one {
   ) {
     return [ ] if length($self->[FRAMING_BUFFER]) < $self->[EXPECTED_SIZE];
 
-    # TODO - Four-arg substr() would be better here, but it's not
-    # compatible with Perl as far back as we support.
+    # Four-arg substr() would be better here, but it's not compatible
+    # with Perl as far back as we support.
     my $block = substr($self->[FRAMING_BUFFER], 0, $self->[EXPECTED_SIZE]);
     substr($self->[FRAMING_BUFFER], 0, $self->[EXPECTED_SIZE]) = '';
     $self->[EXPECTED_SIZE] = undef;
