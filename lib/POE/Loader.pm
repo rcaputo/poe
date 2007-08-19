@@ -86,3 +86,6 @@ POE::Loader is Copyright 2004-2006 by Rocco Caputo.  All rights
 reserved.  POE::Loader is released under the same terms as POE itself.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.

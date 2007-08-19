@@ -1605,3 +1605,6 @@ names.
 Please see L<POE> for more information about authors and contributors.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.

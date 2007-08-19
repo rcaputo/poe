@@ -747,3 +747,6 @@ This wheel can't tail pipes and consoles on some systems.
 Please see L<POE> for more information about authors and contributors.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.

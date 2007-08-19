@@ -726,3 +726,6 @@ POE::Component::Client::TCP is based on code, used with permission,
 from Jos Boumans E<lt>kane@cpan.orgE<gt>.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.

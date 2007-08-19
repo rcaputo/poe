@@ -481,3 +481,6 @@ The HTTPD filter was contributed by Artur Bergman.
 Please see L<POE> for more information about authors and contributors.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.

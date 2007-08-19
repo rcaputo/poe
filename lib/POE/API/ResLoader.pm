@@ -66,4 +66,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.
+
 1;

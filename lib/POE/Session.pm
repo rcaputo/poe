@@ -1683,3 +1683,6 @@ value wraps.  This can occur after as few as 4.29 billion sessions.
 Please see L<POE> for more information about authors and contributors.
 
 =cut
+
+# rocco // vim: ts=2 sw=2 expandtab
+# TODO - Redocument.
