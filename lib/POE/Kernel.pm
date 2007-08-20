@@ -2500,30 +2500,604 @@ __END__
 
 =head1 NAME
 
-POE::Kernel - an event driven threaded application kernel in Perl
+POE::Kernel - an event-based application kernel in Perl
 
 =head1 SYNOPSIS
 
-POE comes with its own event loop, which is based on select() and
-written entirely in Perl.  To use it, simply:
+  use POE; # auto-includes POE::Kernel and POE::Session
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub { $_[KERNEL]->yield("next") },
+      next   => sub { $_[KERNEL]->delay(next => 1) },
+    },
+  );
+
+  POE::Kernel->run();
+  exit;
+
+In the spirit of Perl, there are a lot of other ways to do it.
+
+=head1 DESCRIPTION
+
+POE::Kernel is the heart of POE.  It provides the lowest-level
+features: non-blocking multiplexed I/O, timers, and signal watchers
+are the most significant.  Everything else is built upon this
+foundation.
+
+POE::Kernel is not an event loop in itself.  For that it uses one of
+several available POE::Loop interface modules.  See CPAN for modules
+in the POE::Loop namespace.
+
+=head1 USING POE
+
+=head2 Literally Using POE
+
+POE.pm is little more than a class loader.  It implements some magic
+to cut down on the setup work.
+
+Parameters to C<use POE> are not treated as normal imports.  Rather,
+they're abbreviated modules to be included along with POE.
+
+  use POE qw(Component::Client::TCP).
+
+As you can see, the leading "POE::" can be omitted this way.
+
+POE.pm also includes POE::Kernel and POE::Session by default.  These
+two modules are used by nearly all POE-based programs.  So the above
+example is actually the equivalent of:
 
   use POE;
+  use POE::Kernel;
+  use POE::Session;
+  use POE::Component::Client::TCP;
 
-POE can adapt itself to work with other event loops and I/O multiplex
-systems.  Currently it adapts to Gtk, Tk, Event.pm, or IO::Poll when
-one of those modules is used before POE::Kernel.
+=head2 Using POE::Kernel
 
-  use Gtk;  # Or Tk, Event, or IO::Poll;
-  use POE;
+POE::Kernel needs to know which event loop you want to use.  This is
+supported in three different ways:
 
-  or
+The first way is to use an event loop module before using POE::Kernel
+(or POE, which loads POE::Kernel for you):
+
+  use Tk; # or one of several others
+  use POE::Kernel.
+
+POE::Kernel scans the list of modules already loaded, and it loads an
+appropriate POE::Loop adapter if it finds a known event loop.
+
+The next way is to explicitly load the POE::Loop class you want:
 
   use POE qw(Loop::Gtk);
 
-  or
+Finally POE::Kernel's C<import()> supports more programmer-friendly
+configuration:
 
   use POE::Kernel { loop => "Gtk" };
   use POE::Session;
+
+=head2 Anatomy of a POE-Based Application
+
+Programs using POE work like any other.  They load required modules,
+perform some setup, run some code, and eventually exit.  Halting
+Problem notwithstanding.
+
+A POE-based application loads some modules, sets up one or more
+sessions, runs the code in those sessions, and eventually exists.
+
+  use POE;
+  POE::Session->create( ... map events to code here ... );
+  POE::Kernel->run();
+  exit;
+
+=head2 Sessions
+
+The biggest difference is that POE expects code to run isolated
+compartments called "sessions".  Sessions play the role of tasks or
+threads within POE, although they are cooperatively multitasked rather
+than pre-emptively threaded.
+
+Every POE-based application needs at least one session.  Code cannot
+run "within POE" without being a part of some session.
+
+=head1 PUBLIC METHODS
+
+POE::Kernel encapsulates a lot of features.  Each set of features is
+grouped by purpose.
+
+=head2 Kernel Management and Accessors
+
+=head3 ID
+
+ID() returns the kernel's unique identifier.  Every POE::Kernel
+instance is assigned a (hopefully) unique ID at birth.
+
+  % perl -wl -MPOE -e 'print $poe_kernel->ID'
+  poerbook.local-46c89ad800000e21
+
+=head3 run
+
+run() runs POE::Kernel's event dispatcher.  It will not return until
+all sessions have ended.  run() is a class method so a POE::Kernel
+reference is not needed to start a program's execution.
+
+  use POE;
+  POE::Session->create( ... ); # one or more
+  POE::Kernel->run();          # set them all running
+  exit;
+
+POE implements the Reactor pattern at its core.  Events are dispatched
+to functions and methods through callbacks.  The code behind run()
+waits for and dispatches events.
+
+run() will not return until every session has ended.  This includes
+sessions that were created while run() was running.
+
+=head3 run_one_timeslice
+
+run_one_timeslice() dispatches any events that are due to be
+delivered.  These events include timers that are due, asynchronous
+messages that need to be delivered, signals that require handling, and
+files with pending I/O.
+
+run() is implemented similar to
+
+  run_one_timeslice() while $session_count > 0;
+
+run_one_timeslice() can be used to keep running POE::Kernel's
+dispatcher while emulating blocking behavior.  The pattern is
+implemented with a flag that is set when some asynchronous event
+occurs.  A loop calls run_one_timeslice() until that flag is set.  For
+example:
+
+  my $done = 0;
+
+  sub handle_some_event {
+    $done = 1;
+  }
+
+  $kernel->run_one_timeslice() while not $done;
+
+Do be careful.  The above example will spin if POE::Kernel is done but
+$done is never set.  The loop will never be done, even though there's
+nothing left that will set $done.
+
+=head3 stop
+
+stop() causes POE::Kernel->run() to return early.  It does this by
+emptying teh event queue, freeing all used resources, and stopping
+every active session.  stop() is not meant to be used lightly.
+Proceed with caution.
+
+Caveats:
+
+The session that calls stop() will not be fully DESTROYed until it
+returns.  Invoking an event handler in the session requires a
+reference to that session, and weak references are prohibited in POE
+for backward compatibility reasons, so it makes sense that the last
+session won't be garbage collected right away.
+
+Sessions are not notified about their destruction.  If anything relies
+on _stop being delivered, it will break and/or leak memory.
+
+stop() is still considered experimental.  It was added to improve
+fork() support for POE::Wheel::Run.  If it proves unfixably
+problematic, it will be removed without much notice.
+
+=head2 Asynchronous Messages (FIFO Events)
+
+Asynchronous messages are events that are dispatched in the order in
+which they were enqueued (first-in = first-out, or FIFO).  These
+methods enqueue new messages for delivery.  The act of enqueuing a
+message keeps the sender alive at least until the message is
+delivered.
+
+=head3 post DESTINATION, EVENT_NAME [, PARAMETER_LIST]
+
+post() enqueues a message to be dispatched to a particular DESTINATION
+session.  The message will be handled by the code associated with
+EVENT_NAME.  If a PARAMETER_LIST is included, its values will also be
+passed along.
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->post( $_[SESSION], "event_name", 0 );
+      },
+      event_name => sub {
+        print "$_[ARG0]\n";
+        $_[KERNEL]->post( $_[SESSION], "event_name", $_[ARG0] + 1 );
+      },
+    }
+  );
+
+post() returns a Boolean value indicating whether the message was
+successfully enqueued.  If post() returns false, $! is set to explain
+the failure:
+
+ESRCH ("No such process") - The DESTINATION session did not exist at
+the time post() was called.
+
+=head3 yield EVENT_NAME [, PARAMETER_LIST]
+
+yield() is a shortcut for post() where the destination session is the
+same as the sender.  This example is equivalent to the one for post():
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->yield( "event_name", 0 );
+      },
+      event_name => sub {
+        print "$_[ARG0]\n";
+        $_[KERNEL]->yield( "event_name", $_[ARG0] + 1 );
+      },
+    }
+  );
+
+yield() should always succeed, so it does not return a meaningful
+value.
+
+=head2 Synchronous Messages
+
+It is sometimes necessary for code to be invoked right away.  For
+example, data (especially global data) may become stale between the
+time a message is enqueued and delivered.  POE provides ways to call
+message handlers right away.
+
+=head3 call DESTINATION, EVENT_NAME [, PARAMETER_LIST]
+
+call()'s semantics are nearly identical to post()'s.  call() invokes a
+DESTINATION's handler associated with an EVENT_NAME.  An optional
+PARAMETER_LIST will be passed along to the message's handler.  The
+difference, however, is that the handler will be invoked immediately,
+even before call() returns.
+
+call() returns the value returned by the EVENT_NAME handler.  It can
+do this because the handler is invoked before call() returns.  call()
+can therefore be used as an accessor, although there are better ways
+to accomplish simple accessor behavior.
+
+  $return_value = $_[KERNEL]->call( $destination, 'do_this_now' );
+  die "could not do_this_now: $!" if $!;
+
+POE::Wheel classes uses call() to dispatch input events immediately.
+Synchronous input events avoid a host of race conditions.
+
+call() may fail in the same way and for the same reasons as post().
+On failure, $! is set to some nonzero value indicating way.  Since
+call() may return undef as a matter of course, it's recommended that
+$! be checked for the error condition as well as the explanation.
+
+ESRCH ("No such process") - The DESTINATION session did not exist at
+the time post() was called.
+
+=head2 Timer Events (Delayed Messages)
+
+It's often useful to wait for a certain time or until a certain amount
+of time has passed.  POE supports this with events that are deferred
+until either an absolute time ("alarms") or until a certain duration
+of time has elapsed ("delays").
+
+Timer interfaces are further divided into two groups.  One group
+identifies timers by the names of their associated events.  Another
+group's timer constructors return identifiers that can be used to
+refer to specific timers regardless of name.
+
+Timers may only be set up for the current session.  This design was
+modeled after alarm() and SIGALRM, which only affect the current
+process.
+
+The best way to simulate deferred inter-session messages is to send an
+immediate message that causes the destination to set a timer.  The
+destination's timer then defers the action requested of it.
+
+This is best because the time spent communicating between sessions may
+not be trivial, especially if the sessions are in separate processes
+or on different machines entirely.  The destination can determine how
+much time remains on the requested timer and adjust its wait time
+accordingly.
+
+=head3 Time::HiRes Use
+
+POE::Kernel timers support subsecond accuracy, but don't expect too
+much here.  Perl's not the right language for realtime programming.
+
+Subsecond accuracy is supported through the use of select() timeouts
+and other event-loop features.  For increased accuracy, POE::Kernel
+uses Time::HiRes's time() internally, if it's available.
+
+You can disable POE's use of Time::HiRes by defining a constant in the
+POE::Kernel namespace.  This must be done before POE::Kernel is
+loaded, so that the compiler can use it.
+
+  BEGIN {
+    package POE::Kernel;
+    use constant USE_TIME_HIRES => 0;
+  }
+  use POE;
+
+Or the old-fashioned "constant subroutine" method.  This doesn't need
+the BEGIN{} block since subroutine definitions are done at compile
+time.
+
+  sub POE::Kernel::USE_TIME_HIRES () { 0 }
+  use POE;
+
+=head3 Name-Based Timers
+
+Name-based timers are identified by the event names used to set them.
+Since they are set and cleared by name, it's awkward (but not
+impossible) to have more than one with the same name in the same
+session.
+
+But different sessions can use the same name easily, since each
+session is a separate compartment with its own timer namespace.
+
+The name-based timer methods are alarm(), alarm_add(), delay(), and
+delay_add().
+
+=head4 alarm EVENT_NAME [, EPOCH_TIME [, PARAMETER_LIST] ]
+
+alarm() clears any existing timers in the current session with the
+same EVENT_NAME.  It then sets a new timer, named EVENT_NAME, that
+will fire EVENT_NAME at the current session when EPOCH_TIME has been
+reached.  An optional PARAMETER_LIST may be passed along to the
+timer's handler.
+
+Omitting the EPOCH_TIME and subsequent parameters causes alarm() to
+clear the EVENT_NAME timers in the current session without setting a
+new one.
+
+EPOCH_TIME is the UNIX epoch time.  You know, seconds since midnight,
+1970-01-01.  "Now" is whatever time() returns, either the built-in or
+Time::HiRes version.
+
+POE supports fractional seconds, but accuracy falls off steeply after
+1/100 second.  Mileage will vary depending on your CPU speed and your
+OS time resolution.
+
+POE's event queue is time-ordered, so a timer due before time() will
+be delivered ahead of other events but not before timers with even
+earlier due times.  Therefore an alarm() with an EPOCH_TIME before
+time() jumps ahead of the queue.
+
+All timers are implemented identically internally, regardless of how
+they are set.  alarm() will therefore blithely clear timers set by
+other means.
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->alarm( tick => time() + 1, 0 );
+      },
+      tick => sub {
+        print "tick $_[ARG0]\n";
+        $_[KERNEL]->alarm( tock => time() + 1, $_[ARG0] + 1 );
+      },
+      tick => sub {
+        print "tock $_[ARG0]\n";
+        $_[KERNEL]->alarm( tick => time() + 1, $_[ARG0] + 1 );
+      },
+    }
+  );
+
+alarm() returns 0 on success or a true value on failure.  Usually
+EINVAL to signal an invalid parameter, such as an undefined
+EVENT_NAME.
+
+=head4 alarm_add EVENT_NAME, EPOCH_TIME [, PARAMETER_LIST]
+
+alarm_add() is used to add a new alarm timer named EVENT_NAME without
+clearing existing timers.  EPOCH_TIME is a required parameter.
+Otherwise the semantics are identical to alarm().
+
+alarm_add() returns 0 on success or EINVAL if EVENT_NAME or EPOCH_TIME
+is undefined.
+
+=head4 delay EVENT_NAME [, DURATION_SECONDS [, PARAMETER_LIST] ]
+
+delay() clears any existing timers in the current session with the
+same EVENT_NAME.  It then sets a new timer, named EVENT_NAME, that
+will fire EVENT_NAME at the current session when DURATION_SECONDS have
+elapsed from "now".  An optional PARAMETER_LIST may be passed along to
+the timer's handler.
+
+Omitting the DURATION_SECONDS and subsequent parameters causes delay()
+to clear the EVENT_NAME timers in the current session without setting
+a new one.
+
+DURATION_SECONDS may be or include fractional seconds.  As with all of
+POE's timers, accuracy falls off steeply after 1/100 second.  Mileage
+will vary depending on your CPU speed and your OS time resolution.
+
+POE's event queue is time-ordered, so a timer due before time() will
+be delivered ahead of other events but not before timers with even
+earlier due times.  Therefore a delay () with a zero or negative
+DURATION_SECONDS jumps ahead of the queue.
+
+delay() may be considered a shorthand form of alarm(), but there are
+subtle differences in timing issues.  This code is roughly equivalent
+to the alarm() example.
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->delay( tick => 1, 0 );
+      },
+      tick => sub {
+        print "tick $_[ARG0]\n";
+        $_[KERNEL]->delay( tock => 1, $_[ARG0] + 1 );
+      },
+      tick => sub {
+        print "tock $_[ARG0]\n";
+        $_[KERNEL]->delay( tick => 1, $_[ARG0] + 1 );
+      },
+    }
+  );
+
+delay() returns 0 on success or a reason for failure: EINVAL if
+EVENT_NAME is undefined.
+
+=head4 delay_add EVENT_NAME, DURATION_SECONDS [, PARAMETER_LIST]
+
+delay_add() is used to add a new delay timer named EVENT_NAME without
+clearing existing timers.  DURATION_SECONDS is a required parameter.
+Otherwise the semantics are identical to delay().
+
+alarm_add() returns 0 on success or EINVAL if EVENT_NAME or EPOCH_TIME
+is undefined.
+
+=head3 Identifier-Based Timers
+
+A second way to manage timers is through identifiers.  Setting an
+alarm or delay with the "identifier" methods allows a program to
+manipulate several timers with the same name in the same session.  As
+covered in alarm() and delay() however, it's possible to mix named and
+identified timer calls, but the consequences may not always be
+expected.
+
+=head4 alarm_set EVENT_NAME, EPOCH_TIME [, PARAMETER_LIST]
+
+alarm_set() sets an alarm, returning a unique identifier that can be
+used to adjust or remove the alarm later.  Unlike alarm(), it does not
+first clear existing timers with the same EVENT_NAME.  Otherwise the
+semantics are identical to alarm().
+
+  $alarm_id = $_[KERNEL]->alarm_set( party => time() + 1999);
+  $_[KERNEL]->alarm_remove( $alarm_id );
+
+alarm_set() returns false if it fails and sets $! with the
+explanation.  $! will be EINVAL if EVENT_NAME or TIME is undefined.
+
+=head4 alarm_adjust ALARM_ID, DELTA_SECONDS
+
+alarm_adjust() adjusts an existing timer's due time by DELTA_SECONDS,
+which may be positive or negative.  It may even be zero, but that's
+not as useful.  On success, it returns the timer's new due time since
+the start of the UNIX epoch.
+
+This example moves an alarm's due time ten seconds earlier.
+
+  use POSIX qw(strftime);
+  my $new_time = $_[KERNEL]->alarm_adjust( $alarm_id, -10 );
+  print(
+    "The new due time is ",
+    strftime("%F %T", gmtime($new_time)), "\n"
+  );
+
+alarm_adjust() returns Boolean false if it fails, setting $! to the
+reason why.  $! may be EINVAL if ALARM_ID or DELTA_SECONDS are
+undefined.  It may be ESRCH if ALARM_ID no longer refers to a pending
+timer.  $! may also contain EPERM if ALARM_ID is valid but belongs to
+a different session.
+
+=head4 alarm_remove ALARM_ID
+
+alarm_remove() removes the alarm identified by ALARM_ID.  ALARM_ID
+comes from a previous alarm_set() or delay_set() call.
+
+Upon success, alarm_remove() returns something true based on its
+context.  In a list context, it returns three things: The removed
+alarm's event name, the UNIX time it was due to go off, and a
+reference to the PARAMETER_LIST (if any) assigned to the timer when it
+was created.  If necessary, the timer can be re-set with this
+information.
+
+  # Remove and reset an alarm.
+  my ($name, $time, $param) = $_[KERNEL]->alarm_remove( $alarm_id );
+  my $new_id = $_[KERNEL]->alarm_set($name, $time, @$param);
+
+In a scalar context, it returns a reference to a list of the three
+things above.
+
+  # Remove and reset an alarm.
+  my $alarm_info = $_[KERNEL]->alarm_remove( $alarm_id );
+  my $new_id = $_[KERNEL]->alarm_set(
+    $alarm_info[0], $alarm_info[1], @{$alarm_info[2]}
+  );
+
+Upon failure, however, alarm_remove() returns a Boolean false value
+and sets $! with the reason why the call failed:
+
+EINVAL ("Invalid argument") indicates a problem with one or more
+parameters, usually an undefined ALARM_ID.
+
+ESRCH ("No such process") indicates that ALARM_ID did not refer to a
+pending alarm.
+
+EPERM ("Operation not permitted").  A session cannot remove an alarm
+it does not own.
+
+=head4 alarm_remove_all
+
+alarm_remove_all() removes all the pending timers for the current
+session, regardless of creation method or type.  This method takes no
+arguments.  It returns information about the alarms that were removed,
+either as a list of alarms or a scalar list reference depending
+whether alarm_remove_all() is called in scalar or list context.
+
+Each removed alarm's information is identical to the format explained
+in alarm_remove().
+
+  my @removed_alarms = $_[KERNEL]->alarm_remove_all();
+  foreach my $alarm (@removed_alarms) {
+    my ($name, $time, $param) = @$alarm;
+    ...;
+  }
+
+=head4 delay_set EVENT_NAME, DURATION_SECONDS [, PARAMETER_LIST]
+
+delay_set() sets a timer for DURATION_SECONDS in the future.  The
+timer will be dispatched to the code associated with EVENT_NAME in the
+current session.  An optional PARAMETER_LIST will be passed through to
+the handler.  It returns the same sort of things that alarm_set()
+does.
+
+=head4 delay_adjust EVENT_NAME, SECONDS_FROM_NOW
+
+delay_adjust() changes a timer's due time to be SECONDS_FROM_NOW.
+It's useful for refreshing watchdog- or timeout-style timers.  On
+success it returns the new absolute UNIX time the timer will be due.
+
+  sub handle_input {
+    ...;
+    # And refresh the input timetout.
+    $_[KERNEL]->delay_adjust( $_[HEAP]{input_timeout}, 10 );
+  }
+
+On failure it returns Boolean false and sets $! to a reason for the
+failure.  See the explanation of $! for alarm_adjust().
+
+=head4 delay_remove is not needed
+
+There is no delay_remove().  Timers are all identical internally, so
+alarm_remove() will work for delay identifiers.
+
+=head4 delay_remove_all is not needed
+
+There is no delay_remove_all().  Timers are all identical internally,
+so alarm_remove_all() clears them all regardless of type.
+
+=head2 Session Identifiers (IDs and Aliases)
+
+-><- - Moving text to here.
+
+=head2 File I/O Watchers (Selects)
+
+=head2 Signal Watchers
+
+=head2 Session Management
+
+=head2 Event Handler (State) Management
+
+=head2 Reference Counters
+
+=head2 Kernel Internals
+
+=head2 Kernel Debugging
+
+TODO
 
 Methods to manage the process' global Kernel instance:
 
@@ -2708,213 +3282,11 @@ Exported symbols:
   # can function when using one of these toolkits.
   $poe_main_window
 
-=head1 DESCRIPTION
-
-POE::Kernel is an event application kernel.  It provides a
-lightweight, cooperatively-timesliced process model in addition to the
-usual basic event loop functions.
-
-POE::Kernel cooperates with three external event loops.  This is
-discussed after the public methods are described.
-
-The POE manpage describes a shortcut for using several POE modules at
-once.  It also includes a complete sample program with a brief
-walkthrough of its parts.
 
 =head1 PUBLIC KERNEL METHODS
 
 This section discusses in more detail the POE::Kernel methods that
 appear in the SYNOPSIS.
-
-=head2 Kernel Management and Data Accessors
-
-These functions manipulate the Kernel itself or retrieve information
-from it.
-
-=over 2
-
-=item ID
-
-ID() returns the kernel's unique identifier.
-
-  print "The currently running Kernel is: $kernel->ID\n";
-
-Every POE::Kernel instance is assigned an ID at birth.  This ID tries
-to differentiate any given instance from all the others, even if they
-exist on the same machine.  The ID is a hash of the machine's name and
-the kernel's instantiation time and process ID.
-
-  ~/perl/poe$ perl -wl -MPOE -e 'print $poe_kernel->ID'
-  rocco.homenet-39240c97000001d8
-
-=item run
-
-run() starts the kernel's event loop.  It returns only after every
-session has stopped, or immediately if no sessions have yet been
-started.
-
-  #!/usr/bin/perl -w
-  use strict;
-  use POE;
-
-  # ... start bootstrap session(s) ...
-
-  $poe_kernel->run();
-  exit;
-
-The run() method may be called on an instance of POE::Kernel.
-
-  my $kernel = POE::Kernel->new();
-  $kernel->run();
-
-It may also be called as class method.
-
-  POE::Kernel->run();
-
-The run() method does not return a meaningful value.
-
-=item run_one_timeslice
-
-run_one_timeslice() checks for new events, which are enqueued, then
-dispatches any events that were due at the time it was called.  Then
-it returns.
-
-It is often used to emulate blocking behavior for procedural code.
-
-  my $done = 0;
-
-  sub handle_some_event {
-    $done = 1;
-  }
-
-  while (not $done) {
-    $kernel->run_one_timeslice();
-  }
-
-Note: The above example will "spin" if POE::Kernel is done but $done
-isn't set.
-
-=item stop
-
-stop() forcibly stops the kernel.  The event queue is emptied, all
-resources are released, and all sessions are deallocated.
-POE::Kernel's run() method returns as if everything ended normally,
-which is a lie.
-
-B<This function has a couple serious caveats.  Use it with caution.>
-
-The session running when stop() is called will not fully destruct
-until it returns.  If you think about it, there's at least a reference
-to the session in its call stack, plus POE::Kernel is holding onto at
-least one reference so it can invoke the session.
-
-Sessions are not notified about their destruction.  If anything relies
-on _stop being delivered, it will break and/or leak memory.
-
-stop() has been added as an B<experimental> function to support
-forking child kernels with POE::Wheel::Run.  We may remove it without
-notice if it becomes really icky.  If you have good uses for it,
-please mention them on POE's mailing list.
-
-=back
-
-=head2 FIFO Event Methods
-
-FIFO events are dispatched in the order in which they were queued.
-These methods queue new FIFO events.  A session will not spontaneously
-stop as long as it has at least one FIFO event in the queue.
-
-=over 2
-
-=item post SESSION, EVENT_NAME, PARAMETER_LIST
-
-=item post SESSION, EVENT_NAME
-
-post() enqueues an event to be dispatched to EVENT_NAME in SESSION.
-If a PARAMETER_LIST is included, its values will be passed as
-arguments to EVENT_NAME's handler.
-
-  $_[KERNEL]->post( $session, 'do_this' );
-  $_[KERNEL]->post( $session, 'do_that', $with_this, $and_this );
-  $_[KERNEL]->post( $session, 'do_that', @with_these );
-
-  POE::Session->create(
-    inline_states => {
-      do_this => sub { print "do_this called with $_[ARG0] and $_[ARG1]\n" },
-      do_that => sub { print "do_that called with @_[ARG0..$#_]\n" },
-    }
-  );
-
-The post() method returns a boolean value indicating whether the event
-was enqueued successfully.  $! will explain why the post() failed:
-
-ESRCH: The SESSION did not exist at the time of the post() call.
-
-Posted events keep both the sending and receiving session alive until
-they're dispatched.
-
-=item yield EVENT_NAME, PARAMETER_LIST
-
-=item yield EVENT_NAME
-
-yield() enqueues an EVENT_NAME event for the session that calls it.
-If a PARAMETER_LIST is included, its values will be passed as
-arguments to EVENT_NAME's handler.
-
-yield() is shorthand for post() where the event's destination is the
-current session.
-
-Events posted with yield() must propagate through POE's FIFO before
-they're dispatched.  This effectively yields timeslices to other
-sessions which have events enqueued before it.
-
-  $kernel->yield( 'do_this' );
-  $kernel->yield( 'do_that', @with_these );
-
-The previous yield() calls are equivalent to these post() calls.
-
-  $kernel->post( $session, 'do_this' );
-  $kernel->post( $session, 'do_that', @with_these );
-
-The yield() method does not return a meaningful value.
-
-=back
-
-=head2 Synchronous Events
-
-Sometimes it's necessary to invoke an event handler right away, for
-example to handle a time-critical external event that would be spoiled
-by the time an event propagated through POE's FIFO.  The kernel's
-call() method provides for time-critical events.
-
-=over 2
-
-=item call SESSION, EVENT_NAME, PARAMETER_LIST
-
-=item call SESSION, EVENT_NAME
-
-call() bypasses the FIFO to call EVENT_NAME in a SESSION, optionally
-with values from a PARAMETER_LIST.  The values will be passed as
-arguments to EVENT_NAME at dispatch time.
-
-call() returns whatever EVENT_NAME's handler does.  The call() call's
-status is returned in $!, which is 0 for success or a nonzero reason
-for failure.
-
-  $return_value = $kernel->call( $session, 'do_this_now' );
-  die "could not do_this_now: $!" if $!;
-
-POE uses call() to dispatch some resource events without FIFO latency.
-Filehandle watchers, for example, would continue noticing a handle's
-readiness until it was serviced by a handler.  This could result in
-several redundant readiness events being enqueued before the first one
-was dispatched.
-
-Reasons why call() might fail:
-
-ESRCH: The SESSION did not exist at the time call() was called.
-
-=back
 
 =head2 Delayed Events (Original Interface)
 
@@ -2940,118 +3312,6 @@ be disabled like so:
 
 =over 2
 
-=item alarm EVENT_NAME, EPOCH_TIME, PARAMETER_LIST
-
-=item alarm EVENT_NAME, EPOCH_TIME
-
-=item alarm EVENT_NAME
-
-POE::Kernel's alarm() is a single-shot alarm.  It first clears all the
-timed events destined for EVENT_NAME in the current session.  It then
-may set a new alarm for EVENT_NAME if EPOCH_TIME is included,
-optionally including values from a PARAMETER_LIST.
-
-It is possible to post an alarm with an EPOCH_TIME in the past; in
-that case, it will be placed towards the front of the event queue.
-
-To clear existing timed events for 'do_this' and set a new alarm with
-parameters:
-
-  $kernel->alarm( 'do_this', $at_this_time, @with_these_parameters );
-
-Clear existing timed events for 'do_that' and set a new alarm without
-parameters:
-
-  $kernel->alarm( 'do_that', $at_this_time );
-
-To clear existing timed events for 'do_the_other_thing' without
-setting a new delay:
-
-  $kernel->alarm( 'do_the_other_thing' );
-
-This method will clear all types of alarms without regard to how they
-were set.
-
-POE::Kernel's alarm() returns 0 on success or EINVAL if EVENT_NAME is
-not defined.
-
-=item alarm_add EVENT_NAME, EPOCH_TIME, PARAMETER_LIST
-
-=item alarm_add EVENT_NAME, EPOCH_TIME
-
-alarm_add() sets an additional timed event for EVENT_NAME in the
-current session without clearing pending timed events.  The new alarm
-event will be dispatched no earlier than EPOCH_TIME.
-
-To enqueue additional alarms for 'do_this':
-
-  $kernel->alarm_add( 'do_this', $at_this_time, @with_these_parameters );
-  $kernel->alarm_add( 'do_this', $at_this_time );
-
-Additional alarms can be cleared with POE::Kernel's alarm() method.
-
-alarm_add() returns 0 on success or EINVAL if EVENT_NAME or EPOCH_TIME
-is undefined.
-
-=item delay EVENT_NAME, SECONDS, PARAMETER_LIST
-
-=item delay EVENT_NAME, SECONDS
-
-=item delay EVENT_NAME
-
-delay() is a single-shot delayed event.  It first clears all the timed
-events destined for EVENT_NAME in the current session.  If SECONDS is
-included, it will set a new delay for EVENT_NAME to be dispatched
-SECONDS seconds hence, optionally including values from a
-PARAMETER_LIST.  Please note that delay()ed event are placed on the
-queue and are thus asynchronous.
-
-delay() uses whichever time(2) is available within POE::Kernel.  That
-may be the more accurate Time::HiRes::time(), or perhaps not.
-Regardless, delay() will do the right thing without sessions testing
-for Time::HiRes themselves.
-
-It's possible to post delays with negative SECONDS; in those cases,
-they will be placed towards the front of the event queue.
-
-To clear existing timed events for 'do_this' and set a new delay with
-parameters:
-
-  $kernel->delay( 'do_this', $after_this_much_time, @with_these );
-
-Clear existing timed events for 'do_that' and set a new delay without
-parameters:
-
-  $kernel->delay( 'do_this', $after_this_much_time );
-
-To clear existing timed events for 'do_the_other_thing' without
-setting a new delay:
-
-  $kernel->delay( 'do_the_other_thing' );
-
-C<delay()> returns 0 on success or a reason for its failure: EINVAL if
-EVENT_NAME is undefined.
-
-=item delay_add EVENT_NAME, SECONDS, PARAMETER_LIST
-
-=item delay_add EVENT_NAME, SECONDS
-
-delay_add() sets an additional delay for EVENT_NAME in the current
-session without clearing pending timed events.  The new delay will be
-dispatched no sooner than SECONDS seconds hence.
-
-To enqueue additional delays for 'do_this':
-
-  $kernel->delay_add( 'do_this', $after_this_much_time, @with_these );
-  $kernel->delay_add( 'do_this', $after_this_much_time );
-
-Additional alarms can be cleared with POE::Kernel's delay() method.
-
-delay_add() returns 0 on success or a reason for failure: EINVAL if
-EVENT_NAME or SECONDS is undefined.
-
-=back
-
 =head2 Delayed Events (June 2001 Interface)
 
 These functions were finally added in June of 2001.  They manage
@@ -3069,132 +3329,7 @@ interface.
 
 =over 2
 
-=item alarm_set EVENT_NAME, TIME, PARAMETER_LIST
-
-=item alarm_set EVENT_NAME, TIME
-
-Sets an alarm.  This differs from POE::Kernel's alarm() in that it
-lets programs set alarms without clearing them.  Furthermore, it
-returns an alarm ID which can be used in other new-style alarm
-functions.
-
-  $alarm_id = $kernel->alarm_set( party => 1000000000 )
-  $kernel->alarm_remove( $alarm_id );
-
-alarm_set sets $! and returns false if it fails.  $! will be EINVAL if
-one of the function's parameters is bogus.
-
-See: alarm_remove,
-
-=item alarm_adjust ALARM_ID, DELTA
-
-alarm_adjust adjusts an existing alarm by a number of seconds, the
-DELTA, which may be positive or negative.  On success, it returns the
-new absolute alarm time.
-
-  # Move the alarm 10 seconds back in time.
-  $new_time = $kernel->alarm_adjust( $alarm_id, -10 );
-
-On failure, it returns false and sets $! to a reason for the failure.
-That may be EINVAL if the alarm ID or the delta are bad values.  It
-could also be ESRCH if the alarm doesn't exist (perhaps it already was
-dispatched).  $! may also contain EPERM if the alarm doesn't belong to
-the session trying to adjust it.
-
-=item alarm_remove ALARM_ID
-
-Removes an alarm from the current session, but first you must know its
-ID.  The ID comes from a previous alarm_set() call, or you could hunt
-at random for alarms to remove.
-
-Upon success, alarm_remove() returns something true based on its
-context.  In a list context, it returns three things: The removed
-alarm's event name, its scheduled time, and a reference to the list of
-parameters that were included with it.  This is all you need to
-re-schedule the alarm later.
-
-  my @old_alarm_list = $kernel->alarm_remove( $alarm_id );
-  if (@old_alarm_list) {
-    print "Old alarm event name: $old_alarm_list[0]\n";
-    print "Old alarm time      : $old_alarm_list[1]\n";
-    print "Old alarm parameters: @{$old_alarm_list[2]}\n";
-  }
-  else {
-    print "Could not remove alarm $alarm_id: $!\n";
-  }
-
-In a scalar context, it returns a reference to a list of the three
-things above.
-
-  my $old_alarm_scalar = $kernel->alarm_remove( $alarm_id );
-  if ($old_alarm_scalar) {
-    print "Old alarm event name: $old_alarm_scalar->[0]\n";
-    print "Old alarm time      : $old_alarm_scalar->[1]\n";
-    print "Old alarm parameters: @{$old_alarm_scalar->[2]}\n";
-  }
-  else {
-    print "Could not remove alarm $alarm_id: $!\n";
-  }
-
-Upon failure, it returns false and sets $! to the reason it failed.
-$! may be EINVAL if the alarm ID is undefined, or it could be ESRCH if
-no alarm was found by that ID.  It may also be EPERM if some other
-session owns that alarm.
-
-=item alarm_remove_all
-
-alarm_remove_all() removes all alarms from the current session.  It
-obviates the need for queue_peek_alarms(), which has been deprecated.
-
-This function takes no arguments.  In scalar context, it returns a
-reference to a list of alarms that were removed.  In list context, it
-returns the list of removed alarms themselves.
-
-Each removed alarm follows the same format as in alarm_remove().
-
-  my @removed_alarms = $kernel->alarm_remove_all( );
-  foreach my $alarm (@removed_alarms) {
-    print "-----\n";
-    print "Removed alarm event name: $alarm->[0]\n";
-    print "Removed alarm time      : $alarm->[1]\n";
-    print "Removed alarm parameters: @{$alarm->[2]}\n";
-  }
-
-  my $removed_alarms = $kernel->alarm_remove_all( );
-  foreach my $alarm (@$removed_alarms) {
-    ...;
-  }
-
-=item delay_set EVENT_NAME, SECONDS, PARAMETER_LIST
-
-=item delay_set EVENT_NAME, SECONDS
-
-delay_set() is a handy way to set alarms for a number of seconds
-hence.  Its EVENT_NAME and PARAMETER_LIST are the same as for
-alarm_set, and it returns the same things as alarm_set, both as a
-result of success and of failure.
-
-It's only difference is that SECONDS is added to the current time to
-get the time the delay will be dispatched.  It uses whichever time()
-POE::Kernel does, which may be Time::HiRes' high-resolution timer, if
-that's available.
-
-=item delay_adjust DELAY_ID, SECONDS
-
-delay_adjust adjusts an existing delay to be a number of seconds in
-the future.  It is useful for refreshing watchdog timers, for
-instance.
-
-  # Refresh a delay for 10 seconds into the future.
-  $new_time = $kernel->delay_adjust( $delay_id, 10 );
-
-On failure, it returns false and sets $! to a reason for the failure.
-That may be EINVAL if the delay ID or the seconds are bad values.  It
-could also be ESRCH if the delay doesn't exist (perhaps it already was
-dispatched).  $! may also contain EPERM if the delay doesn't belong to
-the session trying to adjust it.
-
-=back
+-><- - Taking text from here.
 
 =head2 Numeric Session IDs and Symbolic Session Names (Aliases)
 
@@ -4178,3 +4313,4 @@ Please see L<POE> for more information about authors and contributors.
 
 # rocco // vim: ts=2 sw=2 expandtab
 # TODO - Redocument.
+# TODO - Test the examples.
