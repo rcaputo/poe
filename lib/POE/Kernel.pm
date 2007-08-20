@@ -3081,7 +3081,52 @@ so alarm_remove_all() clears them all regardless of type.
 
 =head2 Session Identifiers (IDs and Aliases)
 
+A session may be referred to by its object references (either blessed
+or stringified), a session ID, or one or more symbolic names we call
+aliases.
+
+Every session is represented by an object, so session references are
+fairly straightforward.  POE supports the use of stringified session
+references for convenience and also as a form of weak reference.
+
+  # $_[SENDER] is a session reference.
+  $_[KERNEL]->post( $_[SENDER], "event_name" );
+  $_[KERNEL]->post( "$_[SENDER]", "event_name" );
+
+Every session is assigned a unique ID at creation time.  No two active
+sessions will have the same ID, but IDs may be reused over time.  The
+combination of a kernel ID and a session ID should be sufficient as a
+global unique identifier.
+
+  $_[KERNEL]->post( $_[SENDER]->ID, "event_name" );
+
+Kernels also maintain a global session namespace from which sessions
+may reserve symbolic aliases.  Once an alias is reserved, that alias
+may be used to refer to the session wherever a session may be
+specified.  For example:
+
+  $_[KERNEL]->post( "session_alias", "event_name" );
+
+A session with an alias will not stop until all other activity has
+stopped.  Aliases are treated as a kind of event watcher.  The events
+come from active sessions.  Aliases therefore become useless when
+there are no active sessions left.  Rather than leaving the program
+running in a "zombie" state, POE detects this condition and triggers a
+cleanup.  TODO See the discussion of SIGIDLE in the signals section.
+
 -><- - Moving text to here.
+
+=head3 alias_set ALIAS
+
+=head3 alias_remove ALIAS
+
+=head3 alias_resolve ALIAS
+
+=head3 alias_list [SESSION_REFERENCE]
+
+=head3 ID_id_to_session SESSION_ID
+
+=head3 ID_session_to_id SESSION_REFERENCE
 
 =head2 File I/O Watchers (Selects)
 
@@ -3312,46 +3357,15 @@ be disabled like so:
 
 =over 2
 
-=head2 Delayed Events (June 2001 Interface)
 
-These functions were finally added in June of 2001.  They manage
-alarms and delays by unique IDs, allowing existing alarms to be moved
-around, added, and removed with greater accuracy than the original
-interface.
+=over 2
 
-The June 2001 interface provides a different set of functions for
-alarms, but their underlying semantics are the same.  Foremost, they
-are always set for the current session.  That's why they don't require
-a SESSION parameter.
 
-For more information, see the previous section about the older alarms
-interface.
+=head2 Numeric Session IDs and Symbolic Session Names (Aliases)
 
 =over 2
 
 -><- - Taking text from here.
-
-=head2 Numeric Session IDs and Symbolic Session Names (Aliases)
-
-Every session is given a unique ID at birth.  This ID combined with
-the kernel's own ID can uniquely identify a particular session
-anywhere in the world.
-
-Sessions can also use the kernel's alias dictionary to give themselves
-symbolic names.  Once a session has a name, it may be referred to by
-that name wherever a kernel method expects a session reference or ID.
-
-Sessions with aliases are treated as daemons within the current
-program.  They are kept alive even without other things to do.  It's
-assumed that they will receive events from some other session.
-
-Aliases are passive work.  A session with just an alias to keep it
-alive can't do anything if there isn't some other active session
-around to send it messages.  POE knows this, and it will gladly kill
-off aliased sessions if everything has become idle.  This prevents
-"zombie" sessions from keeping an otherwise dead program running.
-
-=over 2
 
 =item alias_set ALIAS
 
