@@ -622,6 +622,12 @@ he improved by leaps in 0.1102.  He's also the author of
 POE::Component::IRC, the widely popular POE-based successor to his
 wildly popular Net::IRC library.
 
+=item David Davis
+
+David Davis, aka Xantus is <xantus@cpan.org>.  David contributed patches
+to the HTTPD filter, and added CALLER_STATE to POE::Session.  He is the
+author of L<Sprocket>, a networking framework built on POE.
+
 =item Others?
 
 Please contact the author if you've been forgotten and would like to
