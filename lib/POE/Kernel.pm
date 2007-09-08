@@ -2684,6 +2684,8 @@ stop() is still considered experimental.  It was added to improve
 fork() support for POE::Wheel::Run.  If it proves unfixably
 problematic, it will be removed without much notice.
 
+TODO - Example of stop().
+
 =head2 Asynchronous Messages (FIFO Events)
 
 Asynchronous messages are events that are dispatched in the order in
@@ -2758,8 +2760,16 @@ do this because the handler is invoked before call() returns.  call()
 can therefore be used as an accessor, although there are better ways
 to accomplish simple accessor behavior.
 
-  $return_value = $_[KERNEL]->call( $destination, 'do_this_now' );
-  die "could not do_this_now: $!" if $!;
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        print "Got: ", $_[KERNEL]->call($_[SESSION], "do_now"), "\n";
+      },
+      do_now => sub {
+        return "some value";
+      }
+    }
+  );
 
 POE::Wheel classes uses call() to dispatch input events immediately.
 Synchronous input events avoid a host of race conditions.
@@ -2875,7 +2885,7 @@ other means.
         print "tick $_[ARG0]\n";
         $_[KERNEL]->alarm( tock => time() + 1, $_[ARG0] + 1 );
       },
-      tick => sub {
+      tock => sub {
         print "tock $_[ARG0]\n";
         $_[KERNEL]->alarm( tick => time() + 1, $_[ARG0] + 1 );
       },
@@ -2891,6 +2901,25 @@ EVENT_NAME.
 alarm_add() is used to add a new alarm timer named EVENT_NAME without
 clearing existing timers.  EPOCH_TIME is a required parameter.
 Otherwise the semantics are identical to alarm().
+
+A program may use alarm_add() without first using alarm().
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->alarm_add( tick => time() + 1.0, 1_000_000 );
+        $_[KERNEL]->alarm_add( tick => time() + 1.5, 2_000_000 );
+      },
+      tick => sub {
+        print "tick $_[ARG0]\n";
+        $_[KERNEL]->alarm_add( tock => time() + 1, $_[ARG0] + 1 );
+      },
+      tock => sub {
+        print "tock $_[ARG0]\n";
+        $_[KERNEL]->alarm_add( tick => time() + 1, $_[ARG0] + 1 );
+      },
+    }
+  );
 
 alarm_add() returns 0 on success or EINVAL if EVENT_NAME or EPOCH_TIME
 is undefined.
@@ -2929,7 +2958,7 @@ to the alarm() example.
         print "tick $_[ARG0]\n";
         $_[KERNEL]->delay( tock => 1, $_[ARG0] + 1 );
       },
-      tick => sub {
+      tock => sub {
         print "tock $_[ARG0]\n";
         $_[KERNEL]->delay( tick => 1, $_[ARG0] + 1 );
       },
@@ -2945,7 +2974,26 @@ delay_add() is used to add a new delay timer named EVENT_NAME without
 clearing existing timers.  DURATION_SECONDS is a required parameter.
 Otherwise the semantics are identical to delay().
 
-alarm_add() returns 0 on success or EINVAL if EVENT_NAME or EPOCH_TIME
+A program may use delay_add() without first using delay().
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->delay_add( tick => 1.0, 1_000_000 );
+        $_[KERNEL]->delay_add( tick => 1.5, 2_000_000 );
+      },
+      tick => sub {
+        print "tick $_[ARG0]\n";
+        $_[KERNEL]->delay_add( tock => 1, $_[ARG0] + 1 );
+      },
+      tock => sub {
+        print "tock $_[ARG0]\n";
+        $_[KERNEL]->delay_add( tick => 1, $_[ARG0] + 1 );
+      },
+    }
+  );
+
+delay_add() returns 0 on success or EINVAL if EVENT_NAME or EPOCH_TIME
 is undefined.
 
 =head3 Identifier-Based Timers
@@ -2964,8 +3012,19 @@ used to adjust or remove the alarm later.  Unlike alarm(), it does not
 first clear existing timers with the same EVENT_NAME.  Otherwise the
 semantics are identical to alarm().
 
-  $alarm_id = $_[KERNEL]->alarm_set( party => time() + 1999);
-  $_[KERNEL]->alarm_remove( $alarm_id );
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[HEAP]{alarm_id} = $_[KERNEL]->alarm_set(
+          party => time() + 1999
+        );
+        $_[KERNEL]->delay(raid => 1);
+      },
+      raid => sub {
+        $_[KERNEL]->alarm_remove( delete $_[HEAP]{alarm_id} );
+      },
+    }
+  );
 
 alarm_set() returns false if it fails and sets $! with the
 explanation.  $! will be EINVAL if EVENT_NAME or TIME is undefined.
@@ -2977,13 +3036,31 @@ which may be positive or negative.  It may even be zero, but that's
 not as useful.  On success, it returns the timer's new due time since
 the start of the UNIX epoch.
 
+It's possible to alarm_adjust() timers created by delay_set() as well
+as alarm_set().
+
 This example moves an alarm's due time ten seconds earlier.
 
   use POSIX qw(strftime);
-  my $new_time = $_[KERNEL]->alarm_adjust( $alarm_id, -10 );
-  print(
-    "The new due time is ",
-    strftime("%F %T", gmtime($new_time)), "\n"
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[HEAP]{alarm_id} = $_[KERNEL]->alarm_set(
+          party => time() + 1999
+        );
+        $_[KERNEL]->delay(postpone => 1);
+      },
+      postpone => sub {
+        my $new_time = $_[KERNEL]->alarm_adjust(
+          $_[HEAP]{alarm_id}, 10
+        );
+        print(
+          "Now we're gonna party like it's ",
+          strftime("%F %T", gmtime($new_time)), "\n"
+        );
+      },
+    }
   );
 
 alarm_adjust() returns Boolean false if it fails, setting $! to the
@@ -3004,9 +3081,27 @@ reference to the PARAMETER_LIST (if any) assigned to the timer when it
 was created.  If necessary, the timer can be re-set with this
 information.
 
-  # Remove and reset an alarm.
-  my ($name, $time, $param) = $_[KERNEL]->alarm_remove( $alarm_id );
-  my $new_id = $_[KERNEL]->alarm_set($name, $time, @$param);
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[HEAP]{alarm_id} = $_[KERNEL]->alarm_set(
+          party => time() + 1999
+        );
+        $_[KERNEL]->delay(raid => 1);
+      },
+      raid => sub {
+        my ($name, $time, $param) = $_[KERNEL]->alarm_remove(
+          $_[HEAP]{alarm_id}
+        );
+        print(
+          "Removed alarm for event $name due at $time with @$param\n"
+        );
+
+        # Or reset it, if you'd like.  Possibly after modification.
+        $_[KERNEL]->alarm_set($name, $time, @$param);
+      },
+    }
+  );
 
 In a scalar context, it returns a reference to a list of the three
 things above.
@@ -3040,10 +3135,12 @@ whether alarm_remove_all() is called in scalar or list context.
 Each removed alarm's information is identical to the format explained
 in alarm_remove().
 
-  my @removed_alarms = $_[KERNEL]->alarm_remove_all();
-  foreach my $alarm (@removed_alarms) {
-    my ($name, $time, $param) = @$alarm;
-    ...;
+  sub some_event_handler {
+    my @removed_alarms = $_[KERNEL]->alarm_remove_all();
+    foreach my $alarm (@removed_alarms) {
+      my ($name, $time, $param) = @$alarm;
+      ...;
+    }
   }
 
 =head4 delay_set EVENT_NAME, DURATION_SECONDS [, PARAMETER_LIST]
@@ -3054,17 +3151,44 @@ current session.  An optional PARAMETER_LIST will be passed through to
 the handler.  It returns the same sort of things that alarm_set()
 does.
 
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->delay_set("later", 5, "hello", "world");
+      },
+      later => sub {
+        print "@_[ARG0..#$_]\n";
+      }
+    }
+  );
+
 =head4 delay_adjust EVENT_NAME, SECONDS_FROM_NOW
 
 delay_adjust() changes a timer's due time to be SECONDS_FROM_NOW.
 It's useful for refreshing watchdog- or timeout-style timers.  On
 success it returns the new absolute UNIX time the timer will be due.
 
-  sub handle_input {
-    ...;
-    # And refresh the input timetout.
-    $_[KERNEL]->delay_adjust( $_[HEAP]{input_timeout}, 10 );
-  }
+It's possible for delay_adjust() to adjust timers created by
+alarm_set() as well as delay_set().
+
+  use POSIX qw(strftime);
+
+  POE::Session->create(
+    inline_states => {
+      # Setup.
+      # ... omitted.
+
+      got_input => sub {
+        my $new_time = $_[KERNEL]->delay_adjust(
+          $_[HEAP]{input_timeout}, 60
+        );
+        print(
+          "Refreshed the input timeout.  Next may occur at ",
+          strftime("%F %T", gmtime($new_time)), "\n"
+        );
+      },
+    }
+  );
 
 On failure it returns Boolean false and sets $! to a reason for the
 failure.  See the explanation of $! for alarm_adjust().
@@ -3072,12 +3196,13 @@ failure.  See the explanation of $! for alarm_adjust().
 =head4 delay_remove is not needed
 
 There is no delay_remove().  Timers are all identical internally, so
-alarm_remove() will work for delay identifiers.
+alarm_remove() will work with timer IDs returned by delay_set().
 
 =head4 delay_remove_all is not needed
 
 There is no delay_remove_all().  Timers are all identical internally,
-so alarm_remove_all() clears them all regardless of type.
+so alarm_remove_all() clears them all regardless how they were
+created.
 
 =head2 Session Identifiers (IDs and Aliases)
 
@@ -3089,38 +3214,114 @@ Every session is represented by an object, so session references are
 fairly straightforward.  POE supports the use of stringified session
 references for convenience and also as a form of weak reference.
 
-  # $_[SENDER] is a session reference.
-  $_[KERNEL]->post( $_[SENDER], "event_name" );
-  $_[KERNEL]->post( "$_[SENDER]", "event_name" );
+  POE::Session->create(
+    inline_states => {
+      _start => sub { $_[KERNEL]->alias_set("echoer") },
+      ping => sub {
+        $_[KERNEL]->post( $_[SENDER], "pong", @_[ARG0..$#_] );
+      }
+    }
+  );
+
+Or responding via stringified $_[SENDER]:
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub { $_[KERNEL]->alias_set("echoer") },
+      ping => sub {
+        $_[KERNEL]->post( "$_[SENDER]", "pong", @_[ARG0..$#_] );
+      }
+    }
+  );
 
 Every session is assigned a unique ID at creation time.  No two active
 sessions will have the same ID, but IDs may be reused over time.  The
 combination of a kernel ID and a session ID should be sufficient as a
 global unique identifier.
 
-  $_[KERNEL]->post( $_[SENDER]->ID, "event_name" );
+  POE::Session->create(
+    inline_states => {
+      _start => sub { $_[KERNEL]->alias_set("echoer") },
+      ping => sub {
+        $_[KERNEL]->delay(
+          pong_later => rand(5), $_[SENDER]->ID, @_[ARG0..$#_]
+        );
+      },
+      pong_later => sub {
+        $_[KERNEL]->post( $_[ARG0], "pong", @_[ARG1..$#_] );
+      }
+    }
+  );
 
 Kernels also maintain a global session namespace from which sessions
 may reserve symbolic aliases.  Once an alias is reserved, that alias
 may be used to refer to the session wherever a session may be
-specified.  For example:
+specified.
 
-  $_[KERNEL]->post( "session_alias", "event_name" );
+In the previous examples, each echoer service has set an "echoer"
+alias.  Another session can post a ping request to the echoer session
+by using that alias rather than a session object or ID.  For example:
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub { $_[KERNEL]->post(echoer => ping => "whee!" ) },
+      pong => sub { print "@_[ARG0..$#_]\n" }
+    }
+  );
 
 A session with an alias will not stop until all other activity has
 stopped.  Aliases are treated as a kind of event watcher.  The events
 come from active sessions.  Aliases therefore become useless when
 there are no active sessions left.  Rather than leaving the program
-running in a "zombie" state, POE detects this condition and triggers a
-cleanup.  TODO See the discussion of SIGIDLE in the signals section.
-
--><- - Moving text to here.
+running in a "zombie" state, POE detects this deadlock condition and
+triggers a cleanup.  TODO See the discussion of SIGIDLE in the signals
+section.
 
 =head3 alias_set ALIAS
 
+alias_set() enters an ALIAS for the current session into POE::Kernel's
+dictionary.  The ALIAS may then be used nearly everywhere a session
+reference, stringified reference, or ID is expected.
+
+Sessions may have more than one alias.  Each alias must be defined in
+a separate alias_set() call.  A single alias may not refer to more
+than one session.
+
+Multiple alias examples are above.
+
+alias_set() returns 0 on success, or a nonzero failure indicator:
+EEXIST ("File exists") indicates that the alias is already assigned to
+to a different session.
+
 =head3 alias_remove ALIAS
 
+alias_remove() removes an ALIAS for the current session from
+POE::Kernel's dictionary.  The ALIAS will no longer refer to the
+current session.  This does not negatively affect events already
+posted to POE's queue.  Alias resolution occurs at post() time, not at
+delivery time.
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[KERNEL]->alias_set("short_window");
+        $_[KERNEL]->delay(close_window => 1);
+      },
+      close_window => {
+        $_[KERNEL]->alias_remove("short_window");
+      }
+    }
+  );
+
+alias_remove() returns 0 on success or a nonzero failure code:  ESRCH
+("No such process") indicates that the ALIAS is not currently in
+POE::Kernel's dictionary.  EPERM ("Operation not permitted") means
+that the current session may not remove the ALIAS because it is in use
+by some other session.
+
 =head3 alias_resolve ALIAS
+
+-><- - Moving text to here.
 
 =head3 alias_list [SESSION_REFERENCE]
 
@@ -3366,57 +3567,6 @@ be disabled like so:
 =over 2
 
 -><- - Taking text from here.
-
-=item alias_set ALIAS
-
-alias_set() sets an ALIAS for the current session.  The ALIAS may then
-be used nearly everywhere a session reference or ID is expected.
-Sessions may have more than one alias, and each must be defined in a
-separate alias_set() call.
-
-  $kernel->alias_set( 'ishmael' ); # o/` A name I call myself. o/`
-
-Aliases allow sessions to stay alive even when they may have nothing
-to do.  Sessions can use them to become autonomous services that other
-sessions refer to by name.
-
-Aliases keep sessions alive as long as the program has work to do.  If
-a program's remaining sessions are being kept alive solely by aliases,
-they will be terminated.  This prevents running, the remaining
-sessions will be terminated.  This prevents deadlocks where two or
-more sessions are idly waiting for events from each other.
-
-  $kernel->alias_set( 'httpd' );
-  $kernel->post( httpd => set_handler => $uri_regexp => 'callback_event' );
-
-alias_set() returns 0 on success, or a nonzero failure indicator:
-
-=over 2
-
-=item EEXIST
-
-The alias already is assigned to a different session.
-
-=back
-
-=item alias_remove ALIAS
-
-alias_remove() clears an existing ALIAS from the current session.  The
-ALIAS will no longer refer to this session, and some other session may
-claim it.
-
-  $kernel->alias_remove( 'Shirley' ); # And don't call me Shirley.
-
-If a session is only being kept alive by its aliases, it will stop
-once they are removed.
-
-alias_remove() returns 0 on success or a reason for its failure:
-
-ESRCH: The Kernel's dictionary does not include the ALIAS being
-removed.
-
-EPERM: ALIAS belongs to some other session, and the current one does
-not have the authority to clear it.
 
 =item alias_resolve ALIAS
 
