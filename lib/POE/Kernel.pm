@@ -3321,15 +3321,246 @@ by some other session.
 
 =head3 alias_resolve ALIAS
 
--><- - Moving text to here.
+alias_resolve() returns a session reference corresponding to a given
+ALIAS.  Actually, the ALIAS may be a stringified session reference, a
+session ID, or an alias previously registered by alias_set().
+
+One use for alias_resolve() is to detect whether another session has
+gone away:
+
+  unless (defined $_[KERNEL]->alias_resolve("Elvis")) {
+    print "Elvis has left the building.\n";
+  }
+
+As previously mentioned, alias_resolve() returns a session reference
+or undef on failure.  Failure also sets $! to ESRCH ("No such
+process") when the ALIAS is not currently in POE::Kernel's dictionary.
 
 =head3 alias_list [SESSION_REFERENCE]
 
+alias_list() returns a list of aliases associated with a specific
+SESSION, or with the current session if SESSION is omitted.
+alias_list() returns an empty list if the requested SESSION has no
+aliases.
+
+SESSION may be a session reference (blessed or stringified), a session
+ID, or a session alias.
+
+  POE::Session->create(
+    inline_states => {
+      $_[KERNEL]->alias_set("mi");
+      print(
+        "The names I call myself: ",
+        join(", ", $_[KERNEL]->alias_resolve()),
+        "\n"
+      );
+    }
+  );
+
 =head3 ID_id_to_session SESSION_ID
+
+ID_id_to_session() translates a session ID into a session reference.
+It's a special-purpose subset of alias_resolve(), so it's a little
+faster and somewhat less flexible.
+
+  unless (defined $_[KERNEL]->ID_id_to_session($session_id)) {
+    print "Session $session_id doesn't exist.\n";
+  }
+
+ID_id_to_session() returns undef if a lookup failed.  $! will be set
+to ESRCH ("No such process").
 
 =head3 ID_session_to_id SESSION_REFERENCE
 
-=head2 File I/O Watchers (Selects)
+ID_session_to_id() converts a blessed or stringified SESSION_REFERENCE
+into a session ID.  It's more practical for strigified references, as
+programs can call the POE::Session ID() method on the blessed ones.
+These statements are equivalent:
+
+  $id = $_[SENDER]->ID();
+  $id = $_[KERNEL]->ID_session_to_id($_[SENDER]);
+  $id = $_[KERNEL]->ID_session_to_id("$_[SENDER]");
+
+As with other POE::Kernel lookup methods, ID_session_to_id() returns
+undef on failure, setting $! to ESRCH ("No such process").
+
+=head2 I/O Watchers (Selects)
+
+No event system would be complete without the ability to
+asynchronously watch for I/O events.  POE::Kernel implements the
+lowest level watchers, which are called "selects" because they were
+historically implemented using Perl's built-in select(2) function.
+
+Applications handle I/O readiness events by performing some activity
+on the underlying filehandle.  Read-readiness might be handled by
+reading from the handle.  Write-readiness by writing to it.
+
+All I/O watcher events include two parameters.  C<ARG0> contains the
+handle that is ready for work.  C<ARG1> contains an integer describing
+what's ready.
+
+  sub handle_io {
+    my ($handle, $mode) = @_[ARG0, ARG1];
+    print "File $handle is ready for ";
+    if ($mode == 0) {
+      print "reading";
+    }
+    elsif ($mode == 1) {
+      print "writing";
+    }
+    elsif ($mode == 2) {
+      print "out-of-band reading";
+    }
+    else {
+      die "unknown mode $mode";
+    }
+    print "\n";
+    # ... do something here
+  }
+
+The remaining parameters, C<@_[ARG2..$%_]>, contain additional
+parameters that were passed to the POE::Kernel method that created the
+watcher.
+
+POE::Kernel conditions filehandles to be 8-bit clean and non-blocking.
+Programs that need them conditioned differently should set them up
+after starting POE I/O watchers.
+
+I/O watchers will prevent sessions from stopping.
+
+=head3 select_read FILE_HANDLE [, EVENT_NAME [, ADDITIONAL_PARAMETERS] ]
+
+select_read() starts or stops the current session from watching for
+incoming data on a given FILE_HANDLE.  The watcher is started if
+EVENT_NAME is specified, or stopped if it's not.
+ADDITIONAL_PARAMETERS, if specified, will be passed to the EVENT_NAME
+handler as C<@_[ARG2..$#_]>.
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[HEAP]{socket} = IO::Socket::INET->new(
+          PeerAddr => "localhost",
+          PeerPort => 25,
+        );
+        $_[KERNEL]->select_read( $_[HEAP]{socket}, "got_input" );
+        $_[KERNEL]->delay(timed_out => 1);
+      },
+      got_input => sub {
+        my $socket = $_[ARG0];
+        while (sysread($socket, my $buf = "", 8192)) {
+          print $buf;
+        }
+      },
+      timed_out => sub {
+        $_[KERNEL]->select_read( delete $_[HEAP]{socket} );
+      },
+    }
+  );
+
+select_read() does not return anything significant.
+
+=head3 select_write FILE_HANDLE [, EVENT_NAME [, ADDITIONAL_PARAMETERS] ]
+
+select_write() follows the same semantics as select_read(), but it
+starts or stops a watcher that looks for write-readiness.  That is,
+when EVENT_NAME is delivered, it means that FILE_HANDLE is ready to be
+written to.
+
+TODO - Practical example here.
+
+select_write() does not return anything significant.
+
+=head3 select_expedite FILE_HANDLE [, EVENT_NAME [, ADDITIONAL_PARAMETERS] ]
+
+select_expedite() does the same sort of thing as select_read() and
+select_write(), but it watches a FILE_HANDLE for out-of-band data
+ready to be input from a FILE_HANDLE.  Hardly anybody uses this, but
+it exists for completeness' sake.
+
+An EVENT_NAME event will be delivered whenever the FILE_HANDLE can be
+read from out-of-band.  Out-of-band data is considered "expedited"
+because it is often ahead of a socket's normal data.
+
+select_expedite() does not return anything significant.
+
+TODO - Practical example here.
+
+=head3 select_pause_read FILE_HANDLE
+
+select_pause_read() is a lightweight way to pause a FILE_HANDLE input
+watcher without performing all the bookkeeping of a select_read().
+It's used with select_resume_read() to implement input flow control.
+
+Input that occurs on FILE_HANDLE will backlog in the operating system
+buffers until select_resume_read() is called.
+
+A side effect of bypassing the select_read() bookkeeping is that a
+paused FILE_HANDLE will not prematurely stop the current session.
+
+select_pause_read() does not return anything significant.
+
+TODO - Practical example here.
+
+=head3 select_resume_read FILE_HANDLE
+
+select_resume_read() resumes a FILE_HANDLE input watcher that was
+previously paused by select_pause_read().  See select_pause_read() for
+more discussion on lightweight input flow control.
+
+Data backlogged in the operating system due to a select_pause_read()
+call will become available after select_resume_read() is called.
+
+select_resume_read() does not return anything significant.
+
+TODO - Practical example here.
+
+=head3 select_pause_write FILE_HANDLE
+
+select_pause_write() pauses a FILE_HANDLE output watcher the same way
+select_pause_read() does for input.  Please see select_pause_read()
+for further discusssion.
+
+TODO - Practical example here.
+
+=head3 select_resume_write FILE_HANDLE
+
+select_resume_write() resumes a FILE_HANDLE output watcher the same
+way that select_resume_read() does for input.  See
+select_resume_read() for further discussion.
+
+TODO - Practical example here.
+
+=head3 select FILE_HANDLE [, EV_READ [, EV_WRITE [, EV_EXPEDITE [, ARGS] ] ] ]
+
+POE::Kernel's select() method sets or clears a FILE_HANDLE's read,
+write and expedite watchers at once.  It's a little more expensive
+than calling select_read(), select_write() and select_expedite()
+manually, but it's significantly more convenient.
+
+Defined event names enable their corresponding watchers, and undefined
+event names disable them.  This turns off all the watchers for a
+FILE_HANDLE:
+
+  sub stop_io {
+    $_[KERNEL]->select( $_[HEAP]{file_handle} );
+  }
+
+This statement:
+
+  $_[KERNEL]->select( $file_handle, undef, "write_event", @stuff );
+
+is equivalent to:
+
+  $_[KERNEL]->select_read( $file_handle );
+  $_[KERNEL]->select_write( $file_handle, "write_event", @stuff );
+  $_[KERNEL]->select_expedite( $file_handle );
+
+POE::Kernel's select() should not be confused with Perl's built-in
+select() function.
+
+As with the other I/O watcher methods, select() does not return a
+meaningful value.
 
 =head2 Signal Watchers
 
@@ -3345,188 +3576,11 @@ by some other session.
 
 TODO
 
-Methods to manage the process' global Kernel instance:
+=head1 Session Lifespans
 
-  # Retrieve the kernel's unique identifier.
-  $kernel_id = $kernel->ID;
+TODO - Explain what keeps sessions alive.
 
-  # Run the event loop, only returning when it has no more sessions to
-  # dispatch events to.  Supports two forms.
-  $poe_kernel->run();
-  POE::Kernel->run();
-
-FIFO event methods:
-
-  # Post an event to an arbitrary session.
-  $kernel->post( $session, $event, @event_args );
-
-  # Post an event back to the current session.
-  $kernel->yield( $event, @event_args );
-
-  # Call an event handler synchronously.  Bypasses POE's event queue
-  # and returns the handler's return value.
-  $handler_result = $kernel->call( $session, $event, @event_args );
-
-Original alarm and delay methods:
-
-  # Post an event which will be delivered at a given Unix epoch time.
-  # This clears previous timed events with the same state name.
-  $kernel->alarm( $event, $epoch_time, @event_args );
-
-  # Post an additional alarm, leaving existing ones in the queue.
-  $kernel->alarm_add( $event, $epoch_time, @event_args );
-
-  # Post an event which will be delivered after a delay, specified in
-  # seconds hence. This clears previous timed events with the same
-  # name.
-  $kernel->delay( $event, $seconds, @event_args );
-
-  # Post an additional delay, leaving existing ones in the queue.
-  $kernel->delay_add( $event, $seconds, @event_args );
-
-June 2001 alarm and delay methods:
-
-  # Post an event which will be delivered at a given Unix epoch
-  # time. This does not clear previous events with the same name.
-  $alarm_id = $kernel->alarm_set( $event, $epoch_time, @etc );
-
-  # Post an event which will be delivered a number of seconds hence.
-  # This does not clear previous events with the same name.
-  $alarm_id = $kernel->delay_set( $event, $seconds_hence, @etc );
-
-  # Adjust an existing alarm by a number of seconds.
-  $kernel->alarm_adjust( $alarm_id, $number_of_seconds );
-
-  # Refresh an existing delay to a number of seconds in the future.
-  $kernel->delay_adjust( $delay_id, $number_of_seconds_hence );
-
-  # Remove a specific alarm, regardless whether it shares a name with
-  # others.
-  $kernel->alarm_remove( $alarm_id );
-
-  # Remove all alarms for the current session.
-  $kernel->alarm_remove_all( );
-
-Symbolic name, or session alias methods:
-
-  # Set an alias for the current session.
-  $status = $kernel->alias_set( $alias );
-
-  # Clear an alias for the current session:
-  $status = $kernel->alias_remove( $alias );
-
-  # Resolve an alias into a session reference.  Most POE::Kernel
-  # methods do this for you.
-  $session_reference = $kernel->alias_resolve( $alias );
-
-  # Resolve a session ID to a session reference.  The alias_resolve
-  # method does this as well, but this is faster.
-  $session_reference = $kernel->ID_id_to_session( $session_id );
-
-  # Return a session ID for a session reference.  It is functionally
-  # equivalent to $session->ID.
-  $session_id = $kernel->ID_session_to_id( $session_reference );
-
-  # Return a list of aliases for a session (or the current one, by
-  # default).
-  @aliases = $kernel->alias_list( $session );
-
-Filehandle watcher methods:
-
-  # Watch for read readiness on a filehandle.
-  $kernel->select_read( $file_handle, $event, @optional_args );
-
-  # Stop watching a filehandle for read-readiness.
-  $kernel->select_read( $file_handle );
-
-  # Watch for write readiness on a filehandle.
-  $kernel->select_write( $file_handle, $event, @optional_args );
-
-  # Stop watching a filehandle for write-readiness.
-  $kernel->select_write( $file_handle );
-
-  # Watch for out-of-bound (expedited) read readiness on a filehandle.
-  $kernel->select_expedite( $file_handle, $event, @optional_args );
-
-  # Stop watching a filehandle for out-of-bound data.
-  $kernel->select_expedite( $file_handle );
-
-  # Pause and resume write readiness watching.  These have lower
-  # overhead than full select_write() calls.
-  $kernel->select_pause_write( $file_handle );
-  $kernel->select_resume_write( $file_handle );
-
-  # Pause and resume read readiness watching.  These have lower
-  # overhead than full select_read() calls.
-  $kernel->select_pause_read( $file_handle );
-  $kernel->select_resume_read( $file_handle );
-
-  # Set and/or clear a combination of selects in one call.
-  $kernel->select( $file_handle,
-                   $read_event,     # or undef to clear it
-                   $write_event,    # or undef to clear it
-                   $expedite_event, # or undef to clear it
-                   @optional_args,
-                 );
-
-Signal watcher and generator methods:
-
-  # Watch for a signal, and generate an event when it arrives.
-  $kernel->sig( $signal_name, $event );
-
-  # Stop watching for a signal.
-  $kernel->sig( $signal_name );
-
-  # Handle a signal, preventing the program from terminating.
-  $kernel->sig_handled();
-
-  # Post a signal through POE rather than through the underlying OS.
-  # This only works within the same process.
-  $kernel->signal( $session, $signal_name, @optional_args );
-
-State (event handler) management methods:
-
-  # Remove an existing handler from the current Session.
-  $kernel->state( $event_name );
-
-  # Add a new inline handler, or replace an existing one.
-  $kernel->state( $event_name, $code_reference );
-
-  # Add a new object or package handler, or replace an existing
-  # one. The object method will be the same as the eventname.
-  $kernel->state( $event_name, $object_ref_or_package_name );
-
-  # Add a new object or package handler, or replace an existing
-  # one. The object method may be different from the event name.
-  $kernel->state( $event_name, $object_ref_or_package_name, $method_name );
-
-External reference count methods:
-
-  # Increment a session's external reference count.
-  $kernel->refcount_increment( $session_id, $refcount_name );
-
-  # Decrement a session's external reference count.
-  $kernel->refcount_decrement( $session_id, $refcount_name );
-
-Kernel data accessors:
-
-  # Return a reference to the currently active session, or to the
-  # kernel if called outside any session.
-  $session = $kernel->get_active_session();
-
-  # Return the currently active event name, or an empty string if
-  # called outside any event.
-  $event = $kernel->get_active_event();
-
-Exported symbols:
-
-  # A reference to the global POE::Kernel instance.
-  $poe_kernel
-
-  # Some graphical toolkits (Tk) require at least one active widget in
-  # order to use their event loops.  POE allocates a main window so it
-  # can function when using one of these toolkits.
-  $poe_main_window
+-><- END OF NEW DOCUMENTATION
 
 
 =head1 PUBLIC KERNEL METHODS
@@ -3557,247 +3611,10 @@ be disabled like so:
     use POE;
 
 =over 2
-
-
 =over 2
-
-
-=head2 Numeric Session IDs and Symbolic Session Names (Aliases)
-
 =over 2
 
 -><- - Taking text from here.
-
-=item alias_resolve ALIAS
-
-alias_resolve() returns a session reference corresponding to its given
-ALIAS.  This method has been overloaded over time, and now ALIAS may
-be several things:
-
-An alias:
-
-  $session_reference = $kernel->alias_resolve( 'irc_component' );
-
-A stringified session reference.  This is a form of weak reference:
-
-  $blessed_session_reference = $kernel->alias_resolve( "$stringified_one" );
-
-A numeric session ID:
-
-  $session_reference = $kernel->alias_resolve( $session_id );
-
-alias_resolve() returns undef upon failure, setting $! to explain the
-error:
-
-ESRCH: The Kernel's dictionary does not include ALIAS.
-
-These functions work directly with session IDs.  They are faster than
-alias_resolve() in the specific cases where they're useful.
-
-=item ID_id_to_session SESSION_ID
-
-ID_id_to_session() returns a session reference for a given numeric
-session ID.
-
-  $session_reference = ID_id_to_session( $session_id );
-
-It returns undef if a lookup fails, and it sets $! to explain why the
-lookup failed:
-
-ESRCH: The session ID does not refer to a running session.
-
-=item alias_list SESSION
-
-=item alias_list
-
-alias_list() returns a list of alias(es) associated with a SESSION, or
-with the current session if a SESSION is omitted.
-
-SESSION may be a session reference (either blessed or stringified), a
-session ID, or a session alias.  It will be resolved into a session
-reference internally, and that will be used to locate the session's
-aliases.
-
-alias_list() returns a list of aliases associated with the session.
-It returns an empty list if none were found.
-
-=item ID_session_to_id SESSION_REFERENCE
-
-ID_session_to_id() returns the ID associated with a session reference.
-This is virtually identical to SESSION_REFERENCE->ID, except that
-SESSION_REFERENCE may have been stringified.  For example, this will
-work, provided that the session exists:
-
-  $session_id = ID_session_to_id( "$session_reference" );
-
-ID_session_to_id() returns undef if a lookup fails, and it sets $! to
-explain why the lookup failed.
-
-ESRCH: The session reference does not describe a session which is
-currently running.
-
-=back
-
-=head2 Filehandle Watcher Methods (Selects)
-
-Filehandle watchers emit events when files become available to be read
-from or written to.  As of POE 0.1702 these events are queued along
-with all the rest.  They are no longer "synchronous" or "immediate".
-
-Filehandle watchers are often called "selects" in POE because they
-were originally implemented with the select(2) I/O multiplexing
-function.
-
-File I/O event handlers are expected to interact with filehandles in a
-way that causes them to stop being ready.  For example, a
-select_read() event handler should try to read as much data from a
-filehandle as it can.  The filehandle will stop being ready for
-reading only when all its data has been read out.
-
-Select events include two parameters.
-
-C<ARG0> holds the handle of the file that is ready.
-
-C<ARG1> contains 0, 1, or 2 to indicate whether the filehandle is
-ready for reading, writing, or out-of-band reading (otherwise knows as
-"expedited" or "exception").
-
-C<ARG2..$#_> contain optional additional parameters passed to
-POE::Kernel's various I/O watcher methods.
-
-C<ARG0> and the other event handler parameter constants is covered in
-L<POE::Session>.
-
-Sessions will not stop if they have active filehandle watchers.
-
-=over 2
-
-=item select_read FILE_HANDLE, EVENT_NAME, ADDITIONAL_PARAMETERS
-
-=item select_read FILE_HANDLE, EVENT_NAME
-
-=item select_read FILE_HANDLE
-
-select_read() starts or stops the kernel from watching to see if a
-filehandle can be read from.  An EVENT_NAME event will be enqueued
-whenever the filehandle has data to be read.
-The optional ADDITIONAL_PARAMETERS will be passed to the input
-callback after the usual I/O parameters.
-
-  # Emit 'do_a_read' event whenever $filehandle has data to be read.
-  $kernel->select_read( $filehandle, 'do_a_read' );
-
-  # Stop watching for data to be read from $filehandle.
-  $kernel->select_read( $filehandle );
-
-select_read() does not return a meaningful value.
-
-=item select_write FILE_HANDLE, EVENT_NAME
-
-=item select_write FILE_HANDLE
-
-select_write() starts or stops the kernel from watching to see if a
-filehandle can be written to.  An EVENT_NAME event will be enqueued
-whenever it is possible to write data to the filehandle.  The optional
-ADDITIONAL_PARAMETERS will be passed to the input callback after the
-usual I/O parameters.
-
-  # Emit 'flush_data' whenever $filehandle can be written to.
-  $kernel->select_writ( $filehandle, 'flush_data' );
-
-  # Stop watching for opportunities to write to $filehandle.
-  $kernel->select_write( $filehandle );
-
-select_write() does not return a meaningful value.
-
-=item select_expedite FILE_HANDLE, EVENT_NAME
-
-=item select_expedite FILE_HANDLE
-
-select_expedite() starts or stops the kernel from watching to see if a
-filehandle can be read from "out-of-band".  This is most useful for
-datagram sockets where an out-of-band condition is meaningful.  In
-most cases it can be ignored.  An EVENT_NAME event will be enqueued
-whenever the filehandle can be read from out-of-band.  The optional
-ADDITIONAL_PARAMETERS will be passed to the input callback after the
-usual I/O parameters.
-
-Out of band data is called "expedited" because it's often available
-ahead of a file or socket's normal data.  It's also used in socket
-operations such as connect() to signal an exception.
-
-  # Emit 'do_an_oob_read' whenever $filehandle has OOB data to be read.
-  $kernel->select_expedite( $filehandle, 'do_an_oob_read' );
-
-  # Stop watching for OOB data on the $filehandle.
-  $kernel->select_expedite( $filehandle );
-
-select_expedite() does not return a meaningful value.
-
-=item select_pause_read FILE_HANDLE
-
-=item select_resume_read FILE_HANDLE
-
-=item select_pause_write FILE_HANDLE
-
-=item select_resume_write FILE_HANDLE
-
-select_pause_read() and select_pause_write() temporarily pause events
-that are generated when a FILE_HANDLE can be read from or written to,
-respectively.
-
-select_resume_read() and select_resume_write() turn events back on.
-
-These functions are more efficient than select_read() and
-select_write() because they don't perform full resource management
-within POE::Kernel.
-
-Pause and resume a filehandle's readable events:
-
-  $kernel->select_pause_read( $filehandle );
-  $kernel->select_resume_read( $filehandle );
-
-Pause and resume a filehandle's writable events:
-
-  $kernel->select_pause_write( $filehandle );
-  $kernel->select_resume_write( $filehandle );
-
-These methods don't return meaningful values.
-
-=item select FILE_HANDLE, READ_EVENT, WRITE_EVENT, EXPEDITE_EVENT, ARGS
-
-=item select FILE_HANDLE, READ_EVENT, WRITE_EVENT, EXPEDITE_EVENT
-
-POE::Kernel's select() method alters a filehandle's read, write, and
-expedite selects at the same time.  It's one method call more
-expensive than doing the same thing manually, but it's more convenient
-to code.
-
-Defined event names set or change the events that will be emitted when
-the filehandle becomes ready.  Undefined names clear those aspects of
-the watcher, stopping it from generating those types of events.
-
-This sets all three types of events at once.
-
-  $kernel->select( $filehandle, 'do_read', 'do_flush', 'do_read_oob' );
-
-This clears all three types of events at once.  If this filehandle is
-the only thing keeping a session alive, then clearing its selects will
-stop the session.
-
-  $kernel->select( $filehandle );
-
-This sets up a filehandle for read-only operation.
-
-  $kernel->select( $filehandle, 'do_read', undef, 'do_read_oob' );
-
-This sets up a filehandle for write-only operation.
-
-  $kernel->select( $filehandle, undef, 'do_flush' );
-
-This method does not return a meaningful value.
-
-=back
 
 =head2 Signal Watcher Methods
 
