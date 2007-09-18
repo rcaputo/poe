@@ -2597,6 +2597,16 @@ compartments called "sessions".  Sessions play the role of tasks or
 threads within POE, although they are cooperatively multitasked rather
 than pre-emptively threaded.
 
+Cooperative multitasking is where each "process" ( or "session" in POE)
+yields to the kernel to allow another session to run.  This requires
+that the sessions play nicely.  A single session can hog the entire
+process by sleep()ing or doing long computations without giving up
+control in between runs.
+
+Preemptive threading is more like how an operating system works; each
+process only gets a slice of time to do computations, then an outside
+force "preempts" the process to allow another to run.
+
 Every POE-based application needs at least one session.  Code cannot
 run "within POE" without being a part of some session.
 
@@ -2638,7 +2648,9 @@ sessions that were created while run() was running.
 run_one_timeslice() dispatches any events that are due to be
 delivered.  These events include timers that are due, asynchronous
 messages that need to be delivered, signals that require handling, and
-files with pending I/O.
+files with pending I/O.  Do not rely too much on event ordering.
+run_one_timeslice() is defined by the underlying event loop, and its
+timing may vary.
 
 run() is implemented similar to
 
@@ -2665,7 +2677,7 @@ nothing left that will set $done.
 =head3 stop
 
 stop() causes POE::Kernel->run() to return early.  It does this by
-emptying teh event queue, freeing all used resources, and stopping
+emptying the event queue, freeing all used resources, and stopping
 every active session.  stop() is not meant to be used lightly.
 Proceed with caution.
 
@@ -2684,7 +2696,10 @@ stop() is still considered experimental.  It was added to improve
 fork() support for POE::Wheel::Run.  If it proves unfixably
 problematic, it will be removed without much notice.
 
-TODO - Example of stop().
+We don't provide an example of using stop(), since it its advanced
+magic.  Programmers who think they need it are invited to become
+familiar with its source.
+TODO - Example of stop()
 
 =head2 Asynchronous Messages (FIFO Events)
 
@@ -2792,11 +2807,15 @@ of time has elapsed ("delays").
 Timer interfaces are further divided into two groups.  One group
 identifies timers by the names of their associated events.  Another
 group's timer constructors return identifiers that can be used to
-refer to specific timers regardless of name.
+refer to specific timers regardless of name.  Technically, the two
+are both name-based, but the "identifier-based" timers provide a
+second handle to identify individual timers.
 
 Timers may only be set up for the current session.  This design was
 modeled after alarm() and SIGALRM, which only affect the current
-process.
+process.  Each session has its own "timer namespace" - timer methods
+cannot affect any timer set in another session, only the current
+session.
 
 The best way to simulate deferred inter-session messages is to send an
 immediate message that causes the destination to set a timer.  The
@@ -2811,7 +2830,7 @@ accordingly.
 =head3 Time::HiRes Use
 
 POE::Kernel timers support subsecond accuracy, but don't expect too
-much here.  Perl's not the right language for realtime programming.
+much here.  Perl is not the right language for realtime programming.
 
 Subsecond accuracy is supported through the use of select() timeouts
 and other event-loop features.  For increased accuracy, POE::Kernel
@@ -2837,19 +2856,17 @@ time.
 =head3 Name-Based Timers
 
 Name-based timers are identified by the event names used to set them.
-Since they are set and cleared by name, it's awkward (but not
-impossible) to have more than one with the same name in the same
-session.
-
-But different sessions can use the same name easily, since each
-session is a separate compartment with its own timer namespace.
+It is possible for different sessions to use the same timer event names,
+since each session is a separate compartment with its own timer namespace.
+It is possible for a session to have multiple timers for a given event,
+but results may be surprising.  Be careful to use the right timer methods.
 
 The name-based timer methods are alarm(), alarm_add(), delay(), and
 delay_add().
 
 =head4 alarm EVENT_NAME [, EPOCH_TIME [, PARAMETER_LIST] ]
 
-alarm() clears any existing timers in the current session with the
+alarm() clears ALL existing timers in the current session with the
 same EVENT_NAME.  It then sets a new timer, named EVENT_NAME, that
 will fire EVENT_NAME at the current session when EPOCH_TIME has been
 reached.  An optional PARAMETER_LIST may be passed along to the
@@ -2926,7 +2943,7 @@ is undefined.
 
 =head4 delay EVENT_NAME [, DURATION_SECONDS [, PARAMETER_LIST] ]
 
-delay() clears any existing timers in the current session with the
+delay() clears ALL existing timers in the current session with the
 same EVENT_NAME.  It then sets a new timer, named EVENT_NAME, that
 will fire EVENT_NAME at the current session when DURATION_SECONDS have
 elapsed from "now".  An optional PARAMETER_LIST may be passed along to
@@ -3129,8 +3146,8 @@ it does not own.
 alarm_remove_all() removes all the pending timers for the current
 session, regardless of creation method or type.  This method takes no
 arguments.  It returns information about the alarms that were removed,
-either as a list of alarms or a scalar list reference depending
-whether alarm_remove_all() is called in scalar or list context.
+either as a list of alarms or a list reference depending whether
+alarm_remove_all() is called in scalar or list context.
 
 Each removed alarm's information is identical to the format explained
 in alarm_remove().
