@@ -945,7 +945,7 @@ A sample ErrorEvent handler:
   sub error_state {
     my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
     warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
-    delete $heap->{wheels}->{$wheel_id}; # shut down that wheel
+    delete $_[HEAP]->{wheels}->{$wheel_id}; # shut down that wheel
   }
 
 =item HighEvent
