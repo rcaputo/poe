@@ -9,12 +9,9 @@ use Config;
 unless (-t STDIN) {
   warn(
     "\n",
-    "====================================================================\n",
-    "\n",
-    "Assuming --default because standard input is not a terminal.\n",
-    "\n",
-    "====================================================================\n",
-    "\n",
+    "=============================================\n\n",
+    "STDIN is not a terminal.  Assuming --default.\n\n",
+    "=============================================\n\n",
   );
   push @ARGV, "--default";
 }
@@ -24,38 +21,33 @@ unless (-t STDIN) {
 unless (grep /^--default$/, @ARGV) {
   warn(
     "\n",
-    "====================================================================\n",
-    "\n",
+    "=============================================\n\n",
     "Prompts may be bypassed by running:\n",
-    "   $^X $0 --default\n",
-    "\n",
-    "====================================================================\n",
-    "\n",
+    "   $^X $0 --default\n\n",
+    "=============================================\n\n",
   );
 }
 
 # Should we skip the network tests?
 
-my $prompt = qq|
-Some of POE's tests require a functional network.
-You can skip these tests if you'd like.
-
-Would you like to skip the network tests?|;
+my $prompt = (
+  "Some of POE's tests require a functional network.\n" .
+  "You can skip these tests if you'd like.\n\n" .
+  "Would you like to skip the network tests?"
+);
 
 my $ret = "n";
 if (grep /^--default$/, @ARGV) {
-  print $prompt, " [n] n\n\n";
+  print $prompt, " [$ret] $ret\n\n";
 }
 else {
   $ret = prompt($prompt, "n");
 }
 
 my $marker = 'run_network_tests';
-
-if($ret =~ /^Y$/i) {
-    unlink $marker if $marker;
-} else {
-    open(TOUCH,"+>$marker") and close TOUCH;
+unlink $marker;
+if ($ret =~ /^Y$/i) {
+  open(TOUCH,"+>$marker") and close TOUCH;
 }
 
 print "\n";
