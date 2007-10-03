@@ -4019,11 +4019,74 @@ thereafter.
 
 =head3 TODO
 
-TODO - See if there is anything to salvage from POE::Session?
+TODO - See if there is anything to migrate over from POE::Session?
 
 =head2 Event Handler (State) Management
 
-TODO
+The term "state" is often used in place of "event handler", especially
+when treating sessions as event driven state machines.
+
+State management methods let sessions hot swap their event handlers at
+runtime.
+
+It would be rude to change another session's handlers, so these
+methods only affect the current one.
+
+There is only one method in this group.  Since it may be called in
+several different ways, it may be easier to understand if each is
+documented separately.
+
+=head3 state EVENT_NAME [, CODE_REFERNCE]
+
+state() sets or removes a handler for EVENT_NAME in the current
+session.  The function referred to by CODE_REFERENCE will be called
+whenever EVENT_NAME events are dispatched to the current session.  If
+CODE_REFERENCE is omitted, the handler for EVENT_NAME will be removed.
+
+A session may only have one handler for a given EVENT_NAME.
+Subsequent attempts to set an EVENT_NAME handler will replace earlier
+handlers with the same name.
+
+  # Stop paying attention to input.  Say goodbye, and
+  # trigger a sicket close when the message is sent.
+  sub send_final_response {
+    $_[HEAP]{wheel}->put("KTHXBYE");
+    $_[KERNEL]->state( 'on_client_input' );
+    $_[KERNEL]->state( on_flush => \&close_connection );
+  }
+
+=head3 state EVENT_NAME [, OBJECT_REFERENCE [, OBJECT_METHOD_NAME] ]
+
+Set or remove a handler for EVENT_NAME in the current session.  If an
+OBJECT_REFERENCE is given, that object will handle the event.  An
+optional OBJECT_METHOD_NAME may be provided.  If the method name is
+not given, POE will look for a method matching the EVENT_NAME instead.
+If the OBJECT_REFERENCE is omitted, the handler for EVENT_NAME will be
+removed.
+
+A session may only have one handler for a given EVENT_NAME.
+Subsequent attempts to set an EVENT_NAME handler will replace earlier
+handlers with the same name.
+
+TODO - Example.
+
+=head3 state EVENT_NAME [, CLASS_NAME [, CLASS_METHOD_NAME] ]
+
+This form of state() call is virtually identical to that of the sbject
+form.
+
+Set or remove a handler for EVENT_NAME in the current session.  If an
+CLASS_NAME is given, that class will handle the event.  An optional
+CLASS_METHOD_NAME may be provided.  If the method name is not given,
+POE will look for a method matching the EVENT_NAME instead.  If the
+CLASS_REFERENCE is omitted, the handler for EVENT_NAME will be
+removed.
+
+A session may only have one handler for a given EVENT_NAME.
+Subsequent attempts to set an EVENT_NAME handler will replace earlier
+handlers with the same name.
+
+TODO - Example.
 
 =head2 Reference Counters
 
@@ -4047,73 +4110,6 @@ TODO - Explain what keeps sessions alive.
 =head1 PUBLIC KERNEL METHODS
 
 -><- - Taking text from here.
-
-=head2 State Management Methods
-
-State management methods let sessions hot swap their event handlers.
-It would be rude to change another session's handlers, so these
-methods only affect the current one.
-
-=over 2
-
-=item state EVENT_NAME
-
-=item state EVENT_NAME, CODE_REFERENCE
-
-=item state EVENT_NAME, OBJECT_REFERENCE
-
-=item state EVENT_NAME, OBJECT_REFERENCE, OBJECT_METHOD_NAME
-
-=item state EVENT_NAME, PACKAGE_NAME
-
-=item state EVENT_NAME, PACKAGE_NAME, PACKAGE_METHOD_NAME
-
-Depending on how it's used, state() can add, remove, or update an
-event handler in the current session.
-
-The simplest form of state() call deletes a handler for an event.
-This example removes the current session's "do_this" handler.
-
-  $kernel->state( 'do_this' );
-
-The next form assigns a coderef to an event.  If the event is already
-being handled, its old handler will be discarded.  Any events already
-in POE's queue will be dispatched to the new handler.
-
-Plain coderef handlers are also called "inline" handlers because they
-originally were defined with inline anonymous subs.
-
-  $kernel->state( 'do_this', \&this_does_it );
-
-The third and fourth forms register or replace a handler with an
-object method.  These handlers are called "object states" or object
-handlers.  The third form maps an event to a method with the same
-name.
-
-  $kernel->state( 'do_this', $with_this_object );
-
-The fourth form maps an event to a method with a different name.
-
-  $kernel->state( 'do_this', $with_this_object, $calling_this_method );
-
-The fifth and sixth forms register or replace a handler with a package
-method.  These handlers are called "package states" or package
-handlers.  The fifth form maps an event to a function with the same
-name.
-
-  $kernel->state( 'do_this', $with_this_package );
-
-The sixth form maps an event to a function with a different name.
-
-  $kernel->state( 'do_this', $with_this_package, $calling_this_function );
-
-POE::Kernel's state() method returns 0 on success or a nonzero code
-explaining why it failed:
-
-ESRCH: The Kernel doesn't recognize the currently active session.
-This happens when state() is called when no session is active.
-
-=back
 
 =head2 External Reference Count Methods
 
