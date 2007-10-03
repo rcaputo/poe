@@ -4079,8 +4079,7 @@ Set or remove a handler for EVENT_NAME in the current session.  If an
 CLASS_NAME is given, that class will handle the event.  An optional
 CLASS_METHOD_NAME may be provided.  If the method name is not given,
 POE will look for a method matching the EVENT_NAME instead.  If the
-CLASS_REFERENCE is omitted, the handler for EVENT_NAME will be
-removed.
+CLASS_NAME is omitted, the handler for EVENT_NAME will be removed.
 
 A session may only have one handler for a given EVENT_NAME.
 Subsequent attempts to set an EVENT_NAME handler will replace earlier
