@@ -4048,7 +4048,7 @@ Subsequent attempts to set an EVENT_NAME handler will replace earlier
 handlers with the same name.
 
   # Stop paying attention to input.  Say goodbye, and
-  # trigger a sicket close when the message is sent.
+  # trigger a socket close when the message is sent.
   sub send_final_response {
     $_[HEAP]{wheel}->put("KTHXBYE");
     $_[KERNEL]->state( 'on_client_input' );
@@ -4072,7 +4072,7 @@ TODO - Example.
 
 =head3 state EVENT_NAME [, CLASS_NAME [, CLASS_METHOD_NAME] ]
 
-This form of state() call is virtually identical to that of the sbject
+This form of state() call is virtually identical to that of the object
 form.
 
 Set or remove a handler for EVENT_NAME in the current session.  If an
