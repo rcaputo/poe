@@ -4089,9 +4089,81 @@ TODO - Example.
 
 =head2 Reference Counters
 
-TODO
+The methods in this section manipulate reference counters on the
+current session or another session.
 
-=head2 Kernel Internals
+Each session has a namespace for user-manipulated reference counters.
+These namespaces are associated with the target SESSION_ID for the
+reference counter methods, not the caller.  Nothing currently prevents
+one session from decrementing a reference counter that was incremented
+by another, but this behavior is not guaranteed to remain.  For now,
+it's up to the users of these methods to choose obscure counter names
+to avoid conflicts.
+
+Reference counting is a big part of POE's magic.  Various objects
+(mainly event watchers and components) hold references to the sessions
+that own them.  L<Session Lifespans> explains the concept in more
+detail.
+
+The ability to keep a session alive is sometimes useful in an
+application or library.  For example, a component may hold a reference
+to another session while it processes a request from that session.  In
+doing so, the component guarantees that the requester is still around
+when a response is eventually ready.
+
+=head3 refcount_increment SESSION_ID, COUNTER_NAME
+
+refcount_increment() increases the value of the COUNTER_NAME reference
+counter for the session identified by a SESSION_ID.  To discourage the
+use of session references, the refcount_increment() target session
+must be specified by its session ID.
+
+The target session will not stop until the value of any and all of its
+COUNTER_NAME reference counters are zero.  (Actually, it may stop in
+some cases, such as failing to handle a terminal signal.)
+
+Negative reference counters are legal.  They still must be incremented
+back to zero before a session is elegible for stopping.
+
+  sub handle_request {
+    # Among other things, hold a reference count on the sender.
+    $_[KERNEL]->refcount_increment( $_[SENDER]->ID, "pending request");
+    $_[HEAP]{requesters}{$request_id} = $_[SENDER]->ID;
+  }
+
+For this to work, the session needs a way to remember the
+$_[SENDER]->ID for a given request.  Customarily the session generates
+a request ID and uses that to track the request until it is fulfilled
+
+refcount_increment() returns true on success or false on failure.
+Furthermore, $! is set on failure to one of:
+
+ESRCH: The SESSION_ID does not refer to a currently active session.
+
+=head3 refcount_decrement SESSION_ID, COUNTER_NAME
+
+refcount_decrement() reduces the value of the COUNTER_NAME reference
+counter for the session identified by a SESSION_ID.  It is the
+counterpoint for refcount_increment().  Please see
+refcount_increment() for more context.
+
+  sub finally_send_response {
+    # Among other things, release the reference count for the
+    # requester.
+    my $requester_id = delete $_[HEAP]{requesters}{$request_id};
+    $_[KERNEL]->refcount_increment( $requester_id, "pending request");
+  }
+
+The reqester's $_[SENDER]->ID is remembered and removed from the hear
+(lest there be memory leaks).  It's used to decrement the reference
+counter that was incremented at the start of the request.
+
+refcount_decrement() returns true on success or false on failure.
+Furthermore, $! is set on failure to one of:
+
+ESRCH: The SESSION_ID does not refer to a currently active session.
+
+=head2 Kernel State Accessors
 
 TODO
 
@@ -4109,39 +4181,6 @@ TODO - Explain what keeps sessions alive.
 =head1 PUBLIC KERNEL METHODS
 
 -><- - Taking text from here.
-
-=head2 External Reference Count Methods
-
-The Kernel internally maintains reference counts on sessions that have
-active resource watchers.  The reference counts are used to ensure
-that a session doesn't self-destruct while it's doing something
-important.
-
-POE::Kernel's external reference counting methods let resource watcher
-developers manage their own reference counts.  This lets the watchers
-keep their sessions alive when necessary.
-
-=over 2
-
-=item refcount_increment SESSION_ID, REFCOUNT_NAME
-
-=item refcount_decrement SESSION_ID, REFCOUNT_NAME
-
-refcount_increment() increments a session's external reference count,
-returning the reference count after the increment.
-
-refcount_decrement() decrements a session's external reference count,
-returning the reference count after the decrement.
-
-  $new_count = $kernel->refcount_increment( $session_id, 'thingy' );
-  $new_count = $kernel->refcount_decrement( $session_id, 'thingy' );
-
-Both methods return undef on failure and set $! to explain the
-failure.
-
-ESRCH: There is no session SESSION_ID currently active.
-
-=back
 
 =head2 Kernel Data Accessors
 
