@@ -4036,6 +4036,9 @@ There is only one method in this group.  Since it may be called in
 several different ways, it may be easier to understand if each is
 documented separately.
 
+The POE::Wheel objects use state() to dynamically mix their own event
+handlers into the sessions that create them.
+
 =head3 state EVENT_NAME [, CODE_REFERNCE]
 
 state() sets or removes a handler for EVENT_NAME in the current
@@ -4204,6 +4207,33 @@ get_next_event_time() returns the time the next event is due, in a
 form compatible with the UNIX time() function.  It is exposed for
 POE::Loop class authors.  It may be deprecated in the future.
 
+=head2 Session Helper Methods
+
+The methods in this group expose features for POE::Session class
+authors.
+
+=head3 session_alloc SESSION_OBJECT [, START_ARGS]
+
+session_alloc() allocates a session context within POE::Kernel for a
+newly created SESSION_OBJECT.  A list of optional START_ARGS will be
+passed to the session as part of the _start event.
+
+The SESSION_OBJECT is expected to follow a subset of POE::Session's
+interface.
+
+There is no session_free().  POE::Kernel determines when the session
+should stop and performs the necessary cleanup after dispatching _stop
+to the session.
+
+=head2 Miscellaneous Methods
+
+We don't know where to classify the methods in this section.
+
+=head3 new
+
+It is not necessary to call POE::Kernel's new() method.  Doing so will
+return the program's singleton POE::Kernel object, however.
+
 =head2 Kernel Debugging
 
 TODO
@@ -4218,24 +4248,6 @@ TODO - Explain what keeps sessions alive.
 =head1 PUBLIC KERNEL METHODS
 
 -><- - Taking text from here.
-
-=head2 Kernel Internal Methods
-
-Those methods are primarily used by other POE modules and are not for public
-consumption.
-
-=over 2
-
-=item new
-
-Accepts no arguments and returns a singleton POE::Kernel instance.
-
-=item session_alloc
-
-Allocates a session in the Kernel - does not create it! Fires off the _start event
-with the arguments given.
-
-=back
 
 =head1 Using POE with Other Event Loops
 
