@@ -4165,7 +4165,44 @@ ESRCH: The SESSION_ID does not refer to a currently active session.
 
 =head2 Kernel State Accessors
 
-TODO
+POE::Kernel provides a few accessors into its massive brain so that
+library developers may have convenient access to necessary data
+without relying on their callers to provide it.
+
+These accessors expose ways to break session encapsulation.  Please
+use them sparingly and carefully.
+
+=head3 get_active_session
+
+get_active_session() returns a reference to the session that is
+currently running, or a reference to the program's POE::Kernel
+instance if no session is running at that moment.  The value is
+equivalent to $_[SESSION].
+
+This method was added for libraries that need $_[SESSION] but don't
+want to include it as a parameter in their APIs.
+
+TODO - Example.
+
+=head3 get_active_event
+
+get_active_event() returns the name of the event currently being
+dispatched.  It returns an empty string when called outside event
+dispatch.  The value is equivalent to $_[STATE].
+
+TODO - Example.
+
+=head3 get_event_count
+
+get_event_count() returns the number of events pending in POE's event
+queue.  It is exposed for POE::Loop class authors.  It may be
+deprecated in the future.
+
+=head3 get_next_event_time
+
+get_next_event_time() returns the time the next event is due, in a
+form compatible with the UNIX time() function.  It is exposed for
+POE::Loop class authors.  It may be deprecated in the future.
 
 =head2 Kernel Debugging
 
@@ -4181,47 +4218,6 @@ TODO - Explain what keeps sessions alive.
 =head1 PUBLIC KERNEL METHODS
 
 -><- - Taking text from here.
-
-=head2 Kernel Data Accessors
-
-The Kernel keeps some information which can be useful to other
-libraries.  These functions provide a consistent, safe interface to
-the Kernel's internal data.
-
-=over 2
-
-=item get_active_session
-
-get_active_session() returns a reference to the session which is
-currently running.  It returns a reference to the Kernel itself if no
-other session is running.  This is one of the times where the Kernel
-pretends it's just another session.
-
-  my $active_session = $poe_kernel->get_active_session();
-
-This is a convenient way for procedurally called libraries to get a
-reference to the current session.  Otherwise a programmer would
-tediously need to include C<SESSION> with every call.
-
-=item get_active_event
-
-get_active_event() returns the currently active event name or an
-empty string if called outside any event.
-
-=item get_event_count
-
-get_event_count() returns the number of pending events in the queue.
-
-WARNING: probably will be B<DEPRECATED> in the future!
-
-=item get_next_event_time
-
-get_next_event_time() returns the priority of the next event ( look
-at POE::Queue for more information as it's actually $queue->get_next_priority )
-
-WARNING: probably will be B<DEPRECATED> in the future!
-
-=back
 
 =head2 Kernel Internal Methods
 
