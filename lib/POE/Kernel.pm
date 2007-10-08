@@ -2704,6 +2704,99 @@ has one or more nonzero public reference counters.
 
 =back
 
+=head2 Using POE with Other Event Loops
+
+POE::Kernel supports any number of event loops.  Four are included in
+the base distribution, but that may change in the future as the ones
+with less common dependencies are re-released in their own
+distributions.  Several others are already available on the CPAN.
+
+POE's public interfaces remain the same regardless of the event loop
+being used.  Since most graphical toolkits include some form of event
+loop, back-end code should be portable to all of them.
+
+Cooperation with other event loops also lets you embed POE code into
+other software.  For example, one can embed networking code into Vim,
+so non-blocking HTTP clients into irssi because they all cooperatively
+share Glib.
+
+Because this is Perl, there are multiple ways to load an alternate
+event loop.  The simplest way is to load the event loop before loading
+POE::Kernel.
+
+  use Gtk;
+  use POE;
+
+Remember that POE loads POE::Kernel internally.
+
+POE::Kernel examines the modules loaded before it and detects that Gtk
+has been loaded.  If POE::Loop::Gtk is available, POE loads and hooks
+it into POE::Kernel automatically.
+
+It's less mysterious to load the appropriate POE::Loop class directly.
+Their names follow the format "POE::Loop::$loop_module_name", where
+$loop_module_name is the name of the event loop module after each "::"
+has been substituted with an underscore.
+
+  use POE::Loop::Event_Lib;
+  use POE;
+
+It can be abbreviated using POE's loader magic.
+
+  use POE qw( Loop::Event_Lib );
+
+POE::Kernel also supports configuration directives on its own C<use>
+line.
+
+  use POE::Kernel { loop => "Glib" };
+
+Many external event loops support their own callback mechanisms.
+POE::Session's postbaic() and callback() methods return plain Perl
+code references that will generate POE events when called.
+Applications can pass these code references to event loops for use as
+callbacks.
+
+These are the four loops included in POE's distribution:
+
+=head3 POE::Loop::Select
+
+By default POE uses its select() based loop to drive its event system.
+This is perhaps the least efficient loop, but it is also the most
+portable.  POE optimizes for correctness above all.
+
+=head3 POE::Loop::Event
+
+This event loop provides interoperability with other modules that use
+Event.  It may also provide a performance boost because Event is
+written in a compiled language.  Event is however less portable than
+Perl's built-in select().
+
+=head3 POE::Loop::Gtk
+
+This event loop allows programs to work under the Gtk graphical
+toolkit.
+
+=head3 POE::Loop::Tk
+
+This event loop allows programs to work under the Tk graphical
+toolkit.  Tk has some restrictions that require POE to behave oddly.
+
+Tk's event loop will not run unless one or more widgets are created.
+POE must therefore create such a widget before it can run.
+POE::Kernel exports $poe_main_window so that the application developer
+may use the widget (which is a Tk MainWindow), since POE doesn't need
+it other than for dispatching events.
+
+Creating and using a different MainWindow often has an undesired
+outcome.
+
+MainWindow->new() often has an undesired outcome.
+
+=head3 POE::Loop::IO_Poll
+
+The IO::Poll event loop provides an alternative that theoretically
+scales better than select().
+
 =head1 PUBLIC METHODS
 
 POE::Kernel encapsulates a lot of features.  The documentation for
@@ -2924,7 +3017,7 @@ sessions may not be trivial, especially if the sessions are separated
 by a network.  The destination can determine how much time remains on
 the requested timer and adjust its wait time accordingly.
 
-=head3 Time::HiRes Use
+=head3 Using Time::HiRes
 
 POE::Kernel timers support subsecond accuracy, but don't expect too
 much here.  Perl is not the right language for realtime programming.
@@ -2943,9 +3036,9 @@ loaded, so that the compiler can use it.
   }
   use POE;
 
-Or the old-fashioned "constant subroutine" method.  This doesn't need
-the BEGIN{} block since subroutine definitions are done at compile
-time.
+Or the old-fashioned (and more concise) "constant subroutine" method.
+This doesn't need the BEGIN{} block since subroutine definitions are
+done at compile time.
 
   sub POE::Kernel::USE_TIME_HIRES () { 0 }
   use POE;
@@ -3388,8 +3481,9 @@ stopped.  Aliases are treated as a kind of event watcher.  The events
 come from active sessions.  Aliases therefore become useless when
 there are no active sessions left.  Rather than leaving the program
 running in a "zombie" state, POE detects this deadlock condition and
-triggers a cleanup.  TODO See the discussion of SIGIDLE in the signals
-section.
+triggers a cleanup.
+
+TODO Discuss SIGIDLE and SIGZOMBIE somewhere.
 
 =head3 alias_set ALIAS
 
@@ -4329,178 +4423,283 @@ We don't know where to classify the methods in this section.
 It is not necessary to call POE::Kernel's new() method.  Doing so will
 return the program's singleton POE::Kernel object, however.
 
-=head1 Kernel Debugging
+=head1 PUBLIC EXPORTED VARIABLES
 
-TODO
+POE::Kernel exports two variables for your coding enjoyment:
+C<$poe_kernel> and C<$poe_main_window>.  POE::Kernel is implicitly
+used by POE itself, so using POE gets you POE::Kernel (and its
+exports) for free.
 
--><- END OF NEW DOCUMENTATION
+In more detail:
 
+=head2 $poe_kernel
 
-=head1 PUBLIC KERNEL METHODS
+$poe_kernel contains a reference to the process' POE::Kernel instance.
+It's mainly used for accessing POE::Kernel methods from places where
+$_[KERNEL] is not available.  It's most commonly used in helper
+libraries.
 
--><- - Taking text from here.
+=item $poe_main_window
 
-=head1 Using POE with Other Event Loops
+$poe_main_window is used by graphical toolkits that require at least
+one widget to be created before their event loops are usable.  This is
+currently only Tk.
 
-POE::Kernel supports any number of event loops.  Four are included in
-the base distribution, and others are available on the CPAN.  POE's
-public interfaces remain the same regardless of the event loop being
-used.
+POE::Loop::Tk creates a main window to satisfy Tk's event loop.  The
+window is given to the application since POE has no other use for it.
 
-There are three ways to load an alternate event loop.  The simplest is
-to load the event loop before loading POE::Kernel.  Remember that POE
-loads POE::Kernel internally.
+$poe_main_window is undefined in toolkits that don't require a widget
+to dispatch events.
 
-  use Gtk;
+On a related note, POE will shut down if the widget in
+$poe_main_window is destroyed.  This can be changed with POE::Kernel's
+signal_ui_destroy() methode
+
+=head1 DEBUGGING POE AND PROGRAMS USING IT
+
+POE includes quite a lot of debugging code, in the form of both fatal
+assertions and runtime traces.  They may be enabled at compile time,
+but there is no way to toggle them at runtime.  This was done to avoid
+runtime penalties in programs where debugging is not necessary.  That
+is, in most production cases.
+
+Traces are verbose reminders of what's going on within POE.  Each is
+prefixed with a four-character field describing the POE subsustem that
+generated it.
+
+Assertions (asserts) are silent but deadly, both in performance (they
+cause a significant runtime performance hit) and because they cause
+fatal errors when triggered.
+
+The assertions and traces are useful for developing programs with POE,
+but they were originally added to debug POE itself.
+
+Each assertion and tracing group is enabled by setting a constant in
+the POE::Kernel namespace to a true value.  This is the same mechanism
+documented under L<Using Time::HiRes>, namely:
+
+  BEGIN {
+    package POE::Kernel;
+    use constant ASSERT_DEFAULT => 1;
+  }
   use POE;
 
-POE::Kernel detects that Gtk has been loaded, and it loads the
-appropriate internal code to use it.
+or
 
-You can also specify which loop to load directly.  Event loop bridges
-are named "POE::Loop::$loop_module", where $loop_module is the name of
-the module, with "::" translated to underscores.  For example:
-
-  use POE qw( Loop::Event_Lib );
-
-would load POE::Loop::Event_Lib (which may or may not be on CPAN).
-
-If you'd rather use POE::Kernel directly, it has a different import
-syntax:
-
-  use POE::Kernel { loop => "Tk" };
-
-The four event loops included in POE's distribution:
-
-POE's default select() loop.  It is included so at least something
-will work on any given platform.
-
-Event.pm.  This provides compatibility with other modules requiring
-Event's loop.  It may also introduce safe signals in versions of Perl
-prior to 5.8, should you need them.
-
-Gtk and Tk event loops.  These are included to support graphical
-toolkits.  Others are on the CPAN, including Gtk2 and hopefully WxPerl
-soon.  When using Tk with POE, POE supplies an already-created
-$poe_main_window variable to use for your main window.  Calling Tk's
-MainWindow->new() often has an undesired outcome.
-
-IO::Poll.  This is potentially more efficient than POE's default
-select() code in large scale clients and servers.
-
-Many external event loops expect plain coderefs as callbacks.
-POE::Session has postback() and callback() methods that create
-callbacks suitable for external event loops.  In turn, they post() or
-call() POE event handlers.
-
-=head2 Kernel's Debugging Features
-
-POE::Kernel contains a number of assertion and tracing flags.  They
-were originally created to debug POE::Kernel itself, but they are also
-useful for tracking down other problems.
-
-Assertions are the quiet ones.  They only create output when something
-catastrophic has happened.  That output is almost always fatal.  They
-are mainly used to check the sanity of POE's internal data structures.
-
-Traces are assertions' annoying cousins.  They noisily report on the
-status of a running POE::Kernel instance, but they are never fatal.
-
-Assertions and traces incur performance penalties when enabled.  It's
-probably a bad idea to enable them in live systems.  They are all
-disabled by default.
-
-Assertion and tracing flags can be defined before POE::Kernel is first
-used.
-
-  # Turn on everything.
   sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-  sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-  use POE;  # Includes POE::Kernel
+  use POE;
 
-It is also possible to enable them using shell environment variables.
-The environment variables follow the same names as the constants in
-this section, but "POE_" is prepended to them.
+As mentioned in L<Using Time::HiRes>, the switches must be defined as
+constants before POE::Kernel is first loaded.  Otherwise Perl's
+compiler will not see the constants when first compiling POE::Kernel,
+and the features will not be properly enabled.
+
+Assertions and traces may also be enabled by setting shell environment
+variables.  The environment variables are named after the POE::Kernel
+constants with a "POE_" prefix.
 
   POE_ASSERT_DEFAULT=1 POE_TRACE_DEFAULT=1 ./my_poe_program
 
-Assertions will be discussed first.
+In alphabetical order:
 
-=over 2
+=head2 ASSERT_DATA
 
-=item ASSERT_DATA
+ASSERT_DATA enables runtime data integrity checks within POE::Kernel
+and the classes that mix into it.  POE::Kernel tracks a lot of
+cross-referenced data, and this group of assertions ensures that it's
+consistent.
 
-ASSERT_DATA enables a variety of runtime integrity checks within
-POE::Kernel and its event loop bridges.  This can impose a significant
-runtime penalty, so it is off by default.  The test programs for POE
-all enable ASSERT_DEFAULT, which includes ASSERT_DATA.
+Prefix: <dt>
 
-=item ASSERT_DEFAULT
+Environment variable: POE_ASSERT_DATA
 
-ASSERT_DEFAULT is used as the default value for all the other assert
-constants.  Setting it true is a quick and reliable way to ensure all
-assertions are enabled.
+=head2 ASSERT_DEFAULT
 
-=item ASSERT_EVENTS
+ASSERT_DEFAULT specifies the default value for assertions that are not
+explicitly enabled or disabled.  This is a quick and reliable way to
+make sure all assertions are on.
 
-ASSERT_EVENTS enables checks for dispatching events to nonexistent
-sessions.
+No assertion uses ASSERT_DEFAULT directly, and this assertion flag has
+no corresponding output prefix.
 
-=item ASSERT_FILES
+Turn on all assertions except ASSERT_EVENTS:
 
-ASSERT_FILES enables some runtime checks on the file multiplexing
-syscalls used to drive POE.
+  sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+  sub POE::Kernel::ASSERT_EVENTS  () { 0 }
+  use POE::Kernel;
 
-=item ASSERT_RETVALS
+Prefix: (none)
 
-ASSERT_RETVALS causes POE::Kernel to die if a method would return an
-error.  See also TRACE_RETVALS if you want a runtime warning rather
-than a hard error.
+Environment variable: POE_ASSERT_DEFAULT
 
-=item ASSERT_USAGE
+=head2 ASSERT_EVENTS
 
-ASSERT_USAGE enables runtime parameter checking in a lot of
-POE::Kernel method calls.  These are disabled by default because they
-impart a hefty performance penalty.
+ASSERT_EVENTS mainly checks for attempts to dispatch events to
+sessions that don't exist.  This assertion can assist in the debugging
+of strange, silent cases where event handlers are not called.
 
-=back
+Prefix: <ev>
 
-Then there are the trace options.
+Environment variable: POE_ASSERT_EVENTS
 
-=over 2
+=head2 ASSERT_FILES
 
-=item TRACE_DEFAULT
+ASSERT_FILES enables some runtime checks in POE's filehandle watchers
+and the code that manages them.
 
-TRACE_DEFAULT is used as the default value for all the other trace
-constants.  Setting it true is a quick and reliable way to ensure all
-traces are enabled.
+Prefix: <fh>
 
-=item TRACE_DESTROY
+Environment variable: POE_ASSERT_FILES
 
-Enable TRACE_DESTROY to receive a dump of the contents of Session
-heaps when they finally DESTROY.  It is indispensable for finding
-memory leaks, which often hide in Session heaps.
+=head2 ASSERT_RETVALS
 
-=item TRACE_EVENTS
+ASSERT_RETVALS upgrades failure codes from POE::Kernel's methods from
+advisory return values to fatal errors.  Most programmers don't check
+the values these methods return, so ASSERT_RETVALS is a quick way to
+validate one's assumption that all's correct.
 
-The music goes around and around, and it comes out here.  TRACE_EVENTS
-enables messages that tell what happens to FIFO and alarm events: when
-they're queued, dispatched, or discarded, and what their handlers
-return.
+Prefix: <rv>
 
-=item TRACE_FILENAME
+Environment variable: POE_ASSERT_RETVALS
 
-By default, trace messages go to STDERR.  If you'd like them to go
-elsewhere, set TRACE_FILENAME to the file where they should go.
+=head2 ASSERT_USAGE
 
-=item TRACE_FILES
+ASSERT_USAGE is the counterpoint to ASSERT_RETVALS.  It enables
+runtime checks that the parameters to POE::Kernel's methods are
+correct.  It's a quick (but not foolproof) way to verify a program's
+use of POE.
 
-TRACE_FILES enables or disables messages that tell how files are being
-processed within POE::Kernel and the event loop bridges.
+Prefix: <us>
 
-=item TRACE_STATISTICS
+Environment variable: POE_ASSERT_USAGE
 
-B<This feature is experimental.  No doubt it will change.>
+=head2 TRACE_DEFAULT
+
+TRACE_DEFAULT specifies the default value for traces that are not
+explicitly enabled or disabled.  This is a quick and reliable wat to
+ensure your program generates copious output on the file named in
+TRACE_FILENAME or STDERR by default.
+
+To enable all traces except a few noisier ones:
+
+  sub POE::Kernel::TRACE_DEFAULT () { 1 }
+  sub POE::Kernel::TRACE_EVENTS  () { 0 }
+  use POE::Kernel;
+
+Prefix: (none)
+
+Environment variable: POE_TRACE_DEFAULT
+
+=head2 TRACE_DESTROY
+
+TRACE_DESTROY causes every POE::Session object to dump the contents of
+its $_[HEAP] when Perl destroys it.  This trace was added to help
+developers find memory leaks in their programs.
+
+Prefix: A line that reads "----- Session $self Leak Check -----".
+
+Environment variable: POE_TRACE_DESTROY
+
+=head2 TRACE_EVENTS
+
+TRACE_EVENTS enables messages pertaining to POE's event queue's
+activities: when events are enquered, dispatched or discarded, and
+more.  It's great for determining where events go and when.
+Understandably this is one of POE's more verbose traces.
+
+Prefix: <ev>
+
+Environment variable: POE_TRACE_EVENTS
+
+=head2 TRACE_FILENAME
+
+TRACE_FILENAME specifies the name of a file where POE's tracing and
+assertion messages should go.  It's useful if you want the messages
+but have other plans for STDERR, which is where the messages go ny
+default.
+
+POE's tests use this so the trace and assertion code can be
+instrumented during testing without spewing all over the terminal.
+
+Prefix: (none)
+
+Environment variable: POE_TRACE_FILENAME
+
+=head2 TRACE_FILES
+
+TRACE_FILES enables or disables traces in POE's filehanle watchers and
+the POE::Loop class that implements the lowest-level filehandle
+multiplexing.  This may be useful when tracking down strange behavior
+related to filehandles.
+
+Prefix: <fh>
+
+Environment variable: POE_TRACE_FILES
+
+=head2 TRACE_PROFILE
+
+TRACE_PROFILE enables basic profiling within POE's event dispatcher.
+When enabled, POE counts the number of times each event is dispatched.
+At the end of a run, POE will display a table fo each event name and
+its dispatch count.
+
+When TRACE_PROFILE is enabled, a program may call
+$_[KERNEL]->stat_show_profile() to display a current dispatch profile
+snapshot.
+
+See TRACE_STATISTICS for more profiling.
+
+Prefix: <pr>
+
+Environment variable: POE_TRACE_PROFILE
+
+=head2 TRACE_REFCNT
+
+TRACE_REFCNT governs whether POE::Kernel will trace sessions'
+reference counts.  As discussed in L<Session Lifespans>, POE does a
+lot of reference counting, and the current state of a session's
+reference counts determines whether the session lives or dies.  It's
+common for developers to wonder why a session stops too early or
+remains active too long.  TRACE_REFCNT can help explain why.
+
+Prefix: <rc>
+
+Environment variable: POE_TRACE_REFCNT
+
+=head2 TRACE_RETVALS
+
+TRACE_RETVALS can enable carping whenever a POE::Kernel method is
+about to fail.  It's a kinder, gentler, and noisier form of
+ASSERT_RETVALS.
+
+Prefix: <rv>
+
+Environment variable: POE_TRACE_RETVALS
+
+=head2 TRACE_SESSIONS
+
+TRACE_SESSIONS enables trace messages that pertain to session
+management.  Notice will be given when sessions are created or
+destroyed, and when the parent or child status of a session changes.
+
+Prefix: <ss>
+
+Environment variable: POE_TRACE_SESSIONS
+
+=head2 TRACE_SIGNALS
+
+TRACE_SIGNALS turns on (or off) traces in POE's signal handling
+subsystem.  Signal dispatch is one of POE's more complex parts, and
+the trace messages may help application developers understand signal
+propagation and timing.
+
+Prefix: <sg>
+
+Environment variable: POE_TRACE_SIGNALS
+
+=head2 TRACE_STATISTICS
+
+B<This feature is experimental, and its interface will likely change.>
 
 TRACE_STATISTICS enables runtime gathering and reporting of various
 performance metrics within a POE program.  Some statistics include how
@@ -4512,80 +4711,6 @@ any time using stat_getdata().
 stat_getdata() returns a hash of various statistics and their values
 The statistics are calculated using a sliding window and vary over
 time as a program runs.
-
-=item TRACE_PROFILE
-
-TRACE_PROFILE switches on event profiling.  This causes the Kernel to
-keep a count of every event it dispatches.  A report of the events and
-their frequencies is displayed just before run() returns, or at
-any time via stat_show_profile().
-
-=item TRACE_REFCNT
-
-TRACE_REFCNT displays messages about reference counts for sessions,
-including garbage collection tests (formerly TRACE_GARBAGE).  This is
-perhaps the most useful debugging trace since it will explain why
-sessions do or don't die.
-
-=item TRACE_RETVALS
-
-TRACE_RETVALS enables carping whenever a Kernel method is about to
-return an error.  See ASSERT_RETVALS if you would like the Kernel to
-be stricter than this.
-
-=item TRACE_SESSIONS
-
-TRACE_SESSIONS enables messages pertaining to session management.
-These messages include notice when sessions are created or destroyed.
-They also include parent and child relationship changes.
-
-=item TRACE_SIGNALS
-
-TRACE_SIGNALS enables or disables information about signals caught and
-dispatched within POE::Kernel.
-
-=back
-
-=head1 POE::Kernel Exports
-
-POE::Kernel exports two symbols for your coding enjoyment:
-C<$poe_kernel> and C<$poe_main_window>.  POE::Kernel is implicitly
-used by POE itself, so using POE gets you POE::Kernel (and its
-exports) for free.
-
-=over 2
-
-=item $poe_kernel
-
-$poe_kernel contains a reference to the process' POE::Kernel instance.
-It's mainly useful for getting at the kernel from places other than
-event handlers.
-
-For example, programs can't call the Kernel's run() method without a
-reference, and they normally don't get references to the Kernel
-without being in a running event handler.  This gets them going:
-
-  $poe_kernel->run();
-
-It's also handy from within libraries, but event handlers themselves
-receive C<KERNEL> parameters and don't need to use $poe_kernel
-directly.
-
-=item $poe_main_window
-
-Some graphical toolkits (currently only Tk) require at least one
-widget be created before their event loops are usable.  POE::Kernel
-allocates a main window in these cases, and exports a reference to
-that window in C<$poe_main_window>.  For all other toolkits, this
-exported variable is undefined.
-
-Programs are free to use C<$poe_main_window> for whatever needs.  They
-may even assign a widget to it when using toolkits that don't require
-an initial widget (Gtk for now).
-
-$poe_main_window is undefined if a graphical toolkit isn't used.
-
-See: signal_ui_destroy
 
 =back
 
@@ -4608,5 +4733,5 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
+# TODO - More practical examples.
 # TODO - Test the examples.
