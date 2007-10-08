@@ -2609,6 +2609,101 @@ take exclusive control of a program's time, if necessary.
 Every POE-based application needs at least one session.  Code cannot
 run "within POE" without being a part of some session.
 
+=head2 Session Lifespans
+
+"Session" as a term is somewhat overloaded.  There are two related
+concepts that share the name.  First there is the class POE::Session,
+and objects created with it or related classes.  Second there is a
+data structure within POE::Kernel that tracks the POE::Session objects
+in play and the various resources owned by each.  (Resources in this
+case are events, timers, I/O watchers, and so on.  POE::Resources and
+the POE::Resource classes implement the details, which are only being
+summarized here.)
+
+The way POE's garbage collector works is that a session object gives
+itself to POE::Kernel at creation time.  The Kernel then holds onto
+that object as long as resources exist that require the session to
+remain alive.  When all of these resources are destroyed or released,
+the session object has nothing left to trigger activity.  POE::Kernel
+notifies the object it's through, and cleans up its internal session
+context.  The session object is released, and self-destructs in the
+normal Perlish fashion.
+
+Sessions may be stopped even if they have active resources.  For
+example, a session may fail to handle a terminal signal.  In this
+case, POE::Kernel forces the session to stop, and all resources
+associated with the session are pre-emptively released.
+
+The resources that keep sessions active.  Each is explained elsewhere
+in more detail.
+
+=over 2
+
+=item
+
+Events.  Posting an event keeps both the sender and the receiver alive
+until after the event has been dispatched.  This is only guaranteed if
+both the sender and receiver are in the same process.  Inter-Kernel
+message passing add-ons may have other guarantees.  Please see their
+documentation for details.
+
+The rationale is that the event is in play, so the receiver must
+remain active for it to be dispatched.  The sender remains alive in
+case the receiver would like to send back a response.
+
+Posted events cannot be pre-emptively canceled.  They tend to be
+short-lived in practice, so this generally isn't an issue.
+
+=item
+
+Timers.  Once set, a timer will keep its session active until it goes
+off and the resulting event is dispatched.  The session setting the
+timer is kept active so that it will eventually receive the timer's
+event.
+
+=item
+
+Aliases.  Aliases act as passive event watchers.  As long as a session
+has an alias, some other session may send events to that session by
+that name.  Aliases keep sessions alive as long as a process has
+active sessions.
+
+If the only sessions remaining are being kept alive solely by their
+aliases, POE::Kernel will send them a terminal IDLE signal.  In most
+cases this will terminate the remaining sessions and allow the program
+to exit.  If the sessions remain in memory without waking up on the
+IDLE signal, POE::Kernel sends them a nonmaskable ZOMBIE signal.  They
+are then forcibly removed, and the program will finally exit.
+
+=item
+
+I/O watchers.  A session will remain active as long as a session is
+paying attention to some external data source or sink.
+
+=item
+
+Child sessions.  A session acting as a parent of one or more other
+sessions will remain active until all the child sessions stop.  This
+may be bypassed by detaching the children from the parent.
+
+=item
+
+Child processes watched by sig_child().  The sig_child() watcher will
+keep the watching session active until the child process has been
+reaped by POE::Kernel and the resulting event has been dispatched.
+
+All other signal watchers, including using sig() to watch for "CHLD",
+do not keep their sessions active.  If you need a session to remain
+active when it's only watching for signals, have it set an alias or
+one of its own reference counters.
+
+=item
+
+Public reference counters.  A session will remain active as long as it
+has one or more nonzero public reference counters.
+
+=back
+
 =head1 PUBLIC METHODS
 
 POE::Kernel encapsulates a lot of features.  The documentation for
@@ -3955,7 +4050,7 @@ sig_child() watchers are one-shot.  They automatically unregister
 themselves once the EVENT_NAME has been delivered.
 
 sig_child() watchers keep a session alive for as long as they are
-active.
+active.  This is unique among signal watchers.
 
 sig_chid() does not return a meaningful value.
 
@@ -4090,7 +4185,7 @@ handlers with the same name.
 
 TODO - Example.
 
-=head2 Reference Counters
+=head2 Public Reference Counters
 
 The methods in this section manipulate reference counters on the
 current session or another session.
@@ -4234,13 +4329,9 @@ We don't know where to classify the methods in this section.
 It is not necessary to call POE::Kernel's new() method.  Doing so will
 return the program's singleton POE::Kernel object, however.
 
-=head2 Kernel Debugging
+=head1 Kernel Debugging
 
 TODO
-
-=head1 Session Lifespans
-
-TODO - Explain what keeps sessions alive.
 
 -><- END OF NEW DOCUMENTATION
 
