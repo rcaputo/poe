@@ -2513,7 +2513,10 @@ POE::Kernel - an event-based application kernel in Perl
   POE::Session->create(
     inline_states => {
       _start => sub { $_[KERNEL]->yield("next") },
-      next   => sub { $_[KERNEL]->delay(next => 1) },
+      next   => sub {
+        print "tick...\n";
+        $_[KERNEL]->delay(next => 1);
+      },
     },
   );
 
