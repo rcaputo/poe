@@ -46,7 +46,7 @@ else {
 
 my $marker = 'run_network_tests';
 unlink $marker;
-if ($ret =~ /^Y$/i) {
+unless ($ret =~ /^Y$/i) {
   open(TOUCH,"+>$marker") and close TOUCH;
 }
 
