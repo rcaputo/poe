@@ -88,9 +88,8 @@ sub SH_MODECOUNT  () {  2 } #          [ $read_reference_count,     (MODE_RD)
                             #    },
 
 sub _data_handle_preload {
-    $poe_kernel->[KR_FILENOS] = \%kr_filenos;
+  $poe_kernel->[KR_FILENOS] = \%kr_filenos;
 }
-use POE::API::ResLoader \&_data_handle_preload;
 
 ### Begin-run initialization.
 

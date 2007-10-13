@@ -65,12 +65,6 @@ my $polling_for_signals = 0;
 # A flag determining whether there are child processes.
 my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
 
-sub _data_sig_preload {
-  $poe_kernel->[KR_SIGNALS] = \%kr_signals;
-  $poe_kernel->[KR_PIDS]    = \%kr_pids_to_events;
-}
-use POE::API::ResLoader \&_data_sig_preload;
-
 # A list of special signal types.  Signals that aren't listed here are
 # benign (they do not kill sessions at all).  "Terminal" signals are
 # the ones that UNIX defaults to killing processes with.  Thus STOP is
@@ -106,6 +100,9 @@ sub _data_sig_initialize {
   # least once.  Starts false when running in an Apache handler so our
   # SIGCHLD hijinx don't interfere with the web server.
   $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
+
+  $poe_kernel->[KR_SIGNALS] = \%kr_signals;
+  $poe_kernel->[KR_PIDS]    = \%kr_pids_to_events;
 
   # In case we're called multiple times.
   unless (keys %_safe_signals) {

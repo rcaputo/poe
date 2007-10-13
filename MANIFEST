@@ -1,7 +1,6 @@
 CHANGES
 HISTORY
 lib/POE.pm
-lib/POE/API/ResLoader.pm
 lib/POE/Component.pm
 lib/POE/Component/Client/TCP.pm
 lib/POE/Component/Server/TCP.pm
