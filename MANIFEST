@@ -89,8 +89,6 @@ t/10_units/02_pipes/01_base.t
 t/10_units/02_pipes/02_oneway.t
 t/10_units/02_pipes/03_twoway.t
 t/10_units/03_base/01_poe.t
-t/10_units/03_base/02_api_ctl.t
-t/10_units/03_base/02_api_resloader.t
 t/10_units/03_base/03_component.t
 t/10_units/03_base/04_driver.t
 t/10_units/03_base/05_filter.t
