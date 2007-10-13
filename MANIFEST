@@ -1,7 +1,6 @@
 CHANGES
 HISTORY
 lib/POE.pm
-lib/POE/API/Ctl.pm
 lib/POE/API/ResLoader.pm
 lib/POE/Component.pm
 lib/POE/Component/Client/TCP.pm
@@ -36,7 +35,6 @@ lib/POE/Queue.pm
 lib/POE/Queue/Array.pm
 lib/POE/Resource.pm
 lib/POE/Resource/Aliases.pm
-lib/POE/Resource/Controls.pm
 lib/POE/Resource/Events.pm
 lib/POE/Resource/Extrefs.pm
 lib/POE/Resource/FileHandles.pm
@@ -127,7 +125,6 @@ t/10_units/07_exceptions/02_turn_off.t
 t/10_units/07_exceptions/03_not_handled.t
 t/20_resources/00_base/aliases.pm
 t/20_resources/00_base/caller_state.pm
-t/20_resources/00_base/controls.pm
 t/20_resources/00_base/events.pm
 t/20_resources/00_base/extrefs.pm
 t/20_resources/00_base/extrefs_gc.pm

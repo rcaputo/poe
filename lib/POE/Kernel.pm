@@ -813,7 +813,6 @@ sub new {
     $self->_initialize_kernel_session();
     $self->_data_stat_initialize() if TRACE_STATISTICS;
     $self->_data_sig_initialize();
-    $self->_data_magic_initialize();
     $self->_data_alias_initialize();
 
     # These other subsystems don't have strange interactions.
@@ -1222,7 +1221,6 @@ sub _finalize_kernel {
   $self->_data_ev_finalize();
   $self->_data_ses_finalize();
   $self->_data_stat_finalize() if TRACE_PROFILE or TRACE_STATISTICS;
-  $self->_data_magic_finalize();
 }
 
 sub run_one_timeslice {
@@ -4442,7 +4440,7 @@ It's mainly used for accessing POE::Kernel methods from places where
 $_[KERNEL] is not available.  It's most commonly used in helper
 libraries.
 
-=item $poe_main_window
+=head2 $poe_main_window
 
 $poe_main_window is used by graphical toolkits that require at least
 one widget to be created before their event loops are usable.  This is
@@ -4714,8 +4712,6 @@ any time using stat_getdata().
 stat_getdata() returns a hash of various statistics and their values
 The statistics are calculated using a sliding window and vary over
 time as a program runs.
-
-=back
 
 =head1 SEE ALSO
 

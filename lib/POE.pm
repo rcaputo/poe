@@ -434,8 +434,6 @@ Unfortunately we don't have resources to provide free one-on-one
 personal support anymore.  We'll do it for a fee, though.  Send Rocco
 an e-mail via his CPAN address.
 
-=back
-
 =head1 SEE ALSO
 
 Broken down by abstraction layer.

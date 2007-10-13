@@ -14,7 +14,6 @@ my @resources = qw(
   POE::XS::Resource::Sessions
   POE::XS::Resource::Signals
   POE::XS::Resource::Statistics
-  POE::XS::Resource::Controls
 );
 
 sub initialize {
