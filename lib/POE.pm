@@ -152,6 +152,10 @@ driven task.  They also customize event dispatch to a particular
 calling convention.  POE::NFA, for example, is more of a proper state
 machine.  CPAN has several other kinds of sessions.
 
+Everything ultimately builds on these classes or the concepts they
+implement.  If you're short on time, the things to read besides this
+are L<POE::Kernel> and L<POE::Session>.
+
 =head2 Layer 2: Wheels, Filters, and Drivers
 
 POE::Wheel objects are dynamic mix-ins for POE::Session instances.

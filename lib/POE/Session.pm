@@ -749,75 +749,188 @@ __END__
 
 =head1 NAME
 
-POE::Session - an event driven abstract state machine
+POE::Session - the basis for cooperative, event-driven tasks in POE
 
 =head1 SYNOPSIS
 
-  # Import POE::Session constants.
-  use POE::Session;
+  use POE; # auto-includes POE::Kernel and POE::Session
 
   POE::Session->create(
-
-    # Inline or coderef states.
     inline_states => {
-      state_one => \&coderef_one,
-      state_two => sub { ... },
+      _start => sub { $_[KERNEL]->yield("next") },
+      next   => sub {
+        print "tick...\n";
+        $_[KERNEL]->delay(next => 1);
+      },
     },
-
-    # Plain and mapped object states.
-    object_states => [
-      $object_one => [ 'state_three', 'state_four', 'state_five' ],
-      $object_two => { state_nine => 'method_nine' },
-    ],
-
-    # Plain and mapped package states.
-    package_states => [
-      $package_one => [ 'state_six', 'state_seven', 'state_eight' ],
-      $package_two => { state_ten => 'method_ten' },
-    ],
-
-    # Parameters for the session's _start state.
-    args => [ argument_zero, argument_one, ... ],
-
-    # Initial options.  See the option() method.
-    options => \%options,
-
-    # Change the session's heap representation.
-    heap => [ ],
   );
 
-Other methods:
+  POE::Kernel->run();
+  exit;
 
-  # Retrieve a session's unique identifier.
-  $session_id = $session->ID;
-
-  # Retrieve a reference to the session's heap.
-  $session_heap = $session->get_heap();
-
-  # Set or clear session options.
-  $session->option( trace => 1, default => 1 );
-  $session->option( trace );
-
-  # Create a postback, then invoke it and pass back additional
-  # information.
-  $postback_coderef = $session->postback( $state_name, @state_args );
-  $postback_coderef->( @additional_args );
-
-  # Or do the same thing synchronously
-  $callback_coderef = $session->callback( $state_name, @state_args );
-  $retval = $callback_coderef->( @additional_args );
+POE::Session can also dispatch to object and class methods through
+object_states and package_states callbacks.
 
 =head1 DESCRIPTION
 
-POE::Session combines a runtime context with an event driven state
-machine.  Together they implement a simple cooperatively timesliced
-thread.
+POE::Session (and its subclasses) translates events from POE::Kernel's
+generic dispatcher into particular calling conventions suitable for
+application code.  In design pattern parlance, POE::Session classes
+are adapters between POE::Kernel and application code.
 
-Sessions receive their timeslices as events from POE::Kernel.  Each
-event has two fields, a state name and a session identifier.  These
-fields describe the code to run and the context to run it in,
-respectively.  Events carry several other fields which will be
-discussed in the "Predefined Event Fields" section.
+The L<sessions|POE::Kernel/Sessions> that POE::Kernel manages are more
+like generic task structures.  Unfortunately these two disparate
+concepts have virtually identical names.
+
+The documentation will refer to event handlers as "states" in certain
+unavoidable situations.  Sessions were originally meant to be
+event-driven state machines, but their purposes evolved over time.
+Some of the legacy vocabulary lives on in the code for backward
+compatibility, however.
+
+Confusingly, L<POE::NFA> is a class for implementing actual
+event-driven state machines.  Its documentation uses "state" in the
+proper sense.
+
+=head1 USING POE::Session
+
+POE::Session has two main purposes.  First, it maps event names to the
+code that will handle them.  Second, it maps a consistent event
+dispatch interface to those handlers.
+
+Consider the SYNOPSIS for example.  A POE::Session instance is
+created with two C<inline_states>, each mapping an event name
+("_start" and "next") to an inline subroutine.  POE::Session ensures
+that $_[KERNEL] and so on are meaningful within an event handler.
+
+Event handlers may also be object or class methods, using
+C<object_states> and C<package_states> respectively.  The create()
+syntax is different than for C<inline_states>, but the calling
+convention is nearly identical.
+
+Notice that the created POE::Session object has not been saved to a
+variable.  The new POE::Session object gives itself to POE::Kernel,
+which then manages it and all the resources it uses.
+
+It's possible to keep references to new POE::Session objects, but it's
+not usually necessary.  And if an application is not careful about
+cleaning up these references, they may leak memory when POE::Kernel
+would normally destroy them.
+
+=head2 POE::Session's Calling Convention
+
+The biggest syntactical hurdle most people have with POE is
+POE::Session's unconventional calling convention.  For example:
+
+  sub handle_event {
+    my ($kernel, $heap, $parameter) = @_[KERNEL, HEAP, ARG0];
+    ...;
+  }
+
+Or the use fo $_[KERNEL], $_[HEAP] and $_[ARG0] inline, as is done
+in most examples.
+
+What's going on here is rather basic.  Perl passes parameters into
+subroutines or methods using the @_ array.  KERNEL, HEAP, ARG0 and
+others are constants exported by POE::Session (which is included for
+free when a program uses POE).
+
+So $_[KERNEL] is an event handler's KERNELth parameter.  @_[HEAP,
+ARG0] is a slice of @_ containing the HEAPth and ARG0th parameters.
+
+While this looks odd, it's perfectly plain and legal Perl syntax.  POE
+uses it for a few reasons:
+
+1. In the common case, passing parameters in @_ is faster than passing
+hash or array references and then dereferencing them in the handler.
+
+2. Typos in hash-based parameter lists are either subtle runitme
+errors or requires constant runtime checking.  Constants are either
+known at compile time, or are clear compile-time errors.
+
+3. Referencing @_ offsets by constants allows parameters to move
+the future without breaking application code.
+
+4. Most event handlers don't need all of @_.  Slices allow handlers to
+use only the parameters they're interested in.
+
+=head2 POE::Session Parameters
+
+Event handlers receive most of their runtime context in up to nine
+callback parameters.  POE::Kernel provides many of them.
+
+=head3 $_[OBJECT]
+
+POE::Session parameters are positional, so shifting off a $self in a
+method-based handler would invalidate everything else.  Since Perl
+provides $self in $_[0] as a rule, OBJECT is always 0 and $_[OBJECT]
+is always $self.
+
+Inline states have no $self.  $_[OBJECT] is undef in this case.
+
+It's often useful for method-based event handlers to call other
+methods in the same object.  $_[OBJECT] helps this happen.
+
+=head3 $_[SESSION]
+
+This is a reference to the session receiving an event.  It may be used
+as the destination for a post(), call() or some other POE::Kernel
+method.  POE::Session also has some methods of its own.
+
+=head3 $_[KERNEL]
+
+The KERNELth parameter is a reference to the application's singleton
+POE::Kernel instance.  It is most often used to call POE::Kernel
+methods from event handlers.
+
+=head3 $_[HEAP]
+
+Every POE::Session object contains its own variable namespace known as
+the session's HEAP.  It is modeled and named after process memory
+heaps (not priority heaps).  Heaps are by default anonymous hash
+references, but they may be initialized in create() to be almost
+anything.  POE::Session itself never uses $_[HEAP], although some POE
+components do.
+
+=head3 $_[STATE]
+
+The STATEth handler parameter contains the name of the event being
+dispatched in the current callback.  This can be important since
+there's no enforced correlation between an event name and the name of
+a subroutine or method assigned to be its handler.
+
+=head3 $_[SENDER]
+
+Events must come from somewhere.  $_[SENDER] contains the currently
+dispatched event's source.  This may be identical to $_[KERNEL] in
+events that are generated by POE::Kernel.
+
+TODO - There are a number of exceptions.  Document them?  Here or in
+the POE::Kernel methods that generate the exceptional events?
+
+=head3 $_[CALLER_FILE], $_[CALLER_LINE] and $_[CALLER_STATE]
+
+These parameters are a form of caller(), but they describe where the
+event originated in a program's code.  CALLER_FILE and CALLER_LINE are
+fairly plain.  CALLER_STATE contains the name of the event that was
+being handled when the event was created, or when the event watcher
+that ultimately created the event was registered.
+
+=head3 @_[ARG0..ARG9] or @_[ARG0..$#_]
+
+$_[ARG0] through the end of @_ contain parameters provided by
+application code, event watchers, or higher-level libraries.  These
+parameters are guaranteed to be at the end of @_ so that @_[ARG0..$#_]
+will always catch them all.
+
+$#_ is the index of the last value in @_.  Blame Perl if it looks odd.
+It's merely the $#array syntax where the array name is an underscore.
+
+=head2 Event Handlers are Re-Entrant
+
+...?
+
+-><- new docs above, old docs below
 
 States are re-entrant since they are invoked with their runtime
 contexts.  Although it's not usually necessary, this re-entrancy
@@ -1646,15 +1759,6 @@ exception.
 POE::Session contains a two debugging assertions, for now.
 
 =over 2
-
-=item ASSERT_DEFAULT
-
-ASSERT_DEFAULT is used as the default value for all the other assert
-constants.  Setting it true is a quick and reliably way to ensure all
-Session assertions are enabled.
-
-Session's ASSERT_DEFAULT inherits Kernel's ASSERT_DEFAULT value unless
-overridden.
 
 =item ASSERT_STATES
 

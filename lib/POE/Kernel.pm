@@ -2521,7 +2521,7 @@ POE::Kernel - an event-based application kernel in Perl
   POE::Kernel->run();
   exit;
 
-In the spirit of Perl, there are a lot of other ways to do it.
+In the spirit of Perl, there are a lot of other ways to use POE.
 
 =head1 DESCRIPTION
 
@@ -2533,6 +2533,10 @@ foundation.
 POE::Kernel is not an event loop in itself.  For that it uses one of
 several available POE::Loop interface modules.  See CPAN for modules
 in the POE::Loop namespace.
+
+POE's documentation assumes the reader understands the @_ offset
+constants (KERNEL, HEAP, ARG0, etc.).  The curious or confused reader
+will find more detailed explanation in L<POE::Session>.
 
 =head1 USING POE
 
@@ -2609,6 +2613,12 @@ take exclusive control of a program's time, if necessary.
 
 Every POE-based application needs at least one session.  Code cannot
 run "within POE" without being a part of some session.
+
+Sessions in POE::Kernel should not be confused with
+L<POE::Session|POE::Session> even though the two are inextricably
+associated.  POE::Session adapts POE::Kernel's dispatcher to a
+particular calling convention.  Other POE::Session classes exist on
+CPAN.  Some radically alter the way event handlers are called.
 
 =head2 Session Lifespans
 
