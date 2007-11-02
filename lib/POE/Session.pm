@@ -8,7 +8,7 @@ use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 use Carp qw(carp croak);
-use Errno qw(ENOSYS);
+use Errno;
 
 sub SE_NAMESPACE    () { 0 }
 sub SE_OPTIONS      () { 1 }
@@ -425,7 +425,7 @@ sub _invoke_state {
     # make some noise about it.
 
     unless (exists $self->[SE_STATES]->{+EN_DEFAULT}) {
-      $! = ENOSYS;
+      $! = exists &Errno::ENOSYS ? &Errno::ENOSYS : &Errno::EIO;
       if ($self->[SE_OPTIONS]->{+OPT_DEFAULT} and $state ne EN_SIGNAL) {
         my $loggable_self =
           $POE::Kernel::poe_kernel->_data_alias_loggable($self);
