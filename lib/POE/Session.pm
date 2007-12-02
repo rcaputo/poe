@@ -1167,36 +1167,80 @@ processes are likely to have the same session IDs.  If a global ID is
 required, it will probably include both $_[KERNEL]->ID and
 $_[SESSION]->ID.
 
+=head2 option OPTION_NAME [, OPTION_VALUE [, OPTION_NAME, OPTION_VALUE]... ]
+
+option() sets and/or retrieves the values of various session options.
+The options in question are implemented by POE::Session and do not
+have any special meaning anywhere else.
+
+It may be called with a single OPTION_NAME to retrieve the value of
+that option.
+
+  my $trace_value = $_[SESSION]->option('trace');
+
+option() sets an option's value when called with a single OPTION_NAME,
+OPTION_VALUE pair.  In this case, option() returns the option's
+previous value.
+
+  my $previous_trace = $_[SESSION]->option(trace => 1);
+
+option() may also be used to set the values of multiple options at
+once.  In this case, option() returns all the specified options'
+previous values in an anonymous hashref:
+
+  my $previous_values = $_[SESSION]->option(
+    trace => 1,
+    debug => 1,
+  );
+
+  print "Previous option values:\n";
+  while (my ($option, $old_value) = each %$previous_values) {
+    print "  $option = $old_value\n";
+  }
+
+POE::Session currently supports three options:
+
+=head3 The "debug" option.
+
+The "debug" option is intended to enable additional warnings when
+strange things are afoot within POE::Session.  At this time, there is
+only one additional warning:
+
+Redefining an event handler does not usually cause a warning, but it
+will when the "debug" option is set.
+
+=head3 The "default" option.
+
+Enabling the "default" option causes unknown events to become
+warnings, if there is no _default handler to catch them.
+
+The class-level POE::Session::ASSERT_STATES flag is implemented by
+enabling the "default" option on all new sessions.
+
+=head3 The "trace" option.
+
+Turn on the "trace" option to dump a log of all the events dispatched
+to a particular session.  This is a session-specific trace option that
+allows individual sessions to be debugged.
+
+Session-level tracing also indicates when events are redirected to
+_default.  This can be used to discover event naming errors.
+
+=head3 User-defined options.
+
+option() does not verify whether OPTION_NAMEs are known, so option()
+may be used to store and retrieve user-defined information.
+
+Choose option names with caution.  There is no established convention
+to avoid namespace collisions between user-defined options and future
+internal options.
+
 -><- AM HERE
 
-=item option OPTION_NAME
+=head2 postback EVENT_NAME, EVENT_PARAMETERS
 
-=item option OPTION_NAME, OPTION_VALUE
+postback() is a factory that creates curried event generators.
 
-=item option NAME_VALUE_PAIR_LIST
-
-C<option()> sets and/or retrieves options' values.
-
-The first form returns the value of a single option, OPTION_NAME,
-without changing it.
-
-  my $trace_value = $_[SESSION]->option( 'trace' );
-
-The second form sets OPTION_NAME to OPTION_VALUE, returning the
-B<previous> value of OPTION_NAME.
-
-  my $old_trace_value = $_[SESSION]->option( trace => $new_trace_value );
-
-The final form sets several options, returning a hashref containing
-pairs of option names and their B<previous> values.
-
-  my $old_values = $_[SESSION]->option( trace => $new_trace_value,
-    debug => $new_debug_value,
-  );
-  print "Old option values:\n";
-  while (my ($option, $old_value) = each %$old_values) {
-    print "$option = $old_value\n";
-  }
 
 =item postback EVENT_NAME, EVENT_PARAMETERS
 
