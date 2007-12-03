@@ -1235,125 +1235,113 @@ Choose option names with caution.  There is no established convention
 to avoid namespace collisions between user-defined options and future
 internal options.
 
--><- AM HERE
-
 =head2 postback EVENT_NAME, EVENT_PARAMETERS
 
-postback() is a factory that creates curried event generators.
+postback() manufactures callbacks that post POE events.  It returns an
+anonymous code reference that will post EVENT_NAME to the target
+session, with optional EVENT_PARAMETERS in an array reference in ARG0.
+Parameters passed to the callback will be sent in an array reference
+in ARG1.
 
+In other words, ARG0 allows the postback's creator to pass context
+through the postback.  ARG1 allows the caller to return information.
 
-=item postback EVENT_NAME, EVENT_PARAMETERS
+This example creates a coderef that when called posts "ok_button" to
+$some_session with ARG0 containing [ 8, 6, 7 ].
 
-=item callback EVENT_NAME, EVENT_PARAMETERS
+  my $postback = $some_session->postback( "ok_button", 8, 6, 7 );
 
-postback() and callback() create anonymous coderefs that may be used
-as callbacks for other libraries.  A contrived example:
+Here's an example event handler for "ok_button".
 
-  my $postback = $session->postback( event_one => 1, 2, 3 );
-  my $callback = $session->callback( event_two => 5, 6, 7 );
-
-  use File::Find;
-  find( $callback, @directories_to_search );
-
-  $poe_main_window->Button(
-    -text    => 'Begin Slow and Fast Alarm Counters',
-    -command => $postback,
-  )->pack;
-
-When called, postbacks and callbacks fire POE events.  Postbacks use
-$kernel->post(), and callbacks use $kernel->call().  See POE::Kernel
-for post() and call() documentation.
-
-Each takes an EVENT_NAME, which is the name of the event to fire when
-called.  Any other EVENT_PARAMETERS are passed to the event's handler
-as a list reference in ARG0.
-
-Calling C<<$postback->("a", "b", "c")>> results in event_one's handler
-being called with the following arguments:
-
-  sub handle_event_one {
-    my $passed_through = $_[ARG0];  # [ 1, 2, 3 ]
-    my $passed_back    = $_[ARG1];  # [ "a", "b", "c" ]
+  sub handle_ok_button {
+    my ($creation_args, $called_args) = @_[ARG0, ARG1];
+    print "Postback created with (@$creation_args).\n";
+    print "Postback called with (@$called_args).\n";
   }
 
-Calling C<<$callback->("m", "n", "o")>> does the same:
+Calling $postback->(5, 3, 0, 9) would perform the equivalent of...
 
-  sub handle_event_two {
-    my $passed_through = $_[ARG0];  # [ 5, 6, 7 ]
-    my $passed_back    = $_[ARG1];  # [ "m", "n", "o" ]
-  }
+  $poe_kernel->post(
+    $some_session, "ok_button",
+    [ 8, 6, 7 ],
+    [ 5, 3, 0, 9 ]
+  );
 
-Therefore you can use ARG0 to pass state through a callback, while
-ARG1 contains information provided by the external library to its
-callbacks.
+This would be displayed when "ok_button" was dispatched to
+handle_ok_button():
 
-Postbacks and callbacks use reference counts to keep the sessions they
-are called upon alive.  This prevents sessions from disappearing while
-other code expects them to handle callbacks.  The Tk Button code above
-is an example of this in action.  The session will not stop until the
-widget releases its postback.
+  Postback created with (8 6 7).
+  Postback called with (5 3 0 9).
 
-The difference between postback() and callback() is subtle but can
-cause all manner of grief if you are not aware of it.  Postback
-handlers are not called right away since they are triggered by events
-posted through the queue.  Callback handlers are invoked immediately
-since they are triggered by call().
 
-Some libraries expect their callbacks to be invoked immediately.  They
-may go so far as to set up global variables for the duration of the
-callback.  File::Find is such a library.  Each callback receives a new
-filename in $_.  Delaying these callbacks until later means that $_
-will not contain expected values.  It is necessary to use callback()
-in these cases.
+Postbacks hold references to their target sessions.  Therefore
+sessions with outstanding postbacks will remain active.
 
-Most libraries pass state to their callbacks as parameters.
-Generally, postback() is the way to go.
+Postbacks were created as a thin adapter between callback libraries
+and POE.  The problem at hand was how to turn callbacks from the Tk
+graphical toolkit's widgets into POE events without subclassing
+several Tk classes.  The solution was to provide Tk with plain old
+callbacks that posted POE events.
 
 Since postback() and callback() are Session methods, they may be
 called on $_[SESSION] or $_[SENDER], depending on particular needs.
-There are usually better ways to interact between sessions, however.
+There are usually better ways to interact between sessions than
+abusing postbacks, however.
+
+Here's a brief example of attaching a Gtk2 button to a POE event
+handler:
+
+  my $btn = Gtk2::Button->new("Clear");
+  $btn->signal_connect( "clicked", $_[SESSION]->postback("ev_clear") );
+
+Points to remember: The session will remain alive as long as $btn
+exists and holds a copy of $_[SESSION]'s postback.  Any parameters
+passed by the Gtk2 button will be in ARG1.
+
+=head2 callback EVENT_NAME, EVENT_PARAMETERS
+
+callback() manufactures callbacks that use $poe_kernel->call() to
+deliver POE events rather than $poe_kernel->post().  It is identical
+to postback() in every other respect.
+
+callback() was created to avoid race conditions that arise when
+external libraries assume callbacks will execute synchronously.
+File::Find is an obvious (but not necessarily appropriate) example.
+It provides a lot of information in local variables that stop being
+valid after the callback.  The information would be unavailable by the
+time a post()ed event was dispatched.
 
 =item get_heap
 
-C<get_heap()> returns a reference to a session's heap.  It's the same
-value that's passed to every state via the C<HEAP> field, so it's not
-necessary within states.
+get_heap() returns a reference to a session's heap.  This is the same
+value as $_[HEAP] for the target session.  get_heap() is intended to
+be used with $poe_kernel and POE::Kernel's get_active_session() so
+that libraries do not need these three common values explicitly passed
+to them.
 
-Combined with the Kernel's C<get_active_session()> method,
-C<get_heap()> lets libraries access a Session's heap without having to
-be given it.  It's convenient, for example, to write a function like
-this:
+That is, it prevents the need for:
 
-  sub put_stuff {
-    my @stuff_to_put = @_;
-    $poe_kernel->get_active_session()->get_heap()->{wheel}->put(
-      @stuff_to_put
-    );
-  }
-
-  sub some_state {
+  sub some_helper_function {
+    my ($kernel, $session, $heap, @specific_parameters) = @_;
     ...;
-    &put_stuff( @stuff_to_put );
   }
 
-While it's more efficient to pass C<HEAP> along, it's also less
-convenient.
+Rather, helper functions may use:
 
-  sub put_stuff {
-    my ($heap, @stuff_to_put) = @_;
-    $heap->{wheel}->put( @stuff_to_put );
+  use POE::Kernel; # exports $poe_kernel
+  sub some_helper_function {
+    my (@specific_parameters) = @_;
+    my $session = $kernel->get_active_session();
+    my $hear = $session->get_heap();
   }
 
-  sub some_state {
-    ...;
-    &put_stuff( $_[HEAP], @stuff_to_put );
-  }
+This isn't very convenient for people writing libraries, but it makes
+the libraries much more convenient to use.
 
-Although if you expect to have a lot of calls to &put_a_wheel() in
-your program, you may want to optimize for programmer efficiency by
-using the first form.
+Using get_heap() to break another session's encapsulation is strongly
+discouraged.
 
-=back
+-><- AM HERE
 
 =head2 Subclassing
 
