@@ -122,9 +122,9 @@ and runtime environment.  It has since evolved into something much
 more generic and widely useful.
 
 POE provides a unified interface for several other event loops,
-including select(), L<IO::Poll>, L<Glib>, L<Gtk>, L<Tk>, L<Wx>, 
+including select(), L<IO::Poll|IO::Poll>, L<Glib>, L<Gtk>, L<Tk>, L<Wx>, 
 L<Gtk2>, and so on.
-Check the CPAN for the full list of L<POE::Loop> modules.
+Check the CPAN for the full list of L<POE::Loop|POE::Loop> modules.
 
 POE is designed in layers, each building atop the lower level ones.
 Programs are free to use POE at any level of abstraction, and
@@ -132,40 +132,40 @@ different levels can be mixed and matched seamlessly within a single
 program.
 
 POE's bundled abstraction layers are the tip of a growing iceberg.
-L<Sprocket>, L<POE::Stage>, and other CPAN distributions build upon this
+L<Sprocket>, L<POE::Stage|POE::Stage>, and other CPAN distributions build upon this
 work.  You're encouraged to look around.
 
 No matter how high you go, though, it all boils down to calls to
-POE::Kernel.  So your down-to-earth code can easily cooperate with
-stratospheric systems.
+L<POE::Kernel|POE::Kernel>.  So your down-to-earth code can easily cooperate
+with stratospheric systems.
 
 =head2 Layer 1: Kernel and Sessions
 
-The lowest public layer is comprised of L<POE::Kernel>, L<POE::Session>, and
-other session types.
+The lowest public layer is comprised of L<POE::Kernel|POE::Kernel>,
+L<POE::Session|POE::Session>, and other session types.
 
-L<POE::Kernel> does most of the heavy lifting.  It provides a portable
+L<POE::Kernel|POE::Kernel> does most of the heavy lifting.  It provides a portable
 interface for filehandle activity detection, multiple alarms and other
 timers, signal handling, and other less-common features.
 
-L<POE::Session> and derived classes encapsulate the notion of an event
+L<POE::Session|POE::Session> and derived classes encapsulate the notion of an event
 driven task.  They also customize event dispatch to a particular
-calling convention.  L<POE::NFA>, for example, is more of a proper state
+calling convention.  L<POE::NFA|POE::NFA>, for example, is more of a proper state
 machine.  The CPAN has several other kinds of sessions.
 
 Everything ultimately builds on these classes or the concepts they
 implement.  If you're short on time, the things to read besides this
-are L<POE::Kernel> and L<POE::Session>.
+are L<POE::Kernel|POE::Kernel> and L<POE::Session|POE::Session>.
 
 =head2 Layer 2: Wheels, Filters, and Drivers
 
-POE::Wheel objects are dynamic mix-ins for POE::Session instances.
-These "wheels" perform very common, generic tasks in a highly reusable
-and customizable way.  L<POE::Wheel::ReadWrite>, for example, implements
-non-blocking buffered I/O.  Nearly everybody needs this, so why
-require people to reinvent it all the time?
+POE::Wheel objects are dynamic mix-ins for POE::Session instances. These
+"wheels" perform very common, generic tasks in a highly reusable and
+customizable way.  L<POE::Wheel::ReadWrite|POE::Wheel::ReadWrite>, for
+example, implements non-blocking buffered I/O.  Nearly everybody needs this,
+so why require people to reinvent it all the time?
 
-L<POE::Filter> objects customize wheels in a modular way.  Filters act as
+L<POE::Filter|POE::Filter> objects customize wheels in a modular way.  Filters act as
 I/O layers, turning raw streams into structured data, and serializing
 structures into something suitable for streams.  The CPAN also has several
 of these.
@@ -175,25 +175,25 @@ some type of file handle.  Drivers do the actual reading and writing
 in a standard way so wheels don't need to know the difference between
 send() and syswrite().
 
-L<POE::Driver> objects get relatively short shrift because very few are
-needed.  The most common driver, L<POE::Driver::SysRW> is ubiquitous and
+L<POE::Driver|POE::Driver> objects get relatively short shrift because very few are
+needed.  The most common driver, L<POE::Driver::SysRW|POE::Driver::SysRW> is ubiquitous and
 also the default, so most people will never need to specify one.
 
 =head2 Layer 3: Components
 
-L<POE::Component> classes are essentially Perl classes that use POE to
+L<POE::Component|POE::Component> classes are essentially Perl classes that use POE to
 perform tasks in a non-blocking or cooperative way.  This is a very
 broad definition, and POE components are all over the abstraction map.
 
-Many components, such as L<POE::Component::Server::SMTP>, encapsulate the
+Many components, such as L<POE::Component::Server::SMTP|POE::Component::Server::SMTP>, encapsulate the
 generic details of an entire application.  Others perform rather
-narrow tasks, such as L<POE::Component::DirWatch::Object>.
+narrow tasks, such as L<POE::Component::DirWatch::Object|POE::Component::DirWatch::Object>.
 
 POE components are often just plain Perl objects.  The previously
-mentioned L<POE::Component::DirWatch::Object> uses L<Moose>.  Other object
+mentioned L<POE::Component::DirWatch::Object|POE::Component::DirWatch::Object> uses L<Moose|Moose>.  Other object
 and meta-object frameworks are compatible.
 
-Also of interest is L<POE::Component::Generic>, which is allows you to create
+Also of interest is L<POE::Component::Generic|POE::Component::Generic>, which is allows you to create
 a POE component from nearly nearly any blocking module.
 
 There are quite a lot of components on the CPAN.  
@@ -208,29 +208,29 @@ these high levels of abstraction, things will continue to interoperate
 all the way down to layer 1.
 
 Two examples of ultra-high level abstraction are L<Sprocket>, a networking
-framework that does its own thing, and L<POE::Stage>, which is POE's
+framework that does its own thing, and L<POE::Stage|POE::Stage>, which is POE's
 creator's attempt to formalize and standardize POE components.
 
 It is also possible to communicate between POE processes.  This is called
 IKC, for I<Inter-Kernel Communication>.  There are a few IKC components on
 the CPAN (L<http://search.cpan.org/search?query=IKC&mode=all>), notably
-L<POE::Component::IKC>, L<POE::TIKC> and L<POE::Component::Lightspeed>.
+L<POE::Component::IKC|POE::Component::IKC> and L<POE::TIKC|POE::TIKC>.
 
 =head2 Layer 0: POE's Internals
 
 POE's layered architecture continues below the surface.  POE's guts are
-broken into specific L<POE::Loop> classes for each event loop it supports. 
-Internals are divided up by type, giving L<POE::Resource> classes for
+broken into specific L<POE::Loop|POE::Loop> classes for each event loop it supports. 
+Internals are divided up by type, giving L<POE::Resource|POE::Resource> classes for
 Aliases, Controls, Events, Extrefs, FileHandles, SIDs, Sessions, Signals,
 and Statistics.
 
 POE::Kernel's APIs are extensible through POE::API mix-in classes.
 Some brave souls have even published new APIs on CPAN, such as
-L<POE::API::Peek> (which gives you access to some of the internal
-L<POE::Resource> methods).
+L<POE::API::Peek|POE::API::Peek> (which gives you access to some of the internal
+L<POE::Resource|POE::Resource> methods).
 
-By design, it's possible to implement new L<POE::Kernel> guts by creating
-another L<POE::Resource> class.  One can then expose the functionality with
+By design, it's possible to implement new L<POE::Kernel|POE::Kernel> guts by creating
+another L<POE::Resource|POE::Resource> class.  One can then expose the functionality with
 a new POE::API mix-in.
 
 =head1 DOCUMENTATION ROADMAP
@@ -241,59 +241,60 @@ talk about something more interesting.
 
 =head2 Basic Features
 
-POE's basic features are documented mainly in L<POE::Kernel> and
-L<POE::Session>.  Methods are documented in the classes that implement
+POE's basic features are documented mainly in L<POE::Kernel|POE::Kernel> and
+L<POE::Session|POE::Session>.  Methods are documented in the classes that implement
 them.  Broader concepts are covered in the most appropriate class, and
 sometimes they are divided among classes that share in their
 implementation.
 
 =head2 Basic Usage
 
-Basic usage, even for POE.pm, is documented in L<POE::Kernel>.  That's
+Basic usage, even for POE.pm, is documented in L<POE::Kernel|POE::Kernel>.  That's
 where most of POE's work is done, and POE.pm is little more than a
 class loader.
 
 =head2 @_[KERNEL, HEAP, etc.]
 
 Event handler calling conventions, that weird C<@_[KERNEL, HEAP]>
-stuff, is documented in L<POE::Session>.  That's because POE::Session
+stuff, is documented in L<POE::Session|POE::Session>.  That's because POE::Session
 implements the calling convention, and other session types often do it
 differently.
 
 =head2 Base Classes Document Common Features
 
-The  L<POE::Wheel>, L<POE::Driver>, L<POE::Filter>, and L<POE::Component>
-base classes describe what's common among each class.  It's a good idea to
-at least skim the base class documentation since the subclasses tend not to
+The L<POE::Wheel|POE::Wheel>, L<POE::Driver|POE::Driver>,
+L<POE::Filter|POE::Filter>, and L<POE::Component|POE::Component> base
+classes describe what's common among each class.  It's a good idea to at
+least skim the base class documentation since the subclasses tend not to
 rehash the common things.
 
-L<POE::Queue>, L<POE::Resource>, L<POE::Loop>, and L<POE::API> document the
+L<POE::Queue|POE::Queue>, L<POE::Resource|POE::Resource>, L<POE::Loop|POE::Loop>, and L<POE::API|POE::API> document the
 concepts and sometimes the standard interfaces behind multiple
 subclasess.  You're encouraged to have a look.
 
 =head2 Helper Classes
 
-POE includes some helper classes for portability.  L<POE::Pipe>, and its
-subclasses L<POE::Pipe::OneWay> and L<POE::Pipe::TwoWay> are portable pipes.
+POE includes some helper classes for portability.  L<POE::Pipe|POE::Pipe>, and its
+subclasses L<POE::Pipe::OneWay|POE::Pipe::OneWay> and L<POE::Pipe::TwoWay|POE::Pipe::TwoWay> are portable pipes.
 
 =head2 Event Loop Bridges
 
-L<POE::Loop> documents and specifies the interface for all of POE's event
+L<POE::Loop|POE::Loop> documents and specifies the interface for all of POE's event
 loop bridges.  The individual classes may document specific details,
 but generally they adhere to the spec strongly enough that they don't
 need to.
 
-Many of the existing L<POE::Loop> bridges provided in POE's base
+Many of the existing L<POE::Loop|POE::Loop> bridges provided in POE's base
 distribution will move out to separate distributions shortly.  The
 documentation will probably remain the same, however.
 
 =head2 POE::Queue and POE::Queue::Array
 
 POE's event queue is basically a priority heap implemented as an
-ordered array.  L<POE::Queue> documents the standard interface for POE
-event queues, and L<POE::Queue::Array> implements the ordered array
-queue.  Tony Cook has released L<POE::XS::Queue::Array>, which is a
-drop-in C replacement for L<POE::Queue::Array>.  You might give it a try
+ordered array.  L<POE::Queue|POE::Queue> documents the standard interface for POE
+event queues, and L<POE::Queue::Array|POE::Queue::Array> implements the ordered array
+queue.  Tony Cook has released L<POE::XS::Queue::Array|POE::XS::Queue::Array>, which is a
+drop-in C replacement for L<POE::Queue::Array|POE::Queue::Array>.  You might give it a try
 if you need more performance.  POE's event queue is some of the
 hottest code in the system.
 
@@ -322,25 +323,26 @@ POE's basic requirements are rather light.  Most are included with
 modern versions of Perl, and the rest (if any) should be generally
 portable by now.
 
-L<Time::HiRes> is highly recommended, even for older Perls that don't
+L<Time::HiRes|Time::HiRes> is highly recommended, even for older Perls that don't
 include it.  POE will work without it, but alarms and other features will be
-much more accurate if it's included. L<POE::Kernel> will use Time::HiRes
+much more accurate if it's included. L<POE::Kernel|POE::Kernel> will use Time::HiRes
 automatically if it's available.
 
-L<POE::Filter::Reference> needs a module to serialize data for transporting
-it across a network.  It will use L<Storable>, L<FreezeThaw>, L<YAML>, or
+L<POE::Filter::Reference|POE::Filter::Reference> needs a module to serialize data for transporting
+it across a network.  It will use L<Storable|Storable>, L<FreezeThaw|FreezeThaw>, L<YAML|YAML>, or
 some other package with freeze() and thaw() methods.  It can also use
-L<Compress::Zlib> to conserve bandwidth and reduce latency over slow links, but
+L<Compress::Zlib|Compress::Zlib> to conserve bandwidth and reduce latency over slow links, but
 it's not required.
 
 If you want to write web servers, you'll need to install libwww-perl, which
 requires libnet.  This is a small world of modules that includes
-L<HTTP::Status>, L<HTTP::Request>, L<HTTP::Date>, and L<HTTP::Response>. 
-They are generally good to have, and modern versions of Perl even include
-them.
+L<HTTP::Status|HTTP::Status>, L<HTTP::Request|HTTP::Request>,
+L<HTTP::Date|HTTP::Date>, and L<HTTP::Response|HTTP::Response>.  They are
+generally good to have, and modern versions of Perl even include them.
 
-Programs that use L<POE::Wheel::Curses> will of course  require the L<Curses>
-module, which in turn requires some sort of curses library.
+Programs that use L<POE::Wheel::Curses|POE::Wheel::Curses> will of course
+require the L<Curses> module, which in turn requires some sort of
+curses library.
 
 If you're using POE with Tk, you'll need L<Tk> installed.
 
@@ -574,14 +576,14 @@ Philip Gwyn is <gwynp@artware.qc.ca>.  He extended the Wheels I/O
 abstraction to support hot-swappable filters, and he eventually
 convinced Rocco that unique session and kernel IDs were a good thing.
 
-Philip also enhanced L<POE::Filter::Reference> to support different
-serialization methods.  He has also improved POE's quality by finding
-and fixing several bugs.  He provided POE a much needed code review
-around version 0.06.
+Philip also enhanced L<POE::Filter::Reference|POE::Filter::Reference> to
+support different serialization methods.  He has also improved POE's quality
+by finding and fixing several bugs.  He provided POE a much needed code
+review around version 0.06.
 
 =item Arnar M. Hrafnkelsson
 
-Arnar is <addi@umich.edu>.  Addi tested POE and L<POE::Component::IRC> on
+Arnar is <addi@umich.edu>.  Addi tested POE and L<POE::Component::IRC|POE::Component::IRC> on
 Windows, finding bugs and testing fixes.  He appears throughout the Changes
 file.  He has also written "cpoe", which is a POE-like library for C.
 
@@ -599,7 +601,7 @@ testing and troubleshooting.
 
 Dieter Pearcey is <dieter@bullfrog.perlhacker.org>.  He goes by several
 Japanese nicknames.  Dieter's current area of expertise is in Wheels and
-Filters.  He greatly improved L<POE::Wheel::FollowTail>, and his Filter
+Filters.  He greatly improved L<POE::Wheel::FollowTail|POE::Wheel::FollowTail>, and his Filter
 contributions include the basic Block filter, as well as Stackable,
 RecordBlock, Grep and Map.
 
@@ -616,9 +618,9 @@ problem relating to anonymous subs, scope and @{} processing.
 
 =item Matt Sergeant
 
-Matt contributed L<POE::Kernel::Poll>, a more efficient way to watch
+Matt contributed L<POE::Kernel::Poll|POE::Kernel::Poll>, a more efficient way to watch
 multiple files than select().  It's since been moved to
-L<POE::Loop::IO_Poll>.
+L<POE::Loop::IO_Poll|POE::Loop::IO_Poll>.
 
 =item Richard Soderberg
 
@@ -631,13 +633,13 @@ provides valuable testing and feedback from a user's point of view.
 Dennis Taylor is <dennis@funkplanet.com>.  Dennis has been testing,
 debugging and patching bits here and there, such as Filter::Line which
 he improved by leaps in 0.1102.  He's also the author of
-L<POE::Component::IRC>, the widely popular POE-based successor to his
-wildly popular L<Net::IRC> library.
+L<POE::Component::IRC|POE::Component::IRC>, the widely popular POE-based successor to his
+wildly popular L<Net::IRC|Net::IRC> library.
 
 =item David Davis
 
 David Davis, aka Xantus is <xantus@cpan.org>.  David contributed patches
-to the HTTPD filter, and added CALLER_STATE to L<POE::Session>.  He is the
+to the HTTPD filter, and added CALLER_STATE to L<POE::Session|POE::Session>.  He is the
 author of L<Sprocket>, a networking framework built on POE.
 
 =item Others?
