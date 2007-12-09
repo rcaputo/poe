@@ -234,8 +234,6 @@ sub ET_SIGNAL_ANY () { ET_SIGNAL | ET_SIGNAL_RECURSIVE }
 my %poes_own_events = (
   +EN_CHILD  => 1,
   +EN_GC     => 1,
-  +EN_CHILD  => 1,
-  +EN_GC     => 1,
   +EN_PARENT => 1,
   +EN_SCPOLL => 1,
   +EN_SIGNAL => 1,
@@ -688,7 +686,7 @@ sub sig {
 }
 
 # Public interface for posting signal events.
-# TODO - Like post(), signal() should return 
+# TODO - Like post(), signal() should return
 
 sub signal {
   my ($self, $dest_session, $signal, @etc) = @_;
@@ -2627,6 +2625,111 @@ particular calling convention.  Other POE::Session classes exist on
 the CPAN.  Some radically alter the way event handlers are called.
 L<http://search.cpan.org/search?query=poe+session>.
 
+=head2 Resources
+
+Resources are events and things which may create new events, such as
+timers, I/O watchers, and even other sessions.
+
+POE::Kernel tracks resources on behalf of its active sessions.  It
+generates events corresponding to these resources' activity, notifying
+sessions when it's time to do things.
+
+The conversation goes something like this:
+
+  Session: Be a dear, Kernel, and let me know when someone clicks on
+           this widget.  Thanks so much!
+
+  [TIME PASSES]  [SFX: MOUSE CLICK]
+
+  Kernel: Right, then.  Someone's clicked on your widget.
+          Here you go.
+
+Furthermore, since the Kernel keeps track of everything sessions do,
+it knows when a session has run out of tasks to perform.  When this
+happens, the Kernel emits a C<_stop> event at the dead session so it
+can clean up and shutdown.
+
+  Kernel: Please switch off the lights and lock up; it's time to go.
+
+Likewise, if a session stops on its own and there still are opened
+resource watchers, the Kernel knows about them and cleans them up on
+the session's behalf.  POE excels at long-running services because it
+so meticulously tracks and cleans up resources.
+
+POE::Resources and the POE::Resource classes implement each kind of
+resource, which are summarized here and covered in greater detail
+later.
+
+=over 2
+
+=item Events.
+
+An event is a message to a sessions.  Posting an event keeps both the
+sender and the receiver alive until after the event has been
+dispatched.  This is only guaranteed if both the sender and receiver
+are in the same process.  Inter-Kernel message passing add-ons may
+have other guarantees.  Please see their documentation for details.
+
+The rationale is that the event is in play, so the receiver must
+remain active for it to be dispatched.  The sender remains alive in
+case the receiver would like to send back a response.
+
+Posted events cannot be pre-emptively canceled.  They tend to be
+short-lived in practice, so this generally isn't an issue.
+
+=item Timers.
+
+Timers allow an application to send a message to the future. Once set,
+a timer will keep the destination session active until it goes off and
+the resulting event is dispatched.
+
+=item Aliases.
+
+Session aliases are an application-controled way of addressing a
+session.  Aliases act as passive event watchers.  As long as a session
+has an alias, some other session may send events to that session by
+that name.  Aliases keep sessions alive as long as a process has
+active sessions.
+
+If the only sessions remaining are being kept alive solely by their
+aliases, POE::Kernel will send them a terminal L</IDLE> signal.  In
+most cases this will terminate the remaining sessions and allow the
+program to exit.  If the sessions remain in memory without waking up
+on the C<IDLE> signal, POE::Kernel sends them a nonmaskable L</ZOMBIE>
+signal.  They are then forcibly removed, and the program will finally
+exit.
+
+=item I/O watchers.
+
+A session will remain active as long as a session is paying attention
+to some external data source or sink. See
+L<select_read|"select_read FILE_HANDLE [, EVENT_NAME [, ADDITIONAL_PARAMETERS] ]">
+and
+L<select_write|"select_write FILE_HANDLE [, EVENT_NAME [, ADDITIONAL_PARAMETERS] ]">.
+
+=item Child sessions.
+
+A session acting as a parent of one or more other sessions will remain
+active until all the child sessions stop.  This may be bypassed by
+detaching the children from the parent.
+
+=item Child processes.
+
+Child process are watched by sig_child().  The sig_child() watcher
+will keep the watching session active until the child process has been
+reaped by POE::Kernel and the resulting event has been dispatched.
+
+All other signal watchers, including using L</sig> to watch for
+C<CHLD>, do not keep their sessions active.  If you need a session to
+remain active when it's only watching for signals, have it set an
+alias or one of its own public reference counters.
+
+=item Public reference counters.
+
+A session will remain active as long as it has one or more nonzero
+public (or external) reference counter.
+
+=back
 
 =head2 Session Lifespans
 
@@ -2634,10 +2737,7 @@ L<http://search.cpan.org/search?query=poe+session>.
 concepts that share the name.  First there is the class POE::Session,
 and objects created with it or related classes.  Second there is a
 data structure within POE::Kernel that tracks the POE::Session objects
-in play and the various resources owned by each.  (Resources in this
-case are events, timers, I/O watchers, and so on.  POE::Resources and
-the POE::Resource classes implement the details, which are only being
-summarized here.)
+in play and the various resources owned by each.
 
 The way POE's garbage collector works is that a session object gives
 itself to POE::Kernel at creation time.  The Kernel then holds onto
@@ -2653,99 +2753,45 @@ example, a session may fail to handle a terminal signal.  In this
 case, POE::Kernel forces the session to stop, and all resources
 associated with the session are pre-emptively released.
 
-Resources keep sessions active.  Each is explained elsewhere in more detail.
-
-=over 2
-
-=item Events.  
-
-An event is a message to a sessions.  Posting an event keeps both the sender
-and the receiver alive until after the event has been dispatched.  This is
-only guaranteed if both the sender and receiver are in the same process. 
-Inter-Kernel message passing add-ons may have other guarantees.  Please see
-their documentation for details.
-
-The rationale is that the event is in play, so the receiver must
-remain active for it to be dispatched.  The sender remains alive in
-case the receiver would like to send back a response.
-
-Posted events cannot be pre-emptively canceled.  They tend to be
-short-lived in practice, so this generally isn't an issue.
-
-=item Timers.  
-
-Timers allow an application to send a message to the future. Once set, a
-timer will keep the destination session active until it goes off and the
-resulting event is dispatched.  
-
-=item Aliases.  
-
-Session aliases are an application-controled way of addressing a session.
-Aliases act as passive event watchers.  As long as a session has an alias,
-some other session may send events to that session by that name.  Aliases
-keep sessions alive as long as a process has active sessions.
-
-If the only sessions remaining are being kept alive solely by their aliases,
-POE::Kernel will send them a terminal L</IDLE> signal.  In most cases
-this will terminate the remaining sessions and allow the program to exit. 
-If the sessions remain in memory without waking up on the C<IDLE> signal,
-POE::Kernel sends them a nonmaskable L</ZOMBIE> signal.  They are then
-forcibly removed, and the program will finally exit.
-
-=item I/O watchers.  
-
-A session will remain active as long as a session is
-paying attention to some external data source or sink. See 
-L<select_read|"select_read FILE_HANDLE [, EVENT_NAME [, ADDITIONAL_PARAMETERS] ]">
-and 
-L<select_write|"select_write FILE_HANDLE [, EVENT_NAME [, ADDITIONAL_PARAMETERS] ]">.
-
-=item Child sessions.  
-
-A session acting as a parent of one or more other
-sessions will remain active until all the child sessions stop.  This
-may be bypassed by detaching the children from the parent.
-
-=item Child processes.
-
-Child process are watched by sig_child().  The sig_child() watcher will
-keep the watching session active until the child process has been
-reaped by POE::Kernel and the resulting event has been dispatched.
-
-All other signal watchers, including using L</sig> to watch for C<CHLD>, do
-not keep their sessions active.  If you need a session to remain active when
-it's only watching for signals, have it set an alias or one of its own
-public reference counters.
-
-=item Public reference counters.  
-
-A session will remain active as long as it
-has one or more nonzero public (or external) reference counter.
-
-=back
-
-
 =head2 Events
 
-An event is a message that is sent from one part of the POE application to
-another.  An event consists of the event's name, optional event-specific
-parameters and OOB information.  An event may be sent from the kernel, from
-a wheel or from a session.
+An event is a message that is sent from one part of the POE
+application to another.  An event consists of the event's name,
+optional event-specific parameters and OOB information.  An event may
+be sent from the kernel, from a wheel or from a session.
 
-An application creates an event with L</post>, L</yield>, L</call> or even
-L</signal>.  POE::Kernel creates events in response external stimulous
-(signals, select, etc).
-
-An event is handled by a function called an I<event handler>, generaly attached
-to a session.  See L</Event Handler Management> and L<POE::Session>.
-
-The term I<state> is often used in place of I<event handler>, especially
-when treating sessions as event driven state machines.
+An application creates an event with L</post>, L</yield>, L</call> or
+even L</signal>.  POE::Kernel creates events in response external
+stimulous (signals, select, etc).
 
 TODO - discuss the POE::Kernel queue
 
+=head3 Event Handlers
 
+An event is handled by a function called an I<event handler>, which is
+some code that is designated to be called when a particular event is
+dispatched.  See L</Event Handler Management> and L<POE::Session>.
 
+The term I<state> is often used in place of I<event handler>,
+especially when treating sessions as event driven state machines.
+
+Handlers are always called in scalar context for asynchronous events
+(i.e. via post()).  Synchronous events, invoked with call(), are
+handled in the same context that call() was called.
+
+Event handlers may not directly return references to objects in the
+"POE" namespace.  POE::Kernel will stringify these references to
+prevent timing issues with certain objects' destruction.  For example,
+this error handler would cause errors because a deleted wheel would
+not be destructed when one might think:
+
+  sub handle_error {
+    warn "Got an error";
+    delete $_[HEAP]{wheel};
+  }
+
+The delete() call returns the deleted wheel member, which is then
+returned implicitly by handle_error().
 
 =head2 Using POE with Other Event Loops
 
@@ -2772,14 +2818,15 @@ POE::Kernel.
 
 Remember that POE loads POE::Kernel internally.
 
-POE::Kernel examines the modules loaded before it and detects that L<Gtk>
-has been loaded.  If L<POE::Loop::Gtk|POE::Loop::Gtk> is available, POE loads and hooks
-it into POE::Kernel automatically.
+POE::Kernel examines the modules loaded before it and detects that
+L<Gtk> has been loaded.  If L<POE::Loop::Gtk|POE::Loop::Gtk> is
+available, POE loads and hooks it into POE::Kernel automatically.
 
-It's less mysterious to load the appropriate L<POE::Loop|POE::Loop> class
-directly. Their names follow the format C<POE::Loop::$loop_module_name>,
-where C<$loop_module_name> is the name of the event loop module after each
-C<::> has been substituted with an underscore.
+It's less mysterious to load the appropriate L<POE::Loop|POE::Loop>
+class directly. Their names follow the format
+C<POE::Loop::$loop_module_name>, where C<$loop_module_name> is the
+name of the event loop module after each C<::> has been substituted
+with an underscore.
 
   use POE::Loop::Event_Lib;
   use POE;
@@ -2794,11 +2841,11 @@ line.
   use POE::Kernel { loop => "Glib" };
 
 Many external event loops support their own callback mechanisms.
-L<POE::Session|POE::Session>'s L<"postback()"|POE::Session/postback> and 
-L<"callback()"|POE::Session/callback>
-methods return plain Perl code references that will generate POE events when
-called. Applications can pass these code references to event loops for use
-as callbacks.
+L<POE::Session|POE::Session>'s L<"postback()"|POE::Session/postback>
+and L<"callback()"|POE::Session/callback> methods return plain Perl
+code references that will generate POE events when called.
+Applications can pass these code references to event loops for use as
+callbacks.
 
 These are the four loops included in POE's distribution:
 
@@ -2812,8 +2859,8 @@ portable.  POE optimizes for correctness above all.
 
 This event loop provides interoperability with other modules that use
 L<Event>.  It may also provide a performance boost because L<Event> is
-written in a compiled language.  Unfortunately, this makes L<Event> less
-portable than Perl's built-in select().
+written in a compiled language.  Unfortunately, this makes L<Event>
+less portable than Perl's built-in select().
 
 =head3 POE::Loop::Gtk
 
@@ -2825,11 +2872,11 @@ toolkit.
 This event loop allows programs to work under the L<Tk> graphical
 toolkit.  Tk has some restrictions that require POE to behave oddly.
 
-Tk's event loop will not run unless one or more widgets are created. POE
-must therefore create such a widget before it can run. POE::Kernel exports
-$poe_main_window so that the application developer may use the widget (which
-is a L<MainWindow|Tk/MainWindow>), since POE doesn't need it other than for
-dispatching events.
+Tk's event loop will not run unless one or more widgets are created.
+POE must therefore create such a widget before it can run. POE::Kernel
+exports $poe_main_window so that the application developer may use the
+widget (which is a L<MainWindow|Tk/MainWindow>), since POE doesn't
+need it other than for dispatching events.
 
 Creating and using a different MainWindow often has an undesired
 outcome.
@@ -2854,9 +2901,9 @@ instance is assigned a (hopefully) globaly unique ID at birth.
   % perl -wl -MPOE -e 'print $poe_kernel->ID'
   poerbook.local-46c89ad800000e21
 
-While the IDs are made globaly unique by including hostname, time and PID,
-they should be considered an opaque but printable string.  That is, your
-code should not depend on the current format.
+While the IDs are made globaly unique by including hostname, time and
+PID, they should be considered an opaque but printable string.  That
+is, your code should not depend on the current format.
 
 =head3 run
 
@@ -2995,9 +3042,22 @@ value.
 =head2 Synchronous Messages
 
 It is sometimes necessary for code to be invoked right away.  For
-example, data (especially global data) may become stale between the
-time a message is enqueued and delivered.  POE provides ways to call
-message handlers right away.
+example, some resources must be serviced right away, or they'll
+faithfully continue reporting their readiness.  These reports would
+appear as a stream of duplicate events.  Synchronous events can also
+prevent data from going stale between the time an event is enqueued
+and the time it's delivered.
+
+Synchronous event handlers pre-empt POE's event queue, so they should
+perform simple tasks of limited duration.  Synchronous events that
+need to do more than just service a resource should pass the
+resource's information to an asynchronous handler.  Otherwise
+synchronous operations will occur out of order in relation to
+asynchronous events.  It's very easy to have race conditions or break
+causality this way, so try to avoid it unless you're okay with the
+consequences.
+
+POE provides these ways to call message handlers right away.
 
 =head3 call DESTINATION, EVENT_NAME [, PARAMETER_LIST]
 
@@ -3043,7 +3103,7 @@ of time has elapsed ("delays").
 
 Timer interfaces are further divided into two groups.  One group identifies
 timers by the names of their associated events.  Another group identifies
-timers by a unique identifyer returned by the timer constructors. 
+timers by a unique identifyer returned by the timer constructors.
 Technically, the two are both name-based, but the "identifier-based" timers
 provide a second, more specific handle to identify individual timers.
 
@@ -3521,13 +3581,12 @@ by using that alias rather than a session object or ID.  For example:
     }
   );
 
-A session with an alias will not stop until all other activity has stopped. 
+A session with an alias will not stop until all other activity has stopped.
 Aliases are treated as a kind of event watcher.  Events come from active
 sessions.  Aliases therefore become useless when there are no active
 sessions left.  Rather than leaving the program running in a "zombie" state,
-POE detects this deadlock condition and triggers a cleanup.
-
-TODO Link to SIGIDLE and SIGZOMBIE documentation.
+POE detects this deadlock condition and triggers a cleanup.  See
+L</Signal Classes> for more information.
 
 =head3 alias_set ALIAS
 
@@ -3816,10 +3875,10 @@ meaningful value.
 
 =head2 Session Management
 
-Sessions are dynamic.  They may be created and destroyed during a program's
-lifespan.  When a session is created, it becomes the "child" of the current
-session.  The creator -- the current session -- becomes its
-"parent" session.  This is loosely modeled after UNIX processes.
+Sessions are dynamic.  They may be created and destroyed during a
+program's lifespan.  When a session is created, it becomes the "child"
+of the current session.  The creator -- the current session -- becomes
+its "parent" session.  This is loosely modeled after UNIX processes.
 
 The most common session management is done by creating new sessions
 and allowing them to eventually stop.
@@ -3844,24 +3903,30 @@ is newly created or just about to be destroyed.
 
 =item _start
 
-_start should be familiar by now.  POE calls it to initialize a newly
-created session.  What is not readily apparent, however, is that it is
-invoked before the L<POE::Session|POE::Session> constructor returns.
+_start should be familiar by now.  POE dispatches the _start event to
+initialize a session after it has been registered under POE::Kernel.
+What is not readily apparent, however, is that it is invoked before
+the L<POE::Session|POE::Session> constructor returns.
 
-The _start event's "sender" is the new session's creator and current
-parent.
+Within the _start handler, the event's sender is the session that
+created the new session.  Otherwise known as the new session's
+I<parent>.  Sessions created before POE::Kernel->run() is called will
+be descendents of the program's POE::Kernel singleton.
 
 The _start handler's return value is passed to the parent session in a
-_child event, along with the notification that the parent's new child was
-created successfully.  Like _start, _child is invoked before the
-POE::Session constructor returns.
+_child event, along with the notification that the parent's new child
+was created successfully.  See the discussion of _child for more
+details.
 
-    POE::Session->create( inline_states => { _start=>\&_start }, 
-                          args => [ $some, $args ] );
-    sub _start {
-        my( $some, $args ) = @_[ ARG0, ARG1 ];
-        # ....
-    }
+  POE::Session->create(
+    inline_states => { _start=> \&_start },
+    args => [ $some, $args ]
+  );
+
+  sub _start {
+    my ( $some, $args ) = @_[ ARG0, ARG1 ];
+    # ....
+  }
 
 =item _stop
 
@@ -3873,12 +3938,13 @@ from _stop's handler.  A program is free to try, but the event will be
 destroyed before it has a chance to be dispatched.
 
 the _stop handler's return value is passed to the parent's _child
-event, along with the notification that the child session is in the
-process of stopping.
+event.  See _child for more details.
 
-_stop is invoked when a session has no further reason to live.  The
-corresponding _child handler is invoked synchronously along with
-_stop.
+_stop is usually invoked when a session has no further reason to live,
+although signals may cause them to stop sooner.
+
+The corresponding _child handler is invoked synchronously just after
+_stop returns.
 
 =item _parent
 
@@ -3887,10 +3953,18 @@ This usually happens when a session is first created.  It can also
 happen when a child session is detached from its parent. See
 L<detach_child|/"detach_child CHILD_SESSION"> and L</detach_myself>.
 
-    sub _parent {
-        my( $session, $new_parent ) = @_[ SESSION, ARG0 ];
-        # ....
-    }
+_parent's ARG0 contains the session's previous parent, and ARG1
+contains its new parent.
+
+  sub _parent {
+    my ( $old_parent, $new_parent ) = @_[ ARG0, ARG1 ];
+    print(
+      "Session ", $_[SESSION]->ID,
+      " parent changed from session ", $old_parent->ID,
+      " to session ", $new_parent->ID,
+      "\n"
+    );
+  }
 
 =item _child
 
@@ -3914,13 +3988,13 @@ In the 'create' case, ARG2 holds the value returned by the child
 session's _start handler.  Likewise, ARG2 holds the _stop handler's
 return value for the 'lose' case.
 
-    sub _child {
-        my( $reason, $child ) = @_[ ARG0, ARG1 ];
-        if( $reason eq 'create' ) {
-            my $retval = $_[ ARG2 ];
-        }
-        # ...
+  sub _child {
+    my( $reason, $child ) = @_[ ARG0, ARG1 ];
+    if( $reason eq 'create' ) {
+      my $retval = $_[ ARG2 ];
     }
+    # ...
+  }
 
 =back
 
@@ -3928,25 +4002,25 @@ The events are delivered in specific orders.
 
 =head4 When a new session is created:
 
-=over 4 
+=over 4
 
 =item 1
 
-The session's constructor is called.  
+The session's constructor is called.
 
-=item 2 
+=item 2
 
 The session is put into play.  That is, POE::Kernel
-enters the session into its bookkeeping.  
+enters the session into its bookkeeping.
 
 =item 3
 
-The new session receives _start.  
+The new session receives _start.
 
 =item 4
 
 The parent session receves _child ('create'), the new
-session reference, and the new session's _start's return value.  
+session reference, and the new session's _start's return value.
 
 =item 5
 
@@ -3964,25 +4038,25 @@ The session's constructor returns.
 If the session has children of its
 own, they are given to the session's parent.  This triggers one or
 more _child ('gain') events in the parent, and a _parent in each
-child.  
+child.
 
-=item 2 
+=item 2
 
 Once divested of its children, the stopping session
-receives a _stop event.  
+receives a _stop event.
 
 =item 3
 
 The stopped session's parent receives a
 _child ('lose') event with the departing child's reference and _stop
-handler's return value.  
+handler's return value.
 
-=item 4 
+=item 4
 
 The stopped session is removed from play,
-as are all its remaining resources.  
+as are all its remaining resources.
 
-=item 5 
+=item 5
 
 The parent session is checked
 for idleness.  If so, garbage collection will commence on it, and it
@@ -3999,7 +4073,7 @@ too will be stopped
 The parent session of
 the session being detached is notified with a _child ('lose') event.
 The _stop handler's return value is undef since the child is not
-actually stopping.  
+actually stopping.
 
 =item 2
 
@@ -4033,11 +4107,11 @@ nature of the failure:
 
 =over 4
 
-=item ESRCH ("No such process").  
+=item ESRCH ("No such process").
 
 The CHILD_SESSION is not a valid session.
 
-=item EPERM ("Operation not permitted").  
+=item EPERM ("Operation not permitted").
 
 The CHILD_SESSION exists, but it is not a child of the current session.
 
@@ -4045,8 +4119,8 @@ The CHILD_SESSION exists, but it is not a child of the current session.
 
 detach_child() will generate L</_parent> and/or L</_child> events to the
 appropriate sessions.  See L</"Session Management Events"> for a detailed
-explanation of these events.  See 
-L<above|/"When a session is detached from its parent:"> 
+explanation of these events.  See
+L<above|/"When a session is detached from its parent:">
 for the order the events are generated.
 
 =head4 detach_myself
@@ -4058,7 +4132,7 @@ explain the nature of the failure:
 
 =over 4
 
-=item EPERM ("Operation not permitted").  
+=item EPERM ("Operation not permitted").
 
 The current session is alreay a
 child of POE::Kernel, so it may not be detached.
@@ -4067,11 +4141,9 @@ child of POE::Kernel, so it may not be detached.
 
 detach_child() will generate L</_parent> and/or L</_child> events to the
 appropriate sessions.  See L</"Session Manaement Events"> for a detailed
-explanation of these events.  See 
-L<above|/"When a session is detached from its parent:"> 
+explanation of these events.  See
+L<above|/"When a session is detached from its parent:">
 for the order the events are generated.
-
-
 
 =head2 Signals
 
@@ -4105,9 +4177,7 @@ not handled.
 It is possible for an application to create its own benign signals.  See
 L</signal> below.
 
-
-
-=head4 Terminal signals 
+=head4 Terminal signals
 
 Terminal signals will kill sessions if they are not handled by a
 L</sig_handled>() call.  The OS signals that usually kill or dump a process
@@ -4126,7 +4196,7 @@ L</"Exception Handling"> for details.
 =item IDLE
 
 The C<IDLE> signal is used to notify leftover sessions that a
-program has run out of things to do.  
+program has run out of things to do.
 
 =back
 
@@ -4158,7 +4228,6 @@ widget is closed.
 
 =back
 
-
 =head3 Common Signal Dispatching
 
 Most signals are not dispatched to a single session.  POE's session
@@ -4185,7 +4254,7 @@ parent of sessions 4 and 5.  And session 3 is the parent of 6 and 7.
 
 A signal sent to Session 2 may also be dispatched to sessionl 4 and 5
 because they are 2's children.  Sessions 4 and 5 will only receive the
-signal if they have registered the appropriate watcher.  If the signal is 
+signal if they have registered the appropriate watcher.  If the signal is
 terminal, and none of the signal watchers in sessions 2, 4 and 5 called
 C<sig_handled()>, all 3 sessions will be terminated.
 
@@ -4195,35 +4264,40 @@ will propagate through every interested session in the entire program.
 This is in fact how OS signals are handled: A global signal handler is
 registered to forward the signal to POE::Kernel.
 
-=head3 Special Signal Semantics (SIGCHLD, SIGPIPE and SIGWINCH)
+=head3 Signal Semantics
 
-Certain signals have special semantics.
+All signals come with the signal name in ARG0.  The signal name is as
+it appears in %SIG, with one exception: Child process signals are
+always "CHLD" even if the current operating system recognizes them as
+"CLD".
+
+Certain signals have special semantics:
 
 =head4 SIGCHLD
 
 =head4 SIGCLD
 
-Both C<SIGCHLD> and C<SIGCLD> indicate that a child process has exited or
-been terminated by some signal.  The actual signal name varies between
-operating systems, but POE uses C<CHLD> regardless.
+Both C<SIGCHLD> and C<SIGCLD> indicate that a child process has exited
+or been terminated by some signal.  The actual signal name varies
+between operating systems, but POE uses C<CHLD> regardless.
 
-Interest in C<SIGCHLD> is registered using the L</sig_child> method.  The
-L</sig>() method also works, but it's not as nice.
+Interest in C<SIGCHLD> is registered using the L</sig_child> method.
+The L</sig>() method also works, but it's not as nice.
 
-The C<SIGCHLD> event includes three parameters: 
+The C<SIGCHLD> event includes three parameters:
 
 =over
 
 =item ARG0
 
-C<ARG0> contains the string 'CHLD' (even if the OS calls it SIGCLD, SIGMONKEY, or something
-else).  
+C<ARG0> contains the string 'CHLD' (even if the OS calls it SIGCLD,
+SIGMONKEY, or something else).
 
 =item ARG1
 
 C<ARG1> contains the process ID of the finished child process.
 
-=item ARG2 
+=item ARG2
 
 And C<ARG2> holds the value of C<$?> for the finished process.
 
@@ -4231,11 +4305,10 @@ And C<ARG2> holds the value of C<$?> for the finished process.
 
 Example:
 
-    sub sig_CHLD {
-        my( $name, $PID, $exit_val ) = @_[ ARG0, ARG1, ARG2 ];
-        # ...
-    }
-
+  sub sig_CHLD {
+    my( $name, $PID, $exit_val ) = @_[ ARG0, ARG1, ARG2 ];
+    # ...
+  }
 
 SIGCHLD is not handled by registering a C<%SIG> handler, although it may
 be in the future.  For now, POE polls for child processes using a
@@ -4252,7 +4325,8 @@ be the one that caused the OS to send the signal in the first place.
 
 The SIGPIPE signal will still propagate to child sessions.
 
-TODO - what are ARG0, ARG1 ... in SIGPIPE
+ARG0 is "PIPE".  There is no other information associated with this
+signal.
 
 =head4 SIGWINCH
 
@@ -4260,8 +4334,8 @@ Window resizes can generate a large number of signals very quickly.
 This may not be a problem when using perl 5.8.0 or later, but earlier
 versions may not take kindly to such abuse.  You have been warned.
 
-TODO - what are ARG0, ARG1 ... in SIGWINCH
-
+ARG0 is "WINCH".  There is no other information associated with this
+signal.
 
 =head3 Exception Handling
 
@@ -4321,32 +4395,31 @@ Note that the C<DIE> signal is sent to the session that raised the
 exception, not the session that sent the event that caused the exception to
 be raised.
 
-    sub _start {
-        $poe_kernel->sig( DIE => 'sig_DIE' );
-        $poe_kernel->yield( 'some_event' );
+  sub _start {
+    $poe_kernel->sig( DIE => 'sig_DIE' );
+    $poe_kernel->yield( 'some_event' );
+  }
+
+  sub some_event {
+    die "I didn't like that!";
+  }
+
+  sub sig_DIE {
+    my( $sig, $ex ) = @_[ ARG0, ARG1 ];
+    # $sig is 'DIE'
+    # $ex is the exception hash
+    warn "$$: error in $event: $ex->{error_str}";
+    $poe_kernel->sig_handled();
+
+    # Send the signal to session that sent the original event.
+    if( $ex->{source_session} ne $_[SESSION] ) {
+      $poe_kernel->signal( $ex->{source_session}, 'DIE', $sig, $ex );
     }
+  }
 
-    sub some_event {
-        die "I didn't like that!";
-    }
-
-    sub sig_DIE {
-        my( $sig, $ex ) = @_[ ARG0, ARG1 ];
-        # $sig is 'DIE'
-        # $ex is the exception hash
-        warn "$$: error in $event: $ex->{error_str}";
-        $poe_kernel->sig_handled();
-        
-        # Send the signal to session that sent the original event.
-        if( $ex->{source_session} ne $_[SESSION] ) {
-            $poe_kernel->signal( $ex->{source_session}, 'DIE', $sig, $ex );
-
-        }
-    }
-
-POE::Kernel's built-in exception handling can be disabled
-by setting the C<POE::Kernel::CATCH_EXCEPTIONS> constant to zero.  As
-with other compile-time configuration constants, it must be set before
+POE::Kernel's built-in exception handling can be disabled by setting
+the C<POE::Kernel::CATCH_EXCEPTIONS> constant to zero.  As with other
+compile-time configuration constants, it must be set before
 POE::Kernel is compiled:
 
   BEGIN {
@@ -4384,7 +4457,7 @@ created by the application and have no basis in the operating system.
   }
 
 The operating system may never be able to generate the last two
-signals, but a POE session can by using POE::Kernel's 
+signals, but a POE session can by using POE::Kernel's
 L</signal>() method.
 
 Later on the session may decide not to handle the signals:
@@ -4419,19 +4492,18 @@ active.  This is unique among signal watchers.
 
 sig_chid() does not return a meaningful value.
 
+  sub forked_parent {
+    my( $heap, $pid, $details ) = @_[ HEAP, ARG0, ARG1 ];
+    $heap->{$pid} = $details;
+    $poe_kernel->sig_child( $pid, 'sig_child' );
+  }
 
-    sub forked_parent {
-        my( $heap, $pid, $details ) = @_[ HEAP, ARG0, ARG1 ];
-        $heap->{$pid} = $details;
-        $poe_kernel->sig_child( $pid, 'sig_child' );
-    }
-
-    sub sig_child {
-        my( $heap, $sig, $pid, $exit_val ) = @_[ HEAP, ARG0, ARG1, ARG2 ];
-        my $details = delete $heap->{ $pid };
-        warn "$$: Child $pid exited"
-        # ....
-    }
+  sub sig_child {
+    my( $heap, $sig, $pid, $exit_val ) = @_[ HEAP, ARG0, ARG1, ARG2 ];
+    my $details = delete $heap->{ $pid };
+    warn "$$: Child $pid exited"
+    # ....
+  }
 
 =head3 sig_handled
 
@@ -4446,14 +4518,14 @@ If none of them call it, however, then they are all stopped together.
 
 sig_handled() does not return a meaningful value.
 
-    sub _start {
-        $_[KERNEL]->sig( INT => 'sig_INT' );
-    }
+  sub _start {
+    $_[KERNEL]->sig( INT => 'sig_INT' );
+  }
 
-    sub sig_INT {
-        warn "$$ SIGINT";
-        $_[KERNEL]->sig_handled();
-    }
+  sub sig_INT {
+    warn "$$ SIGINT";
+    $_[KERNEL]->sig_handled();
+  }
 
 =head3 signal SESSION, SIGNAL_NAME [, ARGS_LIST]
 
@@ -4487,13 +4559,11 @@ The SESSION does not exist.
 
 =back
 
-
 Because all sessions are a child of POE::Kernel, sending a signal to
-the kernel will propagate the signal to all sessions.  This is a cheap 
+the kernel will propagate the signal to all sessions.  This is a cheap
 form of I<mutlicast>.
 
-    $_[KERNEL]->signal( $_[KERNEL], 'shutdown' );
-
+  $_[KERNEL]->signal( $_[KERNEL], 'shutdown' );
 
 =head3 signal_ui_destroy WIDGET_OBJECT
 
@@ -4529,7 +4599,6 @@ There is only one method in this group.  Since it may be called in
 several different ways, it may be easier to understand if each is
 documented separately.
 
-
 =head3 state EVENT_NAME [, CODE_REFERNCE]
 
 state() sets or removes a handler for EVENT_NAME in the current
@@ -4562,8 +4631,8 @@ A session may only have one handler for a given EVENT_NAME.
 Subsequent attempts to set an EVENT_NAME handler will replace earlier
 handlers with the same name.
 
-    $_[KERNEL]->state( 'some_event', $self );
-    $_[KERNEL]->state( 'other_event', $self, 'other_method' );
+  $_[KERNEL]->state( 'some_event', $self );
+  $_[KERNEL]->state( 'other_event', $self, 'other_method' );
 
 =head3 state EVENT_NAME [, CLASS_NAME [, CLASS_METHOD_NAME] ]
 
@@ -4580,8 +4649,8 @@ A session may only have one handler for a given EVENT_NAME.
 Subsequent attempts to set an EVENT_NAME handler will replace earlier
 handlers with the same name.
 
-    $_[KERNEL]->state( 'some_event', __PACKAGE__ );
-    $_[KERNEL]->state( 'other_event', __PACKAGE__, 'other_method' );
+  $_[KERNEL]->state( 'some_event', __PACKAGE__ );
+  $_[KERNEL]->state( 'other_event', __PACKAGE__, 'other_method' );
 
 =head2 Public Reference Counters
 
@@ -4607,7 +4676,6 @@ session while it processes a request from that session.  In doing so, the
 component guarantees that the requester is still around when a response is
 eventually ready.  Keeping a reference to the session's object is not
 enough.  POE::Kernel has its own internal reference counting mechanism.
-
 
 =head3 refcount_increment SESSION_ID, COUNTER_NAME
 
@@ -4683,30 +4751,30 @@ equivalent to L<POE::Session|POE::Session>'s C<$_[SESSION]>.
 This method was added for libraries that need C<$_[SESSION]> but don't
 want to include it as a parameter in their APIs.
 
-    sub some_housekeeping {
-        my( $self ) = @_;
-        my $session = $poe_kernel->get_active_session;
-        # do some housekeeping on $session
-    }
+  sub some_housekeeping {
+    my( $self ) = @_;
+    my $session = $poe_kernel->get_active_session;
+    # do some housekeeping on $session
+  }
 
 =head3 get_active_event
 
 get_active_event() returns the name of the event currently being
 dispatched.  It returns an empty string when called outside event
-dispatch.  The value is equivalent to L<POE::Session|POE::Session>'s C<$_[STATE]>.
+dispatch.  The value is equivalent to L<POE::Session|POE::Session>'s
+C<$_[STATE]>.
 
-    sub waypoint {
-        my( $message ) = @_;
-        my $event = $poe_kernel->get_active_event;
-        print STDERR "$$:$event:$mesage\n";
-    }
-
+  sub waypoint {
+    my( $message ) = @_;
+    my $event = $poe_kernel->get_active_event;
+    print STDERR "$$:$event:$mesage\n";
+  }
 
 =head3 get_event_count
 
 get_event_count() returns the number of events pending in POE's event
-queue.  It is exposed for L<POE::Loop|POE::Loop> class authors.  It may be
-deprecated in the future.
+queue.  It is exposed for L<POE::Loop|POE::Loop> class authors.  It
+may be deprecated in the future.
 
 =head3 get_next_event_time
 
@@ -4763,8 +4831,9 @@ $poe_main_window is used by graphical toolkits that require at least
 one widget to be created before their event loops are usable.  This is
 currently only Tk.
 
-L<POE::Loop::Tk|POE::Loop::Tk> creates a main window to satisfy Tk's event loop.  The
-window is given to the application since POE has no other use for it.
+L<POE::Loop::Tk|POE::Loop::Tk> creates a main window to satisfy Tk's
+event loop.  The window is given to the application since POE has no
+other use for it.
 
 C<$poe_main_window> is undefined in toolkits that don't require a widget
 to dispatch events.
@@ -4962,8 +5031,8 @@ At the end of a run, POE will display a table fo each event name and
 its dispatch count.
 
 When TRACE_PROFILE is enabled, a program may call
-C<< $_[KERNEL]->stat_show_profile() >> to display a current dispatch profile
-snapshot.
+C<< $_[KERNEL]->stat_show_profile() >> to display a current dispatch
+profile snapshot.
 
 See TRACE_STATISTICS for more profiling.
 
