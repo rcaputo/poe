@@ -844,12 +844,12 @@ uses it for a few reasons:
 1. In the common case, passing parameters in @_ is faster than passing
 hash or array references and then dereferencing them in the handler.
 
-2. Typos in hash-based parameter lists are either subtle runitme
+2. Typos in hash-based parameter lists are either subtle runtime
 errors or requires constant runtime checking.  Constants are either
 known at compile time, or are clear compile-time errors.
 
 3. Referencing @_ offsets by constants allows parameters to move
-the future without breaking application code.
+in the future without breaking application code.
 
 4. Most event handlers don't need all of @_.  Slices allow handlers to
 use only the parameters they're interested in.
@@ -861,7 +861,7 @@ callback parameters.  POE::Kernel provides many of them.
 
 =head3 $_[OBJECT]
 
-$_[OBJECT] is $self for event handlers that are object method.  It is
+$_[OBJECT] is $self for event handlers that are an object method.  It is
 the class (package) name for class-based event handlers.  It is undef
 for plain coderef callbacks, which have no special $self-ish value.
 
@@ -882,7 +882,7 @@ methods in the same object.  $_[OBJECT] helps this happen.
 =head3 $_[SESSION]
 
 $_[SESSION] is a reference to the current session.  This lets event
-handlers access their sessions' methods.  Programs may also compare
+handlers access their session's methods.  Programs may also compare
 $_[SESSION] to $_[SENDER] to verify that intra-session events did not
 come from elsewhere.
 
@@ -1023,11 +1023,13 @@ what the heck---go ahead and mix in some inline code as well.
       $object_1 => { event_1a => "method_1a" },
       $object_2 => { event_2a => "method_2a" },
     ],
-    event_3 => \&piece_of_code,
+    inline_states => {
+      event_3 => \&piece_of_code,
+    },
   );
 
 However only one handler may be assigned to a given event name.
-Duplicates will overwrite earlier ones.
+Duplicates will be overwrite earlier ones.
 
 event_1a is handled by calling $object_1->method_1a(...).  $_[OBJECT]
 is $object_1 in this case.  $_[HEAP] belongs to the session, which
@@ -1040,7 +1042,7 @@ that was passed to the event_1a handler, though.
 
 event_3 is handled by calling piece_of_code(...).  $_[OBJECT] is undef
 here because there's no object.  And once again, $_[HEAP] is the same
-shared hashref that handlers for event_1a and event_2a saw.
+shared hashref that the handlers for event_1a and event_2a saw.
 
 To make it more interesting, there's no technical reason that a
 single object can't handle events from more than one session:
@@ -1113,7 +1115,7 @@ This example would print "arg0 arg1 etc.":
 
 The C<heap> parameter allows a session's heap to be initialized
 differently at instantiation time.  Heaps are usually anonymous
-hashrefs, but C<heap> may set them to be list references or even
+hashrefs, but C<heap> may set them to be array references or even
 objects.
 
 This example prints "tree":
@@ -1154,7 +1156,7 @@ anonymous subroutines.
 
 C<object_states> associates one or more objects to a session and maps
 event names to the object methods that will handle them.  It's value
-is an B<arrayref> (hashrefs would stringify the objects, ruining them
+is an B<ARRAYREF> (hashrefs would stringify the objects, ruining them
 for method invocation).
 
 Here _start is handled by $object->_session_start() and _stop triggers
@@ -1185,7 +1187,7 @@ POE::Session sessions support a small number of options, which may be
 initially set with the C<option> constructor parameter and changed at
 runtime with the option() mehtod.
 
-C<option> takes a hashref with option.value pairs:
+C<option> takes a hashref with option =E<gt> value pairs:
 
   POE::Session->create(
     ... set up handlers ...,
@@ -1498,7 +1500,7 @@ event unless the "default" option is set.
 
 To preserve the original information, the original event is slightly
 changed before being redirected to the _default handler:  The original
-event parameters are moved to a list reference in ARG1, and the
+event parameters are moved to an array reference in ARG1, and the
 original event name is passed to _default in ARG0.
 
   sub handle_default {
@@ -1536,14 +1538,14 @@ different for other session types.
 
 =head2 POE::Session's Debugging Features
 
-POE::Session contains one debugging assertions, for now.
+POE::Session contains one debugging assertion, for now.
 
 =head3 ASSERT_STATES
 
 Setting ASSERT_STATES to true causes every Session to warn when they
 are asked to handle unknown events.  Session.pm implements the guts of
 ASSERT_STATES by defaulting the "default" option to true instead of
-false.  See the option() function earlier in this document for details
+false.  See the option() method earlier in this document for details
 about the "default" option.
 
 TODO - It's not much of an assertion if it only warns.
