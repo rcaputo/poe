@@ -42,118 +42,229 @@ __END__
 
 =head1 NAME
 
-POE::Wheel - high-level protocol logic
+POE::Wheel - event-driven mixins for POE::Session
 
 =head1 SYNOPSIS
 
-  $wheel = POE::Wheel::Something->new( ... );
-  $wheel->put($some_logical_data_chunks);
+This base class has no synopsis.
+Please consult one of the subclasses instead.
 
 =head1 DESCRIPTION
 
-Wheels are bundles of event handlers (states) which perform common
-tasks.  Wheel::FollowTail, for example, contains I/O handlers for
-watching a file as it grows and reading the new information when it
-appears.
+A POE::Wheel object encapsulates a bundle of event handlers that
+perform a specific task.  It also manages the event watchers that
+trigger those handlers.
 
-Unlike Components, Wheels do not stand alone.  Each wheel must be
-created by a session, and each belongs to their parent session until
-it's destroyed.
+Object lifetime is very important for POE wheels.  At creation time,
+most wheels will add anonymous event handlers to the currently active
+session.  In other words, the session that created the wheel is
+modified to handle new events.  Event watchers may also be initialized
+as necessary to trigger the new handlers.
 
-=head1 COMMON PUBLIC WHEEL METHODS
+Destroying a wheel will unregister the encapsulated anonymous event
+handlers and stop any active event watchers associated with the
+wheel's task.  It's therefore imperative that the object be saved
+somewhere for as long as it's needed.  The heap of the session that
+created the wheel is a good place.
 
-These methods are the generic Wheel interface, and every wheel must
-implement them.
+For example, creating a POE::Wheel::FollowTail object will register an
+event handler that periodically polls a file for new information.  It
+will also start the timer that triggers the periodic polling.
 
-=over 2
+  use POE;
+  use POE::Wheel::FollowTail;
 
-=item new LOTS_OF_STUFF
+  my @files_to_tail = qw( messages maillog security );
 
-new() creates a new wheel, returning the wheels reference.  The new
-wheel will continue to run for as long as it exists.  Every wheel has
-a different purpose and requires different parameters, so
-LOTS_OF_STUFF will vary from one to the next.
+  foreach my $filename (@files_to_tail) {
+    POE::Session->create(
+      inline_states => {
+        _start => sub {
+          $_[HEAP]{messages} = POE::Wheel::FollowTail->new(
+           Filename   => "/var/log/$filename",
+           InputEvent => "got_input",
+          );
+        },
+        got_input => sub {
+          print "$filename: $_[ARG0]\n";
+        },
+      }
+    );
+  }
 
-=item DESTROY
+  POE::Kernel->run();
+  exit;
 
-Perl calls DESTROY when the wheel's last reference is relinquished.
-This triggers the wheel's destruction, which stops the wheel and
-releases whatever resources it was managing.
+As illustrated in the previous example it is possible---and even
+recommended in some cases---to create more than one POE::Wheel of a
+particular type in the same session.  A session with multiple wheels
+may scale better than separate sessions with one wheel apiece.  When
+in doubt, benchmark.
 
-=item event TYPE => EVENT_NAME, ...
+Unlike components (or cheese), wheels do not stand alone.  Each wheel
+must be created by a session in order to register event watchers and
+handlers within that session.  Wheels are thusly tightly coupled to
+their creator sessions and cannot be passed to other sessions.
+
+=head1 METHODS
+
+POE::Wheel defines a common interface that most subclasses use.
+Subclasses may implement other methods, especially to help perform
+their unique tasks.  If something useful isn't documented here, see
+the subclass before implementing a feature.
+
+=head2 REQUIRED METHODS
+
+These methods are required by all subclasses.
+
+=head3 new LOTS_OF_STUFF
+
+new() instantiates and initializes a new wheel object and returns it.
+The new wheel will continue to function for as long as it exists,
+although other methods may alter the way it functions.
+
+Part of any wheel's construction is the registration of anonymous
+event handlers to perform wheel-specific tasks.  Event watchers are
+also started to trigger the handlers when relevant activity occurs.
+
+Every wheel has a different purpose and requires different constructor
+parameters, so LOTS_OF_STUFF is documented in each particular
+subclass.
+
+=head3 DESTROY
+
+DESTROY is Ye Olde Perl Object Destructor.  When the wheel's last
+strong reference is relinquished, DESTROY triggers the wheel's
+cleanup.  The object removes itself from the session that created it:
+Active event watchers are stopped, and anonymous event handlers are
+unregistered.
+
+=head3 event EVENT_TYPE, EVENT_NAME [, EVENT_TYPE, EVENT_NAME, ....]
 
 event() changes the events that a wheel will emit.  Its parameters are
-pairs of event TYPEs and the EVENT_NAMEs to emit when each type of
-event occurs.
+one or more pairs of EVENT_TYPEs and the EVENT_NAMEs to emit when each
+type of event occurs.  If an EVENT_NAME is undefined, then the wheel
+will stop emitting that type of event.  Or the wheel may throw an
+error if the event type is required.
 
-Event TYPEs differ for each wheel, and their manpages discuss them in
-greater detail.  EVENT_NAMEs may be undef, in which case a wheel will
-stop emitting an event for that TYPE.
+EVENT_TYPEs differ for each wheel and correspond to the constructor
+parameters that match /.*Event$/.  For example, POE::Wheel::ReadWrite
+may emit up to five different kinds of event: InputEvent, ErrorEvent,
+FlushedEvent, HighEvent, LowEvent.  The name of each emitted event may
+be changed at runtime.
 
 This example changes the events to emit on new input and when output
 is flushed.  It stops the wheel from emitting events when errors
 occur.
 
-  $wheel->event( InputEvent   => 'new_input_event',
-                 ErrorEvent   => undef,
-                 FlushedEvent => 'new_flushed_event',
-               );
+  $wheel->event(
+    InputEvent   => 'new_input_event',
+    ErrorEvent   => undef,
+    FlushedEvent => 'new_flushed_event',
+  );
 
-=back
+=head2 I/O WHEEL METHODS
 
-=head1 I/O WHEEL COMMON METHODS
+Wheels that perform input and output may implement some or all of
+these methods.  The put() method is a common omission.  Wheels that
+don't perform output do not have put() methods.
 
-These methods are common to I/O wheels.  Some I/O wheels are read-only
-and will not have a put() method.
+=head3 put RECORD [, RECORD [, ....]]
 
-=over 2
+put() sends one or more RECORDs to the wheel for transmitting.  Each
+RECORD is serialized by the wheel's associated POE::Filter so that it
+will be ready to transmit.  The serialized stream may be transmitted
+immeditately by the wheel's POE::Driver object, or it may be buffered
+in the POE::Driver until it can be flushed to the output filehandle.
 
-=item put LIST
+Most wheels use POE::Filter::Line and POE::Driver::SysRW by default,
+so it's not necessary to specify them in most cases.
 
-put() sends a LIST of one or more records to the wheel for
-transmitting.  Each thing in the LIST is serialized by the wheel's
-Filter, and then buffered in the wheel's Driver until it can be
-flushed to its filehandle.
+=head2 CLASS STATIC FUNCTIONS
 
-=back
+These functions expose information that is common to all wheels.  They
+are not methods, so they should B<not> be called as methods.
 
-=head1 STATIC FUNCTIONS
+  my $new_wheel_id = POE::Wheel::allcoate_wheel_id();
+  POE::Wheel::free_wheel_id($new_wheel_id);
 
-These functions keep global information about all wheels.  They should
-be called as normal functions:
+=head3 allocate_wheel_id
 
-  &POE::Wheel::function( ... );
+B<This is not a class method.>
 
-=over 2
+Every wheel has a unique ID.  allocate_wheel_id() returns the next
+available unique wheel ID.  Wheel constructors use it to set their IDs
+internally.
 
-=item allocate_wheel_id
+  package POE::Wheel::Example;
+  use base qw(POE::Wheel);
 
-B<This is not a class method.  Call it as:
-POE::Wheel::allocate_wheel_id().>
+  sub new {
+    # ... among other things ...
+    $self->[MY_WHEEL_ID] = POE::Wheel::allocate_wheel_id();
+    return $self;
+  }
 
-allocate_wheel_id() allocates a unique identifier for a wheel.  Wheels
-pass these identifiers back to sessions in their events so that
-sessions with several wheels can match events back to other
-information.
+Wheel IDs are used to tell apart events from similarly typed wheels.
+For example, a multi-file tail utility may handle all file input with
+the same function.  Wheel IDs may be used to tell which wheel
+generated the InputEvent being handled.
 
-POE::Wheel keeps track of allocated IDs to avoid collisions.  It's
-important to free an ID when it's not in use, or they will consume
-memory unnecessarily.
+Wheel IDs are often used to store wheel-local state in a session's
+heap.
 
-=item free_wheel_id WHEEL_ID
+  sub handle_error {
+    my $wheel_id = $_[ARG3];
+    print "Wheel $wheel_id caught an error.  Shutting it down.\n";
+    delete $_[HEAP]{wheels}{$wheel_id};
+  }
 
-B<This is not a class method.  Call it as:
-POE::Wheel::free_wheel_id($id).>
+It's vital for wheels to free their allocated IDs when they are
+destroyed.  POE::Wheel class keeps track of allocated wheel IDs to
+avoid collisions, and they will remain in memory until freed.  See
+free_wheel_id().
 
-Deallocates a wheel identifier so it may be reused later.  This often
-is called from a wheel's destructor.
+=head3 free_wheel_id WHEEL_ID
 
-=back
+B<This is not a class method.>
+
+free_wheel_id() deallocates a wheel's ID so that it stops consuming
+memory and may be reused later.  This is often called from a wheel's
+destructor.
+
+  package POE::Wheel::Example;
+  use base qw(POE::Wheel);
+
+  sub DESTROY {
+    my $self = shift;
+    # ... among other things ...
+    POE::Wheel::free_wheel_id($self->[MY_WHEEL_ID]);
+  }
+
+Wheel IDs may be reused, although it has never been reported.  Two
+active wheels will never share the same ID, however.
 
 =head1 SEE ALSO
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
+
+L<POE::Wheel::Curses> - Non-blocking input for Curses.
+
+L<POE::Wheel::FollowTail> - Non-blocking file and FIFO monitoring.
+
+L<POE::Wheel::ListenAccept> - Non-blocking server for existing
+sockets.
+
+L<POE::Wheel::ReadLine> - Non-blocking console input, with full
+readline support.
+
+L<POE::Wheel::ReadWrite> - Non-blocking stream I/O.
+
+L<POE::Wheel::Run> - Non-blocking process creation and management.
+
+L<POE::Wheel::SocketFactory> - Non-blocking socket creation,
+supporting most protocols and modes.
 
 =head1 BUGS
 
@@ -166,4 +277,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
