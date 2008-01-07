@@ -80,9 +80,9 @@ will also start the timer that triggers the periodic polling.
     POE::Session->create(
       inline_states => {
         _start => sub {
-          $_[HEAP]{messages} = POE::Wheel::FollowTail->new(
-           Filename   => "/var/log/$filename",
-           InputEvent => "got_input",
+          push @{$_[HEAP]{messages}}, POE::Wheel::FollowTail->new(
+            Filename   => "/var/log/$filename",
+            InputEvent => "got_input",
           );
         },
         got_input => sub {
@@ -95,16 +95,52 @@ will also start the timer that triggers the periodic polling.
   POE::Kernel->run();
   exit;
 
-As illustrated in the previous example it is possible---and even
-recommended in some cases---to create more than one POE::Wheel of a
-particular type in the same session.  A session with multiple wheels
-may scale better than separate sessions with one wheel apiece.  When
-in doubt, benchmark.
+As illustrated in the previous example it is possible---sometimes
+recommended---to create more than one POE::Wheel of a particular type
+in the same session.  A session with multiple wheels may scale better
+than separate sessions with one wheel apiece.  When in doubt,
+benchmark.
 
 Unlike components (or cheese), wheels do not stand alone.  Each wheel
 must be created by a session in order to register event watchers and
 handlers within that session.  Wheels are thusly tightly coupled to
 their creator sessions and cannot be passed to other sessions.
+
+=head1 FILTERS, AND DRIVERS
+
+Many wheels perform data transfer operations on filehandles (which, as
+you probably know, includes sockets, pipes, and just about anything
+else that can store or transfer data).
+
+To avoid subclass hell, POE::Wheel objects may be customized at
+creation time by including other objects from the POE::Filter and
+POE::Driver namespaces.
+
+=head2 Filters
+
+POE "filters" implement data parsers and serializers.  For example,
+POE::Filter::Line parses streams into records separated by some string
+(the traditional network newline by default).  The Line filter also
+adds record separators to data being output.
+
+POE::Filter::HTTPD is a more complex example.  It implements a subset
+of the server-side of the HTTP protocol.  Input streams are parsed
+into HTTP requests and wrapped in HTTP::Request objects.  Server code
+sends HTTP::Response objects back to the client, which are serialized
+so they may be sent to a socket.
+
+Most wheels use POE::Filter::Line by default.
+
+=head2 Drivers
+
+POE "drivers" implement strategies for sending data to a filehandle
+and receiving input from it.  A single POE::Wheel class may interact
+with files, pipes, sockets, or devices by using the appropriate
+driver.
+
+POE::Driver::SysRW is the only driver that comes with POE.  sysread()
+and syswrite() can handle nearly every kind of stream interaction, so
+there hasn't been much call for another type of driver.
 
 =head1 METHODS
 
@@ -113,7 +149,7 @@ Subclasses may implement other methods, especially to help perform
 their unique tasks.  If something useful isn't documented here, see
 the subclass before implementing a feature.
 
-=head2 REQUIRED METHODS
+=head2 Required Methods
 
 These methods are required by all subclasses.
 
@@ -163,7 +199,7 @@ occur.
     FlushedEvent => 'new_flushed_event',
   );
 
-=head2 I/O WHEEL METHODS
+=head2 I/O Methods
 
 Wheels that perform input and output may implement some or all of
 these methods.  The put() method is a common omission.  Wheels that
@@ -180,7 +216,7 @@ in the POE::Driver until it can be flushed to the output filehandle.
 Most wheels use POE::Filter::Line and POE::Driver::SysRW by default,
 so it's not necessary to specify them in most cases.
 
-=head2 CLASS STATIC FUNCTIONS
+=head2 Class Static Functions
 
 These functions expose information that is common to all wheels.  They
 are not methods, so they should B<not> be called as methods.
@@ -219,7 +255,7 @@ heap.
     delete $_[HEAP]{wheels}{$wheel_id};
   }
 
-It's vital for wheels to free their allocated IDs when they are
+It is vital for wheels to free their allocated IDs when they are
 destroyed.  POE::Wheel class keeps track of allocated wheel IDs to
 avoid collisions, and they will remain in memory until freed.  See
 free_wheel_id().
@@ -265,6 +301,8 @@ L<POE::Wheel::Run> - Non-blocking process creation and management.
 
 L<POE::Wheel::SocketFactory> - Non-blocking socket creation,
 supporting most protocols and modes.
+
+TODO - Link to POE::Wheel search.cpan.org module search.
 
 =head1 BUGS
 
