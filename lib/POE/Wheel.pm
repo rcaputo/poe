@@ -285,6 +285,12 @@ active wheels will never share the same ID, however.
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
+L<POE::Driver> - A base class for file access drivers that POE::Wheel
+may use.
+
+L<POE::Filter> - A base class for data parsers and marshallers that
+POE::Wheel may use.
+
 L<POE::Wheel::Curses> - Non-blocking input for Curses.
 
 L<POE::Wheel::FollowTail> - Non-blocking file and FIFO monitoring.
