@@ -94,6 +94,8 @@ The arrayref returned by get() is suitable for passing to any
 POE::Filter's get() or get_one_start() method.  Wheels do exactly this
 internally.
 
+=over
+
 =item put ARRAYREF
 
 put() accepts an ARRAYREF of raw octet chunks.  These octets are added
