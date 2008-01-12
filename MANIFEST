@@ -154,6 +154,7 @@ t/30_loops/00_base/wheel_sf_udp.pm
 t/30_loops/00_base/wheel_sf_unix.pm
 t/30_loops/00_base/wheel_tail.pm
 t/90_regression/averell-callback-ret.t
+t/90_regression/bingos-followtail.t
 t/90_regression/broeren-win32-nbio.t
 t/90_regression/cfedde-filter-httpd.t
 t/90_regression/ferrari-server-unix.t

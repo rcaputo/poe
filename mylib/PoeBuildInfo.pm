@@ -56,6 +56,7 @@ sub DIST_ABSTRACT () {
 
 sub CLEAN_FILES () {
   my @clean_files = qw(
+    bingos-followtail
     coverage.report
     poe_report.xml
     run_network_tests
