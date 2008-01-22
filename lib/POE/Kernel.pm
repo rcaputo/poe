@@ -3173,11 +3173,20 @@ new one.
 
 EPOCH_TIME is the UNIX epoch time.  You know, seconds since midnight,
 1970-01-01.  "Now" is whatever time() returns, either the built-in or
-L<Time::HiRes|Time::HiRes> version.
+L<Time::HiRes|Time::HiRes> version.  POE will use Time::HiRes if it's
+available.
 
 POE supports fractional seconds, but accuracy falls off steeply after
 1/100 second.  Mileage will vary depending on your CPU speed and your
 OS time resolution.
+
+Be sure to use Time::HiRes::time() rather than Perl's built-in time()
+if sub-second accuracy matters at all.  The built-in time() returns
+floor(Time::HiRes::time()), which is nearly always some fraction of a
+second in the past.  For example the high-resolution time might be
+1200941422.89996.  At that same instant, time() would be 1200941422.
+An alarm for time() + 0.5 would be 0.39996 seconds in the past, so it
+would be dispatched immediately (if not sooner).
 
 POE's event queue is time-ordered, so a timer due before time() will
 be delivered ahead of other events but not before timers with even

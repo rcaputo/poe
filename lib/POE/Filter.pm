@@ -41,7 +41,7 @@ sub clone {
     $buf,                     # BUFFER
     @$self[1..$#$self],  # everything else
   ], ref $self;
-  return $nself;    
+  return $nself;
 }
 
 #------------------------------------------------------------------------------
