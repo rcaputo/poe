@@ -175,7 +175,11 @@ sub get {
 
   # Use the request line to create a request object.
 
-  my $r = HTTP::Request->new($1, URI->new($2));
+  my $method = $1;
+  my $req_path = $2;
+  $req_path =~ s/^[\/]{2,}/\//; # fix double slash starting path
+
+  my $r = HTTP::Request->new($method, URI->new($req_path));
   $r->protocol($proto);
   $self->[CLIENT_PROTO] = $proto = _http_version($proto);
 
