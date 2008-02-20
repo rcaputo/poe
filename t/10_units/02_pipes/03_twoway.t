@@ -53,6 +53,10 @@ SKIP: {
 
 ### Test two-way inet sockets.
 SKIP: {
+  unless (-f "run_network_tests") {
+    skip "Network access (and permission) required to run inet test.", 2;
+  }
+
   my ($a_rd, $a_wr, $b_rd, $b_wr) = POE::Pipe::TwoWay->new('inet');
 
   skip "$^O does not support two-way inet pipes", 2

@@ -31,7 +31,13 @@ sub SH_HANDLE    () { POE::Kernel::SH_HANDLE    }
 sub SH_REFCOUNT  () { POE::Kernel::SH_REFCOUNT  }
 sub SH_MODECOUNT () { POE::Kernel::SH_MODECOUNT }
 
-use Test::More tests => 192;
+use Test::More;
+
+unless (-f "run_network_tests") {
+  plan skip_all => "Network access (and permission) required to run this test";
+}
+
+plan tests => 192;
 
 ### Factoried out common tests
 

@@ -6,6 +6,10 @@ use warnings;
 use strict;
 
 BEGIN {
+  unless (-f 'run_network_tests') {
+    print "1..0 # skip - Network access (and permission) required to run this test\n";
+    exit;
+  }
   eval "use HTTP::Request";
   if ($@) {
     print "1..0 # skip - HTTP::Request needed to test POE::Filter::HTTPD\n";

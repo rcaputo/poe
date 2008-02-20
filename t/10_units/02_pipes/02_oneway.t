@@ -36,6 +36,11 @@ SKIP: {
 
 ### Test one-way pair of inet sockets.
 SKIP: {
+
+  unless (-f "run_network_tests") {
+    skip "Network access (and permission) required to run inet test.", 1;
+  }
+
   my ($uni_read, $uni_write) = POE::Pipe::OneWay->new('inet');
   skip "$^O does not support one-way inet sockets.", 1
     unless defined $uni_read and defined $uni_write;
