@@ -62,8 +62,8 @@ sub _shift_preference {
 
 BEGIN {
   if ($^O eq 'MSWin32') {
-    eval '*F_GETFL = sub { 0 };';
-    eval '*F_SETFL = sub { 0 };';
+    eval '*F_GETFL = sub () { 0 };';
+    eval '*F_SETFL = sub () { 0 };';
   }
 }
 

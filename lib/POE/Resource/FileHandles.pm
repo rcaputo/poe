@@ -20,8 +20,8 @@ use strict;
 
 BEGIN {
   if (RUNNING_IN_HELL) {
-    eval '*F_GETFL = sub { 0 };';
-    eval '*F_SETFL = sub { 0 };';
+    eval '*F_GETFL = sub () { 0 };';
+    eval '*F_SETFL = sub () { 0 };';
   }
 }
 
