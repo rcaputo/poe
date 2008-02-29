@@ -225,8 +225,7 @@ sub ET_MASK_USER () { ~(ET_GC | ET_SCPOLL | ET_STAT) }
 # Temporary signal subtypes, used during signal dispatch semantics
 # deprecation and reformation.
 
-sub ET_SIGNAL_RECURSIVE () { 0x1000 }  # Explicitly requested signal.
-sub ET_SIGNAL_ANY () { ET_SIGNAL | ET_SIGNAL_RECURSIVE }
+sub ET_SIGNAL_RECURSIVE () { 0x2000 }  # Explicitly requested signal.
 
 # A hash of reserved names.  It's used to test whether someone is
 # trying to use an internal event directly.
@@ -899,6 +898,8 @@ sub _dispatch_event {
 
       $self->_data_sig_reset_handled($signal);
 
+      # Step 1b: Collect a list of sessions to receive the signal.
+
       my @touched_sessions = ($session);
       my $touched_index = 0;
       while ($touched_index < @touched_sessions) {
@@ -907,18 +908,30 @@ sub _dispatch_event {
         $touched_index++;
       }
 
-      # Step 2: Propagate the signal to sessions that are watching it.
+      # Step 1c: The DIE signal propagates up through parents, too.
+
+      if ($signal eq "DIE") {
+        my $next_target = $self->_data_ses_get_parent($session);
+        while ($next_target != $self) {
+          unshift @touched_sessions, $next_target;
+          $next_target = $self->_data_ses_get_parent($next_target);
+        }
+      }
+
+      # Step 2: Propagate the signal to the explict watchers in the
+      # child tree.  Ensure the full tree is touched regardless
+      # whether there are explicit watchers.
 
       if ($self->_data_sig_explicitly_watched($signal)) {
-        $touched_index = @touched_sessions;
         my %signal_watchers = $self->_data_sig_watchers($signal);
+
+        $touched_index = @touched_sessions;
         while ($touched_index--) {
           my $target_session = $touched_sessions[$touched_index];
-
           $self->_data_sig_touched_session($target_session);
 
+          next unless exists $signal_watchers{$target_session};
           my $target_event = $signal_watchers{$target_session};
-          next unless defined $target_event;
 
           if (TRACE_SIGNALS) {
             _warn(
@@ -927,6 +940,8 @@ sub _dispatch_event {
             );
           }
 
+          # ET_SIGNAL_RECURSIVE is used here to avoid repropagating
+          # the signal ad nauseam.
           $self->_dispatch_event(
             $target_session, $self,
             $target_event, ET_SIGNAL_RECURSIVE, [ @$etc ],
@@ -935,16 +950,9 @@ sub _dispatch_event {
         }
       }
       else {
-        # TODO This is ugly repeated code.  See the block just above
-        # the else.
-
         $touched_index = @touched_sessions;
         while ($touched_index--) {
-          my $target_session = $touched_sessions[$touched_index];
-
-          $self->_data_sig_touched_session(
-            $target_session, $event, 0, $etc->[0],
-          );
+          $self->_data_sig_touched_session($touched_sessions[$touched_index]);
         }
       }
 
@@ -952,8 +960,15 @@ sub _dispatch_event {
 
       $self->_data_sig_free_terminated_sessions();
 
+      # If the signal was SIGDIE, then propagate the exception.
+
+      my $handled_session_count = (_data_sig_handled_status())[0];
+      if ($signal eq "DIE" and !$handled_session_count) {
+        $kr_exception = $etc->[1]{error_str};
+      }
+
       # Signal completely dispatched.  Thanks for flying!
-      return (_data_sig_handled_status())[0];
+      return;
     }
   }
 
@@ -1031,37 +1046,25 @@ sub _dispatch_event {
         );
       }
 
-      # While it looks like we're checking the signal handler's return
-      # value, we actually aren't.  _dispatch_event() for signals
-      # returns whether the signal was handled.  See the return at the
-      # end of "Step 3" in the signal handling procedure.
-      my $handled = $self->_dispatch_event(
-        $session,
-        $source_session,
-        EN_SIGNAL,
-        ET_SIGNAL,
-        [
-          'DIE' => {
-            source_session => $source_session,
-            dest_session => $session,
-            event => $event,
-            file => $file,
-            line => $line,
-            from_state => $fromstate,
-            error_str => $exception,
-          },
-        ],
-        __FILE__,
-        __LINE__,
-        undef,
-        time(),
-        -__LINE__,
-      );
-
-      # An exception has occurred.  Set a global that we can check at
-      # the uppermost level.
-      unless ($handled) {
+      # Exceptions in _stop are rethrown unconditionally.
+      # We can't enqueue them--the session is about to go away.
+      if ($type & ET_STOP) {
         $kr_exception = $exception;
+      }
+      else {
+        $self->_data_ev_enqueue(
+          $session, $self, EN_SIGNAL, ET_SIGNAL, [
+            'DIE' => {
+              source_session => $source_session,
+              dest_session => $session,
+              event => $event,
+              file => $file,
+              line => $line,
+              from_state => $fromstate,
+              error_str => $exception,
+            },
+          ], __FILE__, __LINE__, undef, time()
+        );
       }
     }
   }

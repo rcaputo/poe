@@ -11,6 +11,7 @@ use strict;
 use Test::More;
 
 if ($^O eq "MSWin32") {
+	plan skip_all => "Perl can't handle these tests on $^O - it crashes";
   eval 'use Win32::Console';
   if ($@) {
     plan skip_all => "Win32::Console is required on $^O - try ActivePerl";
@@ -37,6 +38,7 @@ foreach my $die_on_bad_exit ( 0, 1 ) {
             inline_states => {
               stdout => sub { },
               stdin => sub { },
+							_parent => sub { },
               _start => sub {
                 my ( $kernel, $session, $heap ) = @_[KERNEL, SESSION, HEAP];
 
@@ -88,6 +90,7 @@ foreach my $die_on_bad_exit ( 0, 1 ) {
         },
         _stop => sub { },
         _child => sub { },
+				_parent => sub { },
       },
     );
 
