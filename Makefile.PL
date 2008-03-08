@@ -33,20 +33,20 @@ unless (grep /^--default$/, @ARGV) {
 my $prompt = (
   "Some of POE's tests require a functional network.\n" .
   "You can skip these tests if you'd like.\n\n" .
-  "Would you like to skip the network tests?"
+  "Will you give permission to run these network tests?"
 );
 
-my $ret = "n";
+my $ret = "y";
 if (grep /^--default$/, @ARGV) {
   print $prompt, " [$ret] $ret\n\n";
 }
 else {
-  $ret = prompt($prompt, "n");
+  $ret = prompt($prompt, 'n');
 }
 
 my $marker = 'run_network_tests';
 unlink $marker;
-unless ($ret =~ /^Y$/i) {
+if ($ret =~ /^Y$/i) {
   open(TOUCH,"+>$marker") and close TOUCH;
 }
 
