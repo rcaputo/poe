@@ -28,6 +28,7 @@ use POE qw(
 #
 
 POE::Component::Server::TCP->new(
+  Alias        => 's0',
   Port         => 0,
   ClientFilter => 'POE::Filter::HTTPD',
   Started => sub {
@@ -45,6 +46,7 @@ POE::Component::Server::TCP->new(
 );
 
 POE::Component::Client::TCP->new (
+  Alias         => 'c0',
   RemoteAddress => '127.0.0.1',
   RemotePort => $port,
   ServerInput => sub {
@@ -53,6 +55,7 @@ POE::Component::Client::TCP->new (
 );
 
 POE::Component::Client::TCP->new (
+  Alias         => 'c1',
   RemoteAddress => '127.0.0.1',
   RemotePort => $port,
   Connected => sub {
@@ -70,7 +73,8 @@ POE::Session->create(
       $_[KERNEL]->delay_add( done => 3 );
     },
     done => sub {
-      exit 1;
+      $_[KERNEL]->post( $_ => 'shutdown' )
+        for qw/ s0 c0 c1 /;
     }
   }
 );
