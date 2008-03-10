@@ -132,14 +132,6 @@ BEGIN {
   if ($^O eq "MSWin32") {
     $error = "$^O cannot multiplex terminals";
   }
-  if ($^O eq "darwin") {
-    foreach my $bad (qw(Event.pm IO/Poll.pm)) {
-      if (exists $INC{$bad}) {
-        $error = "$bad can't work with ttys under $^O";
-        last;
-      }
-    }
-  }
   if (!-t STDIN) {
     $error = "not running in a terminal";
   }

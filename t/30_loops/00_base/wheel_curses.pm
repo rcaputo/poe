@@ -113,7 +113,7 @@ sub test_keystroke {
 
   $heap->{child_input} .= $input;
   if ($heap->{child_input} =~ /!/) {
-    delete $heap->{curses}; }
+    delete $heap->{curses};
     delete $heap->{readwrite};
     ok( $heap->{child_input} eq "this is a test!", "got keystrokes" );
   }

@@ -36,33 +36,6 @@ BEGIN {
     else    { Win32API::File->import( qw(FdGetOsFHandle) ); };
   }
 
-  # How else can I get them out?!
-  if (eval '&IO::Tty::Constant::TIOCSCTTY') {
-    *TIOCSCTTY = *IO::Tty::Constant::TIOCSCTTY;
-  }
-  else {
-    eval 'sub TIOCSCTTY () { undef }';
-  }
-
-  if (eval '&IO::Tty::Constant::CIBAUD') {
-    *CIBAUD = *IO::Tty::Constant::CIBAUD;
-  }
-  else {
-    eval 'sub CIBAUD () { undef; }';
-  }
-
-  if (
-    eval '&IO::Tty::Constant::TIOCSWINSZ' and
-    eval '&IO::Tty::Constant::TIOCGWINSZ'
-  ) {
-    *TIOCSWINSZ = *IO::Tty::Constant::TIOCSWINSZ;
-    *TIOCGWINSZ = *IO::Tty::Constant::TIOCGWINSZ;
-  }
-  else {
-    eval 'sub TIOCSWINSZ () { undef; }';
-    eval 'sub TIOCGWINSZ () { undef; }';
-  }
-
   # Determine the most file descriptors we can use.
   my $max_open_fds;
   eval {
@@ -312,50 +285,23 @@ sub new {
       # Program 19.3, APITUE.  W. Richard Stevens built my hot rod.
       eval 'setsid()' unless $no_setsid;
 
+      # Acquire a controlling terminal.  Program 19.3, APITUE.
+      $stdin_write->make_slave_controlling_terminal();
+
       # Open the slave side of the pty.
       $stdin_read = $stdout_write = $stdin_write->slave();
       croak "could not create slave pty: $!" unless defined $stdin_read;
-      ## for a simple pty conduit, stderr is wedged into stdout:
-      $stderr_write = $stdout_write if $conduit eq 'pty';
 
-      # Acquire a controlling terminal.  Program 19.3, APITUE.
-      if (defined TIOCSCTTY and not defined CIBAUD) {
-        ioctl( $stdin_read, TIOCSCTTY, 0 );
-      }
+      # For a simple pty conduit, stderr is wedged into stdout.
+      $stderr_write = $stdout_write if $conduit eq 'pty';
 
       # Put the pty conduit (slave side) into "raw" or "cbreak" mode,
       # per APITUE 19.4 and 11.10.
-      my $tio = POSIX::Termios->new();
-      $tio->getattr(fileno($stdin_read));
-      my $lflag = $tio->getlflag;
-      $lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-      $tio->setlflag($lflag);
-      my $iflag = $tio->getiflag;
-      $iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-      $tio->setiflag($iflag);
-      my $cflag = $tio->getcflag;
-      $cflag &= ~(CSIZE | PARENB);
-      $tio->setcflag($cflag);
-      my $oflag = $tio->getoflag;
-      $oflag &= ~(OPOST);
-      $tio->setoflag($oflag);
-      $tio->setattr(fileno($stdin_read), TCSANOW);
+      $stdin_read->set_raw();
 
       # Set the pty conduit (slave side) window size to our window
       # size.  APITUE 19.4 and 19.5.
-      if (defined TIOCGWINSZ) {
-        my $window_size = '!' x 25;
-        if (-t STDIN and !$winsize) {
-          ioctl( STDIN, TIOCGWINSZ, $window_size ) or die $!;
-        }
-        $window_size = pack('SSSS', @$winsize) if ref($winsize);
-        if ($window_size ne '!' x 25) {
-          ioctl( $stdin_read, TIOCSWINSZ, $window_size ) or die $!;
-        }
-        else {
-          carp "STDIN is not a terminal.  Can't set slave pty's window size";
-        }
-      }
+      $stdin_read->clone_winsize_from(\*STDIN);
     }
 
     # Reset all signals in the child process.  POE's own handlers are
