@@ -32,7 +32,7 @@ sub check_for_modules {
     my $module  = shift @modules;
     my $target  = shift @modules;
 
-    my $version = eval "use $module; return \$$module\::VERSION";
+    my $version = eval "use $module (); return \$$module\::VERSION";
 
     if ($@) {
       push(
