@@ -29,12 +29,12 @@ manner.
   % perl -MCPAN -e shell
   cpan> install POE
 
+Or
+
+  % cpan -i POE
+
 http://poe.perl.org/?Where_to_Get_POE explains other options for
 obtaining POE, including anonymous Subversion access.
-
-As of version 0.34, we are working to make sure ActiveState's
-automated package system can build POE PPDs itself.  POE's homegrown
-PPD build system is being phased out.
 
 ------------
 Test Results
