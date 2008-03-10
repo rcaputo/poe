@@ -29,6 +29,9 @@ BEGIN {
     elsif (exists $INC{"Event.pm"}) {
       $error = "$^O\'s fork() emulation breaks Event";
     }
+    else {
+      $error = "Signal handling on $^O is too fragile - Perl crashes";
+    }
 
     $RUNNING_WIN32 = 1;
   }

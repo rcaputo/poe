@@ -22,6 +22,7 @@ if ($^O eq "MSWin32") {
   if (exists $INC{'Event.pm'}) {
     plan skip_all => "Perl crashes in this test with Event on $^O";
   }
+  plan skip_all => "Perl on $^O is too fragile for this test - it crashes";
 }
 
 plan tests => 9;

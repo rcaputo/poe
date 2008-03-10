@@ -11,7 +11,7 @@ use Socket;
 BEGIN {
   my $error;
 
-  eval 'use Socket6';
+  eval 'use Socket6 ()';
   if ( length($@) or not exists($INC{"Socket6.pm"}) ) {
     $error = "Socket6 is needed for IPv6 tests";
   }
