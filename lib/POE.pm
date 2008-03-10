@@ -434,6 +434,13 @@ message body are ignored.
 examples.  It's also a wiki, so people are invited to share tips and
 code snippets there as well.
 
+=head2 POE's Source Code
+
+The following command will fetch the most current version of POE into
+the "poe" subdirectory:
+
+  svn co https://poe.svn.sourceforge.net/svnroot/poe poe
+
 =head2 SourceForge
 
 http://sourceforge.net/projects/poe/ is POE's project page.
