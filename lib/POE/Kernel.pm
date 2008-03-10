@@ -2017,6 +2017,11 @@ sub delay_adjust {
   my $my_delay = sub {
     $_[0]->[EV_SESSION] == $kr_active_session;
   };
+
+  if (TRACE_EVENTS) {
+    _warn("<ev> adjusted event $alarm_id by $seconds seconds");
+  }
+
   return $kr_queue->set_priority($alarm_id, $my_delay, time() + $seconds);
 }
 

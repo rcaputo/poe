@@ -162,6 +162,13 @@ sub _data_ev_clear_alarm_by_id {
   my ($time, $id, $event) = $kr_queue->remove_item($alarm_id, $my_alarm);
   return unless defined $time;
 
+  if (TRACE_EVENTS) {
+    _warn(
+      "<ev> removed event $id ``", $event->[EV_NAME], "'' to ",
+      $self->_data_alias_loggable($session), " at $time"
+    );
+  }
+
   $self->_data_ev_refcount_dec( @$event[EV_SOURCE, EV_SESSION] );
   return ($time, $event);
 }
