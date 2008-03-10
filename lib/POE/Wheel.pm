@@ -316,7 +316,8 @@ It would be nice if wheels were more like proper Unix streams.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Please see L<POE> for more information about authors and contributors.
+Please see L<POE> for more information about authors, contributors,
+and POE;s licensing.
 
 =cut
 
