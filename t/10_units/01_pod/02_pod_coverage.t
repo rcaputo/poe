@@ -25,6 +25,10 @@ my %special = (
     ],
     coverage_class => 'Pod::Coverage::CountParents',
   },
+	'POE::Kernel' => {
+		%$default_opts,
+		trustme => [ qr/^loop_/ ], # mixed in from POE::Loop
+	},
 );
 
 # Get the list of modules
