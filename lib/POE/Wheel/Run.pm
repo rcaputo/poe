@@ -1307,7 +1307,9 @@ If C<Program> holds a code reference, it will be called in the forked
 child process, and then the child will exit.  This allows Wheel::Run
 to fork off bits of long-running code which can accept STDIN input and
 pass responses to STDOUT and/or STDERR.  Note, however, that POE's
-services are effectively disabled in the child process.
+services are effectively disabled in the child process. See
+L</Nested POE Kernel> for instructions on how to properly use POE within the
+child.
 
 L<perlfunc> has more information about exec() and the different ways
 to call it.
@@ -1500,6 +1502,8 @@ ID.
 
 =head1 TIPS AND TRICKS
 
+=head2 Execution environment
+
 One common task is scrubbing a child process' environment.  This
 amounts to clearing the contents of %ENV and setting it up with some
 known, secure values.
@@ -1521,6 +1525,42 @@ that performs the exec() call for us.
 
 That deletes everything from the environment, sets a simple, secure
 PATH, and executes a program with its arguments.
+
+=head2 Nested POE Kernel
+
+When the process forks the kernel's queue is effectively duplicated, giving the
+child process it's own copy.
+
+This means that if you call C<< $poe_kernel->run >> in the coderef variant of
+C<Program>, the kernel will deliver all currently queued events twice, causing
+the universe to implode, or worse.
+
+This is why L<POE::Wheel::Run> will exit immediately after executing the code
+reference, before the kernel's loop can dequeue anything more.
+
+In order to allow a POE kernel to be run inside the child process without
+having to C<exec> a new perl script with a fresh L<POE> environment, you can
+call the L<POE::Kernel/stop> method.
+
+Here is an example:
+
+  Program => sub {
+    $poe_kernel->stop; # flush all the kernel structures
+
+    # now that the kernel is clean we can do POEish stuff:
+    POE::Session->create(
+      ...
+    );
+
+    $poe_kernel->run; # this DWIMs now
+  }
+
+If you do not call L<POE::Kernel/stop>, but do call L<POE::Kernel/run> inside
+the child process strange things are bound to happen.
+
+The advantage of calling C<POE::Kernel/stop> is that it allows all the
+advantages of a C<fork> without an C<exec>, namely sharing of read only data,
+but without having to forefit L<POE>'s facilities in the child.
 
 =head1 SEE ALSO
 

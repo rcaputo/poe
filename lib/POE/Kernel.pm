@@ -2987,7 +2987,8 @@ problematic, it will be removed without much notice.
 stop() is advanced magic.  Programmers who think they need it are
 invited to become familiar with its source.
 
-TODO - Example of stop().
+See L<POE::Wheel::Run/Nested POE Kernel> for an example of how to use this
+facility.
 
 =head2 Asynchronous Messages (FIFO Events)
 
