@@ -735,7 +735,8 @@ sub _global_init {
   # the input state engine (so that we have valid values) and
   # before handing control back to the user (so that they get
   # an up-to-date value).
-  ($trk_cols, $trk_rows) = GetTerminalSize($stdout);
+  eval { ($trk_cols, $trk_rows) = GetTerminalSize($stdout) };
+  ($trk_cols, $trk_rows) = (80, 25) if $@;
 
   # Configuration...
   # Some things are optional.
@@ -1030,7 +1031,8 @@ sub get {
   return if $self->[SELF_READING_LINE];
   # recheck the terminal size every prompt, in case the size
   # has changed
-  ($trk_cols, $trk_rows) = GetTerminalSize($stdout);
+  eval { ($trk_cols, $trk_rows) = GetTerminalSize($stdout) };
+  ($trk_cols, $trk_rows) = (80, 25) if $@;
 
   ReadMode('ultra-raw');
   # Tell the terminal that we want to be in 'application' mode.
@@ -1779,7 +1781,8 @@ sub rl_accept_line {
   $self->[SELF_HIST_INDEX] = @{$self->[SELF_HIST_LIST]};
   $self->_flush_output_buffer;
   ReadMode('restore');
-  ($trk_cols, $trk_rows) = GetTerminalSize($stdout);
+  eval { ($trk_cols, $trk_rows) = GetTerminalSize($stdout) };
+  ($trk_cols, $trk_rows) = (80, 25) if $@;
   if ($self->[SELF_KEYMAP]->{name} =~ /vi/) {
     $self->rl_set_keymap('vi-insert');
   }
