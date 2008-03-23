@@ -35,6 +35,7 @@ ok(
 
   use Symbol qw(gensym);
   my $fh = gensym();
+  open $fh, ">deleteme.now" or die $!;
 
   $! = 0;
 
@@ -47,6 +48,9 @@ ok(
 
   open(STDERR, ">&SAVE_STDERR") or die $!;
   close(SAVE_STDERR) or die $!;
+
+  close $fh;
+  unlink "deleteme.now";
 }
 
 my $d = POE::Driver::SysRW->new( BlockSize => 1024 );
