@@ -60,7 +60,7 @@ diag( "packets across your localhost interface." );
 POE::Component::Server::TCP->new(
   Port               => $tcp_server_port,
   Address            => '::1',
-  Domain             => AF_INET6,
+  Domain             => Socket6::AF_INET6,
   Alias              => 'server',
   ClientConnected    => \&server_got_connect,
   ClientInput        => \&server_got_input,
@@ -109,7 +109,7 @@ sub server_got_error {
 POE::Component::Client::TCP->new(
   RemoteAddress => '::1',
   RemotePort    => $tcp_server_port,
-  Domain        => AF_INET6,
+  Domain        => Socket6::AF_INET6,
   BindAddress   => '::1',
   Connected     => \&client_got_connect,
   ServerInput   => \&client_got_input,
