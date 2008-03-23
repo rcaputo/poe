@@ -301,7 +301,7 @@ sub new {
 
       # Set the pty conduit (slave side) window size to our window
       # size.  APITUE 19.4 and 19.5.
-      $stdin_read->clone_winsize_from(\*STDIN);
+      eval { $stdin_read->clone_winsize_from(\*STDIN) };
     }
 
     # Reset all signals in the child process.  POE's own handlers are
