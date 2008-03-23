@@ -87,7 +87,7 @@ if ($notify_eof_flag) {
   sleep 10;
 }
 END
-  $text =~ s/\n/ /g;
+  $text =~ s/\s+/ /g;
 
   my $os_quote = ($^O eq 'MSWin32') ? q(") : q(');
   $chld_program_string  = [ $^X, "-we", "$text CORE::exit 0" ];
@@ -192,7 +192,7 @@ sub do_nonexistent {
 }
 
 sub do_error {
-  DEBUG and warn "$_[HEAP]->{label}: $_[ARG0] error $_[ARG1]: $_[ARG2]";
+  DEBUG and warn "$_[HEAP]->{label}: $_[ARG0] error $_[ARG1]: $_[ARG2]\n";
 }
 
 # {{{ definition of the main test session
@@ -205,17 +205,17 @@ sub main_perform_state {
   my $action = $heap->{expected}->[0][0];
 
   unless (ref $action) {
-    DEBUG and warn "$heap->{label}: performing put state: $action";
+    DEBUG and warn "$heap->{label}: performing put state: $action\n";
     eval { $heap->{wheel}->put( $action ) };
   } elsif ($action->[0] =~ m/^(?:pause|resume)_std(?:out|err)$/) {
     my $method = $action->[0];
-    DEBUG and warn "$heap->{label}: performing method state: $method";
+    DEBUG and warn "$heap->{label}: performing method state: $method\n";
     $heap->{wheel}->$method();
   } elsif ($action->[0] eq "kill") {
-    DEBUG and warn "$heap->{label}: performing kill";
+    DEBUG and warn "$heap->{label}: performing kill\n";
     $heap->{wheel}->kill();
   } elsif ($action->[0] eq "shutdown_stdin") {
-    DEBUG and warn "$heap->{label}: shutdown_stdin";
+    DEBUG and warn "$heap->{label}: shutdown_stdin\n";
     $heap->{wheel}->shutdown_stdin();
   } else {
     warn "weird action @$action, this is a bug in the test script";
@@ -284,7 +284,7 @@ sub main_start {
   # timeout delay
   timeout_incref();
 
-  DEBUG and warn "$heap->{label}: _start";
+  DEBUG and warn "$heap->{label}: _start\n";
 }
 
 my $x__ = 0;
@@ -297,14 +297,14 @@ sub main_stop {
   is( $heap->{flushes}, $heap->{flushes_expected},
     "$heap->{label} flush count ($$)" )
     unless $heap->{ignore_flushes};
-  DEBUG and warn "$heap->{label}: _stop ($$)";
+  DEBUG and warn "$heap->{label}: _stop ($$)\n";
 }
 
 sub main_stdin {
   my $heap = $_[HEAP];
   $heap->{flushes}++;
   timeout_poke();
-  DEBUG and warn "$heap->{label}: stdin flush";
+  DEBUG and warn "$heap->{label}: stdin flush\n";
 }
 
 sub main_output {
@@ -321,7 +321,7 @@ sub main_output {
   is($input, "$prefix: ".$heap->{expected}->[0][1][1],
     "$heap->{label} $state response");
 
-  DEBUG and warn "$heap->{label}: $state $input";
+  DEBUG and warn "$heap->{label}: $state $input\n";
 
   timeout_poke();
 
@@ -342,7 +342,7 @@ sub main_close {
   delete $_[HEAP]->{wheel};
   timeout_decref();
   $kernel->sig("CHLD" => undef);
-  DEBUG and warn "$heap->{label}: close";
+  DEBUG and warn "$heap->{label}: close\n";
 }
 
 sub main_sigchld {
@@ -350,7 +350,9 @@ sub main_sigchld {
   my ($signame, $child_pid) = @_[ARG0, ARG1];
 
   my $our_child = $heap->{wheel} ? $heap->{wheel}->PID : -1;
-  DEBUG and warn "$heap->{label}: sigchld $signame for $child_pid ($our_child)";
+  DEBUG and warn(
+    "$heap->{label}: sigchld $signame for $child_pid ($our_child)\n"
+  );
 
   return unless $heap->{wheel} and $our_child == $child_pid;
 
