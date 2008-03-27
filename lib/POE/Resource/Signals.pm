@@ -465,7 +465,7 @@ sub _data_sig_enqueue_poll_event {
 
   $self->_data_ev_enqueue(
     $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-    __FILE__, __LINE__, undef, time() + 1
+    __FILE__, __LINE__, undef, time() + POE::Kernel::CHILD_POLLING_INTERVAL(),
   );
 }
 

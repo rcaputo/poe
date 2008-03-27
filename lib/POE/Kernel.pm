@@ -113,6 +113,12 @@ BEGIN {
       *CATCH_EXCEPTIONS = sub () { 1 };
     }
   }
+
+  { no strict 'refs';
+    unless (defined &CHILD_POLLING_INTERVAL) {
+      *CHILD_POLLING_INTERVAL = sub () { 1 }; # that's one second, not a true value
+    }
+  }
 }
 
 #==============================================================================
