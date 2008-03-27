@@ -292,8 +292,11 @@ BEGIN {
   # Assimilate POE_TRACE_* and POE_ASSERT_* environment variables.
   # Environment variables override everything else.
   while (my ($var, $val) = each %ENV) {
-    next unless $var =~ /^POE_((?:TRACE|ASSERT)_[A-Z_]+)$/;
+    next unless $var =~ /^POE_([A-Z_]+)$/;
+
     my $const = $1;
+
+    next unless $const =~ /^(?:TRACE|ASSERT)_/ or do { no strict 'refs'; defined &$const };
 
     # Copy so we don't hurt our environment.  Make sure strings are
     # wrapped in quotes.
@@ -303,6 +306,7 @@ BEGIN {
 
     no strict 'refs';
     local $^W = 0;
+    local $SIG{__WARN__} = sub { }; # redefine
     *$const = sub () { $value };
   }
 
