@@ -258,11 +258,6 @@ sub EA_SEL_HANDLE () { 0 }
 sub EA_SEL_MODE   () { 1 }
 sub EA_SEL_ARGS   () { 2 }
 
-# Queues with this many events (or more) are considered to be "large",
-# and different strategies are used to find events within them.
-
-sub LARGE_QUEUE_SIZE () { 512 }
-
 #------------------------------------------------------------------------------
 # Debugging and configuration constants.
 
