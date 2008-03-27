@@ -5132,6 +5132,28 @@ The statistics are calculated using a sliding window and vary over
 time as a program runs.  It only returns meaningful data if
 TRACE_STATISTICS is enabled.
 
+=head1 ADDITIONAL CONSTANTS
+
+=head2 USE_TIME_HIRES
+
+Whether or not to use L<Time::HiRes> for timing purposes.
+
+See L</"Using Time::HiRes">.
+
+=head2 CHILD_POLLING_INTERVAL
+
+The interval at which C<wait> is called to determine if child processes need to
+be reaped and the C<CHLD> signal emulated.
+
+Defaults to 1 second.
+
+=head2 CATCH_EXCEPTIONS
+
+Whether or not POE should run event handler code in an eval { } and deliver the
+C<DIE> signal on errors.
+
+See L</"Exception Handling">.
+
 =head1 SEE ALSO
 
 The SEE ALSO section in L<POE> contains a table of contents covering
