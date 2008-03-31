@@ -60,10 +60,11 @@ use vars (
 #my $kr_signal_type;                 # The type of signal being dispatched.
 
 # A flag to tell whether we're currently polling for signals.
+# Under USE_SIGCHLD, determines whether a SIGCHLD polling event has already been queued
 my $polling_for_signals = 0;
 
 # A flag determining whether there are child processes.
-my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
+my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 );
 
 # A list of special signal types.  Signals that aren't listed here are
 # benign (they do not kill sessions at all).  "Terminal" signals are
@@ -99,7 +100,7 @@ sub _data_sig_initialize {
   # Initialize this to a true value so our waitpid() loop can run at
   # least once.  Starts false when running in an Apache handler so our
   # SIGCHLD hijinx don't interfere with the web server.
-  $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : 1;
+  $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 );
 
   $poe_kernel->[KR_SIGNALS] = \%kr_signals;
   $poe_kernel->[KR_PIDS]    = \%kr_pids_to_events;
@@ -212,7 +213,7 @@ sub _data_sig_signal_watch {
   if (
     !exists($kr_signals{$signal}) and
     exists($_safe_signals{$signal}) and
-    ($signal ne "CHLD" or !exists($kr_sessions_to_pids{$session}))
+    ($signal ne "CHLD" or !scalar(keys %kr_sessions_to_pids))
   ) {
     $self->loop_watch_signal($signal);
   }
@@ -224,7 +225,7 @@ sub _data_sig_signal_ignore {
   if (
     !exists($kr_signals{$signal}) and
     exists($_safe_signals{$signal}) and
-    ($signal ne "CHLD" or !exists($kr_sessions_to_pids{$session}))
+    ($signal ne "CHLD" or !scalar(keys %kr_sessions_to_pids))
   ) {
     $self->loop_ignore_signal($signal);
   }
@@ -440,8 +441,7 @@ sub _data_sig_touched_session {
   push @kr_signaled_sessions, $session;
 }
 
-# Signal polling mechanisms.  Teh suck.  Can't wait for safe signals.
-
+# only used under !USE_SIGCHLD
 sub _data_sig_begin_polling {
   my $self = shift;
 
@@ -452,25 +452,39 @@ sub _data_sig_begin_polling {
   $self->_idle_queue_grow();
 }
 
+# only used under !USE_SIGCHLD
 sub _data_sig_cease_polling {
-  return if keys %kr_pids_to_events;
   $polling_for_signals = 0;
 }
 
 sub _data_sig_enqueue_poll_event {
   my $self = shift;
 
-  return if $self->_data_ses_count() < 1;
-  return unless $polling_for_signals;
+  if ( USE_SIGCHLD ) {
+    return if $polling_for_signals;
+    $polling_for_signals = 1;
 
-  $self->_data_ev_enqueue(
-    $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
-    __FILE__, __LINE__, undef, time() + POE::Kernel::CHILD_POLLING_INTERVAL(),
-  );
+    $self->_data_ev_enqueue(
+      $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+      __FILE__, __LINE__, undef, time(),
+    );
+  } else {
+    return if $self->_data_ses_count() < 1;
+    return unless $polling_for_signals;
+
+    $self->_data_ev_enqueue(
+      $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+      __FILE__, __LINE__, undef, time() + POE::Kernel::CHILD_POLLING_INTERVAL(),
+    );
+  }
 }
 
 sub _data_sig_handle_poll_event {
   my $self = shift;
+
+  if ( USE_SIGCHLD ) {
+    $polling_for_signals = undef;
+  }
 
   if (TRACE_SIGNALS) {
     _warn("<sg> POE::Kernel is polling for signals at " . time())
@@ -533,7 +547,7 @@ sub _data_sig_handle_poll_event {
     # TODO - Find a way to test this.
 
     _trap "internal consistency error: waitpid returned $pid"
-      if $pid != -1;
+    if $pid != -1;
 
     # If the error is an interrupted syscall, poll again right away.
 
@@ -571,17 +585,20 @@ sub _data_sig_handle_poll_event {
 
   $kr_child_procs = !$pid;
 
-  # The poll loop is over.  Resume slowly polling for signals.
 
-  if (TRACE_SIGNALS) {
-    _warn("<sg> POE::Kernel will poll again after a delay");
-  }
+  unless ( USE_SIGCHLD ) {
+    # The poll loop is over.  Resume slowly polling for signals.
 
-  if ($polling_for_signals) {
-    $self->_data_sig_enqueue_poll_event();
-  }
-  else {
-    $self->_idle_queue_shrink();
+    if (TRACE_SIGNALS) {
+      _warn("<sg> POE::Kernel will poll again after a delay");
+    }
+
+    if ($polling_for_signals) {
+      $self->_data_sig_enqueue_poll_event();
+    }
+    else {
+      $self->_idle_queue_shrink();
+    }
   }
 }
 
@@ -590,7 +607,7 @@ sub _data_sig_handle_poll_event {
 # TODO - Will this change?
 
 sub _data_sig_child_procs {
-  return unless $polling_for_signals;
+  return if !USE_SIGCHLD and !$polling_for_signals;
   return $kr_child_procs;
 }
 

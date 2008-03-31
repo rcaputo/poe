@@ -49,6 +49,16 @@ sub _loop_signal_handler_pipe {
   $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
 
+# only used under USE_SIGCHLD
+sub _loop_signal_handler_chld {
+  if (TRACE_SIGNALS) {
+    POE::Kernel::_warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
+  }
+
+  $poe_kernel->_data_sig_enqueue_poll_event();
+  $SIG{$_[0]} = \&_loop_signal_handler_chld;
+}
+
 #------------------------------------------------------------------------------
 # Signal handler maintenance functions.
 
@@ -59,10 +69,20 @@ sub loop_watch_signal {
 
   # Child process has stopped.
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
-    # We should never twiddle $SIG{CH?LD} under POE, unless we want to
-    # override system() and friends. --hachi
-    # $SIG{$signal} = "DEFAULT";
-    $self->_data_sig_begin_polling();
+    if ( USE_SIGCHLD ) {
+      # install, but also trigger once
+      # there may be a race condition between forking, and $kernel->sig_chld in
+      # which the signal is already delivered
+      # and the interval polling mechanism will still generate a SIGCHLD
+      # signal, this preserves that behavior
+      $SIG{$signal} = \&_loop_signal_handler_chld;
+      $self->_data_sig_enqueue_poll_event();
+    } else {
+      # We should never twiddle $SIG{CH?LD} under POE, unless we want to
+      # override system() and friends. --hachi
+      # $SIG{$signal} = "DEFAULT";
+      $self->_data_sig_begin_polling();
+    }
     return;
   }
 
@@ -81,12 +101,14 @@ sub loop_ignore_signal {
 
   delete $signal_watched{$signal};
 
-  if ($signal eq 'CHLD' or $signal eq 'CLD') {
-    $self->_data_sig_cease_polling();
-    # We should never twiddle $SIG{CH?LD} under poe, unless we want to
-    # override system() and friends. --hachi
-    # $SIG{$signal} = "IGNORE";
-    return;
+  unless ( USE_SIGCHLD ) {
+    if ($signal eq 'CHLD' or $signal eq 'CLD') {
+      $self->_data_sig_cease_polling();
+      # We should never twiddle $SIG{CH?LD} under poe, unless we want to
+      # override system() and friends. --hachi
+      # $SIG{$signal} = "IGNORE";
+      return;
+    }
   }
 
   if ($signal eq 'PIPE') {

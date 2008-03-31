@@ -525,7 +525,7 @@ sub _data_handle_remove {
     ) {
 
       TRACE_FILES and
-        _warn "<fh> removing handle ($handle) fileno ($fd) mode ($mode)";
+        _warn "<fh> removing handle ($handle) fileno ($fd) mode ($mode) from " . Carp::shortmess;
 
       # Remove the handle from the kernel's session record.
 
@@ -552,7 +552,7 @@ sub _data_handle_remove {
         $self->_data_ev_refcount_dec( @$event[EV_SESSION, EV_SOURCE] );
 
         TRACE_EVENTS and
-          _warn "<ev> removing select event $id ``$event->[EV_NAME]''";
+          _warn "<ev> removing select event $id ``$event->[EV_NAME]''" . Carp::shortmess;
 
         $kr_fno_rec->[FMO_EV_COUNT]--;
 

@@ -119,6 +119,16 @@ BEGIN {
       *CHILD_POLLING_INTERVAL = sub () { 1 }; # that's one second, not a true value
     }
   }
+
+  { no strict 'refs';
+    unless (defined &USE_SIGCHLD) {
+      #if ( exists($INC{'Apache.pm'}) ) { # or unsafe signals
+      *USE_SIGCHLD = sub () { 0 };
+      #} else {
+      #  *USE_SIGCHLD = sub () { 1 };
+      #}
+    }
+  }
 }
 
 #==============================================================================
@@ -304,11 +314,10 @@ BEGIN {
 
     next unless $const =~ /^(?:TRACE|ASSERT)_/ or do { no strict 'refs'; defined &$const };
 
-    # Copy so we don't hurt our environment.  Make sure strings are
-    # wrapped in quotes.
+    # Copy so we don't hurt our environment.
     my $value = $val;
     $value =~ tr['"][]d;
-    $value = qq($value) if $value =~ /\D/;
+    $value = 0 + $value if $value =~ /^\s*-?\d+(?:\.\d+)?\s*$/;
 
     no strict 'refs';
     local $^W = 0;
@@ -5139,6 +5148,17 @@ TRACE_STATISTICS is enabled.
 Whether or not to use L<Time::HiRes> for timing purposes.
 
 See L</"Using Time::HiRes">.
+
+=head1 USE_SIGCHLD
+
+Whether to use C<$SIG{CHLD}> or to poll at an interval.
+
+This flag is disabled by default, and enabling it may cause breakage under
+older perls with no safe signals, and under L<Apache> which uses
+C<$SIG{CHLD}>.
+
+Enabling this flag will cause child reaping to happen almost immediately, as
+opposed to once per L</CHILD_POLLING_INTERVAL>.
 
 =head2 CHILD_POLLING_INTERVAL
 

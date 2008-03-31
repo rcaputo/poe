@@ -13,7 +13,7 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use POE;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
 
 my $command = "/bin/true";
 
@@ -24,6 +24,8 @@ SKIP: {
   my $command = shift @commands;
 
   diag( "Using '$command' as our thing to run under system()" );
+
+  my $caught_child = 0;
 
   POE::Session->create(
     inline_states => {
@@ -50,9 +52,12 @@ SKIP: {
       },
       chld => sub {
         diag( "Caught child" );
+        $caught_child++;
       },
     }
   );
+
+  is( $caught_child, 0, "no child procs caught" );
 }
 
 POE::Kernel->run();
