@@ -204,6 +204,7 @@ sub new {
   my $close_event = delete $params{CloseEvent};
 
   my $no_setsid = delete $params{NoSetSid};
+  my $no_setpgrp = delete $params{NoSetpgrp};
 
   # Make sure the user didn't pass in parameters we're not aware of.
   if (scalar keys %params) {
@@ -302,6 +303,9 @@ sub new {
       # Set the pty conduit (slave side) window size to our window
       # size.  APITUE 19.4 and 19.5.
       eval { $stdin_read->clone_winsize_from(\*STDIN) };
+    }
+    else {
+      eval 'setpgrp(0,0)' unless $no_setpgrp;
     }
 
     # Reset all signals in the child process.  POE's own handlers are
@@ -1283,6 +1287,13 @@ change group IDs.  Mileage varies considerably.
 When true, C<NoSetSid> disables setsid() in the child process.  By
 default, setsid() is called to execute the child process in a separate
 Unix session.
+
+=item NoSetpgrp
+
+When true, C<NoSetpgrp> disables setprgp() in the child process. By 
+default, setprgp() is called to change the process group for the child 
+process, if the OS supports process groups. If the conduit is a pty or
+pty-pipe setsid() is used instead, see C<NoSetSid>.
 
 =item Priority
 
