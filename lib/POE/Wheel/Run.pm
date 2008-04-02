@@ -204,7 +204,7 @@ sub new {
   my $close_event = delete $params{CloseEvent};
 
   my $no_setsid = delete $params{NoSetSid};
-  my $no_setpgrp = delete $params{NoSetpgrp};
+  my $no_setpgrp = delete $params{NoSetPgrp};
 
   # Make sure the user didn't pass in parameters we're not aware of.
   if (scalar keys %params) {
@@ -1288,9 +1288,9 @@ When true, C<NoSetSid> disables setsid() in the child process.  By
 default, setsid() is called to execute the child process in a separate
 Unix session.
 
-=item NoSetpgrp
+=item NoSetPgrp
 
-When true, C<NoSetpgrp> disables setprgp() in the child process. By 
+When true, C<NoSetPgrp> disables setprgp() in the child process. By 
 default, setprgp() is called to change the process group for the child 
 process, if the OS supports process groups. If the conduit is a pty or
 pty-pipe setsid() is used instead, see C<NoSetSid>.
