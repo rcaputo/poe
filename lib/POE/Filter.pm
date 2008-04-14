@@ -51,141 +51,265 @@ __END__
 
 =head1 NAME
 
-POE::Filter - a protocol abstraction
+POE::Filter - protocol abstractions for POE::Wheel and standalone use
 
 =head1 SYNOPSIS
 
-  $filter = POE::Filter::Something->new();
-  $arrayref_of_logical_chunks =
-    $filter->get($arrayref_of_raw_chunks_from_driver);
-  $arrayref_of_streamable_chunks_for_driver =
-     $filter->put($arrayref_of_logical_chunks);
+To use with POE::Wheel classes, pass a POE::Filter object to one of
+the /.*Filter$/ constructor parameters.  The following is not a fully
+functional program:
+
+TODO - Test
+
+  # Throw a "got_line" event for every line arriving on $socket.
+  $_[HEAP]{readwrite} = POE::Wheel::ReadWrite->new(
+    Handle => $socket,
+    Filter => POE::Filter::Line->new(),
+    InputEvent => "got_line",
+  );
+
+Standalone use without POE:
+
+TODO - Test
+
+  #!perl
+
+  use warnings;
+  use strict;
+
+  my $filter = POE::Filter::Line->new( Literal => "\n" );
+
+  # Prints three lines: one, two three.
+  $filter->get_one_start(["one\ntwo\nthr", "ee\nfour"]);
+  while (1) {
+    my $line = $filter->get_one();
+    last unless @$line;
+    print $line->[0], "\n";
+  }
+
+  # Prints two lines: four, five.
+  $filter->get_one_start(["\nfive\n"]);
+  while (1) {
+    my $line = $filter->get_one();
+    last unless @$line;
+    print $line->[0], "\n";
+  }
 
 =head1 DESCRIPTION
 
-Filters implement generic interfaces to low- and medium-level
-protocols.  Wheels use them to communicate in basic ways without
-needing to know the details for doing so.  For example, the Line
-filter does everything needed to translate incoming streams into lines
-and outgoing lines into streams.  Sessions can get on with the
-business of using lines.
+-><- AM HERE
 
-=head1 PUBLIC FILTER METHODS
+POE::Filter objects plug into the wheels and define how the data will
+be serialized for writing and parsed after reading.  POE::Wheel
+objects are responsible for moving data, and POE::Filter objects
+define how the data should look.
 
-These methods are the generic Filter interface, and every filter must
-implement them or inherit them from this base class.  Specific filters
-may have additional methods.
+POE::Filter objects are simple by design.  They do not use
+higher-level POE features, so they are limited to serialization and
+parsing.  This may complicate the implementation of certain protocols
+(such as HTTP 1.x), but it allows filters to be used in stand-alone
+programs.
 
-=over 2
+Stand-alone use is very important.  It allows application developers
+to create lightweight blocking libraries that may be used as simple
+clients for POE servers.  POE::Component::IKC::ClientLite is a notable
+example.  This lightweight, blocking inter-kernel communication client
+supports thin clients for gridded POE applications.  The canonical use
+case is to inject events into an IKC grid from CGI applications, which
+require lightweight resource use.
 
-=item new
+POE filters and drivers pass data in array references.  This is
+slightly awkward, but it minimizes the amount of data that must be
+copied on Perl's stack.
 
-new() creates and initializes a new filter.  Specific filters may have
-different constructor parameters.
+=head1 PUBLIC INTERFACE
 
-=item get ARRAYREF
+All POE::Filter classes must support the minimal interface, defined
+here.  Specific filters may implement and document additional methods.
 
-get() translates raw data into records.  What sort of records is
-defined by the specific filter.  The method accepts a reference to an
-array of raw data chunks, and it returns a reference to an array of
-complete records.  The returned ARRAYREF will be empty if there wasn't
-enough information to create a complete record.  Partial records may
-be buffered until subsequent get() calls complete them.
+=head2 new PARAMETERS
 
-  my $records = $filter->get( $driver->get( $filehandle ) );
+new() creates and initializes a new filter.  Constructor parameters
+vary from one POE::Filter subclass to the next, so please consult the
+documentation for your desired filter.
 
-get() processes and returns as many records as possible.  This is
-faster than one record per call, but it introduces race conditions
-when switching filters.  If you design filters and intend them to be
-switchable, please see get_one_start() and get_one().
+=head2 clone
 
-=item get_one_start ARRAYREF
+clone() creates and initializes a new filter based on the constructor
+parameters of the existing one.  The new filter is a near-identical
+copy, except that its buffers are empty.
 
-=item get_one
+Certain components, such as POE::Component::Server::TCP, use clone().
+These components accept a master or template filter at creation time,
+then clone() that filter for each new connection.
 
-These methods are a second interface to a filter's input translation.
-They split the usual get() into two stages.
+  my $new_filter = $old_filter->clone();
+
+=head2 get_one_start ARRAYREF
 
 get_one_start() accepts an array reference containing unprocessed
-stream chunks.  It adds them to the filter's internal buffer and does
-nothing else.
+stream chunks.  The chunks are added to the filter's internal buffer
+for parsing by get_one().
 
-get_one() takes no parameters and returns an ARRAYREF of zero or more
-complete records from the filter's buffer.  Unlike the plain get()
-method, get_one() is not greedy.  It returns as few records as
-possible, preferably just zero or one.
+The SYNOPSIS shows get_one_start() in use.
 
-get_one_start() and get_one() reduce or eliminate race conditions when
-switching filters in a wheel.
+=head2 get_one
 
-=item put ARRAYREF
+get_one() parses zero or one complete record from the filter's
+internal buffer.  The data is returned as an ARRAYREF suitable for
+passing to another filter or a POE::Wheel object.
+
+get_one() is the lazy form of get().  It only parses only one record
+at a time from the filter's buffer.
+
+The SYNOPSIS shows get_one() in use.
+
+=head2 get ARRAYREF
+
+get() is the greedy form of get_one().  It accpets an array reference
+containing unprocessed stream chunks, and it adds that data to the
+filter's internal buffer.  It then parses as many full records as
+possible from the buffer and returns them in another array reference.
+Any unprocessed data remains in the filter's buffer for the next call.
+
+In fact, get() is implemented in POE::Filter in terms of
+get_one_start() and get_one().
+
+Here's the get() form of the SYNOPSIS stand-alone example:
+
+  my $filter = POE::Filter::Line->new( Literal => "\n" );
+
+  # Prints three lines: one, two three.
+  my $lines = $filter->get(["one\ntwo\nthr", "ee\nfour"]);
+  foreach my $line (@$lines) {
+    print "$line\n";
+  }
+
+  # Prints two lines: four, five.
+  $lines = $filter->get(["\nfive\n"]);
+  foreach my $line (@$lines) {
+    print "$line\n";
+  }
+
+get() should not be used with wheels that support filter switching.
+Its greedy nature means that it often parses streams well in advance
+of a wheel's events.  By the time an application changes the wheel's
+filter, too much data may have been interpreted already.
+
+Consider a stream of letters, numbers, and periods.  The periods
+signal when to switch filters from one that parses letters to one that
+parses numbers.
+
+In our hypothetical application, letters must be parsed one at a time,
+but numbers may be parsed in a chunk.  We'll use a hypothetical
+POE::Filter::Character to parse letters and POE::Filter::Line to parse
+numbers.
+
+Here's the sample stream:
+
+  abcdefg.1234567.hijklmnop.890.q
+
+We'll start with a ReadWrite wheel configured to parse input by
+character:
+
+  $_[HEAP]{wheel} = POE::Wheel::ReadWrite->new(
+    Filter => POE::Filter::Characters->new(),
+    Handle => $socket,
+    InputEvent => "got_letter",
+  );
+
+The "got_letter" handler will be called 8 times.  One for each letter
+from a through g, and once for the period following g.  Upon receiving
+the period, it will switch the wheel into number mode.
+
+  sub handle_letter {
+    my $letter = $_[ARG0];
+    if ($letter eq ".") {
+      $_[HEAP]{wheel}->set_filter(
+        POE::Filter::Line->new( Literal => "." )
+      );
+      $_[HEAP]{wheel}->event( InputEvent => "got_number" );
+    }
+    else {
+      print "Got letter: $letter\n";
+    }
+  }
+
+If the greedy get() were used, the entire input stream would have been
+parsed as characters in advance of the first handle_letter() call.
+The set_filter() call would have been moot, since there would be no
+unparsed input data remaining.
+
+The "got_number" handler receives contiguous runs of digits as
+period-terminated lines.  The greedy get() would cause a similar
+problem as above.
+
+  sub handle_numbers {
+    my $numbers = $_[ARG0];
+    print "Got number(s): $numbers\n";
+    $_[HEAP]->{wheel}->set_filter( POE::Filter::Character->new() );
+    $_[HEAP]->{wheel}->event( InputEvent => "got_letter" );
+  }
+
+So don't do it!
+
+=head2 put ARRAYREF
 
 put() serializes records into a form that may be written to a file or
 sent across a socket.  It accepts a reference to a list of records,
-and it returns a reference to a list of stream chunks.
+and it returns a reference to a list of marshalled stream chunks.  The
+number of output chunks is not necessarily related to the number of
+input records.
 
 The list reference it returns may be passed directly to a driver.
 
   $driver->put( $filter->put( \@records ) );
 
-=item get_pending
+Or put() may be used to serialize data for other calls.
 
-get_pending() returns a filter's partial input buffer.  Unlike
-previous versions, the filter's input buffer is B<not> cleared.  The
-ReadWrite wheel uses this for hot-swapping filters; it gives partial
-input buffers to the next filter.
+  my $line_filter = POE::Filter::Line->new();
+  my $lines = $line_filter->put(\@list_of_things);
+  foreach my $line (@$lines) {
+    print $line;
+  }
 
-get_pending() returns undef if nothing is pending.  This is different
-from get() and get_one().
+=head2 get_pending
 
-Filters don't have output buffers.  They accept complete records and
-immediately pass the serialized information to a driver's queue.
+get_pending() returns any data in a filter's input buffer.  The
+filter's input buffer is not cleared, however.  get_pending() returns
+a list reference if there's any data, or undef if the filter was
+empty.
 
-It can be tricky keeping both ends of a socket synchronized during a
-filter change.  It's recommended that some sort of handshake protocol
-be used to make sure both ends are using the same type of filter at
-the same time.
+POE::Wheel objects use get_pending() during filter switching.
+Unprocessed data is fetched from the old filter with get_pending() and
+injected into the new filter with get_one_start().
 
-TCP also tries to combine small packets for efficiency's sake.  In a
-streaming protocol, a filter change could be embedded between two data
-chunks.
-
-  type-1 data
-  type-1 data
-  change to type-2 filter
-  type-2 data
-  type-2 data
-
-A driver can easily read that as a single chunk.  It will be passed to
-a filter as a single chunk, and that filter (type-1 in the example)
-will break the chunk into pieces.  The type-2 data will be interpreted
-as type-1 because the ReadWrite wheel hasn't had a chance to switch
-filters yet.
-
-Adding a handshake protocol means the sender will wait until a filter
-change has been acknowledged before going ahead and sending data in
-the new format.
-
-=item clone
-
-clone() makes a copy of the filter, and clears the copy's buffer.
-
-3rd party modules can either implement their own clone() or inherit
-from POE::Filter.  If inheriting, the object MUST be an array-ref
-AND the first element must be the buffer.  The buffer can be either a
-string or an array-ref.
-
-=back
+Filters don't have output buffers, so there's no corresponding "put"
+buffer accessor.
 
 =head1 SEE ALSO
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
+POE is bundled with the following filters:
+
+L<POE::Filter::Block>
+L<POE::Filter::Grep>
+L<POE::Filter::HTTPD>
+L<POE::Filter::Line>
+L<POE::Filter::Map>
+L<POE::Filter::RecordBlock>
+L<POE::Filter::Reference>
+L<POE::Filter::Stackable>
+L<POE::Filter::Stream>
+
 =head1 BUGS
 
 In theory, filters should be interchangeable.  In practice, stream and
 block protocols tend to be incompatible.
+
+TODO - The examples are untested.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -194,4 +318,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
