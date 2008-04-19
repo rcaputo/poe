@@ -35,6 +35,7 @@ my $kr_queue;
 ### more unique.
 
 my %kr_filenos;
+BEGIN { $poe_kernel->[KR_FILENOS] = \%kr_filenos; }
 
 sub FNO_MODE_RD      () { MODE_RD } # [ [ (fileno read mode structure)
 # --- BEGIN SUB STRUCT 1 ---        #
@@ -86,10 +87,6 @@ sub SH_MODECOUNT  () {  2 } #          [ $read_reference_count,     (MODE_RD)
                             #        ...
                             #      },
                             #    },
-
-sub _data_handle_preload {
-  $poe_kernel->[KR_FILENOS] = \%kr_filenos;
-}
 
 ### Begin-run initialization.
 
