@@ -926,7 +926,7 @@ sub _dispatch_event {
 
       if ($signal eq "DIE") {
         my $next_target = $self->_data_ses_get_parent($session);
-        while ($next_target != $self) {
+        while (defined($next_target) and $next_target != $self) {
           unshift @touched_sessions, $next_target;
           $next_target = $self->_data_ses_get_parent($next_target);
         }
