@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# $Id: svn-log.perl 21 2005-06-23 01:51:27Z rcaputo $
+# $Id: svn-log.perl 36 2007-08-13 06:39:26Z rcaputo $
 
 # This program is Copyright 2005 by Rocco Caputo.  All rights are
 # reserved.  This program is free software.  It may be modified, used,
@@ -15,6 +15,9 @@ use Getopt::Long;
 use Text::Wrap qw(wrap fill $columns $huge);
 use POSIX qw(strftime);
 use XML::Parser;
+use XML::LibXML;
+
+use constant DEBUG => 1;
 
 my %month = qw(
 	Jan 01 Feb 02 Mar 03 Apr 04 May 05 Jun 06
@@ -27,6 +30,7 @@ $Text::Wrap::columns  = 74;
 my $days_back  = 365;   # Go back a year by default.
 my $send_help  = 0;     # Display help and exit.
 my $svn_repo;           # Where to log from.
+my $tag_pattern = "^v\\d+_";
 
 use constant LOG_REV        => 0;
 use constant LOG_DATE       => 1;
@@ -43,12 +47,13 @@ use constant TAG_REV        => 0;
 use constant TAG_TAG        => 1;
 use constant TAG_LOG        => 2;
 
-use constant MAX_TIMESTAMP  => "9999-99-99 99:99:99";
+use constant MAX_TIMESTAMP  => "9999-99-99 99:99:99.999999Z";
 
 GetOptions(
-  "age=s"      => \$days_back,
-  "repo=s"     => \$svn_repo,
+	"age=s"      => \$days_back,
+	"repo=s"     => \$svn_repo,
 	"help"       => \$send_help,
+	"tags=s"     => \$tag_pattern,
 ) or exit;
 
 # Find the trunk for the current repository if one isn't specified.
@@ -65,40 +70,75 @@ unless (defined $svn_repo) {
 
 die(
 	"$0 usage:\n",
-	"  --repo REPOSITORY\n",
-	"  [--age DAYS]\n",
+	"  --repo URL  where to find the repository\n",
+	"  [--age DAYS]  limit report to DAYS in the past (default: 365)\n",
+	"  [--tags REGEXP]  report on tags matching REGEXP (default: ^v\\d+_)\n",
 	"\n",
 	"REPOSITORY must have a trunk subdirectory and a tags directory where\n",
 	"release tags are kept.\n",
 ) if $send_help;
 
-my $earliest_date = strftime "%F", gmtime(time() - $days_back * 86400);
+my $earliest_date = strftime(
+	"%FT%T.000000Z", gmtime(time() - $days_back * 86400)
+);
+DEBUG and warn "earliest date = $earliest_date\n";
 
 ### 1. Gather a list of tags for the repository, their revisions and
 ### dates.
 
 my %tag;
 
-open(TAG, "svn -v list $svn_repo/tags|") or die $!;
-while (<TAG>) {
-	# The date is unused, however.
-	next unless (
-		my ($rev, $date, $tag) = m{
-			(\d+).*?(\S\S\S\s+\d\d\s+(?:\d\d\d\d|\d\d:\d\d))\s+(v[0-9_.]+)
-		}x
-	);
+my $parser = XML::LibXML->new();
 
-	my @tag_log = gather_log("$svn_repo/tags/$tag", "--stop-on-copy");
-	die "Tag $tag has changes after tagging!\n" if @tag_log > 1;
+my $doc = $parser->parse_string(scalar `svn --xml list $svn_repo/tags`);
 
-	my $timestamp = $tag_log[0][LOG_DATE];
-	$tag{$timestamp} = [
-		$rev,     # TAG_REV
-		$tag,     # TAG_TAG
-		[ ],      # TAG_LOG
+sub get_value_of_element {
+	my $element = shift;
+	return "" unless defined $element;
+	my $child = $element->getFirstChild();
+	return "" unless defined $child;
+	my $value = $child->getData();
+	return "" unless defined $value;
+	$value =~ s/\s+/ /g;
+	$value =~ s/^\s//;
+	$value =~ s/\s$//;
+	return $value;
+}
+
+#<entry kind="dir">
+#	<name>docs-wiki-start</name>
+#	<commit revision="1901">
+#		<author>rcaputo</author>
+#		<date>2006-03-20T02:54:27.572888Z</date>
+#	</commit>
+#</entry>
+
+foreach my $entry ($doc->getElementsByTagName("entry")) {
+	next unless $entry->getAttribute("kind") eq "dir";
+
+	my $tag = get_value_of_element(($entry->getChildrenByTagName("name"))[0]);
+
+	my ($rev, $author, $date);
+	foreach my $commit ($entry->getElementsByTagName("commit")) {
+		$rev = $commit->getAttribute("revision");
+		$author = get_value_of_element(
+			($commit->getChildrenByTagName("author"))[0]
+		);
+		$date = get_value_of_element(
+			($commit->getChildrenByTagName("date"))[0]
+		);
+	}
+
+	next unless $tag =~ /$tag_pattern/o;
+
+	DEBUG and warn "rev($rev) date($date) tag($tag)\n";
+
+	$tag{$date} = [
+		$rev,  # TAG_REV
+		$tag,  # TAG_TAG
+		[ ],   # TAG_LOG
 	];
 }
-close TAG;
 
 # Fictitious "HEAD" tag for revisions that came after the last tag.
 
@@ -108,8 +148,8 @@ $tag{+MAX_TIMESTAMP} = [
 	undef,          # TAG_LOG
 ];
 
-### 2. Gather the log for the trunk.  Place log entries under their
-### proper tags.
+### 2. Gather the log for the current directory.  Store log entries
+### under their proper tags.
 
 my @tag_dates = sort keys %tag;
 while (my $date = pop(@tag_dates)) {
@@ -121,7 +161,7 @@ while (my $date = pop(@tag_dates)) {
 	}
 
 	my $tag = $tag{$date}[TAG_TAG];
-	#warn "Gathering information for tag $tag...\n";
+	DEBUG and warn "Gathering information for tag $tag...\n";
 
 	my $this_rev = $tag{$date}[TAG_REV];
 	my $prev_rev;
@@ -132,7 +172,8 @@ while (my $date = pop(@tag_dates)) {
 		$prev_rev = 0;
 	}
 
-	my @log = gather_log("$svn_repo/trunk", "-r", "$this_rev:$prev_rev");
+	DEBUG and warn "$this_rev:$prev_rev";
+	my @log = gather_log(".", "-r", "$this_rev:$prev_rev");
 
 	$tag{$date}[TAG_LOG] = \@log;
 }
@@ -140,6 +181,7 @@ while (my $date = pop(@tag_dates)) {
 ### 3. PROFIT!  No, wait... generate the nice log file.
 
 foreach my $timestamp (sort { $b cmp $a } keys %tag) {
+	last if $timestamp lt $earliest_date;
 	my $tag_rec = $tag{$timestamp};
 
 	# Skip this tag if there are no log entries.
@@ -287,7 +329,7 @@ sub gather_log {
 	);
 
 	my $cmd = "svn -v --xml @flags log $url";
-	#warn "Command: $cmd\n";
+	DEBUG and warn "Command: $cmd\n";
 
 	open(LOG, "$cmd|") or die $!;
 	$parser->parse(*LOG);
