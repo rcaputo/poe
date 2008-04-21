@@ -104,7 +104,7 @@ my $shutdown_program = sub {
   my $flag = 0;
   $SIG{ALRM} = sub { die "alarm\n" };
   eval {
-    alarm(10);
+    alarm(20);
     while (<STDIN>) {
       chomp;
       if (/flag (\d+)/) { $flag = $1 }
