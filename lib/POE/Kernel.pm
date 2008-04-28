@@ -4353,10 +4353,10 @@ Example:
     # ...
   }
 
-SIGCHLD is not handled by registering a C<%SIG> handler, although it may
-be in the future.  For now, POE polls for child processes using a
-non-blocking C<waitpid()> call.  This is much more portable and reliable
-than setting C<$SIG{CHLD}>, although it's somewhat less responsive.
+By default, SIGCHLD is not handled by registering a C<%SIG> handler.
+Rather, waitpid() is called periodically to test for child process
+exits.  See the experimental L<USE_SIGCHLD> option if you would prefer
+child processes to be reaped in a more timely fashion.
 
 =head4 SIGPIPE
 
