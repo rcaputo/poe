@@ -4525,13 +4525,18 @@ watcher can be cleared prematurely by calling sig_child() with just
 the PROCESS_ID.
 
 A session may register as many sig_child() handlers as necessary, but
-there may only be one per PROCESS_ID.
+a session may only have one per PROCESS_ID.
 
 sig_child() watchers are one-shot.  They automatically unregister
 themselves once the EVENT_NAME has been delivered.
 
 sig_child() watchers keep a session alive for as long as they are
 active.  This is unique among signal watchers.
+
+Programs that wish to reliably reap child processes should be sure to
+call sig_child() before returning from the event handler that forked
+the process.  Otherwise POE::Kernel may have an opportunity to call
+waitpid() before an appropriate event watcher has been registered.
 
 sig_chid() does not return a meaningful value.
 
