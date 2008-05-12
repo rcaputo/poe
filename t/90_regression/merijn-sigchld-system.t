@@ -13,13 +13,16 @@ sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
 use POE;
 
-use Test::More tests => 4;
+use constant TESTS => 4;
+use Test::More tests => TESTS;
 
 my $command = "/bin/true";
 
 SKIP: {
   my @commands = grep { -x } qw(/bin/true /usr/bin/true);
-  skip( "Couldn't find a 'true' to run under system()", 3 ) unless @commands;
+  skip( "Couldn't find a 'true' to run under system()", TESTS ) unless (
+    @commands
+  );
 
   my $command = shift @commands;
 
