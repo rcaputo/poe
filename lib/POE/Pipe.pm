@@ -17,7 +17,7 @@ use IO::Socket qw(
   pack_sockaddr_in unpack_sockaddr_in inet_aton
   SOMAXCONN SO_ERROR
 );
-use POSIX qw(:fcntl_h);
+use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
 use Errno qw(EINPROGRESS EWOULDBLOCK);
 
 # CygWin seems to have a problem with socketpair() and exec().  When
@@ -61,9 +61,10 @@ sub _shift_preference {
 # Provide dummy constants for MSWin32, so things at least compile.
 
 BEGIN {
-  if ($^O eq 'MSWin32') {
-    eval '*F_GETFL = sub () { 0 };';
-    eval '*F_SETFL = sub () { 0 };';
+  eval 'F_GETFL';
+  if ($@) {
+    *F_GETFL = sub () { 0 };
+    *F_SETFL = sub () { 0 };
   }
 }
 

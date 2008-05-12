@@ -19,9 +19,10 @@ use strict;
 # aren't used if we're RUNNING_IN_HELL, but Perl needs to see them.
 
 BEGIN {
-  if (RUNNING_IN_HELL) {
-    eval '*F_GETFL = sub () { 0 };';
-    eval '*F_SETFL = sub () { 0 };';
+  eval 'F_GETFL';
+  if ($@) {
+    *F_GETFL = sub () { 0 };
+    *F_SETFL = sub () { 0 };
   }
 }
 
