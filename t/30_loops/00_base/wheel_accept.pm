@@ -56,7 +56,7 @@ sub listener_start {
   );
 
   $heap->{accept_count} = 0;
-  $_[KERNEL]->delay( got_timeout => 15 );
+  $_[KERNEL]->delay( got_timeout => 30 );
 }
 
 sub listener_stop {
