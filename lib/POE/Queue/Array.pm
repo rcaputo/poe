@@ -443,11 +443,13 @@ See L<POE::Queue>.
 =head1 DESCRIPTION
 
 This class is an implementation of the abstract POE::Queue interface.
-It implement the priority queue using Perl arrays, splice, and a
-copious application of cleverness.
+As such, its documentation may be found in L<POE::Queue>.
 
-Please see the L<POE::Queue> documentation, which explains this one's
-functions, features, and behavior.
+POE::Queue::Array implements a priority queue using Perl arrays,
+splice, and copious application of cleverness.
+
+Despite its name, POE::Queue::Array may be used as a stand-alone
+priority queue without the rest of POE.
 
 =head1 SEE ALSO
 
@@ -465,4 +467,3 @@ and POE's licensing.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
