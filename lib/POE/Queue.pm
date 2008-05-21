@@ -209,7 +209,7 @@ reference containing a priority, item ID, and payload.  Returns
 nothing if FILTER_FUNCTION matched nothing.
 
   # Remove up to 12 monkeys.
-  my @monkeys = $queue->remove_tiems(\&monkeys, 12);
+  my @monkeys = $queue->remove_items(\&monkeys, 12);
   foreach my $monkey (@monkeys) {
     my ($priority, $id, $payload) = @$monkey;
     print(
