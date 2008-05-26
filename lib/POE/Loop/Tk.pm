@@ -201,7 +201,7 @@ __END__
 
 =head1 NAME
 
-POE::Loop::Tk - a bridge that supports Tk's event loop from POE
+POE::Loop::Tk - a bridge that allows POE to be driven by Tk
 
 =head1 SYNOPSIS
 
@@ -209,13 +209,20 @@ See L<POE::Loop>.
 
 =head1 DESCRIPTION
 
-This class is an implementation of the abstract POE::Loop interface.
-It follows POE::Loop's public interface exactly.  Therefore, please
-see L<POE::Loop> for its documentation.
+POE::Loop::Tk implements the interface documented in L<POE::Loop>.
+Therefore it has no documentation of its own.  Please see L<POE::Loop>
+for more details.
+
+POE::Loop::Tk is one of two versions of the Tk event loop bridge.  The
+other, L<POE::Loop::TkActiveState> accommodates behavior differences
+in ActiveState's build of Tk.  Both versions share common code in
+L<POE::Loop::TkCommon>.  POE::Loop::Tk dynamically selects the
+appropriate bridge code based on the runtime enviroment.
 
 =head1 SEE ALSO
 
-L<POE>, L<POE::Loop>, L<Tk>
+L<POE>, L<POE::Loop>, L<Tk>, L<POE::Loop::TkCommon>,
+L<POE::Loop::PerlSignals>.
 
 =head1 AUTHORS & LICENSING
 
@@ -225,4 +232,3 @@ and POE's licensing.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

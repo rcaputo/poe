@@ -217,7 +217,7 @@ __END__
 
 =head1 NAME
 
-POE::Loop::Event - a bridge that supports Event.pm from POE
+POE::Loop::Event - a bridge that allows POE to be driven by Event.pm
 
 =head1 SYNOPSIS
 
@@ -225,13 +225,13 @@ See L<POE::Loop>.
 
 =head1 DESCRIPTION
 
-This class is an implementation of the abstract POE::Loop interface.
-It follows POE::Loop's public interface exactly.  Therefore, please
-see L<POE::Loop> for its documentation.
+POE::Loop::Event implements the interface documented in L<POE::Loop>.
+Therefore it has no documentation of its own.  Please see L<POE::Loop>
+for more details.
 
 =head1 SEE ALSO
 
-L<POE>, L<POE::Loop>, L<Event>
+L<POE>, L<POE::Loop>, L<Event>, L<POE::Loop::PerlSignals>
 
 =head1 AUTHORS & LICENSING
 
@@ -241,4 +241,3 @@ and POE's licensing.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
