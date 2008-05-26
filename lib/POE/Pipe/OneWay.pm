@@ -131,14 +131,13 @@ sub _try_type {
   return;
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Pipe::OneWay - portable one-way pipe creation (works without POE)
+POE::Pipe::OneWay - a portable API for one-way pipes
 
 =head1 SYNOPSIS
 
@@ -147,54 +146,59 @@ POE::Pipe::OneWay - portable one-way pipe creation (works without POE)
 
 =head1 DESCRIPTION
 
-POE::Pipe::OneWay makes unbuffered one-way pipes or it dies trying.
+The right way to create an anonymous pipe varies from one operating
+system to the next.  Some operating systems support C<pipe()>.  Others
+require C<socketpair()>.  And a few operating systems support neither,
+so a plain old socket must be created.
 
-Pipes are troublesome beasts because the different pipe creation
-methods have spotty support from one system to another.  Some systems
-have C<pipe()>, others have C<socketfactory()>, and still others have
-neither.
+POE::Pipe::OneWay will attempt to create a unidirectional pipe using
+C<pipe()>, C<socketpair()>, and IO::Socket::INET, in that order.
+Exceptions are hardcoded for operating systems with broken or
+nonstandard behaviors.
 
-POE::Pipe::OneWay tries different ways to make a pipe in the hope that
-one of them will succeed on any given platform.  It tries them in
-pipe() -> socketpair() -> IO::Socket::INET order.
+The upshot of all this is that an application can portably create a
+one-way pipe by instantiating POE::Pipe::OneWay.  The work of deciding
+how to create the pipe and opening the handles will be taken care of
+internally.
 
-So anyway, the syntax is pretty easy:
+POE::Pipe::OneWay may be used outside of POE, as it doesn't use POE
+internally.
+
+=head1 PUBLIC METHODS
+
+=head2 new [TYPE]
+
+Create a new one-way pipe, optionally constraining it to a particular
+TYPE of pipe.  One-way pipes have two ends: a "read" end and a "write"
+end.  On success, new() returns two handles: one for the "read" end
+and one for the "write" end.  Returns nothing on failure, and sets $!
+to explain why the constructor failed.
 
   my ($read, $write) = POE::Pipe::OneWay->new();
-  die "couldn't create a pipe: $!" unless defined $read;
+  die $! unless defined $read;
 
-And now you have a pipe with a read side and a write side.
-
-=head1 CONSTRUCTOR
-
-=over 
-
-=item new
-
-  my ($read, $write) = POE::Pipe::OneWay->new();
-
-=back
-
-=head1 DEBUGGING
-
-It's possible to force POE::Pipe::OneWay to use one of its underlying
-pipe methods.  This was implemented for exercising each method in
-tests, but it's possibly useful for others.
-
-However, forcing OneWay's pipe method isn't documented because it's
-cheezy and likely to change.  Use it at your own risk.
+TYPE may be one of "pipe", "socketpair", or "inet".  When set,
+POE::Pipe::OneWay will constrain its search to either C<pipe()>, a
+UNIX-domain C<socketpair()>, or plain old sockets, respectively.
+Otherwise new() will try each method in order, or a particular method
+predetermined to be the best one for the current operating
+environment.
 
 =head1 BUGS
 
-The INET domain socket method may block for up to 1s if it fails.
+POE::Pipe::OneWay may block up to one second on some systems if
+failure occurs while trying to create "inet" sockets.
+
+=head1 SEE ALSO
+
+L<POE::Pipe>, L<POE::Pipe::TwoWay>.
 
 =head1 AUTHOR & COPYRIGHT
 
-POE::Pipe::OneWay is copyright 2000 by Rocco Caputo.  All rights
+POE::Pipe::OneWay is copyright 2000-2008 by Rocco Caputo.  All rights
 reserved.  POE::Pipe::OneWay is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

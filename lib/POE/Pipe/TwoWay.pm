@@ -141,18 +141,17 @@ sub _try_type {
     return 1;
   }
 
-  DEBUG and warn "unknown OneWay socket type ``$type''";
+  DEBUG and warn "unknown TwoWay socket type ``$type''";
   return;
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Pipe::TwoWay - portable two-way pipe creation (works without POE)
+POE::Pipe::TwoWay - a portable API for two-way pipes
 
 =head1 SYNOPSIS
 
@@ -161,60 +160,60 @@ POE::Pipe::TwoWay - portable two-way pipe creation (works without POE)
 
 =head1 DESCRIPTION
 
-POE::Pipe::TwoWay makes unbuffered two-way pipes or it dies trying.
-It can be more frugal with filehandles than two OneWay pipes when
-socketpair() is available.
+Pipes are troublesome beasts because there are a few different,
+incompatible ways to create them, and many operating systems implement
+some subset of them.  Therefore it's impossible to rely on a
+particular method for their creation.
 
-Pipes are troublesome beasts because the different pipe creation
-methods have spotty support from one system to another.  Some systems
-have C<pipe()>, others have C<socketfactory()>, and still others have
-neither.
+POE::Pipe::TwoWay will attempt to create a bidirectional pipe using an
+appropriate method.  If that fails, it will fall back to some other
+means until success or all methods have been exhausted.  Some
+operating systems require certain exceptions, which are hardcoded into
+the library.
 
-POE::Pipe::TwoWay tries different ways to make a pipe in the hope that
-one of them will succeed on any given platform.  It tries them in
-socketpair() -> pipe() -> IO::Socket::INET order.  If socketpair() is
-available, the two-way pipe will use half as many filehandles as two
-one-way pipes.
+The upshot of all this is that an application can use
+POE::Pipe::TwoWay to create a bidirectional pipe without worrying
+about the mechanism that works in the current runtime environment.
 
-So anyway, the syntax is pretty easy:
+By the way, POE::Pipe::TwoWay doesn't use POE internally, so it may be
+used in stand-alone applications without POE.
+
+=head1 PUBLIC METHODS
+
+=head2 new [TYPE]
+
+Create a new two-way pipe, optionally constraining it to a particular
+TYPE of pipe.  Two-way pipes have two ends, both of which can be read
+from and written to.  Therefore, a successful new() call will return
+four handles: read and write for one end, and read and write for the
+other.  On failure, new() sets $! to describe the error and returns
+nothing.
 
   my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new();
-  die "couldn't create a pipe: $!" unless defined $a_read;
+  die $! unless defined $a_read;
 
-And now you have an unbuffered pipe with two read/write sides, A and
-B.  Writing to C<$a_write> passes data to C<$b_read>, and writing to
-C<$b_write> passes data to C<$a_read>.
-
-=head1 CONSTRUCTOR
-
-=over
-
-=item new
-
-  my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new();
-
-=back
-
-=head1 DEBUGGING
-
-It's possible to force POE::Pipe::TwoWay to use one of its underlying
-pipe methods.  This was implemented for exercising each method in
-tests, but it's possibly useful for others.
-
-However, forcing TwoWay's pipe method isn't documented because it's
-cheezy and likely to change.  Use it at your own risk.
+TYPE may be one of "pipe", "socketpair", or "inet".  When set,
+POE::Pipe::TwoWay will constrain its search to either C<pipe()>, a
+UNIX-domain C<socketpair()>, or plain old sockets, respectively.
+Otherwise new() will try each method in order, or a particular method
+predetermined to be the best one for the current operating
+environment.
 
 =head1 BUGS
 
-The INET domain socket method may block for up to 1s if it fails.
+POE::Pipe::OneWay may block up to one second on some systems if
+failure occurs while trying to create "inet" sockets.
+
+=head1 SEE ALSO
+
+L<POE::Pipe>, L<POE::Pipe::OneWay>.
 
 =head1 AUTHOR & COPYRIGHT
 
-POE::Pipe::TwoWay is copyright 2000 by Rocco Caputo.  All rights
+POE::Pipe::TwoWay is copyright 2000-2008 by Rocco Caputo.  All rights
 reserved.  POE::Pipe::TwoWay is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

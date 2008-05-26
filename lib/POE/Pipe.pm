@@ -27,10 +27,10 @@ use Errno qw(EINPROGRESS EWOULDBLOCK);
 # <dngnand>   Sounds like a lapse in cygwin's exec implementation.  It
 #             works ok under Unix-ish systems?
 # <jdeluise2> yes, it works perfectly
-# <jdeluise2> but, if we just use poe::Pipe::TwoWay->new("pipe") it
+# <jdeluise2> but, if we just use POE::Pipe::TwoWay->new("pipe") it
 #             always works fine on cygwin
 # <jdeluise2> by the way, it looks like the reason is that
-#             poe::Pipe::OneWay works because it tries to make a pipe
+#             POE::Pipe::OneWay works because it tries to make a pipe
 #             first instead of a socketpair
 # <jdeluise2> this socketpair problem seems like a long-standing one
 #             with cygwin, according to searches on google, but never
@@ -39,6 +39,7 @@ use Errno qw(EINPROGRESS EWOULDBLOCK);
 # The order of pipe primitives depends on our platform.  Placed in the
 # base class and given accessors so we can use it from both OneWay and
 # TwoWay.
+
 my @preference;
 if ($^O eq "MSWin32" or $^O eq "MacOS") {
   @preference = qw(inet socketpair pipe);
@@ -248,7 +249,7 @@ __END__
 
 =head1 NAME
 
-POE::Pipe - common functions for POE::Pipe::OneWay and ::TwoWay
+POE::Pipe - common methods for POE::Pipe::OneWay and POE::Pipe::TwoWay
 
 =head1 SYNOPSIS
 
@@ -256,22 +257,27 @@ POE::Pipe - common functions for POE::Pipe::OneWay and ::TwoWay
 
 =head1 DESCRIPTION
 
-POE::Pipe contains some helper functions to create a socketpair out of
-discrete Internet sockets.  It's used by POE::Pipe::OneWay and
-POE::Pipe::TwoWay as a last resort if pipe() and socketpair() fail.
+POE::Pipe implements lower-level internal methods that are common
+among its subclasses: POE::Pipe::OneWay and POE::Pipe::TwoWay.
+
+The POE::Pipe classes may be used outside of POE, as they don't use
+POE internally.
 
 =head1 BUGS
 
 The functions implemented here die outright upon failure, requiring
 eval{} around their calls.
 
+=head1 SEE ALSO
+
+L<POE::Pipe::OneWay>, L<POE::Pipe::TwoWay>, L<POE>
+
 =head1 AUTHOR & COPYRIGHT
 
-POE::Pipe is copyright 2001 by Rocco Caputo.  All rights reserved.
-POE::Pipe is free software; you may redistribute it and/or modify it
-under the same terms as Perl itself.
+POE::Pipe is copyright 2001-2008 by Rocco Caputo.  All rights
+reserved.  POE::Pipe is free software; you may redistribute it and/or
+modify it under the same terms as Perl itself.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
