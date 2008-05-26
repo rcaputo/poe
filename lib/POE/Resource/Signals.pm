@@ -627,26 +627,35 @@ __END__
 
 =head1 NAME
 
-POE::Resource::Signals - signal management for POE::Kernel
+POE::Resource::Signals - internal signal manager for POE::Kernel
 
 =head1 SYNOPSIS
 
-Used internally by POE::Kernel.  Better documentation will be
-forthcoming.
+There is no public API.
 
 =head1 DESCRIPTION
 
-This module encapsulates and provides accessors for POE::Kernel's data
-structures that manage signals.  It is used internally by POE::Kernel
-and has no public interface.
+POE::Resource::Signals is a mix-in class for POE::Kernel.  It provides
+the features needed to manage signals.  It is used internally by
+POE::Kernel, so it has no public interface.
 
 =head1 SEE ALSO
 
-See L<POE::Kernel> for documentation on signals.
+See L<POE::Kernel/Signals> for a deeper discussion about POE's signal
+handling.
+
+See L<POE::Kernel/Signal Watcher Methods> for POE's public signals
+API.
+
+See L<POE::Kernel/Resources> for for public information about POE
+resources.
+
+See L<POE::Resource> for general discussion about resources and the
+classes that manage them.
 
 =head1 BUGS
 
-Probably.
+None known.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -655,4 +664,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

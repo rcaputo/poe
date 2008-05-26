@@ -805,27 +805,35 @@ __END__
 
 =head1 NAME
 
-POE::Resource::FileHandles - manage file handles on behalf of POE::Kernel
+POE::Resource::FileHandles - internal filehandle manager for POE::Kernel
 
 =head1 SYNOPSIS
 
-Used internally by POE::Kernel.  Better documentation will be
-forthcoming.
+There is no public API.
 
 =head1 DESCRIPTION
 
-This module encapsulates low-level file handle management for
-POE::Kernel.  It provides accessors to its data structures that
-POE::Kernel uses internally.  This module has no public interface.
-Move along.
+POE::Resource::FileHandles is a mix-in class for POE::Kernel.  It
+provides the low-level features to manage filehandles.  It is used
+internally by POE::Kernel, so it has no public interface.
 
 =head1 SEE ALSO
 
-See L<POE::Kernel> for documentation on file handles and selects.
+See L<POE::Kernel/I/O Watchers (Selects)> for the public file watcher
+API.
+
+See L<POE::Kernel/Resources> for for public information about POE
+resources.
+
+See L<POE::Resource> for general discussion about resources and the
+classes that manage them.
 
 =head1 BUGS
 
-Probably.
+POE watches I/O based on filehandles rather than file descriptors,
+which means there can be clashes between its API and an underlying
+descriptor-based event loop.  This is usually not a problem, but it
+may require work-arounds in certain edge cases.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -834,4 +842,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

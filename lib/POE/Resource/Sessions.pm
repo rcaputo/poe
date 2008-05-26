@@ -524,26 +524,46 @@ __END__
 
 =head1 NAME
 
-POE::Resource::Sessions - manage session data structures for POE::Kernel
+POE::Resource::Sessions - internal session manager for POE::Kernel
 
 =head1 SYNOPSIS
 
-Used internally by POE::Kernel.  Better documentation will be
-forthcoming.
+There is no public API.
 
 =head1 DESCRIPTION
 
-This module encapsulates and provides accessors for POE::Kernel's data
-structures that manage sessions themselves.  It is used internally by
-POE::Kernel and has no public interface.
+POE::Resource::Sessions is a mix-in class for POE::Kernel.  It
+provides the internal features that manage sessions, regardless of the
+session type.  It is used internally by POE::Kernel. so it has no
+public interface.
 
 =head1 SEE ALSO
 
-See L<POE::Kernel> and L<POE::Session> for documentation on sessions.
+See L<POE::Session> and L<POE::NFA> for one type of session.  CPAN
+also have others.
+
+See L<POE::Kernel/Sessions> for a discussion about POE::Kernel
+sessions.
+
+See L<POE::Kernel/Session Lifespans> to learn why sessions run, and
+how to stop them.
+
+See L<POE::Kernel/Session Management> for information about managing
+sessions in your applications, and the events that occur when sessions
+come and go.
+
+See L<POE::Kernel/Session Helper Methods> for friend methods between
+POE::Kernel and POE::Session classes.
+
+See L<POE::Kernel/Resources> for for public information about POE
+resources.
+
+See L<POE::Resource> for general discussion about resources and the
+classes that manage them.
 
 =head1 BUGS
 
-Probably.
+None known.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -552,4 +572,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

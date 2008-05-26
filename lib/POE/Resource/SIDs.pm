@@ -88,27 +88,32 @@ __END__
 
 =head1 NAME
 
-POE::Resource::SIDs - session ID management for POE::Kernel
+POE::Resource::SIDs - internal session ID manager for POE::Kernel
 
 =head1 SYNOPSIS
 
-Used internally by POE::Kernel.  Better documentation will be
-forthcoming.
+There is no public API.
 
 =head1 DESCRIPTION
 
-This module encapsulates and provides accessors for POE::Kernel's data
-structures that manage session IDs.  It is used internally by
-POE::Kernel and has no public interface.
+POE::Resource::SIDs is a mix-in class for POE::Kernel.  It provides
+the features necessary to manage session IDs.  It is used internally
+by POE::Kernel, so it has no public interface.
 
 =head1 SEE ALSO
 
-See L<POE::Kernel> and L<POE::Session> for documentation about session
-IDs.
+See L<POE::Kernel/Session Identifiers (IDs and Aliases)> for more
+information about session IDs.
+
+See L<POE::Kernel/Resources> for for public information about POE
+resources.
+
+See L<POE::Resource> for general discussion about resources and the
+classes that manage them.
 
 =head1 BUGS
 
-Probably.
+None known.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -117,4 +122,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

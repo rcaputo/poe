@@ -811,7 +811,7 @@ sub new {
       \$kr_active_event,   # KR_ACTIVE_EVENT
     ], $type;
 
-    POE::Resources->initialize();
+    POE::Resources->load();
 
     $self->_data_sid_set($self->ID(), $self);
 
@@ -4071,7 +4071,6 @@ The session's constructor returns.
 
 =back
 
-
 =head4 When an old session stops:
 
 =over 4
@@ -5150,12 +5149,18 @@ dispatcher, and the time spent waiting for an event.  A report is
 displayed just before run() returns, and the data can be retrieved at
 any time using stat_getdata().
 
+See L<POE::Resource::Statistics> for more details about POE's
+statistics.
+
 =head3 stat_getdata
 
 stat_getdata() returns a hash of various statistics and their values
 The statistics are calculated using a sliding window and vary over
 time as a program runs.  It only returns meaningful data if
 TRACE_STATISTICS is enabled.
+
+See L<POE::Resource::Statistics/Gathered Statistics> for details about
+what is gathered.
 
 =head1 ADDITIONAL CONSTANTS
 

@@ -16,7 +16,7 @@ my @resources = qw(
   POE::XS::Resource::Statistics
 );
 
-sub initialize {
+sub load {
   my $package = (caller())[0];
 
   foreach my $resource (@resources) {
@@ -40,31 +40,41 @@ POE::Resources - loader of POE resources
 
 =head1 SYNOPSIS
 
-  POE::Resources->initialize(); # intended to be used within the kernel
+  # Intended for internal use by POE::Kernel.
+  use POE::Resources;
+  POE::Resources->load();
 
 =head1 DESCRIPTION
 
-Internally POE's kernel is split up into the different resources that it
-manages.  Each resource may be handled by a pure perl module, or by an
-XS module.  This module is used internally by the kernel to load the
-correct modules.
+POE::Kernel is internally split into different resources that are
+separately managed by individual mix-in classes.
 
-For each resource type, initialize first tries to load C<POE::XS::Resource::*>
-and then falls back to C<POE::Resource::*>.
+POE::Resources is designed as a high-level macro manager for
+POE::Resource classes.  Currently it implements a single method,
+load(), which loads all the POE::Resource classes.
 
 =head1 METHODS
 
-=over
+POE::Resources has a public interface, but it is intended to be used
+internally by POE::Kernel.  Application programmers should never need
+to use POE::Resources directly.
 
-=item initialize
+=head2 load
 
-Used internally by the kernel.
+POE::Kernel calls load() to loads all the known POE::Resource modules.
 
-=back
+Each resource may be handled by a pure perl module, or by an XS
+module.  For each resource class, load() first tires to load the
+L<POE::XS::Resource::...> version of the module.  If that fails,
+load() falls back to C<POE::Resource::...>.
 
 =head1 SEE ALSO
 
-L<POE::Resource>
+See L<POE::Kernel/Resources> for for public information about POE
+resources.
+
+See L<POE::Resource> for general discussion about resources and the
+classes that manage them.
 
 =head1 AUTHORS & LICENSING
 
@@ -74,4 +84,3 @@ contributors, and POE's licensing.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

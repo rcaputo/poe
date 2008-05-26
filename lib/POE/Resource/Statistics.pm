@@ -167,11 +167,12 @@ sub stat_show_profile {
 }
 
 1;
+
 __END__
 
 =head1 NAME
 
-POE::Resource::Statistics -- Runtime statistics for POE programs
+POE::Resource::Statistics -- experimental runtime statistics for POE
 
 =head1 SYNOPSIS
 
@@ -180,107 +181,109 @@ POE::Resource::Statistics -- Runtime statistics for POE programs
 
 =head1 DESCRIPTION
 
-This module tracks runtime statistics for a POE program and provides
-accessors to them.  To enable this monitoring, the TRACE_STATISTICS
-flag must be true.  Otherwise no statistics will be gathered.
+POE::Resource::Statistics is a mix-in class for POE::Kernel.  It
+provides features for gathering runtime statistics about POE::Kernel
+and the applications that use it.
 
-The statistics counters are totaled every 30 seconds and a rolling
-average is maintained for the last two minutes worth of data. At any
-time the data can be retrieved using the stat_getdata() method of the
-POE::Kernel. On conclusion of the program, the statistics will be
-printed out by the POE::Kernel.
+Statistics gathering is enabled with the TRACE_STATISTICS constant.
+There is no runtime performance penalty when tracing is disabled.
+
+Statistics are totaled every 30 seconds, and a rolling average is
+maintained for the last two minutes.  The data may be retrieved at any
+time with the stat_getdata() method.  Statistics will also be
+displayed on the console shortly before POE::Kernel's run() returns.
 
 The time() function is used to gather statistics over time.  If
 Time::HiRes is available, it will be used automatically.  Otherwise
 time is measured in whole seconds, and the resulting rounding errors
-will make the statistics useless.
+will make the statistics much less useful.
 
 Runtime statistics gathering was added to POE 0.28.  It is considered
-highly experimental.  Please be advised that the figures are quite
-likely wrong.  They may in fact be useless.  The reader is invited to
-investigate and improve the module's methods.
+B<highly experimental>.  Please be advised that the statistics it
+gathers are quite likely wrong.  They may in fact be useless.  The
+reader is invited to investigate and improve the module's
+methodologies.
 
-=head1 METRICS
+=head1 Gathered Statistics
 
-The following fields are members of the hash returned by
-stat_getdata().
+stat_getdata() returns a hashref with a small number of accumulated
+values.  For each accumulator, there will be a corresponding field
+prefixed "avg_" which is the rolling average for that accumulator.
 
-For each of the counters, there will a corresponding entry prefixed
-'avg_' which is the rolling average of that counter.
+=head2 blocked
 
-=over 4
+C<blocked> contains the number of events (both user and kernel) which
+were delayed due to a user event running for too long.  On conclusion
+of the program, POE will display the blocked count.
 
-=item B<blocked>
+In theory, one can compare C<blocked> with C<user_events> to determine
+how much lag is produced by user code.  C<blocked> should be as low as
+possible to ensure minimum user-generated event lag.
 
-The number of events (both user and kernel) which were delayed due to
-a user event running for too long. On conclusion of the program, POE
-will display the blocked count.  By comparing this value with
-B<user_events>.  This value should be as low as possible to ensure
-minimal latency.
+In practice, C<blocked> is often near or above C<user_events>.  Events
+that are even the slightest bit late count as being "blocked".  See
+C<blocked_seconds> for a potentially more useful metric.
 
-In practice, this number is very close to (or even above)
-B<user_events>.  Events that are even the slightest bit late count as
-"blocked".  See B<blocked_seconds>.
+=head2 blocked_seconds
 
-TODO - Perhaps this should only count events that were dispatched more
-than 1/100 second or so late?  Even then, the hundredths add up in
-long running programs.
+C<blocked_seconds> contains the total number of seconds that events
+waited in the queue beyond their nominal dispatch times.  The average
+(C<avg_blocked_seconds>) is generally more useful.
 
-=item B<blocked_seconds>
+=head2 idle_seconds
 
-The total number of seconds that handlers waited for other events or
-POE before being dispatched.  This value is not as useful as its
-average version, B<avg_blocked_seconds>, which tells you the average
-latency between an event's due time and its dispatch time.
+C<idle_seconds> is the amount of time that POE spent doing nothing at
+all.  Typically this time is spent waiting for I/O or timers rather
+than dispatching events.
 
-=item B<idle_seconds>
+=head2 interval
 
-The number of seconds which were spent doing nothing at all (typically
-waiting for a select/poll event or a timeout to trigger).
+C<interval> is the average interval over which the statistics counters
+are recorded.  This will typically be 30 seconds, but it can be more
+if long-running user events prevent statistics from being gathered on
+time.  C<interval> may also be less for programs that finish in under
+half a minute.
 
-=item B<interval>
+C<avg_interval> may often be lower, as the very last measurement taken
+before POE::Kernel's run() returns will almost always have an
+C<interval> less than 30 seconds.
 
-The average interval over which the counters are recorded. This will
-typically be 30 seconds, however it can be more if there are
-long-running user events which prevent the statistics gathering from
-running on time, and it may be less if the program finishes in under
-30 seconds. Often the very last measurement taken before the program
-exits will use a duration less than 30 seconds and this will cause the
-average to be lower.
+=head2 total_duration
 
-=item B<total_duration>
+C<total_duration> contains the total time over which the average was
+calculated.  The "avg_" accumulators are averaged over a 2-minute
+interval.  C<total_duration> may vary from 120 seconds due to the same
+reasons as described in L</interval>.
 
-The counters are averaged over a 2 minute duration, but for the same
-reasons as described in the B<interval> section, this time may vary.
-This value contains the total time over which the average was
-calculated.
+=head2 user_events
 
-=item B<user_events>
+C<user_events> contains the number of events that have been dispatched
+to user code.  "User" events do not include POE's internal events,
+although it will include events dispatched on behalf of wheels.
 
-The number of events which are performed for the user code. I.e. this
-does not include POE's own internal events such as polling for child
-processes. At program termination, a user_load value is computed
-showing the average number of user events which are running per
-second. A very active web server would have a high load value. The
-higher the user load, the more important it is that you have small
-B<blocked> and B<blocked_seconds> values.
+Shortly before POE::Kernel's run() returns, a C<user_load> value will
+be computed showing the average number of user events that have been
+dispatched per second.  A very active web server should have a high
+C<user_load> value.  The higher the user load, the more important it
+is to have small C<blocked> and C<blocked_seconds> values.
 
-=item B<user_seconds>
+=head2 user_seconds
 
-The time which was spent running user events. The user_seconds +
-idle_seconds will typically add up to total_duration. Any difference
-comes down to time spent in the POE kernel (which should be minimal)
-and rounding errors.
-
-=back
+C<user_seconds> is the time that was spent handling user events,
+including those handled by wheels.  C<user_seconds> + C<idle_seconds>
+should typically add up to C<total_duration>.  Any difference is
+unaccounted time in POE, and indicates a flaw in the statistics
+gathering methodology.
 
 =head1 SEE ALSO
 
-See L<POE::Kernel>.
+See L<POE::Kernel/TRACE_STATISTICS> for instructions to enable
+statistics gathering.
 
 =head1 BUGS
 
-Probably.
+Statistics may be highly inaccurate.  This feature is B<highly
+experimental> and may change significantly over time.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -291,4 +294,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

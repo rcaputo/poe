@@ -167,29 +167,35 @@ __END__
 
 =head1 NAME
 
-POE::Resource::Extrefs - tagged "extra" ref. count management for POE::Kernel
+POE::Resource::Extrefs - internal reference counts manager for POE::Kernel
 
 =head1 SYNOPSIS
 
-Used internally by POE::Kernel.  Better documentation will be
-forthcoming.
+There is no public API.
 
 =head1 DESCRIPTION
 
-This module encapsulates and provides accessors for POE::Kernel's data
-structures that manage tagged reference counts.  It is used internally
-by POE::Kernel and has no public interface.
+POE::Resource::Extrefs is a mix-in class for POE::Kernel.  It provides
+the features to manage session reference counts, specifically the ones
+that applications may use.  POE::Resource::Extrefs is used internally
+by POE::Kernel, so it has no public interface.
 
 =head1 SEE ALSO
 
-See L<POE::Kernel> for documentation on tagged reference counts.
+See L<POE::Kernel/Public Reference Counters> for the public extref
+API.
+
+See L<POE::Kernel/Resources> for for public information about POE
+resources.
+
+See L<POE::Resource> for general discussion about resources and the
+classes that manage them.
 
 =head1 BUGS
 
-There is no mechanism in place to prevent extra reference count names
-from clashing.
-
-Probably others.
+Reference counters have no ownership information, so one entity's
+reference counts may conflict with another's.  This is usually not a
+problem if all entities behave.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -198,4 +204,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

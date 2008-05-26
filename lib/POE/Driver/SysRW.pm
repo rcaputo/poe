@@ -168,7 +168,6 @@ sub get_out_messages_buffered {
   scalar(@{$_[0]->[OUTPUT_QUEUE]});
 }
 
-###############################################################################
 1;
 
 __END__
@@ -224,7 +223,20 @@ objects almost always will create their own if no Driver is specified.
 =head2 All Other Methods
 
 POE::Driver::SysRW documents the abstract interface documented in
-POE::Driver.  Please see L<POE::Driver> for more details.
+POE::Driver.  Please see L<POE::Driver> for more details about the
+following methods:
+
+=over 4
+
+=item flush
+
+=item get
+
+=item get_out_messages_buffered
+
+=item put
+
+=back
 
 =head1 SEE ALSO
 

@@ -11,42 +11,33 @@ __END__
 
 =head1 NAME
 
-POE::Resource - documentation for POE's internal event watchers/generators
+POE::Resource - internal resource managers for POE::Kernel
 
 =head1 SYNOPSIS
 
-  Varies.
+Varies, although most POE::Resource subclasses do not have public
+APIs.
 
 =head1 DESCRIPTION
 
 POE manages several types of information internally.  Its Resource
-classes are designed to manage those types of information behind tidy,
-encapsulated interfaces.  This allows us to test them individually, as
-well as re-implement them in C without porting POE::Kernel all at
-once.
+classes are mix-ins designed to manage those types of information
+behind tidy, mostly private interfaces.  This was done to facilitate
+testing and a conversion to C without the need to port POE::Kernel all
+at once.
 
-Currently every POE::Resource class is sufficiently different from the
-rest that there isn't much to document here.  There are however
-similarities between them that should be noted.
+POE::Resource subclasses are generally different from one another, but
+there are some similarities to note.
 
-While it's not currently the case, every resource should have
-initializer and finalizer functions.
-
-Initializers act to link resources to POE::Kernel, usually by swapping
-lexically scoped variable references between Kernel.pm and each
-resource's source scopes.
-
-Finalizers clean up any remaining data and also verify that each
-resource's subsystem was left in a consistent state.
-
-At some future time, resources will be loaded dynamically and will
-need to register their initializers and finalizers with POE::Kernel.
-Otherwise POE::Kernel won't know which to call.
+Every resource should have an initializer and finalizer method.
+Initializers set up initial data and link resources into POE::Kernel.
+Finalizers clean up any remaining data and verify that each resource
+subsystem was left in a consistent state.
 
 One common theme in resource implementations is that they don't need
 to perform much error checking, if any.  Resource methods are used
-internally by POE::Kernel and/or APIs (programmer interfaces), so it's
-up to them to ensure that they're used correctly.
+internally by POE::Kernel and/or POE::API classes, so it's up to them
+to ensure correct usage.
 
 Resource methods follow the naming convention _data_???_activity,
 where ??? is an abbreviation for the type of resource it belongs to:
@@ -57,35 +48,36 @@ where ??? is an abbreviation for the type of resource it belongs to:
 
 Finalizer methods end in "_finalize".
 
+  _data_ev_finalize
+  _data_handle_finalize
+  _data_sig_finalize
+
 Finalizers return true if a resource shut down cleanly, or false if
 there were inconsistencies or leaks during end-of-run checking.  The
 t/res/*.t tests rely on these return values.
 
-We may be able to take advantage of this later by skimming
-POE::Kernel's namespace for initializers and finalizers automatically.
-
 =head1 SEE ALSO
 
-L<POE::Resource::Aliases>, 
-L<POE::Resource::Events>, 
-L<POE::Resource::Extrefs>, 
-L<POE::Resource::FileHandles>, 
-L<POE::Resource::SIDs>, 
-L<POE::Resource::Sessions>, 
+L<POE::Resource::Aliases>,
+L<POE::Resource::Events>,
+L<POE::Resource::Extrefs>,
+L<POE::Resource::FileHandles>,
+L<POE::Resource::SIDs>,
+L<POE::Resource::Sessions>,
 L<POE::Resource::Signals>
+
+Also see L<POE::Kernel/Resources> for for public information about POE
+resources.
 
 =head1 BUGS
 
-This documentation, and resource specification, are incomplete.  We
-are developing it as a rationale after the fact for practices that
-have developed over several months.
+None known.
 
 =head1 AUTHORS & LICENSING
 
 Please see L<POE> for more information about its authors,
-contributors, and POE's licensing.
+contributors, and licensing.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

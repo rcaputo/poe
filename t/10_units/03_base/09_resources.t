@@ -13,7 +13,7 @@ use_ok('POE::Resources');
     my $name = shift;
     my ($resource) = $name =~ m{Resource(?:/|::)(\w+)};
     my $xs = $name =~ m{(?:/|::)XS(?:/|::)};
-    
+
     # a state machine
     my $state = $requires{$resource};
     my $visible_state = $state || "undef";
@@ -47,7 +47,7 @@ use_ok('POE::Resources');
   };
 
   eval {
-    POE::Resources->initialize();
+    POE::Resources->load();
   };
   if ($@ =~ /fake error #2/) {
     $failure_happened = "seen";
@@ -85,7 +85,7 @@ use_ok('POE::Resources');
   };
 
   eval {
-    POE::Resources->initialize();
+    POE::Resources->load();
   };
   if ($@ =~ /fake error #3/) {
     $failure_happened = "seen";

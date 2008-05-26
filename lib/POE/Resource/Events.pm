@@ -295,26 +295,32 @@ __END__
 
 =head1 NAME
 
-POE::Resource::Events - manage events for POE::Kernel
+POE::Resource::Events - internal event manager for POE::Kernel
 
 =head1 SYNOPSIS
 
-Used internally by POE::Kernel.  Better documentation will be
-forthcoming.
+There is no public API.
 
 =head1 DESCRIPTION
 
-This module hides the complexity of managing POE's events from even
-POE itself.  It is used internally by POE::Kernel and has no public
-interface.
+POE::Resource::Events is a mix-in class for POE::Kernel.  It hides the
+complexity of managing POE's events from even POE itself.  It is used
+internally by POE::Kernel, so it has no public interface.
 
 =head1 SEE ALSO
 
-See L<POE::Kernel> for documentation on events.
+See L<POE::Kernel/Asynchronous Messages (FIFO Events)> for one public
+events API.
+
+See L<POE::Kernel/Resources> for for public information about POE
+resources.
+
+See L<POE::Resource> for general discussion about resources and the
+classes that manage them.
 
 =head1 BUGS
 
-Probably.
+None known.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -323,4 +329,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
