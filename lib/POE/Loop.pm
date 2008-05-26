@@ -553,6 +553,10 @@ POE::Kernel will not detect them.
 L<POE>, L<POE::Loop::Event>, L<POE::Loop::Gtk>, L<POE::Loop::IO_Poll>,
 L<POE::Loop::Select>, L<POE::Loop::Tk>.
 
+L<POE::Test::Loops> is POE's event loop tests released as a separate,
+reusable distribution.  POE::Loop authors are encouraged to use the
+tests for their own distributions.
+
 TODO - Link to CPAN for POE::Loop modules.
 
 =head1 BUGS
