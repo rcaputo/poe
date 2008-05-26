@@ -546,9 +546,9 @@ future.
 
 =item Jos Boumans
 
-Jos Boumans is <boumans@frg.eur.nl>, aka C<Co-Kane>.  Jos is a major
-driving force behind the POE::Simple movement and has helped inspire
-the POE::Components for TCP clients and servers.
+Jos Boumans is <kane@cpan.org>, aka C<kane>.  Jos is a major driving
+force behind the POE::Simple movement and has helped inspire the
+POE::Components for TCP clients and servers.
 
 =item Matt Cashner
 
