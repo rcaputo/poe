@@ -714,106 +714,137 @@ sub return_state {
   $POE::Kernel::poe_kernel->post( $self, NFA_EN_POP_STATE, @entry_args );
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::NFA - event driven nondeterministic finite automaton
+POE::NFA - an event-driven state machine (nondeterministic finite automaton)
 
 =head1 SYNOPSIS
 
-  # Import POE::NFA constants.
+  use POE::Kernel;
   use POE::NFA;
-
-  # Define a machine's states, each state's events, and the coderefs
-  # that handle each event.
-  my %states = (
-    start => {
-      event_one => \&handler_one,
-      event_two => \&handler_two,
-      ...,
-    },
-    other_state => {
-      event_n          => \&handler_n,
-      event_n_plus_one => \&handler_n_plus_one,
-      ...,
-    },
-    ...,
-  );
+  use POE::Wheel::ReadLine;
 
   # Spawn an NFA and enter its initial state.
   POE::NFA->spawn(
-    inline_states => \%states
-  )->goto_state( $start_state, $start_event );
+    inline_states => {
+      initial => {
+        setup => \&setup_stuff,
+      },
+      state_login => {
+        on_entry => \&login_prompt,
+        on_input => \&save_login,
+      },
+      state_password => {
+        on_entry => \&password_prompt,
+        on_input => \&check_password,
+      },
+      state_cmd => {
+        on_entry => \&command_prompt,
+        on_input => \&handle_command,
+      },
+    },
+  )->goto_state(initial => "setup");
 
-  # Move to a new state.
-  $machine->goto_state( $new_state, $new_event, @args );
+  POE::Kernel->run();
+  exit;
 
-  # Put the current state on a stack, and move to a new one.
-  $machine->call_state( $return_event, $new_state, $new_event, @args );
+  sub setup_stuff {
+    $_[RUNSTATE]{io} = POE::Wheel::ReadLine->new(
+      InputEvent => 'on_input',
+    );
+    $_[MACHINE]->goto_state(state_login => "on_entry");
+  }
 
-  # Move to the previous state on the call stack.
-  $machine->return_state( @returns );
+  sub login_prompt { $_[RUNSTATE]{io}->get('Login: '); }
 
-  # Forcibly stop a machine.
-  $machine->stop();
+  sub save_login {
+    $_[RUNSTATE]{login} = $_[ARG0];
+    $_[MACHINE]->goto_state(state_password => "on_entry");
+  }
+
+  sub password_prompt { $_[RUNSTATE]{io}->get('Password: '); }
+
+  sub check_password {
+    if ($_[RUNSTATE]{login} eq $_[ARG0]) {
+      $_[MACHINE]->goto_state(state_cmd => "on_entry");
+    }
+    else {
+      $_[MACHINE]->goto_state(state_login => "on_entry");
+    }
+  }
+
+  sub command_prompt { $_[RUNSTATE]{io}->get('Cmd: '); }
+
+  sub handle_command {
+    $_[RUNSTATE]{io}->put("  <<$_[ARG0]>>");
+    if ($_[ARG0] =~ /^(?:quit|stop|exit|halt|bye)$/i) {
+      $_[RUNSTATE]{io}->put('Bye!');
+      $_[MACHINE]->stop();
+    }
+		else {
+      $_[MACHINE]->goto_state(state_cmd => "on_entry");
+		}
+  }
 
 =head1 DESCRIPTION
 
-POE::NFA combines a runtime context with an event driven
-nondeterministic finite state machine.  Its main difference from
-POE::Session is that it can embody many different states, and each
-state has a separate group of event handlers.  Events are delivered to
-the appropriate handlers in the current state only, and moving to a
-new state is an inexpensive way to change what happens when an event
-arrives.
+POE::NFA implements a different kind of POE session: A
+non-deterministic finite automaton.  Let's break that down.
 
-This manpage only discusses POE::NFA's differences from POE::Session.
-It assumes a familiarity with Session's manpage, and it will refer
-there whenever possible.
+A finite automaton is a state machine with a bounded number of states
+and transitions.  Technically, POE::NFA objects may modify themselves
+at runtime, so they aren't really "finite".  Runtime modification
+isn't currently supported by the API, so plausible deniability is
+maintained!
+
+Deterministic state machines are ones where all possible transitions
+are known at compile time.  POE::NFA is "non-deterministic" because
+transitions may change based on runtime conditions.
+
+But more simply, POE::NFA is like POE::Session but with banks of event
+handlers that may be swapped according to the session's runtime state.
+Consider the SYNOPSIS example, which has "on_entry" and "on_input"
+handlers that do different things depending on the runtime state.
+POE::Wheel::ReadLine throws "on_input", but different things happen
+depending whether the session is in its "login", "password" or
+"command" state.
+
+POE::NFA borrows heavily from POE::Session, so this document will only
+discuss the differences.  Please see L<POE::Session> for things which
+are similar.
 
 =head1 PUBLIC METHODS
 
-See POE::Session's documentation.
+This document mainly focuses on the differences from POE::Session.
 
-=over 2
+=head2 get_current_state
 
-=item ID
+Each machine state has a name.  get_current_state() returns the name
+of the machine's current state.  get_current_state() is mainly used to
+retrieve the state of some other machine.  It's easier (and faster) to
+use C<$_[STATE]> in a machine's own event handlers.
 
-See POE::Session.
+=head2 get_runstate
 
-=item create
+get_runstate() returns the machine's current runstate.  Runstates are
+equivalent to POE::Session HEAPs, so this method does pretty much the
+same as POE::Session's get_heap().  It's easier (and faster) to use
+C<$_[RUNSTATE]> in a machine's own event handlers, however.
 
-POE::NFA does not have a create() constructor.
+=head2 spawn STATE_NAME => HANDLERS_HASHREF[, ...]
 
-=item get_current_state
+spawn() is POE::NFA's constructor.  The name reflects the idea that
+new state machines are spawned like threads or processes rather than
+instantiated like objects.
 
-C<get_current_state()> returns the name of the machine's current
-state.  This method is mainly used for getting the state of some other
-machine.  In the machine's own event handlers, it's easier to just
-access C<$_[STATE]>.
+The machine itself is defined as a list of state names and hashes that
+map events to handlers within each state.
 
-=item get_runstate
-
-C<get_runstate()> returns the machine's current runstate.  This is
-equivalent to C<get_heap()> in POE::Session.  In the machine's own
-handlers, it's easier to just access C<$_[RUNSTATE]>.
-
-=item new
-
-POE::NFA does not have a new() constructor.
-
-=item spawn STATE_NAME => HANDLERS_HASHREF, ...
-
-C<spawn()> is POE::NFA's session constructor.  It reflects the idea
-that new state machines are spawned like threads or processes.  The
-machine itself is defined as a list of state names and hashrefs
-mapping events to handlers within each state.
-
-  my %machine = (
+  my %states = (
     state_1 => {
       event_1 => \&handler_1,
       event_2 => \&handler_2,
@@ -824,175 +855,134 @@ mapping events to handlers within each state.
     },
   );
 
-Each state may define the same events.  The proper handler will be
-called depending on the machine's current state.  For example, if
-C<event_1> is dispatched while the previous machine is in C<state_2>,
-then C<&handler_3> is called to handle the event.  It happens because
-the state -> event -> handler map looks like this:
+A single event may be handled by many states.  The proper handler will
+be called depending on the machine's current state.  For example, if
+C<event_1> is dispatched while the machine is in C<state_2>, then
+handler_3() will be called to handle the event.  The state -> event ->
+handler map looks like this:
 
-  $machine{state_2}->{event_1} = \&handler_3;
+  $machine{state_2}{event_1} = \&handler_3;
 
 The spawn() method currently only accepts C<inline_states> and
-C<options>.  Others will be added as necessary.
+C<options>.  Others may be added as necessary.
 
-=item option
+=head2 goto_state NEW_STATE[, ENTRY_EVENT[, EVENT_ARGS]]
 
-See POE::Session.
-
-=item postback
-
-See POE::Session.
-
-=item callback
-
-See POE::Session.
-
-=item goto_state NEW_STATE
-
-=item goto_state NEW_STATE, ENTRY_EVENT
-
-=item goto_state NEW_STATE, ENTRY_EVENT, EVENT_ARGS
-
-C<goto_state> puts the machine into a new state.  If an ENTRY_EVENT is
-specified, then that event will be dispatched when the machine enters
+goto_state() puts the machine into a new state.  If an ENTRY_EVENT is
+specified, then that event will be dispatched after the machine enters
 the new state.  EVENT_ARGS, if included, will be passed to the entry
 event's handler via C<ARG0..$#_>.
 
-  my $machine = $_[MACHINE];
-  $machine->goto_state( 'next_state' );
-  $machine->goto_state( 'next_state', 'call_this_event' );
-  $machine->goto_state( 'next_state', 'call_this_event', @with_these_args );
+  # Switch to the next state.
+  $_[MACHINE]->goto_state( 'next_state' );
 
-=item stop
+  # Switch to the next state, and call a specific entry point.
+  $_[MACHINE]->goto_state( 'next_state', 'entry_event' );
 
-C<stop()> forces a machine to stop.  It's similar to posting C<_stop>
-to the machine, but it performs some extra NFA cleanup.  The machine
-will also stop gracefully if it runs out of things to do, just like
-POE::Session.
+  # Switch to the next state; call an entry point with some values.
+  $_[MACHINE]->goto_state( 'next_state', 'entry_event', @parameters );
 
-C<stop()> is heavy-handed.  It will force resource cleanup.  Circular
-references in the machine's C<RUNSTATE> are not POE's responsibility
-and may cause memory leaks.
+=head2 stop
+
+stop() forces a machine to stop.  The machine will also stop
+gracefully if it runs out of things to do, just like POE::Session.
+
+stop() is heavy-handed.  It will force resources to be cleaned up.
+However, circular references in the machine's C<RUNSTATE> are not
+POE's responsibility and may cause memory leaks.
 
   $_[MACHINE]->stop();
 
-=item call_state RETURN_EVENT, NEW_STATE
+=head2 call_state RETURN_EVENT, NEW_STATE[, ENTRY_EVENT[, EVENT_ARGS]]
 
-=item call_state RETURN_EVENT, NEW_STATE, ENTRY_EVENT
-
-=item call_state RETURN_EVENT, NEW_STATE, ENTRY_EVENT, EVENT_ARGS
-
-C<call_state()> is similar to C<goto_state()>, but it pushes the
-current state on a stack.  At some point a C<return_state()> call will
-pop the saved state and cause the machine to return there.
-
-C<call_state()> accepts one parameter different from C<goto_state()>,
-and that is C<RETURN_EVENT>.  C<RETURN_EVENT> specifies the event to
-emit when the machine returns to the calling state.  That is, the
-called state returns to the caller's C<RETURN_EVENT> handler.  The
-C<RETURN_EVENT> handler receives C<return_states()>'s C<RETURN_ARGS>
-via C<ARG0..$#_>.
+call_state() is similar to goto_state(), but it pushes the current
+state on a stack.  At some later point, a handler can call
+return_state() to pop the call stack and return the machine to its old
+state.  At that point, a C<RETURN_EVENT> will be posted to notify the
+old state of the return.
 
   $machine->call_state( 'return_here', 'new_state', 'entry_event' );
 
-As with C<goto_state()>, C<ENTRY_EVENT> is the event that will be
-emitted once the machine enters its new state.  C<ENTRY_ARGS> are
-parameters passed to the C<ENTRY_EVENT> handler via C<ARG0..$#_>.
+As with goto_state(), C<ENTRY_EVENT> is the event that will be emitted
+once the machine enters its new state.  C<ENTRY_ARGS> are parameters
+passed to the C<ENTRY_EVENT> handler via C<ARG0..$#_>.
 
-=item return_state
+=head2 return_state [RETURN_ARGS]
 
-=item return_state RETURN_ARGS
+return_state() returns to the most recent state in which call_state()
+was invoked.  If the preceding call_state() included a return event
+then its handler will be invoked along with some optional
+C<RETURN_ARGS>.  The C<RETURN_ARGS> will be passed to the return
+handler via C<ARG0..$#_>.
 
-C<return_state()> returns to the most recent state which called
-C<call_state()>, optionally invoking the calling state's
-C<RETURN_EVENT>, possibly with C<RETURN_ARGS> passed to it via
-C<ARG0..$#_>.
+  $_[MACHINE]->return_state( 'success', @success_values );
 
-  $_[MACHINE]->return_state( );
-  $_[MACHINE]->return_state( 'success', $success_value );
+=head2 Methods that match POE::Session
+
+The following methods behave identically to the ones in POE::Session.
+
+=over 2
+
+=item ID
+
+=item option
+
+=item postback
+
+=item callback
 
 =back
+
+=head2 About new() and create()
+
+POE::NFA's constructor is spawn(), not new() or create().
 
 =head1 PREDEFINED EVENT FIELDS
 
 POE::NFA's predefined event fields are the same as POE::Session's with
 the following three exceptions.
 
-=over 2
-
-=item MACHINE
+=head2 MACHINE
 
 C<MACHINE> is equivalent to Session's C<SESSION> field.  It hold a
 reference to the current state machine, and it's useful for calling
-methods on it.  See POE::Session's C<SESSION> field for more
-information.
+its methods.
+
+See POE::Session's C<SESSION> field for more information.
 
   $_[MACHINE]->goto_state( $next_state, $next_state_entry_event );
 
-=item RUNSTATE
+=head2 RUNSTATE
 
 C<RUNSTATE> is equivalent to Session's C<HEAP> field.  It holds an
-anonymous hash reference which POE is guaranteed not to touch.  See
-POE::Session's C<HEAP> field for more information.
+anonymous hash reference which POE is guaranteed not to touch.  Data
+stored in C<RUNSTATE> will persist between handler invocations.
 
-=item STATE
+=head2 STATE
 
 C<STATE> contains the name of the machine's current state.  It is not
 equivalent to anything from POE::Session.
 
-=item EVENT
+=head2 EVENT
 
 C<EVENT> is equivalent to Session's C<STATE> field.  It holds the name
 of the event which invoked the current handler.  See POE::Session's
 C<STATE> field for more information.
 
-=back
-
 =head1 PREDEFINED EVENT NAMES
 
-POE::NFA defines four events of its own.  See POE::Session's
-"PREDEFINED EVENT NAMES" section for more information about other
-predefined events.
+POE::NFA defines four events of its own.  These events are used
+internally and may not be overridden by application code.
 
-=over 2
+See POE::Session's "PREDEFINED EVENT NAMES" section for more
+information about other predefined events.
 
-=item poe_nfa_goto_state
+The events are: C<poe_nfa_goto_state>, C<poe_nfa_push_state>,
+C<poe_nfa_pop_state>, C<poe_nfa_stop>.
 
-=item poe_nfa_pop_state
-
-=item poe_nfa_push_state
-
-=item poe_nfa_stop
-
-POE::NFA uses these states internally to manage state transitions and
-stopping the machine in an orderly fashion.  There may be others in
-the future, and they will all follow the /^poe_nfa_/ naming
-convention.  To avoid conflicts, please don't define events beginning
-with "poe_nfa_".
-
-=back
-
-=head1 MISCELLANEOUS CONCEPTS
-
-=head2 States' Return Values
-
-See POE::Session.
-
-=head2 Resource Tracking
-
-See POE::Session.
-
-=head2 Synchronous and Asynchronous Events
-
-See POE::Session.
-
-=head2 Postbacks
-
-See POE::Session.
-
-=head2 Job Control and Family Values
-
-See POE::Session.
+Yes, all the internal events begin with "poe_nfa_".  More may be
+forthcoming, but they will always begin the same way.  Therefore
+please do not define events beginning with "poe_nfa_".
 
 =head1 SEE ALSO
 
@@ -1006,10 +996,8 @@ the entire POE distribution.
 
 See POE::Session's documentation.
 
-Object and package states aren't implemented.  Some other stuff is
-just lashed together with twine.  POE::NFA needs some more work.
-Please send comments and suggestions to bug-poe@rt.cpan.org.  Thank
-you.
+POE::NFA is not as feature-complete as POE::Session.  Your feedback is
+appreciated.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -1018,4 +1006,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

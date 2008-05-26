@@ -61,31 +61,31 @@ POE::Loader - load modules, preferring XS versions if available
 
 =head1 DESCRIPTION
 
-TODO - As far as I know, this is not used anywhere.
+POE is designed to be installed without the need for a compiler.  All
+base code and prerequisites are either pure Perl code, or come with
+Perl itself.
 
-POE supports XS versions of nearly all its mixin classes.  If
-available, they are prefixed with POE::XS rather than POE.  This
-POE::Loader class looks for POE::XS versions of the modules it's told
-to load and falls back to the plain-Perl versions if they are not
-avaibale.
+Compiled code has certain advantages, so POE::Loader implements a
+module loader that will prefer an XS module over the plain Perl
+version, if the XS version is available.
 
-Usage is simple:  use POE::Loader @list_of_modules_to_load.
+The XS version begins with POE::XS rather than just POE.  For example,
+L<POE::XS::Queue::Array>.  If it's installed, POE::Loader will find
+and use it rather than POE::Queue::Array.
 
 =head1 BUGS
 
-This module is a classic case of YDNI.  It was written well in advance
-of any POE::XS modules.  To be fair, however, it was necessary to
-write the loader to enable the XS modules, most of which remain
-unwritten.
+There are no known bugs in this module.
 
-Design flaw aside, there are no known bugs in this module.
+=head1 SEE ALSO
+
+L<POE>, L<POE::XS::Queue::Array>.
 
 =head1 AUTHOR & COPYRIGHT
 
-POE::Loader is Copyright 2004-2006 by Rocco Caputo.  All rights
+POE::Loader is Copyright 2004-2008 by Rocco Caputo.  All rights
 reserved.  POE::Loader is released under the same terms as POE itself.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
