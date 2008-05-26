@@ -23,7 +23,7 @@ __END__
 
 =head1 NAME
 
-POE::Driver - An API for abstract buffered file I/O.
+POE::Driver - an abstract interface for buffered, non-blocking I/O
 
 =head1 SYNOPSIS
 
@@ -63,6 +63,9 @@ POE "drivers" implement the specifics of reading and writing to
 devices.  Drivers plug into POE::Wheel objects so that wheels may
 support a large number of device types without implementing a separate
 subclass for each.
+
+As mentioned in the SYNOPSIS, POE::Driver objects may be used in
+stand-alone applications.
 
 =head2 Public Driver Methods
 

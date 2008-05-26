@@ -175,104 +175,63 @@ __END__
 
 =head1 NAME
 
-POE::Driver::SysRW - an abstract sysread/syswrite file driver
+POE::Driver::SysRW - buffered, non-blocking I/O using sysread and syswrite
 
 =head1 SYNOPSIS
 
-  $driver = POE::Driver::SysRW->new();
-  $arrayref_of_data_chunks = $driver->get($filehandle);
-  $queue_octets = $driver->put($arrayref_of_data_chunks);
-  $queue_octets = $driver->flush($filehandle);
-  $queue_messages = $driver->get_out_messages_buffered();
+L<POE::Driver/SYNOPSIS> illustrates how the interface works.  This
+module is merely one implementation.
 
 =head1 DESCRIPTION
 
-This driver implements an abstract interface to sysread and syswrite.
+This driver implements L<POE::Driver> using sysread and syswrite.
 
 =head1 PUBLIC METHODS
 
-=over 2
+POE::Driver::SysRW introduces some additional features not covered in
+the base interface.
 
-=item new BlockSize => $block_size
+=head2 new [BlockSize => OCTETS]
 
-=item new
+new() creates a new buffered I/O driver that uses sysread() to read
+data from a handle and syswrite() to flush data to that handle.  The
+constructer accepts one optional named parameter, C<BlockSize>, which
+indicates the maximum number of OCTETS that will be read at one time.
 
-new() creates a new SysRW driver.  It accepts one optional named
-parameter, BlockSize, which indicates the maximum number of octets it
-will read at a time.  For speed, syswrite() tries to send as much
-information as it can.
+C<BlockSize> is 64 kilobytes (65536 octets) by default.  Higher values
+may improve performance in streaming applications, but the trade-off
+is a lower event granularity and increased resident memory usage.
 
-BlockSize defaults to 65536 if it is omitted.  Higher values improve
-performance in high-throughput applications at the expense of
-consuming more resident memory.  Lower values reduce memory
-consumption with corresponding throughput penalties.
-
-  my $driver = POE::Driver::SysRW->new( BlockSize => $block_size );
+Lower C<BlockSize> values reduce memory consumption somewhat with
+corresponding throughput penalties.
 
   my $driver = POE::Driver::SysRW->new;
 
-=item get FILEHANDLE
+  my $driver = POE::Driver::SysRW->new( BlockSize => $block_size );
 
-get() immediately tries to read information from a filehandle.  It
-returns a reference to an array containing whatever it managed to
-read, or an empty array if nothing could be read.  It returns undef on
-error, and $! will be set.
+Drivers are commonly instantiated within POE::Wheel constructor calls:
 
-The arrayref get() returns is suitable for passing to any
-POE::Filter's get() method.  This is exactly what the ReadWrite wheel
-does with it.
+  $_[HEAP]{wheel} = POE::Wheel::ReadWrite->new(
+    InputHandle => \*STDIN,
+    OutputHandle => \*STDOUT,
+    Driver => POE::Driver::SysRW->new(),
+    Filter => POE::Filter::Line->new(),
+  );
 
-=item put ARRAYREF
+Applications almost always use POE::Driver::SysRW, so POE::Wheel
+objects almost always will create their own if no Driver is specified.
 
-put() places raw data chunks into the driver's output queue.  it
-accepts a reference to a list of raw data chunks, and it returns the
-number of octets remaining in its output queue.
+=head2 All Other Methods
 
-Some drivers may flush data immediately from their put() methods.
-
-=item flush FILEHANDLE
-
-flush() attempts to flush some data from the driver's output queue to
-the FILEHANDLE.  It returns the number of octets remaining in the
-output queue after the flush attempt.
-
-flush() does the physical write, counterpoint to get's read.  If
-flush() fails for any reason, $! will be set with the reason for its
-failure.  Otherwise $! will be zero.
-
-=item get_out_messages_buffered
-
-This data accessor returns the number of messages in the driver's
-output queue.  Partial messages are counted as whole ones.
-
-=back
-
-=head1 DESIGN NOTES
-
-Driver::SysRW uses a queue of output messages.  This means that
-BLOCK_SIZE is not used for writing.  Rather, each message put()
-through the driver is written in its entirety (or not, if it fails).
-This often means more syswrite() calls than necessary, however it
-makes memory management much easier.
-
-If the driver used a scalar buffer for output, it would be necessary
-to use substr() to remove the beginning of it after it was written.
-Each substr() call requires the end of the string be moved down to its
-beginning.  That is a lot of memory copying.
-
-The buffer could be allowed to grow until it has flushed entirely.
-This would be eliminate extra memory copies entirely, but it would
-then be possible to create programs where the buffer was not allowed
-to shrink at all.  That would quickly become bad.
-
-Better ideas are welcome.
+POE::Driver::SysRW documents the abstract interface documented in
+POE::Driver.  Please see L<POE::Driver> for more details.
 
 =head1 SEE ALSO
 
-POE::Driver.
+L<POE::Driver>, L<POE::Wheel>.
 
-The SEE ALSO section in L<POE> contains a table of contents covering
-the entire POE distribution.
+Also see the SEE ALSO section of L<POE>, which contains a brief
+roadmap of POE's documentation.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -281,4 +240,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
