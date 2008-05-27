@@ -104,15 +104,13 @@ sub modify {
   }
 }
 
-###############################################################################
-
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Filter::Grep - POE Data Grepping Filter
+POE::Filter::Grep - select or remove items based on simple rules
 
 =head1 SYNOPSIS
 

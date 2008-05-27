@@ -170,50 +170,66 @@ sub get_pending {
   [ $self->[FRAMING_BUFFER] ];
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Filter::Block - filter between streams and blocks
+POE::Filter::Block - translate data between streams and blocks
 
 =head1 SYNOPSIS
 
-  $filter = POE::Filter::Block->new( BlockSize => 1024 );
-  $filter = POE::Filter::Block->new(
-    LengthCodec => [ \&encoder, \&decoder ]
-  );
-  $arrayref_of_blocks =
-    $filter->get($arrayref_of_raw_chunks_from_driver);
-  $arrayref_of_streamable_chunks_for_driver =
-    $filter->put($arrayref_of_blocks);
-  $arrayref_of_leftovers =
-    $filter->get_pending();
+  #!perl
+
+  use warnings;
+  use strict;
+  use POE::Filter::Block;
+
+  my $filter = POE::Filter::Block->new( BlockSize => 8 );
+
+  # Prints three lines: abcdefgh, ijklmnop, qrstuvwx.
+  # Bytes "y" and "z" remain in the buffer and await completion of the
+  # next 8-byte block.
+
+  $filter->get_one_start([ "abcdefghijklmnopqrstuvwxyz" ]);
+  while (1) {
+    my $block = $filter->get_one();
+    last unless @$block;
+    print $block->[0], "\n";
+  }
+
+  # Print one line: yz123456
+
+  $filter->get_one_start([ "123456" ]);
+  while (1) {
+    my $block = $filter->get_one();
+    last unless @$block;
+    print $block->[0], "\n";
+  }
 
 =head1 DESCRIPTION
 
-The Block filter translates data between serial streams and blocks.
-It can handle two kinds of block: fixed-length and length-prepended.
+POE::Filter::Block translates data between serial streams and blocks.
+It can handle fixed-length and length-prepended blocks, and it may be
+extended to handle other block types.
 
 Fixed-length blocks are used when Block's constructor is called with a
 BlockSize value.  Otherwise the Block filter uses length-prepended
 blocks.
 
-Users who specify block sizes less than one deserve to be soundly
-spanked.
+Users who specify block sizes less than one deserve what they get.
 
-In variable-length mode, a LengthCodec parameter is valid.  The
-LengthCodec should be a list reference of two functions: The length
-encoder, and the length decoder:
+In variable-length mode, a LengthCodec parameter may be specified.
+The LengthCodec value should be a reference to a list of two
+functions: the length encoder, and the length decoder:
 
   LengthCodec => [ \&encoder, \&decoder ]
 
 The encoder takes a reference to a buffer and prepends the buffer's
 length to it.  The default encoder prepends the ASCII representation
-of the buffer's length.  The length is separated from the buffer by an
-ASCII NUL ("\0") character.
+of the buffer's length and a chr(0) byte to separate the length from
+the actual data:
 
   sub _default_encoder {
     my $stuff = shift;
@@ -221,9 +237,9 @@ ASCII NUL ("\0") character.
     return;
   }
 
-Sensibly enough, the corresponding decoder removes the prepended
-length and separator, returning its numeric value.  It returns nothing
-if no length can be determined.
+The corresponding decoder returns the block length after removing it
+and the separator from the buffer.  It returns nothing if no length
+can be determined.
 
   sub _default_decoder {
     my $stuff = shift;
@@ -239,11 +255,12 @@ This filter holds onto incomplete blocks until they are completed.
 
 =head1 PUBLIC FILTER METHODS
 
-Please see POE::Filter.
+POE::Filter::Block has no additional public methods.
 
 =head1 SEE ALSO
 
-POE::Filter.
+Please see L<POE::Filter> for documentation regarding the base
+interface.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
@@ -262,4 +279,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

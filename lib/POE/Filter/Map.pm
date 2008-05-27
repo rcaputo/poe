@@ -21,7 +21,7 @@ sub new {
   my $type = shift;
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
-  
+
   croak "$type requires a Code or both Get and Put parameters" unless (
     defined($params{Code}) or
     (defined($params{Get}) and defined($params{Put}))
