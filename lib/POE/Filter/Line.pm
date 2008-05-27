@@ -238,14 +238,13 @@ sub get_pending {
   return undef;
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Filter::Line - filter data as lines
+POE::Filter::Line - handle input and output as terminator-ended records
 
 =head1 SYNOPSIS
 

@@ -126,17 +126,21 @@ sub checkput {
   $self->[CHECKPUT];
 }
 
-###############################################################################
-
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Filter::RecordBlock - POE Record Block Abstraction
+POE::Filter::RecordBlock - translate between discrete records and blocks of them
 
 =head1 SYNOPSIS
+
+Hello, dear reader.  This SYNOPSIS does not contain a fully
+functioning sample program because your humble documentor cannot come
+up with a short, reasonable use case for this module.  Please contact
+the maintaner if this module is useful to you.  Otherwise you may wake
+up one morning to discover that it has been deprecated.
 
   $filter = new POE::Filter::RecordBlock( BlockSize => 4 );
   $arrayref_of_arrayrefs = $filter->get($arrayref_of_raw_data);
@@ -147,81 +151,74 @@ POE::Filter::RecordBlock - POE Record Block Abstraction
 
 =head1 DESCRIPTION
 
-RecordBlock translates between streams of B<records> and blocks of
-B<records>.  In other words, it combines a number of received records
-into frames (array references), and it breaks frames back into streams
-of records in preparation for transmitting.
+On input, POE::Filter::RecordBlock translates a stream of discrete
+items into a "block" of them.  It does this by collecting items until
+it has BlockSize of them, then returning the lot of them in an array
+reference.
 
-A BlockSize parameter must be specified when the filter is
-constructed.  It determines how many records are framed into a block,
-and it can be changed at runtime.  Checking put() for proper block
-sizes is optional and can be either passed as a parameter to the new()
-method or changed at runtime.
+On output, this module flattens array references.
 
-Extra records are held until enough records arrive to complete a
-block.
+This module may be deprecated in the future.  Please contact the
+maintaner if this module is useful to you.
 
 =head1 PUBLIC FILTER METHODS
 
-=over 4
+In addition to the usual POE::Filter methods, POE::Filter::RecordBlock
+supports the following.
 
-=item new
+=head2 new
 
-POE::Filter::RecordBlock::new
+new() takes at least one mandatory argument, BlockSize, which must be
+defined and greater than zero.  new() also accepts a CheckPut Boolean
+parameter that indicates whether put() should check for the proper
+BlockSize before allowing data to be serialized.
 
-The new() method takes at least one mandatory argument, the BlockSize
-parameter.  It must be defined and greater than zero.  The CheckPut
-parameter is optional, but if it contains a true value, "put"
-blocksize checking is turned on.  Note that if this is the case,
-flushing pending records to be put is your responsibility (see
-put_pending()).
+Using CheckPut is not recommended, as it enables a write buffer in the
+filter, therefore breaking put() for normal use.
 
-=item put_pending
+=head2 put_pending
 
-POE::Filter::RecordBlock::put_pending
+put_pending() returns an arrayref of any records that are waiting to
+be sent.  It is the outbound equivalent of POE::Filter's get_pending()
+accessor.  put_pending() is not part of the canonical POE::Filter API,
+so nothing will use it.  It's up to applications to handle pending
+output, whenever it's appropriate to do so.
 
-The put_pending() method returns an arrayref of any records that are
-waiting to be sent.
+=head2 blocksize
 
-=item blocksize
+blocksize() is an accessor/mutator for POE::Filter::RecordBlock's
+BlockSize value.
 
-POE::Filter::RecordBlock::blocksize
+=head2 checkput
 
-The blocksize() method takes one optional parameter, the new blocksize.
-It returns the current blocksize.
-
-=item checkput
-
-POE::Filter::RecordBlock::checkput
-
-The checkput() method takes one optional parameter, the new state of the
-CheckPut flag.  It returns the current CheckPut flag.
-
-=item *
-
-See POE::Filter.
-
-=back
+checkput() is an accessor/mutator for POE::Filter::RecordBlock's
+CheckPut flag.
 
 =head1 SEE ALSO
 
-POE::Filter; POE::Filter::Stackable; POE::Filter::HTTPD;
-POE::Filter::Reference; POE::Filter::Line; POE::Filter::Block;
-POE::Filter::Stream
+L<POE::Filter> for more information about filters in general.
+
+L<POE::Filter::Stackable> for more details on stacking filters.
 
 =head1 BUGS
 
-Undoubtedly.
+This filter may maintain an output buffer that no other part of POE
+will know about.
+
+This filter implements a highly specialized and seemingly not
+generally useful feature.
+
+Does anyone use this filter?  This filter may be deprecated if nobody
+speaks up.
 
 =head1 AUTHORS & COPYRIGHTS
 
-The RecordBlock filter was contributed by Dieter Pearcey.  Rocco
-Caputo is sure to have had his hands in it.
+The RecordBlock filter was contributed by Dieter Pearcey.
+Documentation is provided by Rocco Caputo.
 
-Please see the POE manpage for more information about authors and
+Please see the L<POE> manpage for more information about authors and
 contributors.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

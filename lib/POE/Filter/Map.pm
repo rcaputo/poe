@@ -99,65 +99,131 @@ sub modify {
   }
 }
 
-###############################################################################
-
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Filter::Map - POE Data Mapping Filter
+POE::Filter::Map - transform input and/or output within a filter stack
 
 =head1 SYNOPSIS
 
-  $filter = POE::Filter::Map->new(
-      Code => sub {...},
-      );
+  #!perl
 
-  $filter = POE::Filter::Map->new(
-      Put => sub {...},
-      Get => sub {...},
-      );
-  
-  $arrayref_of_transformed_data = $filter->get($arrayref_of_raw_data);
-  
-  $arrayref_of_streamable_data = $filter->put($arrayref_of_data);
-  $arrayref_of_streamable_data = $filter->put($single_datum);
-  
-  $filter->modify( Code => sub {...} );
-  $filter->modify( Put  => sub {...}, Get => sub {...} );
+  use POE qw(
+    Wheel::FollowTail
+    Filter::Line Filter::Map Filter::Stackable
+  );
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        my $parse_input_as_lines = POE::Filter::Line->new();
+
+        my $redact_some_lines = POE::Filter::Map->new(
+          Code => sub {
+            my $input = shift;
+            $input = "[REDACTED]" unless $input =~ /sudo\[\d+\]/i;
+            return $input;
+          },
+        );
+
+        my $filter_stack = POE::Filter::Stackable->new(
+          Filters => [
+            $parse_input_as_lines, # first on get, last on put
+            $redact_some_lines, # first on put, last on get
+          ]
+        );
+
+        $_[HEAP]{tailor} = POE::Wheel::FollowTail->new(
+          Filename => "/var/log/system.log",
+          InputEvent => "got_log_line",
+          Filter => $filter_stack,
+        );
+      },
+      got_log_line => sub {
+        print "Log: $_[ARG0]\n";
+      }
+    }
+  );
+
+  POE::Kernel->run();
+  exit;
 
 =head1 DESCRIPTION
 
-The Map filter takes the coderef or coderefs it is given using the
-Code, Get, or Put parameters and applies them to all data passing
-through get(), put(), or both, as appropriate.  It it very similar to
-the C<map> builtin function.
+POE::Filter::Map transforms data inside the filter stack.  It may be
+used to transform input, output, or both depending on how it is
+constructed.  This filter is named and modeled after Perl's built-in
+map() function.
+
+POE::Filter::Map is designed to be combined with other filters through
+POE::Filter::Stackable.  In the L</SYNOPSIS> example, a filter stack
+is created to parse logs as lines and redact all entries that don't
+pertain to a sudo process.
 
 =head1 PUBLIC FILTER METHODS
 
-=over 4
+In addition to the usual POE::Filter methods, POE::Filter::Map also
+supports the following.
 
-=item modify
+=head2 new
 
-POE::Filter::Map::modify
+new() constructs a new POE::Filter::Map object.  It must either be
+called with a single Code parameter, or both a Put and a Get
+parameter.  The values for Code, Put and Get are code references that,
+when invoked, return transformed versions of their sole parameters.  A
+Code function will be used for both input and ouput, while Get and Put
+functions allow input and output to be filtered in different ways.
 
-Takes a list of parameters like the new() method, which should
-correspond to the new get(), put(), or general coderef that you wish
-to use.
+  # Decrypt rot13.
+  sub decrypt_rot13 {
+    my $encrypted = shift;
+    $encrypted =~ tr[a-zA-Z][n-za-mN-ZA-M];
+    return $encrypted;
+  }
 
-=item *
+  # Encrypt rot13.
+  sub encrypt_rot13 {
+    my $plaintext = shift;
+    $plaintext =~ tr[a-zA-Z][n-za-mN-ZA-M];
+    return $plaintext;
+  }
 
-See POE::Filter.
+  # Decrypt rot13 on input, and encrypt it on output.
+  my $rot13_transcrypter = POE::Filter::Map->new(
+    Get => \&decrypt_rot13,
+    Put => \&encrypt_rot13,
+  );
 
-=back
+Rot13 is symmetric, so the above example can be simplified to use a
+single Code function.
+
+  my $rot13_transcrypter = POE::Filter::Map->new(
+    Code => sub {
+      local $_ = shift;
+      tr[a-zA-Z][n-za-mN-ZA-M];
+      return $_;
+    }
+  );
+
+=head2 modify
+
+modify() changes a POE::Filter::Map object's behavior at runtime.  It
+accepts the same parameters as new(), and it replaces the existing
+transforms with new ones.
+
+  # Switch to "reverse" encryption for testing.
+  $rot13_transcrypter->modify(
+    Code => sub { return scalar reverse shift }
+  );
 
 =head1 SEE ALSO
 
-POE::Filter; POE::Filter::Grep; POE::Filter::Line;
-POE::Filter::Stackable; POE::Filter::Reference; POE::Filter::Stream;
-POE::Filter::RecordBlock; POE::Filter::HTTPD
+L<POE::Filter> for more information about filters in general.
+
+L<POE::Filter::Stackable> for more details on stacking filters.
 
 =head1 BUGS
 
@@ -165,13 +231,12 @@ None known.
 
 =head1 AUTHORS & COPYRIGHTS
 
-The Map filter was contributed by Dieter Pearcey.  Rocco Caputo is
-sure to have had his hands in it.
+The Map filter was contributed by Dieter Pearcey.  Documentation is
+provided by Rocco Caputo.
 
-Please see the POE manpage for more information about authors and
+Please see the L<POE> manpage for more information about authors and
 contributors.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

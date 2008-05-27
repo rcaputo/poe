@@ -212,8 +212,8 @@ POE::Filter::Stackable - combine multiple POE::Filter objects
 
         my $filter_stack = POE::Filter::Stackable->new(
           Filters => [
-            $parse_input_as_lines, # closest to handle
-            $select_sudo_log_lines, # closest to wheel
+            $parse_input_as_lines, # first on get, last on put
+            $select_sudo_log_lines, # first on put, last on get
           ]
         );
 
@@ -257,6 +257,9 @@ will go through the filter with the highest index first, and put()
 will return the results after data has passed through filter #0.
 
 =head1 PUBLIC FILTER METHODS
+
+In addition to the usual POE::Filter methods, POE::Filter::Stackable
+also supports the following.
 
 =head2 new
 

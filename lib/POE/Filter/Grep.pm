@@ -114,44 +114,110 @@ POE::Filter::Grep - select or remove items based on simple rules
 
 =head1 SYNOPSIS
 
-  $filter = POE::Filter::Grep->new(Code => sub {...});
-  $filter = POE::Filter::Grep->new(Put => sub {...}, Get => sub {...});
-  $arrayref_of_transformed_data = $filter->get($arrayref_of_raw_data);
-  $arrayref_of_streamable_data = $filter->put($arrayref_of_data);
-  $arrayref_of_streamable_data = $filter->put($single_datum);
-  $filter->modify(Code => sub {...});
-  $filter->modify(Put => sub {...}, Get => sub {...});
+  #!perl
+
+  use POE qw(
+    Wheel::FollowTail
+    Filter::Line Filter::Grep Filter::Stackable
+  );
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        my $parse_input_as_lines = POE::Filter::Line->new();
+
+        my $select_sudo_log_lines = POE::Filter::Grep->new(
+          Put => sub { 1 },
+          Get => sub {
+            my $input = shift;
+            return $input =~ /sudo\[\d+\]/i;
+          },
+        );
+
+        my $filter_stack = POE::Filter::Stackable->new(
+          Filters => [
+            $parse_input_as_lines, # first on get, last on put
+            $select_sudo_log_lines, # first on put, last on get
+          ]
+        );
+
+        $_[HEAP]{tailor} = POE::Wheel::FollowTail->new(
+          Filename => "/var/log/system.log",
+          InputEvent => "got_log_line",
+          Filter => $filter_stack,
+        );
+      },
+      got_log_line => sub {
+        print "Log: $_[ARG0]\n";
+      }
+    }
+  );
+
+  POE::Kernel->run();
+  exit;
 
 =head1 DESCRIPTION
 
-The Grep filter takes the coderef or coderefs it is given using the
-Code, Get, or Put parameters and applies them to all data passing
-through get(), put(), or both, as appropriate.  It it very similar to
-the C<grep> builtin function.
+POE::Filter::Grep selects or removes items based on simple tests.  It
+may be used to filter input, output, or both.  This filter is named
+and modeled after Perl's built-in grep() function.
+
+POE::Filter::Grep is designed to be combined with other filters
+through POE::Filter::Stackable.  In the L</SYNOPSIS> example, a filter
+stack is created to parse logs as lines and remove all entries that
+don't pertain to a sudo process.  (Or if your glass is half full, the
+stack only selects entries that DO mention sudo.)
 
 =head1 PUBLIC FILTER METHODS
 
-=over 4
+In addition to the usual POE::Filter methods, POE::Filter::Grep also
+supports the following.
 
-=item modify
+=head2 new
 
-POE::Filter::Grep::modify
+new() constructs a new POE::Filter::Grep object.  It must either be
+called with a single Code parameter, or both a Put and a Get
+parameter.  The values for Code, Put, and Get are code references
+that, when invoked, return true to select an item or false to reject
+it.  A Code function will be used for both input and output, while Get
+and Put functions allow input and output to be filtered in different
+ways.  The item in question will be passed as the function's sole
+parameter.
 
-Takes a list of parameters like the new() method, which should
-correspond to the new get(), put(), or general coderef that you wish
-to use.
+  sub reject_bidoofs {
+    my $pokemon = shift;
+    return 1 if $pokemon ne "bidoof";
+    return;
+  }
 
-=item *
+  my $gotta_catch_nearly_all = POE::Filter::Grep->new(
+    Code => \&reject_bidoofs,
+  );
 
-See POE::Filter.
+Enforce read-only behavior:
 
-=back
+  my $read_only = POE::Filter::Grep->new(
+    Get => sub { 1 },
+    Put => sub { 0 },
+  );
+
+=head2 modify
+
+modify() changes a POE::Filter::Grep object's behavior at runtime.  It
+accepts the same parameters as new(), and it replaces the existing
+tests with new ones.
+
+  # Don't give away our Dialgas.
+  $gotta_catch_nearly_all->modify(
+    Get => sub { 1 },
+    Put => sub { return shift() ne "dialga" },
+  );
 
 =head1 SEE ALSO
 
-POE::Filter; POE::Filter::Grep; POE::Filter::Line;
-POE::Filter::Stackable; POE::Filter::Reference; POE::Filter::Stream;
-POE::Filter::RecordBlock; POE::Filter::HTTPD
+L<POE::Filter> for more information about filters in general.
+
+L<POE::Filter::Stackable> for more details on stacking filters.
 
 =head1 BUGS
 
@@ -159,13 +225,12 @@ None known.
 
 =head1 AUTHORS & COPYRIGHTS
 
-The Grep filter was contributed by Dieter Pearcey.  Rocco Caputo is
-sure to have had his hands in it.
+The Grep filter was contributed by Dieter Pearcey.  Documentation is
+provided by Rocco Caputo.
 
-Please see the POE manpage for more information about authors and
+Please see the L<POE> manpage for more information about authors and
 contributors.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
