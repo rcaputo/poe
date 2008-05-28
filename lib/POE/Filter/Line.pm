@@ -31,7 +31,7 @@ sub new {
   my %params = @_;
 
   croak "$type cannot have both Regexp and Literal line endings" if (
-    defined $params{Regexp} and defined $params{Literal}
+    defined $params{InputRegexp} and defined $params{Literal}
   );
 
   my ($input_regexp, $output_literal);
@@ -244,75 +244,125 @@ __END__
 
 =head1 NAME
 
-POE::Filter::Line - handle input and output as terminator-ended records
+POE::Filter::Line - serialize and parse terminated records (lines)
 
 =head1 SYNOPSIS
 
-  $filter = POE::Filter::Line->new();
-  $arrayref_of_lines =
-    $filter->get($arrayref_of_raw_chunks_from_driver);
-  $arrayref_of_streamable_chunks_for_driver =
-    $filter->put($arrayref_of_lines);
-  $arrayref_of_leftovers =
-    $filter->get_pending();
+  #!perl
 
-  # Use a literal newline terminator for input and output:
-  $filter = POE::Filter::Line->new( Literal => "\x0D\x0A" );
+  use POE qw(Wheel::FollowTail Filter::Line);
 
-  # Terminate input lines with a string regexp:
-  $filter = POE::Filter::Line->new( InputRegexp   => '[!:]',
-                                    OutputLiteral => "!"
-                                  );
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[HEAP]{tailor} = POE::Wheel::FollowTail->new(
+          Filename => "/var/log/system.log",
+          InputEvent => "got_log_line",
+          Filter => POE::Filter::Line->new(),
+        );
+      },
+      got_log_line => sub {
+        print "Log: $_[ARG0]\n";
+      }
+    }
+  );
 
-  # Terminate input lines with a compiled regexp (requires perl 5.005
-  # or newer):
-  $filter = POE::Filter::Line->new( InputRegexp   => qr/[!:]/,
-                                    OutputLiteral => "!"
-                                  );
-
-  # Autodetect the input line terminator:
-  $filter = POE::Filter::Line->new( InputLiteral => undef );
+  POE::Kernel->run();
+  exit;
 
 =head1 DESCRIPTION
 
-The Line filter translates streams to and from separated lines.  The
-lines it returns do not include the line separator (usually newlines).
-Neither should the lines given to it.
+POE::Filter::Line parses stream data into terminated records.  The
+default parser interprets newlines as the record terminator, and the
+default serializer appends network newlines (CR/LF, or "\x0D\x0A") to
+outbound records.
 
-Incoming newlines are recognized with a simple regular expression by
-default: C</(\x0D\x0A?|\x0A\x0D?)/>.  This regexp encompasses all the
-variations of CR and/or LF, but it has a race condition.
-
-Consider a CRLF newline is broken into two stream chunks, one which
-ends with CR and the other which begins with LF:
-
-   some stream dataCR
-   LFother stream data
-
-The default regexp will recognize the CR as one end-of-line marker and
-the LF as another.  The line filter will emit two lines: "some stream
-data" and a blank line.  B<People are advised to specify custom
-literal newlines or autodetect the newline style in applications where
-blank lines are significant.>
-
-Outgoing lines have traditional network newlines (CRLF) appended to
-them by default.
+POE::Filter::Line supports a number of other ways to parse lines.
+Constructor parameters may specify literal newlines, regular
+expressions, or that the filter should detect newlines on its own.
 
 =head1 PUBLIC FILTER METHODS
 
-Please see POE::Filter.
+POE::Filter::Line's new() method has some interesting parameters.
+
+=head2 new
+
+new() accepts a list of named parameters.
+
+C<InputLiteral> may be used to parse records that are terminated by
+some literal string.  For example, POE::Filter::Line may be used to
+parse and emit C-style lines, which are terminated with an ASCII NUL:
+
+  my $c_line_filter = POE::Filter::Line->new(
+    InputLiteral => chr(0),
+    OutputLiteral => chr(0),
+  );
+
+C<OutputLiteral> allows a filter to put() records with a different
+record terminator than it parses.  This can be useful in applications
+that must translate record terminators.
+
+C<Literal> is a shorthand for the common case where the input and
+output literals are identical.  The previous example may be written
+as:
+
+  my $c_line_filter = POE::Filter::Line->new(
+    Literal => chr(0),
+  );
+
+An application can also allow POE::Filter::Like to figure out which
+newline to use.  This is done by specifying C<InputLiteral> to be
+undef:
+
+  my $whichever_line_filter = POE::Filter::Line->new(
+    InputLiteral => undef,
+    OutputLiteral => "\n",
+  );
+
+C<InputRegexp> may be used in place of C<InputLiteral> to recognize
+line terminators based on a regular expression.  In this example,
+input is terminated by two or more consecutive newlines.  On output,
+the paragraph separator is "---" on a line by itself.
+
+  my $paragraph_filter = POE::Filter::Line->new(
+    InputRegexp => "([\x0D\x0A]{2,})",
+    OutputLiteral => "\n---\n",
+  );
+
+=head1 PUBLIC FILTER METHODS
+
+POE::Filter::Line has no additional public methods.
 
 =head1 SEE ALSO
 
-POE::Filter.
+Please see L<POE::Filter> for documentation regarding the base
+interface.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
 =head1 BUGS
 
-The default input newline regexp has a race condition where incomplete
-newlines can generate spurious blank input lines.
+The default input newline parser is a regexp that has an unfortunate
+race condition.  First the regular expression:
+
+  /(\x0D\x0A?|\x0A\x0D?)/
+
+While it quickly recognizes most forms of newline, it can sometimes
+detect an extra blank line.  This happens when a two-byte newline
+character is broken between two reads.  Consider this situation:
+
+  some stream dataCR
+  LFother stream data
+
+The regular expression will see the first CR without its corresponding
+LF.  The filter will properly return "some stream data" as a line.
+When the next packet arrives, the leading "LF" will be treated as the
+terminator for a 0-byte line.  The filter will faithfully return this
+empty line.
+
+B<It is advised to specify literal newlines or use the autodetect
+feature in applications where blank lines are significant.>
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -321,4 +371,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

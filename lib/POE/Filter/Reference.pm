@@ -225,148 +225,167 @@ sub get_pending {
   return [ $self->[BUFFER] ];
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Filter::Reference - freeze data for sending; thaw data when it arrives
+POE::Filter::Reference - freeze and thaw arbitrary Perl data
 
 =head1 SYNOPSIS
 
-  $filter = POE::Filter::Reference->new();
-  $arrayref_of_perl_references =
-    $filter->get($arrayref_of_raw_chunks_from_driver);
-  $arrayref_of_serialized_perl_references =
-     $filter->put($arrayref_of_perl_references);
+  #!perl
+
+  use YAML;
+  use POE qw(Wheel::ReadWrite Filter::Reference);
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        pipe(my($read, $write)) or die $!;
+        $_[HEAP]{io} = POE::Wheel::ReadWrite->new(
+          InputHandle => $read,
+          OutputHandle => $write,
+          Filter => POE::Filter::Reference->new(),
+          InputEvent => "got_perl_data",
+        );
+
+        $_[HEAP]{io}->put(
+          { key_1 => 111, key_2 => 222 }
+        );
+      },
+      got_perl_data => sub {
+        print "Got data:\n", YAML::Dump($_[ARG0]);
+				print "Bye!\n";
+				delete $_[HEAP]{io};
+      }
+    }
+  );
+
+  POE::Kernel->run();
+  exit;
 
 =head1 DESCRIPTION
 
-This filter packages referenced data for writing to a file or socket.
-Upon receipt of packaged data, it reconstitutes the original structure
-and returns a reference to it.  This provides a handy way to ship data
-between processes and systems.
+POE::Filter::Reference allows programs to send and receive arbitrary
+Perl data structures without worrying about a line protocol.  Its
+put() method serializes Perl data into a byte stream suitable for
+transmission.  get_one() parses the data structures back out of such a
+stream.
+
+By default, POE::Filter::Reference uses Storable to do its magic.  A
+different serializer may be specified at construction time.
 
 =head1 PUBLIC FILTER METHODS
 
-=over 2
+POE::Filter::Reference deviates from the standard POE::Filter API in
+the following ways.
 
-=item new SERIALIZER, COMPRESSION
+=head2 new [SERIALIZER [, COMPRESSION]]
 
-=item new SERIALIZER
+new() creates and initializes a POE::Filter::Reference object.  It
+will use Storable as its default SERIALIZER if none other is
+specified.
 
-=item new
+If COMPRESSION is true, Compress::Zlib will be called upon to reduce
+the size of serialized data.  It will also decompress the incoming
+stream data.
 
-new() creates and initializes a reference filter.  It accepts two
-optional parameters: A serializer and a flag that determines whether
-Compress::Zlib will be used to compress serialized data.
+Any class that supports nfreeze() (or freeze()) and thaw() may be used
+as a SERIALIZER.  If a SERIALIZER implements both nfreeze() and
+freeze(), then the "network" version will be used.
 
-Serializers are modeled after Storable.  Storable has a nfreeze()
-function which translates referenced data into strings suitable for
-shipping across sockets.  It also contains a freeze() method which is
-less desirable since it doesn't take network byte ordering into
-effect.  Finally there's thaw() which translates frozen strings back
-into data.
-
-SERIALIZER may be a package name or an object reference, or it may be
-omitted altogether.
-
-If SERIALIZER is a package name, it is assumed that the package will
-have a thaw() function as well as either an nfreeze() or a freeze()
-function.
+SERIALIZER may be a class name:
 
   # Use Storable explicitly, specified by package name.
   my $filter = POE::Filter::Reference->new("Storable");
 
-  # Use YAML, perhaps to pass data to programs not written with POE or
-  # even in Perl at all.
-  my $filter = POE::Filter::Reference->new("YAML");
+  # Use YAML instead.  Compress its output, as it may be verbose.
+  my $filter = POE::Filter::Reference->new("YAML", 1);
 
-If SERIALIZER is an object reference, it's assumed to have a thaw()
-method as well as either an nfreeze() or freeze() method.
+SERIALIZER may also be an object:
 
   # Use an object.
-  my $filter = POE::Filter::Reference->new($object);
+  my $serializer = Data::Serializer::Something->new();
+  my $filter = POE::Filter::Reference->new($serializer);
 
 If SERIALIZER is omitted or undef, the Reference filter will try to
-use Storable, FreezeThaw, and YAML.  Filter::Reference will die if it
-cannot find one of these serializers.
+use Storable, FreezeThaw, and YAML in that order.
+POE::Filter::Reference will die if it cannot find one of these
+serializers, but this rarely happens now that Storable and YAML are
+bundled with Perl.
 
-  # Use the default filter (either Storable, FreezeThaw, or YAML).
-  my $filter = POE::Filter::Reference->new();
-
-Filter::Reference will try to compress frozen strings and uncompress
-them before thawing if COMPRESSION is true.  It uses Compress::Zlib
-for this, but it works fine even without Zlib as long as COMPRESSION
-is false.
-
-An object serializer must have a thaw() method.  It also must have
-either a freeze() or nfreeze() method.  If it has both freeze() and
-nfreeze(), then Filter::Reference will use nfreeze() for portability.
-The thaw() method accepts $self and a scalar; it should return a
-reference to the reconstituted data.  The freeze() and nfreeze()
-methods receive $self and a reference; they should return a scalar
-with the reference's serialized representation.
-
-If the serializer parameter is undef, a default one will be used.
-This lets programs specify compression without having to worry about
-naming a serializer.
-
-For example:
-
-  # Use the default filter (either Storable, FreezeThaw, or YAML).
-  my $filter = POE::Filter::Reference->new();
-
-  # Use an object, with compression.
-  my $filter = POE::Filter::Reference->new($object, 1);
-
-  # Use the default serializer, with compression.
+  # A choose-your-own-serializer adventure!
+  # We'll still deal with compressed data, however.
   my $filter = POE::Filter::Reference->new(undef, 1);
 
-The new() method will try to require any packages it needs.
+POE::Filter::Reference will try to compress frozen strings and
+uncompress them before thawing if COMPRESSION is true.  It uses
+Compress::Zlib for this.  POE::Filter::Reference doesn't need
+Compress::Zlib if COMPRESSION is false.
 
-The default behavior is to try Storable first, FreezeThaw second, YAML
-third, and finally fail.
+new() will try to load any classes it needs.
 
-=item get [ FROZEN_DATA ]
+=head1 SERIALIZER API
 
-The get() method thaws a referenced list of FROZEN_DATA chunks back
-into references.  References will be blessed, if necessary.  If the
-references points to an object, be sure the receiving end has used the
-appropriate modules before calling their methods.
+Here's what POE::Filter::Reference expects of its serializers.
 
-  $thingrefs = $filter_reference->get(\@stream_chunks);
-  foreach (@$thingrefs) {
-    ...;
+=head2 thaw SERIALIZED
+
+thaw() is required.  It accepts two parameters: $self and a scalar
+containing a SERIALIZED byte stream representing a single Perl data
+structure.  It returns a reconstituted Perl data structure.
+
+  sub thaw {
+    my ($self, $stream) = @_;
+    my $reference = $self->_deserialization_magic($stream);
+    return $reference;
   }
 
-=item put [ REFERENCES ]
+=head2 nfreeze REFERENCE
 
-The put() method freezes one or more REFERENCES and returns their
-serialized, streamable representations as a list reference.
+Either nfreeze() or freeze() is required.  They behave identically,
+except that nfreeze() is guaranteed to be portable across networks and
+between machine architectures.
 
-  $arrayref = $filter_reference->put([ \%thing_one, \@thing_two ]);
-  foreach (@$arrayref) {
-    ...;
+These freezers accept two parameters: $self and a REFERENCE to Perl
+data.  They return a serialized version of the REFERENCEd data.
+
+  sub nfreeze {
+    my ($self, $reference) = @_;
+    my $stream = $self->_serialization_magic($reference);
+    return $stream;
   }
 
-=back
+=head2 freeze REFERENCE
+
+freeze() is an alternative form of nfreeze().  It has the same call
+signature as nfreeze(), but it doesn't guarantee that serialized data
+will be portable across machine architectures.
+
+If you must choose between implementing freeze() and nfreeze() for use
+with POE::Filter::Reference, go with nfreeze().
 
 =head1 SEE ALSO
 
-POE::Filter.
+Please see L<POE::Filter> for documentation regarding the base
+interface.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
 =head1 BUGS
 
-Whatever is used to freeze and thaw data should be aware of potential
-differences in system byte orders.  Also be careful that the same
-freeze/thaw code is used on both sides of a socket.  That includes
-even the most minor version differences.
+Not so much bugs as caveats:
+
+It's important to use identical serializers on each end of a
+connection.  Even different versions of the same serializer can break
+data in transit.
+
+Most (if not all) serializers will rebless data at the destination,
+but many of them will not load the necessary classes to make their
+blessings work.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -378,4 +397,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
