@@ -11,7 +11,7 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
 sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
 
-use Test::More tests => 30;
+use Test::More tests => 29;
 
 use_ok('POE::Filter::Stackable');
 use_ok('POE::Filter::Grep');
@@ -103,15 +103,13 @@ ok(!@$map_next, "nothing left to get from map filter");
 ### Go back and test more of Stackable.
 
 {
-  my @filters_should_be = qw( Line Map Grep RecordBlock );
+  my @filters_should_be = qw(
+		POE::Filter::Line POE::Filter::Map POE::Filter::Grep
+		POE::Filter::RecordBlock
+	);
   my @filters_are  = $filter_stack->filter_types();
   is_deeply(\@filters_are, \@filters_should_be,
     "filter types stacked correctly");
-
-  my @filters_also_should_be = map { "POE::Filter::$_" } @filters_should_be;
-  my @filters_also_are = map { ref($_) } $filter_stack->filters();
-  is_deeply(\@filters_also_are, \@filters_also_should_be,
-    "filters stacked correctly");
 }
 
 # test pushing and popping
