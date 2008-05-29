@@ -31,7 +31,7 @@ sub new {
   my %params = @_;
 
   croak "$type cannot have both Regexp and Literal line endings" if (
-    defined $params{InputRegexp} and defined $params{Literal}
+    defined $params{Regexp} and defined $params{Literal}
   );
 
   my ($input_regexp, $output_literal);
