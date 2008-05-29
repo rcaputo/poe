@@ -61,7 +61,15 @@ sub import {
   # Now do things with them.
 
   unless (UNIVERSAL::can('POE::Kernel', 'poe_kernel_loop')) {
-    $loop =~ s/^((POE::)?Loop::)?/POE::Loop::/ if defined $loop;
+    if (defined $loop) {
+      $loop =~ s/^(POE::)?(XS::)?(Loop::)?//;
+      if (defined $2) {
+        $loop = "POE::XS::Loop::$loop";
+      }
+      else {
+        $loop = "POE::Loop::$loop";
+      }
+    }
     _test_loop($loop);
     # Bootstrap the kernel.  This is inherited from a time when multiple
     # kernels could be present in the same Perl process.
