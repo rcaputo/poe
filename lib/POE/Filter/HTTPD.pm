@@ -376,64 +376,90 @@ sub _build_error {
   );
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Filter::HTTPD - convert stream to HTTP::Request; HTTP::Response to stream
+POE::Filter::HTTPD - parse simple HTTP requests, and serialize HTTP::Response
 
 =head1 SYNOPSIS
 
-  $httpd = POE::Filter::HTTPD->new();
-  $arrayref_with_http_response_as_string =
-    $httpd->put($full_http_response_object);
-  $arrayref_with_http_request_object =
-    $line->get($arrayref_of_raw_data_chunks_from_driver);
+	#!perl
+
+	use warnings;
+	use strict;
+
+	use POE qw(Component::Server::TCP Filter::HTTPD);
+	use HTTP::Response;
+
+	POE::Component::Server::TCP->new(
+		Port         => 8088,
+		ClientFilter => 'POE::Filter::HTTPD',  ### <-- HERE WE ARE!
+
+		ClientInput => sub {
+			my $request = $_[ARG0];
+
+			# It's a response for the client if there was a problem.
+			if ($request->isa("HTTP::Response")) {
+				$_[HEAP]{client}->put($request);
+				$_[KERNEL]->yield("shutdown");
+				return;
+			}
+
+			my $request_fields = '';
+			$request->headers()->scan(
+				sub {
+					my ($header, $value) = @_;
+					$request_fields .= (
+            "<tr><td>$header</td><td>$value</td></tr>"
+          );
+				}
+			);
+
+			my $response = HTTP::Response->new(200);
+			$response->push_header( 'Content-type', 'text/html' );
+			$response->content(
+				"<html><head><title>Your Request</title></head>" .
+				"<body>Details about your request:" .
+				"<table border='1'>$request_fields</table>" .
+				"</body></html>"
+			);
+
+			$_[HEAP]{client}->put($response);
+			$_[KERNEL]->yield("shutdown");
+		}
+	);
+
+	print "Aim your browser at port 8088 of this host.\n";
+	POE::Kernel->run();
+	exit;
 
 =head1 DESCRIPTION
 
-The HTTPD filter parses the first HTTP 1.0 request from an incoming
-stream into an HTTP::Request object (if the request is good) or an
-HTTP::Response object (if the request was malformed).  To send a
-response, give its put() method a HTTP::Response object.
+POE::Filter::HTTPD interprets input streams as HTTP 0.9 or 1.0
+requests.  It returns a HTTP::Request objects upon successfully
+parsing a request.  On failure, it returns an HTTP::Response object
+describing the failure.  The intention is that application code will
+notice the HTTP::Response and send it back without further processing.
+This is illustrated in the L</SYNOPSIS>.
 
-Here is a sample input handler:
+For output, POE::Filter::HTTPD accepts HTTP::Response objects and
+returns their corresponding streams.
 
-  sub got_request {
-    my ($heap, $request) = @_[HEAP, ARG0];
-
-    # The Filter::HTTPD generated a response instead of a request.
-    # There must have been some kind of error.  You could also check
-    # (ref($request) eq 'HTTP::Response').
-    if ($request->isa('HTTP::Response')) {
-      $heap->{wheel}->put($request);
-      return;
-    }
-
-    # Process the request here.
-    my $response = HTTP::Response->new(200);
-    $response->push_header( 'Content-Type', 'text/html' );
-    $response->content( $request->as_string() );
-
-    $heap->{wheel}->put($response);
-  }
-
-Please see the documentation for HTTP::Request and HTTP::Response.
+Please see L<HTTP::Request> and L<HTTP::Response> for details about
+how to use these objects.
 
 =head1 PUBLIC FILTER METHODS
 
-Please see POE::Filter.
+POE::Filter::HTTPD implements the basic POE::Filter interface.
 
 =head1 CAVEATS
 
-It is possible to generate invalid HTTP using libwww. This is specifically a
-problem if you are talking to a Filter::HTTPD driven daemon using libwww. For
-example, the following code (taken almost verbatim from the
-HTTP::Request::Common documentation) will cause an error in a Filter::HTTPD
-daemon:
+Some versions of libwww are known to generate invalid HTTP.  For
+example, this code (adapted from the HTTP::Request::Common
+documentation) will cause an error in a POE::Filter::HTTPD daemon:
 
   use HTTP::Request::Common;
   use LWP::UserAgent;
@@ -441,50 +467,72 @@ daemon:
   my $ua = LWP::UserAgent->new();
   $ua->request(POST 'http://some/poe/driven/site', [ foo => 'bar' ]);
 
-By default, HTTP::Request is HTTP version agnostic. It makes no attempt to add
-an HTTP version header unless you specifically declare a protocol using
-C<< $request->protocol('HTTP/1.0') >>.
+By default, HTTP::Request is HTTP version agnostic. It makes no
+attempt to add an HTTP version header unless you specifically declare
+a protocol using C<< $request->protocol('HTTP/1.0') >>.
 
-According to the HTTP 1.0 RFC (1945), when faced with no HTTP version header,
-the parser is to default to HTTP/0.9. Filter::HTTPD follows this convention. In
-the transaction detailed above, the Filter::HTTPD based daemon will return a 400
-error since POST is not a valid HTTP/0.9 request type.
+According to the HTTP 1.0 RFC (1945), when faced with no HTTP version
+header, the parser is to default to HTTP/0.9.  POE::Filter::HTTPD
+follows this convention.  In the transaction detailed above, the
+Filter::HTTPD based daemon will return a 400 error since POST is not a
+valid HTTP/0.9 request type.
 
 =head1 Streaming Media
 
-It is perfectly possible to use Filter::HTTPD for streaming output
-media.  Even if it's not possible to change the input filter from
-Filter::HTTPD, by setting the output_filter to Filter::Stream and
-omitting any content in the HTTP::Response object.
+It is possible to use POE::Filter::HTTPD for streaming content, but an
+application can use it to send headers and then switch to
+POE::Filter::Stream.
 
-  $wheel->put($response); # Without content, it sends just headers.
-  $wheel->set_output_filter(POE::Filter::Stream->new());
-  $wheel->put("Raw content.");
+From the input handler (the InputEvent handler if you're using wheels,
+or the ClientInput handler for POE::Component::Server::TCP):
+
+  my $response = HTTP::Response->new(200);
+  $response->push_header('Content-type', 'audio/x-mpeg');
+  $_[HEAP]{client}->put($response);
+  $_[HEAP]{client}->set_output_filter(POE::Filter::Stream->new());
+
+Then the output-flushed handler (FlushEvent for POE::Wheel::ReadWrite,
+or ClientFlushed for POE::Component::Server::TCP) can put() chunks of
+the stream as needed.
+
+  my $bytes_read = sysread(
+    $_[HEAP]{file_to_stream}, my $buffer = '', 4096
+  );
+
+  if ($bytes_read) {
+    $_[HEAP]{client}->put($buffer);
+  }
+  else {
+    delete $_[HEAP]{file_to_stream};
+    $_[KERNEL]->yield("shutdown");
+  }
 
 =head1 SEE ALSO
 
-POE::Filter.
+Please see L<POE::Filter> for documentation regarding the base
+interface.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
+L<HTTP::Request> and L<HTTP::Response> explain all the wonderful
+things you can do with these classes.
+
 =head1 BUGS
 
-=over 4
-
-=item * Keep-alive is not supported.
-
-=item * The full http 1.0 spec is not supported, specifically DELETE, LINK, and UNLINK.
-
-=back
+Many aspects of HTTP 1.0 and higher are not supported, such as
+keep-alive.  A simple I/O filter can't support keep-alive, for
+example.  A number of more feature-rich POE HTTP servers are on the
+CPAN.  See
+L<http://search.cpan.org/search?query=POE+http+server&mode=dist>
 
 =head1 AUTHORS & COPYRIGHTS
 
-The HTTPD filter was contributed by Artur Bergman.
+POE::Filter::HTTPD was contributed by Artur Bergman.  Documentation is
+provided by Rocco Caputo.
 
 Please see L<POE> for more information about authors and contributors.
 
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
