@@ -346,6 +346,11 @@ POE::Component::Client::TCP - a simplified TCP client
 
 =head1 SYNOPSIS
 
+See L<POE::Wheel::SocketFactory/SYNOPSIS> for a lengthier version that
+allows the application more control over how the server works.
+
+  #!perl
+
   use POE qw(Component::Client::TCP);
 
   # Basic usage.

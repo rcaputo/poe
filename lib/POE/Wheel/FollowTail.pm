@@ -560,6 +560,8 @@ new() returns a new POE::Wheel::FollowTail object.  As long as this
 object exists, it will generate events when the corresponding file's
 status changes.
 
+new() accepts a small set of named parameters:
+
 =head3 Driver
 
 The optional C<Driver> parameter specifies which driver to use when
@@ -662,65 +664,28 @@ See the L</SYNOPSIS> for an example.
 
 =head3 InputEvent
 
-C<InputEvent> is required.  It sets the name of the event to emit when
-new data arrives into the tailed file.  The event will be accompanied
-by two parameters:
-
-C<$_[ARG0]> contains the data that was read from the file, after being
-parsed by the current C<Filter>.
-
-C<$_[ARG1]> contains the wheel's ID, which may be used as a key into a
-data structure tracking multiple wheels.  No assumption should be made
-about the nature or format of this ID, as it may change at any time.
-Therefore, track your wheels in a hash.
-
-See the L</SYNOPSIS> for an example.
+The C<InputEvent> parameter is required, and it specifies the event to
+emit when new data arrives in the watched file.  C<InputEvent> is
+described in detail in L</PUBLIC EVENTS>.
 
 =head3 ResetEvent
 
-C<ResetEvent> is an optional event name to be emitted whenever the
-wheel detects that the followed file has been reset.  It's only
-available when watching files by name, as POE::Wheel::FollowTail must
-reopen the file after it has been reset.
-
-C<ResetEvent> comes with only one parameter, C<$_[ARG0]>, which
-contains the wheel's ID.  See L</InputEvent> for some notes about what
-may be done with wheel IDs.
-
-See the L</SYNOPSIS> for an example.
+C<ResetEvent> is an optional.  It specifies the name of the event that
+indicates file rollover or reset.  Please see L</PUBLIC EVENTS> for
+more details.
 
 =head3 ErrorEvent
 
 POE::Wheel::FollowTail may emit optional C<ErrorEvent>s whenever it
-runs into trouble.  Every C<ErrorEvent> comes with four parameters
-that describe the error and its situation:
-
-C<$_[ARG0]> describes the operation that failed.  This is usually
-"read", since POE::Wheel::FollowTail spends most of its time reading
-from a file.
-
-C<$_[ARG1]> and C<$_[ARG2]> contain the numeric and stringified values
-of C<$!>, respectively.  They will never contain EAGAIN (or its local
-equivalent) since POE::Wheel::FollowTail handles that error itself.
-
-C<$_[ARG3]> contains the wheel's ID, which has been discussed in
-L</InputEvent>.
-
-This error handler logs a message to STDERR and then shuts down the
-wheel.  It assumes that the session is watching multiple files.
-
-  sub handle_tail_error {
-    my ($operation, $errnu, $errstr, $wheel_id) = @_[ARG0..ARG3];
-    warn "Wheel $wheel_id: $operation error $errnum: $errstr\n";
-    delete $_[HEAP]{tailors}{$wheel_id};
-  }
+runs into trouble.  The data that comes with this event is explained
+in L</PUBLIC EVENTS>.
 
 =head2 event
 
 event() allows a session to change the events emitted by a wheel
-without destroying and re-creating the object.  It accepts the same
-event-name parameters as new: C<InputEvent>, C<ResetEvent>, and
-C<ErrorEvent>.  Undefined event names disable those events.
+without destroying and re-creating the object.  It accepts one or more
+of the events listed in L</PUBLIC EVENTS>.  Undefined event names
+disable those events.
 
 Stop handling log resets:
 
@@ -728,12 +693,14 @@ Stop handling log resets:
     $_[HEAP]{tailor}->event( ResetEvent => undef );
   }
 
+The events are described in more detail in L</PUBLIC EVENTS>.
+
 =head2 ID
 
-The ID() method returns the wheel's ID.  It's useful for storing the
-wheel in a hash.  All POE::Wheel events should be accompanied by a
-wheel ID, which allows the wheel to be referenced in their event
-handlers.
+The ID() method returns the wheel's unique ID.  It's useful for
+storing the wheel in a hash.  All POE::Wheel events should be
+accompanied by a wheel ID, which allows the wheel to be referenced in
+their event handlers.
 
   sub setup_tailor {
     my $wheel = POE::Wheel::FollowTail->new(... incomplete ...);
@@ -764,6 +731,65 @@ resume watching the file where tell() left off.
       ...,
       Seek => $seek,
     );
+  }
+
+=head1 PUBLIC EVENTS
+
+POE::Wheel::FollowTail emits a small number of events.
+
+=head2 InputEvent
+
+C<InputEvent> sets the name of the event to emit when new data arrives
+into the tailed file.  The event will be accompanied by two
+parameters:
+
+C<$_[ARG0]> contains the data that was read from the file, after being
+parsed by the current C<Filter>.
+
+C<$_[ARG1]> contains the wheel's ID, which may be used as a key into a
+data structure tracking multiple wheels.  No assumption should be made
+about the nature or format of this ID, as it may change at any time.
+Therefore, track your wheels in a hash.
+
+See the L</SYNOPSIS> for an example.
+
+=head2 ResetEvent
+
+C<ResetEvent> names the event to be emitted whenever the wheel detects
+that the followed file has been reset.  It's only available when
+watching files by name, as POE::Wheel::FollowTail must reopen the file
+after it has been reset.
+
+C<ResetEvent> comes with only one parameter, C<$_[ARG0]>, which
+contains the wheel's ID.  See L</InputEvent> for some notes about what
+may be done with wheel IDs.
+
+See the L</SYNOPSIS> for an example.
+
+=head2 ErrorEvent
+
+C<ErrorEvent> names the event emitted when POE::Wheel::FollowTail
+encounters a problem.  Every C<ErrorEvent> comes with four parameters
+that describe the error and its situation:
+
+C<$_[ARG0]> describes the operation that failed.  This is usually
+"read", since POE::Wheel::FollowTail spends most of its time reading
+from a file.
+
+C<$_[ARG1]> and C<$_[ARG2]> contain the numeric and stringified values
+of C<$!>, respectively.  They will never contain EAGAIN (or its local
+equivalent) since POE::Wheel::FollowTail handles that error itself.
+
+C<$_[ARG3]> contains the wheel's ID, which has been discussed in
+L</InputEvent>.
+
+This error handler logs a message to STDERR and then shuts down the
+wheel.  It assumes that the session is watching multiple files.
+
+  sub handle_tail_error {
+    my ($operation, $errnu, $errstr, $wheel_id) = @_[ARG0..ARG3];
+    warn "Wheel $wheel_id: $operation error $errnum: $errstr\n";
+    delete $_[HEAP]{tailors}{$wheel_id};
   }
 
 =head1 SEE ALSO

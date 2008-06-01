@@ -544,13 +544,15 @@ POE::Component::Server::TCP - a simplified TCP server
   use POE qw(Component::Server::TCP);
 
   POE::Component::Server::TCP->new(
-    Port => 1234,
+    Port => 12345,
     ClientConnected => sub {
       print "got a connection from $_[HEAP]{remote_ip}\n";
       $_[HEAP]{client}->put("Smile from the server.");
     },
     ClientInput => sub {
-      $_[HEAP]{client}->put("You said: $_[ARG0]");
+      my $client_input = $_[ARG0];
+      $client_input =~ tr[a-zA-Z][n-ma-zN-MA-Z];
+      $_[HEAP]{client}->put($client_input);
     },
     ClientDisconnected => sub {
       print "client from $_[HEAP]{remote_ip} disconnected\n";

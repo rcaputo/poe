@@ -1150,7 +1150,6 @@ sub _shutdown {
   }
 }
 
-###############################################################################
 1;
 
 __END__
@@ -1161,63 +1160,59 @@ POE::Wheel::SocketFactory - non-blocking socket creation and management
 
 =head1 SYNOPSIS
 
-  use Socket; # For the constants
+See L<POE::Component::Server::TCP/SYNOPSIS> for a much simpler version
+of this program.
 
-  # Listening Unix domain socket.
-  $wheel = POE::Wheel::SocketFactory->new(
-    SocketDomain => AF_UNIX,               # Sets the socket() domain
-    BindAddress  => $unix_socket_address,  # Sets the bind() address
-    SuccessEvent => $event_success,        # Event to emit upon accept()
-    FailureEvent => $event_failure,        # Event to emit upon error
-    # Optional parameters (and default values):
-    SocketType   => SOCK_STREAM,           # Sets the socket() type
+  #!perl
+
+  use warnings;
+  use strict;
+
+  use IO::Socket;
+  use POE qw(Wheel::SocketFactory Wheel::ReadWrite);
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        # Start the server.
+        $_[HEAP]{server} = POE::Wheel::SocketFactory->new(
+					BindPort => 12345,
+					SuccessEvent => "on_client_accept",
+					FailureEvent => "on_server_error",
+        );
+      },
+      on_client_accept => sub {
+        # Begin interacting with the client.
+        my $client_socket = $_[ARG0];
+        my $io_wheel = POE::Wheel::ReadWrite->new(
+          Handle => $client_socket,
+          InputEvent => "on_client_input",
+          ErrorEvent => "on_client_error",
+        );
+        $_[HEAP]{client}{ $io_wheel->ID() } = $io_wheel;
+      },
+      on_server_error => sub {
+        # Shut down server.
+        my ($operation, $errnum, $errstr) = @_[ARG0, ARG1, ARG2];
+        warn "Server $operation error $errnum: $errstr\n";
+        delete $_[HEAP]{server};
+      },
+      on_client_input => sub {
+        # Handle client input.
+        my ($input, $wheel_id) = @_[ARG0, ARG1];
+        $input =~ tr[a-zA-Z][n-za-mN-ZA-M]; # ASCII rot13
+        $_[HEAP]{client}{$wheel_id}->put($input);
+      },
+      on_client_error => sub {
+        # Handle client error, including disconnect.
+        my $wheel_id = $_[ARG3];
+        delete $_[HEAP]{client}{$wheel_id};
+      },
+    }
   );
 
-  # Connecting Unix domain socket.
-  $wheel = POE::Wheel::SocketFactory->new(
-    SocketDomain  => AF_UNIX,              # Sets the socket() domain
-    RemoteAddress => $unix_server_address, # Sets the connect() address
-    SuccessEvent  => $event_success,       # Event to emit on connection
-    FailureEvent  => $event_failure,       # Event to emit on error
-    # Optional parameters (and default values):
-    SocketType    => SOCK_STREAM,          # Sets the socket() type
-    # Optional parameters (that have no defaults):
-    BindAddress   => $unix_client_address, # Sets the bind() address
-  );
-
-  # Listening Internet domain socket.
-  $wheel = POE::Wheel::SocketFactory->new(
-    BindAddress    => $inet_address,       # Sets the bind() address
-    BindPort       => $inet_port,          # Sets the bind() port
-    SuccessEvent   => $event_success,      # Event to emit upon accept()
-    FailureEvent   => $event_failure,      # Event to emit upon error
-    # Optional parameters (and default values):
-    SocketDomain   => AF_INET,             # Sets the socket() domain
-    SocketType     => SOCK_STREAM,         # Sets the socket() type
-    SocketProtocol => 'tcp',               # Sets the socket() protocol
-    ListenQueue    => SOMAXCONN,           # The listen() queue length
-    Reuse          => 'on',                # Lets the port be reused
-  );
-
-  # Connecting Internet domain socket.
-  $wheel = POE::Wheel::SocketFactory->new(
-    RemoteAddress  => $inet_address,       # Sets the connect() address
-    RemotePort     => $inet_port,          # Sets the connect() port
-    SuccessEvent   => $event_success,      # Event to emit on connection
-    FailureEvent   => $event_failure,      # Event to emit on error
-    # Optional parameters (and default values):
-    SocketDomain   => AF_INET,             # Sets the socket() domain
-    SocketType     => SOCK_STREAM,         # Sets the socket() type
-    SocketProtocol => 'tcp',               # Sets the socket() protocol
-    Reuse          => 'yes',               # Lets the port be reused
-  );
-
-  $wheel->event( ... );
-
-  $wheel->ID();
-
-  $wheel->pause_accept();
-  $wheel->resume_accept();
+  POE::Kernel->run();
+  exit;
 
 =head1 DESCRIPTION
 
