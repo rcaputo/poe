@@ -506,7 +506,6 @@ sub _open_file {
   return $handle;
 }
 
-###############################################################################
 1;
 
 __END__
@@ -517,235 +516,271 @@ POE::Wheel::FollowTail - follow the tail of an ever-growing file
 
 =head1 SYNOPSIS
 
-  $wheel = POE::Wheel::FollowTail->new(
-    Filename     => $file_name,                    # File to tail
-    Driver       => POE::Driver::Something->new(), # How to read it
-    Filter       => POE::Filter::Something->new(), # How to parse it
-    PollInterval => 1,                  # How often to check it
-    InputEvent   => $input_event_name,  # Event to emit upon input
-    ErrorEvent   => $error_event_name,  # Event to emit upon error
-    ResetEvent   => $reset_event_name,  # Event to emit on file reset
-    SeekBack     => $offset,            # How far from EOF to start
-    Seek         => $offset,            # How far from BOF to start
+  #!perl
+
+  use POE qw(Wheel::FollowTail);
+
+  POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[HEAP]{tailor} = POE::Wheel::FollowTail->new(
+          Filename => "/var/log/system.log",
+          InputEvent => "got_log_line",
+          ResetEvent => "got_log_rollover",
+        );
+      },
+      got_log_line => sub {
+        print "Log: $_[ARG0]\n";
+      },
+      got_log_rollover => sub {
+        print "Log rolled over.\n";
+      },
+    }
   );
 
-  $wheel = POE::Wheel::FollowTail->new(
-    Handle       => $open_file_handle,             # File to tail
-    Driver       => POE::Driver::Something->new(), # How to read it
-    Filter       => POE::Filter::Something->new(), # How to parse it
-    PollInterval => 1,                  # How often to check it
-    InputEvent   => $input_event_name,  # Event to emit upon input
-    ErrorEvent   => $error_event_name,  # Event to emit upon error
-    # No reset event available.
-    SeekBack     => $offset,            # How far from EOF to start
-    Seek         => $offset,            # How far from BOF to start
-  );
-
-  $pos = $wheel->tell();  # Get the current log position.
+  POE::Kernel->run();
+  exit;
 
 =head1 DESCRIPTION
 
-FollowTail follows the end of an ever-growing file, such as a log of
-system events.  It generates events for each new record that is
-appended to its file.
+POE::Wheel::FollowTail objects watch for new data at the end of a file
+and generate new events when things happen to the file.  Its C<Filter>
+parameter defines how to parse data from the file.  Each new item is
+sent to the creator's session as an C<InputEvent> event.  Log rotatin
+will trigger a C<ResetEvent>.
 
-This is a read-only wheel so it does not include a put() method.
-
-=head1 CONSTRUCTOR
-
-=over 
-
-=item new
-
-new() creates a new wheel, returning the wheels reference.
-
-=back
+POE::Wheel::FollowTail only reads from a file, so it doesn't implement
+a put() method.
 
 =head1 PUBLIC METHODS
 
-=over 2
+=head2 new
 
-=item event EVENT_TYPE => EVENT_NAME, ...
+new() returns a new POE::Wheel::FollowTail object.  As long as this
+object exists, it will generate events when the corresponding file's
+status changes.
 
-event() is covered in the POE::Wheel manpage.
+=head3 Driver
 
-FollowTail's event types are C<InputEvent>, C<ResetEvent>, and
-C<ErrorEvent>.
+The optional C<Driver> parameter specifies which driver to use when
+reading from the tailed file.  If omitted, POE::Wheel::FollowTail will
+use POE::Driver::SysRW.  This is almost always the right thing to do.
 
-=item ID
+=head3 Filter
 
-The ID method returns a FollowTail wheel's unique ID.  This ID will be
-included in every event the wheel generates, and it can be used to
-match events with the wheels which generated them.
+C<Filter> is an optional constructor parameter that specifies how to
+parse data from the followed file.  By default, POE::Wheel::FollowTail
+will use POE::Filter::Line to parse files as plain, newline-separated
+text.
 
-=item tell
+  $_[HEAP]{tailor} = POE::Wheel::FollowTail->new(
+    Filename => "/var/log/snort/alert",
+    Filter => POE::Filter::Snort->new(),
+    InputEvent => "got_snort_alert",
+  );
 
-Returns where POE::Wheel::FollowTail is currently in the log file.
-tell() may be useful for seeking back into a file when resuming
-tailing.
+=head3 PollInterval
 
-  my $pos = $wheel->tell();
+POE::Wheel::FollowTail needs to periodically check for new data on the
+followed file.  C<PollInterval> specifies the number of seconds to
+wait between checks.  Applications that need to poll once per second
+may omit C<PollInterval>, as it defaults to 1.
 
-FollowTail generally reads ahead of the data it returns, so the file
-position is not necessarily the point after the last record you have
-received.
+Longer poll intervals may be used to reduce the polling overhead for
+infrequently updated files.
 
-=back
+  $_[HEAP]{tailor} = POE::Wheel::FollowTail->new(
+    ...,
+    PollInterval => 10,
+  );
 
-=head1 EVENTS AND PARAMETERS
+=head3 Seek
 
-=over 2
+If specified, C<Seek> instructs POE::Wheel::FollowTail to seek to a
+specific spot in the tailed file before beginning to read from it.  A
+positive C<Seek> value is interpreted as the number of octets to seek
+from the start of the file.  Negative C<Seek> will, like negative
+array indices, seek backwards from the end of the file.  Zero C<Seek>
+starts reading from the beginning of the file.
 
-=item Driver
+Be careful when using C<Seek>, as it's quite easy to seek into the
+middle of a record.  When in doubt, and when beginning at the end of
+the file, omit C<Seek> entirely.  POE::Wheel::FollowTail will seek
+4 kilobytes back from the end of the file, then parse and discard all
+records unto EOF.  As long as the file's records are smaller than 4
+kilobytes, this will guarantee that the first record returned will be
+complete.
 
-Driver is a POE::Driver subclass that is used to read from and write
-to FollowTail's filehandle.  It encapsulates the low-level I/O
-operations needed to access a file so in theory FollowTail never needs
-to know about them.
+C<Seek> may also be used with the wheel's tell() method to restore the
+file position after a program restart.  Save the tell() value prior to
+exiting, and load and C<Seek> back to it on subsequent startup.
 
-POE::Wheel::FollowTail uses POE::Driver::SysRW if one is not
-specified.
+TODO - Example.
 
-=item Filter
+=head3 SeekBack
 
-Filter is a POE::Filter subclass that is used to parse input from the
-tailed file.  It encapsulates the lowest level of a protocol so that
-in theory FollowTail never needs to know about file formats.
+C<SeekBack> behaves like the inverse of C<Seek>.  A positive value
+acts like a negative C<Seek>.  A negative value acts like a positive
+C<Seek>.  A zero C<SeekBack> instructs POE::Wheel::FollowTail to begin
+at the very end of the file.
 
-POE::Wheel::FollowTail uses POE::Filter::Line if one is not
-specified.
+C<Seek> and C<SeekBack> are mutually exclusive.
 
-=item PollInterval
+See L</Seek> for caveats, techniques, and an explanation of the magic
+that happens when neither C<Seek> nor C<SeekBack> is specified.
 
-PollInterval is the amount of time, in seconds, the wheel will wait
-before retrying after it has reached the end of the file.  This delay
-prevents the wheel from going into a CPU-sucking loop.
+TODO - Example.
 
-=item Seek
+=head3 Handle
 
-The Seek parameter tells FollowTail how far from the start of the file
-to start reading.  Its value is specified in bytes, and values greater
-than the file's current size will quietly cause FollowTail to start
-from the file's end.
+POE::Wheel::FollowTail may follow a previously opened file C<Handle>.
+Unfortunately it cannot follow log resets this way, as it won't be
+albe to reopen the file once it has been reset.  Applications that
+must follow resets should use C<Filename> instead.
 
-A Seek parameter of 0 starts FollowTail at the beginning of the file.
-A negative Seek parameter emulates SeekBack: it seeks backwards from
-the end of the file.
+C<Handle> is still useful for files that will never be reset, or for
+devices that require setup outside of POE::Wheel::FollowTail's
+purview.
 
-Seek and SeekBack are mutually exclusive.  If Seek and SeekBack are
-not specified, FollowTail seeks 4096 bytes back from the end of the
-file and discards everything until the end of the file.  This helps
-ensure that FollowTail returns only complete records.
+C<Handle> and C<Filename> are mutually exclusive.  One of them is
+required, however.
 
-When either Seek or SeekBack is specified, FollowTail begins returning
-records from that position in the file.  It is possible that the first
-record returned may be incomplete.  In files with fixed-length
-records, it's possible to return entirely the wrong thing, all the
-time.  Please be careful.
+TODO - Example.
 
-=item SeekBack
+=head3 Filename
 
-The SeekBack parameter tells FollowTail how far back from the end of
-the file to start reading.  Its value is specified in bytes, and
-values greater than the file's current size will quietly cause
-FollowTail to start from the file's beginning.
+Specify the C<Filename> to watch.  POE::Wheel::FollowTail will wait
+for the file to appear if it doesn't exist.  The wheel will also
+reopen the file if it disappears, such as when it has been reset or
+rolled over.  In the case of a reset, POE::Wheel::FollowTail will also
+emit a C<ResetEvent>, if one has been requested.
 
-A SeekBack parameter of 0 starts FollowTail at the end of the file.
-It's recommended to omit Seek and SeekBack to start from the end of a
-file.
+C<Handle> and C<Filename> are mutually exclusive.  One of them is
+required, however.
 
-A negative SeekBack parameter emulates Seek: it seeks forwards from
-the start of the file.
+See the L</SYNOPSIS> for an example.
 
-Seek and SeekBack are mutually exclusive.  If Seek and SeekBack are
-not specified, FollowTail seeks 4096 bytes back from the end of the
-file and discards everything until the end of the file.  This helps
-ensure that FollowTail returns only complete records.
+=head3 InputEvent
 
-When either Seek or SeekBack is specified, FollowTail begins returning
-records from that position in the file.  It is possible that the first
-record returned may be incomplete.  In files with fixed-length
-records, it's possible to return entirely the wrong thing, all the
-time.  Please be careful.
+C<InputEvent> is required.  It sets the name of the event to emit when
+new data arrives into the tailed file.  The event will be accompanied
+by two parameters:
 
-=item Handle
+C<$_[ARG0]> contains the data that was read from the file, after being
+parsed by the current C<Filter>.
 
-=item Filename
+C<$_[ARG1]> contains the wheel's ID, which may be used as a key into a
+data structure tracking multiple wheels.  No assumption should be made
+about the nature or format of this ID, as it may change at any time.
+Therefore, track your wheels in a hash.
 
-Either the Handle or Filename constructor parameter is required, but
-you cannot supply both.
+See the L</SYNOPSIS> for an example.
 
-FollowTail can watch a file or device that's already open.  Give it
-the open filehandle with its Handle parameter.
+=head3 ResetEvent
 
-FollowTail can watch a file by name, given as the Filename parameter.
-The named file does not need to exist.  FollowTail will wait for it to
-appear.
+C<ResetEvent> is an optional event name to be emitted whenever the
+wheel detects that the followed file has been reset.  It's only
+available when watching files by name, as POE::Wheel::FollowTail must
+reopen the file after it has been reset.
 
-This wheel can detect files that have been "reset".  That is, it can
-tell when log files have been restarted due to a rotation or purge.
-For FollowTail to do this, though, it requires a Filename parameter.
-This is so FollowTail can reopen the file after it has reset.  See
-C<ResetEvent> elsewhere in this document.
+C<ResetEvent> comes with only one parameter, C<$_[ARG0]>, which
+contains the wheel's ID.  See L</InputEvent> for some notes about what
+may be done with wheel IDs.
 
-=item InputEvent
+See the L</SYNOPSIS> for an example.
 
-InputEvent contains the name of an event which is emitted for every
-complete record read.  Every InputEvent event is accompanied by two
-parameters.  C<ARG0> contains the record which was read.  C<ARG1>
-contains the wheel's unique ID.
+=head3 ErrorEvent
 
-A sample InputEvent event handler:
+POE::Wheel::FollowTail may emit optional C<ErrorEvent>s whenever it
+runs into trouble.  Every C<ErrorEvent> comes with four parameters
+that describe the error and its situation:
 
-  sub input_state {
-    my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
-    print "Wheel $wheel_id received input: $input\n";
+C<$_[ARG0]> describes the operation that failed.  This is usually
+"read", since POE::Wheel::FollowTail spends most of its time reading
+from a file.
+
+C<$_[ARG1]> and C<$_[ARG2]> contain the numeric and stringified values
+of C<$!>, respectively.  They will never contain EAGAIN (or its local
+equivalent) since POE::Wheel::FollowTail handles that error itself.
+
+C<$_[ARG3]> contains the wheel's ID, which has been discussed in
+L</InputEvent>.
+
+This error handler logs a message to STDERR and then shuts down the
+wheel.  It assumes that the session is watching multiple files.
+
+  sub handle_tail_error {
+    my ($operation, $errnu, $errstr, $wheel_id) = @_[ARG0..ARG3];
+    warn "Wheel $wheel_id: $operation error $errnum: $errstr\n";
+    delete $_[HEAP]{tailors}{$wheel_id};
   }
 
-=item ResetEvent
+=head2 event
 
-ResetEvent contains the name of an event that's emitted every time a
-file is reset.
+event() allows a session to change the events emitted by a wheel
+without destroying and re-creating the object.  It accepts the same
+event-name parameters as new: C<InputEvent>, C<ResetEvent>, and
+C<ErrorEvent>.  Undefined event names disable those events.
 
-It's only available when watching files by name.  This is because
-FollowTail must reopen the file after it has been reset.
+Stop handling log resets:
 
-C<ARG0> contains the FollowTail wheel's unique ID.
-
-=item ErrorEvent
-
-ErrorEvent contains the event which is emitted whenever an error
-occurs.  Every ErrorEvent comes with four parameters:
-
-C<ARG0> contains the name of the operation that failed.  This usually
-is 'read'.  Note: This is not necessarily a function name.  The wheel
-doesn't know which function its Driver is using.
-
-C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
-respectively.  Note: FollowTail knows how to handle EAGAIN, so it will
-never return that error.
-
-C<ARG3> contains the wheel's unique ID.
-
-A sample ErrorEvent event handler:
-
-  sub error_state {
-    my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
-    warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
+  sub some_event_handler {
+    $_[HEAP]{tailor}->event( ResetEvent => undef );
   }
 
-=back
+=head2 ID
+
+The ID() method returns the wheel's ID.  It's useful for storing the
+wheel in a hash.  All POE::Wheel events should be accompanied by a
+wheel ID, which allows the wheel to be referenced in their event
+handlers.
+
+  sub setup_tailor {
+    my $wheel = POE::Wheel::FollowTail->new(... incomplete ...);
+    $_[HEAP]{tailors}{$wheel->ID} = $wheel;
+  }
+
+See the example in L</ErrorEvent> for a handler that will find this
+wheel again.
+
+=head2 tell
+
+tell() returns the current position for the file being watched by
+POE::Wheel::FollowTail.  It may be useful for saving the position
+program termination.  new()'s C<Seek> parameter may be used to
+resume watching the file where tell() left off.
+
+  sub handle_shutdown {
+    # Not robust.  Do better in production.
+    open my $save, ">", "position.save" or die $!;
+    print $save $_[HEAP]{tailor}->tell(), "\n";
+    close $save;
+  }
+
+  sub handle_startup {
+    open my $save, "<", "position.save" or die $!;
+    chomp(my $seek = <$save>);
+    $_[HEAP]{tailor} = POE::Wheel::FollowTail->new(
+      ...,
+      Seek => $seek,
+    );
+  }
 
 =head1 SEE ALSO
 
-POE::Wheel.
+L<POE::Wheel> describes the basic operations of all wheels in more
+depth.  You need to know this.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
 =head1 BUGS
 
-This wheel can't tail pipes and consoles on some systems.
+This wheel can't tail pipes and consoles on some operating systems.
+
+POE::Wheel::FollowTail generally reads ahead of the data it returns,
+so the tell() position may be later in the file than the data an
+application has already received.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -754,4 +789,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.

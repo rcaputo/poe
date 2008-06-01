@@ -536,6 +536,32 @@ POE::Component::Server::TCP - a simplified TCP server
 
 =head1 SYNOPSIS
 
+  #!perl
+
+  use warnings;
+  use strict;
+
+  use POE qw(Component::Server::TCP);
+
+  POE::Component::Server::TCP->new(
+    Port => 1234,
+    ClientConnected => sub {
+      print "got a connection from $_[HEAP]{remote_ip}\n";
+      $_[HEAP]{client}->put("Smile from the server.");
+    },
+    ClientInput => sub {
+      $_[HEAP]{client}->put("You said: $_[ARG0]");
+    },
+    ClientDisconnected => sub {
+      print "client from $_[HEAP]{remote_ip} disconnected\n";
+    },
+  );
+
+  POE::Kernel->run;
+  exit;
+
+-><- OLD SYNOPSIS FOLLOWS
+
   use POE qw(Component::Server::TCP);
 
   ### First form just accepts connections.
