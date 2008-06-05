@@ -51,7 +51,7 @@ sub import {
 
   # Extract the import arguments we're interested in here.
 
-  my $loop = delete $args->{loop} || $ENV{POE_LOOP};
+  my $loop = delete $args->{loop} || $ENV{POE_EVENT_LOOP};
 
   # Don't accept unknown/mistyped arguments.
 
@@ -2872,16 +2872,16 @@ logic.
   use POE::Kernel { loop => "Glib" };
 
 Finally, one may specify the loop class by setting the POE::Loop or
-POE::XS:Loop class name in the POE_LOOP environment variable.  This
-mechanism was added for tests that need to specify the loop from a
-distance.
+POE::XS:Loop class name in the POE_EVENT_LOOP environment variable.
+This mechanism was added for tests that need to specify the loop from
+a distance.
 
-  BEGIN { $ENV{POE_LOOP} = "POE::XS::Loop::Poll" }
+  BEGIN { $ENV{POE_EVENT_LOOP} = "POE::XS::Loop::Poll" }
   use POE;
 
 Of course this may also be set from your shell:
 
-  % export POE_LOOP='POE::XS::Loop::Poll'
+  % export POE_EVENT_LOOP='POE::XS::Loop::Poll'
   % make test
 
 Many external event loops support their own callback mechanisms.
