@@ -462,6 +462,8 @@ an e-mail via his CPAN address.
 
 Broken down by abstraction layer.
 
+TODO - Link to web resources.
+
 TODO - Verify this is complete.
 
 =head2 Layer 1

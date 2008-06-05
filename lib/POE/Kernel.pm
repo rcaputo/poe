@@ -51,7 +51,7 @@ sub import {
 
   # Extract the import arguments we're interested in here.
 
-  my $loop = delete $args->{loop};
+  my $loop = delete $args->{loop} || $ENV{POE_LOOP};
 
   # Don't accept unknown/mistyped arguments.
 
@@ -2866,9 +2866,23 @@ It can be abbreviated using POE's loader magic.
   use POE qw( Loop::Event_Lib );
 
 POE::Kernel also supports configuration directives on its own C<use>
-line.
+line.  A loop explicitly specified this way will override the search
+logic.
 
   use POE::Kernel { loop => "Glib" };
+
+Finally, one may specify the loop class by setting the POE::Loop or
+POE::XS:Loop class name in the POE_LOOP environment variable.  This
+mechanism was added for tests that need to specify the loop from a
+distance.
+
+  BEGIN { $ENV{POE_LOOP} = "POE::XS::Loop::Poll" }
+  use POE;
+
+Of course this may also be set from your shell:
+
+  % export POE_LOOP='POE::XS::Loop::Poll'
+  % make test
 
 Many external event loops support their own callback mechanisms.
 L<POE::Session|POE::Session>'s L<"postback()"|POE::Session/postback>
@@ -5172,6 +5186,8 @@ what is gathered.
 
 =head1 ADDITIONAL CONSTANTS
 
+These additional constants govern POE's operation.
+
 =head2 USE_TIME_HIRES
 
 Whether or not to use L<Time::HiRes> for timing purposes.
@@ -5182,24 +5198,24 @@ See L</"Using Time::HiRes">.
 
 Whether to use C<$SIG{CHLD}> or to poll at an interval.
 
-This flag is disabled by default, and enabling it may cause breakage under
-older perls with no safe signals, and under L<Apache> which uses
+This flag is disabled by default, and enabling it may cause breakage
+under older perls with no safe signals, and under L<Apache> which uses
 C<$SIG{CHLD}>.
 
-Enabling this flag will cause child reaping to happen almost immediately, as
-opposed to once per L</CHILD_POLLING_INTERVAL>.
+Enabling this flag will cause child reaping to happen almost
+immediately, as opposed to once per L</CHILD_POLLING_INTERVAL>.
 
 =head2 CHILD_POLLING_INTERVAL
 
-The interval at which C<wait> is called to determine if child processes need to
-be reaped and the C<CHLD> signal emulated.
+The interval at which C<wait> is called to determine if child
+processes need to be reaped and the C<CHLD> signal emulated.
 
 Defaults to 1 second.
 
 =head2 CATCH_EXCEPTIONS
 
-Whether or not POE should run event handler code in an eval { } and deliver the
-C<DIE> signal on errors.
+Whether or not POE should run event handler code in an eval { } and
+deliver the C<DIE> signal on errors.
 
 See L</"Exception Handling">.
 

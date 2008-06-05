@@ -1216,132 +1216,152 @@ of this program.
 
 =head1 DESCRIPTION
 
-SocketFactory creates sockets.  It can create connectionless sockets
-like UDP, or connected sockets like UNIX domain streams and TCP
-sockets.
-
-The SocketFactory manages connecting and listening sockets on behalf
-of the session that created it.  It will watch a connecting socket and
-fire a SuccessEvent or FailureEvent event when something happens.  It
-will watch a listening socket and fire a SuccessEvent or FailureEvent
-for every connection.
+POE::Wheel::SocketFactory creates sockets upon demand.  It can create
+connectionless UDP sockets, but it really shines for client/server
+work where establishing connections normally would block.
 
 =head1 PUBLIC METHODS
 
-=over 2
+=head2 new
 
-=item new LOTS_OF_THINGS
+new() creats a new POE::Wheel::SocketFactory object.  For sockets
+which listen() for and accept() connections, the wheel will generate
+new sockets for each accepted client.  Socket factories for one-shot
+sockets, such as UDP peers or clients established by connect() only
+emit a single socket and can be destroyed afterwards without ill
+effects.
 
-new() creates a new socket.  If necessary, it registers event handlers
-to manage the socket.  new() has parameters for just about every
-aspect of socket creation; thankfully they all aren't needed at once.
+new() always returns a POE::Wheel::SocketFactory object even if it
+fails to establish the socket.  This allows the object to be queried
+after it has sent its session a C<FailureEvent>.
 
-new() always returns a SocketFactory wheel reference, even if a socket
-couldn't be created.
+new() accepts a healthy number of named parameters, each governing
+some aspect of socket creation.
 
-These parameters provide information for the SocketFactory's socket()
-call.
+=head3 socket parameters
 
-=over 2
+This group of parameters influence the internal socket() call.  For
+the most part, they are passed to socket() after preliminary
+processing.
 
-=item SocketDomain
+=head4 SocketDomain
 
-SocketDomain supplies socket() with its DOMAIN parameter.  Supported
-values are AF_UNIX, AF_INET, AF_INET6, PF_UNIX, PF_INET, and PF_INET6.
-If SocketDomain is omitted, it defaults to AF_INET.
+C<SocketDomain> instructs the wheel to create a socket within a
+particular domain.  Supported domains are AF_UNIX, AF_INET, AF_INET6,
+PF_UNIX, PF_INET, and PF_INET6.  If omitted, the socket will be
+created in the AF_INET domain.
+
+POE::Wheel::SocketFactory contains a table of supported domains and
+the instructions needed to create them.  It should be easy to extend
+this table for other domains.
 
 Note: AF_INET6 and PF_INET6 are supplied by the Socket6 module, which
 is available on the CPAN.  You must have Socket6 loaded before
 SocketFactory can create IPv6 sockets.
 
-=item SocketType
+TODO - Example.
 
-SocketType supplies socket() with its TYPE parameter.  Supported
-values are SOCK_STREAM and SOCK_DGRAM, although datagram sockets
-haven't been tested at this time.  If SocketType is omitted, it
-defaults to SOCK_STREAM.
+=head4 SocketType
 
-=item SocketProtocol
+C<SocketType> supplies the socket() call with a particular socket
+type, which may be SOCK_STREAM or SOCK_DGRAM.  SOCK_STREAM is the
+default if C<SocketType> is not supplied.
 
-SocketProtocol supplies socket() with its PROTOCOL parameter.
-Protocols may be specified by number or by a name that can be found in
-the system's protocol (or equivalent) database.  SocketProtocol is
-ignored for UNIX domain sockets.  It defaults to 'tcp' if it's omitted
-from an INET socket factory.
+TODO - Example.
 
-=back
+=head4 SocketProtocol
 
-These parameters provide information for the SocketFactory's bind()
-call.
+C<SocketProtocol> sets the socket() call's protocol.  Protocols may be
+specified by number or name.  C<SocketProtocol> is ignored for UNIX
+domain sockets.  It defaults to "tcp" if omitted from "INET domain
+sockets.
 
-=over 2
+TODO - Example.
 
-=item BindAddress
+=head3 bind parameters
 
-BindAddress supplies the address where a socket will be bound to.  It
-has different meanings and formats depending on the socket domain.
+This group of parameters influences an internal bind() call.
 
-BindAddress may contain either a string or a packed Internet address
-when it's specified for INET sockets.  The string form of BindAddress
-should hold a dotted numeric address or resolvable host name.
-BindAddress is optional for INET sockets, and SocketFactory will use
-INADDR_ANY by default.
+=head4 BindAddress
 
-When used to bind a UNIX domain socket, BindAddress should contain a
-path describing the socket's filename.  This is required for server
-sockets and datagram client sockets.  BindAddress has no default value
-for UNIX sockets.
+C<BindAddress> sets the address used for a socket's bind() call.
+INADDR_ANY will be used if C<BindAddress> is not specified.
 
-=item BindPort
+C<BindAddress> may contain either a string or a packed Internet
+address (for "INET" domain sockets).  The string parameter should be a
+dotted numeric address or a resolvable host name.  Note that the host
+name will be resolved with a blocking call.  If this is not desired,
+use POE::Component::Client::DNS to perform a non-blocking name
+resolution.
 
-BindPort is only meaningful for INET domain sockets.  It contains a
-port on the BindAddress interface where the socket will be bound.  It
-defaults to 0 if omitted.
+When used to bind a "UNIX" domain socket, C<BindAddress> should
+contain a path describing the socket's filename.  This is required for
+server sockets and datagram client sockets.  C<BindAddress> has no
+default value for UNIX sockets.
 
-BindPort may be a port number or a name that can be looked up in the
-system's services (or equivalent) database.
+TODO - Example.
 
-=back
+=head4 BindPort
 
-These parameters are used for outbound sockets.
+C<BindPort> is only meaningful for "INET" domain sockets.  It contains
+a port on the C<BindAddress> interface where the socket will be bound.
+It defaults to 0 if omitted, which will cause the bind() call to
+choose an indeterminate unallocated port.
 
-=over 2
+C<BindPort> may be a port number or a name that can be looked up in
+the system's services (or equivalent) database.
 
-=item RemoteAddress
+TODO - Example.
 
-RemoteAddress specifies the remote address to which a socket should
-connect.  If present, the SocketFactory will create a connecting
-socket.  Otherwise, it will make a listening socket, should the
-protocol warrant it.
+=head3 connect parameters
 
-Like with the bind address, RemoteAddress may be a string containing a
-dotted quad or a resolvable host name.  It may also be a packed
+The following parameters determine whether the socket listens for
+connections or initiate new ones.  When specified, the values are
+passed to the socket factory's internal connect() call.
+
+=head4 RemoteAddress
+
+C<RemoteAddress> specifies the remote address to which a socket should
+connect.  If present, POE::Wheel::SocketFactory will create a client
+socket that attempts to collect to the C<RemoteAddress>.  Otherwise,
+if the protocol warrants it, the wheel will create a listening socket
+and attempt to accept connections.
+
+As with the bind address, C<RemoteAddress> may be a string containing
+a dotted quad or a resolvable host name.  It may also be a packed
 Internet address, or a UNIX socket path.  It will be packed, with or
-without an accompanying RemotePort, as necessary for the socket
+without an accompanying C<RemotePort>, as necessary for the socket
 domain.
 
-=item RemotePort
+TODO - Example.
 
-RemotePort is the port to which the socket should connect.  It is
-required for connecting Internet sockets and ignored in all other
-cases.
+=head4 RemotePort
 
-The remote port may be a number or a name in the /etc/services (or
-equivalent) database.
+C<RemotePort> is the port to which the socket should connect.  It is
+required for "INET" client sockets, since the remote endpoint must
+contain both an address and a port.
 
-=back
+The remote port may be numeric, or it may be a symbolic name found in
+/etc/services or the equivalent for your operating system.
 
-This parameter is used for listening sockets.
+TODO - Example.
 
-=over 2
+=head3 listen parameters
 
-=item ListenQueue
+The following parameter is used for listening sockets.
 
-ListenQueue specifies the length of the socket's listen() queue.  It
-defaults to SOMAXCONN if omitted.  SocketFactory will ensure that it
-doesn't exceed SOMAXCONN.
+=head4 ListenQueue
 
-=back
+C<ListenQueue> specifies the length of the socket's listen() queue.
+It defaults to SOMAXCONN if omitted.  C<ListenQueue> values greater
+than SOMAXCONN will be clipped to SOMAXCONN, as extremely large values
+are not necessarily portable.
+
+TODO - Example.
+
+=head2 event
+
+-><- am here
 
 =item event EVENT_TYPE => EVENT_NAME, ...
 
