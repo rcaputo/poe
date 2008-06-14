@@ -487,7 +487,7 @@ sub _data_sig_handle_poll_event {
   }
 
   if (TRACE_SIGNALS) {
-    _warn("<sg> POE::Kernel is polling for signals at " . time())
+    _warn("<sg> POE::Kernel is polling for signals at " . time() . (USE_SIGCHLD ? " due to SIGCHLD" : ""));
   }
 
   # Reap children for as long as waitpid(2) says something
