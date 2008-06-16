@@ -1176,9 +1176,9 @@ of this program.
       _start => sub {
         # Start the server.
         $_[HEAP]{server} = POE::Wheel::SocketFactory->new(
-					BindPort => 12345,
-					SuccessEvent => "on_client_accept",
-					FailureEvent => "on_server_error",
+          BindPort => 12345,
+          SuccessEvent => "on_client_accept",
+          FailureEvent => "on_server_error",
         );
       },
       on_client_accept => sub {

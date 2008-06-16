@@ -798,7 +798,8 @@ sub new {
   my $idle_time = delete $params{IdleTime};
   $idle_time = 2 unless defined $idle_time;
 
-  my $app = delete $params{appname};
+  my $app = delete($params{AppName}) || delete($params{appname});
+  delete $params{appname}; # in case AppName was present
   $app ||= 'poe-readline';
 
   if (scalar keys %params) {
@@ -1107,16 +1108,23 @@ sub terminal_size {
 }
 
 # Add things to the edit history.
-sub addhistory {
+sub add_history {
   my $self = shift;
   push @{$self->[SELF_HIST_LIST]}, @_;
 }
 
-sub GetHistory {
+# RCC 2008-06-15. Backwards compatibility.
+*addhistory = *add_history;
+
+sub get_history {
   my $self = shift;
   return @{$self->[SELF_HIST_LIST]};
 }
-sub WriteHistory {
+
+# RCC 2008-06-15. Backwards compatibility.
+*GetHistory = *get_history;
+
+sub write_history {
   my ($self, $file) = @_;
   $file ||= "$ENV{HOME}/.history";
   open(HIST, ">$file") || return undef;
@@ -1124,7 +1132,11 @@ sub WriteHistory {
   close(HIST);
   return 1;
 }
-sub ReadHistory {
+
+# RCC 2008-06-15. Backwards compatibility.
+*WriteHistory = *write_history;
+
+sub read_history {
   my ($self, $file, $from, $to) = @_;
   $from ||= 0;
   $to = -1 unless defined $to;
@@ -1135,11 +1147,14 @@ sub ReadHistory {
   my $line = 0;
   foreach my $h (@hist) {
     chomp($h);
-    $self->addhistory($h) if ($line >= $from && ($to < $from || $line <= $to));
+    $self->add_history($h) if ($line >= $from && ($to < $from || $line <= $to));
     $line++;
   }
   return 1;
 }
+
+# RCC 2008-06-15. Backwards compatibility.
+*ReadHistory = *read_history;
 
 sub history_truncate_file {
   my ($self, $file, $lines) = @_;
@@ -1169,10 +1184,13 @@ sub ID {
   return $_[0]->[SELF_UNIQUE_ID];
 }
 
-sub Attribs {
+sub attribs {
   my ($self) = @_;
   return $self->[SELF_OPTIONS];
 }
+
+# RCC 2008-06-15. Backwards compatibility.
+*Attribs = *attribs;
 
 sub option {
   my ($self, $arg) = @_;
@@ -3037,262 +3055,362 @@ sub bind_key {
   }
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Wheel::ReadLine - prompted terminal input
+POE::Wheel::ReadLine - non-blocking Term::ReadLine for POE
 
 =head1 SYNOPSIS
 
-  # Create the wheel.
-  $heap->{wheel} = POE::Wheel::ReadLine->new(
-    InputEvent => got_input, appname => 'mycli'
-  );
+	#!perl
 
-  # Trigger the wheel to read a line of input.
-  $heap->{wheel}->get( 'Prompt: ' );
+	use warnings;
+	use strict;
 
-  # Add a line to the wheel's input history.
-  $heap->{wheel}->addhistory( $input );
+	use POE qw(Wheel::ReadLine);
 
-  # Input handler.  If $input is defined, then it contains a line of
-  # input.  Otherwise $exception contains a word describing some kind
-  # of user exception.  Currently these are 'interrupt' and 'cancel'.
-  sub got_input_handler {
-    my ($heap, $input, $exception) = @_[HEAP, ARG0, ARG1];
-    if (defined $input) {
-      $heap->{wheel}->addhistory($input);
-      $heap->{wheel}->put("\tGot: $input");
-      $heap->{wheel}->get('Prompt: '); # get another line
-    }
-    else {
-      $heap->{wheel}->put("\tException: $exception");
-    }
-  }
+	POE::Session->create(
+		inline_states=> {
+			_start => \&setup_console,
+			got_user_input => \&handle_user_input,
+		}
+	);
 
-  # Clear the terminal.
-  $heap->{wheel}->clear();
+	POE::Kernel->run();
+	exit;
+
+	sub handle_user_input {
+		my ($input, $exception) = @_[ARG0, ARG1];
+		my $console = $_[HEAP]{console};
+
+		unless (defined $input) {
+			$console->put("$exception caught.  B'bye!");
+      $_[KERNEL]->signal($_[KERNEL], "UIDESTROY");
+			$console->write_history("./test_history");
+			return;
+		}
+
+		$console->put("  You entered: $input");
+		$console->addhistory($input);
+		$console->get("Go: ");
+	}
+
+	sub setup_console {
+		$_[HEAP]{console} = POE::Wheel::ReadLine->new(
+			InputEvent => 'got_user_input'
+		);
+		$_[HEAP]{console}->read_history("./test_history");
+		$_[HEAP]{console}->clear();
+		$_[HEAP]{console}->put(
+			"Enter some text.",
+			"Ctrl+C or Ctrl+D exits."
+		);
+		$_[HEAP]{console}->get("Go: ");
+	}
 
 =head1 DESCRIPTION
 
-ReadLine performs non-blocking, event-driven console input, using
-Term::Cap to interact with the terminal display and Term::ReadKey to
-interact with its keyboard.
+POE::Wheel::ReadLine is a non-blocking form of Term::ReadLine that's
+compatible with POE.  It uses Term::Cap to interact with the terminal
+display and Term::ReadKey to interact with the keyboard.
 
-ReadLine handles almost all common input editing keys; it provides an
-input history list; it has both vi and emacs modes; it provides
-incremental search facilities; it is fully customizable and it is
-compatible with standard readline(3) implementations such as
+POE::Wheel::ReadLine handles almost all common input editing keys.  It
+provides an input history list.  It has both vi and emacs modes.  It
+supports incremental input search.  It's fully customizable, and it's
+compatible with standard readline(3) implementions such as
 Term::ReadLine::Gnu.
 
-ReadLine is configured by placing commands in an initialization file
-(the inputrc file). The name of this file is taken from the value of
-the B<INPUTRC> environment variable.  If that variable is unset, the
-default is ~/.inputrc.  When the wheel is instantiated, the init file
-is read and the key bindings and variables are set.  There are only a
-few basic constructs allowed in the readline init file.  Blank lines
-are ignored.  Lines beginning with a '#' are comments.  Lines
-beginning with a '$' indicate conditional constructs.  Other lines
-denote key bindings and variable settings.  Each program using this
-library may add its own commands and bindings. For more detail on the
-inputrc file, see readline(3).
+POE::Wheel::ReadLine is configured by placing commands in an "inputrc"
+initialization file.  The file's name is taken from the C<INPUTRC>
+environment variable, or ~/.inputrc by default.  POE::Wheel::ReadLine
+will read the inputrc file and configure itself according to the
+commands and variables therein.  See readline(3) for details about
+inputrc files.
 
 The default editing mode will be emacs-style, although this can be
-configured by setting the 'editing-mode' variable within the
-inputrc, or by setting the EDITOR environment variable.
-
-=head1 CONSTRUCTOR
-
-=over
-
-=item new
-
-new() creates a new wheel, returning the wheels reference.
-
-=back
+configured by setting the 'editing-mode' variable within an inputrc
+file.  If all else fails, POE::Wheel::ReadLine will determine the
+user's favorite editor by examining the EDITOR environment variable.
 
 =head1 PUBLIC METHODS
 
-=head2 History List Management
+=head2 Constructor
 
-=over 4
+Most of POE::Wheel::ReadLine's interaction is through its constructor,
+new().
 
-=item addhistory LIST_OF_LINES
+=head3 new
 
-Adds a list of lines, presumably from previous input, into the
-ReadLine wheel's input history.
+new() creates and returns a new POE::Wheel::ReadLine object.  Be sure
+to instantiate only one, as multiple console readers would conflict.
 
-=item GetHistory
+=head4 InputEvent
 
-Returns the list of all currently known history lines.
+C<InputEvent> names the event that will indicate a new line of console
+input.  See L</PUBLIC EVENTS> for more details.
 
-=item WriteHistory FILE
+=head4 PutMode
 
-writes the current history to FILENAME, overwriting FILENAME if
-necessary.  If FILENAME is false, then write the history list to
-~/.history.  Returns true if successful, or false if not.
+C<PutMode> controls how output is displayed when put() is called
+during user input.
 
-=item ReadHistory FILE FROM TO
+When set to "immediate", put() pre-empts the user immediately.  The
+input prompt and user's input to date are redisplayed after put() is
+done.
 
-adds the contents of FILENAME to the history list, a line at a time.
-If FILENAME is false, then read from ~/.history.  Start reading at
-line FROM and end at TO.  If FROM is omitted or zero, start at the
-beginning.  If TO is omitted or less than FROM, then read until the
-end of the file.  Returns true if successful, or false if not.
+The "after" C<PutMode> tells put() to wait until after the user enters
+or cancels her input.
 
-=item history_truncate_file FILE LINES
+Finally, "idle" will allow put() to pre-empt user input if the user
+stops typing for C</IdleTime> seconds.  This mode behaves like "after"
+if the user can't stop typing long enough.  This is
+POE::Wheel::ReadLine's default mode.
 
-Truncate the number of lines within FILE to be at most that specified
-by LINES. FILE defaults to ~/.history. If LINES is not specified,
-then the history file is cleared.
+=head4 IdleTime
 
-=back
+C<IdleTime> tells POE::Wheel::ReadLine how long the keyboard must be
+idle before C<put()> becomes immediate or buffered text is flushed to
+the display.  It is only meaningful when L</InputMode> is "idle".
+C<IdleTime> defaults to 2 seconds.
 
-=head2 Miscellaneous Methods
+=head4 AppName
 
-=over 4
+C<AppName> registers an application name which is used to retrieve
+application-specific key bindings from the inputrc file.  The default
+C<AppName> is "poe-readline".
 
-=item clear
-
-Clears the terminal.
-
-=item terminal_size
-
-Returns what ReadLine thinks are the current dimensions of the
-terminal. The return value is a list of two elements: the number of
-columns and number of rows respectively.
-
-=item get PROMPT
-
-Provide a prompt and enable input.  The wheel will display the prompt
-and begin paying attention to the console keyboard after this method
-is called.  Once a line or an exception is returned, the wheel will
-resume its quiescent state wherein it ignores keystrokes.
-
-The quiet period between input events gives a program the opportunity
-to change the prompt or process lines before the next one arrives.
-
-=item put TEXT
-
-Print the given text to the terminal.
-
-=item Attribs
-
-Returns a reference to a hash of options that can be configured
-to modify the readline behaviour.
-
-=item bind_key KEY FN
-
-Bind a function to a named key sequence. The key sequence can be in
-any of the forms defined within readline(3). The function should
-either be a pre-registered name such as 'self-insert', or it should be
-a reference to a function. The binding is made in the current keymap.
-If you wish to change keymaps, then use the rl_set_keymap method.
-
-=item add_defun NAME FN
-
-Create a new (global) function definition which may be then bound to a
-key.
-
-=item option NAME
-
-Returns the option named NAME or an empty string.
-
-=back
-
-=head1 EVENTS AND PARAMETERS
-
-=over 2
-
-=item InputEvent
-
-InputEvent contains the name of the event that will be fired upon
-successful (or unsuccessful) terminal input.  Every InputEvent handler
-receives two additional parameters, only one of which is ever defined
-at a time.  C<ARG0> contains the input line, if one was present.  If
-C<ARG0> is not defined, then C<ARG1> contains a word describing a
-user-generated exception:
-
-The 'interrupt' exception means a user pressed C-c (^C) to interrupt
-the program.  It's up to the input event's handler to decide what to
-do next.
-
-The 'cancel' exception means a user pressed C-g (^G) to cancel a line
-of input.
-
-The 'eot' exception means the user pressed C-d (^D) while the input
-line was empty.  EOT is the ASCII name for ^D.
-
-Finally, C<ARG2> contains the ReadLine wheel's unique ID.
-
-=item PutMode
-
-PutMode specifies how the wheel will display text when its C<put()>
-method is called.
-
-C<put()> displays text immediately when the user isn't being prompted
-for input.  It will also pre-empt the user to display text right away
-when PutMode is "immediate".
-
-When PutMode is "after", all C<put()> text is held until after the
-user enters or cancels (See C-g) her input.
-
-PutMode can also be "idle".  In this mode, text is displayed right
-away if the keyboard has been idle for a certain period (see the
-IdleTime parameter).  Otherwise it's held as in "after" mode until
-input is completed or canceled, or until the keyboard becomes idle for
-at least IdleTime seconds.  This is ReadLine's default mode.
-
-=item IdleTime
-
-IdleTime specifies how long the keyboard must be idle before C<put()>
-becomes immediate or buffered text is flushed to the display.  It is
-only meaningful when InputMode is "idle".  IdleTime defaults to two
-seconds.
-
-=item appname
-
-Registers an application name which is used to get appl-specific
-keybindings from the .inputrc. If not defined, then the default value
-is 'poe-readline'. You may use this in a standard inputrc file to
-define application specific settings. For example:
-
+  # If using POE::Wheel::ReadLine, set
+  # the key mapping to emacs mode and
+  # trigger debugging output on a certain
+  # key sequence.
   $if poe-readline
-  # bind the following sequence in emacs mode
   set keymap emacs
-  # display poe debug data
   Control-xP: poe-wheel-debug
   $endif
 
+=head2 History List Management
+
+POE::Wheel::ReadLine supports an input history, with searching.
+
+=head3 add_history
+
+add_history() accepts a list of lines to add to the input history.
+Generally it's called with a single line: the last line of input
+received from the terminal.  The C</SYNOPSIS> shows add_history() in
+action.
+
+=head3 get_history
+
+get_history() returns a list containing POE::Wheel::ReadLine's current
+input history.  It may not contain everything entered into the wheel
+
+TODO - Example.
+
+=head3 write_history
+
+write_history() writes the current input history to a file.  It
+accepts one optional parameter: the name of the file where the input
+history will be written.  write_history() will write to ~/.history if
+no file name is specified.
+
+Returns true on success, or false if not.
+
+The L</SYNOPSIS> shows an example of write_history() and the
+corresponding read_history().
+
+=head3 read_history
+
+read_history(FILENAME, START, END) reads a previously saved input
+history from a named file, or from ~/.history if no file name is
+specified.  It may also read a subset of the history file if it's
+given optional START and END parameters.  The file will be read from
+the beginning if START is omitted or zero.  It will be read to the end
+if END is omitted or earlier than START.
+
+Returns true on success, or false if not.
+
+The L</SYNOPSIS> shows an example of read_history() and the
+corresponding write_history().
+
+Read the first ten history lines:
+
+  $_[HEAP]{console}->read_history("filename", 0, 9);
+
+=head3 history_truncate_file
+
+history_truncate_file() truncates a history file to a certain number
+of lines.  It accepts two parameters: the name of the file to
+truncate, and the maximum number of history lines to leave in the
+file.  The history file will be cleared entirely if the line count is
+zero or omitted.
+
+The file to be truncated defaults to ~/.history.  So calling
+history_truncate_file() with no parameters clears ~/.history.
+
+Returns true on success, or false if not.
+
+Note that history_trucate_file() removes the earliest lines from the
+file.  The later lines remain intact since they were the ones most
+recently entered.
+
+Keep ~/.history down to a manageable 100 lines:
+
+  $_[HEAP]{console}->history_truncate_file(undef, 100);
+
+=head2 Key Binding Methods
+
+=head3 bind_key
+
+bind_key(KEYSTROKE, FUNCTION) binds a FUNCTION to a named KEYSTROKE
+sequence.  The keystroke sequence can be in any of the forms defined
+within readline(3).  The function should either be a pre-defined name,
+such as "self-insert" or a function reference.  The binding is made in
+the current keymap.  Use the rl_set_keymap() method to change keymaps,
+if desired.
+
+=head3 add_defun NAME FN
+
+add_defun(NAME, FUNCTION) defines a new global FUNCTION, giving it a
+specific NAME.  The function may then be bound to kestrokes by that
+NAME.
+
+=head2 Console I/O Methods
+
+=head3 clear
+
+Clears the terminal.
+
+=head3 terminal_size
+
+Returns what POE::Wheel::ReadLine thinks are the current dimensions of
+the terminal.  Returns a list of two values: the number of columns and
+number of rows, respectively.
+
+  sub some_event_handler {
+    my ($columns, $rows) = $_[HEAP]{console}->terminal_size;
+    $_[HEAP]{console}->put(
+      "Terminal columns: $columns",
+      "Terminal rows: $rows",
+    );
+  }
+
+=head3 get
+
+get() causes POE::Wheel::ReadLine to display a prompt and then wait
+for input.  Input is not noticed unless get() has enabled the wheel's
+internal I/O watcher.
+
+After get() is called, the next line of input or exception on the
+console will trigger an C<InputEvent> with the appropriate parameters.
+POE::Wheel::ReadLine will then enter an inactive state until get() is
+called again.
+
+See the L</SYNOPSIS> for sample usage.
+
+=head3 put
+
+put() accepts a list of lines to put on the terminal.
+POE::Wheel::ReadLine is line-based.  See L<POE::Wheel::Curses> for
+more funky display options.
+
+Please do not use print() with POE::Wheel::ReadLine.  print()
+invariably gets the newline wrong, leaving an application's output to
+stairstep down the terminal.  Also, put() understands when a user is
+entering text, and C<PutMode> may be used to avoid interrupting the
+user.
+
+=head2 ReadLine Option Methods
+
+=head3 attribs
+
+attribs() returns a reference to a hash of readline options.  The
+returned hash may be used to query or modify POE::Wheel::ReadLine's
+behavior.
+
+=head3 option
+
+option(NAME) returns a specific member of the hash returned by
+attribs().  It's a more convenient way to query POE::Wheel::ReadLine
+options.
+
+=head1 PUBLIC EVENTS
+
+POE::Wheel::ReadLine emits only a single event.
+
+=head2 InputEvent
+
+C<InputEvent> names the event that will be emitted upon any kind of
+complete terminal input.  Every C<InputEvent> handler receives three
+parameters:
+
+C<$_[ARG0]> contains a line of input.  It may be an empty string if
+the user entered an empty line.  An undefined C<$_[ARG0]> indicates
+some exception such as end-of-input or the fact that the user canceled
+their input or pressed C-c (^C).
+
+C<$_[ARG1]> describes an exception, if one occurred.  It may contain
+one of the following strings:
+
+=over 2
+
+=item cancel
+
+The "cancel" exception indicates when a user has canceled a line of
+input.  It's sent when the user triggers the "abort" function, which
+is bound to C-g (^G) by default.
+
+=item eot
+
+"eot" is the ASCII code for "end of tape".  It's emitted when the user
+requests that the terminal be closed.  By default, it's triggered when
+the user presses C-d (^D) on an empty line.
+
+=item interrupt
+
+"interrupt" is sent as a result of the user pressing C-c (^C) or
+otherwise triggering the "interrupt" function.
+
 =back
+
+Finally, C<$_[ARG2]> contains the ID for the POE::Wheel::ReadLine
+object that sent the C<InputEvent>.
 
 =head1 CUSTOM BINDINGS
 
-To bind keys to your own functions, the function name has to be
-made visible to the wheel before the binding is attempted. To register
-a function, use the method POE::Wheel::ReadLine::add_defun:
+POE::Wheel::ReadLine allows custom functions to be bound to
+keystrokes.  The function must be made visible to the wheel before it
+can be bound.  To register a function, use POE::Wheel::ReadLine's
+add_defun() method:
 
   POE::Wheel::ReadLine->add_defun('reverse-line', \&reverse_line);
 
-The function will be called with three parameters: a reference to the
-wheel object itself, the key sequence in a printable form, and the raw
-key sequence. When adding a new defun, an optional third parameter
-may be provided which is a key sequence to bind to. This should be in
-the same format as that understood by the inputrc parsing.
+When adding a new defun, an optional third parameter may be provided
+which is a key sequence to bind to.  This should be in the same format
+as that understood by the inputrc parsing.
+
+Bound functions receive three parameters: A reference to the wheel
+object itself, the key sequence that triggered the function (in
+printable form), and the raw key sequence.  The bound function is
+expected to dig into the POE::Wheel::ReadLine data members to do its
+work and display the new line contents itself.
+
+This is less than ideal, and it may change in the future.
 
 =head1 CUSTOM COMPLETION
 
-To configure completion, you need to modify the 'completion_function'
-value to be a reference to a function. The function should take three
-scalar parameters: the word being completed, the entire input text and
-the position within the input text of the word. The return result is
-expected to be a list of possible matches. An example usage is as follows:
+An application may modify POE::Wheel::ReadLine's "completion_function"
+in order to customize how input should be completed.  The new
+completion function must accept three scalar parameters: the word
+being completed, the entire input text, and the position within the
+input text of the word being completed.
 
-  my $attribs = $wheel->Attribs;
+The completion function should return a list of possible matches.  For
+example:
+
+  my $attribs = $wheel->attribs();
   $attribs->{completion_function} = sub {
     my ($text, $line, $start) = @_;
     return qw(a list of candidates to complete);
@@ -3302,21 +3420,30 @@ This is the only form of completion currently supported.
 
 =head1 IMPLEMENTATION DIFFERENCES
 
-Although modeled after the readline(3) library, there are some areas
-which have not been implemented. The only option settings which have
-effect in this implementation are: bell-style, editing-mode,
-isearch-terminators, comment-begin, print-completions-horizontally,
-show-all-if-ambiguous and completion_function.
+Although POE::Wheel::ReadLine is modeled after the readline(3)
+library, there are some areas which have not been implemented.  The
+only option settings which have effect in this implementation are:
+bell-style, editing-mode, isearch-terminators, comment-begin,
+print-completions-horizontally, show-all-if-ambiguous and
+completion_function.
 
 The function 'tab-insert' is not implemented, nor are tabs displayed
 properly.
 
 =head1 SEE ALSO
 
-POE::Wheel, readline(3), Term::ReadKey, Term::Visual.
+L<POE::Wheel> describes the basic operations of all wheels in more
+depth.  You need to know this.
+
+readline(3), L<Term::Cap>, L<Term::ReadKey>.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
+
+L<Term::Visual> is an alternative to POE::Wheel::ReadLine.  It
+provides scrollback and a status bar in addition to editable user
+input.  Term::Visual supports POE despite the lack of "POE" in its
+name.
 
 =head1 BUGS
 
@@ -3324,15 +3451,14 @@ POE::Wheel::ReadLine has some known issues:
 
 =head2 Perl 5.8.0 is Broken
 
-Non-blocking input with Term::ReadKey does not work with Perl 5.8.0.
-The problem usually appears on Linux systems.  See:
-http://rt.cpan.org/Ticket/Display.html?id=4524 and all the tickets
-related to it.
+Non-blocking input with Term::ReadKey does not work with Perl 5.8.0,
+especially on Linux systems for some reason.  Upgrading Perl will fix
+things.  If you can't upgrade Perl, consider alternative input
+methods, such as Term::Visual.
 
-If you suspect your system is one where Term::ReadKey fails, you can
-run this test program to be sure.  If you can, upgrade Perl to fix it.
-If you can't upgrade Perl, consider alternative input methods, such as
-Term::Visual.
+L<http://rt.cpan.org/Ticket/Display.html?id=4524> and related tickets
+explain the issue in detail.  If you suspect your system is one where
+Term::ReadKey fails, you can run this test program to be sure.
 
   #!/usr/bin/perl
   use Term::ReadKey;
@@ -3349,39 +3475,42 @@ Term::Visual.
   ReadMode 0; # Reset tty mode before exiting
   exit;
 
-=head2 Non-optimal code2
+=head2 Non-Optimal Code
 
 Dissociating the input and display cursors introduced a lot of code.
 Much of this code was thrown in hastily, and things can probably be
-done with less work.  To do: Apply some thought to what's already been
-done.
+done with less work.
 
-The screen should update as quickly as possible, especially on slow
-systems.  Do little or no calculation during displaying; either put it
-all before or after the display.  Do it consistently for each handled
-keystroke, so that certain pairs of editing commands don't have extra
-perceived latency.
+TODO: Apply some thought to what's already been done.
 
-=head2 Unimplemented features
+TODO: Ensure that the screen updates as quickly as possible,
+especially on slow systems.  Do little or no calculation during
+displaying; either put it all before or after the display.  Do it
+consistently for each handled keystroke, so that certain pairs of
+editing commands don't have extra perceived latency.
+
+=head2 Unimplemented Features
 
 Input editing is not kept on one line.  If it wraps, and a terminal
 cannot wrap back through a line division, the cursor will become lost.
-This bites, and it's the next against the wall in my bug hunting.
 
-Unicode, or at least European code pages.  I feel real bad about
-throwing away native representation of all the 8th-bit-set characters.
-I also have no idea how to do this, and I don't have a system to test
-this.  Patches are recommended.
+Unicode support.  I feel real bad about throwing away native
+representation of all the 8th-bit-set characters.  I also have no idea
+how to do this, and I don't have a system to test this.  Patches are
+very much welcome.
 
 =head1 GOTCHAS / FAQ
 
-Q: Why do I lose my ReadLine prompt every time I send output to the
-screen?
+=head2 Lost Prompts
+
+Q: Why do I lose my prompt every time I send output to the screen?
 
 A: You probably are using print or printf to write screen output.
 ReadLine doesn't track STDOUT itself, so it doesn't know when to
 refresh the prompt after you do this.  Use ReadLine's put() method to
 write lines to the console.
+
+=head2 Edit Keystrokes Display as ^C
 
 Q: None of the editing keystrokes work.  Ctrl-C displays "^c" rather
 than generating an interrupt.  The arrow keys don't scroll through my
@@ -3395,6 +3524,8 @@ file containing the line "set editing-mode emacs", or adding that line
 to your existing ~/.inputrc.  While you're in there, you should
 totally get acquainted with all the other cool stuff you can do with
 .inputrc files.
+
+=head2 Lack of Windows Support
 
 Q: Why doesn't POE::Wheel::ReadLine work on Windows?  Term::ReadLine
 does.
@@ -3414,8 +3545,10 @@ threads.
 
 =head1 AUTHORS & COPYRIGHTS
 
-Rocco Caputo - Original author.
-Nick Williams - Heavy edits, making it gnu readline-alike.
+POE::Wheel::ReadLine was originally written by Rocco Caputo.
+
+Nick Williams virtually rewrote it to support a larger subset of GNU
+readline.
 
 Please see L<POE> for more information about other authors and
 contributors.
@@ -3423,4 +3556,3 @@ contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
