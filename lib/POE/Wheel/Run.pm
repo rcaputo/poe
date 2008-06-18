@@ -1268,7 +1268,7 @@ methods.  If stderr is also to be used, StderrFilter will need to be
 specified separately.
 
 C<Filter> is optional.  If left blank, it will default to an
-instance of C<POE::Filter::Line->new(Literal => "\n");>
+instance of C<< POE::Filter::Line->new(Literal => "\n"); >>
 
 C<StdinFilter> and C<StdoutFilter> can be used instead of or in
 addition to C<StdioFilter>.  They will override the default filter's

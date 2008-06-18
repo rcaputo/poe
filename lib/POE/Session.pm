@@ -1061,12 +1061,12 @@ what the heck---go ahead and mix in some inline code as well.
 However only one handler may be assigned to a given event name.
 Duplicates will overwrite earlier ones.
 
-event_1a is handled by calling C<$object_1->method_1a(...)>.  C<$_[OBJECT]>
+event_1a is handled by calling C<< $object_1->method_1a(...) >>.  C<$_[OBJECT]>
 is C<$object_1> in this case.  C<$_[HEAP]> belongs to the session, which
 means anything stored there will be available to any other event
 handler regardless of the object.
 
-event_2a is handled by calling C<$object_2->method_2a(...)>.  In this
+event_2a is handled by calling C<< $object_2->method_2a(...) >>.  In this
 case CL</$_[OBJECT]> is $object_2.  C<$_[HEAP]> is the same anonymous hashref
 that was passed to the event_1a handler, though.  The methods are resolved
 when the event is handled (late-binding).
@@ -1086,8 +1086,8 @@ single object can't handle events from more than one session:
     );
   }
 
-Now C<$object_4->method_4(...)> may be called to handle events from one
-of two sessions.  In both cases, C<$_[OBJECT]> will be C<$object_4>, but
+Now C<< $object_4->method_4(...) >> may be called to handle events from one of
+two sessions.  In both cases, C<$_[OBJECT]> will be C<$object_4>, but
 C<$_[HEAP]> will hold data for a particular session.
 
 The same goes for inline states.  One subroutine may handle events
@@ -1205,8 +1205,8 @@ event names to the object methods that will handle them.  It's value
 is an CB<ARRAYREF>; C<HASHREFs> would stringify the objects, ruining them
 for method invocation.
 
-Here _start is handled by C<$object->_session_start()> and _stop triggers
-C<$object->_session_stop()>:
+Here _start is handled by C<< $object->_session_start() >> and _stop triggers
+C<< $object->_session_stop() >>:
 
   POE::Session->create(
     object_states => [
@@ -1268,8 +1268,8 @@ The value for C<package_states> is an B<ARRAYREF> to be consistent
 with C<object_states>, even though class names (also known as package names) are
 already strings, so it's not necessary to avoid stringifying them.
 
-Here _start is handled by C<$class_name->_session_start()> and _stop
-triggers C<$class_name->_session_stop()>:
+Here _start is handled by C<< $class_name->_session_start() >> and _stop
+triggers C<< $class_name->_session_stop() >>:
 
   POE::Session->create(
     class_states => [
@@ -1281,8 +1281,8 @@ triggers C<$class_name->_session_stop()>:
   );
 
 POE::Session also supports a short form where the event and method
-names are identical.  Here _start invokes C<$class_name->_start()>, and
-_stop triggers C<$class_name->_stop()>:
+names are identical.  Here _start invokes C<< $class_name->_start() >>, and
+_stop triggers C<< $class_name->_stop() >>:
 
   POE::Session->create(
     class_states => [
@@ -1304,8 +1304,8 @@ to store 4.29 billion session objects.
 
 A session's ID is unique within a running process, but multiple
 processes are likely to have the same session IDs.  If a global ID is
-required, it will need to include both C<$_[KERNEL]->ID> and
-C<$_[SESSION]->ID>.
+required, it will need to include both C<< $_[KERNEL]->ID >> and
+C<< $_[SESSION]->ID >>.
 
 =head2 option OPTION_NAME [, OPTION_VALUE [, OPTION_NAME, OPTION_VALUE]... ]
 
@@ -1446,8 +1446,8 @@ passed by the Gtk2 button will be in ARG1.
 
 =head2 callback EVENT_NAME, EVENT_PARAMETERS
 
-callback() manufactures callbacks that use C<$poe_kernel->call()> to
-deliver POE events rather than C<$poe_kernel->post()>.  It is identical
+callback() manufactures callbacks that use C<< $poe_kernel->call() >> to
+deliver POE events rather than C<< $poe_kernel->post() >>.  It is identical
 to C<postback()> in every other respect.
 
 callback() was created to avoid race conditions that arise when
