@@ -32,7 +32,7 @@ use Test::More tests => 12;
 BEGIN { use_ok("POE::Kernel"); }
 
 # The expected size of the queue when the kernel is idle (without any
-# user generated/requesed events)
+# user generated/requested events)
 {
   my $base_size = $poe_kernel->_idle_queue_size();
   $poe_kernel->_idle_queue_grow();

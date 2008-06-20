@@ -350,7 +350,7 @@ loop_pause_time_watcher() to provide less expensive timer toggling for
 frequent use cases.  As mentioned above, NEXT_EVENT_TIME is in UNIX
 epoch time and may have subsecond accuracy.
 
-loop_resume_time_watcher() is used by bridges that set tiem watchers
+loop_resume_time_watcher() is used by bridges that set them watchers
 in the underlying event loop.  For example, POE::Loop::Gtk implements
 it this way:
 
@@ -530,7 +530,7 @@ Firstly, if a POE::Loop subclass is manually loaded before
 POE::Kernel, then that will be used.  End of story.
 
 If one isn't, POE::Kernel searches for an external event loop module
-in %INC.  For each module in %INC, cooresponding POE::XS::Loop and
+in %INC.  For each module in %INC, corresponding POE::XS::Loop and
 POE::Loop subclasses are tried.
 
 For example, if IO::Poll is loaded, POE::Kernel tries

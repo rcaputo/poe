@@ -22,7 +22,7 @@ my $session_name;
 # This section defines the event handler (or state) subs for the
 # sessions that this program calls "child" sessions.  Each sub does
 # just one thing, possibly passing execution to other event handlers
-# through one of the supported event-passing mechanims.
+# through one of the supported event-passing mechanisms.
 
 #------------------------------------------------------------------------------
 # Newly created sessions are not ready to run until the kernel

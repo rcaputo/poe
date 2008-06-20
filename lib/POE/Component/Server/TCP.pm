@@ -484,7 +484,7 @@ sub _load_filter {
     }
 }
 
-# Test if a Filter can be loaded, return sucess or failure
+# Test if a Filter can be loaded, return success or failure
 sub _test_filter {
     my $filter = shift;
     my $eval = eval {
@@ -682,7 +682,7 @@ difficult.  A tutorial at http://poe.perl.org/ describes how.
 =item new
 
 The new() method can accept quite a lot of parameters.  It will return
-the session ID of the accecptor session.  One must use callbacks to
+the session ID of the acceptor session.  One must use callbacks to
 check for errors rather than the return value of new().
 
 POE::Component::Server::TCP supplies common defaults for most
@@ -957,7 +957,7 @@ Started is optional.
 =item Concurrency => SCALAR
 
 Controls the number of connections that may be open at the same time.
-Defaults to -1, which means unlimited number of simutaneous connections.
+Defaults to -1, which means unlimited number of simultaneous connections.
 0 means no connections.  This value may be set via the
 C<set_concurrency> event, see L<EVENTS>.
 

@@ -17,7 +17,7 @@ can_ok('POE::Wheel::ReadWrite',
       set_high_mark set_low_mark get_driver_out_octets get_driver_out_messages
       ID pause_input resume_input shutdown_input shutdown_output ));
 
-# checks new() fails appropiately
+# checks new() fails appropriately
 sub test_new {
   my ($name, @args) = @_;
   eval { POE::Wheel::ReadWrite->new(@args) };

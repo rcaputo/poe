@@ -15,7 +15,7 @@ use vars qw($sub);
 use Carp;
 
 # This bit traces execution immediately before a given condition.
-# It's used to find out where in hell something went worng.
+# It's used to find out where in hell something went wrong.
 my @trace = ("no step") x 16;
 
 sub DB {

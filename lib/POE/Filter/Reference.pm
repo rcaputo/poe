@@ -389,7 +389,7 @@ blessings work.
 
 =head1 AUTHORS & COPYRIGHTS
 
-The Reference filter was contributed by Arturn Bergman, with changes
+The Reference filter was contributed by Artur Bergman, with changes
 by Philip Gwyn.
 
 Please see L<POE> for more information about authors and contributors.

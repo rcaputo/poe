@@ -15,7 +15,7 @@ sub BOGUS_SESSION () { 31415 }
 
 # This subsystem is still very closely tied to POE::Kernel, so we
 # can't call initialize ourselves.  TODO Separate it, if possible,
-# enough to make this feasable.
+# enough to make this feasible.
 
 { # Create a new event, and verify that it's good.
 

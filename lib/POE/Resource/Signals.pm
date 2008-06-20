@@ -99,7 +99,7 @@ sub _data_sig_initialize {
 
   # Initialize this to a true value so our waitpid() loop can run at
   # least once.  Starts false when running in an Apache handler so our
-  # SIGCHLD hijinx don't interfere with the web server.
+  # SIGCHLD hijinks don't interfere with the web server.
   $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 );
 
   $poe_kernel->[KR_SIGNALS] = \%kr_signals;

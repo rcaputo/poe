@@ -177,7 +177,7 @@ The L</SYNOPSIS> shows get_one() in use.
 
 =head2 get ARRAYREF
 
-get() is the greedy form of get_one().  It accpets an array reference
+get() is the greedy form of get_one().  It accepts an array reference
 containing unprocessed stream chunks, and it adds that data to the
 filter's internal buffer.  It then parses as many full items as
 possible from the buffer and returns them in another array reference.

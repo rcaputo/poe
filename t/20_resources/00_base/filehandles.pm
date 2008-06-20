@@ -39,7 +39,7 @@ unless (-f "run_network_tests") {
 
 plan tests => 192;
 
-### Factoried out common tests
+### Factored out common tests
 
 # 1 subtest
 sub verify_handle_structure {

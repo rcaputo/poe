@@ -210,7 +210,7 @@ don't perform output do not have put() methods.
 put() sends one or more RECORDs to the wheel for transmitting.  Each
 RECORD is serialized by the wheel's associated POE::Filter so that it
 will be ready to transmit.  The serialized stream may be transmitted
-immeditately by the wheel's POE::Driver object, or it may be buffered
+immediately by the wheel's POE::Driver object, or it may be buffered
 in the POE::Driver until it can be flushed to the output filehandle.
 
 Most wheels use POE::Filter::Line and POE::Driver::SysRW by default,
@@ -221,7 +221,7 @@ so it's not necessary to specify them in most cases.
 These functions expose information that is common to all wheels.  They
 are not methods, so they should B<not> be called as methods.
 
-  my $new_wheel_id = POE::Wheel::allcoate_wheel_id();
+  my $new_wheel_id = POE::Wheel::allocate_wheel_id();
   POE::Wheel::free_wheel_id($new_wheel_id);
 
 =head3 allocate_wheel_id
@@ -288,7 +288,7 @@ the entire POE distribution.
 L<POE::Driver> - A base class for file access drivers that POE::Wheel
 may use.
 
-L<POE::Filter> - A base class for data parsers and marshallers that
+L<POE::Filter> - A base class for data parsers and marshalers that
 POE::Wheel may use.
 
 L<POE::Wheel::Curses> - Non-blocking input for Curses.

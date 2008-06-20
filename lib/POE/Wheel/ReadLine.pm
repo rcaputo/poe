@@ -730,7 +730,7 @@ sub _global_init {
   }
 
   # Terminal size.
-  # We initialise the values once on startup,
+  # We initialize the values once on startup,
   # and then from then on, we check them on every entry into
   # the input state engine (so that we have valid values) and
   # before handing control back to the user (so that they get
