@@ -91,11 +91,11 @@ sub loop_attach_uidestroy {
 my $_next_event_time = time();
 
 sub loop_resume_time_watcher {
-  $_next_event_time = shift;
+  $_next_event_time = $_[1];
 }
 
 sub loop_reset_time_watcher {
-  $_next_event_time = shift;
+  $_next_event_time = $_[1];
 }
 
 sub loop_pause_time_watcher {
