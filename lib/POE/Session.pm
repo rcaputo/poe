@@ -1272,7 +1272,7 @@ Here _start is handled by C<< $class_name->_session_start() >> and _stop
 triggers C<< $class_name->_session_stop() >>:
 
   POE::Session->create(
-    class_states => [
+    package_states => [
       $class_name => {
         _start => '_session_start',
         _stop  => '_session_stop',
@@ -1285,7 +1285,7 @@ names are identical.  Here _start invokes C<< $class_name->_start() >>, and
 _stop triggers C<< $class_name->_stop() >>:
 
   POE::Session->create(
-    class_states => [
+    package_states => [
       $class_name => [ '_start', '_stop' ],
     ]
   );
