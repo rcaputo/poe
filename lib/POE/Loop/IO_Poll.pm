@@ -90,18 +90,23 @@ sub loop_attach_uidestroy {
 }
 
 #------------------------------------------------------------------------------
-# Maintain time watchers.
+# Maintain time watchers.  For this loop, we simply save the next
+# event time in a scalar.  loop_do_timeslice() will use the saved
+# value.  A "paused" time watcher is just a timeout for some future
+# time.
+
+my $_next_event_time = time();
 
 sub loop_resume_time_watcher {
-  # does nothing
+  $_next_event_time = $_[1];
 }
 
 sub loop_reset_time_watcher {
-  # does nothing
+  $_next_event_time = $_[1];
 }
 
 sub loop_pause_time_watcher {
-  # does nothing
+  $_next_event_time = time() + 3600;
 }
 
 # A static function; not some object method.
@@ -225,14 +230,15 @@ sub loop_do_timeslice {
   # there are any.  If nothing is waiting, set the timeout for some
   # constant number of seconds.
 
-  my $now = time();
+  my $timeout = $_next_event_time;
 
-  my $timeout = $self->get_next_event_time();
+  my $now = time();
   if (defined $timeout) {
     $timeout -= $now;
     $timeout = 0 if $timeout < 0;
   }
   else {
+    die "shouldn't happen" if ASSERT_DATA;
     $timeout = 3600;
   }
 

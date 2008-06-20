@@ -168,6 +168,7 @@ sub loop_do_timeslice {
     $timeout = 0 if $timeout < 0;
   }
   else {
+    die "shouldn't happen" if ASSERT_DATA;
     $timeout = 3600;
   }
 
