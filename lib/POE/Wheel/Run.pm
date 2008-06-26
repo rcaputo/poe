@@ -1078,14 +1078,13 @@ sub kill {
   eval { kill $signal, $self->[CHILD_PID] };
 }
 
-###############################################################################
 1;
 
 __END__
 
 =head1 NAME
 
-POE::Wheel::Run - event driven fork/exec with added value
+POE::Wheel::Run - abstract pipe/fork/exec mix-in (also runs subroutines)
 
 =head1 SYNOPSIS
 
