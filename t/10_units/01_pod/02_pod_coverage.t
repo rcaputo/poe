@@ -22,13 +22,15 @@ my %special = (
     also_private => [
       qr/^[A-Z0-9_]+$/,            # Constants subs.
       qr/^rl_/,                    # Keystroke callbacks.
+      # Deprecated names.
+      qw( Attribs GetHistory ReadHistory WriteHistory addhistory ),
     ],
     coverage_class => 'Pod::Coverage::CountParents',
   },
-	'POE::Kernel' => {
-		%$default_opts,
-		trustme => [ qr/^loop_/ ], # mixed in from POE::Loop
-	},
+  'POE::Kernel' => {
+    %$default_opts,
+    trustme => [ qr/^loop_/ ], # mixed in from POE::Loop
+  },
 );
 
 # Get the list of modules
