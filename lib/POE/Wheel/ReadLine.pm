@@ -3065,51 +3065,51 @@ POE::Wheel::ReadLine - non-blocking Term::ReadLine for POE
 
 =head1 SYNOPSIS
 
-	#!perl
+  #!perl
 
-	use warnings;
-	use strict;
+  use warnings;
+  use strict;
 
-	use POE qw(Wheel::ReadLine);
+  use POE qw(Wheel::ReadLine);
 
-	POE::Session->create(
-		inline_states=> {
-			_start => \&setup_console,
-			got_user_input => \&handle_user_input,
-		}
-	);
+  POE::Session->create(
+    inline_states=> {
+      _start => \&setup_console,
+      got_user_input => \&handle_user_input,
+    }
+  );
 
-	POE::Kernel->run();
-	exit;
+  POE::Kernel->run();
+  exit;
 
-	sub handle_user_input {
-		my ($input, $exception) = @_[ARG0, ARG1];
-		my $console = $_[HEAP]{console};
+  sub handle_user_input {
+    my ($input, $exception) = @_[ARG0, ARG1];
+    my $console = $_[HEAP]{console};
 
-		unless (defined $input) {
-			$console->put("$exception caught.  B'bye!");
+    unless (defined $input) {
+      $console->put("$exception caught.  B'bye!");
       $_[KERNEL]->signal($_[KERNEL], "UIDESTROY");
-			$console->write_history("./test_history");
-			return;
-		}
+      $console->write_history("./test_history");
+      return;
+    }
 
-		$console->put("  You entered: $input");
-		$console->addhistory($input);
-		$console->get("Go: ");
-	}
+    $console->put("  You entered: $input");
+    $console->addhistory($input);
+    $console->get("Go: ");
+  }
 
-	sub setup_console {
-		$_[HEAP]{console} = POE::Wheel::ReadLine->new(
-			InputEvent => 'got_user_input'
-		);
-		$_[HEAP]{console}->read_history("./test_history");
-		$_[HEAP]{console}->clear();
-		$_[HEAP]{console}->put(
-			"Enter some text.",
-			"Ctrl+C or Ctrl+D exits."
-		);
-		$_[HEAP]{console}->get("Go: ");
-	}
+  sub setup_console {
+    $_[HEAP]{console} = POE::Wheel::ReadLine->new(
+      InputEvent => 'got_user_input'
+    );
+    $_[HEAP]{console}->read_history("./test_history");
+    $_[HEAP]{console}->clear();
+    $_[HEAP]{console}->put(
+      "Enter some text.",
+      "Ctrl+C or Ctrl+D exits."
+    );
+    $_[HEAP]{console}->get("Go: ");
+  }
 
 =head1 DESCRIPTION
 

@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 # $Id$
+# rocco // vim: ts=2 sw=2 expandtab
 
 # Generate META.yml.
 
@@ -24,6 +25,7 @@ my $build = Module::Build->new(
     RECOMMENDED_TIME_HIRES,
   },
   requires          => { CORE_REQUIREMENTS },
+  config_requires   => { CONFIG_REQUIREMENTS },
   no_index => {
     directory => [ "mylib", "t" ]
   },

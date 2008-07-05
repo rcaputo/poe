@@ -1,4 +1,5 @@
 # $Id$
+# rocco // vim: ts=2 sw=2 expandtab
 
 # Build information for POE.  Moved into a library so it can be
 # required by Makefile.PL and gen-meta.perl.
@@ -18,7 +19,15 @@ use vars qw(@EXPORT_OK);
   DIST_ABSTRACT
   DIST_AUTHOR
   RECOMMENDED_TIME_HIRES
+  CONFIG_REQUIREMENTS
 );
+
+
+sub CONFIG_REQUIREMENTS () {
+  (
+    "POE::Test::Loops"  => 1.002,
+  )
+}
 
 sub CORE_REQUIREMENTS () {
   (
@@ -31,7 +40,6 @@ sub CORE_REQUIREMENTS () {
     "Socket"            => 1.7,
     "Test::Harness"     => 2.26,
     "Storable"          => 2.16,
-    "POE::Test::Loops"	=> 1.002,
     (
       ($^O eq "MSWin32")
       ? (
@@ -40,6 +48,7 @@ sub CORE_REQUIREMENTS () {
       )
       : ()
     ),
+    CONFIG_REQUIREMENTS,
   )
 }
 
@@ -66,16 +75,9 @@ sub CLEAN_FILES () {
     t/20_resources/10_perl/*
     t/20_resources/20_xs
     t/20_resources/20_xs/*
-    t/30_loops/select
-    t/30_loops/select/*
-    t/30_loops/io_poll
-    t/30_loops/io_poll/*
-    t/30_loops/event
-    t/30_loops/event/*
-    t/30_loops/gtk
-    t/30_loops/gtk/*
-    t/30_loops/tk
-    t/30_loops/tk/*
+    t/30_loops/*/*
+    t/30_loops/*
+    t/30_loops
   );
   "@clean_files";
 }

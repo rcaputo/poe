@@ -257,8 +257,8 @@ POE::Filter::Reference - freeze and thaw arbitrary Perl data
       },
       got_perl_data => sub {
         print "Got data:\n", YAML::Dump($_[ARG0]);
-				print "Bye!\n";
-				delete $_[HEAP]{io};
+        print "Bye!\n";
+        delete $_[HEAP]{io};
       }
     }
   );

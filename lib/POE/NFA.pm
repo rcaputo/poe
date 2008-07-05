@@ -785,9 +785,9 @@ POE::NFA - an event-driven state machine (nondeterministic finite automaton)
       $_[RUNSTATE]{io}->put('Bye!');
       $_[MACHINE]->stop();
     }
-		else {
+    else {
       $_[MACHINE]->goto_state(state_cmd => "on_entry");
-		}
+    }
   }
 
 =head1 DESCRIPTION
