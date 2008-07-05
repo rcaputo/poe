@@ -31,7 +31,7 @@ sub CORE_REQUIREMENTS () {
     "Socket"            => 1.7,
     "Test::Harness"     => 2.26,
     "Storable"          => 2.16,
-    "POE::Test::Loops"	=> 1.001,
+    "POE::Test::Loops"	=> 1.002,
     (
       ($^O eq "MSWin32")
       ? (
