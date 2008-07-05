@@ -31,6 +31,7 @@ sub CORE_REQUIREMENTS () {
     "Socket"            => 1.7,
     "Test::Harness"     => 2.26,
     "Storable"          => 2.16,
+    "POE::Test::Loops"	=> 0.99,
     (
       ($^O eq "MSWin32")
       ? (
@@ -65,16 +66,16 @@ sub CLEAN_FILES () {
     t/20_resources/10_perl/*
     t/20_resources/20_xs
     t/20_resources/20_xs/*
-    t/30_loops/10_select
-    t/30_loops/10_select/*
-    t/30_loops/20_poll
-    t/30_loops/20_poll/*
-    t/30_loops/30_event
-    t/30_loops/30_event/*
-    t/30_loops/40_gtk
-    t/30_loops/40_gtk/*
-    t/30_loops/50_tk
-    t/30_loops/50_tk/*
+    t/30_loops/select
+    t/30_loops/select/*
+    t/30_loops/io_poll
+    t/30_loops/io_poll/*
+    t/30_loops/event
+    t/30_loops/event/*
+    t/30_loops/gtk
+    t/30_loops/gtk/*
+    t/30_loops/tk
+    t/30_loops/tk/*
   );
   "@clean_files";
 }
