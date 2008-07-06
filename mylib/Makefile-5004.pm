@@ -20,10 +20,6 @@ use PoeBuildInfo qw(
 open(TOUCH, ">>CHANGES") and close TOUCH;
 open(TOUCH, ">>META.yml") and close TOUCH;
 
-### Generate dynamic test files.
-
-system($^X, "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
-
 ### Generate Makefile.PL.
 
 sub MY::postamble {
@@ -60,7 +56,10 @@ WriteMakefile(
     TESTS => TEST_FILES,
   },
 
-  PL_FILES  => { },
+  PL_FILES  => {
+    'mylib/gen-tests.perl' => 'anything',
+  },
+
   PREREQ_PM => { CORE_REQUIREMENTS },
 );
 

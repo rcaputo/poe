@@ -77,10 +77,6 @@ check_for_modules(
   "URI"             => 1.30,
 );
 
-### Generate dynamic test files.
-
-system($^X, "mylib/gen-tests.perl") and die "couldn't generate tests: $!";
-
 ### Generate Makefile.PL.
 
 sub MY::postamble {
@@ -131,8 +127,11 @@ WriteMakefile(
     TESTS => TEST_FILES,
   },
 
+  PL_FILES       => {
+    'mylib/gen-tests.perl' => 'anything',
+  },
+
   # More for META.yml than anything.
-  PL_FILES       => { },
   NO_META        => 1,
   PREREQ_PM      => { CORE_REQUIREMENTS },
 );
