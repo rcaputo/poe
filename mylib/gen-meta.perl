@@ -13,6 +13,7 @@ use PoeBuildInfo qw(
   DIST_ABSTRACT
   DIST_AUTHOR
   RECOMMENDED_TIME_HIRES
+  CONFIG_REQUIREMENTS
 );
 
 my $build = Module::Build->new(
@@ -25,7 +26,8 @@ my $build = Module::Build->new(
     RECOMMENDED_TIME_HIRES,
   },
   requires          => { CORE_REQUIREMENTS },
-  config_requires   => { CONFIG_REQUIREMENTS },
+  build_requires    => { CONFIG_REQUIREMENTS },
+  configure_requires => { CONFIG_REQUIREMENTS },
   no_index => {
     directory => [ "mylib", "t" ]
   },
