@@ -20,6 +20,10 @@ use PoeBuildInfo qw(
 open(TOUCH, ">>CHANGES") and close TOUCH;
 open(TOUCH, ">>META.yml") and close TOUCH;
 
+### Touch gen-tests.perl so it always triggers.
+
+utime(time(), time(), "mylib/gen-tests.perl");
+
 ### Generate Makefile.PL.
 
 sub MY::postamble {
@@ -56,8 +60,9 @@ WriteMakefile(
     TESTS => TEST_FILES,
   },
 
+  # Not executed on "make test".
   PL_FILES  => {
-    'mylib/gen-tests.perl' => 'anything',
+    'mylib/gen-tests.perl' => [ 'lib/POE.pm' ],
   },
 
   PREREQ_PM => { CORE_REQUIREMENTS },
