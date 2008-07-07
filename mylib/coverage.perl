@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 # $Id$
+# rocco // vim: ts=2 sw=2 expandtab
 
 # Runs "make test" with Devel::Cover to check POE's test coverage.
 # Generates a quite fine HTML report in the db_cover directory.
@@ -13,10 +14,12 @@ use File::Spec;
 #   HARNESS_PERL_SWITCHES=$(perl mylib/coverage.perl --coverflags) prove -br t/10_units/
 
 my ($opt_coverflags, $opt_prove, $opt_noclean);
-my ($cover, $prove, $make) =
-  (File::Spec->catfile($Config{bin}, "/cover"),
-    File::Spec->catfile($Config{bin}, "prove"),
-    $Config{make});
+my ($cover, $prove, $make) = (
+  File::Spec->catfile($Config{bin}, "/cover"),
+  File::Spec->catfile($Config{bin}, "prove"),
+  $Config{make}
+);
+
 GetOptions(
   'coverflags' => \$opt_coverflags,
   'prove' => sub { $opt_prove = 1; die "!FINISH" },
@@ -34,7 +37,13 @@ $hps =~ s/~/$ENV{HOME}/g;
 my @includes = ("mylib", $hps =~ /-I\s*(\S+)/g);
 $hps =~ s/(?<=-I)\s+//g;
 
-my $ignores = join(",", map("+inc,$_", @includes), "+ignore,^t/");
+my $ignores = join(
+  ",",
+  map("+inc,$_", @includes),
+  "+ignore,^t/",
+  "+ignore,POE/Test/Loop",
+);
+
 warn "*** Ignores: $ignores";
 
 my $cover_options = "-MDevel::Cover";
