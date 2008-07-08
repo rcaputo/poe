@@ -1623,9 +1623,18 @@ value wraps.  This can occur after as I<few> as 4.29 billion sessions.
 
 =head2 Beware circular references
 
-The following creates a circular reference:
+As you're probably aware, a circular reference is when a variable is
+part of a reference chain that eventually refers back to itself.  Perl
+will not reclaim the memory involved in such a reference chain until
+the chain is manually broken.
 
-  my $session = POE::Session->create(
+Here a POE::Session is created that refers to itself via an external
+scalar.  The event handlers import $session via closures which are in
+turn stored within $session.  Even if this session stops, the circular
+references will remain.
+
+  my $session;
+  $session = POE::Session->create(
     inline_states => {
       _start => sub {
         $_[HEAP]->{todo} = [ qw( step1 step2 step2a ) ],
@@ -1640,33 +1649,81 @@ The following creates a circular reference:
     }
   );
 
-Note also that a anonymous sub creates a closure on all lexical variables in 
-the scope it was defined in, even if it doesn't reference them:
+Reduced to its essence:
+
+  my %event_handlers;
+  $event_handler{_start} = sub { \%event_handlers };
+
+Note also that a anonymous sub creates a closure on all lexical
+variables in the scope it was defined in, even if it doesn't reference
+them.  $session is still being held in a circular reference here:
 
   my $self = $package->new;
-  my $session = POE::Session->create(
+  my $session;
+  $session = POE::Session->create(
     inline_state => {
       _start => sub { $self->_start( @_[ARG0..$#_] ) }
     }
   );
 
-To avoid this, must hold onto a session's ID, rather then the session's
-object.  You may convert a session ID back into the session's object with
-L<POE::Kernel->session_id_to_session()|POE::Kernel/session_id_to_session>.
+To avoid this, a session may set an alias for itself.  Other parts of
+the program may then refer to it by alias.  In this case, one needn't
+keep track of the session themselves (POE::Kernel will do it anyway).
 
-  my $session = POE::Session->create(
+  POE::Session->create(
     inline_states => {
       _start => sub {
-        $session = $session->ID;
         $_[HEAP]->{todo} = [ qw( step1 step2 step2a ) ],
-        $_[KERNEL]->post( $session, 'next' );
+        $_[KERNEL]->alias_set('step_doer');
+        $_[KERNEL]->post( 'step_doer', 'next' );
       },
+      next => sub {
+        my $next = shift @{ $_[HEAP]->{todo} };
+        return unless $next;
+        $_[KERNEL]->post( 'step_doer', $next );
+      }
       # ....
     }
   );
 
+Aliases aren't even needed in the previous example because the session
+refers to itself.  One could instead use POE::Kernel's yield() method
+to post the event back to the current session:
 
+  next => sub {
+    my $next = shift @{ $_[HEAP]->{todo} };
+    return unless $next;
+    $_[KERNEL]->yield( $next );
+  }
 
+Or the L<$_[SESSION]> parameter passed to every event handler, but
+yield() is more efficient.
+
+  next => sub {
+    my $next = shift @{ $_[HEAP]->{todo} };
+    return unless $next;
+    $_[KERNEL]->post( $_[SESSION], $next );
+  }
+
+Along the same lines as L<$_[SESSION]>, a session can respond back to
+the sender of an event by posting to L<$_[SENDER]>.  This is great for
+responding to requests.
+
+If a program must hold onto some kind of dynamic session reference,
+it's recommended to use the session's numeric ID rather than the
+object itself.  A session ID may be converted back into its object,
+but post() accepts session IDs as well as objects and aliases:
+
+  my $session_id;
+  $session_id = POE::Session->create(
+    inline_states => {
+      _start => sub {
+        $_[HEAP]->{todo} = [ qw( step1 step2 step2a ) ],
+        $_[KERNEL]->post( $session_id, 'next' );
+      },
+      # ....
+    }
+  )->ID;
 
 =head1 AUTHORS & COPYRIGHTS
 
