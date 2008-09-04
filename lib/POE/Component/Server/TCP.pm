@@ -551,7 +551,7 @@ POE::Component::Server::TCP - a simplified TCP server
     },
     ClientInput => sub {
       my $client_input = $_[ARG0];
-      $client_input =~ tr[a-zA-Z][n-ma-zN-MA-Z];
+      $client_input =~ tr[a-zA-Z][n-za-mN-ZA-M];
       $_[HEAP]{client}->put($client_input);
     },
     ClientDisconnected => sub {
