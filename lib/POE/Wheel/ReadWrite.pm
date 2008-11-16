@@ -1072,52 +1072,103 @@ a form of input flow control, driven by the application itself.
 
 TODO - Example.
 
-# -><- am here
-
 =head2 get_input_handle
+
+get_input_handle() returns the filehandle being watched for input.
+
+Manipulating filehandles that are managed by POE may cause nasty side
+effects, which may change from one POE release to the next.  Please
+use caution.
+
+TODO - Example.
 
 =head2 get_output_handle
 
-These methods return the input and output handles (usually the same
-thing, but sometimes not).  Please use sparingly.  Remember odd 
-references will screw with POE's internals.
+get_input_handle() returns the filehandle being watched for input.
+
+Manipulating filehandles that are managed by POE may cause nasty side
+effects, which may change from one POE release to the next.  Please
+use caution.
+
+TODO - Example.
 
 =head2 shutdown_input
 
+Call shutdown($fh,0) on a POE::Wheel::ReadWrite object's input
+filehandle.  This only works for sockets; nothing will happen for
+other types of filehandle.
+
+tionally, the POE::Wheel::ReadWrite object will stop monitoring
+its input filehandle for new data.  This occurs regardless of the
+filehandle type.
+
+TODO - Example.
+
 =head2 shutdown_output
 
-Some applications require the remote end to shut down a socket before
-they will continue.  These methods map directly to shutdown() for the
-wheel's input and output sockets.
+Call shutdown($fh,1) on a POE::Wheel::ReadWrite object's output
+filehandle.  This only works for sockets; nothing will happen for
+other types of filehandle.
+
+tionally, the POE::Wheel::ReadWrite object will stop monitoring its
+output filehandle for new data.  This occurs regardless of the
+filehandle type.
+
+TODO - Example.
 
 =head2 get_driver_out_octets
 
+POE::Driver objects contain output buffers that are flushed
+asynchronously.  get_driver_out_octets() returns the number of octets
+remaining in the wheel's driver's output buffer.
+
+TODO - Example.
+
 =head2 get_driver_out_messages
 
-Return driver statistics.
+POE::Driver objects' output buffers may be message based.  Every put()
+call may be buffered individualy.  get_driver_out_messages() will
+return the number of pending put() messages that remain to be sent.
+
+Stream-based drivers will simply return 1 if any data remains to be
+flushed.  This is because they operate with one potentially large
+message.
+
+TODO - Example.
 
 =head2 flush
 
-Though the watermarks affect how often a wheel is flushed, in some
-cases you might want to manually flush a smaller output, such as
-before shutdown_output.
+flush() manually attempts to flush a wheel's output in a synchronous
+fashion.  This can be used to flush small messages.  Note, however,
+that complete flushing is not guaranteed---to do so would mean
+potentially blocking indefinitely, which is undesirable in most POE
+applications.
 
-This method is experimental.  Its behavior may change or it may
-disappear outright.  Please let us know whether it's useful.
+If an application must guarantee a full buffer flush, it may loop
+flush() calls:
 
-=back
+  $wheel->flush() while $wheel->get_driver_out_octets();
 
-=head1 EVENTS AND PARAMETERS
+However it would be prudent to check for errors as well.  A flush()
+failure may be permanent, and an infinite loop is probably not what
+most developers have in mind here.
+
+It should be obvious by now that B<this method is experimental>.  Its
+behavior may change or it may disappear outright.  Please let us know
+whether it's useful.
+
+# TODO - Example?
+
 =head1 SEE ALSO
 
-POE::Wheel.
+L<POE::Wheel> describes wheels in general.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
 =head1 BUGS
 
-Oh, probably some.
+None known.
 
 =head1 AUTHORS & COPYRIGHTS
 
@@ -1126,4 +1177,3 @@ Please see L<POE> for more information about authors and contributors.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
