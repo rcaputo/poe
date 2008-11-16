@@ -1156,7 +1156,7 @@ __END__
 
 =head1 NAME
 
-POE::Wheel::SocketFactory - non-blocking socket creation and management
+POE::Wheel::SocketFactory - non-blocking socket creation
 
 =head1 SYNOPSIS
 
