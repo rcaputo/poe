@@ -1519,8 +1519,6 @@ The kill() method will send SIGTERM if SIGNAL is undef or omitted.
 
 Return driver statistics.
 
-=back
-
 =head1 EVENTS AND PARAMETERS
 
 =over 2
