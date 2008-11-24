@@ -44,6 +44,13 @@ sub _data_extref_finalize {
 #
 # TODO Allows incrementing reference counts on sessions that don't
 # exist, but the public interface catches that.
+#
+# TODO Need to track extref ownership for signal-based session
+# termination.  One problem seen is that signals terminate sessions
+# out of order.  Owners think extra refcounts exist for sessions that
+# are no longer around.  Ownership trees give us a few benefits: We
+# can make sure sessions destruct in a cleaner order.  We can detect
+# refcount loops and possibly prevent that.
 
 sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
