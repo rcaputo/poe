@@ -1246,14 +1246,20 @@ sub _finalize_kernel {
   $self->_data_stat_finalize() if TRACE_PROFILE or TRACE_STATISTICS;
 }
 
+sub run_while {
+  my ($self, $scalar_ref) = @_;
+  1 while $$scalar_ref and $self->run_one_timeslice();
+}
+
 sub run_one_timeslice {
   my $self = shift;
-  return undef unless $self->_data_ses_count();
-  $self->loop_do_timeslice();
   unless ($self->_data_ses_count()) {
     $self->_finalize_kernel();
     $kr_run_warning |= KR_RUN_DONE;
+    return;
   }
+  $self->loop_do_timeslice();
+  return 1;
 }
 
 sub run {
@@ -3008,6 +3014,23 @@ example:
 Do be careful.  The above example will spin if POE::Kernel is done but
 $done is never set.  The loop will never be done, even though there's
 nothing left that will set $done.
+
+=head3 run_while SCALAR_REF
+
+run_while() is an B<experimental> version of run_one_timeslice() that
+will only return when there are no more active sessions, or the value
+of the referenced scalar becomes false.
+
+Here's a version of the run_one_timeslice() example using run_while()
+instead:
+
+  my $job_count = 3;
+
+  sub handle_some_event {
+    $job_count--;
+  }
+
+  $kernel->run_while(\$job_count);
 
 =head3 stop
 
