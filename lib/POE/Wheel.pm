@@ -281,13 +281,13 @@ active wheels will never share the same ID, however.
 
 =head3 ID
 
-<BThis is usually implemented in the subclass!>
+B<This is usually implemented in the subclass!>
 
 The ID() method returns a wheel's unique ID. It is commonly used to
 match events with the wheels which generated them.
 
 Again, this method is not implemented in this class! If it's missing
-from the subclass, please go pester that module author - thanks!
+from the subclass, please go pester that module author---thanks!
 
 =head1 SEE ALSO
 
