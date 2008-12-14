@@ -1172,104 +1172,117 @@ POE::Wheel::Run - portably run blocking code and programs in subprocesses
 
 =head1 DESCRIPTION
 
-POE::Wheel::Run executes a program or some code in a subprocess.
-Information is passed between parent and child process via pipes
-attached to the child's STDIN, STDOUT and STDERR filehandles.
+POE::Wheel::Run executes a program or block of code in a subprocess.
+The parent process may exchange information with the child over the
+child's STDIN, STDOUT and STDERR filehandles.
 
-POE::Wheel::Run's put() method sends data down to the child's STDIN
-handle.
+In the parent process, the POE::Wheel::Run object represents the child
+process.  It has methods such as PID() and kill() to query and manage
+the child process.
 
-On the other side, anything written by the child to its STDOUT and
-STDERR handles will arrive at the parent as events.  The events are
-named in POE::Wheel::Run's constructor: StdoutEvent defines the event
-that will carry the child's STDOUT messages.  StderrEvent carries data
-sent to the child's STDERR handle.
+POE::Wheel::Run's put() method sends data to the child's STDIN.  Child
+output on STDOUT and STDERR may be dispatched as events within the
+parent, if requested.
 
-CloseEvent signifies when the child has closed its STDOUT and STDERR
-handles.  It does NOT mean the child has exited.  To detect child
-process exits (and to avoid leaving zombie processes shambling around
-your process table's graveyard), a program should always regster an
-event for the child process' ID.  POE::Kernel's sig_child() method is
-the cricket bat that will reap the child process, detect its exit
-status, and fire an event to let you know what happened.  The
-L</SYNOPSIS> uses it, and so should everyone.
+POE::Wheel::Run can also notify the parent when the child has closed
+its output filehandles.  Some programs remain active, but they close
+their output filehandles to indicate they are done writing.
 
-By default, POE::Wheel::Run communicates with the child process in a
-line-based fashion.  Programs may override this by specifying
-L</StdinFilter>, L</StdoutFilter>, L</StdioFilter> and/or
-L</StderrFilter>.
+A more reliable way to detect child exit is to use POE::Kernel's
+sig_child() method to wait for the wheel's process to be reaped.  It
+is in fact vital to use sig_child() in all circumstances since without
+it, POE will not try to reap child processes.
+
+Failing to use sig_child() has in the past led to wedged machines.
+Long-running programs have leaked processes, eventually consuming all
+available slots in the process table and requiring reboots.
+
+Because process leaks are so severe, POE::Kernel will check for this
+condition on exit and display a notice if it finds that processes are
+leaking.  Develpers should heed these warnings.
+
+POE::Wheel::Run communicates with the child process in a line-based
+fashion by default.  Programs may override this by specifying some
+other POE::Filter object in L</StdinFilter>, L</StdoutFilter>,
+L</StdioFilter> and/or L</StderrFilter>.
 
 =head1 PUBLIC METHODS
 
-=head2 new
+=head2 Constructor
 
-POE::Wheel::Run's constructor, new(), creates a new child process with
-certain specified qualities.  The POE::Wheel::Run object encapsulates
-the process and provides OO and event driven interfaces for
-asynchronously interacting with it.
+POE::Wheel subclasses tend to perform a lot of setup so that they run
+lighter and faster.  POE::Wheel::Run's constructor is no exception.
 
-Under the hood, new() spawns a new process, connects to its standard
-I/O, sets up events to handle its output, and publishes methods to
-send it input.
+=head3 new
 
-As we'll see, POE::Wheel::Run has options for nearly every occasion.
+new() creates and returns a new POE::Wheel::Run object.  If it's
+successful, the object will represent a child process with certain
+specified qualities.  It also provides an OO- and event-based
+interface for asynchronously interacting with the process.
 
-=head3 Conduit
+=head4 Conduit
 
-C<Conduit> specifies the mechanism by which a POE::Wheel::Run object
-communicates with its child process.  C<Conduit> may be one of "pipe",
-"socketpair", "inet", "pty", or "pty-pipe".  By default it will try
-the best method for the runtime platform first, then fall back to less
-ideal means.
+Conduit specifies the inter-process communications mechanism that will
+be used to pass data between the parent and child process.  Conduit
+may be one of "pipe", "socketpair", "inet", "pty", or "pty-pipe".
+POE::Wheel::Run will use the most appropriate Conduit for the runtime
+operating system, but this varies from one OS to the next.
 
-Three conduit types use pipes or pipelike inter-process communication:
+Internally, POE::Wheel::Run passes the Conduit type to
+L<POE::Pipe::OneWay> and L<POE::Pipe::TwoWay>.  These helper classes
+were created to make IPC portable and reusable.  They do not require
+the rest of POE.
+
+Three Conduit types use pipes or pipelike inter-process communication:
 "pipe", "socketpair" and "inet".  They determine whether the internal
-IPC uses pipe(), socketpair() or internet sockets.  These C<Conduit>
+IPC uses pipe(), socketpair() or Internet sockets.  These Conduit
 values are passed through to L<POE::Pipe::OneWay> or
 L<POE::Pipe::TwoWay> internally.
 
-The "pty" conduit type invokes L<IO::Pty> for the inter-process
-communication.  Ptys, or pseudo-terminals, allow the child program to
-run in full-screen mode or to trick it into believing it's running
-from a terminal.  The child's STDERR is folded in with its STDOUT,
-however.  This may not be ideal.
+The "pty" conduit type runs the child process under a pseudo-tty,
+which is created by L<IO::Pty>.  Pseudo-ttys (ptys) convince child
+processes that they are interacting with terminals rather than pipes.
+This may be used to trick programs like ssh into believing it's secure
+to prompt for a password, although passphraseless identities might be
+better for that.
 
-The "pty-pipe" conduit causes POE::Wheel::Run to use L<IO::Pty> for
-the child's STDIN and STDOUT, and L<POE::Pipe::OneWay> for STDERR.
-This has many of the benefits of "pty" without the drawback of
-conflating STDERR with STDOUT.
+The "pty" conduit cannot separate STDERR from STDOUT, but the
+"pty-pipe" mode can.
+
+The "pty-pipe" conduit uses a pty for STDIN and STDOUT and a one-way
+pipe for STDERR.  The additional pipe keeps STDERR output separate
+from STDOUT.
 
 The L<IO::Pty> module is only loaded if "pty" or "pty-pipe" is used.
 It's not a dependency until it's actually needed.
 
 TODO - Example.
 
-=head3 Winsize
+=head4 Winsize
 
-C<Winsize> is used to set the child process' terminal size.  Its value
-should be an arrayref with two or four elements: the number of lines
-and columns for the child's window, and optionally the X and Y
-dimensions in pixels:
+Winsize sets the child process' terminal size.  Its value should be an
+arrayref with two or four elements.  The first two elements must be
+the number of lines and columsn for the child's terminal window,
+respectively.  The optional pair of elements describe the terminal's X
+and Y dimensions in pixels:
 
   $_[HEAP]{child} = POE::Wheel::Run->new(
     # ... among other things ...
     Winsize => [ 25, 80, 1024, 768 ],
   );
 
-C<Winsize> is only valid for the "pty" or "pty-pipe" C<Conduit>.
-Other conduits don't simulate a terminal, so they don't have window
-sizes.
+Winsize is only valid for the "pty" or "pty-pipe" Conduit.  Other
+conduits don't simulate terminals, so they don't have window sizes.
 
-C<Winsize> defaults to the parent process' window size.
+Winsize defaults to the parent process' window size, assuming the
+parent process has a terminal to query.
 
-=head3 CloseOnCall
+=head4 CloseOnCall
 
-C<CloseOnCall> is a Boolean flag that turns on close-on-exec emulation
-for child processes that run subroutines rather than actually using
-exec() to run programs.  Close-on-call is off by default.
-
-C<CloseOnCall> is only effective when POE::Wheel::Run is called with a
-code reference for its C<Program> parameter.
+CloseOnCall, when true, turns on close-on-exec emulation for
+subprocesses that don't actually call exec().  These would be
+instances when the child is running a block of code rather than
+executing an external program.  For example:
 
   $_[HEAP]{child} = POE::Wheel::Run->new(
     # ... among other things ...
@@ -1277,258 +1290,52 @@ code reference for its C<Program> parameter.
     Program => \&some_function,
   );
 
-C<CloseOnCall> triggers code in the child process that closes all file
-descriptors greater than $^F.
+CloseOnCall is off (0) by default.
 
-For more details, please the discussion of $^F in L<perlvar>.
+CloseOnCall works by closing all file descriptors greater than $^F in
+the child process before calling the application's code.  For more
+details, please the discussion of $^F in L<perlvar>.
 
-=head3 StdioDriver
+=head4 StdioDriver
 
-C<StdioDriver> specifies a single L<POE::Driver> object to be used for
+StdioDriver specifies a single L<POE::Driver> object to be used for
 both STDIN and STDOUT.  It's equivalent to setting L</StdinDriver> and
 L</StdoutDriver> to the same L<POE::Driver> object.
 
 POE::Wheel::Run will create and use a L<POE::Driver::SysRW> driver of
-one isn't specified.  This is by far the most common use case.
+one isn't specified.  This is by far the most common use case, so it's
+the default.
 
-TODO - Example usage.
+=head4 StdinDriver
 
-=head3 StdinDriver
+C<StdinDriver> sets the L<POE::Driver> used to write to the child
+process' STDIN IPC conduit.  It is almost never needed.  Omitting it
+will allow POE::Wheel::Run to use an internally created
+L<POE::Driver::SysRW> object.
 
-C<StdinDriver> sets the L<POE::Driver> used to write to the IPC
-conduit that sends input to the child process.  It is almost never
-needed.  Omitting it will allow POE::Wheel::Run to use an internally
-created L<POE::Driver::SysRW> object.
-
-TODO - Example usage.
-
-=head3 StdoutDriver
+=head4 StdoutDriver
 
 C<StdoutDriver> sets the L<POE::Driver> object that will be used to
 read from the child process' STDOUT conduit.  It's almost never
-needed.  The default L<POE::Driver::SysRW> is generally fine.
+needed.  If omitted, POE::Wheel::Run will internally create and use
+a L<POE::Driver::SysRW> object.
 
-TODO - Example usage.
-
-=head3 StderrDriver
+=head4 StderrDriver
 
 C<StderrDriver> sets the driver that will be used to read from the
 child process' STDERR conduit.  As with L</StdoutDriver>, it's almost
 always preferable to let POE::Wheel::Run instantiate its own driver.
 
-TODO - Example usage.
-
--><- Am here.
-
-=head3 CloseEvent
-
-=head3 ErrorEvent
-
-=head3 StdinEvent
-
-=head3 StdoutEvent
-
-=head3 StderrEvent
-
-See L<EVENTS AND PARAMETERS> below for a more detailed description of
-these events and their parameters.
-
-C<CloseEvent> contains the name of an event to emit when the child
-process closes all its output handles.  This is a consistent
-notification that the child will not be sending any more output.  It
-does not, however, signal that the client process has stopped
-accepting input.
-
-C<ErrorEvent> contains the name of an event to emit if something
-fails.  It is optional and if omitted, the wheel will not notify its
-session if any errors occur.
-
-Wheel::Run requires at least one of the following three events:
-
-C<StdinEvent> contains the name of an event that Wheel::Run emits
-whenever everything queued by its put() method has been flushed to the
-child's STDIN handle.
-
-C<StdoutEvent> and C<StderrEvent> contain names of events that
-Wheel::Run emits whenever the child process writes something to its
-STDOUT or STDERR handles, respectively.
-
-=head3 StdioFilter
-
-=head3 StdinFilter
-
-=head3 StdoutFilter
-
-=head3 StderrFilter
-
-C<StdioFilter> contains an instance of a POE::Filter subclass.  The
-filter describes how the child process performs input and output.
-C<Filter> will be used to describe the child's stdin and stdout
-methods.  If stderr is also to be used, StderrFilter will need to be
-specified separately.
-
-C<Filter> is optional.  If left blank, it will default to an
-instance of C<< POE::Filter::Line->new(Literal => "\n"); >>
-
-C<StdinFilter> and C<StdoutFilter> can be used instead of or in
-addition to C<StdioFilter>.  They will override the default filter's
-selection in situations where a process' input and output are in
-different formats.
-
-=head3 Group
-
-C<Group> contains a numerical group ID that the child process should
-run at.  This may not be meaningful on systems that have no concept of
-group IDs.  The current process may need to run as root in order to
-change group IDs.  Mileage varies considerably.
-
-=head3 NoSetSid
-
-When true, C<NoSetSid> disables setsid() in the child process.  By
-default, setsid() is called to execute the child process in a separate
-Unix session.
-
-=head3 NoSetPgrp
-
-When true, C<NoSetPgrp> disables setprgp() in the child process. By 
-default, setprgp() is called to change the process group for the child 
-process, if the OS supports process groups. If the conduit is a pty or
-pty-pipe setsid() is used instead, see C<NoSetSid>.
-
-=head3 Priority
-
-C<Priority> contains an offset from the current process's priority.
-The child will be executed at the current priority plus the offset.
-The priority offset may be negative, but the current process may need
-to be running as root for that to work.
-
-=head3 Program
-
-C<Program> is the program to exec() once pipes and fork have been set
-up.  C<Program>'s type determines how the program will be run.
-
-If C<Program> holds a scalar, it will be executed as exec($scalar).
-Shell metacharacters will be expanded in this form.
-
-If C<Program> holds an array reference, it will executed as
-exec(@$array).  This form of exec() doesn't expand shell
-metacharacters.
-
-If C<Program> holds a code reference, it will be called in the forked
-child process, and then the child will exit.  This allows Wheel::Run
-to fork off bits of long-running code which can accept STDIN input and
-pass responses to STDOUT and/or STDERR.  Note, however, that POE's
-services are effectively disabled in the child process. See
-L</Nested POE Kernel> for instructions on how to properly use POE within the
-child.
-
-L<perlfunc> has more information about exec() and the different ways
-to call it.
-
-Note: Do not call exit() explicitly when executing a subroutine.
-POE::Wheel::Run takes special care to avoid object destructors and END
-blocks in the child process, and calling exit() will thwart that.  You
-may see "POE::Kernel's run() method was never called." or worse.
-
-=head3 ProgramArgs => ARRAY
-
-If specified, C<ProgramArgs> should refer to a list of parameters for
-the program being run.
-
-  my @parameters = qw(foo bar baz);  # will be passed to Program
-  ProgramArgs => \@parameters;
-
-=head2 event EVENT_TYPE => EVENT_NAME, ...
-
-event() changes the event that Wheel::Run emits when a certain type of
-event occurs.  C<EVENT_TYPE> may be one of the event parameters in
-Wheel::Run's constructor.
-
-  $wheel->event( StdinEvent  => 'new-stdin-event',
-                 StdoutEvent => 'new-stdout-event',
-               );
-
-=head2 put LIST
-
-put() queues a LIST of different inputs for the child process.  They
-will be flushed asynchronously once the current state returns.  Each
-item in the LIST is processed according to the C<StdinFilter>.
-
-=head2 get_stdin_filter
-
-=head2 get_stdout_filter
-
-=head2 get_stderr_filter
-
-Get C<StdinFilter>, C<StdoutFilter>, or C<StderrFilter> respectively.
-
-=head2 set_stdio_filter FILTER_REFERENCE
-
-Set C<StdinFilter> and C<StdoutFilter> at once.
-
-=head2 set_stdin_filter FILTER_REFERENCE
-
-=head2 set_stdout_filter FILTER_REFERENCE
-
-=head2 set_stderr_filter FILTER_REFERENCE
-
-Set C<StdinFilter>, C<StdoutFilter>, or C<StderrFilter> respectively.
-
-=head2 pause_stdout
-
-=head2 pause_stderr
-
-=head2 resume_stdout
-
-=head2 resume_stderr
-
-Pause or resume C<StdoutEvent> or C<StderrEvent> events.  By using
-these methods a session can control the flow of Stdout and Stderr
-events coming in from this child process.
-
-=head2 shutdown_stdin
-
-Closes the child process' STDIN and stops the wheel from reporting
-StdinEvent.  It is extremely useful for running utilities that expect
-to receive EOF on their standard inputs before they respond.
-
-=head2 ID
-
-Returns the wheel's unique ID, which is not the same as the child
-process' ID.  Every event generated by Wheel::Run includes a wheel ID
-so that it can be matched up with its generator.  This lets a single
-session manage several wheels without becoming confused about which
-one generated what event.
-
-=head2 PID
-
-Returns the child process' ID.  It's useful for matching up to SIGCHLD
-events, which include child process IDs as well, so that wheels can be
-destroyed properly when children exit.
-
-=head2 kill SIGNAL
-
-Sends a signal to the child process.  It's useful for processes which
-tend to be reluctant to exit when their terminals are closed.
-
-The kill() method will send SIGTERM if SIGNAL is undef or omitted.
-
-=head2 get_driver_out_messages
-
-=head2 get_driver_out_octets
-
-Return driver statistics.
-
-=head1 EVENTS AND PARAMETERS
-
-=over 2
-
-=item CloseEvent
-
-CloseEvent contains the name of the event Wheel::Run emits whenever a
-child process has closed all its output handles.  It signifies that
-the child will not be sending more information.  In addition to the
-usual POE parameters, each CloseEvent comes with one of its own:
+=head4 CloseEvent
+
+CloseEvent contains the name of an event that the wheel will emit when
+the child process closes its last open output handle.  This is a
+consistent notification that the child is done sending output.  Please
+note that it does not signal when the child process has exited.
+Programs should use sig_child() to detect that.
+
+In addition to the usual POE parameters, each CloseEvent comes with
+one of its own:
 
 C<ARG0> contains the wheel's unique ID.  This can be used to keep
 several child processes separate when they're managed by the same
@@ -1543,28 +1350,29 @@ A sample close event handler:
     print "Child ", $child->PID, " has finished.\n";
   }
 
-=item ErrorEvent
+=head4 ErrorEvent
 
-ErrorEvent contains the name of an event that Wheel::Run emits
-whenever an error occurs.  Every error event comes with four
-parameters:
+ErrorEvent contains the name of an event to emit if something fails.
+It is optional; if omitted, the wheel will not notify its session if
+any errors occur.  However, POE::Wheel::Run->new() will still throw an
+exception if it fails.
 
 C<ARG0> contains the name of the operation that failed.  It may be
 'read', 'write', 'fork', 'exec' or the name of some other function or
-task.  The actual values aren't yet defined.  Note: This is not
-necessarily a function name.
+task.  The actual values aren't yet defined.  They will probably not
+correspond so neatly to Perl builtin function names.
 
 C<ARG1> and C<ARG2> hold numeric and string values for C<$!>,
 respectively.  C<"$!"> will eq C<""> for read error 0 (child process
-closed STDOUT or STDERR).
+closed the file handle).
 
 C<ARG3> contains the wheel's unique ID.
 
 C<ARG4> contains the name of the child filehandle that has the error.
 It may be "STDIN", "STDOUT", or "STDERR".  The sense of C<ARG0> will
 be the opposite of what you might normally expect for these handles.
-For example, Wheel::Run will report a "read" error on "STDOUT" because
-it tried to read data from that handle.
+For example, POE::Wheel::Run will report a "read" error on "STDOUT"
+because it tried to read data from the child's STDOUT handle.
 
 A sample error event handler:
 
@@ -1574,46 +1382,309 @@ A sample error event handler:
     warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
   }
 
-=item StdinEvent
+=head4 StdinEvent
 
 StdinEvent contains the name of an event that Wheel::Run emits
 whenever everything queued by its put() method has been flushed to the
-child's STDIN handle.
+child's STDIN handle.  It is the equivalent to POE::Wheel::ReadWrite's
+FlushedEvent.
 
-StdinEvent's C<ARG0> parameter contains its wheel's unique ID.
+StdinEvent comes with only one additional parameter: C<ARG0> contains
+the unique ID for the wheel that sent the event.
 
-=item StdoutEvent
+=head4 StdoutEvent
 
-=item StderrEvent
+StdoutEvent contains the name of an event  that Wheel::Run emits
+whenever the child process writes something to its STDOUT filehandle.
+In other words, whatever the child prints to STDOUT, the parent
+receives a StdoutEvent---provided that the child prints something
+compatible with the parent's StdoutFilter.
 
-StdoutEvent and StderrEvent contain names for events that Wheel::Run
-emits whenever the child process generates new output.  StdoutEvent
-contains information the child wrote to its STDOUT handle, and
-StderrEvent includes whatever arrived from the child's STDERR handle.
-
-Both of these events come with two parameters.  C<ARG0> contains the
-information that the child wrote.  C<ARG1> holds the wheel's unique
-ID.
+StdoutEvent comes with two parameters.  C<ARG0> contains the
+information that the child wrote to STDOUT.  C<ARG1> holds the unique
+ID of the wheel that read the output.
 
   sub stdout_state {
     my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
     print "Child process in wheel $wheel_id wrote to STDOUT: $input\n";
   }
 
+=head4 StderrEvent
+
+StderrEvent behaves exactly as StdoutEvent, except for data the child
+process writes to its STDERR filehandle.
+
+StderrEvent comes with two parameters.  C<ARG0> contains the
+information that the child wrote to STDERR.  C<ARG1> holds the unique
+ID of the wheel that read the output.
+
   sub stderr_state {
     my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
     print "Child process in wheel $wheel_id wrote to STDERR: $input\n";
   }
 
-=back
+=head4 StdioFilter
+
+StdioFilter, if used, must contain an instance of a POE::Filter
+subclass.  This filter describes how the parent will format put() data
+for the child's STDIN, and how the parent will parse the child's
+STDOUT.
+
+If STDERR will also be parsed, then a separate StderrFilter will also
+be needed.
+
+StdioFilter defaults to a POE::Filter::Line instance, but only if both
+StdinFilter and StdoutFilter are not specified.  If either StdinFilter
+or StdoutFilter is used, then StdioFilter is illegal.
+
+=head4 StdinFilter
+
+StdinFilter may be used to specify a particular STDIN serializer that
+is different from the STDOUT parser.  If specified, it conflicts with
+StdioFilter.  StdinFilter's value, if specified, must be an instance
+of a POE::Filter subclass.
+
+Without a StdinEvent, StdinFilter is illegal.
+
+=head4 StdoutFilter
+
+StdoutFilter may be used to specify a particular STDOUT parser that is
+different from the STDIN serializer.  If specified, it conflicts with
+StdioFilter.  StdoutFilter's value, if specified, must be an instance
+of a POE::Filter subclass.
+
+Without a StdoutEvent, StdoutFilter is illegal.
+
+=head4 StderrFilter
+
+StderrFilter may be used to specify a filter for a child process'
+STDERR output.  If omitted, POE::Wheel::Run will create and use its
+own POE::Filter::Line instance, but only if a StderrEvent is
+specified.
+
+Without a StderrEvent, StderrFilter is illegal.
+
+=head4 Group
+
+Group contains a numeric group ID that the child process should run
+within.  By default, the child process will run in the same group as
+the parent.
+
+Group is not fully portable.  It may not work on systems that have no
+concept of user groups.  Also, the parent process may need to run with
+elevated privileges for the child to be able to change groups.
+
+=head4 User
+
+User contains a numeric user ID that should own the child process.  By
+default, the child process will run as the same user as the parent.
+
+User is not fully portable.  It may not work on systems that have no
+concept of users.  Also, the parent process may need to run with
+elevated privileges for the child to be able to change users.
+
+=head4 NoSetSid
+
+When true, NoSetSid disables setsid() in the child process.  By
+default, the child process calls setsid() is called so that it may
+execute in a separate UNIX session.
+
+=head4 NoSetPgrp
+
+When true, NoSetPgrp disables setprgp() in the child process. By
+default, the child process calls setpgrp() to change its process
+group, if the OS supports that.
+
+setsid() is used instead of setpgrp() if Conduit is pty or pty-pipe.
+See L</NoSetSid>.
+
+=head4 Priority
+
+Priority adjusts the child process' nicenes or priority level,
+depending on which (if any) the underlying OS supports.  Priority
+contains a numeric offset which will be added to the parent's priority
+to determine the child's.
+
+The priority offset may be negative, which in UNIX represents a higher
+priority.  However UNIX requires elevated privileges to increase a
+process' priority.
+
+=head4 Program
+
+Program specifies the program to exec() or the block of code to run in
+the child process.  Program's type is significant.
+
+If Program holds a scalar, its value will be executed as
+exec($program).  Shell metacharacters are significant, per
+exec(SCALAR) semantics.
+
+If Program holds an array reference, it will executed as
+exec(@$program).  As per exec(ARRAY), shell metacharacters will not be
+significant.
+
+If Program holds a code reference, that code will be called in the
+child process.  The child process will exit after that code is
+finished.  This mode allows POE::Wheel::Run to fork off bits of
+long-running code.  Return values, if any, must be passed back via the
+child's STDOUT and/or STDERR.  Note, however, that POE's services are
+effectively disabled in the child process.  See L</Nested POE Kernel>
+for instructions on how to properly use POE within the child.
+
+L<perlfunc> has more information about exec() and the different ways
+to call it.
+
+Please avoid calling exit() explicitly when executing a subroutine.
+The child process inherits all objects from the parent, including ones
+that may perform side effects.  POE::Wheel::Run takes special care to
+avoid object destructors and END blocks in the child process, but
+calling exit() will trigger them.
+
+=head4 ProgramArgs
+
+If specified, ProgramArgs should refer to a list of parameters for the
+program being run.
+
+  my @parameters = qw(foo bar baz);  # will be passed to Program
+  ProgramArgs => \@parameters;
+
+=head2 event EVENT_TYPE => EVENT_NAME, ...
+
+event() allows programs to change the events that Wheel::Run emits
+when certain activities occurs.  EVENT_TYPE may be one of the event
+parameters described in POE::Wheel::Run's constructor.
+
+This example changes the events that $wheel emits for STDIN flushing
+and STDOUT activity:
+
+  $wheel->event(
+    StdinEvent  => 'new-stdin-event',
+    StdoutEvent => 'new-stdout-event',
+  );
+
+Undefined EVENT_NAMEs disable events.
+
+=head2 put RECORDS
+
+put() queues up a list of RECORDS that will be sent to the child
+process' STDIN filehandle.  These records will first be serialized
+according to the wheel's StdinFilter.  The serialized RECORDS will be
+flushed asynchronously once the current event handler returns.
+
+=head2 get_stdin_filter
+
+get_stind_filter() returns the POE::Filter object currently being used
+to serialize put() records for the child's STDIN filehandle.  The
+return object may be used according to its own interface.
+
+=head2 get_stdout_filter
+
+get_stdout_filter() returns the POE::Filter object currently being
+used to parse what the child process writes to STDOUT.
+
+=head2 get_stderr_filter
+
+get_stderr_filter() returns the POE::Filter object currently being
+used to parse what the child process writes to STDERR.
+
+=head2 set_stdio_filter FILTER_OBJECT
+
+Set StdinFilter and StdoutFilter to the same new FILTER_OBJECT.
+Unparsed STDOUT data will be parsed later by the new FILTER_OBJECT.
+However, data already put() will remain serialized by the old filter.
+
+=head2 set_stdin_filter FILTER_OBJECT
+
+Set StdinFilter to a new FILTER_OBJECT.  Data already put() will
+remain serialized by the old filter.
+
+=head2 set_stdout_filter FILTER_OBJECT
+
+Set StdoutFilter to a new FILTER_OBJECT.  Unparsed STDOUT data will be
+parsed later by the new FILTER_OBJECT.
+
+=head2 set_stderr_filter FILTER_OBJECT
+
+Set StderrFilter to a new FILTER_OBJECT.  Unparsed STDERR data will be
+parsed later by the new FILTER_OBJECT.
+
+=head2 pause_stdout
+
+Pause reading of STDOUT from the child.  The child process may block
+if the STDOUT IPC conduit fills up.  Reading may be resumed with
+resume_stdout().
+
+=head2 pause_stderr
+
+Pause reading of STDERR from the child.  The child process may block
+if the STDERR IPC conduit fills up.  Reading may be resumed with
+resume_stderr().
+
+=head2 resume_stdout
+
+Resume reading from the child's STDOUT filehandle.  This is only
+meaningful if pause_stdout() has been called and remains in effect.
+
+=head2 resume_stderr
+
+Resume reading from the child's STDERR filehandle.  This is only
+meaningful if pause_stderr() has been called and remains in effect.
+
+=head2 shutdown_stdin
+
+shutdown_stdin() closes the child process' STDIN and stops the wheel
+from reporting StdinEvent.  It is extremely useful for running
+utilities that expect to receive EOF on STDIN before they respond.
+
+=head2 ID
+
+ID() returns the wheel's unique ID.  Every event generated by a
+POE::Wheel::Run object includes a wheel ID so that it can be matched
+to the wheel that emitted it.  This lets a single session manage
+several wheels without becoming confused about which one generated
+what event.
+
+ID() is not the same as PID().
+
+=head2 PID
+
+PID() returns the process ID for the child represented by the
+POE::Wheel::Run object.  It's often used as a parameter to
+sig_child().
+
+PID() is not the same as ID().
+
+=head2 kill SIGNAL
+
+POE::Wheel::Run's kill() method sends a SIGNAL to the child process
+the object represents.  kill() is often used to force a reluctant
+program to terminate.  SIGNAL is one of the operating signal names
+present in %SIG.
+
+The kill() method will send SIGTERM if SIGNAL is undef or omitted.
+
+=head2 get_driver_out_messages
+
+get_driver_out_messages() returns the number of put() records
+remaining in whole or in part in POE::Wheel::Run's POE::Driver output
+queue.  It is often used to tell whether the wheel has more input for
+the child process.
+
+In most cases, StdinEvent may be used to trigger activity when all
+data has been sent to the child process.
+
+=head2 get_driver_out_octets
+
+get_driver_out_octets() returns the number of serialized octets
+remaining in POE::Wheel::Run's POE::Driver output queue.  It is often
+used to tell whether the wheel has more input for the child process.
 
 =head1 TIPS AND TRICKS
 
-=head2 Execution environment
+=head2 Execution Environment
 
-One common task is scrubbing a child process' environment.  This
-amounts to clearing the contents of %ENV and setting it up with some
-known, secure values.
+It's common to scrub a child process' environment, so that only
+required, secure values exist.  This amounts to clearing the contents
+of %ENV and repopulating it.
 
 Environment scrubbing is easy when the child process is running a
 subroutine, but it's not so easy---or at least not as intuitive---when
@@ -1630,68 +1701,76 @@ that performs the exec() call for us.
     exec(@program_and_args);
   }
 
-That deletes everything from the environment, sets a simple, secure
-PATH, and executes a program with its arguments.
+That deletes everything from the environment and sets a simple, secure
+PATH before executing a program.
 
 =head2 Nested POE Kernel
 
-When the process forks the kernel's queue is effectively duplicated, giving the
-child process it's own copy.
+The child process is created by fork(), which effectively duplicates
+the parent's POE::Kernel data structures, including its queue and all
+active sessions.
 
-This means that if you call C<< $poe_kernel->run >> in the coderef variant of
-C<Program>, the kernel will deliver all currently queued events twice, causing
-the universe to implode, or worse.
+If C<< POE::Kernel->run() >> is called again in the child process, it
+effectively resumes a copy of the parent process, which is rarely (if
+ever) the desired effect.
 
-This is why L<POE::Wheel::Run> will exit immediately after executing the code
-reference, before the kernel's loop can dequeue anything more.
+Likewise, DESTROY methods and END blocks would be triggered if the
+child process simply calls exit().  This is why POE::Wheel::Run takes
+drastic measures to avoid plain old exit() in the child process.
 
-In order to allow a POE kernel to be run inside the child process without
-having to C<exec> a new perl script with a fresh L<POE> environment, you can
-call the L<POE::Kernel/stop> method.
+Some applications require POE to be run in the child process, however.
+If the application wishes to avoid using exec(), it may first stop()
+the POE::Kernel instance in the child, then run() it again.
 
 Here is an example:
 
   Program => sub {
-    $poe_kernel->stop; # flush all the kernel structures
+    # Wipe the existing POE::Kernel clean.
+    $poe_kernel->stop();
 
-    # now that the kernel is clean we can do POEish stuff:
+    # Start a new session, or more.
     POE::Session->create(
       ...
     );
 
-    $poe_kernel->run; # this DWIMs now
+    # Run the new sessions.
+    POE::Kernel->run();
   }
 
-If you do not call L<POE::Kernel/stop>, but do call L<POE::Kernel/run> inside
-the child process strange things are bound to happen.
+Strange things are bound to happen if the program does not call
+L<POE::Kernel/stop> before L<POE::Kernel/run>.  However this is
+vaguely supported in case it's the right thing to do at the time.
 
 The advantage of calling C<POE::Kernel/stop> is that it allows all the
-advantages of a C<fork> without an C<exec>, namely sharing of read only data,
-but without having to forefit L<POE>'s facilities in the child.
+advantages of a fork() without an exec(), namely sharing of read only
+data, but without having to forefit L<POE>'s facilities in the child.
 
 =head1 SEE ALSO
 
-POE::Wheel.
+L<POE::Wheel> describes wheels in general.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
 
-=head1 BUGS
+=head1 CAVEATS & TODOS
 
-Wheel::Run's constructor doesn't emit proper events when it fails.
-Instead, it just dies, carps or croaks.
+POE::Wheel::Run's constructor should emit proper events when it fails.
+Instead, it just dies, carps or croaks.  This isn't necessarily bad; a
+program can trap the death in new() and move on.
 
-Filter changing hasn't been implemented yet.  Let the author know if
-it's needed.  Better yet, patch the file based on the code in
-Wheel::ReadWrite.
+Priority is a delta, not an absolute niceness value.
 
-Priority is a delta; there's no way to set it directly to some value.
+It might be nice to specify User by name rather than just UID.
 
-User must be specified by UID.  It would be nice to support login
-names.
+It might be nice to specify Group by name rather than just GID.
 
-Group must be specified by GID.  It would be nice to support group
-names.
+POE::Pipe::OneWay and Two::Way don't require the rest of POE.  They
+should be spun off into a separate distribution for everyone to enjoy.
+
+If StdinFilter and StdoutFilter seem backwards, remember that it's the
+filters for the child process.  StdinFilter is the one that dictates
+what the child receives on STDIN.  StdoutFilter tells the parent how
+to parse the child's STDOUT.
 
 =head1 AUTHORS & COPYRIGHTS
 
