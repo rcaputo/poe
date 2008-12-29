@@ -4563,10 +4563,9 @@ sig() does not return a meaningful value.
 
 =head3 sig_child PROCESS_ID [, EVENT_NAME]
 
-sig_child() is a convenient way to deliver an EVENT_NAME event with an
-optional ARGS_LIST when a particular PROCESS_ID has exited.  The
-watcher can be cleared prematurely by calling sig_child() with just
-the PROCESS_ID.
+sig_child() is a convenient way to deliver an EVENT_NAME event when a
+particular PROCESS_ID has exited.  The watcher can be cleared
+prematurely by calling sig_child() with just the PROCESS_ID.
 
 A session may register as many sig_child() handlers as necessary, but
 a session may only have one per PROCESS_ID.
