@@ -4808,7 +4808,7 @@ refcount_increment() for more context.
     # Among other things, release the reference count for the
     # requester.
     my $requester_id = delete $_[HEAP]{requesters}{$request_id};
-    $_[KERNEL]->refcount_increment( $requester_id, "pending request");
+    $_[KERNEL]->refcount_decrement( $requester_id, "pending request");
   }
 
 The requester's $_[SENDER]->ID is remembered and removed from the heap
