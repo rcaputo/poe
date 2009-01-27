@@ -5138,6 +5138,11 @@ When TRACE_PROFILE is enabled, a program may call
 C<< $_[KERNEL]->stat_show_profile() >> to display a current dispatch
 profile snapshot.
 
+=head3 stat_getprofile
+
+stat_getprofile() returns a hash of events and the number of times they
+were dispatched. It only returns meaningful data if TRACE_PROFILE is enabled.
+
 =head2 TRACE_REFCNT
 
 TRACE_REFCNT governs whether POE::Kernel will trace sessions'

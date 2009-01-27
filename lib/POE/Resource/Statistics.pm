@@ -156,6 +156,10 @@ sub stat_getdata {
     return %average;
 }
 
+sub stat_getprofile {
+    return %profile;
+}
+
 sub stat_show_profile {
   POE::Kernel::_warn('<pr> ,----- Event Profile ' , ('-' x 53), ",\n");
   foreach (sort keys %profile) {
