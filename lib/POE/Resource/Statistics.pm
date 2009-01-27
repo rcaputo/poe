@@ -153,11 +153,11 @@ sub _stat_profile {
 # Public routines...
 
 sub stat_getdata {
-    return %average;
+  return %average;
 }
 
 sub stat_getprofile {
-    return %profile;
+  return %profile;
 }
 
 sub stat_show_profile {
