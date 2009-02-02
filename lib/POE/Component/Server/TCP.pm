@@ -782,66 +782,72 @@ session that will be listening for new connections.
 Man of the constructor parameters have been previously described.
 They are covered briefly again below.
 
--><- AM HERE -><-
+=head3 new
 
-=head1 CONSTRUCTOR PARAMETERS
+new() starts a server based on POE::Component::Server::TCP and returns
+a session ID for the master listening session.  All error handling is
+done within the server, via the C<Error> and C<ClientError> callbacks.
 
-=over
+The server may be shut down by posting a "shutdown" event to the
+master session, either by its ID or the name given to it by the
+C<Alias> parameter.
 
-=item new
+TODO - Document the shutdown procedure somewhere.
 
-The new() method can accept quite a lot of parameters.  It will return
-the session ID of the acceptor session.  One must use callbacks to
-check for errors rather than the return value of new().
+=head4 Acceptor
 
-POE::Component::Server::TCP supplies common defaults for most
-callbacks and handlers.
+C<Acceptor> defines a CODE reference that POE::Wheel::SocketFactory's
+C<SuccessEvent> will trigger to handle new connections.  Therefore the
+parameters passed to C<Acceptor> are identical to those given to
+C<SuccessEvent>.
 
-=back
+C<Acceptor> is optional; the default handler will create a new session
+for each connection.  All the "Client" constructor parameters are used
+to customize this session.  In other words, C<CleintInput> and such
+B<are not used when C<Acceptor> is set>.
 
-=over 2
+The default C<Acceptor> adds significant convenience and flexibility
+to POE::Component::Server::TCP, but it's not always a good fit for
+every application.  In some cases, a custom C<Acceptor> or even
+rolling one's own server with POE::Wheel::SocketFactory and
+POE::Wheel::ReadWrite may be better and/or faster.
 
-=item Acceptor => CODEREF
+TODO - Example.
 
-Acceptor sets a mostly obsolete callback that is expected to create
-the connection sessions manually.  Most programs should use the
-/^Client/ callbacks instead.
+=head4 Address
 
-The coderef receives its parameters directly from SocketFactory's
-SuccessEvent.  ARG0 is the accepted socket handle, suitable for giving
-to a ReadWrite wheel.  ARG1 and ARG2 contain the packed remote address
-and numeric port, respectively.  ARG3 is the SocketFactory wheel's ID.
-
-  Acceptor => \&accept_handler
-
-Acceptor lets programmers rewrite the guts of Server::TCP entirely.
-It is not compatible with the /^Client/ callbacks.
-
-=item Address => SCALAR
-
-Address is the optional interface address the TCP server will bind to.
-It defaults to INADDR_ANY or INADDR6_ANY when using IPv4 or IPv6,
+C<Address> defines a single interface address the server will bind to.
+It defaults to INADDR_ANY or INADDR6_ANY, when using IPv4 or IPv6,
 respectively.
+
+The value in C<Address> is passed to POE::Wheel::SocketFactory's
+C<BindAddress> parameter, so it may be in whatever form that module
+supports.  At the time of this writing, that may be a dotted IPv4
+quad, an IPv6 address, a host name, or a packed Internet address.  See
+also L</Hostname>.
+
+TODO - Example, using the lines below.
 
   Address => '127.0.0.1'   # Localhost IPv4
   Address => "::1"         # Localhost IPv6
 
-It's passed directly to SocketFactory's BindAddress parameter, so it
-can be in whatever form SocketFactory supports.  At the time of this
-writing, that's a dotted quad, an IPv6 address, a host name, or a
-packed Internet address. See also the Hostname parameter.
+=head4 Alias
 
-=item Alias => SCALAR
+C<Alias> is an optional name that will be given to the server's master
+listening session.  Events sent to this name will not be delivered to
+individual connections.
 
-Alias is an optional name by which the server's listening session will
-be known.  Messages sent to the alias will go to the listening
-session, not the sessions that are handling active connections.
+The server's C<Alias> may be important if it's necessary to shut a
+server down.
 
-  Alias => 'chargen'
+  sub sigusr1_handler {
+    $_[KERNEL]->post(chargen_server => 'shutdown');
+    $_[KERNEL]->sig_handled();
+  }
 
-Later on, the 'chargen' service can be shut down with:
+-><- AM HERE -><-
 
-  $kernel->post( chargen => 'shutdown' );
+=head1 CONSTRUCTOR PARAMETERS
 
 =item Args => ARRAYREF
 
@@ -1150,6 +1156,8 @@ replacing for all.
 Some use cases require different session classes for the listener and
 the connection handlers.  This isn't currently supported.  Please send
 patches. :)
+
+TODO - Rename C<Args> into C<ClientArgs>.
 
 =head1 AUTHORS & COPYRIGHTS
 
