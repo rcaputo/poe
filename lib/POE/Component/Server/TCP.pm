@@ -547,15 +547,12 @@ POE::Component::Server::TCP - a simplified TCP server
     Port => 12345,
     ClientConnected => sub {
       print "got a connection from $_[HEAP]{remote_ip}\n";
-      $_[HEAP]{client}->put("Smile from the server.");
+      $_[HEAP]{client}->put("Smile from the server!");
     },
     ClientInput => sub {
       my $client_input = $_[ARG0];
       $client_input =~ tr[a-zA-Z][n-za-mN-ZA-M];
       $_[HEAP]{client}->put($client_input);
-    },
-    ClientDisconnected => sub {
-      print "client from $_[HEAP]{remote_ip} disconnected\n";
     },
   );
 
@@ -563,8 +560,7 @@ POE::Component::Server::TCP - a simplified TCP server
   exit;
 
 -><- OLD SYNOPSIS FOLLOWS
-
-  use POE qw(Component::Server::TCP);
+-><- This is incomplete.  I'm gutting it as things are covered.
 
   ### First form just accepts connections.
 
@@ -666,14 +662,127 @@ POE::Component::Server::TCP - a simplified TCP server
 
 =head1 DESCRIPTION
 
-The TCP server component hides a generic TCP server pattern.  It uses
-POE::Wheel::SocketFactory and POE::Wheel::ReadWrite internally,
-creating a new session for each connection to arrive.
+POE::Component::Server::TCP implements a generic multi-Session server.
+Simple services may be put together in a few lines of code.  For
+example, a server that echoes input back to the client:
 
-The authors hope that generic servers can be created with as little
-work as possible.  Servers with uncommon requirements may need to be
-written using the wheel classes directly.  That isn't terribly
-difficult.  A tutorial at http://poe.perl.org/ describes how.
+  use POE qw(Component::Server::TCP);
+  POE::Component::Server::TCP->new(
+    Port => 12345,
+    ClientInput => sub { $_[HEAP]{client}->put($_[ARG0]) },
+  );
+  POE::Kernel->run();
+
+=head2 Accepting Connections Yourself
+
+POE::Component::Server::TCP has a default mode where it accepts new
+connections and creates the sessions to handle them.  Programs can do
+this themselves by providing their own C<Acceptor> callbacks.  See
+L</Acceptor> for details.
+
+=head2 Master Listener Session
+
+At creation time, POE::Component::Server::TCP starts one POE::Session
+to listen for new connections.  The component's C<Alias> refers to
+this master session.
+
+If C<Acceptor> is specified, then it's up to that callback to deal
+with newly accepted sockets.  Its parameters are that of
+POE::Wheel::SocketFactory's C<SuccessEvent>.
+
+Otherwise, the default C<Acceptor> callback will start a new session
+to handle each connection.  These child sessions do not have their own
+aliases, but their C<ClientConnected> and C<ClientDisconnected>
+callbacks may register and unregister the sessions with a shared
+namespace of their own.
+
+The component's C<Started> callback is invoked at the end of the
+master session's startup routine.  This callback's parameters are
+the usual ones for C<_start>.
+
+The component's C<Error> callback is invoked when the server has a
+problem listening for connections.  C<Error> may also be called if the
+component's default acceptor has trouble accepting a connection.
+C<Error> receives the usual ones for POE::Wheel::SocketFactory and
+POE::Wheel::ReadWrite L<ErrorEvent>.
+
+=head2 Default Child Connection Sessions
+
+If C<Acceptor> isn't specified, POE::Component::Server::TCP's default
+handler will start a new session for each new client connection.  As
+mentioned above, these child sessions have no aliases of their own,
+but they may set aliases or register themselves another way during
+their C<ClientConnected> and C<ClientDisconnected> callbacks.
+
+It can't be stressed enough that the following callbacks are executed
+within the context of dynamic child sessions---one per client
+connection---and not in the master listening session.  This has been a
+major point of confusion.  We welcome suggestions for making this
+clearer.
+
+TODO - Document some of the implications of having each connection
+handled by a separate session.
+
+The component's C<ClientInput> callback defines how child sessions
+will handle input from their clients.  Its parameters are that of
+POE::Wheel::ReadWrite's C<InputEvent>.
+
+C<ClientConnected> is called at the end of the child session's
+C<_start> routine.  In addition to the usual C<_start> parameters, it
+includes the socket in $_[ARG0] and the contents of the component's
+C<Args> constructor parameter in $_[ARG1].
+
+TODO - Should C<Args> be flattened into C<ARG1..$%_>?
+
+C<ClientDisconnected> is called when the client has disconnected,
+either because the remote socket endpoint has closed or the local
+endpoint has been closed by the server.  This doesn't mean the
+client's session has ended, but the session most likely will very
+shortly.  C<ClientDisconnected> is called from a couple disparate
+places within the component, so its parameters are neither consistent
+nor generally useful.
+
+C<ClientError> is called when an error has occurred on the socket.
+Its parameters are those of POE::Wheel::ReadWrite's C<ErrorEvent>.
+
+C<ClientFlushed> is called when all pending output has been flushed to
+the client socket.  Its parameters come from POE::Wheel::ReadWrite's
+C<ErrorEvent>.
+
+=head2 Performance Considerations
+
+This ease of use comes at a price: POE::Component::Server::TCP often
+performs significantly slower than a comparable server written with
+POE::Wheel::SocketFactory and POE::Wheel::ReadWrite.
+
+If performance is your primary goal, POE::Kernel's select_read() and
+select_write() perform about the same as IO::Select, but your code
+will be portable across every event loop POE supports.
+
+=head2 Special Needs Considerations
+
+POE::Component::Server::TCP is written to be easy for the most common
+use cases.  Programs with more special needs should consider using
+POE::Wheel::SocketFactory and POE::Wheel::ReadWrite instead.  These
+are lower-level modules, and using them requires more effort.  They
+are more flexible and customizable, however.
+
+=head1 PUBLIC METHODS
+
+=head2 Constructor
+
+POE::Component::Server::TCP does a lot of work in its constructor.
+The design goal is to push as much overhead into one-time construction
+so that ongoing runtime has less overhead.  Because of this, the
+server's constructor can take quite a daunting number of parameters.
+
+POE::Component::Server::TCP always returns a POE::Session ID for the
+session that will be listening for new connections.
+
+Man of the constructor parameters have been previously described.
+They are covered briefly again below.
+
+-><- AM HERE -><-
 
 =head1 CONSTRUCTOR PARAMETERS
 

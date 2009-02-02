@@ -1271,8 +1271,9 @@ and Y dimensions in pixels:
     Winsize => [ 25, 80, 1024, 768 ],
   );
 
-Winsize is only valid for the "pty" or "pty-pipe" Conduit.  Other
-conduits don't simulate terminals, so they don't have window sizes.
+Winsize is only valid for conduits that use pseudo-ttys: "pty" and
+"pty-pipe".  Other conduits don't simulate terminals, so they don't
+have window sizes.
 
 Winsize defaults to the parent process' window size, assuming the
 parent process has a terminal to query.
