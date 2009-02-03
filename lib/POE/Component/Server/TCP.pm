@@ -97,10 +97,21 @@ sub new {
   my $client_infilter     = delete $param{ClientInputFilter};
   my $client_outfilter    = delete $param{ClientOutputFilter};
   my $client_flushed      = delete $param{ClientFlushed};
-  my $args                = delete $param{Args};
   my $session_type        = delete $param{SessionType};
   my $session_params      = delete $param{SessionParams};
   my $server_started      = delete $param{Started};
+
+  if (exists $param{Args}) {
+    if (exists $param{ClientArgs}) {
+      carp "Args is deprecated, and ignored since ClientArgs is present";
+      delete $param{Args};
+    }
+    else {
+      carp "Args is deprecated but allowed for now.  Please use ClientArgs";
+    }
+  }
+
+  my $args                = delete($param{ClientArgs}) || delete($param{Args});
 
   # Defaults.
 
@@ -156,7 +167,7 @@ sub new {
     croak "ObjectsStates must be a list or array reference"
       unless ref($object_states) eq 'ARRAY';
 
-    croak "Args must be an array reference"
+    croak "ClientArgs must be an array reference"
       unless ref($args) eq 'ARRAY';
 
     # Revise the acceptor callback so it spawns a session.
@@ -845,33 +856,39 @@ server down.
     $_[KERNEL]->sig_handled();
   }
 
+=head4 ClientArgs
+
+C<ClientArgs> is optional.  When specified, it holds an ARRAYREF that
+will be passed to the C<ClientStarted> callback in $_[ARG1].
+(ClientStarted's $_[ARG0] contains the newly accepted client socket.)
+
+=head4 ClientConnected
+
+The C<ClientConnected> callback is used to notify each new client
+session that it has started.  C<ClientConnected> callbacks receive the
+usual POE parameters plus: The newly accepted client socket in
+$_[ARG0] and the ARRAYREF specified in C<ClientArgs> in $_[ARG1].
+
+C<ClientConnected> is called once per session startup.  It will never
+be called twice in the same session.
+
+TODO - Example with Args and client socket examination.
+
+=head4 ClientDisconnected
+
+C<ClientDisconnected> is a callback that will be invoked when the
+client disconnects or has been disconnected by the server.  It's
+useful for cleaning up global client information, such as chat room
+structures.  C<ClientDisconnected> callbacks receive the usual POE
+parameters, but nothing special is included.
+
+TODO - Example with global cleanup.
+
 -><- AM HERE -><-
 
 =head1 CONSTRUCTOR PARAMETERS
 
-=item Args => ARRAYREF
-
-Args passes the ARRAYREF to the ClientConnected callback as ARG0.
-It allows you to send extra information to the sessions that handle 
-each client connection.
-
-=item ClientConnected => CODEREF
-
-ClientConnected sets the callback used to notify each new client
-session that it is started.  ClientConnected callbacks receive the
-usual POE parameters, plus a copy of whatever was specified in the
-component's C<Args> constructor parameter, as ARG0.
-
-The ClientConnected callback will not be called within the same
-session context twice.
-
-=item ClientDisconnected => CODEREF
-
-ClientDisconnected sets the callback used to notify a client session
-that the client has disconnected.
-
-ClientDisconnected callbacks receive the usual POE parameters, but
-nothing special is included.
+=over 2
 
 =item ClientError => CODEREF
 
