@@ -24,6 +24,9 @@ sub skip_tests {
   if ($test_name eq "k_signals_rerun" and $^O eq "MSWin32") {
     return "This test crashes Perl when run with Tk on $^O";
   }
+  if ($test_name eq "wheel_readline" and $^O eq "darwin") {
+    return "Event skips two of its own tests for the same reason";
+  }
 }
 
 =cut
