@@ -32,115 +32,115 @@ my %average;
 my %profile;
 
 sub _data_stat_initialize {
-    my ($self) = @_;
-    $self->_data_stat_reset;
-    $self->_data_ev_enqueue(
-      $self, $self, EN_STAT, ET_STAT, [ ],
-      __FILE__, __LINE__, undef, time() + $_stat_interval
-    );
+  my ($self) = @_;
+  $self->_data_stat_reset;
+  $self->_data_ev_enqueue(
+    $self, $self, EN_STAT, ET_STAT, [ ],
+    __FILE__, __LINE__, undef, time() + $_stat_interval
+  );
 }
 
 sub _data_stat_finalize {
-    my ($self) = @_;
-    $self->_data_stat_tick();
+  my ($self) = @_;
+  $self->_data_stat_tick();
 
-    if (TRACE_STATISTICS) {
+  if (TRACE_STATISTICS) {
+    POE::Kernel::_warn(
+      '<pr> ,----- Observed Statistics ' , ('-' x 47), ",\n"
+    );
+    foreach (sort keys %average) {
+      next if /epoch/;
       POE::Kernel::_warn(
-        '<pr> ,----- Observed Statistics ' , ('-' x 47), ",\n"
-      );
-      foreach (sort keys %average) {
-          next if /epoch/;
-          POE::Kernel::_warn(
-            sprintf "<pr> | %60.60s %9.1f  |\n", $_, $average{$_}
-          );
-      }
-
-      unless (keys %average) {
-          POE::Kernel::_warn '<pr> `', ('-' x 73), "'\n";
-          return;
-      }
-
-      # Division by zero sucks.
-      $average{interval}    ||= 1;
-      $average{user_events} ||= 1;
-
-      POE::Kernel::_warn(
-        '<pr> +----- Derived Statistics ', ('-' x 48), "+\n",
-        sprintf(
-          "<pr> | %60.60s %9.1f%% |\n",
-          'idle', 100 * $average{avg_idle_seconds} / $average{interval}
-        ),
-        sprintf(
-          "<pr> | %60.60s %9.1f%% |\n",
-          'user', 100 * $average{avg_user_seconds} / $average{interval}
-        ),
-        sprintf(
-          "<pr> | %60.60s %9.1f%% |\n",
-          'blocked', 100 * $average{avg_blocked} / $average{user_events}
-        ),
-        sprintf(
-          "<pr> | %60.60s %9.1f  |\n",
-          'user load', $average{avg_user_events} / $average{interval}
-        ),
-        '<pr> `', ('-' x 73), "'\n"
+        sprintf "<pr> | %60.60s %9.1f  |\n", $_, $average{$_}
       );
     }
 
-    if (TRACE_PROFILE) {
-      stat_show_profile();
+    unless (keys %average) {
+      POE::Kernel::_warn '<pr> `', ('-' x 73), "'\n";
+      return;
     }
+
+    # Division by zero sucks.
+    $average{interval}    ||= 1;
+    $average{user_events} ||= 1;
+
+    POE::Kernel::_warn(
+      '<pr> +----- Derived Statistics ', ('-' x 48), "+\n",
+      sprintf(
+        "<pr> | %60.60s %9.1f%% |\n",
+        'idle', 100 * $average{avg_idle_seconds} / $average{interval}
+      ),
+      sprintf(
+        "<pr> | %60.60s %9.1f%% |\n",
+        'user', 100 * $average{avg_user_seconds} / $average{interval}
+      ),
+      sprintf(
+        "<pr> | %60.60s %9.1f%% |\n",
+        'blocked', 100 * $average{avg_blocked} / $average{user_events}
+      ),
+      sprintf(
+        "<pr> | %60.60s %9.1f  |\n",
+        'user load', $average{avg_user_events} / $average{interval}
+      ),
+      '<pr> `', ('-' x 73), "'\n"
+    );
+  }
+
+  if (TRACE_PROFILE) {
+    stat_show_profile();
+  }
 }
 
 sub _data_stat_add {
-    my ($self, $key, $count) = @_;
-    $_stat_metrics->[$_stat_wpos] ||= {};
-    $_stat_metrics->[$_stat_wpos]->{$key} += $count;
+  my ($self, $key, $count) = @_;
+  $_stat_metrics->[$_stat_wpos] ||= {};
+  $_stat_metrics->[$_stat_wpos]->{$key} += $count;
 }
 
 sub _data_stat_tick {
-    my ($self) = @_;
+  my ($self) = @_;
 
-    my $pos = $_stat_rpos;
-    $_stat_wpos = ($_stat_wpos+1) % $_stat_window_size;
-    if ($_stat_wpos == $_stat_rpos) {
-  $_stat_rpos = ($_stat_rpos+1) % $_stat_window_size;
-    }
+  my $pos = $_stat_rpos;
+  $_stat_wpos = ($_stat_wpos+1) % $_stat_window_size;
+  if ($_stat_wpos == $_stat_rpos) {
+    $_stat_rpos = ($_stat_rpos+1) % $_stat_window_size;
+  }
 
-    my $count = 0;
-    %average = ();
-    my $epoch = 0;
-    while ($count < $_stat_window_size && $_stat_metrics->[$pos]->{epoch}) {
-   $epoch = $_stat_metrics->[$pos]->{epoch} unless $epoch;
-  while (my ($k,$v) = each %{$_stat_metrics->[$pos]}) {
+  my $count = 0;
+  %average = ();
+  my $epoch = 0;
+  while ($count < $_stat_window_size && $_stat_metrics->[$pos]->{epoch}) {
+    $epoch = $_stat_metrics->[$pos]->{epoch} unless $epoch;
+    while (my ($k,$v) = each %{$_stat_metrics->[$pos]}) {
       next if $k eq 'epoch';
       $average{$k} += $v;
+    }
+    $count++;
+    $pos = ($pos+1) % $_stat_window_size;
   }
-  $count++;
-  $pos = ($pos+1) % $_stat_window_size;
-    }
 
-    if ($count) {
-        my $now = time();
-   map { $average{"avg_$_"} = $average{$_} / $count } keys %average;
-   $average{total_duration} = $now - $epoch;
-   $average{interval}       = ($now - $epoch) / $count;
-    }
+  if ($count) {
+    my $now = time();
+    map { $average{"avg_$_"} = $average{$_} / $count } keys %average;
+    $average{total_duration} = $now - $epoch;
+    $average{interval}       = ($now - $epoch) / $count;
+  }
 
-    $self->_data_stat_reset;
-    $self->_data_ev_enqueue(
-      $self, $self, EN_STAT, ET_STAT, [ ],
-      __FILE__, __LINE__, undef, time() + $_stat_interval
-    ) if $self->_data_ses_count() > 1;
+  $self->_data_stat_reset;
+  $self->_data_ev_enqueue(
+    $self, $self, EN_STAT, ET_STAT, [ ],
+    __FILE__, __LINE__, undef, time() + $_stat_interval
+  ) if $self->_data_ses_count() > 1;
 }
 
 sub _data_stat_reset {
-    $_stat_metrics->[$_stat_wpos] = {
-      epoch => time,
-      idle_seconds => 0,
-      user_seconds => 0,
-      kern_seconds => 0,
-      blocked_seconds => 0,
-    };
+  $_stat_metrics->[$_stat_wpos] = {
+    epoch => time,
+    idle_seconds => 0,
+    user_seconds => 0,
+    kern_seconds => 0,
+    blocked_seconds => 0,
+  };
 }
 
 # Profile this event.
