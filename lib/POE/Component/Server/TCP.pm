@@ -864,13 +864,17 @@ will be passed to the C<ClientStarted> callback in $_[ARG1].
 
 =head4 ClientConnected
 
-The C<ClientConnected> callback is used to notify each new client
-session that it has started.  C<ClientConnected> callbacks receive the
-usual POE parameters plus: The newly accepted client socket in
-$_[ARG0] and the ARRAYREF specified in C<ClientArgs> in $_[ARG1].
+Each new client connection is handled by a new POE::Session instance.
+C<ClientConnected> is a callback that notifies the application when a
+client's session is started and ready for operation.  Banners are
+often sent to the remote client from this callback.
+
+C<ClientConnected> callbacks receive the usual POE parameters plus:
+The newly accepted client socket in $_[ARG0] and the ARRAYREF
+specified in C<ClientArgs> in $_[ARG1].
 
 C<ClientConnected> is called once per session startup.  It will never
-be called twice in the same session.
+be called twice for the same connection.
 
 TODO - Example with Args and client socket examination.
 
@@ -884,66 +888,65 @@ parameters, but nothing special is included.
 
 TODO - Example with global cleanup.
 
+=head4 ClientError
+
+The C<ClientError> callback is invoked when an error occurs on the
+client socket.  C<ClientError> is called with POE's usual parameters,
+plus the common error parameters: $_[ARG0] describes what was
+happening at the time of failure.  $_[ARG1] and $_[ARG2] contain the
+numeric and string versions of $!.
+
+C<ClientError> is optional.  If omitted, POE::Component::Server::TCP
+will provide a default callback that logs most errors to STDERR.
+
+If C<ClientShutdownOnError> is set, the connection will be shut down
+after C<ClientError> returns.  If C<ClientDisconnected> is specified,
+it will be called as the client session is cleaned up.
+
+C<ClientError> is triggered by POE::Wheel::ReadWrite's ErrorEvent, so
+it follows that event's form.  Please see the ErrorEvent documentation
+in POE::Wheel::ReadWrite for more details.
+
+TODO - Another edit pass for clarity.
+
+=head4 ClientFilter
+
+C<ClientFilter> specifies the POE::Filter object or class that will
+parse input from each client and serialize output before it's sent to
+each client.
+
+C<ClientFilter> may be a SCALAR, in which case it should name the
+POE::Filter class to use.  Each new connection will be given a freshly
+instantiated filter of that class.  No constructor parameters will be
+passed.
+
+  ClientFIlter => "POE::Filter::Stream",
+
+Some filters require constructor parameters.  These may be specified
+by an ARRAYREF.  The first element is the POE::Filter class name, and
+subsequent elements are passed to the class' constructor.
+
+  ClientFilter => [ "POE::Filter::Line", Literal => "\n" ],
+
+C<ClientFilter> may also be given an archetypical POE::Filter OBJECT.
+In this case, each new client session will receive a clone() of the
+given object.
+
+  ClientFilter => POE::Filter::Line->new(Literal => "\n"),
+
+C<ClientFilter> is optional.  The component will use
+"POE::Filter::Line" if it is omitted.
+
+Filter modules are not automatically loaded.  Be sure that the program
+loads the class before using it.
+
 -><- AM HERE -><-
 
-=head1 CONSTRUCTOR PARAMETERS
+=head4 ClientInputFilter
 
-=over 2
+=head4 ClientOutputFilter
 
-=item ClientError => CODEREF
-
-ClientError sets the callback used to notify a client session that
-there has been an error on the connection.
-
-It receives POE's usual error handler parameters: ARG0 is the name of
-the function that failed.  ARG1 is the numeric failure code ($! in
-numeric context).  ARG2 is the string failure code ($! in string
-context), and so on.
-
-POE::Wheel::ReadWrite discusses the error parameters in more detail.
-
-A default error handler will be provided if ClientError is omitted.
-The default handler will log most errors to STDERR.
-
-The value of ClientShutdownOnError determines whether the connection
-will be shutdown after errors are received.  It is the client
-shutdown, not the error, that invokes ClientDisconnected callbacks.
-
-=item ClientFilter => SCALAR
-
-=item ClientFilter => ARRAYREF
-
-=item ClientFilter => OBJECT
-
-ClientFilter specifies the type of filter that will parse input from
-each client, and optionally any constructor arguments used to create
-each filter instance.
-
-It can take a class name, an arrayref, or a POE::Filter object.
-
-If ClientFilter contains a SCALAR, it defines the name of the
-POE::Filter class.  Default constructor parameters will be used to
-create instances of that filter.
-
-  ClientFilter => "POE::Filter::Stream",
-
-If ClientFilter contains a list reference, the first item in the list
-will be a POE::Filter class name, and the remaining items will be
-constructor parameters for the filter.  For example, this changes the
-line separator to a vertical bar:
-
-  ClientFilter => [ "POE::Filter::Line", Literal => "|" ],
-
-If ClientFilter contains an object, it will have a clone method called
-on it each time a client connects.
-
-  ClientFilter => POE::Filter::Block->new()
-
-ClientFilter is optional.  The component will use "POE::Filter::Line"
-if it is omitted.
-
-If you supply a different value for Filter, then you must also C<use>
-that filter class.
+-><-
 
 =item ClientInputFilter => SCALAR
 
