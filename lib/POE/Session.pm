@@ -41,7 +41,7 @@ sub _define_assert {
   no strict 'refs';
   foreach my $name (@_) {
 
-    BEGIN { $^W = 0 };
+    local $^W = 0;
 
     next if defined *{"ASSERT_$name"}{CODE};
     if (defined *{"POE::Kernel::ASSERT_$name"}{CODE}) {
@@ -63,7 +63,7 @@ sub _define_assert {
 sub _define_trace {
   no strict 'refs';
 
-  BEGIN { $^W = 0 };
+  local $^W = 0;
 
   foreach my $name (@_) {
     next if defined *{"TRACE_$name"}{CODE};
