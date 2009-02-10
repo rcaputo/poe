@@ -51,9 +51,14 @@ sub loop_resume_time_watcher {
   $self->loop_pause_time_watcher();
   my $timeout = $next_time - time();
 
-  $timeout = "idle" if $timeout < 0;
+  if ( $timeout < 0 ) {
+    $timeout = "idle";
+  } else {
+    $timeout *= 1000;
+  }
+
   $_watcher_time = $poe_main_window->after(
-    $timeout * 1000, [ sub { } ]
+    $timeout, [ sub { } ]
   );
 }
 
