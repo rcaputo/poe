@@ -940,35 +940,27 @@ C<ClientFilter> is optional.  The component will use
 Filter modules are not automatically loaded.  Be sure that the program
 loads the class before using it.
 
--><- AM HERE -><-
-
 =head4 ClientInputFilter
+
+C<ClientInputFilter> is used with C<ClientOutputFilter> to specify
+different protocols for input and output.  Both must be used together.
+Both follow the same usage as L</ClientFilter>.
+
+  ClientInputFilter  => [ "POE::Filter::Line", Literal => "\n" ],
+  ClientOutputFilter => 'POE::Filter::Stream',
 
 =head4 ClientOutputFilter
 
--><-
+C<ClientOutputFilter> is used with C<ClientInputFilter> to specify
+different protocols for input and output.  Both must be used together.
+Both follow the same usage as L</ClientFilter>.
 
-=item ClientInputFilter => SCALAR
+  ClientInputFilter  => POE::Filter::Line->new(Literal => "\n"),
+  ClientOutputFilter => 'POE::Filter::Stream',
 
-=item ClientInputFilter => ARRAYREF
+-><- AM HERE -><-
 
-=item ClientInputFilter => OBJECT
-
-=item ClientOutputFilter => SCALAR
-
-=item ClientOutputFilter => ARRAYREF
-
-=item ClientOutputFilter => OBJECT
-
-ClientInputFilter and ClientOutputFilter act like ClientFilter, but
-they allow programs to specify different filters for input and output.
-Both must be used together.
-
-Usage is the same as ClientFilter.
-
-  ClientInputFilter  => [ "POE::Filter::Line", Literal => "|" ],
-  ClientOutputFilter => "POE::Filter::Stream",
-  ClientInputFilter  => POE::Filter::Block->new(),
+=over 2
 
 =item ClientInput => CODEREF
 
@@ -1178,6 +1170,8 @@ the connection handlers.  This isn't currently supported.  Please send
 patches. :)
 
 TODO - Rename C<Args> into C<ClientArgs>.
+
+TODO - Document that Reuse is set implicitly.
 
 =head1 AUTHORS & COPYRIGHTS
 
