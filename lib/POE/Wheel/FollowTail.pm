@@ -81,7 +81,7 @@ sub new {
   }
 
   my @start_stat;
-  @start_stat = stat($handle) if defined $handle;
+  @start_stat = stat($filename) if defined $filename;
   @start_stat = (-1) x 8 unless @start_stat;
 
   my $poll_interval = (
@@ -317,9 +317,11 @@ sub _define_timer_states {
           my @new_stat = stat($filename);
 
           TRACE_STAT_VERBOSE and do {
-            my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
-            my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
-            warn "<stat> @test_new" if "@test_new" ne "@test_old";
+            if (@new_stat) { # avoid warning about splicing empty array, heh!
+              my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
+              my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
+              warn "<stat> @test_new" if "@test_new" ne "@test_old";
+            }
           };
 
           if (@new_stat) {
