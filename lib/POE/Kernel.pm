@@ -5140,14 +5140,20 @@ When TRACE_PROFILE is enabled, a program may call
 C<< $_[KERNEL]->stat_show_profile() >> to display a current dispatch
 profile snapshot.
 
-=head3 stat_getprofile [ SESSION_OBJECT ]
+=head3 stat_getprofile [ SESSION ]
 
-stat_getprofile() returns a hash of events and the number of times they
-were dispatched. It only returns meaningful data if TRACE_PROFILE is enabled.
+stat_getprofile() returns a hash of events and the number of times
+they were dispatched.  It only returns meaningful data if
+TRACE_PROFILE is enabled.
 
-Furthermore, you can also pass a session for the same data, but per-session. This
-is transient data, and will return meaningful data if TRACE_PROFILE is enabled and
-the session actually exists.
+Without the optional SESSION parameter, stat_getprofile() returns
+cumulative statistics for the entire program.
+
+When given a valid SESSION, stat_getprofile() will return profile
+statistics for that session.
+
+stat_getprofile() returns nothing if TRACE_PROFILE isn't enabled, or
+if the given SESSION doesn't exist.
 
 =head2 TRACE_REFCNT
 

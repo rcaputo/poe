@@ -28,9 +28,11 @@ my $_stat_rpos        = 0;  # where to currently write metrics (circ. buffer)
 my %average;
 
 # This is for collecting event frequencies if TRACE_PROFILE is
-# enabled. Also collects transient events per-session.
+# enabled.
 my %profile;
-my %profile_transient;
+
+# Per-session profiling data.
+my %profile_session;
 
 sub _data_stat_initialize {
   my ($self) = @_;
@@ -146,12 +148,7 @@ sub _data_stat_reset {
 
 sub _data_stat_clear_session {
   my ($self, $session) = @_;
-  if ( exists $profile_transient{$session->ID} ) { # avoid autoviv
-    delete $profile_transient{$session->ID};
-  } else {
-    # TODO - we fail some tests because we never emit an event...
-    #_trap "internal inconsistency (session does not exist)";
-  }
+  delete $profile_session{$session};
   return;
 }
 
@@ -160,7 +157,7 @@ sub _data_stat_clear_session {
 sub _stat_profile {
   my ($self, $event, $session) = @_;
   $profile{$event}++;
-  $profile_transient{$session->ID}{$event}++;
+  $profile_session{$session}{$event}++;
   return;
 }
 
@@ -173,21 +170,19 @@ sub stat_getdata {
 sub stat_getprofile {
   my ($self, $session) = @_;
 
-  # return the transient statistics if we received a valid session
-  if ( defined $session ) {
-    $session = $poe_kernel->_resolve_session( $session );
-    return if ! defined $session;
-    $session = $session->ID;
+  # Nothing to do if tracing is off.  But someone may call this anyway.
+  return unless TRACE_PROFILE;
 
-    if ( exists $profile_transient{$session} ) {
-      return %{ $profile_transient{$session} };
-    } else {
-      return;
-    }
-  }
+  # Return global profile if session isn't specified.
+  return %profile unless defined $session;
 
-  # the global profile
-  return %profile;
+  # Return a session profile, if the session resolves.
+  my $resolved_session = $poe_kernel->_resolve_session( $session );
+  return unless $resolved_session;
+
+  # No need to avoid autovivification.  The session is guaranteed to
+  # exist, so session cleanup will remove it anyway.
+  return $profile_session{$resolved_session};
 }
 
 sub stat_show_profile {
