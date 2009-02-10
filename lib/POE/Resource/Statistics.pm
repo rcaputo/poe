@@ -28,8 +28,9 @@ my $_stat_rpos        = 0;  # where to currently write metrics (circ. buffer)
 my %average;
 
 # This is for collecting event frequencies if TRACE_PROFILE is
-# enabled.
+# enabled. Also collects transient events per-session.
 my %profile;
+my %profile_transient;
 
 sub _data_stat_initialize {
   my ($self) = @_;
@@ -143,11 +144,24 @@ sub _data_stat_reset {
   };
 }
 
+sub _data_stat_clear_session {
+  my ($self, $session) = @_;
+  if ( exists $profile_transient{$session->ID} ) { # avoid autoviv
+    delete $profile_transient{$session->ID};
+  } else {
+    # TODO - we fail some tests because we never emit an event...
+    #_trap "internal inconsistency (session does not exist)";
+  }
+  return;
+}
+
 # Profile this event.
 
 sub _stat_profile {
-  my ($self, $event) = @_;
+  my ($self, $event, $session) = @_;
   $profile{$event}++;
+  $profile_transient{$session->ID}{$event}++;
+  return;
 }
 
 # Public routines...
@@ -157,6 +171,22 @@ sub stat_getdata {
 }
 
 sub stat_getprofile {
+  my ($self, $session) = @_;
+
+  # return the transient statistics if we received a valid session
+  if ( defined $session ) {
+    $session = $poe_kernel->_resolve_session( $session );
+    return if ! defined $session;
+    $session = $session->ID;
+
+    if ( exists $profile_transient{$session} ) {
+      return %{ $profile_transient{$session} };
+    } else {
+      return;
+    }
+  }
+
+  # the global profile
   return %profile;
 }
 

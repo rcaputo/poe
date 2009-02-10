@@ -874,7 +874,7 @@ sub _dispatch_event {
 
   my $local_event = $event;
 
-  $self->_stat_profile($event) if TRACE_PROFILE;
+  $self->_stat_profile($event, $session) if TRACE_PROFILE;
 
   # Pre-dispatch processing.
 
@@ -1692,6 +1692,8 @@ sub call {
   # mixing the two types makes it harder than necessary to write
   # deterministic programs, but the difficulty can be ameliorated if
   # programmers set some base rules and stick to them.
+
+  $self->_stat_profile($event_name, $session) if TRACE_PROFILE;
 
   if (wantarray) {
     my @return_value = (
@@ -5138,10 +5140,14 @@ When TRACE_PROFILE is enabled, a program may call
 C<< $_[KERNEL]->stat_show_profile() >> to display a current dispatch
 profile snapshot.
 
-=head3 stat_getprofile
+=head3 stat_getprofile [ SESSION_OBJECT ]
 
 stat_getprofile() returns a hash of events and the number of times they
 were dispatched. It only returns meaningful data if TRACE_PROFILE is enabled.
+
+Furthermore, you can also pass a session for the same data, but per-session. This
+is transient data, and will return meaningful data if TRACE_PROFILE is enabled and
+the session actually exists.
 
 =head2 TRACE_REFCNT
 

@@ -176,6 +176,10 @@ sub _data_ses_free {
   $self->_data_handle_clear_session($session); # Remove all leftover handles.
   $self->_data_ev_clear_session($session);     # Remove all leftover events.
 
+  if (TRACE_PROFILE) {
+    $self->_data_stat_clear_session($session);
+  }
+
   # Remove the session itself.
 
   delete $kr_sessions{$session};
