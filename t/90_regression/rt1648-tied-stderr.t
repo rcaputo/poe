@@ -83,11 +83,12 @@ BEGIN {
   use Tie::Handle;
   use vars qw(@ISA);
   @ISA = 'Tie::Handle';
+  use Symbol qw(gensym);
 
   sub TIEHANDLE {
     my $class = shift;
-    my $fh    = do { \local *HANDLE};
-    bless $fh,$class;
+    my $fh    = gensym();
+    bless $fh, $class;
     $fh->OPEN(@_) if (@_);
     return $fh;
   }

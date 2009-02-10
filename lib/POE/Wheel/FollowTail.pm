@@ -81,7 +81,8 @@ sub new {
   }
 
   my @start_stat;
-  @start_stat = stat($filename) if defined $handle;
+  @start_stat = stat($handle) if defined $handle;
+  @start_stat = (-1) x 8 unless @start_stat;
 
   my $poll_interval = (
     defined($params{PollInterval})

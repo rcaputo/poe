@@ -33,23 +33,26 @@ SKIP: {
   POE::Session->create(
     inline_states => {
       _start => sub {
+				my $sig_chld = $SIG{CHLD};
+				$sig_chld = "(undef)" unless defined $sig_chld;
+
         is(
           system( $command ), 0,
-          "System returns properly chld($SIG{CHLD}) err($!)"
+          "System returns properly chld($sig_chld) err($!)"
         );
         $! = undef;
 
         $_[KERNEL]->sig( 'CHLD', 'chld' );
         is(
           system( $command ), 0,
-          "System returns properly chld($SIG{CHLD}) err($!)"
+          "System returns properly chld($sig_chld) err($!)"
         );
         $! = undef;
 
         $_[KERNEL]->sig( 'CHLD' );
         is(
           system( $command ), 0,
-          "System returns properly chld($SIG{CHLD}) err($!)"
+          "System returns properly chld($sig_chld) err($!)"
         );
         $! = undef;
       },

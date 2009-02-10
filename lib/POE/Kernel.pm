@@ -863,8 +863,9 @@ sub _dispatch_event {
 
   if (TRACE_EVENTS) {
     my $log_session = $session;
-    $log_session =  $self->_data_alias_loggable($session)
-      unless $type & ET_START;
+    $log_session =  $self->_data_alias_loggable($session) unless (
+      $type & ET_START
+    );
     my $string_etc = join(" ", map { defined() ? $_ : "(undef)" } @$etc);
     _warn(
       "<ev> Dispatching event $seq ``$event'' ($string_etc) from ",

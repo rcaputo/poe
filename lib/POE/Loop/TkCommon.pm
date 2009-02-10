@@ -36,7 +36,7 @@ sub loop_attach_uidestroy {
         $self->_dispatch_event(
           $self, $self,
           EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-          __FILE__, __LINE__, time(), -__LINE__
+          __FILE__, __LINE__, undef, time(), -__LINE__
         );
       }
     }
@@ -116,7 +116,7 @@ sub Tk::Error {
     $poe_kernel->_dispatch_event(
       $poe_kernel, $poe_kernel,
       EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-      __FILE__, __LINE__, time(), -__LINE__
+      __FILE__, __LINE__, undef, time(), -__LINE__
     );
   }
 }

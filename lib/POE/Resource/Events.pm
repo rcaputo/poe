@@ -232,9 +232,10 @@ sub _data_ev_dispatch_due {
 
   if (TRACE_EVENTS) {
     foreach ($kr_queue->peek_items(sub { 1 })) {
+      my @event = map { defined() ? $_ : "(undef)" } @{$_->[ITEM_PAYLOAD]};
       _warn(
         "<ev> time($_->[ITEM_PRIORITY]) id($_->[ITEM_ID]) ",
-        "event(@{$_->[ITEM_PAYLOAD]})\n"
+        "event(@event)\n"
       );
     }
   }

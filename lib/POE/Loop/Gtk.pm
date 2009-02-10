@@ -93,7 +93,7 @@ sub loop_attach_uidestroy {
         $self->_dispatch_event
           ( $self, $self,
             EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-            __FILE__, __LINE__, time(), -__LINE__
+            __FILE__, __LINE__, undef, time(), -__LINE__
           );
       }
       return 0;

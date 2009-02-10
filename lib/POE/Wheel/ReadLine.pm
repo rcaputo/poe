@@ -2,6 +2,7 @@
 
 package POE::Wheel::ReadLine;
 
+use warnings;
 use strict;
 BEGIN { eval { require bytes } and bytes->import; }
 
@@ -26,9 +27,6 @@ my $termcap;         # Termcap entry.
 my $tc_bell;         # How to ring the terminal.
 my $tc_visual_bell;  # How to ring the terminal.
 my $tc_has_ce;       # Termcap can clear to end of line.
-
-# Screen extent.
-my ($trk_rows, $trk_cols);
 
 # Private STDIN and STDOUT.
 my $stdin  = gensym();
@@ -95,7 +93,6 @@ my (%normalized_character, @normalized_extra_width);
 my $ospeed = undef;
 my $termios = undef;
 my $term = undef;
-my $termios = undef;
 my $tc_left = undef;
 my $trk_cols = undef;
 my $trk_rows = undef;
@@ -2136,7 +2133,6 @@ sub rl_downcase_word {
   } else {
     $self->rl_ding;
   }
-  next;
 }
 
 sub rl_quoted_insert {
@@ -2985,10 +2981,11 @@ sub decode  {
   my ($self, $seq) = @_;
   if (exists $english_to_termcap{lc($seq)}) {
     my $key = $self->{termcap}->Tputs($english_to_termcap{lc($seq)}, 1);
-    $seq = $key;
+    $seq = defined($key) ? $key : "";
   } elsif (exists $english_to_key{lc($seq)}) {
     $seq = $english_to_key{lc($seq)};
   }
+
   return $seq;
 }
 

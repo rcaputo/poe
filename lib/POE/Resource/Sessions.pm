@@ -476,13 +476,13 @@ sub _data_ses_stop {
     $self->_dispatch_event(
       $parent, $self,
       EN_CHILD, ET_CHILD, [ CHILD_GAIN, $child ],
-      __FILE__, __LINE__, time(), -__LINE__
+      __FILE__, __LINE__, undef, time(), -__LINE__
     );
     $self->_dispatch_event(
       $child, $self,
       EN_PARENT, ET_PARENT,
       [ $self->_data_ses_get_parent($child), $parent, ],
-      __FILE__, __LINE__, time(), -__LINE__
+      __FILE__, __LINE__, undef, time(), -__LINE__
     );
   }
 
@@ -491,7 +491,7 @@ sub _data_ses_stop {
   my $stop_return = $self->_dispatch_event(
     $session, $self->get_active_session(),
     EN_STOP, ET_STOP, [],
-    __FILE__, __LINE__, time(), -__LINE__
+    __FILE__, __LINE__, undef, time(), -__LINE__
   );
 
   # If the departing session has a parent, notify it that the session
@@ -501,7 +501,7 @@ sub _data_ses_stop {
     $self->_dispatch_event(
       $parent, $self,
       EN_CHILD, ET_CHILD, [ CHILD_LOSE, $session, $stop_return ],
-      __FILE__, __LINE__, time(), -__LINE__
+      __FILE__, __LINE__, undef, time(), -__LINE__
     );
   }
 
