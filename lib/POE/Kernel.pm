@@ -370,7 +370,7 @@ BEGIN {
 #
 # XXX - There must be a better mechanism.
 #
-my $idle_queue_size = TRACE_PROFILE ? 1 : 0;
+my $idle_queue_size = TRACE_STATISTICS ? 1 : 0;
 
 sub _idle_queue_grow   { $idle_queue_size++; }
 sub _idle_queue_shrink { $idle_queue_size--; }
