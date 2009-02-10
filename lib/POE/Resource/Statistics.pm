@@ -182,7 +182,7 @@ sub stat_getprofile {
 
   # No need to avoid autovivification.  The session is guaranteed to
   # exist, so session cleanup will remove it anyway.
-  return $profile_session{$resolved_session};
+  return %{$profile_session{$resolved_session}};
 }
 
 sub stat_show_profile {
