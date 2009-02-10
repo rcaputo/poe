@@ -10,7 +10,7 @@ use strict;
 use lib '../lib';
 use POE qw(Component::Server::TCP Wheel::ReadWrite Driver::SysRW Filter::Line);
 
-my $chargen_port = 32019;
+my $chargen_port = 32100;
 
 #==============================================================================
 # This is a simple chargen service.

@@ -27,7 +27,7 @@ use POE;
 use IO::Socket;
 use POSIX qw(EAGAIN);
                                         # the chargen server's listen port
-my $chargen_port = 30019;
+my $chargen_port = 32100;
 
 #==============================================================================
 # This is the session that will handle a client connection to the

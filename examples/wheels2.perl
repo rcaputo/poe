@@ -9,6 +9,10 @@ use strict;
 use lib '../lib';
 use POSIX;
 
+BEGIN {
+  die "This example uses the console, but $^O doesn't support select() on console handles, sorry." if $^O eq "MSWin32";
+}
+
 use POE qw(Wheel::SocketFactory Wheel::ReadWrite Driver::SysRW Filter::Stream);
 
 my $rot13_port = 32100;

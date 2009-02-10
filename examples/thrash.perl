@@ -25,7 +25,7 @@ sub MAX_SIMULTANEOUS_CLIENTS () { 5 }
 sub DEBUG () { 0 }
                                         # address and port the server binds to
 my $server_addr = '127.0.0.1';
-my $server_port = 31415;
+my $server_port = 32100;
 
 ###############################################################################
 # This is a single client session.  It uses two separator wheels: a
