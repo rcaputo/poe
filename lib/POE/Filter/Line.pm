@@ -277,6 +277,9 @@ default parser interprets newlines as the record terminator, and the
 default serializer appends network newlines (CR/LF, or "\x0D\x0A") to
 outbound records.
 
+Record terminators are removed from the data POE::Filter::Line
+returns.
+
 POE::Filter::Line supports a number of other ways to parse lines.
 Constructor parameters may specify literal newlines, regular
 expressions, or that the filter should detect newlines on its own.
@@ -288,6 +291,9 @@ POE::Filter::Line's new() method has some interesting parameters.
 =head2 new
 
 new() accepts a list of named parameters.
+
+In all cases, the data interpreted as the record terminator is
+stripped from the data POE::Filter::Line returns.
 
 C<InputLiteral> may be used to parse records that are terminated by
 some literal string.  For example, POE::Filter::Line may be used to
