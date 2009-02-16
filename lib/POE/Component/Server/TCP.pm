@@ -570,107 +570,6 @@ POE::Component::Server::TCP - a simplified TCP server
   POE::Kernel->run;
   exit;
 
--><- OLD SYNOPSIS FOLLOWS
--><- This is incomplete.  I'm gutting it as things are covered.
-
-  ### First form just accepts connections.
-
-  my $acceptor_session_id = POE::Component::Server::TCP->new(
-    Port     => $bind_port,
-    Address  => $bind_address,    # Optional.
-    Hostname => $bind_hostname,   # Optional.
-    Domain   => AF_INET,          # Optional.
-    Alias    => $session_alias,   # Optional.
-    Acceptor => \&accept_handler,
-    Error    => \&error_handler,  # Optional.
-  );
-
-  ### Second form also handles connections.
-
-  my $acceptor_session_id = POE::Component::Server::TCP->new(
-    Port     => $bind_port,
-    Address  => $bind_address,      # Optional.
-    Hostname => $bind_hostname,     # Optional.
-    Domain   => AF_INET,            # Optional.
-    Alias    => $session_alias,     # Optional.
-    Error    => \&error_handler,    # Optional.
-    Args     => [ "arg0", "arg1" ], # Optional.
-    Concurrency => -1,              # Optional.
-
-    SessionType   => "POE::Session::Abc",           # Optional.
-    SessionParams => [ options => { debug => 1 } ], # Optional.
-
-    ClientInput        => \&handle_client_input,      # Required.
-    ClientConnected    => \&handle_client_connect,    # Optional.
-    ClientDisconnected => \&handle_client_disconnect, # Optional.
-    ClientError        => \&handle_client_error,      # Optional.
-    ClientFlushed      => \&handle_client_flush,      # Optional.
-    ClientFilter       => POE::Filter::Xyz->new()",   # Optional.
-    ClientInputFilter  => POE::Filter::Xyz->new(),    # Optional.
-    ClientOutputFilter => POE::Filter::Xyz->new(),    # Optional.
-    ClientShutdownOnError => 0,                       # Optional.
-
-    # Optionally define other states for the client session.
-    InlineStates  => { ... },
-    PackageStates => [ ... ],
-    ObjectStates  => [ ... ],
-  );
-
-  ### Call signatures for handlers.
-
-  sub accept_handler {
-    my ($socket, $remote_address, $remote_port) = @_[ARG0, ARG1, ARG2];
-  }
-
-  sub error_handler {
-    my ($syscall_name, $error_number, $error_string) = @_[ARG0, ARG1, ARG2];
-  }
-
-  sub handle_client_input {
-    my $input_record = $_[ARG0];
-  }
-
-  sub handle_client_error {
-    my ($syscall_name, $error_number, $error_string) = @_[ARG0, ARG1, ARG2];
-  }
-
-  sub handle_client_connect {
-    # no special parameters
-  }
-
-  sub handle_client_disconnect {
-    # no special parameters
-  }
-
-  sub handle_client_flush {
-    # no special parameters
-  }
-
-  ### Reserved HEAP variables:
-
-  $heap->{listener}    = SocketFactory (only Acceptor and Error callbacks)
-  $heap->{client}      = ReadWrite     (only in ClientXyz callbacks)
-  $heap->{remote_ip}   = remote IP address in dotted form
-  $heap->{remote_port} = remote port
-  $heap->{remote_addr} = packed remote address and port
-  $heap->{shutdown}    = shutdown flag (check to see if shutting down)
-  $heap->{shutdown_on_error} = Automatically disconnect on error.
-
-  ### Accepted public events.
-
-  # Start shutting down this connection.
-  $kernel->yield( "shutdown" );
-
-  # Stop listening for connections.
-  $kernel->post( server => "shutdown" );
-
-  # Set the maximum number of simultaneous connections.
-  $kernel->call( server => set_concurrency => $count );
-
-  ### Responding to a client.
-
-  $heap->{client}->put(@things_to_send);
-
 =head1 DESCRIPTION
 
 POE::Component::Server::TCP implements a generic multi-Session server.
@@ -828,7 +727,10 @@ every application.  In some cases, a custom C<Acceptor> or even
 rolling one's own server with POE::Wheel::SocketFactory and
 POE::Wheel::ReadWrite may be better and/or faster.
 
-TODO - Example.
+  Acceptor => sub {
+    my ($socket, $remote_address, $remote_port) = @_[ARG0..ARG2];
+    # Set up something to interact with the client.
+  }
 
 =head5 Address
 
@@ -924,6 +826,11 @@ default handler will log the error to STDERR and shut down the server.
 Active connections will be permitted to to complete their
 transactions.
 
+  Error => sub {
+    my ($syscall_name, $err_num, $err_str) = @_[ARG0..ARG2];
+    # Handle the error.
+  }
+
 =head5 Hostname
 
 C<Hostname> is the optional non-packed name of the interface the TCP
@@ -1009,7 +916,12 @@ specified in C<ClientArgs> in $_[ARG1].
 C<ClientConnected> is called once per session startup.  It will never
 be called twice for the same connection.
 
-TODO - Example with Args and client socket examination.
+  ClientConnected => sub {
+    $_[HEAP]{client}->put("Hello, client!");
+    # Other client initialization here.
+  },
+
+TODO - Show Args and client socket introspection.
 
 =head5 ClientDisconnected
 
@@ -1019,15 +931,17 @@ useful for cleaning up global client information, such as chat room
 structures.  C<ClientDisconnected> callbacks receive the usual POE
 parameters, but nothing special is included.
 
-TODO - Example with global cleanup.
+  ClientDisconnected => sub {
+    warn "Client disconnected"; # log it
+  }
 
 =head5 ClientError
 
-The C<ClientError> callback is invoked when an error occurs on the
-client socket.  C<ClientError> is called with POE's usual parameters,
-plus the common error parameters: $_[ARG0] describes what was
-happening at the time of failure.  $_[ARG1] and $_[ARG2] contain the
-numeric and string versions of $!.
+The C<ClientError> callback is invoked when a client socket reports an
+error.  C<ClientError> is called with POE's usual parameters, plus the
+common error parameters: $_[ARG0] describes what was happening at the
+time of failure.  $_[ARG1] and $_[ARG2] contain the numeric and string
+versions of $!.
 
 C<ClientError> is optional.  If omitted, POE::Component::Server::TCP
 will provide a default callback that logs most errors to STDERR.
@@ -1040,7 +954,10 @@ C<ClientError> is triggered by POE::Wheel::ReadWrite's ErrorEvent, so
 it follows that event's form.  Please see the ErrorEvent documentation
 in POE::Wheel::ReadWrite for more details.
 
-TODO - Another edit pass for clarity.
+  ClientError => sub {
+    my ($syscall_name, $error_num, $error_str) = @_[ARG0..ARG2];
+    # Handle the client error here.
+  }
 
 =head5 ClientFilter
 
@@ -1073,6 +990,48 @@ C<ClientFilter> is optional.  The component will use
 Filter modules are not automatically loaded.  Be sure that the program
 loads the class before using it.
 
+=head5 ClientFlushed
+
+C<ClientFlushed> exposes POE::Wheel::ReadWrite's C<FlushedEvent> as a
+callback.  It is called whenever the client's output buffer has been
+fully flushed to the client socket.  At this point it's safe to shut
+down the socket without losing data.
+
+C<ClientFlushed> is useful for streaming servers, where a "flushed"
+event signals the need to send more data.
+
+  ClientFlushed => sub {
+    my $data_source = $_[HEAP]{file_handle};
+    my $read_count = sysread($data_source, my $buffer = "", 65536);
+    if ($read_count) {
+      $_[HEAP]{client}->put($buffer);
+    }
+    else {
+      $_[KERNEL]->yield("shutdown");
+    }
+  },
+
+POE::Component::Server::TCP's default C<Acceptor> ensures that data is
+flushed before finishing a client shutdown.
+
+=head5 ClientInput
+
+C<ClientInput> defines a per-connection callback to handle client
+input.  This callback receives its parameters directly from
+POE::Wheel::ReadWrite's C<InputEvent>.  ARG0 contains the input
+recored, the format of which is defined by C<ClientFilter> or
+C<ClientInputFilter>.  ARG1 has the wheel's unique ID, and so on.
+Please see POE:Wheel::ReadWrite for an in-depth description of
+C<InputEvent>.
+
+C<ClientInput> and C<Acceptor> are mutually exclusive.  Enabling one
+prohibits the other.
+
+  ClientInput => sub {
+    my $input = $_[ARG0];
+    $_[HEAP]{wheel}->put("You said: $input");
+  },
+
 =head5 ClientInputFilter
 
 C<ClientInputFilter> is used with C<ClientOutputFilter> to specify
@@ -1090,19 +1049,6 @@ Both follow the same usage as L</ClientFilter>.
 
   ClientInputFilter  => POE::Filter::Line->new(Literal => "\n"),
   ClientOutputFilter => 'POE::Filter::Stream',
-
-=head5 ClientInput
-
-C<ClientInput> defines a per-connection callback to handle client
-input.  This callback receives its parameters directly from
-POE::Wheel::ReadWrite's C<InputEvent>.  ARG0 contains the input
-recored, the format of which is defined by C<ClientFilter> or
-C<ClientInputFilter>.  ARG1 has the wheel's unique ID, and so on.
-Please see POE:Wheel::ReadWrite for an in-depth description of
-C<InputEvent>.
-
-C<ClientInput> and C<Acceptor> are mutually exclusive.  Enabling one
-prohibits the other.
 
 =head5 ClientShutdownOnError
 
@@ -1127,51 +1073,163 @@ array reference.
   SessionParams => [ options => { debug => 1, trace => 1 } ],
 
 Note: POE::Component::Server::TCP supplies its own POE::Session
-constructor parameters.  Conflicts may cause the component to behave
-erratically.  To avoid such problems, please limit SessionParams to
-the C<options> hash.  See L<POE::Session> for an known options.
+constructor parameters.  Conflicts between them and C<SessionParams>
+may cause the component to behave erratically.  To avoid such
+problems, please limit SessionParams to the C<options> hash.  See
+L<POE::Session> for an known options.
+
+We may enable other options later.  Please let us know if you need
+something.
 
 =head5 SessionType
 
 C<SessionType> specifies the POE::Session subclass that will be
-created for each new client connection.  "POE::Session" is its default.
+created for each new client connection.  "POE::Session" is the
+default.
 
   SessionType => "POE::Session::MultiDispatch"
-
--><- AM HERE -><-
 
 =head1 EVENTS
 
 It's possible to manipulate a TCP server component by sending it
 messages.
 
-=over 2
+=head2 Main Server Commands
 
-=item shutdown
+These events must be sent to the main server, usually by the alias set
+in its L<Alias> parameter.
 
-Shuts down the TCP server.  This entails destroying the SocketFactory
-that's listening for connections and removing the TCP server's alias,
-if one is set.
+=head3 disconnected
 
-Active connections are not shut down until they disconnect.
+The "disconnected" event informs the TCP server that a connection was
+closed.  It is needed when using L<Concurrency> with an L<Acceptor>
+callback.  The custom Acceptor must provide its own disconnect
+notification so that the server's connection counting logic works.
 
-=item disconnected
+Otherwise Concurrency clients will be accepted, and then no more.  The
+server will never know when clients have disconnected.
 
-Inform the TCP server that a connection was closed.  This is only necessary
-when using C<Concurrency> is set and you are using an L<Acceptor> callback.
+=head3 set_concurrency
 
-=item set_concurrency
+"set_concurrency" set the number of simultaneous connections the
+server will be willing to accept.  See L<Concurrency> for more
+details.  "set_concurrency" must have one parameter: the new maximum
+connection count.
 
-Set the number of simultaneous connections.  See L<Concurrency> above.
+  $kernel->call("my_server_alias", "set_concurrency", $max_count);
 
-  $kernel->call( "tcp_server_alias", "set_concurrency", $max_count );
+=head3 shutdown
 
-=back
+The "shutdown" event starts a graceful server shutdown.  No new
+connections will be accepted.  Existing connections will be allowed to
+finish.  The server will be destroyed after the last connection ends.
+
+=head2 Per-Connection Commands
+
+These commands affect each client connection session.
+
+=head3 shutdown
+
+Sending "shutdown" to an individual client session instructs the
+server to gracefully shut down that connection.  No new input will be
+received, and any buffered output will be sent before the session
+ends.
+
+Client sessions usually yield("shutdown") when they wish to disconnect
+the client.
+
+  ClientInput => sub {
+    if ($_[ARG0] eq "quit") {
+      $_[HEAP]{client}->put("B'bye!");
+      $_[KERNEL]->yield("shutdown");
+      return;
+    }
+
+    # Handle other input here.
+  },
+
+=head1 Reserved HEAP Members
+
+Unlike most POE modules, POE::Component::Server::TCP stores data in
+the client sessions' HEAPs.  These values are provided as conveniences
+for application developers.
+
+=head2 HEAP Members for Master Listening Sessions
+
+The master listening session holds different data than client
+connections.
+
+=head3 alias
+
+$_[HEAP]{alias} contains the server's Alias.
+
+=head3 concurrency
+
+$_[HEAP]{concurrency} remembers the server's C<Concurrency> parameter.
+
+=head3 connections
+
+$_[HEAP]{connections} is used to track the current number of
+concurrent client connections.  It's incremented whenever a new
+connection is accepted, and it's decremented whenever a client
+disconnects.
+
+=head3 listener
+
+$_[HEAP]{listener} contains the POE::Wheel::SocketFactory object used
+to listen for connections and accept them.
+
+=head2 HEAP Members for Connection Sessions
+
+These data members exist within the individual connections' sessions.
+
+=head3 client
+
+$_[HEAP]{client} contains a POE::Wheel::ReadWrite object used to
+interact with the client.  All POE::Wheel::ReadWrite methods work.
+
+=head3 got_an_error
+
+$_[HEAP]{got_an_error} remembers whether the client connection has
+already encountered an error.  It is part of the shutdown-on-error
+procedure.
+
+=head3 remote_ip
+
+$_[HEAP]{remote_ip} contains the remote client's nuermic address in
+human-readable form.
+
+=head3 remote_port
+
+$_[HEAP]{remote_port} contains the remote client's numeric socket port
+in human-readable form.
+
+=head3 remote_addr
+
+$_[HEAP]{remote_addr} contains the remote client's packed socket
+address in computer-readabe form.
+
+=head3 shutdown
+
+$_[HEAP]{shutdown} is true if the client is in the process of shutting
+down.  The component uses it to ignore client input during shutdown,
+and to close the connection after pending output has been flushed.
+
+=head3 shutdown_on_error
+
+$_[HEAP]{shutdown_on_error} remembers whether the client connection
+should automatically shut down if an error occurs.
 
 =head1 SEE ALSO
 
-POE::Component::Client::TCP, POE::Wheel::SocketFactory,
-POE::Wheel::ReadWrite, POE::Filter
+The SEE ALSO section in L<POE> contains a table of contents covering
+the entire POE distribution.
+
+L<POE::Component::Client::TCP> is the client-side counterpart to this
+module.
+
+This component uses and exposes features from L<POE::Filter>,
+L<POE::Wheel::SocketFactory>, and L<POE::Wheel::ReadWrite>.
 
 =head1 BUGS
 
@@ -1183,9 +1241,7 @@ POE::Wheel::SocketFactory does.
 This component will not bind to several addresses at once.  This may
 be a limitation in SocketFactory, but it's not by design.
 
-This component needs more complex error handling which appends for
-construction errors and replaces for runtime errors, instead of
-replacing for all.
+This component needs better error handling.
 
 Some use cases require different session classes for the listener and
 the connection handlers.  This isn't currently supported.  Please send
@@ -1197,7 +1253,7 @@ TODO - Document that Reuse is set implicitly.
 
 =head1 AUTHORS & COPYRIGHTS
 
-POE::Component::Server::TCP is Copyright 2000-2006 by Rocco Caputo.
+POE::Component::Server::TCP is Copyright 2000-2009 by Rocco Caputo.
 All rights are reserved.  POE::Component::Server::TCP is free
 software, and it may be redistributed and/or modified under the same
 terms as Perl itself.
@@ -1211,4 +1267,3 @@ from Jos Boumans E<lt>kane@cpan.orgE<gt>.
 =cut
 
 # rocco // vim: ts=2 sw=2 expandtab
-# TODO - Redocument.
