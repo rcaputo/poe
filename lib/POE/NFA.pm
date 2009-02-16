@@ -10,6 +10,8 @@ $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 use Carp qw(carp croak);
 
 sub SPAWN_INLINES       () { 'inline_states' }
+sub SPAWN_OBJECTS       () { 'object_states' }
+sub SPAWN_PACKAGES      () { 'package_states' }
 sub SPAWN_OPTIONS       () { 'options' }
 
 sub OPT_TRACE           () { 'trace' }
@@ -145,6 +147,36 @@ sub import {
 #------------------------------------------------------------------------------
 # Spawn a new state machine.
 
+sub _add_ref_states {
+  my ($states, $refs) = @_;
+    foreach my $state (keys %$refs) {
+      $states->{$state} = {};
+      my $data = $refs->{$state};
+      croak "the data for state '$state' should be an array"
+        unless (ref $data eq 'ARRAY');
+      croak "the array for state '$state' has an odd number of elements"
+        if (@$data & 1);
+
+      while (my ($ref, $events) = splice(@$data, 0, 2)) {
+        if (ref $events eq 'ARRAY') {
+          foreach my $event (@$events) {
+            $states->{$state}->{$event} = [ $ref, $event ];
+          }
+        }
+        elsif (ref $events eq 'HASH') {
+          foreach my $event (keys %$events) {
+            my $method = $events->{$event};
+            $states->{$state}->{$event} = [ $ref, $method ];
+          }
+        }
+        else {
+          croak "events with '$ref' for state '$state' " .
+                "need to be a hash or array ref";
+        }
+      }
+    }
+}
+
 sub spawn {
   my ($type, @params) = @_;
   my @args;
@@ -164,9 +196,24 @@ sub spawn {
   $options = { } unless defined $options;
 
   # States are required.
-  croak "$type constructor requires a " . SPAWN_INLINES . " parameter"
-    unless exists $params{+SPAWN_INLINES};
-  my $states = delete $params{+SPAWN_INLINES};
+  croak "$type constructor requires at least one of the following parameters: " . join (", ", SPAWN_INLINES, SPAWN_OBJECTS, SPAWN_PACKAGES)
+    unless (  exists $params{+SPAWN_INLINES} or
+              exists $params{+SPAWN_OBJECTS} or
+              exists $params{+SPAWN_PACKAGES}   );
+
+  my $states = delete $params{+SPAWN_INLINES}
+           if (exists $params{+SPAWN_INLINES});
+  $states ||= {};
+
+  if (exists $params{+SPAWN_OBJECTS}) {
+    my $objects = delete $params{+SPAWN_OBJECTS};
+    _add_ref_states($states, $objects);
+  }
+
+  if (exists $params{+SPAWN_PACKAGES}) {
+    my $packages = delete $params{+SPAWN_PACKAGES};
+    _add_ref_states($states, $packages);
+  }
 
   # These are unknown.
   croak(
@@ -863,8 +910,28 @@ handler map looks like this:
 
   $machine{state_2}{event_1} = \&handler_3;
 
-The spawn() method currently only accepts C<inline_states> and
-C<options>.  Others may be added as necessary.
+Instead of C<inline_states>, C<object_states> or C<package_states> may
+be used. These map the events of a state to an object or package method
+respectively.
+
+  object_states => {
+    state_1 => [
+      $object_1 => [qw(event_1 event_2)],
+    ],
+    state_2 => [
+      $object_2 => {
+        event_1 => method_1,
+        event_2 => method_2,
+      }
+    ]
+  }
+
+In the example above, in the case of C<event_1> coming in while the machine
+is in C<state_1>, method C<event_1> will be called on $object_1. If the
+machine is in C<state_2>, method C<method_1> will be called on $object_2.
+
+C<package_states> is very similar, but instead of using an $object, you
+pass in a C<Package::Name>
 
 =head2 goto_state NEW_STATE[, ENTRY_EVENT[, EVENT_ARGS]]
 
