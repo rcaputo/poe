@@ -55,4 +55,10 @@ eval {
 };
 isa_ok($nfa, 'POE::NFA', 'spawn with package_states');
 
+eval {
+  $nfa = POE::NFA->spawn(package_states => {initial => ['Foo' => [qw(foo bar)]]}, runstate => [ ] );
+};
+isa_ok($nfa, 'POE::NFA', 'spawn with package_states');
+is( ref $nfa->[0], 'ARRAY', 'RUNSTATE is an ARRAYREF' );
+
 POE::Kernel->run;

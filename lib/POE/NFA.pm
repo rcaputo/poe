@@ -13,6 +13,7 @@ sub SPAWN_INLINES       () { 'inline_states' }
 sub SPAWN_OBJECTS       () { 'object_states' }
 sub SPAWN_PACKAGES      () { 'package_states' }
 sub SPAWN_OPTIONS       () { 'options' }
+sub SPAWN_RUNSTATE      () { 'runstate' }
 
 sub OPT_TRACE           () { 'trace' }
 sub OPT_DEBUG           () { 'debug' }
@@ -218,6 +219,9 @@ sub spawn {
     _add_ref_states($states, $packages);
   }
 
+  my $runstate = delete $params{+SPAWN_RUNSTATE};
+  $runstate ||= {};
+
   # These are unknown.
   croak(
     "$type constructor does not recognize these parameter names: ",
@@ -226,7 +230,7 @@ sub spawn {
 
   # Build me.
   my $self = bless [
-    { },        # SELF_RUNSTATE
+    $runstate,  # SELF_RUNSTATE
     $options,   # SELF_OPTIONS
     $states,    # SELF_STATES
     undef,      # SELF_CURRENT
@@ -935,6 +939,10 @@ machine is in C<state_2>, method C<method_1> will be called on $object_2.
 
 C<package_states> is very similar, but instead of using an $object, you
 pass in a C<Package::Name>
+
+The C<runstate> parameter allows C<RUNSTATE> to be initialized differently 
+at instantiation time. C<RUNSTATE>, like heaps, are usually anonymous hashrefs, 
+but C<runstate> may set them to be array references or even objects.
 
 =head2 goto_state NEW_STATE[, ENTRY_EVENT[, EVENT_ARGS]]
 
