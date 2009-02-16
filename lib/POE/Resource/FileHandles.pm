@@ -19,10 +19,14 @@ use strict;
 # aren't used if we're RUNNING_IN_HELL, but Perl needs to see them.
 
 BEGIN {
-  eval 'F_GETFL';
-  if ($@) {
-    *F_GETFL = sub () { 0 };
-    *F_SETFL = sub () { 0 };
+  if ( ! defined &F_GETFL ) {
+    if ( ! defined prototype "F_GETFL" ) {
+      *F_GETFL = sub { 0 };
+      *F_SETFL = sub { 0 };
+    } else {
+      *F_GETFL = sub () { 0 };
+      *F_SETFL = sub () { 0 };
+    }
   }
 }
 
