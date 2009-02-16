@@ -63,6 +63,7 @@ sub _data_stat_finalize {
     # Division by zero sucks. Warnings sucks too.
     $avg{interval}    ||= 1;
     $avg{user_events} ||= 1;
+    $avg{avg_blocked} ||= 0;
     foreach my $k (keys %avg) {
       $avg{$k} ||= 0;
     }
