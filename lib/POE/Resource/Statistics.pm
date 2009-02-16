@@ -51,39 +51,46 @@ sub _data_stat_finalize {
     POE::Kernel::_warn(
       '<pr> ,----- Observed Statistics ' , ('-' x 47), ",\n"
     );
-    foreach (sort keys %average) {
-      next if /epoch/;
-      POE::Kernel::_warn(
-        sprintf "<pr> | %60.60s %9.1f  |\n", $_, $average{$_}
-      );
-    }
 
-    unless (keys %average) {
+    # we make a local copy so we can munge with the data
+    my %avg = %average;
+
+    unless (keys %avg) {
       POE::Kernel::_warn '<pr> `', ('-' x 73), "'\n";
       return;
     }
 
-    # Division by zero sucks.
-    $average{interval}    ||= 1;
-    $average{user_events} ||= 1;
+    # Division by zero sucks. Warnings sucks too.
+    $avg{interval}    ||= 1;
+    $avg{user_events} ||= 1;
+    foreach my $k (keys %avg) {
+      $avg{$k} ||= 0;
+    }
+
+    foreach (sort keys %avg) {
+      next if /epoch/;
+      POE::Kernel::_warn(
+        sprintf "<pr> | %60.60s %9.1f  |\n", $_, $avg{$_}
+      );
+    }
 
     POE::Kernel::_warn(
       '<pr> +----- Derived Statistics ', ('-' x 48), "+\n",
       sprintf(
         "<pr> | %60.60s %9.1f%% |\n",
-        'idle', 100 * $average{avg_idle_seconds} / $average{interval}
+        'idle', 100 * $avg{avg_idle_seconds} / $avg{interval}
       ),
       sprintf(
         "<pr> | %60.60s %9.1f%% |\n",
-        'user', 100 * $average{avg_user_seconds} / $average{interval}
+        'user', 100 * $avg{avg_user_seconds} / $avg{interval}
       ),
       sprintf(
         "<pr> | %60.60s %9.1f%% |\n",
-        'blocked', 100 * $average{avg_blocked} / $average{user_events}
+        'blocked', 100 * $avg{avg_blocked} / $avg{user_events}
       ),
       sprintf(
         "<pr> | %60.60s %9.1f  |\n",
-        'user load', $average{avg_user_events} / $average{interval}
+        'user load', $avg{avg_user_events} / $avg{interval}
       ),
       '<pr> `', ('-' x 73), "'\n"
     );
