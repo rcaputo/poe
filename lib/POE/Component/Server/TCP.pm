@@ -679,7 +679,15 @@ are more flexible and customizable, however.
 
 =head1 PUBLIC METHODS
 
-=head2 Constructor
+=head2 new
+
+new() starts a server based on POE::Component::Server::TCP and returns
+a session ID for the master listening session.  All error handling is
+done within the server, via the C<Error> and C<ClientError> callbacks.
+
+The server may be shut down by posting a "shutdown" event to the
+master session, either by its ID or the name given to it by the
+C<Alias> parameter.
 
 POE::Component::Server::TCP does a lot of work in its constructor.
 The design goal is to push as much overhead into one-time construction
@@ -692,24 +700,14 @@ session that will be listening for new connections.
 Man of the constructor parameters have been previously described.
 They are covered briefly again below.
 
-=head3 new
-
-new() starts a server based on POE::Component::Server::TCP and returns
-a session ID for the master listening session.  All error handling is
-done within the server, via the C<Error> and C<ClientError> callbacks.
-
-The server may be shut down by posting a "shutdown" event to the
-master session, either by its ID or the name given to it by the
-C<Alias> parameter.
-
-=head4 Server Sesson Configuration
+=head3 Server Sesson Configuration
 
 These constructor parameters affect POE::Component::Server::TCP's main
 listening session.
 
 TODO - Document the shutdown procedure somewhere.
 
-=head5 Acceptor
+=head4 Acceptor
 
 C<Acceptor> defines a CODE reference that POE::Wheel::SocketFactory's
 C<SuccessEvent> will trigger to handle new connections.  Therefore the
@@ -732,7 +730,7 @@ POE::Wheel::ReadWrite may be better and/or faster.
     # Set up something to interact with the client.
   }
 
-=head5 Address
+=head4 Address
 
 C<Address> defines a single interface address the server will bind to.
 It defaults to INADDR_ANY or INADDR6_ANY, when using IPv4 or IPv6,
@@ -749,7 +747,7 @@ TODO - Example, using the lines below.
   Address => '127.0.0.1'   # Localhost IPv4
   Address => "::1"         # Localhost IPv6
 
-=head5 Alias
+=head4 Alias
 
 C<Alias> is an optional name that will be given to the server's master
 listening session.  Events sent to this name will not be delivered to
@@ -763,7 +761,7 @@ server down.
     $_[KERNEL]->sig_handled();
   }
 
-=head5 Concurrency
+=head4 Concurrency
 
 C<Concurrency> controls how many connections may be active at the same
 time.  It defaults to -1, which allows POE::Component::Server::TCP to
@@ -805,7 +803,7 @@ Example:
   }
 
 
-=head5 Domain
+=head4 Domain
 
 C<Domain> sets the address or protocol family within which to operate.
 The C<Domain> may be any value that POE::Wheel::SocketFactory
@@ -814,7 +812,7 @@ supports.  AF_INET (Internet address space) is used by default.
 Use AF_INET6 for IPv6 support.  This constant is exported by Socket6,
 which must be loaded B<before> POE::Component::Server::TCP.
 
-=head5 Error
+=head4 Error
 
 C<Error> is the callback that will be invoked when the server socket
 reports an error.  The Error callback will be used to handle
@@ -831,7 +829,7 @@ transactions.
     # Handle the error.
   }
 
-=head5 Hostname
+=head4 Hostname
 
 C<Hostname> is the optional non-packed name of the interface the TCP
 server will bind to.  The hostname will always be resolved via
@@ -843,7 +841,7 @@ C<Hostname> guarantees name resolution, where C<Address> does not.
 It's therefore preferred to use C<Hostname> in cases where resolution
 must always be done.
 
-=head5 InlineStates
+=head4 InlineStates
 
 C<InlineStates> is optional.  If specified, it must hold a hashref of
 named callbacks.  Its syntax is that of POE:Session->create()'s
@@ -853,7 +851,7 @@ Remember: These InlineStates handlers will be added to the main
 listening session, not to every connection.  A yield() in a connection
 will not reach these handlers.
 
-=head5 ObjectStates
+=head4 ObjectStates
 
 If C<ObjectStates> is specified, it must holde an arrayref of objects
 and the events they will handle.  The arrayref must follow the syntax
@@ -863,7 +861,7 @@ Remember: These ObjectStates handlers will be added to the main
 listening session, not to every connection.  A yield() in a connection
 will not reach these handlers.
 
-=head5 PackageStates
+=head4 PackageStates
 
 When the optional C<PackageStates> is set, it must hold an arrayref of
 package names and the events they will handle  The arrayref must
@@ -874,7 +872,7 @@ Remember: These PackageStates handlers will be added to the main
 listening session, not to every connection.  A yield() in a connection
 will not reach these handlers.
 
-=head5 Port
+=head4 Port
 
 C<Port> contains the port the listening socket will be bound to.  It
 defaults to INADDR_ANY, which usually lets the operating system pick a
@@ -884,25 +882,25 @@ port at random.
 
 It is often used with C<Address>.
 
-=head5 Started
+=head4 Started
 
 C<Started> sets an optional callback that will be invoked within the
 main server session's context.  It notifies the server that it has
 fully started.  The callback's parameters are the usual for a
 session's _start handler.
 
-=head4 Connection Session Configuration
+=head3 Connection Session Configuration
 
 These constructor parameters affect the individual sessions that
 interact with established connections.
 
-=head5 ClientArgs
+=head4 ClientArgs
 
 C<ClientArgs> is optional.  When specified, it holds an ARRAYREF that
 will be passed to the C<ClientStarted> callback in $_[ARG1].
 (ClientStarted's $_[ARG0] contains the newly accepted client socket.)
 
-=head5 ClientConnected
+=head4 ClientConnected
 
 Each new client connection is handled by a new POE::Session instance.
 C<ClientConnected> is a callback that notifies the application when a
@@ -923,7 +921,7 @@ be called twice for the same connection.
 
 TODO - Show Args and client socket introspection.
 
-=head5 ClientDisconnected
+=head4 ClientDisconnected
 
 C<ClientDisconnected> is a callback that will be invoked when the
 client disconnects or has been disconnected by the server.  It's
@@ -935,7 +933,7 @@ parameters, but nothing special is included.
     warn "Client disconnected"; # log it
   }
 
-=head5 ClientError
+=head4 ClientError
 
 The C<ClientError> callback is invoked when a client socket reports an
 error.  C<ClientError> is called with POE's usual parameters, plus the
@@ -959,7 +957,7 @@ in POE::Wheel::ReadWrite for more details.
     # Handle the client error here.
   }
 
-=head5 ClientFilter
+=head4 ClientFilter
 
 C<ClientFilter> specifies the POE::Filter object or class that will
 parse input from each client and serialize output before it's sent to
@@ -990,7 +988,7 @@ C<ClientFilter> is optional.  The component will use
 Filter modules are not automatically loaded.  Be sure that the program
 loads the class before using it.
 
-=head5 ClientFlushed
+=head4 ClientFlushed
 
 C<ClientFlushed> exposes POE::Wheel::ReadWrite's C<FlushedEvent> as a
 callback.  It is called whenever the client's output buffer has been
@@ -1014,7 +1012,7 @@ event signals the need to send more data.
 POE::Component::Server::TCP's default C<Acceptor> ensures that data is
 flushed before finishing a client shutdown.
 
-=head5 ClientInput
+=head4 ClientInput
 
 C<ClientInput> defines a per-connection callback to handle client
 input.  This callback receives its parameters directly from
@@ -1032,7 +1030,7 @@ prohibits the other.
     $_[HEAP]{wheel}->put("You said: $input");
   },
 
-=head5 ClientInputFilter
+=head4 ClientInputFilter
 
 C<ClientInputFilter> is used with C<ClientOutputFilter> to specify
 different protocols for input and output.  Both must be used together.
@@ -1041,7 +1039,7 @@ Both follow the same usage as L</ClientFilter>.
   ClientInputFilter  => [ "POE::Filter::Line", Literal => "\n" ],
   ClientOutputFilter => 'POE::Filter::Stream',
 
-=head5 ClientOutputFilter
+=head4 ClientOutputFilter
 
 C<ClientOutputFilter> is used with C<ClientInputFilter> to specify
 different protocols for input and output.  Both must be used together.
@@ -1050,7 +1048,7 @@ Both follow the same usage as L</ClientFilter>.
   ClientInputFilter  => POE::Filter::Line->new(Literal => "\n"),
   ClientOutputFilter => 'POE::Filter::Stream',
 
-=head5 ClientShutdownOnError
+=head4 ClientShutdownOnError
 
 C<ClientShutdownOnError> tells the component whether client
 connections should be shut down automatically if an error is detected.
@@ -1064,7 +1062,7 @@ with dead connections that spin out of control.
 
 Yes, this is terrible.  You have been warned.
 
-=head5 SessionParams
+=head4 SessionParams
 
 C<SessionParams> specifies additional parameters that will be passed
 to the C<SessionType> constructor at creation time.  It must be an
@@ -1081,7 +1079,7 @@ L<POE::Session> for an known options.
 We may enable other options later.  Please let us know if you need
 something.
 
-=head5 SessionType
+=head4 SessionType
 
 C<SessionType> specifies the POE::Session subclass that will be
 created for each new client connection.  "POE::Session" is the
