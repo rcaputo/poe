@@ -699,7 +699,7 @@ sub _global_init {
 
   # Get the current terminal's capabilities.
   $term = $ENV{TERM} || 'vt100';
-  $termcap = Term::Cap->Tgetent( { TERM => $term, OSPEED => $ospeed } );
+  $termcap = eval { Term::Cap->Tgetent( { TERM => $term, OSPEED => $ospeed } ) };
   die "could not find termcap entry for ``$term'': $!" unless defined $termcap;
 
   # Require certain capabilities.
@@ -880,6 +880,8 @@ sub new {
 
 sub DESTROY {
   my $self = shift;
+
+  return unless $initialised;
 
   # Stop selecting on the handle.
   $poe_kernel->select($stdin);
