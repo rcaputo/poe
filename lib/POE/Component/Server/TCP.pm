@@ -697,7 +697,7 @@ server's constructor can take quite a daunting number of parameters.
 POE::Component::Server::TCP always returns a POE::Session ID for the
 session that will be listening for new connections.
 
-Man of the constructor parameters have been previously described.
+Many of the constructor parameters have been previously described.
 They are covered briefly again below.
 
 =head3 Server Sesson Configuration
@@ -897,8 +897,9 @@ interact with established connections.
 =head4 ClientArgs
 
 C<ClientArgs> is optional.  When specified, it holds an ARRAYREF that
-will be passed to the C<ClientStarted> callback in $_[ARG1].
-(ClientStarted's $_[ARG0] contains the newly accepted client socket.)
+will be passed to the C<ClientConnected> callback in $_[ARG1].
+(ClientConnected's $_[ARG0] contains the newly accepted client
+socket.)
 
 =head4 ClientConnected
 
@@ -939,7 +940,7 @@ The C<ClientError> callback is invoked when a client socket reports an
 error.  C<ClientError> is called with POE's usual parameters, plus the
 common error parameters: $_[ARG0] describes what was happening at the
 time of failure.  $_[ARG1] and $_[ARG2] contain the numeric and string
-versions of $!.
+versions of $!, respectively.
 
 C<ClientError> is optional.  If omitted, POE::Component::Server::TCP
 will provide a default callback that logs most errors to STDERR.
