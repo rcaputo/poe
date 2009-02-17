@@ -83,6 +83,7 @@ examples/tcp_watermarks.perl
 examples/thrash.perl
 examples/watermarks.perl
 examples/wheels2.perl
+t/00_info.t
 t/10_units/01_pod/01_pod.t
 t/10_units/01_pod/02_pod_coverage.t
 t/10_units/02_pipes/01_base.t
