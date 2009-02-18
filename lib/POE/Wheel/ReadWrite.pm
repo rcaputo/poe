@@ -769,9 +769,9 @@ and an example.
 
 Driver specifies how POE::Wheel::ReadWrite will actually read from and
 write to its filehandle or filehandles.  Driver must be an object that
-inherits from POE::Driver.
+inherits from L<POE::Driver>.
 
-POE::Driver::SysRW, which implements sysread() and syswrite(), is the
+L<POE::Driver::SysRW>, which implements sysread() and syswrite(), is the
 default.  It's used in nearly all cases, so there's no point in
 specifying it.
 
@@ -781,7 +781,7 @@ TODO - Example.
 
 Filter is the parser that POE::Wheel::ReadWrite will used to recognize
 input data and the serializer it uses to prepare data for writing.  It
-defaults to a new POE::Filter::Line instance since many network
+defaults to a new L<POE::Filter::Line> instance since many network
 protocols are line based.
 
 TODO - Example.
@@ -866,7 +866,7 @@ parameters:
 
 C<ARG0> describes what failed, either "read" or "write".  It doesn't
 name a particular function since POE::Wheel::ReadWrite delegates
-actual reading and writing to a POE::Driver object.
+actual reading and writing to a L<POE::Driver> object.
 
 C<ARG1> and C<ARG2> hold numeric and string values for C<$!> at the
 time of failure.  Applicatin code cannot test C<$!> directly since its
@@ -1010,7 +1010,7 @@ TODO - Example.
 
 =head2 get_output_filter
 
-get_output_filter() returns the POE::Filter object currently used by a
+get_output_filter() returns the L<POE::Filter> object currently used by a
 POE::Wheel::ReadWrite object to serialize outgoing data.  The returned
 object may be introspected or altered via its own methods.
 
@@ -1118,7 +1118,7 @@ TODO - Example.
 
 =head2 get_driver_out_octets
 
-POE::Driver objects contain output buffers that are flushed
+L<POE::Driver> objects contain output buffers that are flushed
 asynchronously.  get_driver_out_octets() returns the number of octets
 remaining in the wheel's driver's output buffer.
 
@@ -1126,7 +1126,7 @@ TODO - Example.
 
 =head2 get_driver_out_messages
 
-POE::Driver objects' output buffers may be message based.  Every put()
+L<POE::Driver> objects' output buffers may be message based.  Every put()
 call may be buffered individualy.  get_driver_out_messages() will
 return the number of pending put() messages that remain to be sent.
 
