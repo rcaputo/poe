@@ -200,13 +200,18 @@ sub spawn {
   $options = { } unless defined $options;
 
   # States are required.
-  croak "$type constructor requires at least one of the following parameters: " . join (", ", SPAWN_INLINES, SPAWN_OBJECTS, SPAWN_PACKAGES)
-    unless (  exists $params{+SPAWN_INLINES} or
-              exists $params{+SPAWN_OBJECTS} or
-              exists $params{+SPAWN_PACKAGES}   );
+  croak(
+    "$type constructor requires at least one of the following parameters: " .
+    join (", ", SPAWN_INLINES, SPAWN_OBJECTS, SPAWN_PACKAGES)
+  ) unless (
+    exists $params{+SPAWN_INLINES} or
+    exists $params{+SPAWN_OBJECTS} or
+    exists $params{+SPAWN_PACKAGES}
+  );
 
-  my $states = delete $params{+SPAWN_INLINES}
-           if (exists $params{+SPAWN_INLINES});
+  my $states = delete $params{+SPAWN_INLINES} if (
+    exists $params{+SPAWN_INLINES}
+  );
   $states ||= {};
 
   if (exists $params{+SPAWN_OBJECTS}) {
