@@ -515,7 +515,7 @@ sub _data_handle_remove {
 
   # Make sure the handle is deregistered with the kernel.
 
-  if (exists $kr_filenos{$fd}) {
+  if (defined($fd) and exists($kr_filenos{$fd})) {
     my $kr_fileno  = $kr_filenos{$fd};
     my $kr_fno_rec = $kr_fileno->[$mode];
 
