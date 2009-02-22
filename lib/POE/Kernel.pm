@@ -1,4 +1,4 @@
-# $Id$
+## $Id$
 
 package POE::Kernel;
 
@@ -420,7 +420,11 @@ sub _trap {
 
   _trap_death();
   confess(
-    "Please mail the following information to bug-POE\@rt.cpan.org:\n@_"
+    "-----\n",
+    "Please address any warnings or errors above this message, and try\n",
+    "again.  If there are none, or those messages are from within POE,\n",
+    "then please mail them along with the following information\n",
+    "to bug-POE\@rt.cpan.org:\n---\n@_\n-----\n"
   );
   _release_death();
 }
