@@ -1,6 +1,11 @@
 # $Id$
 # vim: filetype=perl
 
+# This testcase loads all POE modules.  Some of them may define
+# alternative methods with the same full-qualified names.  Disable the
+# inevitable warnings.
+BEGIN { $^W = 0 }
+
 use Test::More;
 eval "use Test::Pod::Coverage 1.08";
 plan skip_all => "Test::Pod::Coverage 1.08 required for testing POD coverage" if $@;
