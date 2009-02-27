@@ -612,16 +612,6 @@ sub _data_sig_child_procs {
   return $kr_child_procs;
 }
 
-# Reap child processes.  Discard their statuses.  Used to prevent
-# zombie processes when nobody else is watching for children.  See
-# POE::Loop::Event for its use.
-
-sub _data_sig_ignore_sigchld {
-  my $pid;
-  1 while $pid = waitpid(-1, WNOHANG);
-  $kr_child_procs = !$pid;
-}
-
 1;
 
 __END__

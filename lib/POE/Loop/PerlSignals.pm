@@ -101,8 +101,17 @@ sub loop_ignore_signal {
 
   delete $signal_watched{$signal};
 
-  unless ( USE_SIGCHLD ) {
     if ($signal eq 'CHLD' or $signal eq 'CLD') {
+    if ( USE_SIGCHLD ) {
+      if( $self->_data_sig_child_procs) {
+        # We need SIGCHLD to stay around after shutdown, so that
+        # child processes may be reaped and kr_child_procs=0
+        if (TRACE_SIGNALS) {
+          POE::Kernel::_warn "<sg> Keeping SIG$signal anyway!";
+        }
+        return;
+      }
+    } else {
       $self->_data_sig_cease_polling();
       # We should never twiddle $SIG{CH?LD} under poe, unless we want to
       # override system() and friends. --hachi
@@ -111,12 +120,17 @@ sub loop_ignore_signal {
     }
   }
 
+  delete $signal_watched{$signal};
+
+  my $state = 'DEFAULT';
   if ($signal eq 'PIPE') {
-    $SIG{$signal} = "IGNORE";
-    return;
+    $state = "IGNORE";
   }
 
-  $SIG{$signal} = "DEFAULT";
+  if (TRACE_SIGNALS) {
+    POE::Kernel::_warn "<sg> $state SIG$signal";
+  }
+  $SIG{$signal} = $state;
 }
 
 sub loop_ignore_all_signals {
