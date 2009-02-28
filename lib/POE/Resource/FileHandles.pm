@@ -342,8 +342,11 @@ sub _data_handle_add {
           my $flags = fcntl($handle, F_GETFL, 0)
             or _trap "fcntl($handle, F_GETFL, 0) fails: $!\n";
           until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
-            _trap "fcntl($handle, F_SETFL, $flags | " . O_NONBLOCK . ") fails: $!"
-              unless $! == EAGAIN or $! == EWOULDBLOCK;
+            _trap(
+              "fcntl($handle [" . fileno($handle) . "], F_SETFL [" .
+              F_SETFL . "], $flags | O_NONBLOCK [" . O_NONBLOCK .
+              "]) fails: $!"
+            ) unless $! == EAGAIN or $! == EWOULDBLOCK;
           }
         }
       }
