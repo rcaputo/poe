@@ -1187,7 +1187,7 @@ of this program.
         my $io_wheel = POE::Wheel::ReadWrite->new(
           Handle => $client_socket,
           InputEvent => "on_client_input",
-          FailureEvent => "on_client_error",
+          ErrorEvent => "on_client_error",
         );
         $_[HEAP]{client}{ $io_wheel->ID() } = $io_wheel;
       },
