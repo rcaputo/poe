@@ -7,7 +7,7 @@ use strict;
 use vars qw($VERSION);
 $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
-use POSIX qw(:fcntl_h :sys_wait_h);
+use POSIX qw(uname);
 use Errno qw(ESRCH EINTR ECHILD EPERM EINVAL EEXIST EAGAIN EWOULDBLOCK);
 use Carp qw(carp croak confess cluck);
 use Sys::Hostname qw(hostname);
@@ -2392,7 +2392,7 @@ sub ID {
 
   # Recalculate the kernel ID if necessary.  stop() undefines it.
   unless (defined $self->[KR_ID]) {
-    my $hostname = eval { (POSIX::uname)[1] };
+    my $hostname = eval { (uname)[1] };
     $hostname = hostname() unless defined $hostname;
     $self->[KR_ID] = $hostname . '-' .  unpack('H*', pack('N*', time(), $$));
   }

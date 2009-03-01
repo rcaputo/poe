@@ -13,6 +13,8 @@ package POE::Kernel;
 
 use strict;
 
+use POSIX qw(:sys_wait_h);
+
 ### Map watched signal names to the sessions that are watching them
 ### and the events that must be delivered when they occur.
 

@@ -13,6 +13,8 @@ package POE::Kernel;
 
 use strict;
 
+use POSIX qw(:fcntl_h);
+
 ### Some portability things.
 
 # Provide dummy constants so things at least compile.  These constants
