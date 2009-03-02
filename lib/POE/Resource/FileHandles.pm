@@ -13,7 +13,8 @@ package POE::Kernel;
 
 use strict;
 
-use POSIX qw(:fcntl_h);
+# NOTE: we previously used POSIX but we're ripping out the middleman :)
+use Fcntl;
 
 ### Some portability things.
 
@@ -21,7 +22,10 @@ use POSIX qw(:fcntl_h);
 # aren't used if we're RUNNING_IN_HELL, but Perl needs to see them.
 
 BEGIN {
-  if ( ! defined &F_GETFL ) {
+  # older perls than 5.10 needs a kick in the arse to AUTOLOAD the constant...
+  eval "F_GETFL" if $] < 5.010;
+
+  if ( ! defined &Fcntl::F_GETFL ) {
     if ( ! defined prototype "F_GETFL" ) {
       *F_GETFL = sub { 0 };
       *F_SETFL = sub { 0 };
