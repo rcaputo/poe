@@ -13,7 +13,7 @@ package POE::Kernel;
 
 use strict;
 
-use Fcntl; # NOTE: we previously used POSIX but we're ripping out the middleman :)
+use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
 
 ### Some portability things.
 
