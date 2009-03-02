@@ -13,7 +13,7 @@ use Curses qw(
   intrflush meta typeahead mousemask ALL_MOUSE_EVENTS clear refresh
   endwin COLS
 );
-use POSIX qw(:fcntl_h);
+use Fcntl; # NOTE: we previously used POSIX but we're ripping out the middleman :)
 use POE qw( Wheel );
 
 

@@ -10,8 +10,7 @@ $VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 use Carp qw( carp croak );
 use Symbol qw( gensym );
 
-use POSIX qw(:fcntl_h);
-use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
+use Fcntl; # NOTE: we previously used POSIX but we're ripping out the middleman :)
 use Errno qw(EWOULDBLOCK EADDRNOTAVAIL EINPROGRESS EADDRINUSE);
 use Socket qw(
   AF_INET SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 

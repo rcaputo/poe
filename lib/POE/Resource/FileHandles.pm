@@ -13,8 +13,7 @@ package POE::Kernel;
 
 use strict;
 
-# NOTE: we previously used POSIX but we're ripping out the middleman :)
-use Fcntl;
+use Fcntl; # NOTE: we previously used POSIX but we're ripping out the middleman :)
 
 ### Some portability things.
 
