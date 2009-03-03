@@ -1540,7 +1540,7 @@ that are passed to the session's _start handler.
     return $self->SUPER::try_alloc(@args);
   }
 
-=head1 POE::Session'S EVENTS
+=head1 POE::Session's EVENTS
 
 Please do not define new events that begin with a leading underscore.
 POE claims /^_/ events as its own.
