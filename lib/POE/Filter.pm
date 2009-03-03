@@ -166,14 +166,16 @@ The L</SYNOPSIS> shows get_one_start() in use.
 
 get_one() parses zero or one complete item from the filter's internal
 buffer.  The data is returned as an ARRAYREF suitable for passing to
-another filter or a POE::Wheel object.
+another filter or a POE::Wheel object.  Filters will return empty
+ARRAYREFs if they don't have enough raw data to build a complete item.
 
 get_one() is the lazy form of get().  It only parses only one item at
 a time from the filter's buffer.  This is vital for applications that
 may switch filters in mid-stream, as it ensures that the right filter
 is in use at any given time.
 
-The L</SYNOPSIS> shows get_one() in use.
+The L</SYNOPSIS> shows get_one() in use.  Note how it assumes the
+return is always an ARRAYREF, and it implicitly handles empty ones.
 
 =head2 get ARRAYREF
 
@@ -182,6 +184,9 @@ containing unprocessed stream chunks, and it adds that data to the
 filter's internal buffer.  It then parses as many full items as
 possible from the buffer and returns them in another array reference.
 Any unprocessed data remains in the filter's buffer for the next call.
+
+As with get_one(), get() will return an empty array reference if the
+filter doesn't contain enough raw data to build a complete item.
 
 In fact, get() is implemented in POE::Filter in terms of
 get_one_start() and get_one().
