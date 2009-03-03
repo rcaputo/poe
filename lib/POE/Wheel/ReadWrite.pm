@@ -658,7 +658,7 @@ __END__
 
 =head1 NAME
 
-POE::Wheel::ReadWrite - non-blocking buffered I/O mix-in for POE::Sessoin
+POE::Wheel::ReadWrite - non-blocking buffered I/O mix-in for POE::Session
 
 =head1 SYNOPSIS
 
