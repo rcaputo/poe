@@ -3173,7 +3173,7 @@ The L<POE::Wheel|POE::Wheel> classes uses call() to synchronously deliver I/O
 notifications.  This avoids a host of race conditions.
 
 call() may fail in the same way and for the same reasons as post().
-On failure, $! is set to some nonzero value indicating way.  Since
+On failure, $! is set to some nonzero value indicating why.  Since
 call() may return undef as a matter of course, it's recommended that
 $! be checked for the error condition as well as the explanation.
 
