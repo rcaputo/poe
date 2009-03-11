@@ -170,6 +170,43 @@ sub new {
     croak "ClientArgs must be an array reference"
       unless ref($args) eq 'ARRAY';
 
+    # Sanity check, thanks to crab@irc for making this mistake, ha!
+    # TODO we should could move this to POE::Session and make it an "sanity checking" sub somehow...
+    foreach my $t ( qw( _start _stop _child shutdown
+        tcp_server_got_high tcp_server_got_low
+        tcp_server_got_input tcp_server_got_error tcp_server_got_flush
+    ) ) {
+        if (exists $inline_states->{$t}) {
+            croak "Overriding '$t' in InlineStates is not allowed!";
+        }
+        for (my $i = 1; exists $package_states->[$i]; $i += 2) {
+            if (defined $package_states->[$i] and ref($package_states->[$i]) eq 'HASH') {
+                if (exists $package_states->[$i]{$t}) {
+                    croak "Overriding '$t' in PackageStates is not allowed!";
+                }
+            } elsif (defined $package_states->[$i] and ref($package_states->[$i]) eq 'ARRAY') {
+                if (grep { $_ eq $t } @{ $package_states->[$i] }) {
+                    croak "Overriding '$t' in PackageStates is not allowed!";
+                }
+            } else {
+                croak "Unknown argument in PackageStates index $i";
+            }
+        }
+        for (my $i = 1; exists $object_states->[$i]; $i += 2) {
+            if (defined $object_states->[$i] and ref($object_states->[$i]) eq 'HASH') {
+                if (exists $object_states->[$i]{$t}) {
+                    croak "Overriding '$t' in ObjectStates is not allowed!";
+                }
+            } elsif (defined $object_states->[$i] and ref($object_states->[$i]) eq 'ARRAY') {
+                if (grep { $_ eq $t } @{ $object_states->[$i] }) {
+                    croak "Overriding '$t' in ObjectStates is not allowed!";
+                }
+            } else {
+                croak "Unknown argument in ObjectStates index $i";
+            }
+        }
+    }
+
     # Revise the acceptor callback so it spawns a session.
 
     unless (defined $accept_callback) {
@@ -851,6 +888,10 @@ Remember: These InlineStates handlers will be added to the main
 listening session, not to every connection.  A yield() in a connection
 will not reach these handlers.
 
+The constructor will croak() if it detects a state that it uses internally,
+so please don't do this. For example, please use the "Started" callback if you
+want to specify your own "_start" event.
+
 =head4 ObjectStates
 
 If C<ObjectStates> is specified, it must holde an arrayref of objects
@@ -860,6 +901,10 @@ for POE::Session->create()'s object_states parameter.
 Remember: These ObjectStates handlers will be added to the main
 listening session, not to every connection.  A yield() in a connection
 will not reach these handlers.
+
+The constructor will croak() if it detects a state that it uses internally,
+so please don't do this. For example, please use the "Started" callback if you
+want to specify your own "_start" event.
 
 =head4 PackageStates
 
@@ -871,6 +916,10 @@ parameter.
 Remember: These PackageStates handlers will be added to the main
 listening session, not to every connection.  A yield() in a connection
 will not reach these handlers.
+
+The constructor will croak() if it detects a state that it uses internally,
+so please don't do this. For example, please use the "Started" callback if you
+want to specify your own "_start" event.
 
 =head4 Port
 
