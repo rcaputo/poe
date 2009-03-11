@@ -2847,10 +2847,12 @@ POE's public interfaces remain the same regardless of the event loop
 being used.  Since most graphical toolkits include some form of event
 loop, back-end code should be portable to all of them.
 
-Cooperation with other event loops also lets you embed POE code into
-other software.  For example, one can embed networking code into Vim,
-so non-blocking HTTP clients into irssi because they all cooperatively
-share L<Glib>.
+POE's cooperation with other event loops lets POE be embedded into
+other software.  The common underlying event loop drives both the
+application and POE.  For example, by using POE::Loop::Glib, one can
+embed POE into Vim, irssi, and so on.  Application scripts can then
+take advantage of POE::Component::Client::HTTP (and everything else)
+to do large-scale work without blocking the rest of the program.
 
 Because this is Perl, there are multiple ways to load an alternate
 event loop.  The simplest way is to load the event loop before loading
