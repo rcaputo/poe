@@ -2633,7 +2633,7 @@ perform some setup, run some code, and eventually exit.  Halting
 Problem notwithstanding.
 
 A POE-based application loads some modules, sets up one or more
-sessions, runs the code in those sessions, and eventually exists.
+sessions, runs the code in those sessions, and eventually exits.
 
   use POE;
   POE::Session->create( ... map events to code here ... );
