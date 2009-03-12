@@ -171,42 +171,66 @@ sub new {
       unless ref($args) eq 'ARRAY';
 
     # Sanity check, thanks to crab@irc for making this mistake, ha!
-    # TODO we should could move this to POE::Session and make it an "sanity checking" sub somehow...
+    # TODO we should could move this to POE::Session and make it an
+    # "sanity checking" sub somehow...
     if (POE::Kernel::ASSERT_USAGE) {
-        foreach my $t ( qw( _start _stop _child shutdown
-            tcp_server_got_high tcp_server_got_low
-            tcp_server_got_input tcp_server_got_error tcp_server_got_flush
-        ) ) {
-            if (exists $inline_states->{$t}) {
-                croak "Overriding '$t' in InlineStates is not allowed!";
-            }
-            for (my $i = 1; exists $package_states->[$i]; $i += 2) {
-                if (defined $package_states->[$i] and ref($package_states->[$i]) eq 'HASH') {
-                    if (exists $package_states->[$i]{$t}) {
-                        croak "Overriding '$t' in PackageStates is not allowed!";
-                    }
-                } elsif (defined $package_states->[$i] and ref($package_states->[$i]) eq 'ARRAY') {
-                    if (grep { $_ eq $t } @{ $package_states->[$i] }) {
-                        croak "Overriding '$t' in PackageStates is not allowed!";
-                    }
-                } else {
-                    croak "Unknown argument in PackageStates index $i";
-                }
-            }
-            for (my $i = 1; exists $object_states->[$i]; $i += 2) {
-                if (defined $object_states->[$i] and ref($object_states->[$i]) eq 'HASH') {
-                    if (exists $object_states->[$i]{$t}) {
-                        croak "Overriding '$t' in ObjectStates is not allowed!";
-                    }
-                } elsif (defined $object_states->[$i] and ref($object_states->[$i]) eq 'ARRAY') {
-                    if (grep { $_ eq $t } @{ $object_states->[$i] }) {
-                        croak "Overriding '$t' in ObjectStates is not allowed!";
-                    }
-                } else {
-                    croak "Unknown argument in ObjectStates index $i";
-                }
-            }
+      my %forbidden_handlers = (
+        _child => 1,
+        _start => 1,
+        _stop => 1,
+        shutdown => 1,
+        tcp_server_got_error => 1,
+        tcp_server_got_flush => 1,
+        tcp_server_got_high => 1,
+        tcp_server_got_input => 1,
+        tcp_server_got_low => 1,
+      );
+
+      if (
+        my @forbidden_inline_handlers = (
+          grep { exists $inline_states->{$_} }
+          keys %forbidden_handlers
+        )
+      ) {
+        croak "These InlineStates aren't allowed: @forbidden_inline_handlers";
+      }
+
+      my %handlers = (
+        PackageStates => $package_states,
+        ObjectStates => $object_states,
+      );
+
+      while (my ($name, $states) = each(%handlers)) {
+        my %states_hash = @$states;
+        my @forbidden_handlers;
+        while (my ($package, $handlers) = each %states_hash) {
+          croak "Undefined $name member for $package" unless (
+            defined $handlers
+          );
+
+          if (ref($handlers) eq 'HASH') {
+            push(
+              @forbidden_handlers,
+              grep { exists $handlers->{$_} }
+              keys %forbidden_handlers
+            );
+          }
+          elsif (ref($handlers) eq 'ARRAY') {
+            push(
+              @forbidden_handlers,
+              grep { exists $forbidden_handlers{$_} }
+              @$handlers
+            );
+          }
+          else {
+            croak "Unknown $name member type for $package";
+          }
         }
+
+        croak "These $name aren't allowed: @forbidden_handlers" if (
+          @forbidden_handlers
+        );
+      }
     }
 
     # Revise the acceptor callback so it spawns a session.
