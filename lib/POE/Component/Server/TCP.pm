@@ -171,7 +171,7 @@ sub new {
       unless ref($args) eq 'ARRAY';
 
     # Sanity check, thanks to crab@irc for making this mistake, ha!
-    # TODO we should could move this to POE::Session and make it an
+    # TODO we could move this to POE::Session and make it a
     # "sanity checking" sub somehow...
     if (POE::Kernel::ASSERT_USAGE) {
       my %forbidden_handlers = (
