@@ -1027,8 +1027,8 @@ the following three exceptions.
 
 =head2 MACHINE
 
-C<MACHINE> is equivalent to Session's C<SESSION> field.  It hold a
-reference to the current state machine, and it's useful for calling
+C<MACHINE> is equivalent to Session's C<SESSION> field.  It holds a
+reference to the current state machine, and is useful for calling
 its methods.
 
 See POE::Session's C<SESSION> field for more information.
