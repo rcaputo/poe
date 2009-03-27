@@ -25,6 +25,12 @@ sub skip_tests {
     return "This test crashes Perl when run with Tk on $^O";
   }
   return "Tk tests require the Tk module" if do { eval "use Tk"; $@ };
+  my $m = eval { Tk::MainWindow->new() };
+  if ($@) {
+    my $why = $@;
+    $why =~ s/ at .*//;
+    return "Tk couldn't be initialized: $why";
+  }
   return;
 }
 
