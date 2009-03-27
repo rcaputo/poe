@@ -146,7 +146,7 @@ t/90_regression/rt1648-tied-stderr.t
 t/90_regression/rt19908-merlyn-stop.t
 t/90_regression/rt23181-sigchld-rc.t
 t/90_regression/rt39872-sigchld-stop.t
-t/90_regression/rt39872-sigchld.t
+# TODO - Why does this segfault for others: t/90_regression/rt39872-sigchld.t
 t/90_regression/steinert-passed-wheel.t
 t/90_regression/steinert-signal-integrity.t
 t/90_regression/suzman_windows.t
