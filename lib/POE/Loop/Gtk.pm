@@ -20,6 +20,7 @@ sub skip_tests {
     defined $ENV{DISPLAY} and length $ENV{DISPLAY}
   );
   return "Gtk tests require the Gtk module" if do { eval "use Gtk"; $@ };
+  return "Gtk init failed.  Is DISPLAY valid?" unless defined Gtk->init_check;
   return;
 }
 
