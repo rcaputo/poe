@@ -36,6 +36,7 @@ sub CORE_REQUIREMENTS () {
     "Exporter"          => 0,
     "File::Spec"        => 0.87,
     "IO::Handle"        => 1.27,
+    "IO::Tty"           => 1.08, # avoids crashes on fbsd
     "POSIX"             => 1.02,
     "Socket"            => 1.7,
     "Test::Harness"     => 2.26,
