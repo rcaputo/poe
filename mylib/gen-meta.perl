@@ -14,6 +14,7 @@ use PoeBuildInfo qw(
   DIST_AUTHOR
   RECOMMENDED_TIME_HIRES
   CONFIG_REQUIREMENTS
+  REPOSITORY
 );
 
 my $build = Module::Build->new(
@@ -30,6 +31,11 @@ my $build = Module::Build->new(
   configure_requires => { CONFIG_REQUIREMENTS },
   no_index => {
     directory => [ "mylib", "t" ]
+  },
+  meta_merge  => {
+    resources => {
+       repository => REPOSITORY,
+    },
   },
 );
 

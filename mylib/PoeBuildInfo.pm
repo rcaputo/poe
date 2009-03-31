@@ -20,6 +20,7 @@ use vars qw(@EXPORT_OK);
   DIST_AUTHOR
   RECOMMENDED_TIME_HIRES
   CONFIG_REQUIREMENTS
+  REPOSITORY
 );
 
 
@@ -90,6 +91,10 @@ sub TEST_FILES () {
     t/*/*/*.t
   );
   "@test_files";
+}
+
+sub REPOSITORY () {
+  ( 'https://poe.svn.sourceforge.net/svnroot/poe/trunk' )
 }
 
 1;
