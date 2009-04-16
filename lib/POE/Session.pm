@@ -1202,7 +1202,7 @@ Be very careful with closures, however.  L</Beware circular references>.
 
 C<object_states> associates one or more objects to a session and maps
 event names to the object methods that will handle them.  It's value
-is an CB<ARRAYREF>; C<HASHREFs> would stringify the objects, ruining them
+is an C<ARRAYREF>; C<HASHREFs> would stringify the objects, ruining them
 for method invocation.
 
 Here _start is handled by C<< $object->_session_start() >> and _stop triggers
