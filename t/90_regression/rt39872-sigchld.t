@@ -39,7 +39,7 @@ exit;
 sub _start {
 	my( $kernel, $heap ) = @_[KERNEL, HEAP];
 
-	my $prog = <<'PERL';
+	my $prog = <<'	PERL';
 		$|++;
 		my $N = shift;
 		print "I am $N\n";
@@ -48,7 +48,7 @@ sub _start {
 			exit 0 if /^bye/;
 			print "Unknown command '$_'\n";
 		}
-PERL
+	PERL
 
 	DEBUG and warn "_start";
 	$kernel->alias_set( 'worker' );
@@ -145,5 +145,5 @@ sub sig_CHLD {
 	delete $heap->{pid2W}{$pid};
 	delete $heap->{$N};
 	delete $heap->{id2W}{ $wheel->ID };
-	$kernel->yield( 'done' );
+	$kernel->delay( done => 0.1 );
 }
