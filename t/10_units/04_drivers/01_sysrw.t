@@ -195,11 +195,17 @@ sub write_until_pipe_is_full {
   my $full      = 0;
 
   while (1) {
+    # Put a big chunk into the buffer.
     my $buffered    = $driver->put([ $big_chunk ]);
+
+    # Try to flush it.
     my $after_flush = $driver->flush($handle);
+
+    # Flushed amount.
     $flushed += $buffered - $after_flush;
-    last if $full;
-    $full = $buffered == $after_flush;
+
+    # The pipe is full if there's data after the flush.
+    last if $after_flush;
   }
 
   return $flushed;
@@ -212,18 +218,9 @@ sub write_until_pipe_is_full {
 sub flush_remaining_buffer {
   my ($driver, $handle) = @_;
 
-  my $flushed = 0;
-  my $full    = 0;
-
-  while (1) {
-    my $buffered    = $driver->put([ ]);
-    my $after_flush = $driver->flush($handle);
-    $flushed += $buffered - $after_flush;
-    last if $full;
-    $full = $buffered == $after_flush;
-  }
-
-  return $flushed;
+  my $before_flush = $driver->get_out_messages_buffered();
+  $driver->flush($handle);
+  return $before_flush;
 }
 
 # Read until there's nothing left to read from the pipe.  This should
@@ -232,24 +229,25 @@ sub flush_remaining_buffer {
 sub read_until_pipe_is_empty {
   my ($driver, $handle) = @_;
 
-  my $read  = 0;
-  my $empty = 0;
+  my $read_octets = 0;
 
-  while (1) {
-    my $received = $driver->get($handle);
-    foreach (@$received) {
-      $read += length;
+  # SunOS catalogue1 5.11 snv_101b i86pc i386 i86pc
+  # Sometimes returns "empty" when there's data in the pipe.
+  # Looping again seems to fetch the remaining data, though.
+  for (1..3) {
+    while (1) {
+      my $data = $driver->get($handle);
+      last unless defined($data) and @$data;
+      $read_octets += length() foreach @$data;
     }
-    last if $empty;
-    $empty = @$received == 0;
   }
 
-  return $read;
+  return $read_octets;
 }
 
 # Portable nonblocking sub.  blocking(0) doesn't do it all the time,
 # everywhere, and it sucks.
-# 
+#
 # This sub sucks, too.  The code is lifted almost verbatim from
 # POE::Resource::FileHandles.  That code should probably be made a
 # library function, but where should it go?
