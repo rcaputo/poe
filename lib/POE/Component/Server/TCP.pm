@@ -1044,7 +1044,7 @@ POE::Filter class to use.  Each new connection will be given a freshly
 instantiated filter of that class.  No constructor parameters will be
 passed.
 
-  ClientFIlter => "POE::Filter::Stream",
+  ClientFilter => "POE::Filter::Stream",
 
 Some filters require constructor parameters.  These may be specified
 by an ARRAYREF.  The first element is the POE::Filter class name, and
