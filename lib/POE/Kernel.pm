@@ -1193,10 +1193,12 @@ sub _dispatch_event {
            $self->_data_ses_exists($source_session)
          );
   }
-  elsif ($type & ET_CALL and $source_session != $session) {
-    $self->_data_ses_collect_garbage($session)
-      if $self->_data_ses_exists($session);
-  }
+
+  # XXX - Apparently we don't need this.
+  #elsif ($type & ET_CALL and $source_session != $session) {
+  #  $self->_data_ses_collect_garbage($session)
+  #    if $self->_data_ses_exists($session);
+  #}
 
   # These types of events require garbage collection afterwards, but
   # they don't need any other processing.
