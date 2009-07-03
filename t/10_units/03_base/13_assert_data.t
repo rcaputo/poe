@@ -51,7 +51,7 @@ ok(
 
 eval { $poe_kernel->session_alloc($poe_kernel) };
 ok(
-  $@ && $@ =~ /session .*? already exists/,
+  $@ && $@ =~ /session .*? already exists/s,
   "double session_alloc"
 );
 
