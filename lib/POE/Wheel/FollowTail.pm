@@ -790,7 +790,7 @@ This error handler logs a message to STDERR and then shuts down the
 wheel.  It assumes that the session is watching multiple files.
 
   sub handle_tail_error {
-    my ($operation, $errnu, $errstr, $wheel_id) = @_[ARG0..ARG3];
+    my ($operation, $errnum, $errstr, $wheel_id) = @_[ARG0..ARG3];
     warn "Wheel $wheel_id: $operation error $errnum: $errstr\n";
     delete $_[HEAP]{tailors}{$wheel_id};
   }
