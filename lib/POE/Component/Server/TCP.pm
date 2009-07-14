@@ -100,6 +100,11 @@ sub new {
   my $session_type        = delete $param{SessionType};
   my $session_params      = delete $param{SessionParams};
   my $server_started      = delete $param{Started};
+  my $listener_args       = delete $param{ListenerArgs};
+
+  $listener_args = [] unless defined $listener_args;
+  croak "ListenerArgs must be an array reference"
+    unless ref($listener_args) eq 'ARRAY';
 
   if (exists $param{Args}) {
     if (exists $param{ClientArgs}) {
@@ -111,7 +116,7 @@ sub new {
     }
   }
 
-  my $args                = delete($param{ClientArgs}) || delete($param{Args});
+  my $client_args         = delete($param{ClientArgs}) || delete($param{Args});
 
   # Defaults.
 
@@ -140,7 +145,7 @@ sub new {
     $client_connected    = sub {} unless defined $client_connected;
     $client_disconnected = sub {} unless defined $client_disconnected;
     $client_flushed      = sub {} unless defined $client_flushed;
-    $args = [] unless defined $args;
+    $client_args = [] unless defined $client_args;
 
     # Extra states.
 
@@ -168,7 +173,7 @@ sub new {
       unless ref($object_states) eq 'ARRAY';
 
     croak "ClientArgs must be an array reference"
-      unless ref($args) eq 'ARRAY';
+      unless ref($client_args) eq 'ARRAY';
 
     # Sanity check, thanks to crab@irc for making this mistake, ha!
     # TODO we could move this to POE::Session and make it a
@@ -373,7 +378,7 @@ sub new {
           package_states => $package_states,
           object_states  => $object_states,
 
-          args => [ $socket, $args ],
+          args => [ $socket, $client_args ],
         );
       };
     }
@@ -504,7 +509,7 @@ sub new {
       _child  => sub { },
     },
 
-    args => $args,
+    args => $listener_args,
   )->ID;
 
   # Return the session ID.
@@ -963,6 +968,12 @@ C<Started> sets an optional callback that will be invoked within the
 main server session's context.  It notifies the server that it has
 fully started.  The callback's parameters are the usual for a
 session's _start handler.
+
+=head4 ListenerArgs
+
+C<ListenerArgs> is passed to the listener session as the C<args> parameter.  In
+other words, it must be an arrayref, and the values are are passed into the
+C<Started> handler as ARG0, ARG1, etc.
 
 =head3 Connection Session Configuration
 
