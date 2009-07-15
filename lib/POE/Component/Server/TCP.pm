@@ -915,8 +915,8 @@ C<InlineStates> is optional.  If specified, it must hold a hashref of
 named callbacks.  Its syntax is that of POE:Session->create()'s
 inline_states parameter.
 
-Remember: These InlineStates handlers will be added to the main
-listening session, not to every connection.  A yield() in a connection
+Remember: These InlineStates handlers will be added to the client 
+sessions, not to the main listening session.  A yield() in the listener
 will not reach these handlers.
 
 If POE::Kernel::ASSERT_USAGE is enabled, the constructor will croak() if it
@@ -929,8 +929,8 @@ If C<ObjectStates> is specified, it must holde an arrayref of objects
 and the events they will handle.  The arrayref must follow the syntax
 for POE::Session->create()'s object_states parameter.
 
-Remember: These ObjectStates handlers will be added to the main
-listening session, not to every connection.  A yield() in a connection
+Remember: These ObjectStates handlers will be added to the client 
+sessions, not to the main listening session.  A yield() in the listener
 will not reach these handlers.
 
 If POE::Kernel::ASSERT_USAGE is enabled, the constructor will croak() if it
@@ -944,8 +944,8 @@ package names and the events they will handle  The arrayref must
 follow the syntax for POE::Session->create()'s package_states
 parameter.
 
-Remember: These PackageStates handlers will be added to the main
-listening session, not to every connection.  A yield() in a connection
+Remember: These PackageStates handlers will be added to the client 
+sessions, not to the main listening session.  A yield() in the listener
 will not reach these handlers.
 
 If POE::Kernel::ASSERT_USAGE is enabled, the constructor will croak() if it
