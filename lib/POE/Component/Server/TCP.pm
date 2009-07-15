@@ -36,9 +36,6 @@ sub new {
   croak "$mi requires an even number of parameters" if (@_ & 1);
   my %param = @_;
 
-  # Validate what we're given.
-  croak "$mi needs a Port parameter" unless exists $param{Port};
-
   # Extract parameters.
   my $alias   = delete $param{Alias};
   my $address = delete $param{Address};
@@ -46,6 +43,8 @@ sub new {
   my $port    = delete $param{Port};
   my $domain  = delete($param{Domain}) || AF_INET;
   my $concurrency = delete $param{Concurrency};
+
+  $port = 0 unless defined $port;
 
   foreach (
     qw(
@@ -955,7 +954,7 @@ callback if you want to specify your own "_start" event.
 =head4 Port
 
 C<Port> contains the port the listening socket will be bound to.  It
-defaults to INADDR_ANY, which usually lets the operating system pick a
+defaults to 0, which usually lets the operating system pick a
 port at random.
 
   Port => 30023
