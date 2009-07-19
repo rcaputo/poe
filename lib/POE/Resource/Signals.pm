@@ -13,6 +13,8 @@ package POE::Kernel;
 
 use strict;
 
+use POE::Pipe::OneWay;
+use POE::Resource::FileHandles;
 use POSIX qw(:sys_wait_h);
 
 ### Map watched signal names to the sessions that are watching them
@@ -140,6 +142,8 @@ sub _data_sig_initialize {
     $self->loop_ignore_signal("CHLD") if exists $SIG{CHLD};
     $self->loop_ignore_signal("CLD")  if exists $SIG{CLD};
     $self->loop_ignore_signal("PIPE") if exists $SIG{PIPE};
+
+    $self->_data_sig_pipe_build if USE_SIGNAL_PIPE;
   }
 }
 
@@ -152,7 +156,10 @@ sub _data_sig_get_safe_signals {
 ### End-run leak checking.
 
 sub _data_sig_finalize {
+  my( $self ) = @_;
   my $finalized_ok = 1;
+
+  $self->_data_sig_pipe_finalize;
 
   while (my ($sig, $sig_rec) = each(%kr_signals)) {
     $finalized_ok = 0;
@@ -613,6 +620,177 @@ sub _data_sig_child_procs {
   return if !USE_SIGCHLD and !$polling_for_signals;
   return $kr_child_procs;
 }
+
+######################
+## Safe signals, the final solution:
+## Semantically, signal handlers and the main loop are in different threads.
+## To avoid all possible deadlock and race conditions once and for all we
+## implement them as shared-nothing threads.  
+##
+## The signal handlers are split in 2 :
+##  - a bottom handler, which sends the signal number over a one-way pipe.  
+##  - a top handler, which is called when this number is received.
+
+use vars qw( $signal_pipe_read_fd );
+my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid, 
+                %SIG2NUM, %NUM2SIG );
+
+sub _data_sig_pipe_build {
+  my( $self ) = @_;
+  return unless USE_SIGNAL_PIPE;
+
+  unless( %SIG2NUM ) {
+    foreach my $sig ( keys %_safe_signals ) {
+      my $n = eval "POSIX::SIG$sig()";
+      next if $@;
+      # paranoid check
+      _trap "<sg> SIG$sig is out of range ($n)" if $n > 255; 
+      $SIG2NUM{ $sig } = $n;
+      $NUM2SIG{ $n } = $sig;
+    }
+    # we need CLD to be named CHLD
+    $SIG2NUM{ CLD } = $SIG2NUM{ CHLD };
+    $NUM2SIG{ $SIG2NUM{ CHLD } } = 'CHLD';
+    $NUM2SIG{ $SIG2NUM{ CLD } } = 'CHLD' if $SIG2NUM{ CLD };
+    # warn join "\n", map { "$_: $SIG2NUM{$_}" } sort keys %SIG2NUM;
+    # warn join "\n", map { "$_: $_safe_signals{$_}" } sort keys %_safe_signals;
+  }
+
+  # Associate the pipe with this PID
+  $signal_pipe_pid = $$;
+
+  # Open the signal pipe
+  ( $signal_pipe_read, $signal_pipe_write ) = 
+            POE::Pipe::OneWay->new( 'pipe' );
+  _trap "<sg> Unable to create the signal pipe: $!" unless $signal_pipe_write;
+
+  # Allows Resource::FileHandles to by-pass the queue
+  $signal_pipe_read_fd = fileno $signal_pipe_read;
+  if( TRACE_SIGNALS ) {
+    _warn "<sg> signal_pipe_write=$signal_pipe_write";
+    _warn "<sg> signal_pipe_read=$signal_pipe_read";
+    _warn "<sg> signal_pipe_read_fd=$signal_pipe_read_fd";
+  }
+
+  # Add to the select list
+  $self->_data_handle_condition( $signal_pipe_read );
+  $self->loop_watch_filehandle( $signal_pipe_read, MODE_RD );
+}
+
+sub _data_sig_pipe_finalize {
+  my( $self ) = @_;
+  if( $signal_pipe_read ) {
+    $self->loop_ignore_filehandle( $signal_pipe_read, MODE_RD );
+    close $signal_pipe_read; undef $signal_pipe_read;
+  }
+  if( $signal_pipe_write ) {
+    close $signal_pipe_write; undef $signal_pipe_write;
+  } 
+  undef $signal_pipe_pid;
+}
+
+### Send a signal "message" to the main thread
+### Called from the bottom signal handlers
+sub _data_sig_pipe_send {
+  my $n = $SIG2NUM{ $_[1] };
+  if( ASSERT_DATA ) {
+    _trap "<sg> Unknown signal $_[1]" unless defined $n;
+  }
+  if( TRACE_SIGNALS ) {
+    _warn "<sg> Caught SIG$_[1] ($n)";
+  }
+  if( $$ != $signal_pipe_pid ) {
+    _trap "<sg> Kernel now running in a different process.  You must call call \$poe_kernel->has_forked in the child process.";
+  }
+
+  my $count = _data_sig_pipe_syswrite( pack( "C", $n ) );
+  if( ASSERT_DATA ) {
+    if( $count != 1 ) {
+      _trap "<sg> Wrote more than one byte (count=$count)";
+    }
+  }
+}
+
+### write one signal number to the pipe
+sub _data_sig_pipe_syswrite {
+  my( $data ) = @_;
+  my $count = syswrite( $signal_pipe_write, $data );
+  if( defined $count and $count > 0 ) {
+    $! = 0;
+    if( TRACE_SIGNALS ) {
+      _warn "<sg> Wrote $count byte(s) to signal pipe";
+    }
+
+    return $count;
+  }
+
+  # if we got here, something bad happened
+  if( $! == EAGAIN or $! == EWOULDBLOCK ) {
+    _trap "<sg> Excessive signals detected; signal pipe full: $!";
+  }
+  _trap "<sg> Error writing to signal pipe: $!";
+}
+
+### Read all signal numbers.  
+### Call the related top handlers
+sub _data_sig_pipe_read {
+  my( $self, $fileno, $mode ) = @_;
+  if( ASSERT_DATA ) {
+    _trap "Illegal mode=$mode on fileno=$fileno" unless 
+                                    $fileno == $signal_pipe_read_fd
+                                and $mode eq MODE_RD;
+  }
+  my $data = $self->_data_sig_pipe_sysread();
+  return unless defined $data;
+
+  my $count = length $data;
+  if( TRACE_SIGNALS ) {
+    _warn "<sg> Read $count bytes from signal pipe";
+  }
+  return unless $count;
+
+  for(my $q=0; $q< $count; $q++ ) {
+    my $n = unpack "C", substr( $data, $q, 1 );
+    next if $n == 0;
+    if( ASSERT_DATA ) {
+      _trap "Unknown signal number $n" unless $NUM2SIG{ $n };
+    }
+    my $sig = $NUM2SIG{ $n };
+    if( $sig eq 'CHLD' ) {
+      _loop_signal_handler_chld_top( $sig );
+    }
+    elsif( $sig eq 'PIPE' ) {
+      _loop_signal_handler_pipe_top( $sig );
+    }
+    else {
+      _loop_signal_handler_generic_top( $sig );
+    }
+  }
+}
+
+### Read all signal numbers from the pipe
+sub _data_sig_pipe_sysread {
+  my $data = '';
+  # To avoid flooding the queue, we don't read the entire pipe at once
+  # PG- Mind you, I doubt signal flooding is ever going to be much of 
+  # a problem, is it?
+  my $result = sysread( $signal_pipe_read, $data, 4096 ); # XXX
+  if( defined $result ) {
+    $! = 0;
+    return $data;
+  }
+  # Nonfatal sysread() error.  Return an empty list.
+  return '' if $! == EAGAIN or $! == EWOULDBLOCK;
+
+  if( ASSERT_DATA ) {
+    _trap "<sg> Error reading from signal pipe: $!";
+  }
+  elsif( TRACE_SIGNALS ) {
+    _warn "<sg> Error reading from signal pipe: $!";
+  }
+  return;
+}
+
 
 1;
 

@@ -293,7 +293,8 @@ sub loop_do_timeslice {
           POE::Kernel::_trap("<fh> poll returned $hits (error): $!")
             unless ( ($! == EINPROGRESS) or
                      ($! == EWOULDBLOCK) or
-                     ($! == EINTR)
+                     ($! == EINTR) or
+                     ($! == 0)      # SIGNAL_PIPE strangeness
                    );
         }
       }

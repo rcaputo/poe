@@ -137,6 +137,15 @@ BEGIN {
       #}
     }
   }
+  { no strict 'refs';
+    unless (defined &USE_SIGNAL_PIPE) {
+      if( exists $ENV{ POE_USE_SIGNAL_PIPE } and not $ENV{ POE_USE_SIGNAL_PIPE } ) {
+        *USE_SIGNAL_PIPE = sub () { 0 };
+      } else {
+        *USE_SIGNAL_PIPE = sub () { 1 };
+      }
+    }
+  }
 }
 
 #==============================================================================
@@ -471,6 +480,7 @@ sub _warn {
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
 
   _trap_death();
+  $message =~ s/^/$$: /mg;
   warn $message;
   _release_death();
 }
@@ -1242,10 +1252,11 @@ sub _finalize_kernel {
   $self->_data_sig_remove($self, "IDLE");
 
   # The main loop is done, no matter which event library ran it.
+  # sig before loop so that it clears the signal_pipe file handler
+  $self->_data_sig_finalize();  
   $self->loop_finalize();
   $self->_data_extref_finalize();
   $self->_data_sid_finalize();
-  $self->_data_sig_finalize();
   $self->_data_alias_finalize();
   $self->_data_handle_finalize();
   $self->_data_ev_finalize();
@@ -1331,6 +1342,16 @@ sub stop {
   $self->[KR_ID] = undef;
 
   return;
+}
+
+# Less invasive form of ->stop() + ->run()
+sub has_forked {
+  # So has_forked() can be called as a class method.
+  my $self = $poe_kernel;
+  if( USE_SIGNAL_PIPE ) {
+    $self->_data_sig_pipe_finalize;
+    $self->_data_sig_pipe_build;
+  }
 }
 
 #------------------------------------------------------------------------------

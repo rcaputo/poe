@@ -241,6 +241,16 @@ sub _data_handle_enqueue_ready {
       _trap "internal inconsistency: undefined fileno" unless defined $fileno;
     }
 
+    # By-pass the event queue for things that come over the pipe:
+    # this reduces signal latency
+    if( USE_SIGNAL_PIPE ) {
+      # _warn "fileno=$fileno signal_pipe_read=$POE::Kernel::signal_pipe_read_fd";
+      if( $fileno == $POE::Kernel::signal_pipe_read_fd ) {
+        $self->_data_sig_pipe_read( $fileno, $mode );
+        return;
+      }
+    }
+
     my $kr_fno_rec = $kr_filenos{$fileno}->[$mode];
 
     # Gather all the events to emit for this fileno/mode pair.
@@ -331,47 +341,7 @@ sub _data_handle_add {
       _warn "<fh> adding fd ($fd) in mode ($mode)";
     }
 
-    # For DOSISH systems like OS/2.  Wrapped in eval{} in case it's a
-    # tied handle that doesn't support binmode.
-    eval { binmode *$handle };
-
-    # Turn off blocking unless it's tied or a plain file.
-    unless (tied *$handle or -f $handle) {
-
-      unless (RUNNING_IN_HELL) {
-        if ($] >= 5.008) {
-          $handle->blocking(0);
-        }
-        else {
-          # Long, drawn out, POSIX way.
-          my $flags = fcntl($handle, F_GETFL, 0)
-            or _trap "fcntl($handle, F_GETFL, 0) fails: $!\n";
-          until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
-            _trap(
-              "fcntl($handle [" . fileno($handle) . "], F_SETFL [" .
-              F_SETFL . "], $flags | O_NONBLOCK [" . O_NONBLOCK .
-              "]) fails: $!"
-            ) unless $! == EAGAIN or $! == EWOULDBLOCK;
-          }
-        }
-      }
-      else {
-        # Do it the Win32 way.
-        my $set_it = "1";
-
-        # 126 is FIONBIO (some docs say 0x7F << 16)
-        ioctl(
-          $handle,
-          0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-          \$set_it
-        ) or _trap(
-          "ioctl($handle, FIONBIO, $set_it) fails: errno " . ($!+0) . " = $!\n"
-        );
-      }
-    }
-
-    # Turn off buffering.
-    CORE::select((CORE::select($handle), $| = 1)[0]);
+    $self->_data_handle_condition( $handle );
   }
 
   # Cache some high-level lookups.
@@ -513,6 +483,55 @@ sub _data_handle_add {
     $ss_handle->[SH_REFCOUNT]++;
   }
 }
+
+### Condition a file handle so that it is ready for select et al
+sub _data_handle_condition {
+    my( $self, $handle ) = @_;
+
+    # For DOSISH systems like OS/2.  Wrapped in eval{} in case it's a
+    # tied handle that doesn't support binmode.
+    eval { binmode *$handle };
+
+    # Turn off blocking unless it's tied or a plain file.
+    unless (tied *$handle or -f $handle) {
+
+      unless (RUNNING_IN_HELL) {
+        if ($] >= 5.008) {
+          $handle->blocking(0);
+        }
+        else {
+          # Long, drawn out, POSIX way.
+          my $flags = fcntl($handle, F_GETFL, 0)
+            or _trap "fcntl($handle, F_GETFL, 0) fails: $!\n";
+          until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
+            _trap(
+              "fcntl($handle [" . fileno($handle) . "], F_SETFL [" .
+              F_SETFL . "], $flags | O_NONBLOCK [" . O_NONBLOCK .
+              "]) fails: $!"
+            ) unless $! == EAGAIN or $! == EWOULDBLOCK;
+          }
+        }
+      }
+      else {
+        # Do it the Win32 way.
+        my $set_it = "1";
+
+        # 126 is FIONBIO (some docs say 0x7F << 16)
+        ioctl(
+          $handle,
+          0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
+          \$set_it
+        ) or _trap(
+          "ioctl($handle, FIONBIO, $set_it) fails: errno " . ($!+0) . " = $!\n"
+        );
+      }
+    }
+
+    # Turn off buffering.
+    CORE::select((CORE::select($handle), $| = 1)[0]);
+}
+
+
 
 ### Remove a select from the kernel, and possibly trigger the
 ### session's destruction.

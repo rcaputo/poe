@@ -26,6 +26,15 @@ my %signal_watched;
 # Signal handlers/callbacks.
 
 sub _loop_signal_handler_generic {
+  if( USE_SIGNAL_PIPE ) {
+    POE::Kernel->_data_sig_pipe_send( $_[0] );
+  }
+  else {
+    _loop_signal_handler_generic_top( $_[0] );
+  }
+}
+
+sub _loop_signal_handler_generic_top {
   if (TRACE_SIGNALS) {
     POE::Kernel::_warn "<sg> Enqueuing generic SIG$_[0] event";
   }
@@ -37,7 +46,17 @@ sub _loop_signal_handler_generic {
   $SIG{$_[0]} = \&_loop_signal_handler_generic;
 }
 
+##
 sub _loop_signal_handler_pipe {
+  if( USE_SIGNAL_PIPE ) {
+    POE::Kernel->_data_sig_pipe_send( $_[0] );
+  }
+  else {
+    _loop_signal_handler_pipe_top( $_[0] );
+  }
+}
+
+sub _loop_signal_handler_pipe_top {
   if (TRACE_SIGNALS) {
     POE::Kernel::_warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
   }
@@ -49,8 +68,17 @@ sub _loop_signal_handler_pipe {
   $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }
 
-# only used under USE_SIGCHLD
+## only used under USE_SIGCHLD
 sub _loop_signal_handler_chld {
+  if( USE_SIGNAL_PIPE ) {
+    POE::Kernel->_data_sig_pipe_send( 'CHLD' );
+  }
+  else {
+    _loop_signal_handler_chld_top( $_[0] );
+  }
+}
+
+sub _loop_signal_handler_chld_top {
   if (TRACE_SIGNALS) {
     POE::Kernel::_warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
   }

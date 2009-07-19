@@ -102,6 +102,7 @@ sub parent
 sub child
 {
   my( $kernel, $heap, $session ) = @_[KERNEL, HEAP, SESSION];
+  $kernel->has_forked;
   $PARENT = 0;
   DEBUG and warn "child";
   $kernel->sig( 'CHLD' );

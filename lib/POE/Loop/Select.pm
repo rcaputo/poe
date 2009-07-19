@@ -216,9 +216,10 @@ sub loop_do_timeslice {
           $hits < 0 and
           $! != EINPROGRESS and
           $! != EWOULDBLOCK and
-          $! != EINTR
+          $! != EINTR and
+          $! != 0                   # this is caused by SIGNAL_PIPE
         ) {
-          POE::Kernel::_trap("<fh> select error: $!");
+          POE::Kernel::_trap("<fh> select error: $! (hits=$hits)");
         }
       }
 
