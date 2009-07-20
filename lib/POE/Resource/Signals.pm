@@ -625,14 +625,14 @@ sub _data_sig_child_procs {
 ## Safe signals, the final solution:
 ## Semantically, signal handlers and the main loop are in different threads.
 ## To avoid all possible deadlock and race conditions once and for all we
-## implement them as shared-nothing threads.  
+## implement them as shared-nothing threads.
 ##
 ## The signal handlers are split in 2 :
-##  - a bottom handler, which sends the signal number over a one-way pipe.  
+##  - a bottom handler, which sends the signal number over a one-way pipe.
 ##  - a top handler, which is called when this number is received.
 
 use vars qw( $signal_pipe_read_fd );
-my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid, 
+my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid,
                 %SIG2NUM, %NUM2SIG );
 
 sub _data_sig_pipe_build {
@@ -644,7 +644,7 @@ sub _data_sig_pipe_build {
       my $n = eval "POSIX::SIG$sig()";
       next if $@;
       # paranoid check
-      _trap "<sg> SIG$sig is out of range ($n)" if $n > 255; 
+      _trap "<sg> SIG$sig is out of range ($n)" if $n > 255;
       $SIG2NUM{ $sig } = $n;
       $NUM2SIG{ $n } = $sig;
     }
@@ -660,8 +660,12 @@ sub _data_sig_pipe_build {
   $signal_pipe_pid = $$;
 
   # Open the signal pipe
-  ( $signal_pipe_read, $signal_pipe_write ) = 
-            POE::Pipe::OneWay->new( 'pipe' );
+  if (RUNNING_IN_HELL) {
+    ( $signal_pipe_read, $signal_pipe_write ) = POE::Pipe::OneWay->new('inet');
+  }
+  else {
+    ( $signal_pipe_read, $signal_pipe_write ) = POE::Pipe::OneWay->new('pipe');
+  }
   _trap "<sg> Unable to create the signal pipe: $!" unless $signal_pipe_write;
 
   # Allows Resource::FileHandles to by-pass the queue
@@ -685,7 +689,7 @@ sub _data_sig_pipe_finalize {
   }
   if( $signal_pipe_write ) {
     close $signal_pipe_write; undef $signal_pipe_write;
-  } 
+  }
   undef $signal_pipe_pid;
 }
 
@@ -731,12 +735,12 @@ sub _data_sig_pipe_syswrite {
   _trap "<sg> Error writing to signal pipe: $!";
 }
 
-### Read all signal numbers.  
+### Read all signal numbers.
 ### Call the related top handlers
 sub _data_sig_pipe_read {
   my( $self, $fileno, $mode ) = @_;
   if( ASSERT_DATA ) {
-    _trap "Illegal mode=$mode on fileno=$fileno" unless 
+    _trap "Illegal mode=$mode on fileno=$fileno" unless
                                     $fileno == $signal_pipe_read_fd
                                 and $mode eq MODE_RD;
   }
@@ -772,7 +776,7 @@ sub _data_sig_pipe_read {
 sub _data_sig_pipe_sysread {
   my $data = '';
   # To avoid flooding the queue, we don't read the entire pipe at once
-  # PG- Mind you, I doubt signal flooding is ever going to be much of 
+  # PG- Mind you, I doubt signal flooding is ever going to be much of
   # a problem, is it?
   my $result = sysread( $signal_pipe_read, $data, 4096 ); # XXX
   if( defined $result ) {
