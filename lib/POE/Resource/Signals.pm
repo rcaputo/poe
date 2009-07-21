@@ -655,21 +655,30 @@ my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid,
 sub _data_sig_pipe_build {
   my( $self ) = @_;
   return unless USE_SIGNAL_PIPE;
-
+  my $fake = 128;
+  
   unless( %SIG2NUM ) {
     foreach my $sig ( keys %_safe_signals ) {
       my $n = eval "POSIX::SIG$sig()";
-      next if $@;
-      # paranoid check
-      _trap "<sg> SIG$sig is out of range ($n)" if $n > 255;
+      # warn $@;
+      if( $@ ) {		# AKA : RUNNING_IN_HELL
+          # The number used is less important then the fact that it has
+          # a unique number assigned to it
+          $n = $fake++;
+          _trap "<sg> SIG$sig not defined and $n > 255" if $n > 255;
+      }
+      else {
+          # paranoid check
+          _trap "<sg> SIG$sig is out of range ($n)" if $n > 127;
+      }
       $SIG2NUM{ $sig } = $n;
       $NUM2SIG{ $n } = $sig;
     }
+    # warn join "\n", map { "$_: $SIG2NUM{$_}" } sort keys %SIG2NUM;
     # we need CLD to be named CHLD
     $SIG2NUM{ CLD } = $SIG2NUM{ CHLD };
     $NUM2SIG{ $SIG2NUM{ CHLD } } = 'CHLD';
     $NUM2SIG{ $SIG2NUM{ CLD } } = 'CHLD' if $SIG2NUM{ CLD };
-    # warn join "\n", map { "$_: $SIG2NUM{$_}" } sort keys %SIG2NUM;
     # warn join "\n", map { "$_: $_safe_signals{$_}" } sort keys %_safe_signals;
   }
 
@@ -703,6 +712,7 @@ sub _data_sig_pipe_build {
 }
 
 sub _data_sig_mask_build {
+  return if RUNNING_IN_HELL;
   $signal_mask_none  = POSIX::SigSet->new();
   $signal_mask_none->emptyset();
   $signal_mask_all  = POSIX::SigSet->new();
@@ -711,6 +721,7 @@ sub _data_sig_mask_build {
 
 ### Mask all signals
 sub _data_sig_mask_all {
+  return if RUNNING_IN_HELL;
   my $self = $poe_kernel;
   unless( $signal_mask_all ) {
     $self->_data_sig_mask_build;
@@ -722,6 +733,7 @@ sub _data_sig_mask_all {
 
 ### Unmask all signals
 sub _data_sig_unmask_all {
+  return if RUNNING_IN_HELL;
   my $self = $poe_kernel;
   unless( $signal_mask_none ) {
     $self->_data_sig_mask_build;
