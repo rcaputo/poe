@@ -133,6 +133,7 @@ sub run {
     local @state;
 
     POE::Component::Server::TCP->new(
+        Address             =>  '127.0.0.1',
         Alias               =>  'server',
         Started             =>  \&server_started,
         ClientConnected     =>  \&server_client_connected,
