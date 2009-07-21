@@ -165,6 +165,9 @@ use vars qw($kr_exception);
 # The Kernel's master queue.
 my $kr_queue;
 
+# The current PID, to detect when it changes
+my $kr_pid;
+
 # Filehandle activity modes.  They are often used as list indexes.
 sub MODE_RD () { 0 }  # read
 sub MODE_WR () { 1 }  # write
@@ -492,6 +495,7 @@ sub _die {
   local *STDERR = *TRACE_FILE;
 
   _trap_death();
+  $message =~ s/^/$$: /mg;
   die $message;
   _release_death();
 }
@@ -639,6 +643,12 @@ sub _test_if_kernel_is_idle {
       "<rc> `---------------------------\n",
       "<rc> ..."
      );
+  }
+
+  if( ASSERT_DATA ) {
+    if( $kr_pid != $$ ) {
+      _trap "New process detected. You must call ->has_forked() in the child process."
+    }
   }
 
   unless (
@@ -811,6 +821,9 @@ sub new {
 
     # Create our master queue.
     $kr_queue = $queue_class->new();
+
+    # Remember the PID
+    $kr_pid = $$;
 
     # TODO - Should KR_ACTIVE_SESSIONS and KR_ACTIVE_EVENT be handled
     # by POE::Resource::Sessions?
@@ -1346,12 +1359,20 @@ sub stop {
 
 # Less invasive form of ->stop() + ->run()
 sub has_forked {
+  if( $kr_pid == $$ ) {
+    _croak "You should only call ->has_forked() from the child process.";
+  }
+
   # So has_forked() can be called as a class method.
   my $self = $poe_kernel;
-  if( USE_SIGNAL_PIPE ) {
-    $self->_data_sig_pipe_finalize;
-    $self->_data_sig_pipe_build;
-  }
+
+  # Undefine the kernel ID so it will be recalculated on the next
+  # ID() call.
+  $self->[KR_ID] = undef;
+  $kr_pid = $$;
+
+  # reset some stuff for the signals
+  $poe_kernel->_data_sig_has_forked;
 }
 
 #------------------------------------------------------------------------------
@@ -3063,6 +3084,22 @@ instead:
   }
 
   $kernel->run_while(\$job_count);
+
+=head3 has_forked
+
+    my $pid = fork();
+    die "Unable to fork" unless defined $pid;
+    unless( $pid ) { 
+        $poe_kernel->has_forked;
+    }
+ 
+Inform the kernel that it is now running in a new process.  This allows the
+kernel to reset some internal data to adjust to the new situation.
+
+has_forked() must be called in the child process if you wish to run the same
+kernel.  However, if you want the child process to have new kernel, you must
+call L</stop> instead.
+
 
 =head3 stop
 
@@ -5281,7 +5318,19 @@ processes need to be reaped and the C<CHLD> signal emulated.
 
 Defaults to 1 second.
 
-=head2 CATCH_EXCEPTIONS
+=head2 USE_SIGNAL_PIPE
+
+The only safe way to handle signals is to implement a shared-nothing model. 
+POE builds a I<signal pipe> that communicates between the the signal
+handlers and the POE kernel loop in a safe and atomic manner.  The signal
+pipe is implemented with L<POE::Pipe::OneWay>, using a C<pipe> conduit on
+Unix, and C<inet> on Windows.
+
+If you wish to revert to the previous unsafe signal behaviour, you must set
+C<USE_SIGNAL_PIPE> to 0, or the environment vairable C<POE_USE_SIGNAL_PIPE>.
+
+
+=head1 CATCH_EXCEPTIONS
 
 Whether or not POE should run event handler code in an eval { } and
 deliver the C<DIE> signal on errors.

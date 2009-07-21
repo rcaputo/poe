@@ -15,7 +15,7 @@ use strict;
 
 use POE::Pipe::OneWay;
 use POE::Resource::FileHandles;
-use POSIX qw(:sys_wait_h);
+use POSIX qw(:sys_wait_h sigprocmask SIG_SETMASK);
 
 ### Map watched signal names to the sessions that are watching them
 ### and the events that must be delivered when they occur.
@@ -101,10 +101,7 @@ my %_safe_signals;
 sub _data_sig_initialize {
   my $self = shift;
 
-  # Initialize this to a true value so our waitpid() loop can run at
-  # least once.  Starts false when running in an Apache handler so our
-  # SIGCHLD hijinks don't interfere with the web server.
-  $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 );
+  $self->_data_sig_reset_procs;
 
   $poe_kernel->[KR_SIGNALS] = \%kr_signals;
   $poe_kernel->[KR_PIDS]    = \%kr_pids_to_events;
@@ -146,6 +143,25 @@ sub _data_sig_initialize {
     $self->_data_sig_pipe_build if USE_SIGNAL_PIPE;
   }
 }
+
+sub _data_sig_has_forked {
+  my( $self ) = @_;
+  $self->_data_sig_reset_procs;
+  if( USE_SIGNAL_PIPE ) {
+    $self->_data_sig_mask_all;
+    $self->_data_sig_pipe_finalize;
+    $self->_data_sig_pipe_build;
+    $self->_data_sig_unmask_all;
+  }
+}
+
+sub _data_sig_reset_procs {
+  # Initialize this to a true value so our waitpid() loop can run at
+  # least once.  Starts false when running in an Apache handler so our
+  # SIGCHLD hijinks don't interfere with the web server.
+  $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 );
+}
+
 
 ### Return signals that are safe to manipulate.
 
@@ -628,12 +644,13 @@ sub _data_sig_child_procs {
 ## implement them as shared-nothing threads.
 ##
 ## The signal handlers are split in 2 :
-##  - a bottom handler, which sends the signal number over a one-way pipe.
-##  - a top handler, which is called when this number is received.
+##  - a top handler, which sends the signal number over a one-way pipe.
+##  - a bottom handler, which is called when this number is received in the
+##  main loop.
 
 use vars qw( $signal_pipe_read_fd );
 my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid,
-                %SIG2NUM, %NUM2SIG );
+    $signal_mask_none, $signal_mask_all, %SIG2NUM, %NUM2SIG );
 
 sub _data_sig_pipe_build {
   my( $self ) = @_;
@@ -659,6 +676,9 @@ sub _data_sig_pipe_build {
   # Associate the pipe with this PID
   $signal_pipe_pid = $$;
 
+  # Mess with the signal mask
+  $self->_data_sig_mask_all;
+
   # Open the signal pipe
   if (RUNNING_IN_HELL) {
     ( $signal_pipe_read, $signal_pipe_write ) = POE::Pipe::OneWay->new('inet');
@@ -679,7 +699,39 @@ sub _data_sig_pipe_build {
   # Add to the select list
   $self->_data_handle_condition( $signal_pipe_read );
   $self->loop_watch_filehandle( $signal_pipe_read, MODE_RD );
+  $self->_data_sig_unmask_all;
 }
+
+sub _data_sig_mask_build {
+  $signal_mask_none  = POSIX::SigSet->new();
+  $signal_mask_none->emptyset();
+  $signal_mask_all  = POSIX::SigSet->new();
+  $signal_mask_all->fillset();
+}
+
+### Mask all signals
+sub _data_sig_mask_all {
+  my $self = $poe_kernel;
+  unless( $signal_mask_all ) {
+    $self->_data_sig_mask_build;
+  }
+  my $mask_temp;
+  sigprocmask( SIG_SETMASK, $signal_mask_all, $mask_temp ) 
+            or _trap "<sg> Unable to mask all signals: $!";
+}
+
+### Unmask all signals
+sub _data_sig_unmask_all {
+  my $self = $poe_kernel;
+  unless( $signal_mask_none ) {
+    $self->_data_sig_mask_build;
+  }
+  my $mask_temp;
+  sigprocmask( SIG_SETMASK, $signal_mask_none, $mask_temp ) 
+        or _trap "<sg> Unable to unmask all signals: $!";
+}
+
+
 
 sub _data_sig_pipe_finalize {
   my( $self ) = @_;
@@ -761,13 +813,13 @@ sub _data_sig_pipe_read {
     }
     my $sig = $NUM2SIG{ $n };
     if( $sig eq 'CHLD' ) {
-      _loop_signal_handler_chld_top( $sig );
+      _loop_signal_handler_chld_bottom( $sig );
     }
     elsif( $sig eq 'PIPE' ) {
-      _loop_signal_handler_pipe_top( $sig );
+      _loop_signal_handler_pipe_bottom( $sig );
     }
     else {
-      _loop_signal_handler_generic_top( $sig );
+      _loop_signal_handler_generic_bottom( $sig );
     }
   }
 }

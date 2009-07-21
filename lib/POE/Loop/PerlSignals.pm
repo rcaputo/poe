@@ -30,11 +30,11 @@ sub _loop_signal_handler_generic {
     POE::Kernel->_data_sig_pipe_send( $_[0] );
   }
   else {
-    _loop_signal_handler_generic_top( $_[0] );
+    _loop_signal_handler_generic_bottom( $_[0] );
   }
 }
 
-sub _loop_signal_handler_generic_top {
+sub _loop_signal_handler_generic_bottom {
   if (TRACE_SIGNALS) {
     POE::Kernel::_warn "<sg> Enqueuing generic SIG$_[0] event";
   }
@@ -52,11 +52,11 @@ sub _loop_signal_handler_pipe {
     POE::Kernel->_data_sig_pipe_send( $_[0] );
   }
   else {
-    _loop_signal_handler_pipe_top( $_[0] );
+    _loop_signal_handler_pipe_bottom( $_[0] );
   }
 }
 
-sub _loop_signal_handler_pipe_top {
+sub _loop_signal_handler_pipe_bottom {
   if (TRACE_SIGNALS) {
     POE::Kernel::_warn "<sg> Enqueuing PIPE-like SIG$_[0] event";
   }
@@ -74,11 +74,11 @@ sub _loop_signal_handler_chld {
     POE::Kernel->_data_sig_pipe_send( 'CHLD' );
   }
   else {
-    _loop_signal_handler_chld_top( $_[0] );
+    _loop_signal_handler_chld_bottom( $_[0] );
   }
 }
 
-sub _loop_signal_handler_chld_top {
+sub _loop_signal_handler_chld_bottom {
   if (TRACE_SIGNALS) {
     POE::Kernel::_warn "<sg> Enqueuing CHLD-like SIG$_[0] event";
   }
