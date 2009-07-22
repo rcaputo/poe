@@ -67,7 +67,7 @@ POE::Session->create(
       foreach my $wheel (values %{$_[HEAP]{W}}) {
         $wheel->put("die\n");
       }
-      $_[HEAP]{TID} = $poe_kernel->delay_set(timeout => 10);
+      $_[HEAP]{TID} = $poe_kernel->delay_set(timeout => $N);
       DEBUG and warn "$$: said my goodbyes";
     },
 
