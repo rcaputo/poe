@@ -661,7 +661,7 @@ sub _data_sig_pipe_build {
     foreach my $sig ( keys %_safe_signals ) {
       my $n = eval "POSIX::SIG$sig()";
       # warn $@;
-      if( $@ ) {		# AKA : RUNNING_IN_HELL
+      if( $@ ) {    # AKA : RUNNING_IN_HELL
           # The number used is less important then the fact that it has
           # a unique number assigned to it
           $n = $fake++;
@@ -695,7 +695,7 @@ sub _data_sig_pipe_build {
   else {
     ( $signal_pipe_read, $signal_pipe_write ) = POE::Pipe::OneWay->new('pipe');
   }
-  _trap "<sg> Unable to create the signal pipe: $!" unless $signal_pipe_write;
+  _trap "<sg> Error " . ($!+0) . " trying to create the signal pipe: $!" unless $signal_pipe_write;
 
   # Allows Resource::FileHandles to by-pass the queue
   $signal_pipe_read_fd = fileno $signal_pipe_read;
@@ -796,7 +796,7 @@ sub _data_sig_pipe_syswrite {
   if( $! == EAGAIN or $! == EWOULDBLOCK ) {
     _trap "<sg> Excessive signals detected; signal pipe full: $!";
   }
-  _trap "<sg> Error writing to signal pipe: $!";
+  _trap "<sg> Error " . ($!+0) . " writing to signal pipe: $!";
 }
 
 ### Read all signal numbers.
@@ -851,10 +851,10 @@ sub _data_sig_pipe_sysread {
   return '' if $! == EAGAIN or $! == EWOULDBLOCK;
 
   if( ASSERT_DATA ) {
-    _trap "<sg> Error reading from signal pipe: $!";
+    _trap "<sg> Error " . ($!+0) . " reading from signal pipe: $!";
   }
   elsif( TRACE_SIGNALS ) {
-    _warn "<sg> Error reading from signal pipe: $!";
+    _warn "<sg> Error " . ($!+0) . " reading from signal pipe: $!";
   }
   return;
 }
