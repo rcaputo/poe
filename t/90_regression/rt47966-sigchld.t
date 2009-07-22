@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# vim: filetype=perl tw=2 sw=2 expandtab
+# vim: filetype=perl ts=2 sw=2 expandtab
 
 use warnings;
 use strict;
@@ -16,7 +16,7 @@ unless ($ENV{TEST_MAINTAINER}) {
 }
 
 my $N = 60;
-diag "This test will over ", int($N / 3), " seconds";
+diag "This test can take up to about ", int($N / 3), " seconds";
 plan tests => $N + 2;
 
 POE::Session->create(
@@ -24,25 +24,23 @@ POE::Session->create(
     _start => sub {
       my ($heap, $count) = @_[HEAP, ARG0];
       $poe_kernel->sig(CHLD => 'sig_CHLD');
-      my $max;
       foreach my $n (1 .. $N) {
-        my $time = int rand($N / 3);
-        DEBUG and diag "$$: Launch child $n (time=$time)";
+        DEBUG and diag "$$: Launch child $n";
         my $w = POE::Wheel::Run->new(
           Program => sub {
-            DEBUG and warn "$$: $n sleep $time";
-            sleep $time;
+            DEBUG and warn "$$: waiting for input";
+            <STDIN>;
             exit 0;
           },
           StdoutEvent => 'chld_stdout',
           StderrEvent => 'chld_stdin',
         );
-        $max = $time if not $max or $max < $time;
         $heap->{PID2W}{$w->PID} = {ID => $w->ID, N => $n};
         $heap->{W}{$w->ID} = $w;
       }
-      $heap->{TID} = $poe_kernel->delay_set(timeout => $max + 2);
 
+      DEBUG and warn "$$: waiting 1 sec for things to settle";
+      $_[KERNEL]->delay(say_goodbye => 1);
     },
 
     chld_stdout => sub {
@@ -62,6 +60,15 @@ POE::Session->create(
       else {
         fail "stderr from $wid: $line";
       }
+    },
+
+    say_goodbye => sub {
+      DEBUG and warn "$$: saying goodbye";
+      foreach my $wheel (values %{$_[HEAP]{W}}) {
+        $wheel->put("die\n");
+      }
+      $_[HEAP]{TID} = $poe_kernel->delay_set(timeout => 10);
+      DEBUG and warn "$$: said my goodbyes";
     },
 
     timeout => sub {
