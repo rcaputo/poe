@@ -7,7 +7,7 @@ use strict;
 use Carp qw( croak );
 
 use vars qw($VERSION $REVISION);
-$VERSION = '1.006'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 $REVISION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 sub import {
