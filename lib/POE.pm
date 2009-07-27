@@ -509,13 +509,17 @@ L<POE::Pipe>, L<POE::Pipe::OneWay>, L<POE::Pipe::TwoWay>
 The tests only cover about 70% of POE.  Getting higher coverage is
 really hard.
 
-Bug reports, suggestions, and feedback of all kinds should be e-mailed
-to <bug-POE@rt.cpan.org>.  They will be entered into our request queue
-and remain there until addressed.  If your return address is valid,
-you'll be notified when the status of your request changes.
+=head1 BUG TRACKER
 
-Outstanding issues, including wish list items, are browsable in POE's
-RT queue at L<http://rt.cpan.org/>.
+https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=POE
+
+=head1 REPOSITORY
+
+https://poe.svn.sourceforge.net/svnroot/poe/trunk/poe
+
+=head1 OTHER RESOURCES
+
+http://search.cpan.org/dist/POE/
 
 =head1 AUTHORS & COPYRIGHT
 
@@ -672,7 +676,7 @@ to thank you for your interest, and he has more thanks than he can
 count for all the people who have contributed.  POE would not be
 nearly as cool without you.
 
-Except where otherwise noted, POE is Copyright 1998-2007 Rocco Caputo.
+Except where otherwise noted, POE is Copyright 1998-2009 Rocco Caputo.
 All rights reserved.  POE is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 
