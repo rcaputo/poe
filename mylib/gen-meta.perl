@@ -15,6 +15,7 @@ use PoeBuildInfo qw(
   RECOMMENDED_TIME_HIRES
   CONFIG_REQUIREMENTS
   REPOSITORY
+  HOMEPAGE
 );
 
 my $build = Module::Build->new(
@@ -35,6 +36,7 @@ my $build = Module::Build->new(
   meta_merge  => {
     resources => {
        repository => REPOSITORY,
+       homepage   => HOMEPAGE,
     },
   },
 );

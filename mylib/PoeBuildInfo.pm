@@ -21,6 +21,7 @@ use vars qw(@EXPORT_OK);
   RECOMMENDED_TIME_HIRES
   CONFIG_REQUIREMENTS
   REPOSITORY
+  HOMEPAGE
 );
 
 
@@ -96,6 +97,10 @@ sub TEST_FILES () {
 
 sub REPOSITORY () {
   ( 'https://poe.svn.sourceforge.net/svnroot/poe/trunk' )
+}
+
+sub HOMEPAGE () {
+  ( 'http://poe.perl.org/' )
 }
 
 1;
