@@ -1390,7 +1390,8 @@ sub DESTROY {
         "called to execute them.  This usually happens because an error\n",
         "occurred before POE::Kernel->run() could be called.  Please fix\n",
         "any errors above this notice, and be sure that POE::Kernel->run()\n",
-        "is called.\n",
+        "is called.  See documentation for POE::Kernel's run() method for\n",
+        "another way to disable this warning.\n",
       );
     }
   }
