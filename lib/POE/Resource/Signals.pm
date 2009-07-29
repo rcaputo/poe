@@ -737,8 +737,8 @@ sub _data_sig_mask_all {
   unless( $signal_mask_all ) {
     $self->_data_sig_mask_build;
   }
-  my $mask_temp;
-  sigprocmask( SIG_SETMASK, $signal_mask_all, $mask_temp ) 
+  my $mask_temp = POSIX::SigSet->new();
+  sigprocmask( SIG_SETMASK, $signal_mask_all, $mask_temp )
             or _trap "<sg> Unable to mask all signals: $!";
 }
 
@@ -749,8 +749,8 @@ sub _data_sig_unmask_all {
   unless( $signal_mask_none ) {
     $self->_data_sig_mask_build;
   }
-  my $mask_temp;
-  sigprocmask( SIG_SETMASK, $signal_mask_none, $mask_temp ) 
+  my $mask_temp = POSIX::SigSet->new();
+  sigprocmask( SIG_SETMASK, $signal_mask_none, $mask_temp )
         or _trap "<sg> Unable to unmask all signals: $!";
 }
 
