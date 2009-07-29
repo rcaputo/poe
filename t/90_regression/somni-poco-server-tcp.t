@@ -27,7 +27,7 @@ use Test::More tests => 43;
 
     ok_state_top(\@state, 'server started');
     ok_state_top(\@state, 'client started');
-    ok_state_top(\@state, 'client connected to server: ARRAY');
+    ok_state_top(\@state, 'client connected to server');
     ok_state_top(\@state, 'client connected');
     ok_state_top(\@state, 'client flushed');
     ok_state_any(\@state, 'received from server: I will be serving you today!');
@@ -41,7 +41,7 @@ use Test::More tests => 43;
 
     ok_state_top(\@state, 'server started');
     ok_state_top(\@state, 'client started');
-    ok_state_top(\@state, 'client connected to server: ARRAY');
+    ok_state_top(\@state, 'client connected to server');
     ok_state_top(\@state, 'client connected');
     ok_state_top(\@state, 'client flushed');
     ok_state_any(\@state, 'received from server: I will be serving you today!');
@@ -52,13 +52,13 @@ use Test::More tests => 43;
 }
 {
     my @state = run(
-        ClientArgs      =>  [ {}              ],
+        ClientArgs      =>  [ '', \"", {}, [] ],
         ListenerArgs    =>  [ [], {}, \"", '' ],
     );
 
     ok_state_top(\@state, 'server started: ARRAY HASH SCALAR none');
     ok_state_top(\@state, 'client started');
-    ok_state_top(\@state, 'client connected to server: ARRAY');
+    ok_state_top(\@state, 'client connected to server: none SCALAR HASH ARRAY');
     ok_state_top(\@state, 'client connected');
     ok_state_top(\@state, 'client flushed');
     ok_state_any(\@state, 'received from server: I will be serving you today!');
@@ -80,7 +80,7 @@ use Test::More tests => 43;
 
     ok_state_top(\@state, 'server started');
     ok_state_top(\@state, 'client started');
-    ok_state_top(\@state, 'client connected to server: ARRAY');
+    ok_state_top(\@state, 'client connected to server');
     ok_state_top(\@state, 'client connected');
     ok_state_top(\@state, 'InlineStates test: from server_client_connected');
     ok_state_top(\@state, 'ObjectStates test: from server_client_connected');

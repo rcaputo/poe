@@ -115,7 +115,7 @@ sub new {
     }
   }
 
-  my $client_args         = delete($param{ClientArgs}) || delete($param{Args});
+  my $client_args = delete($param{ClientArgs}) || delete($param{Args});
 
   # Defaults.
 
@@ -144,7 +144,7 @@ sub new {
     $client_connected    = sub {} unless defined $client_connected;
     $client_disconnected = sub {} unless defined $client_disconnected;
     $client_flushed      = sub {} unless defined $client_flushed;
-    $client_args = [] unless defined $client_args;
+    $client_args         = []     unless defined $client_args;
 
     # Extra states.
 
@@ -276,7 +276,7 @@ sub new {
               $heap->{remote_port} = $remote_port;
 
               $heap->{client} = POE::Wheel::ReadWrite->new(
-                Handle       => splice(@_, ARG0, 1),
+                Handle       => $_[ARG0],
                 Driver       => POE::Driver::SysRW->new(),
                 _get_filters(
                   $client_filter,
@@ -298,6 +298,10 @@ sub new {
                   : ()
                 ),
               );
+
+              # Expand the Args constructor array, and place a copy
+              # into @_[ARG0..].  There are only 2 parameters.
+              splice(@_, ARG0, 2, @{$_[ARG1]});
 
               $client_connected->(@_);
             },
@@ -377,6 +381,8 @@ sub new {
           package_states => $package_states,
           object_states  => $object_states,
 
+          # XXX - If you change the number of args here, also change
+          # the splice elsewhere.
           args => [ $socket, $client_args ],
         );
       };
@@ -670,12 +676,27 @@ POE::Wheel::SocketFactory's C<SuccessEvent>.
 Otherwise, the default C<Acceptor> callback will start a new session
 to handle each connection.  These child sessions do not have their own
 aliases, but their C<ClientConnected> and C<ClientDisconnected>
-callbacks may register and unregister the sessions with a shared
-namespace of their own.
+callbacks may be used to register and unregister the sessions with a
+shared namespace, such as a hash keyed on session IDs, or an object
+that manages such a hash.
+
+  my %client_namespace;
+
+  sub handle_client_connected {
+    my $client_session_id = $_[SESSION]->ID;
+    $client_namespace{$client_session_id} = \%anything;
+  }
+
+  sub handle_client_disconnected {
+    my $client_session_id = $_[SESSION]->ID;
+    $client_namespace{$client_session_id} = \%anything;
+  }
 
 The component's C<Started> callback is invoked at the end of the
-master session's startup routine.  This callback's parameters are
-the usual ones for C<_start>.
+master session's startup routine.  The @_[ARG0..$#_] parameters are
+set to a copy of the values in the server's C<ListenerArgs>
+constructor parameter.  The other parameters are standard for
+POE::Session's _start handlers.
 
 The component's C<Error> callback is invoked when the server has a
 problem listening for connections.  C<Error> may also be called if the
@@ -704,12 +725,17 @@ The component's C<ClientInput> callback defines how child sessions
 will handle input from their clients.  Its parameters are that of
 POE::Wheel::ReadWrite's C<InputEvent>.
 
+As mentioned
 C<ClientConnected> is called at the end of the child session's
-C<_start> routine.  In addition to the usual C<_start> parameters, it
-includes the socket in $_[ARG0] and the contents of the component's
-C<Args> constructor parameter in $_[ARG1].
+C<_start> routine.  The C<ClientConneted> callback receives the same
+parameters as the client session's _start does.  The arrayref passed
+to the constructor's C<Args> parameter is flattened and included in
+C<ClientConnected>'s parameters as @_[ARG0..$#_].
 
-TODO - Should C<Args> be flattened into C<ARG1..$%_>?
+  sub handle_client_connected {
+    my @constructor_args = @_[ARG0..$#_];
+    ...
+  }
 
 C<ClientDisconnected> is called when the client has disconnected,
 either because the remote socket endpoint has closed or the local
@@ -982,9 +1008,8 @@ interact with established connections.
 =head4 ClientArgs
 
 C<ClientArgs> is optional.  When specified, it holds an ARRAYREF that
-will be passed to the C<ClientConnected> callback in $_[ARG1].
-(ClientConnected's $_[ARG0] contains the newly accepted client
-socket.)
+will be expanded one level and passed to the C<ClientConnected>
+callback in @_[ARG0..$#_].
 
 =head4 ClientConnected
 
@@ -993,9 +1018,9 @@ C<ClientConnected> is a callback that notifies the application when a
 client's session is started and ready for operation.  Banners are
 often sent to the remote client from this callback.
 
-C<ClientConnected> callbacks receive the usual POE parameters plus:
-The newly accepted client socket in $_[ARG0] and the ARRAYREF
-specified in C<ClientArgs> in $_[ARG1].
+The @_[ARG0..$#_] parameters to C<ClientConnected> are a copy of the
+values in the C<ClientArgs> constructor parameter's array referece.
+The other @_ members are standard for a POE::Session _start handler.
 
 C<ClientConnected> is called once per session startup.  It will never
 be called twice for the same connection.
@@ -1004,8 +1029,6 @@ be called twice for the same connection.
     $_[HEAP]{client}->put("Hello, client!");
     # Other client initialization here.
   },
-
-TODO - Show Args and client socket introspection.
 
 =head4 ClientDisconnected
 
@@ -1330,8 +1353,6 @@ This component needs better error handling.
 Some use cases require different session classes for the listener and
 the connection handlers.  This isn't currently supported.  Please send
 patches. :)
-
-TODO - Rename C<Args> into C<ClientArgs>.
 
 TODO - Document that Reuse is set implicitly.
 
