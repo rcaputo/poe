@@ -29,6 +29,7 @@ use POE qw(
 
 POE::Component::Server::TCP->new(
   Alias        => 's0',
+  Address      => '127.0.0.1',
   Port         => 0,
   ClientFilter => 'POE::Filter::HTTPD',
   Started => sub {
