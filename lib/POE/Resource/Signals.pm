@@ -769,7 +769,7 @@ sub _data_sig_pipe_finalize {
 }
 
 ### Send a signal "message" to the main thread
-### Called from the bottom signal handlers
+### Called from the top signal handlers
 sub _data_sig_pipe_send {
   my $n = $SIG2NUM{ $_[1] };
   if( ASSERT_DATA ) {
@@ -811,7 +811,7 @@ sub _data_sig_pipe_syswrite {
 }
 
 ### Read all signal numbers.
-### Call the related top handlers
+### Call the related bottom handler.  That is, inside the kernel loop.
 sub _data_sig_pipe_read {
   my( $self, $fileno, $mode ) = @_;
   if( ASSERT_DATA ) {
