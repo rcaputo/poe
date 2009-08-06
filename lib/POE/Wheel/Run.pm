@@ -454,9 +454,32 @@ sub new {
   }
 
   # Parent here.  Close what the parent won't need.
-  close $stdin_read   if defined $stdin_read;
-  close $stdout_write if defined $stdout_write;
-  close $stderr_write if defined $stderr_write;
+  if (defined $stdin_read) {
+    if (ref($stdin_read) eq 'IO::Pty') {
+      $stdin_read->close_slave();
+    }
+    else {
+      close $stdin_read;
+    }
+  }
+
+  if (defined $stdout_write) {
+    if (ref($stdout_write) eq 'IO::Pty') {
+      $stdout_write->close_slave();
+    }
+    else {
+      close $stdout_write;
+    }
+  }
+
+  if (defined $stderr_write) {
+    if (ref($stderr_write) eq 'IO::Pty') {
+      $stderr_write->close_slave();
+    }
+    else {
+      close $stderr_write;
+    }
+  }
 
   my $active_count = 0;
   $active_count++ if $stdout_event and $stdout_read;
