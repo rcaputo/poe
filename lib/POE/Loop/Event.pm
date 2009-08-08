@@ -48,6 +48,7 @@ sub loop_initialize {
 
   $_watcher_timer = Event->timer(
     cb     => \&_loop_event_callback,
+    desc   => 'dispatch_timer',
     after  => 0,
   );
 }
@@ -111,6 +112,7 @@ sub loop_watch_filehandle {
 
   $fileno_watcher[$fileno]->[$mode] = Event->io(
     fd => $fileno,
+    desc => "io_watcher $handle $fileno",
     poll => (
       ( $mode == MODE_RD )
       ? 'r'
