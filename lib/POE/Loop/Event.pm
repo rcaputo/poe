@@ -112,7 +112,7 @@ sub loop_watch_filehandle {
 
   $fileno_watcher[$fileno]->[$mode] = Event->io(
     fd => $fileno,
-    desc => "io_watcher $handle $fileno",
+    desc => "io_watcher $handle $fileno $mode",
     poll => (
       ( $mode == MODE_RD )
       ? 'r'

@@ -836,7 +836,7 @@ sub DESTROY {
 
   # Turn off the STDIN thing.
   if ($self->[HANDLE_STDIN]) {
-    $poe_kernel->select($self->[HANDLE_STDIN]);
+    $poe_kernel->select_write($self->[HANDLE_STDIN]);
     $self->[HANDLE_STDIN] = undef;
   }
   if ($self->[STATE_STDIN]) {
@@ -845,7 +845,7 @@ sub DESTROY {
   }
 
   if ($self->[HANDLE_STDOUT]) {
-    $poe_kernel->select($self->[HANDLE_STDOUT]);
+    $poe_kernel->select_read($self->[HANDLE_STDOUT]);
     $self->[HANDLE_STDOUT] = undef;
   }
   if ($self->[STATE_STDOUT]) {
@@ -854,7 +854,7 @@ sub DESTROY {
   }
 
   if ($self->[HANDLE_STDERR]) {
-    $poe_kernel->select($self->[HANDLE_STDERR]);
+    $poe_kernel->select_read($self->[HANDLE_STDERR]);
     $self->[HANDLE_STDERR] = undef;
   }
   if ($self->[STATE_STDERR]) {

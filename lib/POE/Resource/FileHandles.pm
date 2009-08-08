@@ -201,7 +201,7 @@ sub _data_handle_resume_requested_state {
   if (TRACE_FILES) {
     _warn(
       "<fh> decrementing event count in mode ($mode) ",
-      "for fileno (", $fileno, ") from count (",
+      "for $handle fileno (", $fileno, ") from count (",
       $kr_fno_rec->[FMO_EV_COUNT], ")"
     );
   }
@@ -280,9 +280,10 @@ sub _data_handle_enqueue_ready {
       }
 
       if (TRACE_FILES) {
+        my $handle = $select->[HSS_HANDLE];
         _warn(
           "<fh> incremented event count in mode ($mode) ",
-          "for fileno ($fileno) to count ($kr_fno_rec->[FMO_EV_COUNT])"
+          "for $handle fileno ($fileno) to count ($kr_fno_rec->[FMO_EV_COUNT])"
         );
       }
     }
@@ -338,7 +339,7 @@ sub _data_handle_add {
       ];
 
     if (TRACE_FILES) {
-      _warn "<fh> adding fd ($fd) in mode ($mode)";
+      _warn "<fh> adding $handle fd ($fd) in mode ($mode)";
     }
 
     $self->_data_handle_condition( $handle );
@@ -358,7 +359,7 @@ sub _data_handle_add {
     if (exists $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle}) {
       if (TRACE_FILES) {
         _warn(
-          "<fh> running fileno($fd) mode($mode) " .
+          "<fh> running $handle fileno($fd) mode($mode) " .
           "count($kr_fno_rec->[FMO_EV_COUNT])"
         );
       }
@@ -554,7 +555,10 @@ sub _data_handle_remove {
     ) {
 
       TRACE_FILES and
-        _warn "<fh> removing handle ($handle) fileno ($fd) mode ($mode) from " . Carp::shortmess;
+        _warn(
+          "<fh> removing handle ($handle) fileno ($fd) mode ($mode) from " .
+          Carp::shortmess
+        );
 
       # Remove the handle from the kernel's session record.
 
@@ -587,7 +591,7 @@ sub _data_handle_remove {
 
         if (TRACE_FILES) {
           _warn(
-            "<fh> fileno $fd mode $mode event count went to ",
+            "<fh> $handle fileno $fd mode $mode event count went to ",
             $kr_fno_rec->[FMO_EV_COUNT]
           );
         }
@@ -706,7 +710,7 @@ sub _data_handle_resume {
 
   if (TRACE_FILES) {
     _warn(
-      "<fh> resume test: fileno(" . fileno($handle) . ") mode($mode) " .
+      "<fh> resume test: $handle fileno(" . fileno($handle) . ") mode($mode) " .
       "count($kr_fno_rec->[FMO_EV_COUNT])"
     );
   }
@@ -733,7 +737,7 @@ sub _data_handle_pause {
 
   if (TRACE_FILES) {
     _warn(
-      "<fh> pause test: fileno(" . fileno($handle) . ") mode($mode) " .
+      "<fh> pause test: $handle fileno(" . fileno($handle) . ") mode($mode) " .
       "count($kr_fno_rec->[FMO_EV_COUNT])"
     );
   }
