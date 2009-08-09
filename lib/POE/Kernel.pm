@@ -1266,7 +1266,7 @@ sub _finalize_kernel {
 
   # The main loop is done, no matter which event library ran it.
   # sig before loop so that it clears the signal_pipe file handler
-  $self->_data_sig_finalize();  
+  $self->_data_sig_finalize();
   $self->loop_finalize();
   $self->_data_extref_finalize();
   $self->_data_sid_finalize();
@@ -1284,12 +1284,17 @@ sub run_while {
 
 sub run_one_timeslice {
   my $self = shift;
+
   unless ($self->_data_ses_count()) {
     $self->_finalize_kernel();
     $kr_run_warning |= KR_RUN_DONE;
+    $kr_exception and $self->_rethrow_kr_exception();
     return;
   }
+
   $self->loop_do_timeslice();
+  $kr_exception and $self->_rethrow_kr_exception();
+
   return 1;
 }
 
@@ -1322,13 +1327,28 @@ sub run {
 
   # Clean up afterwards.
   $kr_run_warning |= KR_RUN_DONE;
+
+  $kr_exception and $self->_rethrow_kr_exception();
+}
+
+sub _rethrow_kr_exception {
+  my $self = shift;
+
+  # Save the exception lexically.
+  # Clear it so it doesn't linger if run() is called again.
+  my $exception = $kr_exception;
+  $kr_exception = undef;
+
+  # Rethrow it.
+  die $exception if $exception;
 }
 
 # Stops the kernel cold.  XXX Experimental!
 # No events happen as a result of this, all structures are cleaned up
-# except the kernel's.  Even the current session is cleaned up, which
-# may introduce inconsistencies in the current session... as
-# _dispatch_event() attempts to clean up for a defunct session.
+# except the kernel's.  Even the current session and POE::Kernel are
+# cleaned up, which may introduce inconsistencies in the current
+# session... as _dispatch_event() attempts to clean up for a defunct
+# session.
 
 sub stop {
   # So stop() can be called as a class method.
@@ -1338,9 +1358,6 @@ sub stop {
   foreach my $session (@children) {
     push @children, $self->_data_ses_get_children($session);
   }
-
-  # Remove the kernel itself.
-  shift @children;
 
   # Walk backwards to avoid inconsistency errors.
   foreach my $session (reverse @children) {

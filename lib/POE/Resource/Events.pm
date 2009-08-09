@@ -264,20 +264,9 @@ sub _data_ev_dispatch_due {
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
     $self->_dispatch_event(@$event, $due_time, $id);
 
-    # An exception occurred.
-    if ($POE::Kernel::kr_exception) {
-
-      # Save the exception lexically, then clear it so it doesn't
-      # linger if run() is called again.
-      my $exception = $POE::Kernel::kr_exception;
-      $POE::Kernel::kr_exception = undef;
-
-      # Stop the kernel.  Cleans out all sessions.
-      POE::Kernel->stop();
-
-      # Throw the exception from way out here.
-      die $exception;
-    }
+    # Stop the system if an unhandled exception occurred.
+    # This wipes out all sessions and associated resources.
+    POE::Kernel->stop() if $POE::Kernel::kr_exception;
   }
 
   # Tell the event loop to wait for the next event, if there is one.
