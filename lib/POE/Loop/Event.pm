@@ -46,8 +46,6 @@ my %signal_watcher;
 sub loop_initialize {
   my $self = shift;
 
-  $Event::DIED = sub { undef };
-
   $_watcher_timer = Event->timer(
     cb     => \&_loop_event_callback,
     desc   => 'dispatch_timer',
