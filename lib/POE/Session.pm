@@ -671,6 +671,7 @@ sub get_heap {
 # steering me right on this one.
 
 my %anonevent_parent_id;
+my %anonevent_weakened;
 
 # I assume that when the postback owner loses all reference to it,
 # they are done posting things back to us.  That's when the postback's
@@ -679,7 +680,19 @@ my %anonevent_parent_id;
 sub POE::Session::AnonEvent::DESTROY {
   my $self = shift;
   my $parent_id = delete $anonevent_parent_id{$self};
-  $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'anon_event' );
+  unless (delete $anonevent_weakened{$self}) {
+    $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'anon_event' );
+  }
+}
+
+sub POE::Session::AnonEvent::weaken {
+  my $self = shift;
+  unless ($anonevent_weakened{$self}) {
+    my $parent_id = $anonevent_parent_id{$self};
+    $POE::Kernel::poe_kernel->refcount_decrement( $parent_id, 'anon_event' );
+    $anonevent_weakened{$self} = 1;
+  }
+  return $self;
 }
 
 # Tune postbacks depending on variations in toolkit behavior.
@@ -1419,9 +1432,17 @@ handle_ok_button():
   Postback created with (8 6 7).
   Postback called with (5 3 0 9).
 
-
 Postbacks hold references to their target sessions.  Therefore
-sessions with outstanding postbacks will remain active.
+sessions with outstanding postbacks will remain active.  Under every
+event loop except Tk, postbacks are blessed so that DESTROY may be
+called when their users are done.  This triggers a decrement on their
+reference counts, allowing sessions to stop.
+
+Postbacks have one method, weaken(), which may be used to reduce their
+reference counts upon demand.  weaken() returns the postback, so you
+can do:
+
+  my $postback = $session->postback("foo")->weaken();
 
 Postbacks were created as a thin adapter between callback libraries
 and POE.  The problem at hand was how to turn callbacks from the Tk
