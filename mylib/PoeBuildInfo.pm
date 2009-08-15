@@ -1,4 +1,3 @@
-# $Id$
 # rocco // vim: ts=2 sw=2 expandtab
 
 # Build information for POE.  Moved into a library so it can be

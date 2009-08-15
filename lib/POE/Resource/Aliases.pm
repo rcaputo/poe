@@ -1,12 +1,10 @@
-# $Id$
-
 # Manage the POE::Kernel data structures necessary to keep track of
 # session aliases.
 
 package POE::Resource::Aliases;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 
 # These methods are folded into POE::Kernel;
 package POE::Kernel;

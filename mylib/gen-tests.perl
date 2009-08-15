@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 # rocco // vim: ts=2 sw=2 expandtab
 
 use strict;
@@ -30,7 +29,6 @@ my $test_base = "t";
 
   my $source = (
     "#!/usr/bin/perl -w\n" .
-    "# \$Id\$\n" .
     "\n" .
     "use strict;\n" .
     "use lib qw(--base_lib--);\n" .

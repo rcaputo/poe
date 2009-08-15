@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # Test that caller_state returnes expected results
 

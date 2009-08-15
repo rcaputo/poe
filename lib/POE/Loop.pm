@@ -1,11 +1,9 @@
-# $Id$
-
 package POE::Loop;
 
 use strict;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 
 1;
 
@@ -82,7 +80,7 @@ Here is a skeleton of a POE::Loop subclass:
   package POE::Loop::YourToolkit;
 
   use vars qw($VERSION);
-  $VERSION = do {my@r=(q$Revision$=~/\d+/g);sprintf"%d."."%04d"x$#r,@r};
+  $VERSION = '1.000'; # NOTE - Should be #.### (three decimal places)
 
   package POE::Kernel;
 

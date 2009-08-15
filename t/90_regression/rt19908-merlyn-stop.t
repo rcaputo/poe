@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 # vim: filetype=perl
 
 # Randal Schwartz reported that die() within _stop causes an infinite

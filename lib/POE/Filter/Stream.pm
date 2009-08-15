@@ -1,12 +1,10 @@
-# $Id$
-
 package POE::Filter::Stream;
 
 use strict;
 use POE::Filter;
 
 use vars qw($VERSION @ISA);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Filter);
 
 #------------------------------------------------------------------------------

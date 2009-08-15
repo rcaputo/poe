@@ -1,5 +1,3 @@
-# $Id$
-
 # Copyright 1998 Rocco Caputo <rcaputo@cpan.org>.  All rights
 # reserved.  This program is free software; you can redistribute it
 # and/or modify it under the same terms as Perl itself.
@@ -9,7 +7,7 @@ package POE::Driver::SysRW;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 
 use Errno qw(EAGAIN EWOULDBLOCK);
 use Carp qw(croak);

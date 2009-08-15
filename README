@@ -1,4 +1,4 @@
-$Id$
+Version 1.007
 
 --------------------
 Detailed Information
@@ -56,7 +56,7 @@ POE's tests cover a significant portion of the distribution.  A
 thumbnail sketch of POE's test coverage is available, but do not use
 it as an accurate gauge of quality.
 
-  http://poe.perl.org/?POE%27s_test_coverage_report
+  http://poe.perl.org/?POE's_test_coverage_report
 
 -----------
 What POE Is

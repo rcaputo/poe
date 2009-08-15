@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # This is a simple job queue.
 

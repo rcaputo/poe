@@ -1,4 +1,3 @@
-# $Id$
 # vim: filetype=perl
 
 # This testcase loads all POE modules.  Some of them may define

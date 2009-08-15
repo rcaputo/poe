@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # Test the ASSERT_DATA code in POE::Kernel.  This involves a lot of
 # dying.

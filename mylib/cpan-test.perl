@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-# $Id$
 
 # Fetch and test all the /^POE::/ distributions on CPAN.
 

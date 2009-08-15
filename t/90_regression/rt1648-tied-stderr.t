@@ -1,5 +1,4 @@
 #!/usr/bin/perl 
-# $Id$
 # vim: filetype=perl
 
 # Scott Beck reported that tied STDERR breaks POE::Wheel::Run.  He

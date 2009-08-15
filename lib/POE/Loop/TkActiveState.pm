@@ -1,12 +1,10 @@
-# $Id$
-
 # Tk-Perl event loop bridge for POE::Kernel.
 
 # Dummy package so the version is indexed properly.
 package POE::Loop::TkActiveState;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.300'; # NOTE - Should be #.### (three decimal places)
 
 # Merge things into POE::Loop::Tk.
 package POE::Loop::Tk;

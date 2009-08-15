@@ -1,5 +1,4 @@
 #!perl
-# $Id$
 # vim: filetype=perl
 
 # Calling sig_child($pid) without a prior sig_child($pid, $event)

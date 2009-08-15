@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # This is an early, basic test of POE's filehandle selecting
 # mechanism.  It was written before POE::Wheel classes were conceived.

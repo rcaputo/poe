@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-# $Id: svn-log.perl 36 2007-08-13 06:39:26Z rcaputo $
 
 # This program is Copyright 2005 by Rocco Caputo.  All rights are
 # reserved.  This program is free software.  It may be modified, used,

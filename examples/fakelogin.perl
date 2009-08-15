@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # This is a fake login prompt I wrote after noticing that someone's
 # IRC 'bot was probing telnet whenever I joined a particular channel.

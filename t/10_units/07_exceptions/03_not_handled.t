@@ -1,5 +1,3 @@
-# $Id$
-
 use Test::More tests => 7;
 
 use POE;
@@ -27,7 +25,7 @@ POE::Session->create(
     },
 
     _stop => sub { pass("Other session stopping"); },
-    
+
     last_breath => sub { fail("POE environment survived uncaught exception"); },
   },
 );

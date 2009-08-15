@@ -1,5 +1,3 @@
-# $Id$
-
 # Plain Perl signal handling is something shared by several event
 # loops.  The invariant code has moved out here so that each loop may
 # use it without reinventing it.  This will save maintenance and
@@ -10,7 +8,7 @@ package POE::Loop::PerlSignals;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 
 # Everything plugs into POE::Kernel.
 package POE::Kernel;

@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 # Exercises Filter::Map without POE
 
 use strict;

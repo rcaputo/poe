@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # This program tests signals.  It tests OS signals (such as SIGINT),
 # soft signals to sessions, and soft signals to kernels.  Soft

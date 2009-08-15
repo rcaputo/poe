@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-# $Id: cfedde-filter-httpd.t 2206 2007-07-25 04:44:21Z rcaputo $
 # vim: filetype=perl
 
 use warnings;

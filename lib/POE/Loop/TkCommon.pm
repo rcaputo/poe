@@ -1,5 +1,3 @@
-# $Id$
-
 # The common bits of our system-specific Tk event loops.  This is
 # everything but file handling.
 
@@ -10,7 +8,7 @@ package POE::Loop::TkCommon;
 use POE::Loop::PerlSignals;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.300'; # NOTE - Should be #.### (three decimal places)
 
 use Tk 800.021;
 use 5.00503;

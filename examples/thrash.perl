@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # This program creates a server session and an infinitude of clients
 # that connect to it, all in the same process.  It's mainly used to

@@ -1,12 +1,11 @@
-# $Id$
-# Copyrights and documentation are after __end__.
+# Copyrights and documentation are after __END__.
 
 package POE::Component;
 
 use strict;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 
 1;
 

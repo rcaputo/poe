@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # Test Filter::HTTPD by itself
 # See other (forthcoming) for more complex interactions

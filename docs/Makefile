@@ -1,6 +1,5 @@
 #
 ## Build POD docs from emacs outlines.
-## $Id$
 
 all: ../POE.pod ../POE-TODO.pod ../POE-HINTS.pod
 

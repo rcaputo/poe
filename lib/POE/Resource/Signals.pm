@@ -1,12 +1,10 @@
-# $Id$
-
 # The data necessary to manage signals, and the accessors to get at
 # that data in a sane fashion.
 
 package POE::Resource::Signals;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 
 # These methods are folded into POE::Kernel;
 package POE::Kernel;

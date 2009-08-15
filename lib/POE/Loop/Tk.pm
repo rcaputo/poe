@@ -1,11 +1,9 @@
-# $Id$
-
 # Tk-Perl event loop bridge for POE::Kernel.
 
 package POE::Loop::Tk;
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.300'; # NOTE - Should be #.### (three decimal places)
 
 # Include common things.
 use POE::Loop::PerlSignals;

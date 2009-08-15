@@ -1,5 +1,3 @@
-# $Id$
-
 package POE::Wheel::ReadLine;
 
 use warnings;
@@ -7,7 +5,7 @@ use strict;
 BEGIN { eval { require bytes } and bytes->import; }
 
 use vars qw($VERSION);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use Symbol qw(gensym);

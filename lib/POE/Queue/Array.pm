@@ -1,13 +1,12 @@
-# $Id$
 # Copyrights and documentation are at the end.
 
 package POE::Queue::Array;
 
 use strict;
 
-use vars qw(@ISA $VERSION);
+use vars qw($VERSION @ISA);
+$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Queue);
-$VERSION = do {my($r)=(q$Revision$=~/(\d+)/);sprintf"1.%04d",$r};
 
 use Errno qw(ESRCH EPERM);
 use Carp qw(confess);

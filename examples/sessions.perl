@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # This is the first test program written for POE.  It originally was
 # written to test POE's ability to dispatch events to inline sessions

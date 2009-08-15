@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w -I..
-# $Id$
 
 # This is another of the earlier test programs.  It creates a single
 # session whose job is to create more of itself.  There is a built-in

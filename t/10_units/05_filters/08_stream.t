@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # Exercises Filter::Stream without the rest of POE.
 

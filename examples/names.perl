@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # Aliases were originally called Names.
 

@@ -1,4 +1,3 @@
-# $Id$
 # vim: filetype=perl
 
 # Test a case that Yuval Kogman ran into.  Decrementing a reference

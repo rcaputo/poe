@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # This is another simple functionality test.  It tests sessions that
 # are composed of objects (also called "object sessions").  It is

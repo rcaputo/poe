@@ -1,5 +1,3 @@
-# $Id$
-
 # POE module loader.  Attempts to find XS versions of things first,
 # then falls back to regular ones.
 

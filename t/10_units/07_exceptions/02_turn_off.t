@@ -1,6 +1,4 @@
-# $Id$
-
-use Test::More tests => 3; 
+use Test::More tests => 3;
 
 BEGIN { sub POE::Kernel::CATCH_EXCEPTIONS () { 0 } }
 use POE;

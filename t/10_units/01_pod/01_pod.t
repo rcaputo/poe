@@ -1,4 +1,3 @@
-# $Id$
 # vim: filetype=perl
 
 use Test::More;

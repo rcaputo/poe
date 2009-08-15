@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # Test that stop() does not result in a double garbage collection on
 # the session that called it.  This test case provided by Ton Hospel.

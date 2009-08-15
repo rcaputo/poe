@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 # rocco // vim: ts=2 sw=2 expandtab
 
 # Generate META.yml.

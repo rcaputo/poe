@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # Tests basic queue operations.
 

@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w -I..
-# $Id$
 
 # This is a simple test of "package sessions".  These are similar to
 # object sessions, but they work with packages instead of objects.  It

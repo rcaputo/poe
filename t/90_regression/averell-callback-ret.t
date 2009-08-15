@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# $Id$
 
 # Callback must pass on it's return value as per documentation.
 
