@@ -23,7 +23,7 @@ BEGIN {
 }
 
 BEGIN {
-  plan tests => 91;
+  plan tests => 98;
 }
 
 use_ok('POE::Filter::HTTPD');
@@ -196,22 +196,33 @@ SKIP: { # simple put {{{
 } # }}}
 
 { # multipart form data post {{{
-    my $request = POST 'http://localhost/foo.mhtml', Content_Type => 'form-data',
-                    content => [ 'I' => 'like', 'tasty' => 'pie',
-                                 file => [ $0 ]
-                               ];
+    my $request = POST(
+      'http://localhost/foo.mhtml',
+      Content_Type => 'form-data',
+      content => [
+        'I' => 'like', 'tasty' => 'pie', file => [ $0 ]
+      ]
+    );
     $request->protocol('HTTP/1.0');
 
     my $filter = POE::Filter::HTTPD->new();
 
     my $data = $filter->get([ $request->as_string ]);
-    is(ref $data, 'ARRAY', 'multipart form data: get() returns list of requests');
-    is(scalar @$data, 1, 'multipart form data: get() returned single request');
+    is(
+      ref($data), 'ARRAY',
+      'multipart form data: get() returns list of requests'
+    );
+    is(
+      scalar(@$data), 1,
+      'multipart form data: get() returned single request'
+    );
 
     my ($req) = @$data;
 
-    isa_ok($req, 'HTTP::Request',
-        'multipart form data: get() returns HTTP::Request object');
+    isa_ok(
+      $req, 'HTTP::Request',
+      'multipart form data: get() returns HTTP::Request object'
+    );
 
     check_fields($req, {
         method => 'POST',
@@ -358,19 +369,23 @@ END
   # request + trailing whitespace in separate get == just request
   {
     my $filter = POE::Filter::HTTPD->new;
-    $filter->get([ $req->as_string ]); # assume this one is fine
-    my $data = $filter->get([ "\r\n  \r\n\n" ]);
+    my $data = $filter->get([ $req->as_string, "\r\n  \r\n\n" ]);
     is(ref($data), 'ARRAY', 'trailing: extra whitespace get: ref');
-    is(scalar(@$data), 1, 'trailing: extra whitespace get: no req');
+    is(scalar(@$data), 1, 'trailing: extra whitespace get: only one response');
+    $data = $filter->get([ "\r\n  \r\n\n" ]);
+    is(ref($data), 'ARRAY', 'trailing: whitespace by itself: ref');
+    is(scalar(@$data), 0, 'trailing: whitespace by itself: no req');
   }
 
   # request + garbage in separate get == error
   {
     my $filter = POE::Filter::HTTPD->new;
-    $filter->get([ $req->as_string ]); # assume this one is fine
-    my $data = $filter->get([ $req->as_string, "GARBAGE!" ]);
-    check_error_response($data, RC_BAD_REQUEST,
-      'trailing: error with trailing garbage');
+    my $data = $filter->get([ $req->as_string, "GARBAGE!\r\n\r\n" ]);
+
+    is(ref($data), 'ARRAY', 'trailing: whitespace by itself: ref');
+    is(scalar(@$data), 2, 'trailing: whitespace by itself: no req');
+    isa_ok($data->[0], 'HTTP::Request');
+    isa_ok($data->[1], 'HTTP::Response');
   }
 } # }}}
 
@@ -417,8 +432,11 @@ TODO: { # wishlist for supporting get_pending! {{{
     my $filter = POE::Filter::HTTPD->new;
     my $req = HTTP::Request->new('ELEPHANT', '/');
     my $data = $filter->get([ $req->as_string ]);
-    check_error_response($data, RC_BAD_REQUEST,
-      'unsupported method: bad request');
+    check_fields($$data[0], {
+        protocol => 'HTTP/0.9',
+        method => 'ELEPHANT',
+        uri => '/',
+      }, 'strange method');
   }
   { # bad request -- 1.1 so length required
     my $filter = POE::Filter::HTTPD->new;

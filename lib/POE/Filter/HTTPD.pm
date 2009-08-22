@@ -1,9 +1,7 @@
 # Filter::HTTPD Copyright 1998 Artur Bergman <artur@vogon.se>.
-
 # Thanks go to Gisle Aas for his excellent HTTP::Daemon.  Some of the
 # get code was copied out if, unfortunately HTTP::Daemon is not easily
 # subclassed for POE because of the blocking nature.
-
 # 2001-07-27 RCC: This filter will not support the newer get_one()
 # interface.  It gets single things by default, and it does not
 # support filter switching.  If someone absolutely needs to switch to
@@ -15,14 +13,19 @@ use strict;
 use POE::Filter;
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.007';
+# NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Filter);
 
-sub BUFFER        () { 0 }
-sub TYPE          () { 1 }
-sub FINISH        () { 2 }
-sub HEADER        () { 3 }
-sub CLIENT_PROTO  () { 4 }
+sub BUFFER        () { 0 } # raw data buffer to build requests
+sub STATE         () { 1 } # built a full request
+sub REQUEST       () { 2 } # partial request being built
+sub CLIENT_PROTO  () { 3 } # client protoco version requested
+sub CONTENT_LEN   () { 4 } # expected content length
+sub CONTENT_ADDED () { 5 } # amount of content added to request
+
+sub ST_HEADERS    () { 0x01 } # waiting for complete header block
+sub ST_CONTENT    () { 0x02 } # waiting for complete body
 
 use Carp qw(croak);
 use HTTP::Status qw( status_message RC_BAD_REQUEST RC_OK RC_LENGTH_REQUIRED );
@@ -38,156 +41,69 @@ my $HTTP_1_1 = _http_version("HTTP/1.1");
 
 sub new {
   my $type = shift;
-  my $self = [
-    '',     # BUFFER
-    0,      # TYPE
-    0,      # FINISH
-    undef,  # HEADER
-    undef,  # CLIENT_PROTO
-  ];
-  bless $self, $type;
-  $self;
+  return bless(
+    [
+      '',         # BUFFER
+      ST_HEADERS, # STATE
+      undef,      # REQUEST
+      undef,      # CLIENT_PROTO
+      0,          # CONTENT_LEN
+      0,          # CONTENT_ADDED
+    ],
+    $type
+  );
 }
 
 #------------------------------------------------------------------------------
 
 sub get_one_start {
-    my ($self, $stream) = @_;
-    return if ( $self->[FINISH] );
-    $stream = [ $stream ] unless ( ref( $stream ) );
-    $self->[BUFFER] .= join( '', @$stream );
+  my ($self, $stream) = @_;
+  $self->[BUFFER] .= join( '', @$stream );
 }
 
 sub get_one {
-    my ($self) = @_;
-    return ( $self->[FINISH] ) ? [] : $self->get( [] );
-}
-
-sub get {
-  my ($self, $stream) = @_;
+  my ($self) = @_;
 
   # Need to check lengths in octets, not characters.
   BEGIN { eval { require bytes } and bytes->import; }
 
-  # Why?
-  local($_);
+  # Waiting for a complete suite of headers.
+  if ($self->[STATE] & ST_HEADERS) {
+    # Strip leading whitespace.
+    $self->[BUFFER] =~ s/^\s+//;
 
-  # Sanity check.  "finish" is set when a request has completely
-  # arrived.  Subsequent get() calls on the same request should not
-  # happen.
-  # TODO Maybe this should return [] instead of dying?
+    # No blank line yet.  Side effect: Raw headers block is extracted
+    # from the input buffer.
+    return [] unless (
+      $self->[BUFFER] =~
+      s/^(\S.*?(?:\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?))//s
+    );
 
-  if ($self->[FINISH]) {
+    # Raw headers block from the input buffer.
+    my $rh = $1;
 
-    # This works around a request length vs. actual content length
-    # error.  Looks like some browsers (mozilla!) sometimes add on an
-    # extra newline?
-
-    # return [] unless @$stream and grep /\S/, @$stream;
-
-    my @dump;
-    my $offset = 0;
-    $stream = $self->[BUFFER].join("", @$stream);
-    while (length $stream) {
-      my $line = substr($stream, 0, 16);
-      substr($stream, 0, 16) = '';
-
-      my $hexdump  = unpack 'H*', $line;
-      $hexdump =~ s/(..)/$1 /g;
-
-      $line =~ tr[ -~][.]c;
-      push @dump, sprintf( "%04x %-47.47s - %s\n", $offset, $hexdump, $line );
-      $offset += 16;
+    # Parse the request line.
+    if ($rh !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
+      return [
+        $self->_build_error(RC_BAD_REQUEST, "Request line parse failure. ($rh)")
+      ];
     }
 
-    return [
-      $self->_build_error(
-        RC_BAD_REQUEST,
-        "Did not want any more data.  Got this:" .
-        "<p><pre>" . join("", @dump) . "</pre></p>"
-      )
-    ];
-  }
+    # Create an HTTP::Request object from values in the request line.
+    my ($method, $request_path, $proto) = ($1, $2, ($3 || "HTTP/0.9"));
 
-  # Accumulate data in a framing buffer.
+    # Fix a double starting slash on the path.  It happens.
+    $request_path =~ s!^//+!/!;
 
-  $self->[BUFFER] .= join('', @$stream);
+    my $r = HTTP::Request->new($method, URI->new($request_path));
+    $r->protocol($proto);
+    $self->[CLIENT_PROTO] = $proto = _http_version($proto);
 
-  # If headers were already received, then the framing buffer is
-  # purely content.  Return nothing until content-length bytes are in
-  # the buffer, then return the entire request.
+    # Parse headers.
 
-  if ($self->[HEADER]) {
-    my $buf = $self->[BUFFER];
-    my $r   = $self->[HEADER];
-    my $cl  = $r->content_length() || length($buf) || 0;
-
-    # Some browsers (like MSIE 5.01) send extra CRLFs after the
-    # content.  Shame on them.  Now we need a special case to drop
-    # their extra crap.
-    #
-    # We use the first $cl octets of the buffer as the request
-    # content.  It's then stripped away.  Leading whitespace in
-    # whatever is left is also stripped away.  Any nonspace data left
-    # over will throw an error.
-    #
-    # Four-argument substr() would be ideal here, but it's a
-    # relatively recent development.
-    #
-    # PG- CGI.pm only reads Content-Length: bytes from STDIN.
-    if (length($buf) >= $cl) {
-      $r->content(substr($buf, 0, $cl));
-      $self->[BUFFER] = substr($buf, $cl);
-      $self->[BUFFER] =~ s/^\s+//;
-
-      # We are sending this back, so won't need it anymore.
-      $self->[HEADER] = undef;
-      $self->[FINISH]++;
-      return [$r];
-    }
-
-    #print "$cl wanted, got " . length($buf) . "\n";
-    return [];
-  }
-
-  # Headers aren't already received.  Short-circuit header parsing:
-  # don't return anything until we've received a blank line.
-
-  return [] unless(
-    $self->[BUFFER] =~ /(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)/s
-  );
-
-  # Copy the buffer for header parsing, and remove the header block
-  # from the content buffer.
-
-  my $buf = $self->[BUFFER];
-  $self->[BUFFER] =~ s/.*?(\x0D\x0A?\x0D\x0A?|\x0A\x0D?\x0A\x0D?)//s;
-
-  # Parse the request line.
-  if ($buf !~ s/^(\w+)[ \t]+(\S+)(?:[ \t]+(HTTP\/\d+\.\d+))?[^\012]*\012//) {
-    return [
-      $self->_build_error(RC_BAD_REQUEST, "Request line parse failure.")
-    ];
-  }
-  my $proto = $3 || "HTTP/0.9";
-
-  # Use the request line to create a request object.
-
-  my $method = $1;
-  my $req_path = $2;
-  $req_path =~ s/^[\/]{2,}/\//; # fix double slash starting path
-
-  my $r = HTTP::Request->new($method, URI->new($req_path));
-  $r->protocol($proto);
-  $self->[CLIENT_PROTO] = $proto = _http_version($proto);
-
-  # Add the raw request's headers to the request object we'll be
-  # returning.
-
-  if ($proto >= $HTTP_1_0) {
-    my ($key,$val);
-    HEADER: while ($buf =~ s/^([^\012]*)\012//) {
-      $_ = $1;
+    my ($key, $val);
+    HEADER: while ($rh =~ s/^([^\012]*)\012//) {
+      local $_ = $1;
       s/\015$//;
       if (/^([\w\-~]+)\s*:\s*(.*)/) {
         $r->push_header($key, $val) if $key;
@@ -200,75 +116,70 @@ sub get {
         last HEADER;
       }
     }
-    $r->push_header($key,$val) if($key);
-  }
 
-  $self->[HEADER] = $r;
+    $r->push_header($key, $val) if $key;
 
-  # If this is a GET or HEAD request, we won't be expecting a message
-  # body.  Finish up.
-  $method = uc $r->method();
-  if ($method eq 'GET' or $method eq 'HEAD') {
-    $self->[FINISH]++;
-    # We are sending this back, so won't need it anymore.
-    $self->[HEADER] = undef;
-    return [$r];
-  }
+    # We got a full set of headers.  Fall through to content if we
+    # have a content length.
 
-  # However, if it's any other type of request, check whether the
-  # entire content has already been received!  If so, add that to the
-  # request and we're done.  Otherwise we'll expect a subsequent get()
-  # call to finish things up.
+    my $cl = $r->content_length() || 0;
+    $cl =~ s/\D.*$//;
+    $cl ||= 0;
 
-  #print "post:$buf:\END BUFFER\n";
-  #print length($buf)."-".$r->content_length()."\n";
+    unless ($cl) {
+      if ($self->[CLIENT_PROTO] >= $HTTP_1_1) {
+        $r = $self->_build_error(RC_LENGTH_REQUIRED, "No content length found.")
+      }
 
-  my $cl = $r->content_length();
-  unless(defined $cl) {
-    if($self->[CLIENT_PROTO] == 9) {
-      return [
-        $self->_build_error(
-          RC_BAD_REQUEST,
-          "POST request detected in an HTTP 0.9 transaction. " .
-          "POST is not a valid HTTP 0.9 transaction type. " .
-          "Please verify your HTTP version and transaction content."
-        )
-      ];
+      $self->[STATE]  = ST_HEADERS;
+      @$self[REQUEST, CLIENT_PROTO]       = (undef, undef);
+      @$self[CONTENT_LEN, CONTENT_ADDED]  = (0, 0);
+
+      return [ $r ];
     }
-    elsif ($method eq 'OPTIONS') {
-      $self->[FINISH]++;
-      # OPTIONS requests can have an optional content length
-      # See http://www.faqs.org/rfcs/rfc2616.html, section 9.2
-      $self->[HEADER] = undef;
-      return [$r];
-    }
-    else {
-      return [
-        $self->_build_error(RC_LENGTH_REQUIRED, "No content length found.")
-      ];
-    }
+
+    $self->[REQUEST] = $r;
+    $self->[CONTENT_LEN] = $cl;
+    $self->[STATE] = ST_CONTENT;
+    # Fall through to content.
   }
 
-  unless ($cl =~ /^\d+$/) {
-    return [
-      $self->_build_error(
-        RC_BAD_REQUEST,
-        "Content length contains non-digits."
-      )
-    ];
-  }
+  # Waiting for content.
+  if ($self->[STATE] & ST_CONTENT) {
+    my $r         = $self->[REQUEST];
+    my $cl_needed = $self->[CONTENT_LEN] - $self->[CONTENT_ADDED];
+    die "already got enough content ($cl_needed needed)" if $cl_needed < 1;
 
-  if (length($buf) >= $cl) {
-    $r->content(substr($buf, 0, $cl));
-    $self->[BUFFER] = substr($buf, $cl);
+    # Not enough content to complete the request.  Add it to the
+    # request content, and return an incomplete status.
+    if (length($self->[BUFFER]) < $cl_needed) {
+      $r->add_content($self->[BUFFER]);
+      $self->[CONTENT_ADDED] += length($self->[BUFFER]);
+      $self->[BUFFER] = "";
+      return [];
+    }
+
+    # Enough data.  Add it to the request content.
+    # PG- CGI.pm only reads Content-Length: bytes from STDIN.
+
+    # Four-argument substr() would be ideal here, but it's not
+    # entirely backward compatible.
+    $r->add_content(substr($self->[BUFFER], 0, $cl_needed));
+    substr($self->[BUFFER], 0, $cl_needed) = "";
+
+    # Some browsers (like MSIE 5.01) send extra CRLFs after the
+    # content.  Shame on them.
     $self->[BUFFER] =~ s/^\s+//;
-    $self->[FINISH]++;
-    # We are sending this back, so won't need it anymore.
-    $self->[HEADER] = undef;
-    return [$r];
+
+    # Prepare for the next request, and return this one.
+    $self->[STATE]  = ST_HEADERS;
+    @$self[REQUEST, CLIENT_PROTO]       = (undef, undef);
+    @$self[CONTENT_LEN, CONTENT_ADDED]  = (0, 0);
+    return [ $r ];
   }
 
-  return [];
+  # What are we waiting for?
+  die "unknown state $self->[STATE]";
 }
 
 #------------------------------------------------------------------------------
@@ -302,9 +213,6 @@ sub put {
 
     push @raw, join("\x0D\x0A", @headers, "") . $_->content;
   }
-
-  # Allow next request after we're done sending the response.
-  $self->[FINISH]--;
 
   \@raw;
 }
