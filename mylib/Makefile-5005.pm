@@ -66,8 +66,6 @@ check_for_modules(
   "optional",
   "Compress::Zlib"  => 1.33,
   "Curses"          => 1.08,
-  "Event"           => 1.00,
-  "Gtk"             => 0.7009,
   "IO::Poll"        => 0.01,
   "IO::Pty"         => 1.02,
   "LWP"             => 5.79,
@@ -76,7 +74,6 @@ check_for_modules(
   "Term::Cap"       => 1.09,
   "Term::ReadKey"   => 2.21,
   RECOMMENDED_TIME_HIRES,
-  "Tk"              => 800.027,
   "URI"             => 1.30,
 );
 

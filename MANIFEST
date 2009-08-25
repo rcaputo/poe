@@ -18,14 +18,9 @@ lib/POE/Filter/Stackable.pm
 lib/POE/Filter/Stream.pm
 lib/POE/Kernel.pm
 lib/POE/Loop.pm
-lib/POE/Loop/Event.pm
-lib/POE/Loop/Gtk.pm
 lib/POE/Loop/IO_Poll.pm
 lib/POE/Loop/PerlSignals.pm
 lib/POE/Loop/Select.pm
-lib/POE/Loop/Tk.pm
-lib/POE/Loop/TkActiveState.pm
-lib/POE/Loop/TkCommon.pm
 lib/POE/NFA.pm
 lib/POE/Pipe.pm
 lib/POE/Pipe/OneWay.pm
