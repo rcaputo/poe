@@ -1362,6 +1362,9 @@ sub stop {
     $self->_data_ses_free($session);
   }
 
+  # Roll back whether sessions were started.
+  $kr_run_warning &= ~KR_RUN_SESSION;
+
   # So new sessions will not be child of the current defunct session.
   $kr_active_session = $self;
 

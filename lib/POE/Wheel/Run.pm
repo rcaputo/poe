@@ -1180,9 +1180,10 @@ POE::Wheel::Run - portably run blocking code and programs in subprocesses
 
 =head1 DESCRIPTION
 
-POE::Wheel::Run executes a program or block of code in a subprocess.
-The parent process may exchange information with the child over the
-child's STDIN, STDOUT and STDERR filehandles.
+POE::Wheel::Run executes a program or block of code in a subprocess,
+created the usual way: using fork().  The parent process may exchange
+information with the child over the child's STDIN, STDOUT and STDERR
+filehandles.
 
 In the parent process, the POE::Wheel::Run object represents the child
 process.  It has methods such as PID() and kill() to query and manage
@@ -1509,7 +1510,7 @@ See L</NoSetSid>.
 
 =head4 Priority
 
-Priority adjusts the child process' nicenes or priority level,
+Priority adjusts the child process' niceness or priority level,
 depending on which (if any) the underlying OS supports.  Priority
 contains a numeric offset which will be added to the parent's priority
 to determine the child's.
@@ -1532,12 +1533,11 @@ exec(@$program).  As per exec(ARRAY), shell metacharacters will not be
 significant.
 
 If Program holds a code reference, that code will be called in the
-child process.  The child process will exit after that code is
-finished.  This mode allows POE::Wheel::Run to fork off bits of
-long-running code.  Return values, if any, must be passed back via the
-child's STDOUT and/or STDERR.  Note, however, that POE's services are
-effectively disabled in the child process.  See L</Nested POE Kernel>
-for instructions on how to properly use POE within the child.
+child process.  This mode allows POE::Wheel::Run to execute
+long-running internal code asynchronously, while the usual modes
+execute external programs.  The child process will exit after that
+code is finished, in such a way as to avoid DESTROY and END block
+execution.  See L</Coderef Execution Side Effects> for more details.
 
 L<perlfunc> has more information about exec() and the different ways
 to call it.
@@ -1713,25 +1713,54 @@ that performs the exec() call for us.
 That deletes everything from the environment and sets a simple, secure
 PATH before executing a program.
 
-=head2 Nested POE Kernel
+=head2 Coderef Execution Side Effects
 
-The child process is created by fork(), which effectively duplicates
-the parent's POE::Kernel data structures, including its queue and all
-active sessions.
+The child process is created by fork(), which duplicates the parent
+process including a copy of POE::Kernel, all running Session
+instances, events in the queue, watchers, open filehandles, and so on.
 
-If C<< POE::Kernel->run() >> is called again in the child process, it
-effectively resumes a copy of the parent process, which is rarely (if
-ever) the desired effect.
+When executing an external program, the UNIX exec() call immediately
+replaces the copy of the parent with a completely new program.
 
-Likewise, DESTROY methods and END blocks would be triggered if the
-child process simply calls exit().  This is why POE::Wheel::Run takes
-drastic measures to avoid plain old exit() in the child process.
+When executing internal coderefs, however, we must preserve the code
+and any memory it might reference.  This leads to some potential side
+effects.
 
-Some applications require POE to be run in the child process, however.
-If the application wishes to avoid using exec(), it may first stop()
-the POE::Kernel instance in the child, then run() it again.
+=head3 DESTROY and END Blocks Run Twice
 
-Here is an example:
+Objects that were created in the parent process are copied into the
+child.  When the child exits normally, any DESTROY and END blocks are
+executed there.  Later, when the parent exits, they may run again.
+
+POE::Wheel::Run takes steps to avoid running DESTROY and END blocks in
+the child process.  It uses POSIX::_exit() to bypass them.  If that
+fails, it may even kill() itself.
+
+If an application needs to exit explicitly, for example to return an
+error code to the parent process, then please use POSIX::_exit()
+rather than Perl's core exit().
+
+=head3 POE::Kernel's run() method was never called
+
+This warning is displayed from POE::Kernel's DESTROY method.  It's a
+side effect of calling exit() in a child process that was started
+before C<< POE::Kernel->run() >> could be called.  The child process
+receives a copy of POE::Kernel where run() wasn't called, even if it
+was called later in the parent process.
+
+The most direct solution is to call POSIX::_exit() rather than exit().
+This will bypass POE::Kernel's DESTROY, and the message it emits.
+
+=head3 Running POE::Kernel in the Child
+
+Calling c<< POE::Kernel->run() >> in the child process effectively
+resumes the copy of the parent process.  This is rarely (if ever)
+desired.
+
+More commonly, an application wants to run an entirely new POE::Kernel
+instance in the child process.  This is supported by first stop()ping
+the copied instance, starting one or more new sessions, and calling
+run() again.  For example:
 
   Program => sub {
     # Wipe the existing POE::Kernel clean.
@@ -1749,10 +1778,6 @@ Here is an example:
 Strange things are bound to happen if the program does not call
 L<POE::Kernel/stop> before L<POE::Kernel/run>.  However this is
 vaguely supported in case it's the right thing to do at the time.
-
-The advantage of calling C<POE::Kernel/stop> is that it allows all the
-advantages of a fork() without an exec(), namely sharing of read only
-data, but without having to forefit L<POE>'s facilities in the child.
 
 =head1 SEE ALSO
 
