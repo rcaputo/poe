@@ -82,6 +82,11 @@ sub _loop_signal_handler_chld_bottom {
   }
 
   $poe_kernel->_data_sig_enqueue_poll_event();
+
+  # TODO - Per https://rt.cpan.org/Ticket/Display.html?id=45109
+  # resetting %SIG may need to be deferred until after child processes
+  # have been reaped.  Waiting for confirmation that the recent
+  # USE_SIGNALS changes have not fixed deep recursion on HP-UX.
   $SIG{$_[0]} = \&_loop_signal_handler_chld;
 }
 
