@@ -28,7 +28,8 @@ sub ST_HEADERS    () { 0x01 } # waiting for complete header block
 sub ST_CONTENT    () { 0x02 } # waiting for complete body
 
 use Carp qw(croak);
-use HTTP::Status qw( status_message RC_BAD_REQUEST RC_OK RC_LENGTH_REQUIRED );
+use HTTP::Status qw( status_message RC_BAD_REQUEST RC_OK RC_LENGTH_REQUIRED 
+                                    RC_REQUEST_ENTITY_TOO_LARGE );
 use HTTP::Request ();
 use HTTP::Response ();
 use HTTP::Date qw(time2str);
@@ -122,19 +123,66 @@ sub get_one {
     # We got a full set of headers.  Fall through to content if we
     # have a content length.
 
-    my $cl = $r->content_length() || 0;
-    $cl =~ s/\D.*$//;
-    $cl ||= 0;
+    my $cl = $r->content_length();
+    if( defined $cl ) {
+        $cl =~ s/\D.*$//;
+        $cl ||= 0;
+    }
+    my $ce = $r->content_encoding();
+    
+#   The presence of a message-body in a request is signaled by the
+#   inclusion of a Content-Length or Transfer-Encoding header field in
+#   the request's message-headers. A message-body MUST NOT be included in
+#   a request if the specification of the request method (section 5.1.1)
+#   does not allow sending an entity-body in requests. A server SHOULD
+#   read and forward a message-body on any request; if the request method
+#   does not include defined semantics for an entity-body, then the
+#   message-body SHOULD be ignored when handling the request.
+#   - RFC2616
 
-    unless ($cl) {
-      if ($self->[CLIENT_PROTO] >= $HTTP_1_1) {
-        $r = $self->_build_error(RC_LENGTH_REQUIRED, "No content length found.")
+    unless( defined $cl || defined $ce ) {
+        # warn "No body";
+        $self->_reset();
+        return [ $r ];
+    }
+    
+    # PG- GET shouldn't have a body. But RFC2616 talks about Content-Length
+    # for HEAD.  And My reading of RFC2616 is that HEAD is the same as GET.
+    # So logically, GET can have a body.  And RFC2616 says we SHOULD ignore
+    # it.
+    #
+    # What's more, in apache 1.3.28, a body on a GET or HEAD is read
+    # and discarded.  See ap_discard_request_body() in http_protocol.c and
+    # default_handler() in http_core.c
+    #
+    # Neither Firefox 2.0 nor Lynx 2.8.5 set Content-Length on a GET
+
+#   For compatibility with HTTP/1.0 applications, HTTP/1.1 requests
+#   containing a message-body MUST include a valid Content-Length header
+#   field unless the server is known to be HTTP/1.1 compliant. If a
+#   request contains a message-body and a Content-Length is not given,
+#   the server SHOULD respond with 400 (bad request) if it cannot
+#   determine the length of the message, or with 411 (length required) if
+#   it wishes to insist on receiving a valid Content-Length.
+# - RFC2616 
+#
+# PG- This seems to imply that we can either detect the length (but how
+#     would one do that?) or require a Content-Length header.  We do the
+#     latter.
+# 
+# PG- Dispite all the above, I'm not fully sure this implements RFC2616
+#     properly.  There's something about transfer-coding that I don't fully
+#     understand.
+
+    if ( not $cl) {         
+      # assume a Content-Length of 0 is valid pre 1.1
+      if ($self->[CLIENT_PROTO] >= $HTTP_1_1 and not defined $cl) {
+        # We have Content-Encoding, but not Content-Length.
+        $r = $self->_build_error(RC_LENGTH_REQUIRED, 
+                                 "No content length found.",
+                                 $r);
       }
-
-      $self->[STATE]  = ST_HEADERS;
-      @$self[REQUEST, CLIENT_PROTO]       = (undef, undef);
-      @$self[CONTENT_LEN, CONTENT_ADDED]  = (0, 0);
-
+      $self->_reset();
       return [ $r ];
     }
 
@@ -171,16 +219,28 @@ sub get_one {
     # content.  Shame on them.
     $self->[BUFFER] =~ s/^\s+//;
 
+    # XXX Should we throw the body away on a GET or HEAD? Probably not.
+
+    # XXX Should we parse Multipart Types bodies?
+
     # Prepare for the next request, and return this one.
-    $self->[STATE]  = ST_HEADERS;
-    @$self[REQUEST, CLIENT_PROTO]       = (undef, undef);
-    @$self[CONTENT_LEN, CONTENT_ADDED]  = (0, 0);
+    $self->_reset();
     return [ $r ];
   }
 
   # What are we waiting for?
   die "unknown state $self->[STATE]";
 }
+
+# Prepare for next request
+sub _reset
+{
+   my($self) = @_;
+   $self->[STATE] = ST_HEADERS;
+   @$self[REQUEST, CLIENT_PROTO]       = (undef, undef);
+   @$self[CONTENT_LEN, CONTENT_ADDED]  = (0, 0);
+}
+
 
 #------------------------------------------------------------------------------
 
@@ -193,6 +253,7 @@ sub put {
   # to send it to a client.  Here I've stolen HTTP::Response's
   # as_string's code and altered it to use network newlines so picky
   # browsers like lynx get what they expect.
+  # PG- $r->as_string( "\x0D\x0A" ); would accomplish the same thing, no?
 
   foreach (@$responses) {
     my $code           = $_->code;
@@ -242,7 +303,7 @@ sub _http_version {
 # content.
 
 sub _build_basic_response {
-  my ($self, $content, $content_type, $status) = @_;
+  my ($self, $content, $content_type, $status, $message) = @_;
 
   # Need to check lengths in octets, not characters.
   BEGIN { eval { require bytes } and bytes->import; }
@@ -250,7 +311,7 @@ sub _build_basic_response {
   $content_type ||= 'text/html';
   $status       ||= RC_OK;
 
-  my $response = HTTP::Response->new($status);
+  my $response = HTTP::Response->new($status, $message);
 
   $response->push_header( 'Content-Type', $content_type );
   $response->push_header( 'Content-Length', length($content) );
@@ -260,13 +321,13 @@ sub _build_basic_response {
 }
 
 sub _build_error {
-  my($self, $status, $details) = @_;
+  my($self, $status, $details, $req) = @_;
 
   $status  ||= RC_BAD_REQUEST;
   $details ||= '';
   my $message = status_message($status) || "Unknown Error";
 
-  return $self->_build_basic_response(
+  my $resp = $self->_build_basic_response(
     ( "<html>" .
       "<head>" .
       "<title>Error $status: $message</title>" .
@@ -278,8 +339,11 @@ sub _build_error {
       "</html>"
     ),
     "text/html",
-    $status
+    $status,
+    $message
   );
+  $resp->request( $req ) if $req;
+  return $resp;
 }
 
 1;
@@ -309,7 +373,12 @@ POE::Filter::HTTPD - parse simple HTTP requests, and serialize HTTP::Response
 
       # It's a response for the client if there was a problem.
       if ($request->isa("HTTP::Response")) {
-        $_[HEAP]{client}->put($request);
+        my $response = $request;
+
+        $request = $response->request;
+        warn "ERROR: ", $request->message if $request;
+
+        $_[HEAP]{client}->put($response);
         $_[KERNEL]->yield("shutdown");
         return;
       }
@@ -344,12 +413,15 @@ POE::Filter::HTTPD - parse simple HTTP requests, and serialize HTTP::Response
 
 =head1 DESCRIPTION
 
-POE::Filter::HTTPD interprets input streams as HTTP 0.9 or 1.0
-requests.  It returns a HTTP::Request objects upon successfully
-parsing a request.  On failure, it returns an HTTP::Response object
-describing the failure.  The intention is that application code will
-notice the HTTP::Response and send it back without further processing.
-This is illustrated in the L</SYNOPSIS>.
+POE::Filter::HTTPD interprets input streams as HTTP 0.9, 1.0 or 1.1
+requests.  It returns a HTTP::Request objects upon successfully parsing a
+request.  
+
+On failure, it returns an HTTP::Response object describing the failure.  The
+intention is that application code will notice the HTTP::Response and send
+it back without further processing. The erroneous request object is
+sometimes available via the L<HTTP::Response/request> method.  This is
+illustrated in the L</SYNOPSIS>.
 
 For output, POE::Filter::HTTPD accepts HTTP::Response objects and
 returns their corresponding streams.

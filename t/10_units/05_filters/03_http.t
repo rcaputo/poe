@@ -23,7 +23,7 @@ BEGIN {
 }
 
 BEGIN {
-  plan tests => 98;
+  plan tests => 112;
 }
 
 use_ok('POE::Filter::HTTPD');
@@ -244,7 +244,6 @@ SKIP: { # simple put {{{
         ok($req->content =~ m{&results;.*?exit;}s,
           'multipart form data: content seems to contain all data sent');
     }
-
 } # }}}
 
 { # options request {{{
@@ -389,8 +388,9 @@ END
   }
 } # }}}
 
-TODO: { # wishlist for supporting get_pending! {{{
+SKIP: { # wishlist for supporting get_pending! {{{
   local $TODO = 'add get_pending support';
+  skip $TODO, 1;
   my $filter = POE::Filter::HTTPD->new;
   eval { $filter->get_pending() };
   ok(!$@, 'get_pending supported!');
@@ -438,13 +438,21 @@ TODO: { # wishlist for supporting get_pending! {{{
         uri => '/',
       }, 'strange method');
   }
-  { # bad request -- 1.1 so length required
+  { # bad request -- 1.1+Content-Encoding implies a body so length required
     my $filter = POE::Filter::HTTPD->new;
     my $req = HTTP::Request->new('ELEPHANT', 'http://localhost/');
+    $req->header( 'Content-Encoding' => 'mussa' );
     $req->protocol('HTTP/1.1');
     my $data = $filter->get([ $req->as_string ]);
     check_error_response($data, RC_LENGTH_REQUIRED,
-      'unsupported method: length required');
+      'body indicated, not included: length required');
+    $req = $data->[0]->request;
+    ok( $req, "body indicated, not included: got request" );
+    check_fields( $req, {
+            protocol => 'HTTP/1.1', 
+            method   => 'ELEPHANT',
+            uri      => 'http://localhost/'
+        }, 'body indicated, not included' );
   }
 } # }}}
 
@@ -459,5 +467,53 @@ TODO: { # wishlist for supporting get_pending! {{{
       uri => '/',
     },
     "mixed case method"
+  );
+} # }}}
+
+{ # strange request: GET with a body {{{
+  my $filter = POE::Filter::HTTPD->new;
+  my $trap = HTTP::Request->new( "POST", "/trap.html" ); # IT'S A TRAP
+  $trap->protocol('HTTP/1.1');
+  $trap->header( 'Content-Type' => 'text/plain' );
+  $trap->header( 'Content-Length' => 10 );
+  $trap->content( "HONK HONK\n" );
+
+  my $req = HTTP::Request->new("GET", "/");
+  $req->protocol('HTTP/1.1');
+
+  my $body = $trap->as_string;
+  $req->header( 'Content-Length' => length $body );
+  $req->header( 'Content-Type' => 'text/plain' );
+  # include a HTTP::Request as body, to make sure we find only one request,
+  # not 2
+  $req->content( $body );
+
+  my $data = $filter->get([ $req->as_string ]);
+  is( 1, 0+@$data, "GET with body: one request" );
+  ok( ($data->[0]->content =~ /POST.+HONK HONK\n/s), 
+                                    "GET with body: content" );
+  check_fields(
+    $data->[0], {
+      protocol => 'HTTP/1.1',
+      method => 'GET',
+      uri => '/',
+    },
+    "GET with body"
+  );
+
+
+  # Same again with HEAD
+  $req->method( 'HEAD' );
+  $data = $filter->get([ $req->as_string ]);
+  is( 1, 0+@$data, "HEAD with body: one request" );
+  ok( ($data->[0]->content =~ /POST.+HONK HONK\n/s), 
+                                    "HEAD with body: content" );
+  check_fields(
+    $data->[0], {
+      protocol => 'HTTP/1.1',
+      method => 'HEAD',
+      uri => '/',
+    },
+    "HEAD with body"
   );
 } # }}}
