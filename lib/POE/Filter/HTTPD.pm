@@ -414,14 +414,15 @@ POE::Filter::HTTPD - parse simple HTTP requests, and serialize HTTP::Response
 =head1 DESCRIPTION
 
 POE::Filter::HTTPD interprets input streams as HTTP 0.9, 1.0 or 1.1
-requests.  It returns a HTTP::Request objects upon successfully parsing a
-request.  
+requests.  It returns a HTTP::Request objects upon successfully
+parsing a request.  
 
-On failure, it returns an HTTP::Response object describing the failure.  The
-intention is that application code will notice the HTTP::Response and send
-it back without further processing. The erroneous request object is
-sometimes available via the L<HTTP::Response/request> method.  This is
-illustrated in the L</SYNOPSIS>.
+On failure, it returns an HTTP::Response object describing the
+failure.  The intention is that application code will notice the
+HTTP::Response and send it back without further processing. The
+erroneous request object is sometimes available via the
+L<HTTP::Response/request> method.  This is illustrated in the
+L</SYNOPSIS>.
 
 For output, POE::Filter::HTTPD accepts HTTP::Response objects and
 returns their corresponding streams.
@@ -454,6 +455,17 @@ header, the parser is to default to HTTP/0.9.  POE::Filter::HTTPD
 follows this convention.  In the transaction detailed above, the
 Filter::HTTPD based daemon will return a 400 error since POST is not a
 valid HTTP/0.9 request type.
+
+Upon handling a request error, it is most expedient and reliable to
+respond with the error and shut down the connection.  Invalid HTTP
+requests may corrupt the request stream.  For example, the absence of
+a Content-Length header signals that a request has no content.
+Requests with content but not that header will be broken into a
+content-less request and invalid data.  The invalid data may also
+appear to be a request!  Hilarity will ensue, possibly repeatedly,
+until the filter can find the next valid request.  By shutting down
+the connection on the first sign of error, the client can retry its
+request with a clean connection and filter.
 
 =head1 Streaming Media
 
