@@ -4,7 +4,7 @@
 package POE::Resource::SIDs;
 
 use vars qw($VERSION);
-$VERSION = '1.007'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.020'; # NOTE - Should be #.### (three decimal places)
 
 # These methods are folded into POE::Kernel;
 package POE::Kernel;
