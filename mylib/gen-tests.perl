@@ -54,7 +54,7 @@ my $test_base = "t";
 {
   my $base_dir = File::Spec->catfile($test_base, "30_loops");
 
-  my @loops = qw(Select IO::Poll Event Gtk Tk);
+  my @loops = qw(Select IO::Poll);
   POE::Test::Loops::generate($base_dir, \@loops);
 }
 
