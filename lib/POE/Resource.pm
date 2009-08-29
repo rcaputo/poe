@@ -1,7 +1,7 @@
 package POE::Resource;
 
 use vars qw($VERSION);
-$VERSION = '1.020'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.266'; # NOTE - Should be #.### (three decimal places)
 
 1;
 
