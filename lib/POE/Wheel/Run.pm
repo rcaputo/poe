@@ -449,7 +449,7 @@ sub new {
           exit(1);
         }
 
-        exec(join(" ", $program, @$prog_args))
+        exec(join(" ", $program, @$prog_args));
         warn "can't exec ($program) in child pid $$: $!";
         kill INT => $$;
         exit(1);
