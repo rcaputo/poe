@@ -440,6 +440,22 @@ sub new {
       exit(0);
     }
     else {
+      # Windows! What I do for you!
+      if (POE::Kernel::RUNNING_IN_HELL) {
+        if (ref($program) eq 'ARRAY') {
+          exec(@$program, @$prog_args);
+          warn "can't exec (@$program) in child pid $$: $!";
+          kill INT => $$;
+          exit(1);
+        }
+
+        exec(join(" ", $program, @$prog_args))
+        warn "can't exec ($program) in child pid $$: $!";
+        kill INT => $$;
+        exit(1);
+      }
+
+      # Everybody else seems sane.
       if (ref($program) eq 'ARRAY') {
         exec(@$program, @$prog_args)
           or die "can't exec (@$program) in child pid $$: $!";
