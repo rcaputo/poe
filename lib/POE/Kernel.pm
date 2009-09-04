@@ -1434,7 +1434,7 @@ sub _invoke_state {
   # to catch SIGCHLD.
 
   if ($event eq EN_SCPOLL) {
-    $self->_data_sig_handle_poll_event();
+    $self->_data_sig_handle_poll_event($etc->[0]);
   }
 
   # A signal was posted.  Because signals propagate depth-first, this
@@ -5345,15 +5345,15 @@ Defaults to 1 second.
 
 =head2 USE_SIGNAL_PIPE
 
-The only safe way to handle signals is to implement a shared-nothing model. 
-POE builds a I<signal pipe> that communicates between the the signal
-handlers and the POE kernel loop in a safe and atomic manner.  The signal
-pipe is implemented with L<POE::Pipe::OneWay>, using a C<pipe> conduit on
-Unix, and C<inet> on Windows.
+The only safe way to handle signals is to implement a shared-nothing
+model.  POE builds a I<signal pipe> that communicates between the the
+signal handlers and the POE kernel loop in a safe and atomic manner.
+The signal pipe is implemented with L<POE::Pipe::OneWay>, using a
+C<pipe> conduit on Unix, and C<inet> on Windows.
 
-If you wish to revert to the previous unsafe signal behaviour, you must set
-C<USE_SIGNAL_PIPE> to 0, or the environment vairable C<POE_USE_SIGNAL_PIPE>.
-
+If you wish to revert to the previous unsafe signal behaviour, you
+must set C<USE_SIGNAL_PIPE> to 0, or the environment vairable
+C<POE_USE_SIGNAL_PIPE>.
 
 =head1 CATCH_EXCEPTIONS
 

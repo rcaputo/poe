@@ -478,12 +478,12 @@ sub _data_sig_touched_session {
 
 # only used under !USE_SIGCHLD
 sub _data_sig_begin_polling {
-  my $self = shift;
+  my ($self, $signal) = @_;
 
   return if $polling_for_signals;
   $polling_for_signals = 1;
 
-  $self->_data_sig_enqueue_poll_event();
+  $self->_data_sig_enqueue_poll_event($signal);
   $self->_idle_queue_grow();
 }
 
@@ -493,14 +493,14 @@ sub _data_sig_cease_polling {
 }
 
 sub _data_sig_enqueue_poll_event {
-  my $self = shift;
+  my ($self, $signal) = @_;
 
   if ( USE_SIGCHLD ) {
     return if $polling_for_signals;
     $polling_for_signals = 1;
 
     $self->_data_ev_enqueue(
-      $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+      $self, $self, EN_SCPOLL, ET_SCPOLL, [ $signal ],
       __FILE__, __LINE__, undef, time(),
     );
   } else {
@@ -508,14 +508,14 @@ sub _data_sig_enqueue_poll_event {
     return unless $polling_for_signals;
 
     $self->_data_ev_enqueue(
-      $self, $self, EN_SCPOLL, ET_SCPOLL, [ ],
+      $self, $self, EN_SCPOLL, ET_SCPOLL, [ $signal ],
       __FILE__, __LINE__, undef, time() + POE::Kernel::CHILD_POLLING_INTERVAL(),
     );
   }
 }
 
 sub _data_sig_handle_poll_event {
-  my $self = shift;
+  my ($self, $signal) = @_;
 
   if ( USE_SIGCHLD ) {
     $polling_for_signals = undef;
@@ -620,8 +620,16 @@ sub _data_sig_handle_poll_event {
 
   $kr_child_procs = !$pid;
 
-
-  unless ( USE_SIGCHLD ) {
+  if (USE_SIGCHLD) {
+    if (TRACE_SIGNALS) {
+      _warn("<sg> POE::Kernel has reset the SIG$signal handler");
+    }
+    # Per https://rt.cpan.org/Ticket/Display.html?id=45109 setting the
+    # signal handler must be done after reaping the outstanding child
+    # processes, at least on SysV systems like HP-UX.
+    $SIG{$signal} = \&_loop_signal_handler_chld;
+  }
+  else {
     # The poll loop is over.  Resume slowly polling for signals.
 
     if (TRACE_SIGNALS) {
@@ -629,7 +637,7 @@ sub _data_sig_handle_poll_event {
     }
 
     if ($polling_for_signals) {
-      $self->_data_sig_enqueue_poll_event();
+      $self->_data_sig_enqueue_poll_event($signal);
     }
     else {
       $self->_idle_queue_shrink();
