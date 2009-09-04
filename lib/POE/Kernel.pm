@@ -140,7 +140,13 @@ BEGIN {
       if( exists $ENV{ POE_USE_SIGNAL_PIPE } and not $ENV{ POE_USE_SIGNAL_PIPE } ) {
         *USE_SIGNAL_PIPE = sub () { 0 };
       } else {
-        *USE_SIGNAL_PIPE = sub () { 1 };
+        if (RUNNING_IN_HELL) {
+          # TODO - Let them know we're not using it?
+          *USE_SIGNAL_PIPE = sub () { 0 };
+        }
+        else {
+          *USE_SIGNAL_PIPE = sub () { 1 };
+        }
       }
     }
   }
