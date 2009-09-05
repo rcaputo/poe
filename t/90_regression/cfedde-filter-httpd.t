@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# vim: filetype=perl
+# vim: filetype=perl ts=2 sw=2 expandtab
 
 use warnings;
 use strict;
@@ -33,6 +33,7 @@ use POE qw(
 POE::Component::Server::TCP->new(
   Alias        => 's0',
   Port         => 0,
+  Address      => '127.0.0.1',
   ClientFilter => 'POE::Filter::HTTPD',
   Started => sub {
     use Socket qw(sockaddr_in);
