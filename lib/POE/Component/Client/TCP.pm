@@ -53,7 +53,8 @@ sub new {
   croak "Args must be an array reference" unless ref($args) eq "ARRAY";
 
   foreach (
-    qw( Connected ConnectError Disconnected ServerInput
+    qw(
+      PreConnect Connected ConnectError Disconnected ServerInput
       ServerError ServerFlushed Started
       ServerHigh ServerLow
     )
@@ -78,6 +79,7 @@ sub new {
   $high_event = sub { } unless defined $high_event;
   $low_event  = sub { } unless defined $low_event;
 
+  my $pre_conn_callback   = delete $param{PreConnect};
   my $conn_callback       = delete $param{Connected};
   my $conn_error_callback = delete $param{ConnectError};
   my $disc_callback       = delete $param{Disconnected};
@@ -131,11 +133,6 @@ sub new {
   $conn_error_callback = \&_default_error unless defined $conn_error_callback;
   $error_callback      = \&_default_io_error unless defined $error_callback;
 
-  $disc_callback  = sub {} unless defined $disc_callback;
-  $conn_callback  = sub {} unless defined $conn_callback;
-  $flush_callback = sub {} unless defined $flush_callback;
-  $start_callback = sub {} unless defined $start_callback;
-
   # Spawn the session that makes the connection and then interacts
   # with what was connected to.
 
@@ -147,7 +144,7 @@ sub new {
           $heap->{shutdown_on_error} = 1;
           $kernel->alias_set( $alias ) if defined $alias;
           $kernel->yield( 'reconnect' );
-          $start_callback->(@_);
+          $start_callback and $start_callback->(@_);
         },
 
         # To quiet ASSERT_STATES.
@@ -195,6 +192,15 @@ sub new {
           $kernel->alarm_remove( delete $heap->{ctimeout_id} )
             if exists $heap->{ctimeout_id};
 
+          # Pre-connected callback.
+          if ($pre_conn_callback) {
+            unless ($socket = $pre_conn_callback->(@_)) {
+              $heap->{connected} = 0;
+              # TODO - Error callback?  Disconnected callback?
+              return;
+            }
+          }
+
           # Ok to overwrite like this as of 0.13.
           $_[HEAP]->{server} = POE::Wheel::ReadWrite->new
             ( Handle       => $socket,
@@ -214,7 +220,7 @@ sub new {
             );
 
           $heap->{connected} = 1;
-          $conn_callback->(@_);
+          $conn_callback and $conn_callback->(@_);
         },
         got_high => $high_event,
         got_low => $low_event,
@@ -255,10 +261,10 @@ sub new {
 
         got_server_flush => sub {
           my $heap = $_[HEAP];
-          $flush_callback->(@_);
+          $flush_callback and $flush_callback->(@_);
           if ($heap->{shutdown}) {
             delete $heap->{server};
-            $disc_callback->(@_);
+            $disc_callback and $disc_callback->(@_);
           }
         },
 
@@ -277,7 +283,7 @@ sub new {
                 not $heap->{server}->get_driver_out_octets()
               ) {
                 delete $heap->{server};
-                $disc_callback->(@_);
+                $disc_callback and $disc_callback->(@_);
               }
             }
           }
@@ -441,6 +447,28 @@ package names and the events they will handle  The arrayref must
 follow the syntax for POE::Session->create()'s package_states
 parameter.
 
+=head4 PreConnect
+
+C<PreConnect> is called before C<Connected>, and it has different
+parameters: $_[ARG0] contains a copy of the socket before it's given
+to POE::Wheel::ReadWrite for management.  Most HEAP members are set,
+except of course $_[HEAP]{server}, because the POE::Wheel::ReadWrite
+object has not been created yet.  C<PreConnect> may enable SSL on the
+socket using POE::Component::SSLify.  C<PreConnect> must return a
+valid socket to complete the connection; the client will disconnect if
+anything else is returned.
+
+  PreConnect => {
+    # Convert the socket into an SSL socket.
+    my $socket = eval { Client_SSLify($_[ARG0]) };
+
+    # Disconnect if SSL failed.
+    return if $@;
+
+    # Return the SSL-ified socket.
+    return $socket;
+  }
+
 =head4 SessionType
 
 Each client is created within its own Session.  C<SessionType> names
@@ -559,6 +587,9 @@ contain the remote address and port as returned from getpeername().
     my ($socket, $peer_addr, $peer_port) = @_[ARG0, ARG1, ARG2];
     # ...
   }
+
+See L</PreConnect> to modify the socket before it's given to
+POE::Wheel::ReadWrite.
 
 =head4 ConnectTimeout
 

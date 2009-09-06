@@ -46,7 +46,8 @@ sub new {
 
   foreach (
     qw(
-      Acceptor Error ClientInput ClientConnected ClientDisconnected
+      Acceptor Error ClientInput
+      ClientPreConnect ClientConnected ClientDisconnected
       ClientError ClientFlushed
       ClientLow ClientHigh
     )
@@ -87,6 +88,7 @@ sub new {
     }
   }
 
+  my $client_pre_connect  = delete $param{ClientPreConnect};
   my $client_connected    = delete $param{ClientConnected};
   my $client_disconnected = delete $param{ClientDisconnected};
   my $client_error        = delete $param{ClientError};
@@ -126,7 +128,6 @@ sub new {
   $address = INADDR_ANY unless defined $address;
 
   $error_callback = \&_default_server_error unless defined $error_callback;
-  $server_started = sub {} unless ref($server_started) eq 'CODE';
 
   $session_type = 'POE::Session' unless defined $session_type;
   if (defined($session_params) && ref($session_params)) {
@@ -139,9 +140,6 @@ sub new {
 
   if (defined $client_input) {
     $client_error  = \&_default_client_error unless defined $client_error;
-    $client_connected    = sub {} unless defined $client_connected;
-    $client_disconnected = sub {} unless defined $client_disconnected;
-    $client_flushed      = sub {} unless defined $client_flushed;
     $client_args         = []     unless defined $client_args;
 
     # Extra states.
@@ -241,7 +239,6 @@ sub new {
       $accept_callback = sub {
         my ($socket, $remote_addr, $remote_port) = @_[ARG0, ARG1, ARG2];
 
-
         $session_type->create(
           @$session_params,
           inline_states => {
@@ -273,8 +270,18 @@ sub new {
 
               $heap->{remote_port} = $remote_port;
 
+              my $socket = $_[ARG0];
+              if ($client_pre_connect) {
+                $socket = $client_pre_connect->(@_);
+                unless (fileno($socket)) {
+                  # TODO - Error callback?  Disconnected callback?
+                  # TODO - Should we do this before starting the child?
+                  return;
+                }
+              }
+
               $heap->{client} = POE::Wheel::ReadWrite->new(
-                Handle       => $_[ARG0],
+                Handle       => $socket,
                 Driver       => POE::Driver::SysRW->new(),
                 _get_filters(
                   $client_filter,
@@ -301,7 +308,7 @@ sub new {
               # into @_[ARG0..].  There are only 2 parameters.
               splice(@_, ARG0, 2, @{$_[ARG1]});
 
-              $client_connected->(@_);
+              $client_connected and $client_connected->(@_);
             },
             tcp_server_got_high => $high_event,
             tcp_server_got_low => $low_event,
@@ -329,10 +336,10 @@ sub new {
             tcp_server_got_flush => sub {
               my $heap = $_[HEAP];
               DEBUG and warn "$$: $alias child Flush";
-              $client_flushed->(@_);
+              $client_flushed and $client_flushed->(@_);
               if ($heap->{shutdown}) {
                 DEBUG and warn "$$: $alias child Flush, callback";
-                $client_disconnected->(@_);
+                $client_disconnected and $client_disconnected->(@_);
                 delete $heap->{client};
               }
             },
@@ -346,7 +353,7 @@ sub new {
                   not $heap->{client}->get_driver_out_octets()
                 ) {
                   DEBUG and warn "$$: $alias child Shutdown, callback";
-                  $client_disconnected->(@_);
+                  $client_disconnected and $client_disconnected->(@_);
                   delete $heap->{client};
                 }
               }
@@ -439,7 +446,7 @@ sub new {
           SuccessEvent => 'tcp_server_got_connection',
           FailureEvent => 'tcp_server_got_error',
         );
-        $server_started->(@_);
+        $server_started and $server_started->(@_);
       },
       # Catch an error.
       tcp_server_got_error => $error_callback,
@@ -723,16 +730,40 @@ The component's C<ClientInput> callback defines how child sessions
 will handle input from their clients.  Its parameters are that of
 POE::Wheel::ReadWrite's C<InputEvent>.
 
-As mentioned
-C<ClientConnected> is called at the end of the child session's
-C<_start> routine.  The C<ClientConneted> callback receives the same
-parameters as the client session's _start does.  The arrayref passed
-to the constructor's C<Args> parameter is flattened and included in
-C<ClientConnected>'s parameters as @_[ARG0..$#_].
+As mentioned C<ClientConnected> is called at the end of the child
+session's C<_start> routine.  The C<ClientConneted> callback receives
+the same parameters as the client session's _start does.  The arrayref
+passed to the constructor's C<Args> parameter is flattened and
+included in C<ClientConnected>'s parameters as @_[ARG0..$#_].
 
   sub handle_client_connected {
     my @constructor_args = @_[ARG0..$#_];
     ...
+  }
+
+C<ClientPreConnect> is called before C<ClientConnected>, and it has
+different parameters: $_[ARG0] contains a copy of the client socket
+before it's given to POE::Wheel::ReadWrite for management.  Most HEAP
+members are set, except of course $_[HEAP]{client}, because the
+POE::Wheel::ReadWrite has not yet been created yet.
+C<ClientPreConnect> may enable SSL on the socket, using
+POE::Component::SSLify.  C<ClientPreConnect> must return a valid
+socket to complete the connection; the client will be disconnected if
+anything else is returned.
+
+  sub handle_client_pre_connect {
+
+    # Make sure the remote address and port are valid.
+    return undef unless validate(
+      $_[HEAP]{remote_ip}, $_[HEAP]{remote_port}
+    );
+
+    # SSLify the socket, which is in $_[ARG0].
+    my $socket = eval { Server_SSLify($_[ARG0]) };
+    return undef if $@;
+
+    # Return the SSL-ified socket.
+    return $socket;
   }
 
 C<ClientDisconnected> is called when the client has disconnected,
