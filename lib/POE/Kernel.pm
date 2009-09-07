@@ -1358,6 +1358,11 @@ sub stop {
   # So stop() can be called as a class method.
   my $self = $poe_kernel;
 
+  # Running stop() is recommended in a POE::Wheel::Run coderef
+  # Program, before setting up for the next POE::Kernel->run().  When
+  # the PID has changed, imply _data_sig_has_forked() during stop().
+  $poe_kernel->_data_sig_has_forked unless $kr_pid == $$;
+
   my @children = ($self);
   foreach my $session (@children) {
     push @children, $self->_data_ses_get_children($session);

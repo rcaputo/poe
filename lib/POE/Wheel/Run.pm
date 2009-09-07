@@ -266,6 +266,7 @@ sub new {
 
   # Child.  Parent side continues after this block.
   unless ($pid) {
+
     croak "couldn't fork: $!" unless defined $pid;
 
     # Stdio should not be tied.  Resolves rt.cpan.org ticket 1648.
@@ -363,16 +364,11 @@ sub new {
       or die "can't redirect STDIN in child pid $$: $!";
 
     # Redirect STDOUT to the write end of the stdout pipe.
-    # The STDOUT_FILENO check snuck in on a patch.  I'm not sure why
-    # we care what the file descriptor is.
     close STDOUT if POE::Kernel::RUNNING_IN_HELL;
     open( STDOUT, ">&" . fileno($stdout_write) )
       or die "can't redirect stdout in child pid $$: $!";
 
-    # Redirect STDERR to the write end of the stderr pipe.  If the
-    # stderr pipe's undef, then we use STDOUT.
-    # The STDERR_FILENO check snuck in on a patch.  I'm not sure why
-    # we care what the file descriptor is.
+    # Redirect STDERR to the write end of the stderr pipe.
     close STDERR if POE::Kernel::RUNNING_IN_HELL;
     open( STDERR, ">&" . fileno($stderr_write) )
       or die "can't redirect stderr in child: $!";
