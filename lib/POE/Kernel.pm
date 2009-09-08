@@ -142,7 +142,7 @@ BEGIN {
       } else {
         if (RUNNING_IN_HELL) {
           # TODO - Let them know we're not using it?
-          _warn "The signal pipe is not compatible with $^O";
+          warn "The signal pipe is not compatible with $^O";
           *USE_SIGNAL_PIPE = sub () { 0 };
         }
         else {
