@@ -142,6 +142,7 @@ BEGIN {
       } else {
         if (RUNNING_IN_HELL) {
           # TODO - Let them know we're not using it?
+          _warn "The signal pipe is not compatible with $^O";
           *USE_SIGNAL_PIPE = sub () { 0 };
         }
         else {
@@ -5354,7 +5355,8 @@ The only safe way to handle signals is to implement a shared-nothing
 model.  POE builds a I<signal pipe> that communicates between the
 signal handlers and the POE kernel loop in a safe and atomic manner.
 The signal pipe is implemented with L<POE::Pipe::OneWay>, using a
-C<pipe> conduit on Unix, and C<inet> on Windows.
+C<pipe> conduit on Unix.  Unfortunately, the signal pipe is not compatible
+with Windows and is not used on that platform.
 
 If you wish to revert to the previous unsafe signal behaviour, you
 must set C<USE_SIGNAL_PIPE> to 0, or the environment vairable
