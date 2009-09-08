@@ -1365,6 +1365,10 @@ consistent notification that the child is done sending output.  Please
 note that it does not signal when the child process has exited.
 Programs should use sig_child() to detect that.
 
+While it is impossible for ErrorEvent or StdoutEvent to happen after
+CloseEvent, there is no such guarantee for CHLD, which may happen before
+or after CloseEvent.
+
 In addition to the usual POE parameters, each CloseEvent comes with
 one of its own:
 

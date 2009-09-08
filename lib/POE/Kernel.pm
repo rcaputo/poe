@@ -382,7 +382,7 @@ BEGIN {
 }
 
 # An "idle" POE::Kernel may still have events enqueued.  These events
-# regulate polling for signals, profiling, and perhaps other aspecs of
+# regulate polling for signals, profiling, and perhaps other aspects of
 # POE::Kernel's internal workings.
 #
 # XXX - There must be a better mechanism.
