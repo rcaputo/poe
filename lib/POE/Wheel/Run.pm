@@ -261,6 +261,12 @@ sub new {
     croak "unknown conduit type $conduit";
   }
 
+  # Block signals until safe
+  my $must_unmask;
+  if( $poe_kernel->can( '_data_sig_mask_all' ) ) {
+    $poe_kernel->_data_sig_mask_all;
+    $must_unmask = 1;
+  }
   # Fork!  Woo-hoo!
   my $pid = fork;
 
@@ -314,6 +320,7 @@ sub new {
     # using them.
     my @safe_signals = $poe_kernel->_data_sig_get_safe_signals();
     @SIG{@safe_signals} = ("DEFAULT") x @safe_signals;
+    $poe_kernel->_data_sig_unmask_all if $must_unmask;
 
     # TODO How to pass events to the parent process?  Maybe over a
     # expedited (OOB) filehandle.
@@ -513,6 +520,8 @@ sub new {
     undef,          # STATE_STDERR
   ], $type;
 
+  # PG- I suspect <> might need PIPE
+  $poe_kernel->_data_sig_unmask_all if $must_unmask;
   # Wait here while the child sets itself up.
   {
     local $/ = "\n";

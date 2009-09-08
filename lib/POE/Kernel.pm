@@ -5351,7 +5351,7 @@ Defaults to 1 second.
 =head2 USE_SIGNAL_PIPE
 
 The only safe way to handle signals is to implement a shared-nothing
-model.  POE builds a I<signal pipe> that communicates between the the
+model.  POE builds a I<signal pipe> that communicates between the
 signal handlers and the POE kernel loop in a safe and atomic manner.
 The signal pipe is implemented with L<POE::Pipe::OneWay>, using a
 C<pipe> conduit on Unix, and C<inet> on Windows.
