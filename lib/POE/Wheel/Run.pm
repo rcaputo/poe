@@ -1413,6 +1413,9 @@ A sample error event handler:
     warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
   }
 
+Note that unless you deactivate the signal pipe, you might allso see C<EIO>
+(5) error during read operations.
+
 =head4 StdinEvent
 
 StdinEvent contains the name of an event that Wheel::Run emits

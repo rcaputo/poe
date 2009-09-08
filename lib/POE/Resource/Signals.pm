@@ -168,10 +168,13 @@ sub _data_sig_get_safe_signals {
 }
 
 ### End-run leak checking.
+our $finalizing;
 
 sub _data_sig_finalize {
   my( $self ) = @_;
   my $finalized_ok = 1;
+  # tell _data_sig_pipe_send to ignore CHLD that waitpid might provoke
+  local $finalizing = 1;
 
   $self->_data_sig_pipe_finalize;
 
@@ -212,6 +215,7 @@ sub _data_sig_finalize {
     local $?;
 
     my $leaked_children = 0;
+
     until ((my $pid = waitpid( -1, 0 )) == -1) {
       _warn( "!!! Child process PID:$pid reaped: $!\n" ) if $pid;
       $finalized_ok = 0;
@@ -771,7 +775,8 @@ sub _data_sig_pipe_finalize {
   if( $signal_pipe_write ) {
     close $signal_pipe_write; undef $signal_pipe_write;
   }
-  undef $signal_pipe_pid;
+  # Don't send anything more!
+  undef( $signal_pipe_pid );
 }
 
 ### Send a signal "message" to the main thread
@@ -784,9 +789,16 @@ sub _data_sig_pipe_send {
   if( TRACE_SIGNALS ) {
     _warn "<sg> Caught SIG$_[1] ($n)";
   }
-  if( $$ != $signal_pipe_pid ) {
-    _trap "<sg> Kernel now running in a different process.  You must call call \$poe_kernel->has_forked in the child process.";
+  
+  return if $finalizing;
+  
+  if( not defined $signal_pipe_pid ) {
+    _trap "<sg> $$ _data_sig_pipe_send called before signal pipe was initilised.";
   }
+  if( $$ != $signal_pipe_pid ) {
+    _trap "<sg> Kernel now running in a different process (is=$$ was=$signal_pipe_pid).  You must call call \$poe_kernel->has_forked in the child process.";
+  }
+
 
   my $count = _data_sig_pipe_syswrite( pack( "C", $n ) );
   if( ASSERT_DATA ) {
