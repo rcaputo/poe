@@ -387,11 +387,13 @@ BEGIN {
 #
 # XXX - There must be a better mechanism.
 #
-my $idle_queue_size = TRACE_STATISTICS ? 1 : 0;
+my $idle_queue_size;
 
 sub _idle_queue_grow   { $idle_queue_size++; }
 sub _idle_queue_shrink { $idle_queue_size--; }
 sub _idle_queue_size   { $idle_queue_size;   }
+sub _idle_queue_reset  { $idle_queue_size = TRACE_STATISTICS ? 1 : 0; }
+
 
 #------------------------------------------------------------------------------
 # Helpers to carp, croak, confess, cluck, warn and die with whatever
@@ -868,6 +870,8 @@ sub new {
 
     # These other subsystems don't have strange interactions.
     $self->_data_handle_initialize($kr_queue);
+
+    _idle_queue_reset();
   }
 
   # Return the global instance.
@@ -1384,6 +1388,7 @@ sub stop {
   # ID() call.
   $self->[KR_ID] = undef;
 
+  _idle_queue_reset();
   return;
 }
 
