@@ -3063,15 +3063,27 @@ run() will not return until every session has ended.  This includes
 sessions that were created while run() was running.
 
 POE::Kernel will print a strong message if a program creates sessions
-but fails to call run().  If the lack of a run() call is deliberate,
-you can avoid the message by calling it before creating a session.
-run() at that point will return immediately, and POE::Kernel will be
-satisfied.
+but fails to call run().  Prior to this warning, we received tons of
+bug reports along the lines of "my POE program isn't doing anything".
+It turned out that people forgot to start an event dispatcher, so
+events were never dispatched.
+
+If the lack of a run() call is deliberate, perhaps because some other
+event loop already has control, you can avoid the message by calling
+it before creating a session.  run() at that point will initialize POE
+and return immediately.  POE::Kernel will be satisfied that run() was
+called, although POE will not have actually taken control of the event
+loop.
 
   use POE;
   POE::Kernel->run(); # silence the warning
   POE::Session->create( ... );
   exit;
+
+Note, however, that this varies from one event loop to another.  If a
+particular POE::Loop implementation doesn't support it, that's
+probably a bug.  Please file a bug report with the owner of the
+relevant POE::Loop module.
 
 =head3 run_one_timeslice
 
