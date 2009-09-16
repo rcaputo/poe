@@ -12,6 +12,8 @@ package POE::Kernel;
 use strict;
 
 use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
+use IO::Handle ();
+use FileHandle ();
 
 ### Some portability things.
 
