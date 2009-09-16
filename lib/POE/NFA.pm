@@ -3,7 +3,7 @@ package POE::NFA;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.267'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.268'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw(carp croak);
 

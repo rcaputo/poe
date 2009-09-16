@@ -7,7 +7,7 @@ package POE::Pipe;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.267'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.268'; # NOTE - Should be #.### (three decimal places)
 
 use Symbol qw(gensym);
 use IO::Socket qw(
