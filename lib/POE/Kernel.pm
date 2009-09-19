@@ -137,17 +137,23 @@ BEGIN {
   }
   { no strict 'refs';
     unless (defined &USE_SIGNAL_PIPE) {
-      if( exists $ENV{ POE_USE_SIGNAL_PIPE } and not $ENV{ POE_USE_SIGNAL_PIPE } ) {
+      my $use_signal_pipe;
+      if ( exists $ENV{POE_USE_SIGNAL_PIPE} ) {
+        $use_signal_pipe = $ENV{POE_USE_SIGNAL_PIPE};
+      }
+
+      if (RUNNING_IN_HELL and $use_signal_pipe) {
+        warn(
+          "Sorry, disabling USE_SIGNAL_PIPE on $^O.  They aren't compatible.\n"
+        );
+        $use_signal_pipe = 0;
+      }
+
+      if ($use_signal_pipe or not defined $use_signal_pipe) {
+        *USE_SIGNAL_PIPE = sub () { 1 };
+      }
+      else {
         *USE_SIGNAL_PIPE = sub () { 0 };
-      } else {
-        if (RUNNING_IN_HELL) {
-          # TODO - Let them know we're not using it?
-          warn "The signal pipe is not compatible with $^O";
-          *USE_SIGNAL_PIPE = sub () { 0 };
-        }
-        else {
-          *USE_SIGNAL_PIPE = sub () { 1 };
-        }
       }
     }
   }
