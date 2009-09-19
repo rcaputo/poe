@@ -584,7 +584,7 @@ sub _test_filter {
     if (!$eval and $@) {
         carp(
           "Failed to load [$filter]\n" .
-          "Reason $@\nUsing defualt POE::Filter::Line "
+          "Reason $@\nUsing default POE::Filter::Line "
         );
         return 0;
     }
