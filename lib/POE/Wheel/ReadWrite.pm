@@ -7,6 +7,7 @@ $VERSION = '1.268'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use POE qw(Wheel Driver::SysRW Filter::Line);
+use base qw(POE::Wheel);
 
 # Offsets into $self.
 sub HANDLE_INPUT               () {  0 }

@@ -15,6 +15,7 @@ use Curses qw(
 );
 use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
 use POE qw( Wheel );
+use base qw(POE::Wheel);
 
 sub SELF_STATE_READ  () { 0 }
 sub SELF_STATE_WRITE () { 1 }

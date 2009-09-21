@@ -13,6 +13,7 @@ use POSIX qw(
 );
 
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
+use base qw(POE::Wheel);
 
 BEGIN {
   die "$^O does not support fork()\n" if $^O eq 'MacOS';

@@ -11,6 +11,7 @@ use Symbol qw( gensym );
 use POSIX qw(:fcntl_h);
 use Errno qw(EWOULDBLOCK);
 use POE qw( Wheel );
+use base qw(POE::Wheel);
 
 sub SELF_HANDLE       () { 0 }
 sub SELF_EVENT_ACCEPT () { 1 }

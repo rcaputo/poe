@@ -19,6 +19,7 @@ use Socket qw(
 use IO::Handle ();
 use FileHandle ();
 use POE qw( Wheel );
+use base qw(POE::Wheel);
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 sub DEBUG () { 0 }
