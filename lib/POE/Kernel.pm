@@ -3,7 +3,7 @@ package POE::Kernel;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.268'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.269'; # NOTE - Should be #.### (three decimal places)
 
 use POSIX qw(uname);
 use Errno qw(ESRCH EINTR ECHILD EPERM EINVAL EEXIST EAGAIN EWOULDBLOCK);
@@ -142,10 +142,15 @@ BEGIN {
         $use_signal_pipe = $ENV{POE_USE_SIGNAL_PIPE};
       }
 
-      if (RUNNING_IN_HELL and $use_signal_pipe) {
-        warn(
-          "Sorry, disabling USE_SIGNAL_PIPE on $^O.  They aren't compatible.\n"
-        );
+      if (RUNNING_IN_HELL) {
+        if ($use_signal_pipe) {
+          _warn(
+            "Sorry, disabling USE_SIGNAL_PIPE on $^O.\n",
+            "Programs are reported to hang when it's enabled.\n",
+          );
+        }
+
+        # Must be defined to supersede the default.
         $use_signal_pipe = 0;
       }
 
