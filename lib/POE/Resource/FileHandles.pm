@@ -51,9 +51,7 @@ sub FNO_MODE_RD      () { MODE_RD } # [ [ (fileno read mode structure)
 # --- BEGIN SUB STRUCT 1 ---        #
 sub FMO_REFCOUNT     () { 0      }  #     $fileno_total_use_count,
 sub FMO_ST_ACTUAL    () { 1      }  #     $requested_file_state (see HS_PAUSED)
-sub FMO_ST_REQUEST   () { 2      }  #     $actual_file_state (see HS_PAUSED)
-sub FMO_EV_COUNT     () { 3      }  #     $number_of_pending_events,
-sub FMO_SESSIONS     () { 4      }  #     { $session_watching_this_handle =>
+sub FMO_SESSIONS     () { 2      }  #     { $session_watching_this_handle =>
                                     #       { $handle_watched_as =>
 # --- BEGIN SUB STRUCT 2 ---        #
 sub HSS_HANDLE       () { 0      }  #         [ $blessed_handle,
@@ -74,7 +72,7 @@ sub FNO_MODE_EX      () { MODE_EX } #   [ (expedite mode struct is the same)
 sub FNO_TOT_REFCOUNT () { 3      }  #   $total_number_of_file_watchers,
                                     # ]
 
-### These are the values for FMO_ST_ACTUAL and FMO_ST_REQUEST.
+### These are the values for FMO_ST_ACTUAL.
 
 sub HS_STOPPED   () { 0x00 }   # The file has stopped generating events.
 sub HS_PAUSED    () { 0x01 }   # The file temporarily stopped making events.
@@ -119,7 +117,6 @@ sub _data_handle_finalize {
     _warn(
       "!!!\tRead:\n",
       "!!!\t\trefcnt  = $rd->[FMO_REFCOUNT]\n",
-      "!!!\t\tev cnt  = $rd->[FMO_EV_COUNT]\n",
     );
     while (my ($ses, $ses_rec) = each(%{$rd->[FMO_SESSIONS]})) {
       _warn "!!!\t\tsession = $ses\n";
@@ -136,7 +133,6 @@ sub _data_handle_finalize {
     _warn(
       "!!!\tWrite:\n",
       "!!!\t\trefcnt  = $wr->[FMO_REFCOUNT]\n",
-      "!!!\t\tev cnt  = $wr->[FMO_EV_COUNT]\n",
     );
     while (my ($ses, $ses_rec) = each(%{$wr->[FMO_SESSIONS]})) {
       _warn "!!!\t\tsession = $ses\n";
@@ -153,7 +149,6 @@ sub _data_handle_finalize {
     _warn(
       "!!!\tException:\n",
       "!!!\t\trefcnt  = $ex->[FMO_REFCOUNT]\n",
-      "!!!\t\tev cnt  = $ex->[FMO_EV_COUNT]\n",
     );
     while (my ($ses, $ses_rec) = each(%{$ex->[FMO_SESSIONS]})) {
       _warn "!!!\t\tsession = $ses\n";
@@ -184,52 +179,6 @@ sub _data_handle_finalize {
   return $finalized_ok;
 }
 
-### Ensure a handle's actual state matches its requested one.  Pause
-### or resume the handle as necessary.
-
-sub _data_handle_resume_requested_state {
-  my ($self, $handle, $mode) = @_;
-  my $fileno = fileno($handle);
-
-  # Skip the rest if we aren't watching the file descriptor.  This
-  # seems like a kludge: should we even be called if the descriptor
-  # isn't watched?
-  return unless exists $kr_filenos{$fileno};
-
-  my $kr_fno_rec  = $kr_filenos{$fileno}->[$mode];
-
-  if (TRACE_FILES) {
-    _warn(
-      "<fh> decrementing event count in mode ($mode) ",
-      "for $handle fileno (", $fileno, ") from count (",
-      $kr_fno_rec->[FMO_EV_COUNT], ")"
-    );
-  }
-
-  # If all events for the fileno/mode pair have been delivered, then
-  # resume the filehandle's watcher.  This decrements FMO_EV_COUNT
-  # because the event has just been dispatched.  This makes sense.
-
-  unless (--$kr_fno_rec->[FMO_EV_COUNT]) {
-    if ($kr_fno_rec->[FMO_ST_REQUEST] & HS_PAUSED) {
-      $self->loop_pause_filehandle($handle, $mode);
-      $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
-    }
-    elsif ($kr_fno_rec->[FMO_ST_REQUEST] & HS_RUNNING) {
-      $self->loop_resume_filehandle($handle, $mode);
-      $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
-    }
-    elsif (ASSERT_DATA) {
-      _trap();
-    }
-  }
-  elsif (ASSERT_DATA) {
-    if ($kr_fno_rec->[FMO_EV_COUNT] < 0) {
-      _trap "handle event count went below zero";
-    }
-  }
-}
-
 ### Enqueue "select" events for a list of file descriptors in a given
 ### access mode.
 
@@ -247,9 +196,15 @@ sub _data_handle_enqueue_ready {
       # _warn "fileno=$fileno signal_pipe_read=$POE::Kernel::signal_pipe_read_fd";
       if( $fileno == $POE::Kernel::signal_pipe_read_fd ) {
         $self->_data_sig_pipe_read( $fileno, $mode );
-        return;
+        next;
       }
     }
+
+    # Avoid autoviviying an empty $kr_filenos record if the fileno has
+    # been deactivated.  This can happen if a file descriptor is ready
+    # in multiple modes, and an earlier dispatch removes it before a
+    # later dispatch happens.
+    next unless exists $kr_filenos{$fileno};
 
     my $kr_fno_rec = $kr_filenos{$fileno}->[$mode];
 
@@ -260,32 +215,15 @@ sub _data_handle_enqueue_ready {
     # Emit them.
 
     foreach my $select (@selects) {
-      $self->_data_ev_enqueue(
+      $self->_dispatch_event(
         $select->[HSS_SESSION], $select->[HSS_SESSION],
-        $select->[HSS_STATE], ET_SELECT,
-        [ $select->[HSS_HANDLE],  # EA_SEL_HANDLE
+        $select->[HSS_STATE], ET_SELECT, [
+          $select->[HSS_HANDLE],  # EA_SEL_HANDLE
           $mode,                  # EA_SEL_MODE
           @{$select->[HSS_ARGS]}, # EA_SEL_ARGS
         ],
-        __FILE__, __LINE__, undef, time(),
+        __FILE__, __LINE__, undef, time(), -__LINE__
       );
-
-      # Count the enqueued event.  This increments FMO_EV_COUNT
-      # because an event has just been enqueued.  This makes sense.
-
-      unless ($kr_fno_rec->[FMO_EV_COUNT]++) {
-        my $handle = $select->[HSS_HANDLE];
-        $self->loop_pause_filehandle($handle, $mode);
-        $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
-      }
-
-      if (TRACE_FILES) {
-        my $handle = $select->[HSS_HANDLE];
-        _warn(
-          "<fh> incremented event count in mode ($mode) ",
-          "for $handle fileno ($fileno) to count ($kr_fno_rec->[FMO_EV_COUNT])"
-        );
-      }
     }
   }
 }
@@ -319,20 +257,14 @@ sub _data_handle_add {
     $kr_filenos{$fd} =
       [ [ 0,          # FMO_REFCOUNT    MODE_RD
           HS_PAUSED,  # FMO_ST_ACTUAL
-          HS_PAUSED,  # FMO_ST_REQUEST
-          0,          # FMO_EV_COUNT
           { },        # FMO_SESSIONS
         ],
         [ 0,          # FMO_REFCOUNT    MODE_WR
           HS_PAUSED,  # FMO_ST_ACTUAL
-          HS_PAUSED,  # FMO_ST_REQUEST
-          0,          # FMO_EV_COUNT
           { },        # FMO_SESSIONS
         ],
         [ 0,          # FMO_REFCOUNT    MODE_EX
           HS_PAUSED,  # FMO_ST_ACTUAL
-          HS_PAUSED,  # FMO_ST_REQUEST
-          0,          # FMO_EV_COUNT
           { },        # FMO_SESSIONS
         ],
         0,            # FNO_TOT_REFCOUNT
@@ -358,16 +290,10 @@ sub _data_handle_add {
 
     if (exists $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle}) {
       if (TRACE_FILES) {
-        _warn(
-          "<fh> running $handle fileno($fd) mode($mode) " .
-          "count($kr_fno_rec->[FMO_EV_COUNT])"
-        );
+        _warn("<fh> running $handle fileno($fd) mode($mode)");
       }
-      unless ($kr_fno_rec->[FMO_EV_COUNT]) {
-        $self->loop_resume_filehandle($handle, $mode);
-        $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
-      }
-      $kr_fno_rec->[FMO_ST_REQUEST] = HS_RUNNING;
+      $self->loop_resume_filehandle($handle, $mode);
+      $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
     }
 
     # The session is watching it by a different handle.  It can't be
@@ -456,7 +382,6 @@ sub _data_handle_add {
     if ($kr_fno_rec->[FMO_REFCOUNT] == 1) {
       $self->loop_watch_filehandle($handle, $mode);
       $kr_fno_rec->[FMO_ST_ACTUAL]  = HS_RUNNING;
-      $kr_fno_rec->[FMO_ST_REQUEST] = HS_RUNNING;
     }
   }
 
@@ -568,9 +493,7 @@ sub _data_handle_remove {
       my $kill_session = $handle_rec->[HSS_SESSION];
       my $kill_event   = $handle_rec->[HSS_STATE];
 
-      # Remove any events destined for that handle.  Decrement
-      # FMO_EV_COUNT for each, because we've removed them.  This makes
-      # sense.
+      # Remove any events destined for that handle.
       my $my_select = sub {
         return 0 unless $_[0]->[EV_TYPE]    &  ET_SELECT;
         return 0 unless $_[0]->[EV_SESSION] == $kill_session;
@@ -584,22 +507,10 @@ sub _data_handle_remove {
         my ($time, $id, $event) = @$_;
         $self->_data_ev_refcount_dec( @$event[EV_SESSION, EV_SOURCE] );
 
-        TRACE_EVENTS and
-          _warn "<ev> removing select event $id ``$event->[EV_NAME]''" . Carp::shortmess;
-
-        $kr_fno_rec->[FMO_EV_COUNT]--;
-
-        if (TRACE_FILES) {
-          _warn(
-            "<fh> $handle fileno $fd mode $mode event count went to ",
-            $kr_fno_rec->[FMO_EV_COUNT]
-          );
-        }
-
-        if (ASSERT_DATA) {
-          _trap "<dt> fileno $fd mode $mode event count went below zero"
-            if $kr_fno_rec->[FMO_EV_COUNT] < 0;
-        }
+        TRACE_EVENTS and _warn(
+          "<ev> removing select event $id ``$event->[EV_NAME]''" .
+          Carp::shortmess
+        );
       }
 
       # Decrement the handle's reference count.
@@ -617,7 +528,6 @@ sub _data_handle_remove {
       unless ($kr_fno_rec->[FMO_REFCOUNT]) {
         $self->loop_ignore_filehandle($handle, $mode);
         $kr_fno_rec->[FMO_ST_ACTUAL]  = HS_STOPPED;
-        $kr_fno_rec->[FMO_ST_REQUEST] = HS_STOPPED;
 
         # The session is not watching handles anymore.  Remove the
         # session entirely the fileno structure.
@@ -710,19 +620,12 @@ sub _data_handle_resume {
 
   if (TRACE_FILES) {
     _warn(
-      "<fh> resume test: $handle fileno(" . fileno($handle) . ") mode($mode) " .
-      "count($kr_fno_rec->[FMO_EV_COUNT])"
+      "<fh> resume test: $handle fileno(" . fileno($handle) . ") mode($mode)"
     );
   }
 
-  # Resume the handle if there are no events for it.
-  unless ($kr_fno_rec->[FMO_EV_COUNT]) {
-    $self->loop_resume_filehandle($handle, $mode);
-    $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
-  }
-
-  # Either way we set the handle's requested state to "running".
-  $kr_fno_rec->[FMO_ST_REQUEST] = HS_RUNNING;
+  $self->loop_resume_filehandle($handle, $mode);
+  $kr_fno_rec->[FMO_ST_ACTUAL] = HS_RUNNING;
 }
 
 ### Pause a filehandle.  If there are no events in the queue for this
@@ -737,19 +640,12 @@ sub _data_handle_pause {
 
   if (TRACE_FILES) {
     _warn(
-      "<fh> pause test: $handle fileno(" . fileno($handle) . ") mode($mode) " .
-      "count($kr_fno_rec->[FMO_EV_COUNT])"
+      "<fh> pause test: $handle fileno(" . fileno($handle) . ") mode($mode)"
     );
   }
 
-  unless ($kr_fno_rec->[FMO_EV_COUNT]) {
-    $self->loop_pause_filehandle($handle, $mode);
-    $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
-  }
-
-  # Correct the requested state so it matches the actual one.
-
-  $kr_fno_rec->[FMO_ST_REQUEST] = HS_PAUSED;
+  $self->loop_pause_filehandle($handle, $mode);
+  $kr_fno_rec->[FMO_ST_ACTUAL] = HS_PAUSED;
 }
 
 ### Return the number of active filehandles in the entire system.
@@ -798,24 +694,12 @@ sub _data_handle_fno_refcounts {
   )
 }
 
-sub _data_handle_fno_evcounts {
-  my ($self, $fd) = @_;
-  return(
-    $kr_filenos{$fd}->[FNO_MODE_RD]->[FMO_EV_COUNT],
-    $kr_filenos{$fd}->[FNO_MODE_WR]->[FMO_EV_COUNT],
-    $kr_filenos{$fd}->[FNO_MODE_EX]->[FMO_EV_COUNT],
-  )
-}
-
 sub _data_handle_fno_states {
   my ($self, $fd) = @_;
   return(
     $kr_filenos{$fd}->[FNO_MODE_RD]->[FMO_ST_ACTUAL],
-    $kr_filenos{$fd}->[FNO_MODE_RD]->[FMO_ST_REQUEST],
     $kr_filenos{$fd}->[FNO_MODE_WR]->[FMO_ST_ACTUAL],
-    $kr_filenos{$fd}->[FNO_MODE_WR]->[FMO_ST_REQUEST],
     $kr_filenos{$fd}->[FNO_MODE_EX]->[FMO_ST_ACTUAL],
-    $kr_filenos{$fd}->[FNO_MODE_EX]->[FMO_ST_REQUEST],
   );
 }
 

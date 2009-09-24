@@ -50,8 +50,9 @@ sub _data_ev_finalize {
 
 sub _data_ev_enqueue {
   my (
-    $self, $session, $source_session, $event, $type, $etc, $file, $line,
-    $fromstate, $time
+    $self,
+    $session, $source_session, $event, $type, $etc,
+    $file, $line, $fromstate, $time
   ) = @_;
 
   if (ASSERT_DATA) {

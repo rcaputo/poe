@@ -928,13 +928,6 @@ sub _dispatch_event {
 
   unless ($type & (ET_POST | ET_CALL)) {
 
-    # A "select" event has just come out of the queue.  Reset its
-    # actual state to its requested state before handling the event.
-
-    if ($type & ET_SELECT) {
-      $self->_data_handle_resume_requested_state(@$etc);
-    }
-
     # Some sessions don't do anything in _start and expect their
     # creators to provide a start-up event.  This means we can't
     # &_collect_garbage at _start time.  Instead, we post a
@@ -942,7 +935,7 @@ sub _dispatch_event {
     # delivery time.  This gives the session's creator time to do
     # things with it before we reap it.
 
-    elsif ($type & ET_GC) {
+    if ($type & ET_GC) {
       $self->_data_ses_collect_garbage($session);
       return 0;
     }

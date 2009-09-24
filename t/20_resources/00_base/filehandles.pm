@@ -35,7 +35,7 @@ unless (-f "run_network_tests") {
   plan skip_all => "Network access (and permission) required to run this test";
 }
 
-plan tests => 192;
+plan tests => 132;
 
 ### Factored out common tests
 
@@ -137,15 +137,6 @@ sub verify_handle_refcounts {
     is( $wr, $expected_wr, "$name: fd write refcount" );
     is( $ex, $expected_ex, "$name: fd expedite refcount" );
   }
-
-  {
-    my ($rd, $wr, $ex) = $poe_kernel->_data_handle_fno_evcounts(
-      fileno($fh)
-    );
-    ok( $rd == 0, "$name: event read refcount" );
-    ok( $wr == 0, "$name: event write refcount" );
-    ok( $ex == 0, "$name: event expedite refcount" );
-  }
 }
 
 # 6 subtests
@@ -166,15 +157,12 @@ sub verify_handle_state {
   my $wr = $parse_str->($wr_str);
   my $ex = $parse_str->($ex_str);
 
-  my ($r_act, $r_req, $w_act, $w_req, $e_act, $e_req) =
+  my ($r_act, $w_act, $e_act) =
     $poe_kernel->_data_handle_fno_states(fileno($fh));
 
   ok( $r_act == $$rd[0], "$name: read actual state" );
-  ok( $r_req == $$rd[1], "$name: read requested state" );
   ok( $w_act == $$wr[0], "$name: write actual state" );
-  ok( $w_req == $$wr[1], "$name: write requested state" );
   ok( $e_act == $$ex[0], "$name: expedite actual state" );
-  ok( $e_req == $$ex[1], "$name: expedite requested state" );
 }
 
 ### Tests
@@ -387,16 +375,16 @@ ok(
 $poe_kernel->_data_handle_enqueue_ready(MODE_RD, fileno($a_read));
 $poe_kernel->_data_handle_enqueue_ready(MODE_WR, fileno($a_read));
 
-# Enqueuing ready events pauses the actual states of the filehandles,
-# but leaves them intact.
+# Events are dispatched right away, so the handles need not be paused.
 verify_handle_state(
   "dequeue one", $a_read,
-  "pr", "pr", "pp"
+  "rr", "rr", "pp"
 );
 
-# Base refcount increases by two for each enqueued event.
-ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 6,
+# Base refcount is not increased, because the event is actually
+# dispatched right away.
+is(
+  $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount + 2,
   "dequeue one: session reference count"
 );
 
@@ -406,7 +394,7 @@ $poe_kernel->_data_handle_pause($a_read, MODE_RD);
 
 verify_handle_state(
   "pause one", $a_read,
-  "pp", "pr", "pp"
+  "pp", "rr", "pp"
 );
 
 # Dispatch the event, and verify the session's status.  The sleep()
