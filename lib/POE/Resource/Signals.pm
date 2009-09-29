@@ -453,19 +453,6 @@ sub _data_sig_free_terminated_sessions {
       $self->_data_ses_stop($dead_session);
     }
   }
-  else {
-    # TODO Implicit signal reaping.  This is deprecated behavior and
-    # will eventually be removed.  See the commented out tests in
-    # t/res/signals.t.
-    #
-    # Don't reap the parent if it's the kernel.  It still needs to be
-    # a part of the system for finalization in certain cases.
-    foreach my $touched_session (@kr_signaled_sessions) {
-      next unless $self->_data_ses_exists($touched_session);
-      next if $touched_session == $self;
-      $self->_data_ses_collect_garbage($touched_session);
-    }
-  }
 
   # Erase @kr_signaled_sessions, or they will leak until the next
   # signal.

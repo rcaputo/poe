@@ -9,8 +9,11 @@ $VERSION = '1.269'; # NOTE - Should be #.### (three decimal places)
 package POE::Kernel;
 
 use strict;
-### Session structure.
 
+# Debug experimental mark-and-sweep code.
+use constant DEBUG_MARK_SWEEP => 0;
+
+### Session structure.
 my %kr_sessions;
 #  { $session =>
 #    [ $blessed_session,         SS_SESSION
@@ -58,6 +61,9 @@ sub _data_ses_finalize {
 
 ### Enter a new session into the back-end stuff.
 
+my %kr_marked_for_gc;
+my @kr_marked_for_gc;
+
 sub _data_ses_allocate {
   my ($self, $session, $sid, $parent) = @_;
 
@@ -67,6 +73,8 @@ sub _data_ses_allocate {
     _trap "session $session is already allocated"
       if exists $kr_sessions{$session};
   }
+
+  DEBUG_MARK_SWEEP and print "# +++ allocating $session\n";
 
   $kr_sessions{$session} =
     [ $session,  # SS_SESSION
@@ -93,6 +101,10 @@ sub _data_ses_allocate {
     $kr_sessions{$parent}->[SS_CHILDREN]->{$session} = $session;
     $self->_data_ses_refcount_inc($parent);
   }
+
+  DEBUG_MARK_SWEEP and print "# +++ $session marked for gc\n";
+  push @kr_marked_for_gc, $session;
+  $kr_marked_for_gc{$session} = $session;
 }
 
 # Release a session's resources, and remove it.  This doesn't do
@@ -105,6 +117,13 @@ sub _data_ses_allocate {
 
 sub _data_ses_free {
   my ($self, $session) = @_;
+
+  DEBUG_MARK_SWEEP and do {
+    print "# --- freeing $session\n";
+    _trap("!!! free defunct session $session?!\n") unless (
+      $self->_data_ses_exists($session)
+    );
+  };
 
   if (TRACE_SESSIONS) {
     _warn(
@@ -180,6 +199,7 @@ sub _data_ses_free {
 
   # Remove the session itself.
 
+  delete $kr_marked_for_gc{$session};
   delete $kr_sessions{$session};
 }
 
@@ -312,6 +332,29 @@ sub _data_ses_resolve_to_id {
   return $kr_sessions{$session}->[SS_ID];
 }
 
+### Sweep the GC marks.
+
+sub _data_ses_gc_sweep {
+  my $self = shift;
+
+  DEBUG_MARK_SWEEP and print "# ??? trying sweep\n";
+  while (@kr_marked_for_gc) {
+    DEBUG_MARK_SWEEP and print "# ??? ... trying sweep\n";
+
+    my %temp_marked = %kr_marked_for_gc;
+    %kr_marked_for_gc = ();
+
+    my @todo = reverse @kr_marked_for_gc;
+    @kr_marked_for_gc = ();
+
+    foreach my $session (@todo) {
+      next unless delete $temp_marked{$session};
+      #next if $session == $self;
+      $self->_data_ses_stop($session);
+    }
+  }
+}
+
 ### Decrement a session's main reference count.  This is called by
 ### each watcher when the last thing it watches for the session goes
 ### away.  In other words, a session's reference count should only
@@ -333,52 +376,13 @@ sub _data_ses_refcount_dec {
     );
   }
 
-  $kr_sessions{$session}->[SS_REFCOUNT]--;
-
-  if (ASSERT_DATA and $kr_sessions{$session}->[SS_REFCOUNT] < 0) {
-    _trap(
-      $self->_data_alias_loggable($session),
-     " reference count went below zero"
-   );
+  if (--$kr_sessions{$session}->[SS_REFCOUNT] < 1) {
+    DEBUG_MARK_SWEEP and print "# +++ $session marked for gc\n";
+    push @kr_marked_for_gc, $session;
+    $kr_marked_for_gc{$session} = $session;
   }
-}
-
-### Increment a session's main reference count.
-
-sub _data_ses_refcount_inc {
-  my ($self, $session) = @_;
-
-  if (ASSERT_DATA) {
-    _trap("incrementing refcount for nonexistent session")
-      unless exists $kr_sessions{$session};
-  }
-
-  if (TRACE_REFCNT) {
-    _warn(
-      "<rc> incrementing refcount for ",
-      $self->_data_alias_loggable($session)
-    );
-  }
-
-  $kr_sessions{$session}->[SS_REFCOUNT]++;
-}
-
-# Query a session's reference count.  Added for testing purposes.
-
-sub _data_ses_refcount {
-  my ($self, $session) = @_;
-  return $kr_sessions{$session}->[SS_REFCOUNT];
-}
-
-### Determine whether a session is ready to be garbage collected.
-### Free the session if it is.
-
-sub _data_ses_collect_garbage {
-  my ($self, $session) = @_;
-
-  if (ASSERT_DATA) {
-    _trap("collecting garbage for a nonexistent session")
-      unless exists $kr_sessions{$session};
+  elsif (DEBUG_MARK_SWEEP) {
+    warn "??? $session refcount = $kr_sessions{$session}->[SS_REFCOUNT]\n";
   }
 
   if (TRACE_REFCNT) {
@@ -406,31 +410,55 @@ sub _data_ses_collect_garbage {
     _carp "<rc> | called";
   }
 
-  if (ASSERT_DATA) {
-    my $ss = $kr_sessions{$session};
-    my $calc_ref = (
-      $self->_data_ev_get_count_to($session) +
-      $self->_data_ev_get_count_from($session) +
-      scalar(keys(%{$ss->[SS_CHILDREN]})) +
-      $self->_data_handle_count_ses($session) +
-      $self->_data_extref_count_ses($session) +
-      $self->_data_alias_count_ses($session) +
-      $self->_data_sig_pids_ses($session)
-    );
-
-    # The calculated reference count really ought to match the one
-    # POE's been keeping track of all along.
-
+  if (ASSERT_DATA and $kr_sessions{$session}->[SS_REFCOUNT] < 0) {
     _trap(
-      "<dt> ", $self->_data_alias_loggable($session),
-       " has a reference count inconsistency",
-       " (calc=$calc_ref; actual=$ss->[SS_REFCOUNT])\n"
-     ) if $calc_ref != $ss->[SS_REFCOUNT];
+      $self->_data_alias_loggable($session),
+     " reference count went below zero"
+   );
+  }
+}
+
+### Increment a session's main reference count.
+
+sub _data_ses_refcount_inc {
+  my ($self, $session) = @_;
+
+  if (ASSERT_DATA) {
+    _trap("incrementing refcount for nonexistent session")
+      unless exists $kr_sessions{$session};
   }
 
-  return if $kr_sessions{$session}->[SS_REFCOUNT];
+  if (TRACE_REFCNT) {
+    _warn(
+      "<rc> incrementing refcount for ",
+      $self->_data_alias_loggable($session)
+    );
+  }
 
-  $self->_data_ses_stop($session);
+  if (++$kr_sessions{$session}->[SS_REFCOUNT] > 0) {
+    DEBUG_MARK_SWEEP and print "# --- $session unmarked for gc\n";
+    delete $kr_marked_for_gc{$session};
+  }
+
+  DEBUG_MARK_SWEEP and warn(
+    "??? $session refcount = $kr_sessions{$session}->[SS_REFCOUNT]"
+  );
+}
+
+# Query a session's reference count.  Added for testing purposes.
+
+sub _data_ses_refcount {
+  my ($self, $session) = @_;
+  return $kr_sessions{$session}->[SS_REFCOUNT];
+}
+
+### Compatibility function to do a GC sweep on attempted garbage
+### collection.  The tests still try to call this.
+
+sub _data_ses_collect_garbage {
+  my ($self, $session) = @_;
+  # TODO - Deprecation warning.
+  $self->_data_ses_gc_sweep();
 }
 
 ### Return the number of sessions we know about.
@@ -456,6 +484,8 @@ sub _data_ses_stop {
   # probably be removed if exceptions are.
   return if exists $already_stopping{$session};
   $already_stopping{$session} = 1;
+
+  DEBUG_MARK_SWEEP and print "# !!! stopping $session\n";
 
   if (ASSERT_DATA) {
     _trap("stopping a nonexistent session")
@@ -486,6 +516,7 @@ sub _data_ses_stop {
 
   # Referential integrity has been dealt with.  Now notify the session
   # that it has been stopped.
+
   my $stop_return = $self->_dispatch_event(
     $session, $self->get_active_session(),
     EN_STOP, ET_STOP, [],
@@ -505,11 +536,6 @@ sub _data_ses_stop {
 
   # Deallocate the session.
   $self->_data_ses_free($session);
-
-  # GC the parent, if there is one.
-  if (defined $parent and $parent != $self) {
-    $self->_data_ses_collect_garbage($parent);
-  }
 
   # Stop the main loop if everything is gone.
   # XXX - Under Tk this is called twice.  Why?  WHY is it called twice?

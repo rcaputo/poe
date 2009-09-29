@@ -268,8 +268,14 @@ sub _data_ev_dispatch_due {
     POE::Kernel->stop() if $POE::Kernel::kr_exception;
   }
 
+  # Sweep for dead sessions.  The sweep may alter the next queue time.
+
+  $self->_data_ses_gc_sweep();
+  $next_time = $kr_queue->get_next_priority();
+
   # Tell the event loop to wait for the next event, if there is one.
   # Otherwise we're going to wait indefinitely for some other event.
+
   if (defined $next_time) {
     $self->loop_reset_time_watcher($next_time);
   }

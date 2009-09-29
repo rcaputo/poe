@@ -1,7 +1,7 @@
 use strict;
 
 use lib qw(./mylib ../mylib);
-use Test::More tests => 59;
+use Test::More tests => 58;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 sub POE::Kernel::TRACE_DEFAULT  () { 1 }
@@ -14,7 +14,7 @@ BEGIN { use_ok("POE") }
 
 my $base_kernel_refcount = $poe_kernel->_data_ses_refcount($poe_kernel);
 
-ok($poe_kernel->_data_ses_count() == 1, "only POE::Kernel exists");
+is($poe_kernel->_data_ses_count(), 1, "only POE::Kernel exists");
 
 # Allocate a dummy session for testing.
 
@@ -38,47 +38,46 @@ ok(
   "trap on negative reference count"
 );
 
-eval { $poe_kernel->_data_ses_collect_garbage($child) };
-ok(
-  $@ && $@ =~ /has a reference count inconsistency/,
-  "refcount inconsistency during garbage collection"
+is(
+  $poe_kernel->_data_ses_refcount($child), $base_child_refcount - 1,
+  "negative reference count"
 );
 
 $poe_kernel->_data_ses_refcount_inc($child);
-ok(
-  $poe_kernel->_data_ses_refcount($child) == $base_child_refcount,
+is(
+  $poe_kernel->_data_ses_refcount($child), $base_child_refcount,
   "incremented reference count is back to base"
 );
 
 # Ensure that the session's ID was set.
 
-ok(
-  $poe_kernel->_data_sid_resolve($child_sid) == $child,
+is(
+  $poe_kernel->_data_sid_resolve($child_sid), $child,
   "child session's ID is correct"
 );
 
 # Ensure parent/child referential integrity.
 
 { my @children = $poe_kernel->_data_ses_get_children($poe_kernel);
-  ok(
-    eq_array(\@children, [ $child ]),
+  is_deeply(
+    \@children, [ $child ],
     "POE::Kernel has only the child session"
   );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_kernel_refcount + 1,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_kernel_refcount + 1,
     "POE::Kernel's refcount incremented by child"
   );
 
   my $parent = $poe_kernel->_data_ses_get_parent($child);
-  ok($parent == $poe_kernel, "child's parent is POE::Kernel");
+  is($parent, $poe_kernel, "child's parent is POE::Kernel");
 
   ok(
     $poe_kernel->_data_ses_is_child($poe_kernel, $child),
     "child is child of POE::Kernel"
   );
 
-  ok($poe_kernel->_data_ses_count() == 2, "two sessions now");
+  is($poe_kernel->_data_ses_count(), 2, "two sessions now");
 }
 
 # Try to free POE::Kernel while it has a child session.
@@ -91,8 +90,8 @@ ok(
 
 # A variety of session resolution tests.
 
-ok(
-  $poe_kernel->_data_ses_resolve("$child") == $child,
+is(
+  $poe_kernel->_data_ses_resolve("$child"), $child,
   "stringified reference resolves to blessed one"
 );
 
@@ -101,8 +100,8 @@ ok(
   "nonexistent stringy reference doesn't resolve"
 );
 
-ok(
-  $poe_kernel->_data_ses_resolve_to_id($child) == $child_sid,
+is(
+  $poe_kernel->_data_ses_resolve_to_id($child), $child_sid,
   "session reference resolves to ID"
 );
 
@@ -126,35 +125,35 @@ $poe_kernel->_data_ses_allocate(
 my $base_grand_refcount = $poe_kernel->_data_ses_refcount($grand);
 
 { my @children = $poe_kernel->_data_ses_get_children($child);
-  ok(
-    eq_array(\@children, [ $grand ]),
+  is_deeply(
+    \@children, [ $grand ],
     "child has only the grandchild session"
   );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($child) == $base_child_refcount + 1,
+  is(
+    $poe_kernel->_data_ses_refcount($child), $base_child_refcount + 1,
     "child refcount incremented by the grandchild"
   );
 
   my $parent = $poe_kernel->_data_ses_get_parent($grand);
-  ok($parent == $child, "grandchild's parent is child");
+  is($parent, $child, "grandchild's parent is child");
 
   ok(
     $poe_kernel->_data_ses_is_child($child, $grand),
     "grandchild is child of child"
   );
 
-  ok($poe_kernel->_data_ses_count() == 3, "three sessions now");
+  is($poe_kernel->_data_ses_count(), 3, "three sessions now");
 }
 
 { my @children = $poe_kernel->_data_ses_get_children($poe_kernel);
-  ok(
-    eq_array(\@children, [ $child ]),
+  is_deeply(
+    \@children, [ $child ],
     "POE::Kernel children untouched by grandchild"
   );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_kernel_refcount + 1,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_kernel_refcount + 1,
     "POE::Kernel's refcount untouched by grandchild"
   );
 }
@@ -174,18 +173,18 @@ $poe_kernel->_data_ses_allocate(
 my $base_great_refcount = $poe_kernel->_data_ses_refcount($great);
 
 { my @children = $poe_kernel->_data_ses_get_children($grand);
-  ok(
-    eq_array(\@children, [ $great ]),
+  is_deeply(
+    \@children, [ $great ],
     "grandchild has only the great-grandchild session"
   );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($grand) == $base_grand_refcount + 1,
+  is(
+    $poe_kernel->_data_ses_refcount($grand), $base_grand_refcount + 1,
     "grandchild refcount incremented by the great-grandchild"
   );
 
   my $parent = $poe_kernel->_data_ses_get_parent($great);
-  ok($parent == $grand, "great-grandchild's parent is grandchild");
+  is($parent, $grand, "great-grandchild's parent is grandchild");
 
   ok(
     $poe_kernel->_data_ses_is_child($child, $grand),
@@ -194,31 +193,31 @@ my $base_great_refcount = $poe_kernel->_data_ses_refcount($great);
 }
 
 { my @children = $poe_kernel->_data_ses_get_children($poe_kernel);
-  ok(
-    eq_array(\@children, [ $child ]),
+  is_deeply(
+    \@children, [ $child ],
     "POE::Kernel children untouched by great-grandchild"
   );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_kernel_refcount + 1,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_kernel_refcount + 1,
     "POE::Kernel's refcount untouched by great-grandchild"
   );
 }
 
 { my @children = $poe_kernel->_data_ses_get_children($child);
-  ok(
-    eq_array(\@children, [ $grand ]),
+  is_deeply(
+    \@children, [ $grand ],
     "child children untouched by great-grandchild"
   );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($child) == $base_child_refcount + 1,
+  is(
+    $poe_kernel->_data_ses_refcount($child), $base_child_refcount + 1,
     "child's refcount untouched by great-grandchild"
   );
 }
 
 { my @children = $poe_kernel->_data_ses_get_children($great);
-  ok(@children == 0, "no great-great-grandchildren");
+  is(scalar(@children), 0, "no great-great-grandchildren");
 }
 
 # Move the grandchild to just under POE::Kernel.  This makes child and
@@ -226,13 +225,13 @@ my $base_great_refcount = $poe_kernel->_data_ses_refcount($great);
 
 $poe_kernel->_data_ses_move_child($grand, $poe_kernel);
 
-ok(
-  $poe_kernel->_data_ses_get_parent($child) == $poe_kernel,
+is(
+  $poe_kernel->_data_ses_get_parent($child), $poe_kernel,
   "child's parent is POE::Kernel"
 );
 
-ok(
-  $poe_kernel->_data_ses_get_parent($grand) == $poe_kernel,
+is(
+  $poe_kernel->_data_ses_get_parent($grand), $poe_kernel,
   "grandchild's parent is POE::Kernel"
 );
 
@@ -242,17 +241,17 @@ ok(
   ok(exists($kids{$child}), "POE::Kernel owns child");
   ok(exists $kids{$grand}, "POE::Kernel owns grandchild");
 
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_kernel_refcount + 2,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_kernel_refcount + 2,
     "POE::Kernel refcount increased since inheriting grandchild"
   );
 }
 
 { my @children = $poe_kernel->_data_ses_get_children($child);
-  ok( eq_array(\@children, [ ]), "child has no children" );
+  is_deeply( \@children, [ ], "child has no children" );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($child) == $base_child_refcount,
+  is(
+    $poe_kernel->_data_ses_refcount($child), $base_child_refcount,
     "child's refcount decreased since losing grandchild"
   );
 }
@@ -263,16 +262,16 @@ ok(
 $poe_kernel->_data_ses_free($child);
 
 { my @children = $poe_kernel->_data_ses_get_children($poe_kernel);
-  ok(
-    eq_array(\@children, [ $grand ]),
+  is_deeply(
+    \@children, [ $grand ],
     "POE::Kernel only has grandchild now"
   );
 
   my $parent = $poe_kernel->_data_ses_get_parent($grand);
-  ok($parent == $poe_kernel, "grandchild's parent is POE::Kernel");
+  is($parent, $poe_kernel, "grandchild's parent is POE::Kernel");
 
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_kernel_refcount + 1,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_kernel_refcount + 1,
     "POE::Kernel's refcount decremented on child loss"
   );
 
@@ -301,16 +300,16 @@ $poe_kernel->_data_ses_free($child);
 $poe_kernel->_data_ses_stop($grand);
 
 { my @children = $poe_kernel->_data_ses_get_children($poe_kernel);
-  ok(
-    eq_array(\@children, [ $great ]),
+  is_deeply(
+    \@children, [ $great ],
     "POE::Kernel only has great-grandchild now"
   );
 
   my $parent = $poe_kernel->_data_ses_get_parent($great);
-  ok($parent == $poe_kernel, "great-grandchild's parent is POE::Kernel");
+  is($parent, $poe_kernel, "great-grandchild's parent is POE::Kernel");
 
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_kernel_refcount + 1,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_kernel_refcount + 1,
     "POE::Kernel's refcount conserved"
   );
 }
@@ -320,13 +319,13 @@ $poe_kernel->_data_ses_stop($grand);
 $poe_kernel->_data_ses_collect_garbage($great);
 
 { my @children = $poe_kernel->_data_ses_get_children($poe_kernel);
-  ok(
-    eq_array(\@children, [ ]),
+  is_deeply(
+    \@children, [ ],
     "POE::Kernel has no children anymore"
   );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_kernel_refcount,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_kernel_refcount,
     "POE::Kernel's refcount back to basics"
   );
 }
@@ -334,21 +333,15 @@ $poe_kernel->_data_ses_collect_garbage($great);
 # Test traps for dealing with nonexistent sessions.
 
 eval { $poe_kernel->_data_ses_refcount_inc("nonexistent") };
-ok (
+ok(
   $@ && $@ =~ /incrementing refcount for nonexistent session/,
   "can't increment refcount for nonexistent session"
 );
 
 eval { $poe_kernel->_data_ses_refcount_dec("nonexistent") };
-ok (
+ok(
   $@ && $@ =~ /decrementing refcount of a nonexistent session/,
   "can't decrement refcount for nonexistent session"
-);
-
-eval { $poe_kernel->_data_ses_collect_garbage("nonexistent") };
-ok(
-  $@ && $@ =~ /collecting garbage for a nonexistent session/,
-  "can't collect garbage for nonexistent session"
 );
 
 eval { $poe_kernel->_data_ses_stop("nonexistent") };

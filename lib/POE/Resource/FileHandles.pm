@@ -185,6 +185,7 @@ sub _data_handle_finalize {
 sub _data_handle_enqueue_ready {
   my ($self, $mode, @filenos) = @_;
 
+  my $now = time();
   foreach my $fileno (@filenos) {
     if (ASSERT_DATA) {
       _trap "internal inconsistency: undefined fileno" unless defined $fileno;
@@ -222,10 +223,12 @@ sub _data_handle_enqueue_ready {
           $mode,                  # EA_SEL_MODE
           @{$select->[HSS_ARGS]}, # EA_SEL_ARGS
         ],
-        __FILE__, __LINE__, undef, time(), -__LINE__
+        __FILE__, __LINE__, undef, $now, -__LINE__
       );
     }
   }
+
+  $self->_data_ses_gc_sweep();
 }
 
 ### Test whether POE is tracking a file handle.

@@ -920,131 +920,109 @@ sub _dispatch_event {
     );
   }
 
-  my $local_event = $event;
-
   $self->_stat_profile($event, $session) if TRACE_PROFILE;
 
-  # Pre-dispatch processing.
+  ### Pre-dispatch processing.
 
-  unless ($type & (ET_POST | ET_CALL)) {
+  # Some sessions don't do anything in _start and expect their
+  # creators to provide a start-up event.  This means we can't
+  # &_collect_garbage at _start time.  Instead, an ET_GC event is
+  # posted as part of session allocation.  Simply dispatching it
+  # will trigger a GC sweep.
 
-    # Some sessions don't do anything in _start and expect their
-    # creators to provide a start-up event.  This means we can't
-    # &_collect_garbage at _start time.  Instead, we post a
-    # garbage-collect event at start time, and &_collect_garbage at
-    # delivery time.  This gives the session's creator time to do
-    # things with it before we reap it.
+  return 0 if $type & ET_GC;
 
-    if ($type & ET_GC) {
-      $self->_data_ses_collect_garbage($session);
-      return 0;
-    }
+  # Preprocess signals.  This is where _signal is translated into
+  # its registered handler's event name, if there is one.
 
-    # Preprocess signals.  This is where _signal is translated into
-    # its registered handler's event name, if there is one.
+  if ($type & ET_SIGNAL) {
+    my $signal = $etc->[0];
 
-    elsif ($type & ET_SIGNAL) {
-      my $signal = $etc->[0];
-
-      if (TRACE_SIGNALS) {
-        _warn(
-          "<sg> dispatching ET_SIGNAL ($signal) to ",
-          $self->_data_alias_loggable($session)
-        );
-      }
-
-      # Step 1a: Reset the handled-signal flags.
-
-      local @POE::Kernel::kr_signaled_sessions;
-      local $POE::Kernel::kr_signal_total_handled;
-      local $POE::Kernel::kr_signal_type;
-
-      $self->_data_sig_reset_handled($signal);
-
-      # Step 1b: Collect a list of sessions to receive the signal.
-
-      my @touched_sessions = ($session);
-      my $touched_index = 0;
-      while ($touched_index < @touched_sessions) {
-        my $next_target = $touched_sessions[$touched_index];
-        push @touched_sessions, $self->_data_ses_get_children($next_target);
-        $touched_index++;
-      }
-
-      # Step 1c: The DIE signal propagates up through parents, too.
-
-      if ($signal eq "DIE") {
-        my $next_target = $self->_data_ses_get_parent($session);
-        while (defined($next_target) and $next_target != $self) {
-          unshift @touched_sessions, $next_target;
-          $next_target = $self->_data_ses_get_parent($next_target);
-        }
-      }
-
-      # Step 2: Propagate the signal to the explicit watchers in the
-      # child tree.  Ensure the full tree is touched regardless
-      # whether there are explicit watchers.
-
-      if ($self->_data_sig_explicitly_watched($signal)) {
-        my %signal_watchers = $self->_data_sig_watchers($signal);
-
-        $touched_index = @touched_sessions;
-        while ($touched_index--) {
-          my $target_session = $touched_sessions[$touched_index];
-          $self->_data_sig_touched_session($target_session);
-
-          next unless exists $signal_watchers{$target_session};
-          my $target_event = $signal_watchers{$target_session};
-
-          if (TRACE_SIGNALS) {
-            _warn(
-              "<sg> propagating explicit signal $target_event ($signal) ",
-              "to ", $self->_data_alias_loggable($target_session)
-            );
-          }
-
-          # ET_SIGNAL_RECURSIVE is used here to avoid repropagating
-          # the signal ad nauseam.
-          $self->_dispatch_event(
-            $target_session, $self,
-            $target_event, ET_SIGNAL_RECURSIVE, [ @$etc ],
-            $file, $line, $fromstate, time(), -__LINE__
-          );
-        }
-      }
-      else {
-        $touched_index = @touched_sessions;
-        while ($touched_index--) {
-          $self->_data_sig_touched_session($touched_sessions[$touched_index]);
-        }
-      }
-
-      # Step 3: Check to see if the signal was handled.
-
-      $self->_data_sig_free_terminated_sessions();
-
-      # If the signal was SIGDIE, then propagate the exception.
-
-      my $handled_session_count = (_data_sig_handled_status())[0];
-      if ($signal eq "DIE" and !$handled_session_count) {
-        $kr_exception = $etc->[1]{error_str};
-      }
-
-      # Signal completely dispatched.  Thanks for flying!
-      return;
-    }
-  }
-
-  # The destination session doesn't exist.  This indicates sloppy
-  # programming, possibly within POE::Kernel.
-
-  unless ($self->_data_ses_exists($session)) {
-    if (TRACE_EVENTS) {
+    if (TRACE_SIGNALS) {
       _warn(
-        "<ev> discarding event $seq ``$event'' to nonexistent ",
+        "<sg> dispatching ET_SIGNAL ($signal) to ",
         $self->_data_alias_loggable($session)
       );
     }
+
+    # Step 1a: Reset the handled-signal flags.
+
+    local @POE::Kernel::kr_signaled_sessions;
+    local $POE::Kernel::kr_signal_total_handled;
+    local $POE::Kernel::kr_signal_type;
+
+    $self->_data_sig_reset_handled($signal);
+
+    # Step 1b: Collect a list of sessions to receive the signal.
+
+    my @touched_sessions = ($session);
+    my $touched_index = 0;
+    while ($touched_index < @touched_sessions) {
+      my $next_target = $touched_sessions[$touched_index];
+      push @touched_sessions, $self->_data_ses_get_children($next_target);
+      $touched_index++;
+    }
+
+    # Step 1c: The DIE signal propagates up through parents, too.
+
+    if ($signal eq "DIE") {
+      my $next_target = $self->_data_ses_get_parent($session);
+      while (defined($next_target) and $next_target != $self) {
+        unshift @touched_sessions, $next_target;
+        $next_target = $self->_data_ses_get_parent($next_target);
+      }
+    }
+
+    # Step 2: Propagate the signal to the explicit watchers in the
+    # child tree.  Ensure the full tree is touched regardless
+    # whether there are explicit watchers.
+
+    if ($self->_data_sig_explicitly_watched($signal)) {
+      my %signal_watchers = $self->_data_sig_watchers($signal);
+
+      $touched_index = @touched_sessions;
+      while ($touched_index--) {
+        my $target_session = $touched_sessions[$touched_index];
+        $self->_data_sig_touched_session($target_session);
+
+        next unless exists $signal_watchers{$target_session};
+        my $target_event = $signal_watchers{$target_session};
+
+        if (TRACE_SIGNALS) {
+          _warn(
+            "<sg> propagating explicit signal $target_event ($signal) ",
+            "to ", $self->_data_alias_loggable($target_session)
+          );
+        }
+
+        # ET_SIGNAL_RECURSIVE is used here to avoid repropagating
+        # the signal ad nauseam.
+        $self->_dispatch_event(
+          $target_session, $self,
+          $target_event, ET_SIGNAL_RECURSIVE, [ @$etc ],
+          $file, $line, $fromstate, time(), -__LINE__
+        );
+      }
+    }
+    else {
+      $touched_index = @touched_sessions;
+      while ($touched_index--) {
+        $self->_data_sig_touched_session($touched_sessions[$touched_index]);
+      }
+    }
+
+    # Step 3: Check to see if the signal was handled.
+
+    $self->_data_sig_free_terminated_sessions();
+
+    # If the signal was SIGDIE, then propagate the exception.
+
+    my $handled_session_count = (_data_sig_handled_status())[0];
+    if ($signal eq "DIE" and !$handled_session_count) {
+      $kr_exception = $etc->[1]{error_str};
+    }
+
+    # Signal completely dispatched.  Thanks for flying!
     return;
   }
 
@@ -1060,11 +1038,9 @@ sub _dispatch_event {
 
   # Prepare to call the appropriate handler.  Push the current active
   # session on Perl's call stack.
-  my $hold_active_session = $kr_active_session;
-  $kr_active_session = $session;
 
-  my $hold_active_event = $kr_active_event;
-  $kr_active_event = $event;
+  my ($hold_active_session, $hold_active_event) = ($kr_active_session, $kr_active_event);
+  ($kr_active_session, $kr_active_event) = ($session, $event);
 
   # Dispatch the event, at long last.
   my $before;
@@ -1101,7 +1077,6 @@ sub _dispatch_event {
 
     if (ref($@) or $@ ne '') {
       my $exception = $@;
-
       if(TRACE_EVENTS) {
         _warn(
           "<ev> exception occurred in $event when invoked on ",
@@ -1151,21 +1126,9 @@ sub _dispatch_event {
     }
   }
 
-
   # Clear out the event arguments list, in case there are POE-ish
   # things in it. This allows them to destruct happily before we set
   # the current session back.
-  #
-  # We must preserve $_[ARG0] if the event is a signal.  It contains
-  # the signal name, which is used by post-invoke processing to
-  # determine future actions (such as whether to terminate the
-  # session, or to promote SIGIDLE into SIGZOMBIE).
-  #
-  # TODO - @$etc contains @_[ARG0..$#_], which includes both watcher-
-  # and user-supplied elements.  A more exciting solution might be to
-  # have a table of events and their user-supplied indices, and wipe
-  # them out programmatically.  splice(@$etc, $first_user{$type});
-  # That would leave the watcher-supplied arguments alone.
 
   @$etc = ( );
 
@@ -1187,11 +1150,12 @@ sub _dispatch_event {
     $return = "$return";
   }
 
-  # Pop the active session, now that it's not active anymore.
-  $kr_active_session = $hold_active_session;
+  # Pop the active session and event, now that they're no longer
+  # active.
 
-  # Recover the event being processed.
-  $kr_active_event = $hold_active_event;
+  ($kr_active_session, $kr_active_event) = (
+    $hold_active_session, $hold_active_event
+  );
 
   if (TRACE_EVENTS) {
     my $string_ret = $return;
@@ -1199,53 +1163,8 @@ sub _dispatch_event {
     _warn("<ev> event $seq ``$event'' returns ($string_ret)\n");
   }
 
-  # Bail out of post-dispatch processing if the session has been
-  # stopped.  TODO This is extreme overhead.
-  return unless $self->_data_ses_exists($session);
-
-  # If this invocation is a user event, see if the destination session
-  # needs to be garbage collected.  Also check the source session if
-  # it's different from the destination.
-  #
-  # If the invocation is a call, and the destination session is
-  # different from the calling one, test it for garbage collection.
-  # We avoid testing if the source and destination are the same
-  # because at some point we'll hit a user event that will catch it.
-  #
-  # TODO We test whether the sessions exist.  They should, but we've
-  # been getting double-free errors lately.  I think we should avoid
-  # the double free some other way, but this is the most expedient
-  # method.
-  #
-  # TODO It turns out that POE::NFA->stop() may have discarded
-  # sessions already, so we need to do the GC test anyway.  Maybe some
-  # sort of mark-and-sweep can avoid redundant tests.
-
-  if ($type & ET_POST) {
-    $self->_data_ses_collect_garbage($session)
-      if $self->_data_ses_exists($session);
-    $self->_data_ses_collect_garbage($source_session)
-      if ( $session != $source_session and
-           $self->_data_ses_exists($source_session)
-         );
-  }
-
-  # XXX - Apparently we don't need this.
-  #elsif ($type & ET_CALL and $source_session != $session) {
-  #  $self->_data_ses_collect_garbage($session)
-  #    if $self->_data_ses_exists($session);
-  #}
-
-  # These types of events require garbage collection afterwards, but
-  # they don't need any other processing.
-
-  elsif ($type & (ET_ALARM | ET_SELECT)) {
-    $self->_data_ses_collect_garbage($session);
-  }
-
   # Return what the handler did.  This is used for call().
-  return @$return if wantarray;
-  return $return;
+  return( wantarray ? @$return : $return );
 }
 
 #------------------------------------------------------------------------------
@@ -1372,14 +1291,18 @@ sub stop {
   # the PID has changed, imply _data_sig_has_forked() during stop().
   $poe_kernel->_data_sig_has_forked unless $kr_pid == $$;
 
-  my @children = ($self);
-  foreach my $session (@children) {
-    push @children, $self->_data_ses_get_children($session);
-  }
+  # May be called when the kernel's already stopped.  Avoid problems
+  # trying to find child sessions when the kernel isn't registered.
+  if ($self->_data_ses_exists($self)) {
+    my @children = ($self);
+    foreach my $session (@children) {
+      push @children, $self->_data_ses_get_children($session);
+    }
 
-  # Walk backwards to avoid inconsistency errors.
-  foreach my $session (reverse @children) {
-    $self->_data_ses_free($session);
+    # Walk backwards to avoid inconsistency errors.
+    foreach my $session (reverse @children) {
+      $self->_data_ses_free($session);
+    }
   }
 
   # Roll back whether sessions were started.
@@ -1393,6 +1316,11 @@ sub stop {
   $self->[KR_ID] = undef;
 
   _idle_queue_reset();
+
+  # The GC mark list may prevent sessions from DESTROYing.
+  # Clean it up.
+  $self->_data_ses_gc_sweep();
+
   return;
 }
 
@@ -1504,7 +1432,6 @@ sub session_alloc {
     }
   }
 
-
   # Register that a session was created.
   $kr_run_warning |= KR_RUN_SESSION;
 
@@ -1518,11 +1445,14 @@ sub session_alloc {
   # Tell the new session that it has been created.  Catch the _start
   # state's return value so we can pass it to the parent with the
   # _child create.
+  #
+  # TODO - Void the context if the parent has no _child handler?
   my $return = $self->_dispatch_event(
     $session, $kr_active_session,
     EN_START, ET_START, \@args,
     __FILE__, __LINE__, undef, time(), -__LINE__
   );
+
   unless($self->_data_ses_exists($session)) {
     if(TRACE_SESSIONS) {
       _warn("<ss> ", $loggable, " disappeared during ", EN_START);
@@ -1599,9 +1529,6 @@ sub detach_myself {
 
   $self->_data_ses_move_child($kr_active_session, $self);
 
-  # Test the old parent for garbage.
-  $self->_data_ses_collect_garbage($old_parent);
-
   # Success!
   return 1;
 }
@@ -1655,9 +1582,6 @@ sub detach_child {
   );
 
   $self->_data_ses_move_child($child_session, $self);
-
-  # Test the old parent for garbage.
-  $self->_data_ses_collect_garbage($kr_active_session);
 
   # Success!
   return 1;
@@ -1798,6 +1722,8 @@ sub call {
       )
     );
 
+    $self->_data_ses_gc_sweep();
+
     $! = 0;
     return @return_value;
   }
@@ -1815,6 +1741,8 @@ sub call {
         (caller)[1,2], $kr_active_event, time(), -__LINE__
       )
     );
+
+    $self->_data_ses_gc_sweep();
 
     $! = 0;
     return $return_value;
@@ -2570,15 +2498,6 @@ sub refcount_decrement {
   }
 
   my $refcount = $self->_data_extref_dec($session, $tag);
-
-  # We don't need to garbage-test the decremented session if the
-  # reference count is nonzero.  Likewise, we don't need to GC it if
-  # it's the current session under the assumption that it will be GC
-  # tested when the current event dispatch is through.
-
-  if ( !$refcount and $kr_active_session->ID ne $session_id ) {
-    $self->_data_ses_collect_garbage($session);
-  }
 
   # TODO trace it here
   return $refcount;
