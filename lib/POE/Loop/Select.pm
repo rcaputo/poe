@@ -116,7 +116,9 @@ sub loop_ignore_filehandle {
   my $fileno = fileno($handle);
 
   vec($loop_vectors[$mode], $fileno, 1) = 0;
-  $loop_filenos{$fileno} &= ~(1<<$mode);
+  delete $loop_filenos{$fileno} unless (
+    $loop_filenos{$fileno} and $loop_filenos{$fileno} &= ~(1<<$mode)
+  );
 }
 
 sub loop_pause_filehandle {
@@ -124,7 +126,9 @@ sub loop_pause_filehandle {
   my $fileno = fileno($handle);
 
   vec($loop_vectors[$mode], $fileno, 1) = 0;
-  $loop_filenos{$fileno} &= ~(1<<$mode);
+  delete $loop_filenos{$fileno} unless (
+    $loop_filenos{$fileno} and $loop_filenos{$fileno} &= ~(1<<$mode)
+  );
 }
 
 sub loop_resume_filehandle {
@@ -143,14 +147,6 @@ sub loop_do_timeslice {
 
   # Check for a hung kernel.
   $self->_test_if_kernel_is_idle();
-
-  # Determine which files are being watched.  This is a heavy
-  # operation; significant time will pass during it, so we do it
-  # before deciding on the timeout.
-  my @filenos = ();
-  while (my ($fd, $mask) = each(%loop_filenos)) {
-    push(@filenos, $fd) if $mask;
-  }
 
   # Set the select timeout based on current queue conditions.  If
   # there are FIFO events, then the timeout is zero to poll select and
@@ -192,124 +188,117 @@ sub loop_do_timeslice {
     );
   }
 
-  # Avoid looking at filehandles if we don't need to.  TODO The added
-  # code to make this sleep is non-optimal.  There is a way to do this
-  # in fewer tests.
+  # Avoid looking at filehandles if we don't need to.
+  # TODO The added code to make this sleep is non-optimal.  There is a
+  # way to do this in fewer tests.
 
-  if ($timeout or @filenos) {
-
+  if (scalar keys %loop_filenos) {
     # There are filehandles to poll, so do so.
 
-    if (@filenos) {
-      # Check filehandles, or wait for a period of time to elapse.
-      my $hits = CORE::select(
-        my $rout = $loop_vectors[MODE_RD],
-        my $wout = $loop_vectors[MODE_WR],
-        my $eout = $loop_vectors[MODE_EX],
-        $timeout,
-      );
+    # Check filehandles, or wait for a period of time to elapse.
+    my $hits = CORE::select(
+      my $rout = $loop_vectors[MODE_RD],
+      my $wout = $loop_vectors[MODE_WR],
+      my $eout = $loop_vectors[MODE_EX],
+      $timeout,
+    );
 
-      if (ASSERT_FILES) {
-        if (
-          $hits < 0 and
-          $! != EINPROGRESS and
-          $! != EWOULDBLOCK and
-          $! != EINTR and
-          $! != 0                   # this is caused by SIGNAL_PIPE
-        ) {
-          POE::Kernel::_trap("<fh> select error: $! (hits=$hits)");
-        }
-      }
-
-      if (TRACE_FILES) {
-        if ($hits > 0) {
-          POE::Kernel::_warn "<fh> select hits = $hits\n";
-        }
-        elsif ($hits == 0) {
-          POE::Kernel::_warn "<fh> select timed out...\n";
-        }
-        POE::Kernel::_warn(
-          "<fh> ,----- SELECT BITS OUT -----\n",
-          "<fh> | READ    : ", unpack('b*', $rout), "\n",
-          "<fh> | WRITE   : ", unpack('b*', $wout), "\n",
-          "<fh> | EXPEDITE: ", unpack('b*', $eout), "\n",
-          "<fh> `---------------------------\n"
-        );
-      }
-
-      # If select has seen filehandle activity, then gather up the
-      # active filehandles and synchronously dispatch events to the
-      # appropriate handlers.
-
-      if ($hits > 0) {
-
-        # This is where they're gathered.  It's a variant on a neat
-        # hack Silmaril came up with.
-
-        my (@rd_selects, @wr_selects, @ex_selects);
-        foreach (@filenos) {
-          push(@rd_selects, $_) if vec($rout, $_, 1);
-          push(@wr_selects, $_) if vec($wout, $_, 1);
-          push(@ex_selects, $_) if vec($eout, $_, 1);
-        }
-
-        if (TRACE_FILES) {
-          if (@rd_selects) {
-            POE::Kernel::_warn(
-              "<fh> found pending rd selects: ",
-              join( ', ', sort { $a <=> $b } @rd_selects ),
-              "\n"
-            );
-          }
-          if (@wr_selects) {
-            POE::Kernel::_warn(
-              "<sl> found pending wr selects: ",
-              join( ', ', sort { $a <=> $b } @wr_selects ),
-              "\n"
-            );
-          }
-          if (@ex_selects) {
-            POE::Kernel::_warn(
-              "<sl> found pending ex selects: ",
-              join( ', ', sort { $a <=> $b } @ex_selects ),
-              "\n"
-            );
-          }
-        }
-
-        if (ASSERT_FILES) {
-          unless (@rd_selects or @wr_selects or @ex_selects) {
-            POE::Kernel::_trap(
-              "<fh> found no selects, with $hits hits from select???\n"
-            );
-          }
-        }
-
-        # Enqueue the gathered selects, and flag them as temporarily
-        # paused.  They'll resume after dispatch.
-
-        @rd_selects and
-          $self->_data_handle_enqueue_ready(MODE_RD, @rd_selects);
-        @wr_selects and
-          $self->_data_handle_enqueue_ready(MODE_WR, @wr_selects);
-        @ex_selects and
-          $self->_data_handle_enqueue_ready(MODE_EX, @ex_selects);
+    if (ASSERT_FILES) {
+      if (
+        $hits < 0 and
+        $! != EINPROGRESS and
+        $! != EWOULDBLOCK and
+        $! != EINTR and
+        $! != 0                   # this is caused by SIGNAL_PIPE
+      ) {
+        POE::Kernel::_trap("<fh> select error: $! (hits=$hits)");
       }
     }
 
+    if (TRACE_FILES) {
+      if ($hits > 0) {
+        POE::Kernel::_warn "<fh> select hits = $hits\n";
+      }
+      elsif ($hits == 0) {
+        POE::Kernel::_warn "<fh> select timed out...\n";
+      }
+      POE::Kernel::_warn(
+        "<fh> ,----- SELECT BITS OUT -----\n",
+        "<fh> | READ    : ", unpack('b*', $rout), "\n",
+        "<fh> | WRITE   : ", unpack('b*', $wout), "\n",
+        "<fh> | EXPEDITE: ", unpack('b*', $eout), "\n",
+        "<fh> `---------------------------\n"
+      );
+    }
+
+    # If select has seen filehandle activity, then gather up the
+    # active filehandles and synchronously dispatch events to the
+    # appropriate handlers.
+
+    if ($hits > 0) {
+
+      # This is where they're gathered.  It's a variant on a neat
+      # hack Silmaril came up with.
+
+      my (@rd_selects, @wr_selects, @ex_selects);
+      foreach (keys %loop_filenos) {
+        push(@rd_selects, $_) if vec($rout, $_, 1);
+        push(@wr_selects, $_) if vec($wout, $_, 1);
+        push(@ex_selects, $_) if vec($eout, $_, 1);
+      }
+
+      if (TRACE_FILES) {
+        if (@rd_selects) {
+          POE::Kernel::_warn(
+            "<fh> found pending rd selects: ",
+            join( ', ', sort { $a <=> $b } @rd_selects ),
+            "\n"
+          );
+        }
+        if (@wr_selects) {
+          POE::Kernel::_warn(
+            "<sl> found pending wr selects: ",
+            join( ', ', sort { $a <=> $b } @wr_selects ),
+            "\n"
+          );
+        }
+        if (@ex_selects) {
+          POE::Kernel::_warn(
+            "<sl> found pending ex selects: ",
+            join( ', ', sort { $a <=> $b } @ex_selects ),
+            "\n"
+          );
+        }
+      }
+
+      if (ASSERT_FILES) {
+        unless (@rd_selects or @wr_selects or @ex_selects) {
+          POE::Kernel::_trap(
+            "<fh> found no selects, with $hits hits from select???\n"
+          );
+        }
+      }
+
+      # Enqueue the gathered selects, and flag them as temporarily
+      # paused.  They'll resume after dispatch.
+
+      @rd_selects and $self->_data_handle_enqueue_ready(MODE_RD, @rd_selects);
+      @wr_selects and $self->_data_handle_enqueue_ready(MODE_WR, @wr_selects);
+      @ex_selects and $self->_data_handle_enqueue_ready(MODE_EX, @ex_selects);
+    }
+  }
+  elsif ($timeout) {
     # No filehandles to select on.  Four-argument select() fails on
     # MSWin32 with all undef bitmasks.  Use sleep() there instead.
 
+    # Not unconditionally the Time::HiRes microsleep because
+    # Time::HiRes may not be installed.  This is only an issue until
+    # we can require versions of Perl that include Time::HiRes.
+    if ($^O eq 'MSWin32') {
+      sleep($timeout);
+    }
     else {
-      # Not unconditionally the Time::HiRes microsleep because
-      # Time::HiRes may not be installed.  This is only an issue until
-      # we can require versions of Perl that include Time::HiRes.
-      if ($^O eq 'MSWin32') {
-        sleep($timeout);
-      }
-      else {
-        CORE::select(undef, undef, undef, $timeout);
-      }
+      CORE::select(undef, undef, undef, $timeout);
     }
   }
 

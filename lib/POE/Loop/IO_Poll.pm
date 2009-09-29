@@ -250,8 +250,6 @@ sub loop_do_timeslice {
     );
   }
 
-  my @filenos = %poll_fd_masks;
-
   if (TRACE_FILES) {
     foreach (sort { $a<=>$b} keys %poll_fd_masks) {
       my @types;
@@ -274,100 +272,101 @@ sub loop_do_timeslice {
     }
   }
 
-  # Avoid looking at filehandles if we don't need to.  TODO The added
-  # code to make this sleep is non-optimal.  There is a way to do this
-  # in fewer tests.
+  # Avoid looking at filehandles if we don't need to.
+  # TODO The added code to make this sleep is non-optimal.  There is a
+  # way to do this in fewer tests.
 
-  if ($timeout or @filenos) {
+  if (scalar keys %poll_fd_masks) {
 
     # There are filehandles to poll, so do so.
 
-    if (@filenos) {
-      # Check filehandles, or wait for a period of time to elapse.
-      my $hits = IO::Poll::_poll($timeout * 1000, @filenos);
+    # Check filehandles, or wait for a period of time to elapse.
+    my $hits = IO::Poll::_poll($timeout * 1000, my @results = %poll_fd_masks);
 
-      if (ASSERT_FILES) {
-        if ($hits < 0) {
-          POE::Kernel::_trap("<fh> poll returned $hits (error): $!")
-            unless ( ($! == EINPROGRESS) or
-                     ($! == EWOULDBLOCK) or
-                     ($! == EINTR) or
-                     ($! == 0)      # SIGNAL_PIPE strangeness
-                   );
-        }
-      }
-
-      if (TRACE_FILES) {
-        if ($hits > 0) {
-          POE::Kernel::_warn "<fh> poll hits = $hits\n";
-        }
-        elsif ($hits == 0) {
-          POE::Kernel::_warn "<fh> poll timed out...\n";
-        }
-      }
-
-      # If poll has seen filehandle activity, then gather up the
-      # active filehandles and synchronously dispatch events to the
-      # appropriate handlers.
-
-      if ($hits > 0) {
-
-        # This is where they're gathered.
-
-        my (@rd_ready, @wr_ready, @ex_ready);
-        while (@filenos) {
-          my ($fd, $got_mask) = splice(@filenos, 0, 2);
-          next unless $got_mask;
-
-          my $watch_mask = $poll_fd_masks{$fd};
-          if ( $watch_mask & POLLRDNORM and
-               $got_mask & (POLLRDNORM | POLLHUP | POLLERR | POLLNVAL)
-             ) {
-            if (TRACE_FILES) {
-              POE::Kernel::_warn "<fh> enqueuing read for fileno $fd";
-            }
-
-            push @rd_ready, $fd;
-          }
-
-          if ( $watch_mask & POLLWRNORM and
-               $got_mask & (POLLWRNORM | POLLHUP | POLLERR | POLLNVAL)
-             ) {
-            if (TRACE_FILES) {
-              POE::Kernel::_warn "<fh> enqueuing write for fileno $fd";
-            }
-
-            push @wr_ready, $fd;
-          }
-
-          if ( $watch_mask & POLLRDBAND and
-               $got_mask & (POLLRDBAND | POLLHUP | POLLERR | POLLNVAL)
-             ) {
-            if (TRACE_FILES) {
-              POE::Kernel::_warn "<fh> enqueuing expedite for fileno $fd";
-            }
-
-            push @ex_ready, $fd;
-          }
-        }
-
-        @rd_ready and $self->_data_handle_enqueue_ready(MODE_RD, @rd_ready);
-        @wr_ready and $self->_data_handle_enqueue_ready(MODE_WR, @wr_ready);
-        @ex_ready and $self->_data_handle_enqueue_ready(MODE_EX, @ex_ready);
+    if (ASSERT_FILES) {
+      if ($hits < 0) {
+        POE::Kernel::_trap("<fh> poll returned $hits (error): $!")
+          unless ( ($! == EINPROGRESS) or
+                   ($! == EWOULDBLOCK) or
+                   ($! == EINTR) or
+                   ($! == 0)      # SIGNAL_PIPE strangeness
+                 );
       }
     }
+
+    if (TRACE_FILES) {
+      if ($hits > 0) {
+        POE::Kernel::_warn "<fh> poll hits = $hits\n";
+      }
+      elsif ($hits == 0) {
+        POE::Kernel::_warn "<fh> poll timed out...\n";
+      }
+    }
+
+    # If poll has seen filehandle activity, then gather up the
+    # active filehandles and synchronously dispatch events to the
+    # appropriate handlers.
+
+    if ($hits > 0) {
+
+      # This is where they're gathered.
+
+      my (@rd_ready, @wr_ready, @ex_ready);
+      my %poll_fd_results = @results;
+      while (my ($fd, $got_mask) = each %poll_fd_results) {
+        next unless $got_mask;
+
+        my $watch_mask = $poll_fd_masks{$fd};
+        if (
+          $watch_mask & POLLRDNORM and
+          $got_mask & (POLLRDNORM | POLLHUP | POLLERR | POLLNVAL)
+        ) {
+          if (TRACE_FILES) {
+            POE::Kernel::_warn "<fh> enqueuing read for fileno $fd";
+          }
+
+          push @rd_ready, $fd;
+        }
+
+        if (
+          $watch_mask & POLLWRNORM and
+          $got_mask & (POLLWRNORM | POLLHUP | POLLERR | POLLNVAL)
+        ) {
+          if (TRACE_FILES) {
+            POE::Kernel::_warn "<fh> enqueuing write for fileno $fd";
+          }
+
+          push @wr_ready, $fd;
+        }
+
+        if (
+          $watch_mask & POLLRDBAND and
+          $got_mask & (POLLRDBAND | POLLHUP | POLLERR | POLLNVAL)
+        ) {
+          if (TRACE_FILES) {
+            POE::Kernel::_warn "<fh> enqueuing expedite for fileno $fd";
+          }
+
+          push @ex_ready, $fd;
+        }
+      }
+
+      @rd_ready and $self->_data_handle_enqueue_ready(MODE_RD, @rd_ready);
+      @wr_ready and $self->_data_handle_enqueue_ready(MODE_WR, @wr_ready);
+      @ex_ready and $self->_data_handle_enqueue_ready(MODE_EX, @ex_ready);
+    }
+  }
+  elsif ($timeout) {
 
     # No filehandles to poll on.  Try to sleep instead.  Use sleep()
     # itself on MSWin32.  Use a dummy four-argument select() everywhere
     # else.
 
+    if ($^O eq 'MSWin32') {
+      sleep($timeout);
+    }
     else {
-      if ($^O eq 'MSWin32') {
-        sleep($timeout);
-      }
-      else {
-        CORE::select(undef, undef, undef, $timeout);
-      }
+      CORE::select(undef, undef, undef, $timeout);
     }
   }
 
