@@ -314,7 +314,7 @@ as:
     Literal => chr(0),
   );
 
-An application can also allow POE::Filter::Like to figure out which
+An application can also allow POE::Filter::Line to figure out which
 newline to use.  This is done by specifying C<InputLiteral> to be
 undef:
 
