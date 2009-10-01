@@ -15,6 +15,20 @@ use POSIX qw(
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 use base qw(POE::Wheel);
 
+# TODO - Consider abstracting the Win32 code into a subclass and
+# silently passing through to it when RUNNING_IN_HELL.
+
+BEGIN {
+  no strict 'refs';
+  if ($^O eq 'MSWin32') {
+    unless (defined &LESS_FORK) {
+      *{ __PACKAGE__ . '::LESS_FORK' } = sub () { 1 };
+    }
+  } else {
+    *{ __PACKAGE__ . '::LESS_FORK' } = sub () { 0 };
+  }
+}
+
 BEGIN {
   die "$^O does not support fork()\n" if $^O eq 'MacOS';
 
@@ -28,12 +42,23 @@ BEGIN {
 
   if (POE::Kernel::RUNNING_IN_HELL) {
     eval    { require Win32::Console; };
-    if ($@) { die "Win32::Console failed to load:\n$@" }
+    if ($@) { die "Win32::Console needed for POE::Wheel::Run on $^O:\n$@" }
     else    { Win32::Console->import(); };
 
     eval    { require Win32API::File; };
-    if ($@) { die "Win32API::File but failed to load:\n$@" }
+    if ($@) { die "Win32::File needed for POE::Wheel::Run on $^O:\n$@" }
     else    { Win32API::File->import( qw(FdGetOsFHandle) ); };
+
+    if ( LESS_FORK ) {
+      eval    { require Win32::Process; };
+      if ($@) { die "Win32::Process needed for POE::Wheel::Run on $^O:\n$@" }
+
+      eval    { require Win32::Job; };
+      if ($@) { die "Win32::Job needed for POE::Wheel::Run on $^O:\n$@" }
+
+      eval    { require Win32; };
+      if ($@) { die "Win32.pm needed for POE::Wheel::Run on $^O:\n$@" }
+    }
   }
 
   # Determine the most file descriptors we can use.
@@ -75,6 +100,8 @@ sub FILTER_STDERR () { 21 }
 sub DRIVER_STDERR () { 22 }
 sub EVENT_STDERR  () { 23 }
 sub STATE_STDERR  () { 24 }
+
+sub MSWIN32_GROUP_PID () { 25 }
 
 # Used to work around a bug in older perl versions.
 sub CRIMSON_SCOPE_HACK ($) { 0 }
@@ -387,8 +414,10 @@ sub new {
 
     # Tell the parent that the stdio has been set up.
     close $sem_pipe_read;
-    print $sem_pipe_write "go\n";
-    close $sem_pipe_write;
+    unless ( ref($program) ne 'CODE' and LESS_FORK ) {
+      print $sem_pipe_write "go\n";
+      close $sem_pipe_write;
+    }
 
     if (POE::Kernel::RUNNING_IN_HELL)  {
       # The Win32 pseudo fork sets up the std handles in the child
@@ -442,8 +471,52 @@ sub new {
         eval { exec("$^X -e 0"); };
       };
       exit(0);
-    }
-    else {
+    } else {
+      # Windows! What I do for you!
+      if (LESS_FORK) {
+        my $exitcode = 0;
+
+        my ($appname, $cmdline);
+
+        if (ref $program eq 'ARRAY') {
+          $appname = $program->[0];
+          $cmdline = join(' ', map { /\s/ && ! /"/ ? qq{"$_"} : $_ } (@$program, @$prog_args) );
+        }
+        else {
+          $appname = undef;
+          $cmdline = join(' ', $program, map { /\s/ && ! /"/ ? qq{"$_"} : $_ } @$prog_args);
+        }
+
+        my $w32job;
+
+        unless ( $w32job = Win32::Job->new() ) {
+          print $sem_pipe_write "go\n";
+          close $sem_pipe_write;
+          die Win32::FormatMessage( Win32::GetLastError() );
+        }
+
+        my $w32pid;
+
+        unless ( $w32pid = $w32job->spawn( $appname, $cmdline ) ) {
+          print $sem_pipe_write "go\n";
+          close $sem_pipe_write;
+          die Win32::FormatMessage( Win32::GetLastError() );
+        }
+        else {
+          print $sem_pipe_write "$w32pid\n";
+          close $sem_pipe_write;
+          my $ok = $w32job->watch( sub { 0 }, 60 );
+          my $hashref = $w32job->status();
+          $exitcode = $hashref->{$w32pid}->{exitcode};
+        }
+
+        # In case flushing them wasn't good enough.
+        close STDOUT if defined fileno(STDOUT);
+        close STDERR if defined fileno(STDERR);
+
+        exit($exitcode);
+      }
+
       # Windows! What I do for you!
       if (POE::Kernel::RUNNING_IN_HELL) {
         if (ref($program) eq 'ARRAY') {
@@ -519,6 +592,7 @@ sub new {
     $stderr_driver, # DRIVER_STDERR
     $stderr_event,  # EVENT_STDERR
     undef,          # STATE_STDERR
+    undef,          # MSWIN32_GROUP_PID
   ], $type;
 
   # PG- I suspect <> might need PIPE
@@ -526,7 +600,9 @@ sub new {
   # Wait here while the child sets itself up.
   {
     local $/ = "\n";
-    <$sem_pipe_read>;
+    my $chldout = <$sem_pipe_read>;
+    chomp $chldout;
+    $self->[MSWIN32_GROUP_PID] = $chldout if LESS_FORK and $chldout ne 'go';
   }
   close $sem_pipe_read;
   close $sem_pipe_write;
@@ -1106,7 +1182,12 @@ sub PID {
 sub kill {
   my ($self, $signal) = @_;
   $signal = 'TERM' unless defined $signal;
-  eval { kill $signal, $self->[CHILD_PID] };
+  if ( $self->[MSWIN32_GROUP_PID] ) {
+    Win32::Process::KillProcess( $self->[MSWIN32_GROUP_PID], 293 );
+  }
+  else {
+    eval { kill $signal, $self->[CHILD_PID] };
+  }
 }
 
 1;
