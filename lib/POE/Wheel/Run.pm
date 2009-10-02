@@ -15,20 +15,6 @@ use POSIX qw(
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 use base qw(POE::Wheel);
 
-# TODO - Consider abstracting the Win32 code into a subclass and
-# silently passing through to it when RUNNING_IN_HELL.
-
-BEGIN {
-  no strict 'refs';
-  if ($^O eq 'MSWin32') {
-    unless (defined &LESS_FORK) {
-      *{ __PACKAGE__ . '::LESS_FORK' } = sub () { 1 };
-    }
-  } else {
-    *{ __PACKAGE__ . '::LESS_FORK' } = sub () { 0 };
-  }
-}
-
 BEGIN {
   die "$^O does not support fork()\n" if $^O eq 'MacOS';
 
@@ -41,24 +27,20 @@ BEGIN {
   }
 
   if (POE::Kernel::RUNNING_IN_HELL) {
-    eval    { require Win32::Console; };
+    eval    { require Win32::Console; Win32::Console->import() };
     if ($@) { die "Win32::Console needed for POE::Wheel::Run on $^O:\n$@" }
-    else    { Win32::Console->import(); };
 
-    eval    { require Win32API::File; };
+    eval    { require Win32API::File; Win32API::File->import() };
     if ($@) { die "Win32::File needed for POE::Wheel::Run on $^O:\n$@" }
-    else    { Win32API::File->import( qw(FdGetOsFHandle) ); };
 
-    if ( LESS_FORK ) {
-      eval    { require Win32::Process; };
-      if ($@) { die "Win32::Process needed for POE::Wheel::Run on $^O:\n$@" }
+    eval    { require Win32::Process; Win32::Process->import() };
+    if ($@) { die "Win32::Process needed for POE::Wheel::Run on $^O:\n$@" }
 
-      eval    { require Win32::Job; };
-      if ($@) { die "Win32::Job needed for POE::Wheel::Run on $^O:\n$@" }
+    eval    { require Win32::Job; Win32::Job->import() };
+    if ($@) { die "Win32::Job needed for POE::Wheel::Run on $^O:\n$@" }
 
-      eval    { require Win32; };
-      if ($@) { die "Win32.pm needed for POE::Wheel::Run on $^O:\n$@" }
-    }
+    eval    { require Win32; Win32->import() };
+    if ($@) { die "Win32.pm needed for POE::Wheel::Run on $^O:\n$@" }
   }
 
   # Determine the most file descriptors we can use.
@@ -184,12 +166,10 @@ sub new {
       defined($stderr_event)
     );
 
-  my $stdio_driver  = delete $params{StdioDriver}
-    || POE::Driver::SysRW->new();
+  my $stdio_driver  = delete $params{StdioDriver}  || POE::Driver::SysRW->new();
   my $stdin_driver  = delete $params{StdinDriver}  || $stdio_driver;
   my $stdout_driver = delete $params{StdoutDriver} || $stdio_driver;
-  my $stderr_driver = delete $params{StderrDriver}
-    || POE::Driver::SysRW->new();
+  my $stderr_driver = delete $params{StderrDriver} || POE::Driver::SysRW->new();
 
   my $stdio_filter  = delete $params{Filter};
   my $stdin_filter  = delete $params{StdinFilter};
@@ -295,6 +275,7 @@ sub new {
     $poe_kernel->_data_sig_mask_all;
     $must_unmask = 1;
   }
+
   # Fork!  Woo-hoo!
   my $pid = fork;
 
@@ -308,6 +289,7 @@ sub new {
       carp "Cannot redirect into tied STDOUT.  Untying it";
       untie *STDOUT;
     }
+
     if (tied *STDERR) {
       carp "Cannot redirect into tied STDERR.  Untying it";
       untie *STDERR;
@@ -390,61 +372,30 @@ sub new {
     close $stdout_read;
     close $stderr_read if defined $stderr_read;
 
-    # Win32 needs the stdio handles closed before they're reopened
-    # because the standard handles aren't dup()'d.
-
-    # Redirect STDIN from the read end of the stdin pipe.
-    close STDIN if POE::Kernel::RUNNING_IN_HELL;
-    open( STDIN, "<&" . fileno($stdin_read) )
-      or die "can't redirect STDIN in child pid $$: $!";
-
-    # Redirect STDOUT to the write end of the stdout pipe.
-    close STDOUT if POE::Kernel::RUNNING_IN_HELL;
-    open( STDOUT, ">&" . fileno($stdout_write) )
-      or die "can't redirect stdout in child pid $$: $!";
-
-    # Redirect STDERR to the write end of the stderr pipe.
-    close STDERR if POE::Kernel::RUNNING_IN_HELL;
-    open( STDERR, ">&" . fileno($stderr_write) )
-      or die "can't redirect stderr in child: $!";
+    if (POE::Kernel::RUNNING_IN_HELL) {
+      __PACKAGE__->_redirect_child_stdio_in_hell(
+        $stdin_read, $stdout_write, $stderr_write
+      );
+    }
+    else {
+      __PACKAGE__->_redirect_child_stdio_sanely(
+        $stdin_read, $stdout_write, $stderr_write
+      );
+    }
 
     # Make STDOUT and/or STDERR auto-flush.
     select STDERR;  $| = 1;
     select STDOUT;  $| = 1;
 
     # Tell the parent that the stdio has been set up.
+    # It's done elsewhere, and differently, when running in MSWin32.
     close $sem_pipe_read;
-    unless ( ref($program) ne 'CODE' and LESS_FORK ) {
+    unless (POE::Kernel::RUNNING_IN_HELL) {
       print $sem_pipe_write "go\n";
       close $sem_pipe_write;
     }
 
-    if (POE::Kernel::RUNNING_IN_HELL)  {
-      # The Win32 pseudo fork sets up the std handles in the child
-      # based on the true win32 handles.  For the exec, these get
-      # remembered, so manipulation of STDIN/OUT/ERR is not enough.
-      #
-      # Only necessary for the exec, as Perl CODE subroutine goes
-      # through 0/1/2 which are correct.  But of course that coderef
-      # might invoke exec, so better do it regardless.
-      #
-      # HACK: Using Win32::Console as nothing else exposes
-      # SetStdHandle
-      Win32::Console::_SetStdHandle(
-        STD_INPUT_HANDLE(),
-        FdGetOsFHandle(fileno($stdin_read))
-      );
-      Win32::Console::_SetStdHandle(
-        STD_OUTPUT_HANDLE(),
-        FdGetOsFHandle(fileno($stdout_write))
-      );
-      Win32::Console::_SetStdHandle(
-        STD_ERROR_HANDLE(),
-        FdGetOsFHandle(fileno($stderr_write))
-      );
-    }
-
-    # Exec the program depending on its form.
+    # Run Perl code.  This is farily consistent across most systems.
     if (ref($program) eq 'CODE') {
 
       # Close any close-on-exec file descriptors.  Except STDIN,
@@ -464,103 +415,39 @@ sub new {
       close STDOUT if defined fileno(STDOUT);
       close STDERR if defined fileno(STDERR);
 
-      # Try to exit without triggering END or object destructors.
-      # Give up with a plain exit if we must.
-      # But we can't _exit on Win32 because it KILLS ALL THREADS,
-      # including the parent "process".
-      unless (POE::Kernel::RUNNING_IN_HELL) {
-        eval { POSIX::_exit(0);  };
-        eval { kill KILL => $$;  };
-        eval { exec("$^X -e 0"); };
-      };
-      exit(0);
-    } else {
-      # Windows! What I do for you!
-      if (LESS_FORK) {
-        my $exitcode = 0;
-
-        my ($appname, $cmdline);
-
-        if (ref $program eq 'ARRAY') {
-          $appname = $program->[0];
-          $cmdline = join(' ', map { /\s/ && ! /"/ ? qq{"$_"} : $_ } (@$program, @$prog_args) );
-        }
-        else {
-          $appname = undef;
-          $cmdline = join(' ', $program, map { /\s/ && ! /"/ ? qq{"$_"} : $_ } @$prog_args);
-        }
-
-        my $w32job;
-
-        unless ( $w32job = Win32::Job->new() ) {
-          print $sem_pipe_write "go\n";
-          close $sem_pipe_write;
-          die Win32::FormatMessage( Win32::GetLastError() );
-        }
-
-        my $w32pid;
-
-        unless ( $w32pid = $w32job->spawn( $appname, $cmdline ) ) {
-          print $sem_pipe_write "go\n";
-          close $sem_pipe_write;
-          die Win32::FormatMessage( Win32::GetLastError() );
-        }
-        else {
-          print $sem_pipe_write "$w32pid\n";
-          close $sem_pipe_write;
-          my $ok = $w32job->watch( sub { 0 }, 60 );
-          my $hashref = $w32job->status();
-          $exitcode = $hashref->{$w32pid}->{exitcode};
-        }
-
-        # In case flushing them wasn't good enough.
-        close STDOUT if defined fileno(STDOUT);
-        close STDERR if defined fileno(STDERR);
-
-        exit($exitcode);
-      }
-
-      # Windows! What I do for you!
-      if (POE::Kernel::RUNNING_IN_HELL) {
-        if (ref($program) eq 'ARRAY') {
-          exec(@$program, @$prog_args);
-          warn "can't exec (@$program) in child pid $$: $!";
-          kill INT => $$;
-          exit(1);
-        }
-
-        exec(join(" ", $program, @$prog_args));
-        warn "can't exec ($program) in child pid $$: $!";
-        kill INT => $$;
-        exit(1);
-      }
-
-      # Everybody else seems sane.
-      if (ref($program) eq 'ARRAY') {
-        exec(@$program, @$prog_args)
-          or die "can't exec (@$program) in child pid $$: $!";
-      }
-      else {
-        exec(join(" ", $program, @$prog_args))
-          or die "can't exec ($program) in child pid $$: $!";
-      }
+      exit __PACKAGE__->_exit_child_any_way_we_can();
     }
-    die "insanity check passed";
+
+    # Execute an external program.  This gets weird.
+
+    # Windows! What I do for you!
+    __PACKAGE__->_exec_in_hell(
+      $close_on_call, $sem_pipe_write, $program, $prog_args
+    ) if POE::Kernel::RUNNING_IN_HELL;
+
+    # Everybody else seems sane.
+    if (ref($program) eq 'ARRAY') {
+      exec(@$program, @$prog_args)
+        or die "can't exec (@$program) in child pid $$: $!";
+    }
+
+    exec(join(" ", $program, @$prog_args))
+      or die "can't exec ($program) in child pid $$: $!";
   }
 
   # Parent here.  Close what the parent won't need.
-  defined $stdin_read && close $stdin_read;
-  defined $stdout_write && close $stdout_write;
-  defined $stderr_write && close $stderr_write;
+  defined($stdin_read)   and close $stdin_read;
+  defined($stdout_write) and close $stdout_write;
+  defined($stderr_write) and close $stderr_write;
 
   # Also close any slave ptys
-  if (defined $stdout_read and ref($stdout_read) eq 'IO::Pty') {
-    $stdout_read->close_slave();
-  }
-  if (defined $stderr_read and ref($stderr_read) eq 'IO::Pty') {
-    $stderr_read->close_slave();
-  }
+  $stdout_read->close_slave() if (
+    defined $stdout_read and ref($stdout_read) eq 'IO::Pty'
+  );
 
+  $stderr_read->close_slave() if (
+    defined $stderr_read and ref($stderr_read) eq 'IO::Pty'
+  );
 
   my $active_count = 0;
   $active_count++ if $stdout_event and $stdout_read;
@@ -600,15 +487,15 @@ sub new {
 
   # PG- I suspect <> might need PIPE
   $poe_kernel->_data_sig_unmask_all if $must_unmask;
+
   # Wait here while the child sets itself up.
+  close $sem_pipe_write;
   {
     local $/ = "\n";
-    my $chldout = <$sem_pipe_read>;
-    chomp $chldout;
-    $self->[MSWIN32_GROUP_PID] = $chldout if LESS_FORK and $chldout ne 'go';
+    chomp(my $chldout = <$sem_pipe_read>);
+    $self->[MSWIN32_GROUP_PID] = $chldout if $chldout ne 'go';
   }
   close $sem_pipe_read;
-  close $sem_pipe_write;
 
   $self->_define_stdin_flusher();
   $self->_define_stdout_reader() if defined $stdout_read;
@@ -1191,6 +1078,157 @@ sub kill {
   else {
     eval { kill $signal, $self->[CHILD_PID] };
   }
+}
+
+### Internal helpers.
+
+sub _redirect_child_stdio_in_hell {
+  my ($class, $stdin_read, $stdout_write, $stderr_write) = @_;
+
+  # Win32 needs the stdio handles closed before they're reopened
+  # because the standard handles aren't dup()'d.
+
+  close STDIN;
+  close STDOUT;
+  close STDERR;
+
+  $class->_redirect_child_stdio_sanely(
+    $stdin_read, $stdout_write, $stderr_write
+  );
+
+  # The Win32 pseudo fork sets up the std handles in the child
+  # based on the true win32 handles.  For the exec, these get
+  # remembered, so manipulation of STDIN/OUT/ERR is not enough.
+  #
+  # Only necessary for the exec, as Perl CODE subroutine goes
+  # through 0/1/2 which are correct.  But of course that coderef
+  # might invoke exec, so better do it regardless.
+  #
+  # HACK: Using Win32::Console as nothing else exposes
+  # SetStdHandle
+  #
+  # TODO - https://rt.cpan.org/Ticket/Display.html?id=50068 claims
+  # that these _SetStdHandle() calls may leak memory.
+
+  Win32::Console::_SetStdHandle(
+    STD_INPUT_HANDLE(),
+    FdGetOsFHandle(fileno($stdin_read))
+  );
+
+  Win32::Console::_SetStdHandle(
+    STD_OUTPUT_HANDLE(),
+    FdGetOsFHandle(fileno($stdout_write))
+  );
+
+  Win32::Console::_SetStdHandle(
+    STD_ERROR_HANDLE(),
+    FdGetOsFHandle(fileno($stderr_write))
+  );
+}
+
+sub _redirect_child_stdio_sanely {
+  my ($class, $stdin_read, $stdout_write, $stderr_write) = @_;
+
+  # Redirect STDIN from the read end of the stdin pipe.
+  open( STDIN, "<&" . fileno($stdin_read) )
+    or die "can't redirect STDIN in child pid $$: $!";
+
+  # Redirect STDOUT to the write end of the stdout pipe.
+  open( STDOUT, ">&" . fileno($stdout_write) )
+    or die "can't redirect stdout in child pid $$: $!";
+
+  # Redirect STDERR to the write end of the stderr pipe.
+  open( STDERR, ">&" . fileno($stderr_write) )
+    or die "can't redirect stderr in child: $!";
+}
+
+sub _exit_child_any_way_we_can {
+  my $class = shift;
+
+  # On Windows, subprocesses run in separate threads.  All the "fancy"
+  # methods act on entire processes, so they also exit the parent.
+
+  unless (POE::Kernel::RUNNING_IN_HELL) {
+    # Try to avoid triggering END blocks and object destructors.
+    eval { POSIX::_exit(0);  };
+    eval { CORE::kill KILL => $$;  };
+    eval { exec("$^X -e 0"); };
+  }
+
+  # Do what we must.
+  exit(0);
+}
+
+# RUNNING_IN_HELL use Win32::Process to create a pucker new shiny
+# process. It'll inherit our processes handles which is neat.
+
+sub _exec_in_hell {
+  my (
+    $class, $close_on_call, $sem_pipe_write,
+    $program, $prog_args
+  ) = @_;
+
+  my $exitcode = 0;
+
+  # Close any close-on-exec file descriptors.
+  # Except STDIN, STDOUT, and STDERR, of course.
+
+  if ($close_on_call) {
+    for (0..MAX_OPEN_FDS-1) {
+      next if fileno(STDIN) == $_;
+      next if fileno(STDOUT) == $_;
+      next if fileno(STDERR) == $_;
+      POSIX::close($_);
+    }
+  }
+
+  my ($appname, $cmdline);
+
+  if (ref $program eq 'ARRAY') {
+    $appname = $program->[0];
+    $cmdline = join(
+      ' ',
+      map { /\s/ && ! /"/ ? qq{"$_"} : $_ }
+      (@$program, @$prog_args)
+    );
+  }
+  else {
+    $appname = undef;
+    $cmdline = join(
+      ' ', $program,
+      map { /\s/ && ! /"/ ? qq{"$_"} : $_ }
+      @$prog_args
+    );
+  }
+
+  my $w32job;
+
+  unless ( $w32job = Win32::Job->new() ) {
+    print $sem_pipe_write "go\n";
+    close $sem_pipe_write;
+    die Win32::FormatMessage( Win32::GetLastError() );
+  }
+
+  my $w32pid;
+
+  unless ( $w32pid = $w32job->spawn( $appname, $cmdline ) ) {
+    print $sem_pipe_write "go\n";
+    close $sem_pipe_write;
+    die Win32::FormatMessage( Win32::GetLastError() );
+  }
+
+  print $sem_pipe_write "$w32pid\n";
+  close $sem_pipe_write;
+
+  my $ok = $w32job->watch( sub { 0 }, 60 );
+  my $hashref = $w32job->status();
+  $exitcode = $hashref->{$w32pid}->{exitcode};
+
+  # In case flushing them wasn't good enough.
+  close STDOUT if defined fileno(STDOUT);
+  close STDERR if defined fileno(STDERR);
+
+  exit($exitcode);
 }
 
 1;
