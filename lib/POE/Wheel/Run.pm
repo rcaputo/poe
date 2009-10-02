@@ -391,6 +391,8 @@ sub new {
     # It's done elsewhere, and differently, when running in MSWin32.
     close $sem_pipe_read;
     unless (POE::Kernel::RUNNING_IN_HELL) {
+      select $sem_pipe_write;
+      $| = 1;
       print $sem_pipe_write "go\n";
       close $sem_pipe_write;
     }
@@ -1204,6 +1206,8 @@ sub _exec_in_hell {
   my $w32job;
 
   unless ( $w32job = Win32::Job->new() ) {
+    select $sem_pipe_write;
+    $| = 1;
     print $sem_pipe_write "go\n";
     close $sem_pipe_write;
     die Win32::FormatMessage( Win32::GetLastError() );
@@ -1212,11 +1216,15 @@ sub _exec_in_hell {
   my $w32pid;
 
   unless ( $w32pid = $w32job->spawn( $appname, $cmdline ) ) {
+    select $sem_pipe_write;
+    $| = 1;
     print $sem_pipe_write "go\n";
     close $sem_pipe_write;
     die Win32::FormatMessage( Win32::GetLastError() );
   }
 
+  select $sem_pipe_write;
+  $| = 1;
   print $sem_pipe_write "$w32pid\n";
   close $sem_pipe_write;
 
