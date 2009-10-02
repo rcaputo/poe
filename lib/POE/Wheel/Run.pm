@@ -421,12 +421,15 @@ sub new {
 
     if (POE::Kernel::RUNNING_IN_HELL)  {
       # The Win32 pseudo fork sets up the std handles in the child
-      # based on the true win32 handles For the exec these get
+      # based on the true win32 handles.  For the exec, these get
       # remembered, so manipulation of STDIN/OUT/ERR is not enough.
+      #
       # Only necessary for the exec, as Perl CODE subroutine goes
       # through 0/1/2 which are correct.  But of course that coderef
       # might invoke exec, so better do it regardless.
-      # HACK: Using Win32::Console as nothing else exposes SetStdHandle
+      #
+      # HACK: Using Win32::Console as nothing else exposes
+      # SetStdHandle
       Win32::Console::_SetStdHandle(
         STD_INPUT_HANDLE(),
         FdGetOsFHandle(fileno($stdin_read))
