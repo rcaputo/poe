@@ -73,6 +73,7 @@ sub spawn {
         my ($heap, $line, $wid) = @_[HEAP, ARG0, ARG1];
         my $W = $heap->{W}{$wid};
         die "Unknown wheel $wid" unless $W;
+        $line =~ s/\s+//g;
         is( $line, 'DONE', "stdout from $wid" );
         if( $line eq 'DONE' ) {
           my $data = $heap->{PID2W}{ $W->PID };
