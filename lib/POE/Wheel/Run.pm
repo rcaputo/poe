@@ -30,7 +30,10 @@ BEGIN {
     eval    { require Win32::Console; Win32::Console->import() };
     if ($@) { die "Win32::Console needed for POE::Wheel::Run on $^O:\n$@" }
 
-    eval    { require Win32API::File; Win32API::File->import() };
+    eval    {
+      require Win32API::File;
+      Win32API::File->import("FdGetOsFHandle");
+    };
     if ($@) { die "Win32::File needed for POE::Wheel::Run on $^O:\n$@" }
 
     eval    { require Win32::Process; Win32::Process->import() };
@@ -281,6 +284,7 @@ sub new {
 
   # Child.  Parent side continues after this block.
   unless ($pid) {
+open STDERR, ">", "deleteme.now";
 
     croak "couldn't fork: $!" unless defined $pid;
 
@@ -322,6 +326,7 @@ sub new {
       eval { $stdin_read->clone_winsize_from(\*STDIN) };
     }
     else {
+      # TODO - Can this be block eval?  Or a do{} block?
       eval 'setpgrp(0,0)' unless $no_setpgrp;
     }
 
@@ -387,24 +392,21 @@ sub new {
     select STDERR;  $| = 1;
     select STDOUT;  $| = 1;
 
-    # Tell the parent that the stdio has been set up.
-    # It's done elsewhere, and differently, when running in MSWin32.
+    # The child doesn't need to read from the semaphore pipe.
     close $sem_pipe_read;
-    unless (POE::Kernel::RUNNING_IN_HELL) {
-      select $sem_pipe_write;
-      $| = 1;
-      print $sem_pipe_write "go\n";
-      close $sem_pipe_write;
-    }
 
     # Run Perl code.  This is farily consistent across most systems.
     if (ref($program) eq 'CODE') {
+
+      # Tell the parent that the stdio has been set up.
+      print $sem_pipe_write "go\n";
+      close $sem_pipe_write;
 
       # Close any close-on-exec file descriptors.  Except STDIN,
       # STDOUT, and STDERR, of course.
       if ($close_on_call) {
         for (0..MAX_OPEN_FDS-1) {
-          next if fileno(STDIN) == $_;
+          next if fileno(STDIN)  == $_;
           next if fileno(STDOUT) == $_;
           next if fileno(STDERR) == $_;
           POSIX::close($_);
@@ -413,7 +415,8 @@ sub new {
 
       $program->(@$prog_args);
 
-      # In case flushing them wasn't good enough.
+      # Try to force stdio flushing.
+      close STDIN  if defined fileno(STDIN); # Voodoo?
       close STDOUT if defined fileno(STDOUT);
       close STDERR if defined fileno(STDERR);
 
@@ -493,8 +496,9 @@ sub new {
   # Wait here while the child sets itself up.
   close $sem_pipe_write;
   {
-    local $/ = "\n";
-    chomp(my $chldout = <$sem_pipe_read>);
+    local $/ = "\n";  # TODO - Needed?
+    my $chldout = <$sem_pipe_read>;
+    chomp $chldout;
     $self->[MSWIN32_GROUP_PID] = $chldout if $chldout ne 'go';
   }
   close $sem_pipe_read;
@@ -1099,8 +1103,9 @@ sub _redirect_child_stdio_in_hell {
   );
 
   # The Win32 pseudo fork sets up the std handles in the child
-  # based on the true win32 handles.  For the exec, these get
-  # remembered, so manipulation of STDIN/OUT/ERR is not enough.
+  # based on the true win32 handles.  The reopening of stdio
+  # handles isn't enough.  We must also set the underlying
+  # Win32 notion of these handles for completeness.
   #
   # Only necessary for the exec, as Perl CODE subroutine goes
   # through 0/1/2 which are correct.  But of course that coderef
@@ -1110,7 +1115,8 @@ sub _redirect_child_stdio_in_hell {
   # SetStdHandle
   #
   # TODO - https://rt.cpan.org/Ticket/Display.html?id=50068 claims
-  # that these _SetStdHandle() calls may leak memory.
+  # that these _SetStdHandle() calls may leak memory.  Do we have
+  # alternatives?
 
   Win32::Console::_SetStdHandle(
     STD_INPUT_HANDLE(),
