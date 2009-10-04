@@ -88,11 +88,11 @@ sub _data_ev_enqueue {
   # This is the counterpart to _data_ev_refcount_dec().  It's only
   # used in one place, so it's not in its own function.
 
-  $self->_data_ses_refcount_inc($session);
   $event_count{$session}++;
+  $self->_data_ses_refcount_inc($session);
 
-  $self->_data_ses_refcount_inc($source_session);
   $post_count{$source_session}++;
+  $self->_data_ses_refcount_inc($source_session);
 
   return $new_id;
 }
@@ -203,11 +203,11 @@ sub _data_ev_refcount_dec {
     _trap $source_session unless exists $post_count{$source_session};
   }
 
-  $self->_data_ses_refcount_dec($dest_session);
   $event_count{$dest_session}--;
+  $self->_data_ses_refcount_dec($dest_session);
 
-  $self->_data_ses_refcount_dec($source_session);
   $post_count{$source_session}--;
+  $self->_data_ses_refcount_dec($source_session);
 }
 
 ### Fetch the number of pending events sent to a session.
