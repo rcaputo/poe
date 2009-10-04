@@ -284,8 +284,6 @@ sub new {
 
   # Child.  Parent side continues after this block.
   unless ($pid) {
-open STDERR, ">", "deleteme.now";
-
     croak "couldn't fork: $!" unless defined $pid;
 
     # Stdio should not be tied.  Resolves rt.cpan.org ticket 1648.
@@ -393,7 +391,7 @@ open STDERR, ">", "deleteme.now";
     select STDOUT;  $| = 1;
 
     # The child doesn't need to read from the semaphore pipe.
-    close $sem_pipe_read;
+    $sem_pipe_read = undef;
 
     # Run Perl code.  This is farily consistent across most systems.
     if (ref($program) eq 'CODE') {
@@ -431,11 +429,17 @@ open STDERR, ">", "deleteme.now";
     ) if POE::Kernel::RUNNING_IN_HELL;
 
     # Everybody else seems sane.
+    # Tell the parent that the stdio has been set up.
+    print $sem_pipe_write "go\n";
+    close $sem_pipe_write;
+
+    # exec(ARRAY)
     if (ref($program) eq 'ARRAY') {
       exec(@$program, @$prog_args)
         or die "can't exec (@$program) in child pid $$: $!";
     }
 
+    # exec(SCALAR)
     exec(join(" ", $program, @$prog_args))
       or die "can't exec ($program) in child pid $$: $!";
   }
@@ -494,7 +498,7 @@ open STDERR, ">", "deleteme.now";
   $poe_kernel->_data_sig_unmask_all if $must_unmask;
 
   # Wait here while the child sets itself up.
-  close $sem_pipe_write;
+  $sem_pipe_write = undef;
   {
     local $/ = "\n";  # TODO - Needed?
     my $chldout = <$sem_pipe_read>;
@@ -1212,9 +1216,7 @@ sub _exec_in_hell {
   my $w32job;
 
   unless ( $w32job = Win32::Job->new() ) {
-    select $sem_pipe_write;
-    $| = 1;
-    print $sem_pipe_write "go\n";
+    print $sem_pipe_write "go\n\n";
     close $sem_pipe_write;
     die Win32::FormatMessage( Win32::GetLastError() );
   }
@@ -1222,15 +1224,11 @@ sub _exec_in_hell {
   my $w32pid;
 
   unless ( $w32pid = $w32job->spawn( $appname, $cmdline ) ) {
-    select $sem_pipe_write;
-    $| = 1;
     print $sem_pipe_write "go\n";
     close $sem_pipe_write;
     die Win32::FormatMessage( Win32::GetLastError() );
   }
 
-  select $sem_pipe_write;
-  $| = 1;
   print $sem_pipe_write "$w32pid\n";
   close $sem_pipe_write;
 
