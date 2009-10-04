@@ -10,9 +10,6 @@ package POE::Kernel;
 
 use strict;
 
-# Debug experimental mark-and-sweep code.
-use constant DEBUG_MARK_SWEEP => 0;
-
 ### Session structure.
 my %kr_sessions;
 #  { $session =>
@@ -74,7 +71,7 @@ sub _data_ses_allocate {
       if exists $kr_sessions{$session};
   }
 
-  DEBUG_MARK_SWEEP and print "# +++ allocating $session\n";
+  TRACE_REFCNT and print "# +++ allocating $session\n";
 
   $kr_sessions{$session} =
     [ $session,  # SS_SESSION
@@ -102,7 +99,7 @@ sub _data_ses_allocate {
     $self->_data_ses_refcount_inc($parent);
   }
 
-  DEBUG_MARK_SWEEP and print "# +++ $session marked for gc\n";
+  TRACE_REFCNT and print "# +++ $session marked for gc\n";
   unless ($session == $self) {
     push @kr_marked_for_gc, $session;
     $kr_marked_for_gc{$session} = $session;
@@ -120,7 +117,7 @@ sub _data_ses_allocate {
 sub _data_ses_free {
   my ($self, $session) = @_;
 
-  DEBUG_MARK_SWEEP and do {
+  TRACE_REFCNT and do {
     print "# --- freeing $session\n";
     _trap("!!! free defunct session $session?!\n") unless (
       $self->_data_ses_exists($session)
@@ -339,9 +336,9 @@ sub _data_ses_resolve_to_id {
 sub _data_ses_gc_sweep {
   my $self = shift;
 
-  DEBUG_MARK_SWEEP and print "# ??? trying sweep\n";
+  TRACE_REFCNT and print "# ??? trying sweep\n";
   while (@kr_marked_for_gc) {
-    DEBUG_MARK_SWEEP and print "# ??? ... trying sweep\n";
+    TRACE_REFCNT and print "# ??? ... trying sweep\n";
 
     my %temp_marked = %kr_marked_for_gc;
     %kr_marked_for_gc = ();
@@ -374,21 +371,18 @@ sub _data_ses_refcount_dec {
   }
 
   if (TRACE_REFCNT) {
-    _warn(
+    _cluck(
       "<rc> decrementing refcount for ",
       $self->_data_alias_loggable($session)
     );
   }
 
   if (--$kr_sessions{$session}->[SS_REFCOUNT] < 1) {
-    DEBUG_MARK_SWEEP and print "# +++ $session marked for gc\n";
+    TRACE_REFCNT and print "# +++ $session marked for gc\n";
     unless ($session == $self) {
       push @kr_marked_for_gc, $session;
       $kr_marked_for_gc{$session} = $session;
     }
-  }
-  elsif (DEBUG_MARK_SWEEP) {
-    warn "??? $session refcount = $kr_sessions{$session}->[SS_REFCOUNT]\n";
   }
 
   if (TRACE_REFCNT) {
@@ -409,7 +403,7 @@ sub _data_ses_refcount_dec {
     unless ($ss->[SS_REFCOUNT]) {
       _warn(
         "<rc> | ", $self->_data_alias_loggable($session),
-        " is garbage; stopping it...\n",
+        " is eligible for garbage collection.\n",
         "<rc> +---------------------------------------------------\n",
       );
     }
@@ -435,20 +429,21 @@ sub _data_ses_refcount_inc {
   }
 
   if (TRACE_REFCNT) {
-    _warn(
+    _cluck(
       "<rc> incrementing refcount for ",
       $self->_data_alias_loggable($session)
     );
   }
 
   if (++$kr_sessions{$session}->[SS_REFCOUNT] > 0) {
-    DEBUG_MARK_SWEEP and print "# --- $session unmarked for gc\n";
+    TRACE_REFCNT and print "# --- $session unmarked for gc\n";
     delete $kr_marked_for_gc{$session};
   }
-
-  DEBUG_MARK_SWEEP and warn(
-    "??? $session refcount = $kr_sessions{$session}->[SS_REFCOUNT]"
-  );
+  elsif (TRACE_REFCNT) {
+    warn(
+      "??? $session refcount = $kr_sessions{$session}->[SS_REFCOUNT]"
+    );
+  }
 }
 
 # Query a session's reference count.  Added for testing purposes.
@@ -491,7 +486,7 @@ sub _data_ses_stop {
   return if exists $already_stopping{$session};
   $already_stopping{$session} = 1;
 
-  DEBUG_MARK_SWEEP and print "# !!! stopping $session\n";
+  TRACE_REFCNT and print "# !!! stopping $session\n";
 
   if (ASSERT_DATA) {
     _trap("stopping a nonexistent session")
