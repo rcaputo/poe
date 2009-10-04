@@ -13,7 +13,7 @@ use POE;
 use POE::Wheel::Run;
 use Test::More;
 
-sub DEBUG () { 1 }
+sub DEBUG () { 0 }
 
 my $child_process_limit = 3;
 my $seconds_children_sleep = 1;
