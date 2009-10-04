@@ -62,7 +62,8 @@ use vars (
 #my $kr_signal_type;                 # The type of signal being dispatched.
 
 # A flag to tell whether we're currently polling for signals.
-# Under USE_SIGCHLD, determines whether a SIGCHLD polling event has already been queued
+# Under USE_SIGCHLD, determines whether a SIGCHLD polling event has
+# already been queued.
 my $polling_for_signals = 0;
 
 # A flag determining whether there are child processes.

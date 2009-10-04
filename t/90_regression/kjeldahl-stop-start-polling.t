@@ -6,18 +6,17 @@ use strict;
 
 sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
 sub POE::Kernel::ASSERT_DEFAULT   () { 1 }
-sub POE::Kernel::USE_SIGCHLD () { 1 }
-sub POE::Kernel::USE_SIGNAL_PIPE () { 1 }
+sub POE::Kernel::USE_SIGCHLD      () { 0 }
+sub POE::Kernel::USE_SIGNAL_PIPE  () { 0 }
 
 use POE;
 use POE::Wheel::Run;
 use Test::More;
 
-sub DEBUG () { 0 }
+sub DEBUG () { 1 }
 
 my $child_process_limit = 3;
 my $seconds_children_sleep = 1;
-diag "This test can take up to ", $seconds_children_sleep*2, " seconds";
 
 # Each child process:
 #   child sent done
@@ -28,12 +27,19 @@ diag "This test can take up to ", $seconds_children_sleep*2, " seconds";
 # Whole program
 #   Sane exit
 
-plan tests => 3 * $child_process_limit + 1 + 1;
+my $test_count = 3 * $child_process_limit + 1 + 1;
+plan tests => $test_count;
 
-Work->spawn( $child_process_limit, $seconds_children_sleep );
-$poe_kernel->run;
+SKIP: {
+  skip("$^O handles fork/call poorly", $test_count) if $^O eq "MSWin32";
 
-pass( "Sane exit" );
+  diag "This test can take up to ", $seconds_children_sleep*10, " seconds";
+
+  Work->spawn( $child_process_limit, $seconds_children_sleep );
+  $poe_kernel->run;
+
+  pass( "Sane exit" );
+}
 
 ############################################################################
 package Work;
@@ -67,7 +73,7 @@ sub spawn {
           $heap->{W}{$w->ID} = $w;
         }
 
-        $heap->{TID} = $poe_kernel->delay_set(timeout => $sleep*2);
+        $heap->{TID} = $poe_kernel->delay_set(timeout => $sleep*10);
       },
 
       chld_stdout => sub {
@@ -104,7 +110,7 @@ sub spawn {
 
       timeout => sub {
         fail "Timed out waiting for children to exit";
-        $poe_kernel->stop;
+        $poe_kernel->stop();
       },
 
       sig_CHLD => sub {

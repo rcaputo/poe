@@ -121,7 +121,7 @@ sub loop_ignore_signal {
 
   delete $signal_watched{$signal};
 
-    if ($signal eq 'CHLD' or $signal eq 'CLD') {
+  if ($signal eq 'CHLD' or $signal eq 'CLD') {
     if ( USE_SIGCHLD ) {
       if( $self->_data_sig_child_procs) {
         # We need SIGCHLD to stay around after shutdown, so that
