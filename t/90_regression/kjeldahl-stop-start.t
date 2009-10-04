@@ -4,9 +4,8 @@
 use warnings;
 use strict;
 
-my $USE_SIGCHLD = 0;
-
-sub USE_SIGCHLD () { $USE_SIGCHLD }
+sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
+sub POE::Kernel::ASSERT_DEFAULT   () { 1 }
 
 use POE;
 use POE::Wheel::Run;
@@ -14,22 +13,22 @@ use Test::More;
 
 sub DEBUG () { 0 }
 
-my $N = 3;
-my $S = 1;
-diag "This test can take up to ", $S*2, " seconds";
+my $child_process_limit = 3;
+my $seconds_children_sleep = 1;
+diag "This test can take up to ", $seconds_children_sleep*2, " seconds";
 
-plan ( tests => 6*$N + 3 );
+# Each child process:
+#   child sent done
+#   child flushed
+#   child exited
+# Each spawn
+#   All children exited
+# Whole program
+#   Sane exit
 
+plan tests => 3 * $child_process_limit + 1 + 1;
 
-diag( "Without USE_SIGCHLD" );
-
-Work->spawn( $N, $S );
-$poe_kernel->run;
-
-$USE_SIGCHLD = 1;
-diag("With USE_SIGCHLD");
-
-Work->spawn( $N, $S );
+Work->spawn( $child_process_limit, $seconds_children_sleep );
 $poe_kernel->run;
 
 pass( "Sane exit" );
@@ -53,16 +52,16 @@ sub spawn {
       _start => sub {
         my ($heap) = @_[HEAP, ARG0..$#_];
         $poe_kernel->sig(CHLD => 'sig_CHLD');
-        foreach my $n (1 .. $N) {
+        foreach my $n (1 .. $count) {
           DEBUG and diag "$$: Launch child $n";
           my $w = POE::Wheel::Run->new(
             Program => \&spawn_child,
             ProgramArgs => [ $sleep ],
             StdoutEvent => 'chld_stdout',
-            StderrEvent => 'chld_stdin',
+            StderrEvent => 'chld_stderr',
             CloseEvent  => 'chld_close'
           );
-          $heap->{PID2W}{$w->PID} = {ID => $w->ID, N => $n, closing=>0};
+          $heap->{PID2W}{$w->PID} = {ID => $w->ID, N => $n, flushed=>0};
           $heap->{W}{$w->ID} = $w;
         }
 
@@ -71,22 +70,22 @@ sub spawn {
 
       chld_stdout => sub {
         my ($heap, $line, $wid) = @_[HEAP, ARG0, ARG1];
-        my $W = $heap->{W}{$wid};
-        die "Unknown wheel $wid" unless $W;
+        my $wheel = $heap->{W}{$wid};
+        die "Unknown wheel $wid" unless $wheel;
         $line =~ s/\s+//g;
         is( $line, 'DONE', "stdout from $wid" );
         if( $line eq 'DONE' ) {
-          my $data = $heap->{PID2W}{ $W->PID };
-          $data->{closing} = 1;
+          my $data = $heap->{PID2W}{ $wheel->PID };
+          $data->{flushed} = 1;
         }
       },
 
       chld_stderr => sub {
         my ($heap, $line, $wid) = @_[HEAP, ARG0, ARG1];
-        my $W = $heap->{W}{$wid};
-        die "Unknown wheel $wid" unless $W;
+        my $wheel = $heap->{W}{$wid};
+        die "Unknown wheel $wid" unless $wheel;
         if (DEBUG) {
-          diag $line;
+          diag "CHILD " . $wheel->PID . " STDERR: $line";
         }
         else {
           fail "stderr from $wid: $line";
@@ -106,7 +105,6 @@ sub spawn {
         $poe_kernel->stop;
       },
 
-
       sig_CHLD => sub {
         my ($heap, $signal, $pid) = @_[HEAP, ARG0, ARG1];
         DEBUG and diag "$$: CHLD $pid";
@@ -114,12 +112,14 @@ sub spawn {
         die "Unknown wheel PID=$pid" unless defined $data;
         close_on( 'CHLD', $heap, $data->{ID} );
       },
+
       chld_close => sub {
         my ($heap, $wid) = @_[HEAP, ARG0];
         DEBUG and diag "$$: close $wid";
         close_on( 'close', $heap, $wid );
-      }
+      },
 
+      _stop => sub { }, # Pacify ASSERT_DEFAULT.
     }
   );
 }
@@ -127,17 +127,17 @@ sub spawn {
 sub close_on {
   my( $why, $heap, $wid ) = @_;
 
-  my $W = $heap->{W}{$wid};
-  die "Unknown wheel $wid" unless $W;
+  my $wheel = $heap->{W}{$wid};
+  die "Unknown wheel $wid" unless $wheel;
 
-  my $data = $heap->{PID2W}{ $W->PID };
+  my $data = $heap->{PID2W}{ $wheel->PID };
 
   $data->{$why}++;
   return unless $data->{CHLD} and $data->{close};
 
-  is( $data->{closing}, 1, "Expecting to close" );
+  is( $data->{flushed}, 1, "expected child flush" );
 
-  delete $heap->{PID2W}{$W->PID};
+  delete $heap->{PID2W}{$wheel->PID};
   delete $heap->{W}{$data->{ID}};
   pass("Child $data->{ID} exit detected.");
 
@@ -146,7 +146,6 @@ sub close_on {
     $poe_kernel->alarm_remove(delete $heap->{TID});
   }
 }
-
 
 sub spawn_child {
   my( $sleep ) = @_;
@@ -163,7 +162,7 @@ sub spawn_child {
       done => sub {
         DEBUG and diag "$$: child done";
         print "DONE\n";
-      }
+      },
     }
   );
   POE::Kernel->run;
