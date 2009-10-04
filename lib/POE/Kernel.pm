@@ -1289,7 +1289,8 @@ sub stop {
   # Running stop() is recommended in a POE::Wheel::Run coderef
   # Program, before setting up for the next POE::Kernel->run().  When
   # the PID has changed, imply _data_sig_has_forked() during stop().
-  $poe_kernel->_data_sig_has_forked unless $kr_pid == $$;
+
+  $poe_kernel->has_forked unless $kr_pid == $$;
 
   # May be called when the kernel's already stopped.  Avoid problems
   # trying to find child sessions when the kernel isn't registered.
@@ -1298,6 +1299,9 @@ sub stop {
     foreach my $session (@children) {
       push @children, $self->_data_ses_get_children($session);
     }
+
+    # Don't stop believin'.  Nor the POE::Kernel singleton.
+    shift @children;
 
     # Walk backwards to avoid inconsistency errors.
     foreach my $session (reverse @children) {
