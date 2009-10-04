@@ -6,6 +6,8 @@ use strict;
 
 sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
 sub POE::Kernel::ASSERT_DEFAULT   () { 1 }
+sub POE::Kernel::USE_SIGCHLD () { 1 }
+sub POE::Kernel::USE_SIGNAL_PIPE () { 1 }
 
 use POE;
 use POE::Wheel::Run;

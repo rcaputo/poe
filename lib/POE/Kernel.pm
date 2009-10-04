@@ -122,7 +122,8 @@ BEGIN {
 
   { no strict 'refs';
     unless (defined &CHILD_POLLING_INTERVAL) {
-      *CHILD_POLLING_INTERVAL = sub () { 1 }; # that's one second, not a true value
+      # That's one second, not a true value.
+      *CHILD_POLLING_INTERVAL = sub () { 1 };
     }
   }
 

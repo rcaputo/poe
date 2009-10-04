@@ -103,8 +103,10 @@ sub _data_ses_allocate {
   }
 
   DEBUG_MARK_SWEEP and print "# +++ $session marked for gc\n";
-  push @kr_marked_for_gc, $session;
-  $kr_marked_for_gc{$session} = $session;
+  unless ($session == $self) {
+    push @kr_marked_for_gc, $session;
+    $kr_marked_for_gc{$session} = $session;
+  }
 }
 
 # Release a session's resources, and remove it.  This doesn't do
@@ -347,9 +349,11 @@ sub _data_ses_gc_sweep {
     my @todo = reverse @kr_marked_for_gc;
     @kr_marked_for_gc = ();
 
+    # Never GC the POE::Kernel singleton.
+    delete $temp_marked{$self};
+
     foreach my $session (@todo) {
       next unless delete $temp_marked{$session};
-      #next if $session == $self;
       $self->_data_ses_stop($session);
     }
   }
@@ -378,8 +382,10 @@ sub _data_ses_refcount_dec {
 
   if (--$kr_sessions{$session}->[SS_REFCOUNT] < 1) {
     DEBUG_MARK_SWEEP and print "# +++ $session marked for gc\n";
-    push @kr_marked_for_gc, $session;
-    $kr_marked_for_gc{$session} = $session;
+    unless ($session == $self) {
+      push @kr_marked_for_gc, $session;
+      $kr_marked_for_gc{$session} = $session;
+    }
   }
   elsif (DEBUG_MARK_SWEEP) {
     warn "??? $session refcount = $kr_sessions{$session}->[SS_REFCOUNT]\n";
