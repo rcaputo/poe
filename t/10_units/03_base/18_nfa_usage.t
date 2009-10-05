@@ -2,10 +2,8 @@ use strict;
 
 package main;
 
-use Test::More;
+use Test::More tests => 11;
 use POE::NFA;
-
-plan 'no_plan';
 
 my $nfa;
 
