@@ -31,7 +31,9 @@ my $test_count = 3 * $child_process_limit + 1 + 1;
 plan tests => $test_count;
 
 SKIP: {
-  skip("$^O handles fork/call poorly", $test_count) if $^O eq "MSWin32";
+  skip("$^O handles fork/call poorly", $test_count) if (
+    $^O eq "MSWin32" and not $ENV{POE_DANTIC}
+  );
 
   diag "This test can take up to ", $seconds_children_sleep*10, " seconds";
 
