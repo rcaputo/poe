@@ -5284,7 +5284,7 @@ Whether or not to use L<Time::HiRes> for timing purposes.
 
 See L</"Using Time::HiRes">.
 
-=head1 USE_SIGCHLD
+=head2 USE_SIGCHLD
 
 Whether to use C<$SIG{CHLD}> or to poll at an interval.
 
@@ -5315,12 +5315,25 @@ If you wish to revert to the previous unsafe signal behaviour, you
 must set C<USE_SIGNAL_PIPE> to 0, or the environment vairable
 C<POE_USE_SIGNAL_PIPE>.
 
-=head1 CATCH_EXCEPTIONS
+=head2 CATCH_EXCEPTIONS
 
 Whether or not POE should run event handler code in an eval { } and
 deliver the C<DIE> signal on errors.
 
 See L</"Exception Handling">.
+
+=head1 ENVIRONMENT VARIABLES FOR TESTING
+
+POE's tests are lovely, dark and deep.  These environment variables
+allow testers to take roads less traveled.
+
+=head2 POE_DANTIC
+
+Windows and Perls built for it tend to be poor at doing UNIXy things,
+although they do try.  POE being very UNIXy itself must skip a lot of
+Windows tests.  The POE_DANTIC environment variable will, when true,
+enable all these tests.  It's intended to be used from time to time to
+see whether Windows has improved in some area.
 
 =head1 SEE ALSO
 
