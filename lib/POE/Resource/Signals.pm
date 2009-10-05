@@ -155,9 +155,11 @@ sub _data_sig_has_forked {
 }
 
 sub _data_sig_reset_procs {
+  my $self = shift;
   # Initialize this to a true value so our waitpid() loop can run at
   # least once.  Starts false when running in an Apache handler so our
   # SIGCHLD hijinks don't interfere with the web server.
+  $self->_data_sig_cease_polling();
   $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 );
 }
 
@@ -514,7 +516,10 @@ sub _data_sig_handle_poll_event {
   }
 
   if (TRACE_SIGNALS) {
-    _warn("<sg> POE::Kernel is polling for signals at " . time() . (USE_SIGCHLD ? " due to SIGCHLD" : ""));
+    _warn(
+      "<sg> POE::Kernel is polling for signals at " . time() .
+      (USE_SIGCHLD ? " due to SIGCHLD" : "")
+    );
   }
 
   # Reap children for as long as waitpid(2) says something
@@ -624,14 +629,16 @@ sub _data_sig_handle_poll_event {
   else {
     # The poll loop is over.  Resume slowly polling for signals.
 
-    if (TRACE_SIGNALS) {
-      _warn("<sg> POE::Kernel will poll again after a delay");
-    }
-
     if ($polling_for_signals) {
+      if (TRACE_SIGNALS) {
+        _warn("<sg> POE::Kernel will poll again after a delay");
+      }
       $self->_data_sig_enqueue_poll_event($signal);
     }
     else {
+      if (TRACE_SIGNALS) {
+        _warn("<sg> POE::Kernel SIGCHLD poll loop paused");
+      }
       $self->_idle_queue_shrink();
     }
   }
