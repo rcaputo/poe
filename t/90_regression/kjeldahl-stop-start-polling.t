@@ -13,7 +13,7 @@ use POE;
 use POE::Wheel::Run;
 use Test::More;
 
-sub DEBUG () { 1 }
+sub DEBUG () { 0 }
 
 my $child_process_limit = 3;
 my $seconds_children_sleep = 1;
@@ -157,8 +157,13 @@ sub close_on {
 
 sub spawn_child {
   my( $sleep ) = @_;
+  #close STDERR;
+  #open STDERR, ">", "child-err.$$";
+
   DEBUG and diag "$$: child sleep=$sleep";
+
   POE::Kernel->stop;
+
   POE::Session->create(
     inline_states => {
       _start => sub {
