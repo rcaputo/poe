@@ -260,6 +260,8 @@ sub _data_ev_dispatch_due {
       $self->_data_stat_add('blocked_seconds', $now - $due_time);
     }
 
+    # TODO - Can these two lines be reversed?
+    # TODO - May avoid entering/removing GC mark entries.
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
     $self->_dispatch_event(@$event, $due_time, $id);
 
