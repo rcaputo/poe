@@ -406,7 +406,6 @@ sub _idle_queue_shrink { $idle_queue_size--; }
 sub _idle_queue_size   { $idle_queue_size;   }
 sub _idle_queue_reset  { $idle_queue_size = TRACE_STATISTICS ? 1 : 0; }
 
-
 #------------------------------------------------------------------------------
 # Helpers to carp, croak, confess, cluck, warn and die with whatever
 # trace file we're using today.  _trap is reserved for internal
@@ -655,7 +654,8 @@ sub _test_if_kernel_is_idle {
   if (TRACE_REFCNT) {
     _warn(
       "<rc> ,----- Kernel Activity -----\n",
-      "<rc> | Events : ", $kr_queue->get_item_count(), "\n",
+      "<rc> | Events : ", $kr_queue->get_item_count(),
+      " (vs. idle size = ", $idle_queue_size, ")\n",
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
       "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
       "<rc> | Procs  : ", $self->_data_sig_child_procs(), "\n",
@@ -666,7 +666,10 @@ sub _test_if_kernel_is_idle {
 
   if( ASSERT_DATA ) {
     if( $kr_pid != $$ ) {
-      _trap "New process detected. You must call ->has_forked() in the child process."
+      _trap(
+        "New process detected. " .
+        "You must call ->has_forked() in the child process."
+      );
     }
   }
 
@@ -1287,12 +1290,6 @@ sub stop {
   # So stop() can be called as a class method.
   my $self = $poe_kernel;
 
-  # Running stop() is recommended in a POE::Wheel::Run coderef
-  # Program, before setting up for the next POE::Kernel->run().  When
-  # the PID has changed, imply _data_sig_has_forked() during stop().
-
-  $poe_kernel->has_forked unless $kr_pid == $$;
-
   # May be called when the kernel's already stopped.  Avoid problems
   # trying to find child sessions when the kernel isn't registered.
   if ($self->_data_ses_exists($self)) {
@@ -1320,11 +1317,22 @@ sub stop {
   # ID() call.
   $self->[KR_ID] = undef;
 
-  _idle_queue_reset();
-
   # The GC mark list may prevent sessions from DESTROYing.
   # Clean it up.
   $self->_data_ses_gc_sweep();
+
+  # Running stop() is recommended in a POE::Wheel::Run coderef
+  # Program, before setting up for the next POE::Kernel->run().  When
+  # the PID has changed, imply _data_sig_has_forked() during stop().
+
+  $poe_kernel->has_forked unless $kr_pid == $$;
+
+  # TODO - If we're polling for signals, then the reset gets it wrong.
+  # The reset only counts statistics tracing, not sigchld polling.  If
+  # we must put this back, it MUST account for all internal events
+  # currently in play, or the child process will stall if it reruns
+  # POE::Kernel's loop.
+  #_idle_queue_reset();
 
   return;
 }
