@@ -71,7 +71,7 @@ sub _data_ses_allocate {
       if exists $kr_sessions{$session};
   }
 
-  TRACE_REFCNT and print "# +++ allocating $session\n";
+  TRACE_REFCNT and _warn "<rc> allocating $session";
 
   $kr_sessions{$session} =
     [ $session,  # SS_SESSION
@@ -99,7 +99,7 @@ sub _data_ses_allocate {
     $self->_data_ses_refcount_inc($parent);
   }
 
-  TRACE_REFCNT and print "# +++ $session marked for gc\n";
+  TRACE_REFCNT and _warn "<rc> $session marked for gc";
   unless ($session == $self) {
     push @kr_marked_for_gc, $session;
     $kr_marked_for_gc{$session} = $session;
@@ -118,7 +118,7 @@ sub _data_ses_free {
   my ($self, $session) = @_;
 
   TRACE_REFCNT and do {
-    print "# --- freeing $session\n";
+    _warn "<rc> freeing $session";
     _trap("!!! free defunct session $session?!\n") unless (
       $self->_data_ses_exists($session)
     );
@@ -336,10 +336,8 @@ sub _data_ses_resolve_to_id {
 sub _data_ses_gc_sweep {
   my $self = shift;
 
-  TRACE_REFCNT and print "# ??? trying sweep\n";
+  TRACE_REFCNT and _warn "<rc> trying sweep";
   while (@kr_marked_for_gc) {
-    TRACE_REFCNT and print "# ??? ... trying sweep\n";
-
     my %temp_marked = %kr_marked_for_gc;
     %kr_marked_for_gc = ();
 
@@ -378,7 +376,7 @@ sub _data_ses_refcount_dec {
   }
 
   if (--$kr_sessions{$session}->[SS_REFCOUNT] < 1) {
-    TRACE_REFCNT and print "# +++ $session marked for gc\n";
+    TRACE_REFCNT and _warn "<rc> $session marked for gc";
     unless ($session == $self) {
       push @kr_marked_for_gc, $session;
       $kr_marked_for_gc{$session} = $session;
@@ -436,11 +434,11 @@ sub _data_ses_refcount_inc {
   }
 
   if (++$kr_sessions{$session}->[SS_REFCOUNT] > 0) {
-    TRACE_REFCNT and print "# --- $session unmarked for gc\n";
+    TRACE_REFCNT and _warn "<rc> $session unmarked for gc";
     delete $kr_marked_for_gc{$session};
   }
   elsif (TRACE_REFCNT) {
-    warn(
+    _warn(
       "??? $session refcount = $kr_sessions{$session}->[SS_REFCOUNT]"
     );
   }
@@ -486,7 +484,7 @@ sub _data_ses_stop {
   return if exists $already_stopping{$session};
   $already_stopping{$session} = 1;
 
-  TRACE_REFCNT and print "# !!! stopping $session\n";
+  TRACE_REFCNT and _warn "<rc> stopping $session";
 
   if (ASSERT_DATA) {
     _trap("stopping a nonexistent session")
