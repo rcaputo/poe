@@ -1,25 +1,33 @@
+# vim: ts=2 sw=2 expandtab
 use strict;
 
 use lib qw(./mylib ../mylib);
 use Test::More tests => 15;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
+
+sub POE::Kernel::USE_SIGCHLD () { 0 }
 
 BEGIN { use_ok("POE") }
+
+# Base reference count = Statistics timer event.
+my $base_refcount = 0;
+$base_refcount += 2 if POE::Kernel::TRACE_STATISTICS;
 
 # Set an alias and verify that it can be retrieved.  Also verify the
 # loggable version of it.
 
 { $poe_kernel->_data_alias_add($poe_kernel, "alias-1");
   my $session = $poe_kernel->_data_alias_resolve("alias-1");
-  ok($session == $poe_kernel, "alias resolves to original reference");
+  is($session, $poe_kernel, "alias resolves to original reference");
 
-  # Should be 3: One for the performance timer, one for the virtual
-  # POE::Kernel session, and one for the new alias.
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 3,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount + 1,
     "session reference count is to be expected"
   );
 
@@ -38,8 +46,8 @@ BEGIN { use_ok("POE") }
   ok(!defined($session), "removed alias does not resolve");
 
   # Should be 2.  See the rationale above.
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 2,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount,
     "session reference count reduced correctly"
   );
 }
@@ -51,19 +59,19 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
     $poe_kernel->_data_alias_add($poe_kernel, $_);
   }
 
-  ok(
-    $poe_kernel->_data_alias_count_ses($poe_kernel) == @multi_aliases,
+  is(
+    $poe_kernel->_data_alias_count_ses($poe_kernel), @multi_aliases,
     "correct number of aliases were recorded"
   );
 
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 5,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount + 3,
     "correct number of references were recorded"
   );
 
   my @retrieved = $poe_kernel->_data_alias_list($poe_kernel);
-  ok(
-    eq_array(\@retrieved, \@multi_aliases),
+  is_deeply(
+    \@retrieved, \@multi_aliases,
     "the aliases were retrieved correctly"
   );
 }
@@ -73,19 +81,18 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
 { $poe_kernel->_data_alias_clear_session($poe_kernel);
 
   my @retrieved = $poe_kernel->_data_alias_list($poe_kernel);
-  ok(!@retrieved, "aliases were cleared successfully");
+  is(scalar(@retrieved), 0, "aliases were cleared successfully");
 
-  # See previous rationale for test 2.
-  ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == 2,
+  is(
+    $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount,
     "proper number of references after alias clear"
   );
 }
 
 # Some tests and testless instrumentation on nonexistent sessions.
 
-{ ok(
-    $poe_kernel->_data_alias_count_ses("nothing") == 0,
+{ is(
+    $poe_kernel->_data_alias_count_ses("nothing"), 0,
     "unknown session has no aliases"
   );
 
