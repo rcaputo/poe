@@ -383,30 +383,7 @@ sub _data_ses_refcount_dec {
     }
   }
 
-  if (TRACE_REFCNT) {
-    my $ss = $kr_sessions{$session};
-    _warn(
-      "<rc> +----- GC test for ", $self->_data_alias_loggable($session),
-      " ($session) -----\n",
-      "<rc> | total refcnt  : ", $ss->[SS_REFCOUNT], "\n",
-      "<rc> | event count   : ", $self->_data_ev_get_count_to($session), "\n",
-      "<rc> | post count    : ", $self->_data_ev_get_count_from($session), "\n",
-      "<rc> | child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
-      "<rc> | handles in use: ", $self->_data_handle_count_ses($session), "\n",
-      "<rc> | aliases in use: ", $self->_data_alias_count_ses($session), "\n",
-      "<rc> | extra refs    : ", $self->_data_extref_count_ses($session), "\n",
-      "<rc> | pid count     : ", $self->_data_sig_pids_ses($session), "\n",
-      "<rc> +---------------------------------------------------\n",
-    );
-    unless ($ss->[SS_REFCOUNT]) {
-      _warn(
-        "<rc> | ", $self->_data_alias_loggable($session),
-        " is eligible for garbage collection.\n",
-        "<rc> +---------------------------------------------------\n",
-      );
-    }
-    _carp "<rc> | called";
-  }
+  $self->_data_ses_dump_refcounts($session) if TRACE_REFCNT;
 
   if (ASSERT_DATA and $kr_sessions{$session}->[SS_REFCOUNT] < 0) {
     _trap(
@@ -442,6 +419,35 @@ sub _data_ses_refcount_inc {
       "??? $session refcount = $kr_sessions{$session}->[SS_REFCOUNT]"
     );
   }
+
+  $self->_data_ses_dump_refcounts($session) if TRACE_REFCNT;
+}
+
+sub _data_ses_dump_refcounts {
+  my ($self, $session) = @_;
+
+  my $ss = $kr_sessions{$session};
+  _warn(
+    "<rc> +----- GC test for ", $self->_data_alias_loggable($session),
+    " ($session) -----\n",
+    "<rc> | total refcnt  : ", $ss->[SS_REFCOUNT], "\n",
+    "<rc> | event count   : ", $self->_data_ev_get_count_to($session), "\n",
+    "<rc> | post count    : ", $self->_data_ev_get_count_from($session), "\n",
+    "<rc> | child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
+    "<rc> | handles in use: ", $self->_data_handle_count_ses($session), "\n",
+    "<rc> | aliases in use: ", $self->_data_alias_count_ses($session), "\n",
+    "<rc> | extra refs    : ", $self->_data_extref_count_ses($session), "\n",
+    "<rc> | pid count     : ", $self->_data_sig_pids_ses($session), "\n",
+    "<rc> +---------------------------------------------------\n",
+  );
+  unless ($ss->[SS_REFCOUNT]) {
+    _warn(
+      "<rc> | ", $self->_data_alias_loggable($session),
+      " is eligible for garbage collection.\n",
+      "<rc> +---------------------------------------------------\n",
+    );
+  }
+  _carp "<rc> | called";
 }
 
 # Query a session's reference count.  Added for testing purposes.
