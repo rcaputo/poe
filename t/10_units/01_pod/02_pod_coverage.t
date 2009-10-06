@@ -1,4 +1,4 @@
-# vim: filetype=perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # This testcase loads all POE modules.  Some of them may define
 # alternative methods with the same full-qualified names.  Disable the

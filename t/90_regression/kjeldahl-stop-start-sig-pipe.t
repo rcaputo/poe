@@ -1,13 +1,14 @@
 #!/usr/bin/perl
-# vim: filetype=perl ts=2 sw=2 expandtab
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 use warnings;
 use strict;
 
 sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
-sub POE::Kernel::ASSERT_DEFAULT   () { 1 }
 sub POE::Kernel::USE_SIGCHLD      () { 1 }
 sub POE::Kernel::USE_SIGNAL_PIPE  () { 1 }
+sub POE::Kernel::ASSERT_DEFAULT   () { 1 }
+sub POE::Kernel::TRACE_DEFAULT    () { 0 }
 
 use POE;
 use POE::Wheel::Run;

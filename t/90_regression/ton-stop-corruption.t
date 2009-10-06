@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Test that stop() does not result in a double garbage collection on
 # the session that called it.  This test case provided by Ton Hospel.
@@ -8,6 +9,11 @@ use strict;
 use Test::More tests => 5;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 BEGIN { use_ok("POE") }
 BEGIN { use_ok("POE::Pipe::OneWay") }

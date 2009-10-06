@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# vim: filetype=perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Exercises Filter::Line without the rest of POE.
 
@@ -8,8 +8,11 @@ use lib qw(./mylib ../mylib);
 use lib qw(t/10_units/05_filters);
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 use TestFilter;
 use Test::More tests => 18 + $COUNT_FILTER_INTERFACE + 2*$COUNT_FILTER_STANDARD;

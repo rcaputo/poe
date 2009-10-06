@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Exercises POE::Filter::RecordBlock without the rest of POE
 

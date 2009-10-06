@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# vim: filetype=perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Exercises filter changing.  A lot of this code comes from Philip
 # Gwyn's filterchange.perl sample.
@@ -13,8 +13,11 @@ use MyOtherFreezer;
 sub DEBUG () { 0 }
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 use POE qw(
   Wheel::ReadWrite Driver::SysRW

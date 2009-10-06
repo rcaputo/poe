@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# vim: filetype=perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Test the ASSERT_USAGE code in POE::Kernel.  This involves a lot of
 # dying.
@@ -12,8 +12,11 @@ use Test::More tests => 76;
 use Symbol qw(gensym);
 
 sub POE::Kernel::ASSERT_USAGE   () { 1 }
-sub POE::Kernel::TRACE_REFCNT   () { 1 }
-sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+#sub POE::Kernel::TRACE_REFCNT   () { 1 }
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 BEGIN { use_ok("POE") }
 

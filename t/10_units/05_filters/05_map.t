@@ -1,4 +1,6 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 filetype=perl expandtab
+
 # Exercises Filter::Map without POE
 
 use strict;

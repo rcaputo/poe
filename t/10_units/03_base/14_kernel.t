@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # This file contains tests for the _public_ POE::Kernel interface
 

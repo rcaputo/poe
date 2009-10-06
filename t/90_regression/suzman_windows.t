@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# vim: filetype=perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Tests various signals using POE's stock signal handlers.  These are
 # plain Perl signals, so mileage may vary.
@@ -16,8 +16,11 @@ BEGIN {
 plan tests => 2;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 use POE;
 

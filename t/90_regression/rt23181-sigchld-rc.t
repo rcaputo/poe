@@ -1,5 +1,5 @@
 #!perl
-# vim: filetype=perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Calling sig_child($pid) without a prior sig_child($pid, $event)
 # would drop the session's reference count below zero.
@@ -9,6 +9,12 @@ use strict;
 
 use Test::More tests => 1;
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
+
 use POE;
 
 POE::Session->create(

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# vim: filetype=perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Exercises Filter::Block without the rest of POE.  Suddenly things
 # are looking a lot easier.
@@ -12,8 +12,11 @@ use TestFilter;
 use Test::More tests => 20 + $COUNT_FILTER_INTERFACE;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
-sub POE::Kernel::TRACE_DEFAULT  () { 1 }
-sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 use_ok("POE::Filter::Block");
 test_filter_interface("POE::Filter::Block");

@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Test the ASSERT_DATA code in POE::Kernel.  This involves a lot of
 # dying.
@@ -12,7 +13,10 @@ use lib qw(./mylib);
 use Test::More tests => 7;
 
 sub POE::Kernel::ASSERT_DATA    () { 1 }
-sub POE::Kernel::TRACE_FILENAME () { "./test-output.err" }
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 BEGIN { use_ok("POE") }
 

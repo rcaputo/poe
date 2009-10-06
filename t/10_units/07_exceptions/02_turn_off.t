@@ -1,6 +1,7 @@
+# vim: ts=2 sw=2 filetype=perl expandtab
 use Test::More tests => 3;
 
-BEGIN { sub POE::Kernel::CATCH_EXCEPTIONS () { 0 } }
+sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
 use POE;
 
 eval {

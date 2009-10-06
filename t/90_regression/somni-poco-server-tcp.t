@@ -1,3 +1,4 @@
+# vim: ts=2 sw=2 filetype=perl expandtab
 use warnings;
 use strict;
 

@@ -1,4 +1,4 @@
-# vim: filetype=perl
+# vim: ts=2 sw=2 expandtab
 
 # Test a case that Yuval Kogman ran into.  Decrementing a reference
 # count would immediately trigger a GC test.  During _start, that
@@ -11,6 +11,8 @@ use strict;
 use Test::More tests => 5;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 0 }
+
 use POE;
 
 my $sigidle = 0;

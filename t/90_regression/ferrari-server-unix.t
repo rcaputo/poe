@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Test case supplied by Martin Ferrari as part of rt.cpan.org bug
 # 11262 (Debian bug 292526).  Ensures that a previous warning will not

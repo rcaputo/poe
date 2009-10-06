@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Test Filter::HTTPD by itself
 # See other (forthcoming) for more complex interactions

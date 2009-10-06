@@ -1,9 +1,15 @@
 #!/usr/bin/perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 use strict;
 use warnings;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 use Test::More tests => 2;
 use POE;

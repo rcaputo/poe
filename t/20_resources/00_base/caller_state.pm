@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 expandtab
 
 # Test that caller_state returnes expected results
 
@@ -8,6 +9,7 @@ use lib qw(./mylib ../mylib);
 use Test::More tests => 6;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+sub POE::Kernel::TRACE_DEFAULT  () { 0 }
 
 BEGIN { use_ok("POE") } # 1
 

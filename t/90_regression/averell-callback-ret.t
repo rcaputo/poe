@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 # Callback must pass on it's return value as per documentation.
 
@@ -7,6 +8,11 @@ use strict;
 use Test::More tests => 2;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+
+BEGIN {
+  package POE::Kernel;
+  use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
+}
 
 BEGIN { use_ok("POE") } #1
 
