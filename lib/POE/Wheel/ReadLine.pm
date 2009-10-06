@@ -864,12 +864,27 @@ sub new {
   $self->[SELF_STATE_IDLE] = (
     ref($self) . "(" . $self->[SELF_UNIQUE_ID] . ") -> input timeout"
   );
-  $poe_kernel->state($self->[SELF_STATE_IDLE], $self, '_idle_state');
 
   $self->[SELF_STATE_READ] = (
     ref($self) . "(" . $self->[SELF_UNIQUE_ID] . ") -> select read"
   );
-  $poe_kernel->state($self->[SELF_STATE_READ], $self, '_read_state');
+
+  # TODO - The following hack breaks a circular reference on $self.
+  {
+    my $weak_self = $self;
+    use Scalar::Util qw(weaken);
+    weaken $weak_self;
+
+    $poe_kernel->state(
+      $self->[SELF_STATE_IDLE],
+      sub { _idle_state($weak_self, @_[1..$#_]) }
+    );
+
+    $poe_kernel->state(
+      $self->[SELF_STATE_READ],
+      sub { _read_state($weak_self, @_[1..$#_]) }
+    );
+  }
 
   return $self;
 }
@@ -883,7 +898,7 @@ sub DESTROY {
   return unless $initialised;
 
   # Stop selecting on the handle.
-  $poe_kernel->select($stdin);
+  $poe_kernel->select_read($stdin);
 
   # Detach our tentacles from the parent session.
   if ($self->[SELF_STATE_READ]) {
@@ -961,7 +976,7 @@ sub _read_state {
           $self->[SELF_CURSOR_DISPLAY]
         ]
       );
-      &{$self->[SELF_PENDING_FN]}($key, $raw_key);
+      $self->[SELF_PENDING_FN]->($self, $key, $raw_key);
       pop(@{$self->[SELF_UNDO]}) if ($old eq $self->[SELF_INPUT]);
       $self->[SELF_KEY_BUILD] = '';
       if ($self->[SELF_PENDING_FN] && "$self->[SELF_PENDING_FN]" eq $oldref) {
@@ -1332,8 +1347,8 @@ sub _dump_key_line {
   my ($self, $key, $raw_key) = @_;
   if (exists $self->[SELF_KEYMAP]->{prefix}->{$raw_key}) {
     $self->[SELF_PENDING_FN] = sub {
-      my ($k, $rk) = @_;
-      $self->_dump_key_line($key.$k, $raw_key.$rk);
+      my ($s, $k, $rk) = @_;
+      $s->_dump_key_line($key.$k, $raw_key.$rk);
     };
     return;
   }
@@ -1500,7 +1515,8 @@ sub rl_yank_nth_arg {
 sub rl_dump_key {
   my ($self) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my ($k,$rk) = @_; $self->_dump_key_line($k, $rk)
+    my ($s,$k,$rk) = @_;
+    $s->_dump_key_line($k, $rk);
   };
 }
 
@@ -2139,9 +2155,9 @@ sub rl_downcase_word {
 sub rl_quoted_insert {
   my ($self, $key) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my ($k,$rk) = @_;
-    $self->rl_self_insert($k, $rk);
-  }
+    my ($s,$k,$rk) = @_;
+    $s->rl_self_insert($k, $rk);
+  };
 }
 
 sub rl_overwrite_mode {
@@ -2626,59 +2642,59 @@ sub rl_vi_spec_word {
 sub rl_character_search {
   my ($self) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my $key = shift;
-    return $self->rl_ding unless substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /(.*)$key/;
-    $self->[SELF_COUNT] = $self->[SELF_INPUT] + length($1);
-    $self->vi_column;
-  }
+    my ($s, $key) = @_;
+    return $s->rl_ding unless substr($s->[SELF_INPUT], $s->[SELF_CURSOR_INPUT]) =~ /(.*)$key/;
+    $s->[SELF_COUNT] = $s->[SELF_INPUT] + length($1);
+    $s->vi_column;
+  };
 }
 
 sub rl_character_search_backward {
   my ($self) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my $key = shift;
-    return $self->rl_ding unless substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]) =~ /$key([^$key])*$/;
-    $self->[SELF_COUNT] = $self->[SELF_INPUT] - length($1);
-    $self->vi_column;
-  }
+    my ($s, $key) = @_;
+    return $s->rl_ding unless substr($s->[SELF_INPUT], 0, $s->[SELF_CURSOR_INPUT]) =~ /$key([^$key])*$/;
+    $s->[SELF_COUNT] = $s->[SELF_INPUT] - length($1);
+    $s->vi_column;
+  };
 }
 
 sub rl_vi_spec_forward_char {
   my ($self) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my $key = shift;
-    return $self->rl_ding unless substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /(.*)$key/;
-    $self->_vi_apply_spec($self->[SELF_CURSOR_INPUT], length($1));
-  }
+    my ($s, $key) = @_;
+    return $s->rl_ding unless substr($s->[SELF_INPUT], $s->[SELF_CURSOR_INPUT]) =~ /(.*)$key/;
+    $s->_vi_apply_spec($s->[SELF_CURSOR_INPUT], length($1));
+  };
 }
 
 sub rl_vi_spec_mark {
   my ($self) = @_;
 
   $self->[SELF_PENDING_FN] = sub {
-    my $key = shift;
-    return $self->rl_ding unless exists $self->[SELF_MARKLIST]->{$key};
-    my $pos = $self->[SELF_CURSOR_INPUT];
-    my $len = $self->[SELF_MARKLIST]->{$key} - $self->[SELF_CURSOR_INPUT];
+    my ($s, $key) = @_;
+    return $s->rl_ding unless exists $s->[SELF_MARKLIST]->{$key};
+    my $pos = $s->[SELF_CURSOR_INPUT];
+    my $len = $s->[SELF_MARKLIST]->{$key} - $s->[SELF_CURSOR_INPUT];
     if ($len < 0) {
       $pos += $len;
       $len = -$len;
     }
-    $self->_vi_apply_spec($pos, $len);
-  }
+    $s->_vi_apply_spec($pos, $len);
+  };
 }
 
 sub _vi_apply_spec {
   my ($self, $from, $howmany) = @_;
-  &{$self->[SELF_PENDING]}($from, $howmany);
+  $self->[SELF_PENDING]->($self, $from, $howmany);
   $self->[SELF_PENDING] = undef if ($self->[SELF_COUNT] <= 1);
 }
 
 sub rl_vi_yank_to {
   my ($self, $key) = @_;
   $self->[SELF_PENDING] = sub {
-    my ($from, $howmany) = @_;
-    push(@{$self->[SELF_KILL_RING]}, substr($self->[SELF_INPUT], $from, $howmany));
+    my ($s, $from, $howmany) = @_;
+    push(@{$s->[SELF_KILL_RING]}, substr($s->[SELF_INPUT], $from, $howmany));
   };
   if ($key eq 'Y') {
     $self->rl_vi_spec_end_of_line;
@@ -2690,14 +2706,14 @@ sub rl_vi_yank_to {
 sub rl_vi_delete_to {
   my ($self, $key) = @_;
   $self->[SELF_PENDING] = sub {
-    my ($from, $howmany) = @_;
-    $self->_delete_chars($from, $howmany);
-    if ($self->[SELF_INPUT] && $self->[SELF_CURSOR_INPUT] >= length($self->[SELF_INPUT])) {
-      $self->[SELF_CURSOR_INPUT]--;
-      $self->[SELF_CURSOR_DISPLAY]--;
+    my ($s, $from, $howmany) = @_;
+    $s->_delete_chars($from, $howmany);
+    if ($s->[SELF_INPUT] && $s->[SELF_CURSOR_INPUT] >= length($s->[SELF_INPUT])) {
+      $s->[SELF_CURSOR_INPUT]--;
+      $s->[SELF_CURSOR_DISPLAY]--;
       _curs_left(1);
     }
-    $self->rl_set_keymap('vi');
+    $s->rl_set_keymap('vi');
   };
   if ($key eq 'D') {
     $self->rl_vi_spec_end_of_line;
@@ -2709,9 +2725,9 @@ sub rl_vi_delete_to {
 sub rl_vi_change_to {
   my ($self, $key) = @_;
   $self->[SELF_PENDING] = sub {
-    my ($from, $howmany) = @_;
-    $self->_delete_chars($from, $howmany);
-    $self->rl_set_keymap('vi-insert');
+    my ($s, $from, $howmany) = @_;
+    $s->_delete_chars($from, $howmany);
+    $s->rl_set_keymap('vi-insert');
   };
   if ($key eq 'C') {
     $self->rl_vi_spec_end_of_line;
@@ -2746,20 +2762,20 @@ sub rl_vi_complete {
 sub rl_vi_goto_mark {
   my ($self) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my $key = shift;
-    return $self->rl_ding unless exists $self->[SELF_MARKLIST]->{$key};
-    $self->[SELF_COUNT] = $self->[SELF_MARKLIST]->{$key};
-    $self->rl_vi_column;
-  }
+    my ($s, $key) = @_;
+    return $s->rl_ding unless exists $s->[SELF_MARKLIST]->{$key};
+    $s->[SELF_COUNT] = $s->[SELF_MARKLIST]->{$key};
+    $s->rl_vi_column;
+  };
 }
 
 sub rl_vi_set_mark  {
   my ($self) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my $key = shift;
-    return $self->rl_ding unless ($key >= 'a' && $key <= 'z');
-    $self->[SELF_MARKLIST]->{$key} = $self->[SELF_CURSOR_INPUT];
-  }
+    my ($s, $key) = @_;
+    return $s->rl_ding unless ($key >= 'a' && $key <= 'z');
+    $s->[SELF_MARKLIST]->{$key} = $s->[SELF_CURSOR_INPUT];
+  };
 }
 
 sub rl_search_abort {
@@ -2897,22 +2913,22 @@ sub rl_vi_redo {
 sub rl_vi_char_search {
   my ($self, $key) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my ($k,$rk) = @_;
+    my ($s,$k,$rk) = @_;
     $rk = "\\" . $rk if ($rk !~ /\w/);
-    return $self->rl_ding unless substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /([^$rk]*)$rk/;
-    $self->[SELF_COUNT] = $self->[SELF_CURSOR_INPUT] + length($1);
-    $self->rl_vi_column;
-  }
+    return $s->rl_ding unless substr($s->[SELF_INPUT], $s->[SELF_CURSOR_INPUT]) =~ /([^$rk]*)$rk/;
+    $s->[SELF_COUNT] = $s->[SELF_CURSOR_INPUT] + length($1);
+    $s->rl_vi_column;
+  };
 }
 
 sub rl_vi_change_char {
   my ($self, $key) = @_;
   $self->[SELF_PENDING_FN] = sub {
-    my ($k,$rk) = @_;
-    $self->rl_delete_char;
-    $self->rl_self_insert($k,$rk);
-    $self->rl_backward_char;
-  }
+    my ($s,$k,$rk) = @_;
+    $s->rl_delete_char;
+    $s->rl_self_insert($k,$rk);
+    $s->rl_backward_char;
+  };
 }
 
 sub rl_vi_subst {
