@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# vim: filetype=perl
+# vim: ts=2 sw=2 filetype=perl expandtab
 
 use strict;
 
@@ -15,15 +15,9 @@ ok(
   "don't import POE::NFA and POE::Session together"
 );
 
-open(SAVE_STDERR, ">&STDERR") or die $!;
-close(STDERR) or die $!;
-
-eval {
-  POE->import( qw( nonexistent ) );
-};
-
-open(STDERR, ">&SAVE_STDERR") or die $!;
-close(SAVE_STDERR) or die $!;
+open(SAVE_STDERR, ">&STDERR") or die $!; close(STDERR) or die $!;
+eval { POE->import( qw( nonexistent ) ) };
+open(STDERR, ">&SAVE_STDERR") or die $!; close(SAVE_STDERR) or die $!;
 
 ok(
   $@ && $@ =~ /could not import qw\(nonexistent\)/,
