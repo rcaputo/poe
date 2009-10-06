@@ -330,6 +330,8 @@ sub _define_trace {
 # and the pre-defined value will take precedence over the defaults
 # here.
 
+my $trace_file_handle;
+
 BEGIN {
   # Shorthand for defining an assert constant.
   sub _define_assert {
@@ -367,12 +369,9 @@ BEGIN {
     no strict 'refs';
     my $trace_filename = TRACE_FILENAME() if defined &TRACE_FILENAME;
     if (defined $trace_filename) {
-      open TRACE_FILE, ">$trace_filename"
+      open $trace_file_handle, ">$trace_filename"
         or die "can't open trace file `$trace_filename': $!";
-      CORE::select((CORE::select(TRACE_FILE), $| = 1)[0]);
-    }
-    else {
-      *TRACE_FILE = *STDERR;
+      CORE::select((CORE::select($trace_file_handle), $| = 1)[0]);
     }
   }
   # TRACE_DEFAULT changes the default value for other TRACE_*
@@ -427,26 +426,30 @@ sub _idle_queue_reset  { $idle_queue_size = TRACE_STATISTICS ? 1 : 0; }
   # TRACE_FILE is STDERR and the die isn't caught by eval.  That's
   # messy and needs to go.
   sub _trap_death {
-    $orig_warn_handler = $SIG{__WARN__};
-    $orig_die_handler = $SIG{__DIE__};
+    if ($trace_file_handle) {
+      $orig_warn_handler = $SIG{__WARN__};
+      $orig_die_handler = $SIG{__DIE__};
 
-    $SIG{__WARN__} = sub { print TRACE_FILE $_[0] };
-    $SIG{__DIE__} = sub { print TRACE_FILE $_[0]; die $_[0]; };
+      $SIG{__WARN__} = sub { print $trace_file_handle $_[0] };
+      $SIG{__DIE__} = sub { print $trace_file_handle $_[0]; die $_[0]; };
+    }
   }
 
   # _release_death puts the original __WARN__ and __DIE__ handlers back in
   # place. Hopefully this is zero-impact camping. The hope is that we can
   # do our trace magic without impacting anyone else.
   sub _release_death {
-    $SIG{__WARN__} = $orig_warn_handler;
-    $SIG{__DIE__} = $orig_die_handler;
+    if ($trace_file_handle) {
+      $SIG{__WARN__} = $orig_warn_handler;
+      $SIG{__DIE__} = $orig_die_handler;
+    }
   }
 }
 
 
 sub _trap {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local *STDERR = *TRACE_FILE;
+  local *STDERR = $trace_file_handle || *STDERR;
 
   _trap_death();
   confess(
@@ -461,7 +464,7 @@ sub _trap {
 
 sub _croak {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local *STDERR = *TRACE_FILE;
+  local *STDERR = $trace_file_handle || *STDERR;
 
   _trap_death();
   croak @_;
@@ -470,7 +473,7 @@ sub _croak {
 
 sub _confess {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local *STDERR = *TRACE_FILE;
+  local *STDERR = $trace_file_handle || *STDERR;
 
   _trap_death();
   confess @_;
@@ -479,7 +482,7 @@ sub _confess {
 
 sub _cluck {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local *STDERR = *TRACE_FILE;
+  local *STDERR = $trace_file_handle || *STDERR;
 
   _trap_death();
   cluck @_;
@@ -488,7 +491,7 @@ sub _cluck {
 
 sub _carp {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
-  local *STDERR = *TRACE_FILE;
+  local *STDERR = $trace_file_handle || *STDERR;
 
   _trap_death();
   carp @_;
@@ -510,7 +513,7 @@ sub _die {
   my ($package, $file, $line) = caller();
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
-  local *STDERR = *TRACE_FILE;
+  local *STDERR = $trace_file_handle || *STDERR;
 
   _trap_death();
   $message =~ s/^/$$: /mg;
