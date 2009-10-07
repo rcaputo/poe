@@ -3,9 +3,14 @@
 use warnings;
 use strict;
 
-use Test::More tests => 1;
-use_ok( 'POE' );
+use Test::More tests => 2;
+use_ok('POE');
+use_ok('POE::Test::Loops');
 
 # idea from Test::Harness, thanks!
-diag("Testing POE $POE::VERSION, Perl $], $^X on $^O");
-
+diag(
+  "Testing POE $POE::VERSION, ",
+  "POE::Test::Loops $POE::Test::Loops::VERSION, ",
+  "Perl $], ",
+  "$^X on $^O"
+);
