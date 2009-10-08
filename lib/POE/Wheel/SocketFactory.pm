@@ -3,7 +3,7 @@ package POE::Wheel::SocketFactory;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.269_001'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.269_002'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( carp croak );
 use Symbol qw( gensym );
