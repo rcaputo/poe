@@ -46,6 +46,9 @@ sub CORE_REQUIREMENTS () {
       ? (
         "Win32::Console" => 0.031,
         "Win32API::File" => 0.05,
+        "Win32::Job"     => 0.03,
+        "Win32::Process" => 0,
+        "Win32"          => 0,
       )
       : (
         "IO::Tty"        => 1.08, # avoids crashes on fbsd

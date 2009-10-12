@@ -34,7 +34,7 @@ BEGIN {
       require Win32API::File;
       Win32API::File->import("FdGetOsFHandle");
     };
-    if ($@) { die "Win32::File needed for POE::Wheel::Run on $^O:\n$@" }
+    if ($@) { die "Win32API::File needed for POE::Wheel::Run on $^O:\n$@" }
 
     eval    { require Win32::Process; Win32::Process->import() };
     if ($@) { die "Win32::Process needed for POE::Wheel::Run on $^O:\n$@" }
