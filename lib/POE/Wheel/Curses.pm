@@ -10,7 +10,7 @@ $VERSION = '1.280'; # NOTE - Should be #.### (three decimal places)
 use Carp qw(croak);
 use Curses qw(
   initscr start_color cbreak raw noecho nonl nodelay timeout keypad
-  intrflush meta typeahead mousemask ALL_MOUSE_EVENTS clear refresh
+  intrflush meta typeahead clear refresh
   endwin COLS
 );
 use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
@@ -64,9 +64,6 @@ sub new {
   intrflush(0);
   meta(1);
   typeahead(-1);
-
-  my $old_mouse_events = 0;
-  mousemask(ALL_MOUSE_EVENTS, $old_mouse_events);
 
   clear();
   refresh();
@@ -225,6 +222,9 @@ An application may process the keystroke using Curses::unctrl() and
 Curses::keyname() on the keystroke.
 
 C<$_[ARG1]> contains the POE::Wheel::Curses object's ID.
+
+Mouse events aren't portable.  As of October 2009, it's up to the
+application to decide whether to call mousemask().
 
 =head1 SEE ALSO
 
