@@ -183,10 +183,10 @@ sub _data_handle_finalize {
 ### access mode.
 
 sub _data_handle_enqueue_ready {
-  my ($self, $mode, @filenos) = @_;
+  my ($self, $mode) = splice(@_, 0, 2);
 
   my $now = time();
-  foreach my $fileno (@filenos) {
+  foreach my $fileno (@_) {
     if (ASSERT_DATA) {
       _trap "internal inconsistency: undefined fileno" unless defined $fileno;
     }
@@ -207,15 +207,12 @@ sub _data_handle_enqueue_ready {
     # later dispatch happens.
     next unless exists $kr_filenos{$fileno};
 
-    my $kr_fno_rec = $kr_filenos{$fileno}->[$mode];
+    # Gather and dispatch all the events for this fileno/mode pair.
 
-    # Gather all the events to emit for this fileno/mode pair.
-
-    my @selects = map { values %$_ } values %{ $kr_fno_rec->[FMO_SESSIONS] };
-
-    # Emit them.
-
-    foreach my $select (@selects) {
+    foreach my $select (
+      map { values %$_ }
+      values %{ $kr_filenos{$fileno}[$mode][FMO_SESSIONS] }
+    ) {
       $self->_dispatch_event(
         $select->[HSS_SESSION], $select->[HSS_SESSION],
         $select->[HSS_STATE], ET_SELECT, [
