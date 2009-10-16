@@ -676,17 +676,22 @@ sub _test_if_kernel_is_idle {
     }
   }
 
-  unless (
-    $kr_queue->get_item_count() > $idle_queue_size or
+  # Not yet idle, or SO idle that there's nothing to receive the
+  # event.  Try to order these from most to least likely to be true so
+  # that the tests short-circuit quickly.
+
+  return if (
     $self->_data_handle_count() or
+    $kr_queue->get_item_count() > $idle_queue_size or
     $self->_data_extref_count() or
-    $self->_data_sig_child_procs()
-  ) {
-    $self->_data_ev_enqueue(
-      $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
-      __FILE__, __LINE__, undef, time(),
-    ) if $self->_data_ses_count();
-  }
+    $self->_data_sig_child_procs() or
+    !$self->_data_ses_count()
+  );
+
+  $self->_data_ev_enqueue(
+    $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
+    __FILE__, __LINE__, undef, time(),
+  );
 }
 
 ### Explain why a session could not be resolved.
@@ -1055,9 +1060,13 @@ sub _dispatch_event {
     $before = time();
   }
 
+  # We only care about the return value and calling context if it's
+  # ET_CALL.
+
   my $return;
   my $wantarray = wantarray;
-  if (CATCH_EXCEPTIONS) {
+
+  if ($type & ET_CALL) {
     eval {
       if ($wantarray) {
         $return = [
@@ -1077,11 +1086,20 @@ sub _dispatch_event {
         );
       }
     };
+  }
+  else {
+    eval {
+      $session->_invoke_state(
+        $source_session, $event, $etc, $file, $line, $fromstate
+      );
+    };
+  }
 
-    # local $@ doesn't work quite the way I expect, but there is a
-    # bit of a problem if an eval{} occurs here because a signal is
-    # dispatched or something.
+  # local $@ doesn't work quite the way I expect, but there is a
+  # bit of a problem if an eval{} occurs here because a signal is
+  # dispatched or something.
 
+  if (CATCH_EXCEPTIONS) {
     if (ref($@) or $@ ne '') {
       my $exception = $@;
       if(TRACE_EVENTS) {
@@ -1114,24 +1132,10 @@ sub _dispatch_event {
     }
   }
   else {
-    if ($wantarray) {
-      $return = [
-        $session->_invoke_state(
-          $source_session, $event, $etc, $file, $line, $fromstate
-        )
-      ];
-    }
-    elsif (defined $wantarray) {
-      $return = $session->_invoke_state(
-        $source_session, $event, $etc, $file, $line, $fromstate
-      );
-    }
-    else {
-      $session->_invoke_state(
-        $source_session, $event, $etc, $file, $line, $fromstate
-      );
-    }
+    die "$@\n" if ref($@) or $@ ne '';
   }
+
+  # Call with exception catching.
 
   # Clear out the event arguments list, in case there are POE-ish
   # things in it. This allows them to destruct happily before we set
@@ -1170,8 +1174,11 @@ sub _dispatch_event {
     _warn("<ev> event $seq ``$event'' returns ($string_ret)\n");
   }
 
+  # Return doesn't matter unless ET_CALL.
+  return unless $type & ET_CALL;
+
   # Return what the handler did.  This is used for call().
-  return( wantarray ? @$return : $return );
+  return( $wantarray ? @$return : $return );
 }
 
 #------------------------------------------------------------------------------
