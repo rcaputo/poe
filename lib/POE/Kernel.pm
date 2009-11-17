@@ -2676,16 +2676,25 @@ package methods.
 
 POE implements isolated compartments called I<sessions>.  Sessions play
 the role of tasks or threads within POE.  POE::Kernel acts as POE's
-task scheduler, doling out timeslices to each session.
+task scheduler, doling out timeslices to each session by invoking
+callbacks within them.
 
-Sessions cooperate to share the CPU within a process.  Each session
-decides when it's appropriate to be interrupted, which removes the
-need to lock data shared between them.  It also gives the programmer
-more control over the relative priority of each task.  A session may
-take exclusive control of a program's time, if necessary.
+Callbacks are not pre-emptive.  As long as one is running, no others
+will be dispatched.  This is known as I<cooperative> multitasking.
+Each session must cooperate by returning to the central dispatching
+kernel.
+
+Cooperative multitasking vastly simplifies data sharing, since no two
+pieces of code may alter data at once.
+
+A session may also take exclusive control of a program's time, if
+necessary, by simply not returning in a timely fashion.  It's even
+possible to write completely blocking programs that use POE as a state
+machine rather than a cooperative dispatcher.
 
 Every POE-based application needs at least one session.  Code cannot
-run I<within POE> without being a part of some session.
+run I<within POE> without being a part of some session.  Likewise, a
+threaded program always has a "thread zero".
 
 Sessions in POE::Kernel should not be confused with
 L<POE::Session|POE::Session> even though the two are inextricably
