@@ -4567,7 +4567,7 @@ be raised.
     my( $sig, $ex ) = @_[ ARG0, ARG1 ];
     # $sig is 'DIE'
     # $ex is the exception hash
-    warn "$$: error in $event: $ex->{error_str}";
+    warn "$$: error in $ex->{event}: $ex->{error_str}";
     $poe_kernel->sig_handled();
 
     # Send the signal to session that sent the original event.
