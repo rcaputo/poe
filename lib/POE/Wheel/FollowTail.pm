@@ -31,10 +31,10 @@ sub MODE_TIMER  () { 0x01 } # Follow on a timer loop.
 sub MODE_SELECT () { 0x02 } # Follow via select().
 
 # Turn on tracing.  A lot of debugging occurred just after 0.11.
+sub TRACE_POLL         () { 0 }
 sub TRACE_RESET        () { 0 }
 sub TRACE_STAT         () { 0 }
 sub TRACE_STAT_VERBOSE () { 0 }
-sub TRACE_POLL         () { 0 }
 
 # Tk doesn't provide a SEEK method, as of 800.022
 BEGIN {
@@ -75,14 +75,6 @@ sub new {
   my $handle   = $params{Handle};
   my $filename = $params{Filename};
 
-  if (defined $filename) {
-    $handle = _open_file($filename);
-  }
-
-  my @start_stat;
-  @start_stat = stat($filename) if defined $filename;
-  @start_stat = (-1) x 8 unless @start_stat;
-
   my $poll_interval = (
     defined($params{PollInterval})
     ?  $params{PollInterval}
@@ -114,9 +106,17 @@ sub new {
     delete $params{ResetEvent},       # SELF_EVENT_RESET
     &POE::Wheel::allocate_wheel_id(), # SELF_UNIQUE_ID
     undef,                            # SELF_STATE_READ
-    \@start_stat,                     # SELF_LAST_STAT
+    [ (-1) x 8 ],                     # SELF_LAST_STAT
     undef,                            # SELF_FOLLOW_MODE
   ], $type;
+
+  if (defined $filename) {
+    $handle = $self->[SELF_HANDLE] = _open_file($filename);
+    $self->[SELF_LAST_STAT] = [ stat $handle ] if $handle;
+  }
+  elsif (defined $handle) {
+    $self->[SELF_LAST_STAT] = [ stat $handle ];
+  }
 
   # We couldn't open a file.  SeekBack won't be used because it
   # assumes the file already exists.  If you need more complex
@@ -124,7 +124,7 @@ sub new {
   # whole SeekBack concept should be deprecated as it only opens a can
   # full of arbitrarily complex worms.  Maybe later.
 
-  if (not (defined $handle) or -f $handle) {
+  if (not (defined $self->[SELF_HANDLE]) or -f $self->[SELF_HANDLE]) {
     carp "FollowTail does not support SeekBack on nonexistent files"
       if defined $params{SeekBack};
 
@@ -136,7 +136,7 @@ sub new {
 
   # Strange things that ought not be tailed?  Directories...
 
-  if (-d $handle) {
+  if (-d $self->[SELF_HANDLE]) {
     croak "FollowTail does not tail directories";
   }
 
@@ -144,7 +144,7 @@ sub new {
   # and we will use select_read to watch the handle rather than the
   # polling interval.
 
-  unless (-f $handle) {
+  unless (-f $self->[SELF_HANDLE]) {
     carp "FollowTail does not support SeekBack on a special file"
       if defined $params{SeekBack};
     carp "FollowTail does not need PollInterval for special files"
@@ -166,35 +166,35 @@ sub new {
   # where a record begins.  Otherwise we just seek back and discard
   # everything to EOF so we can frame the input record.
 
-  my $end = sysseek($handle, 0, SEEK_END);
+  my $end = sysseek($self->[SELF_HANDLE], 0, SEEK_END);
 
   # Seeking back from EOF.
   if ($seek < 0) {
     if (defined($end) and ($end < -$seek)) {
-      sysseek($handle, 0, SEEK_SET);
+      sysseek($self->[SELF_HANDLE], 0, SEEK_SET);
     }
     else {
-      sysseek($handle, $seek, SEEK_END);
+      sysseek($self->[SELF_HANDLE], $seek, SEEK_END);
     }
   }
 
   # Seeking forward from the beginning of the file.
   elsif ($seek > 0) {
     if ($seek > $end) {
-      sysseek($handle, 0, SEEK_END);
+      sysseek($self->[SELF_HANDLE], 0, SEEK_END);
     }
     else {
-      sysseek($handle, $seek, SEEK_SET);
+      sysseek($self->[SELF_HANDLE], $seek, SEEK_SET);
     }
   }
 
   # If they set Seek to 0, we start at the beginning of the file.
   # If it was SeekBack, we start at the end.
   elsif (exists $params{Seek}) {
-    sysseek($handle, 0, SEEK_SET);
+    sysseek($self->[SELF_HANDLE], 0, SEEK_SET);
   }
   elsif (exists $params{SeekBack}) {
-    sysseek($handle, 0, SEEK_END);
+    sysseek($self->[SELF_HANDLE], 0, SEEK_END);
   }
   else {
     die;  # Should never happen.
@@ -202,7 +202,7 @@ sub new {
 
   # Discard partial input chunks unless a SeekBack was specified.
   unless (defined $params{SeekBack} or defined $params{Seek}) {
-    while (defined(my $raw_input = $driver->get($handle))) {
+    while (defined(my $raw_input = $driver->get($self->[SELF_HANDLE]))) {
       # Skip out if there's no more input.
       last unless @$raw_input;
       $filter->get($raw_input);
@@ -226,7 +226,7 @@ sub _define_select_states {
 
   my $filter      = $self->[SELF_FILTER];
   my $driver      = $self->[SELF_DRIVER];
-  my $handle      = $self->[SELF_HANDLE];
+  my $handle      = \$self->[SELF_HANDLE];
   my $unique_id   = $self->[SELF_UNIQUE_ID];
   my $event_input = \$self->[SELF_EVENT_INPUT];
   my $event_error = \$self->[SELF_EVENT_ERROR];
@@ -244,44 +244,194 @@ sub _define_select_states {
       # The actual code starts here.
       my ($k, $ses) = @_[KERNEL, SESSION];
 
-      eval {
-        sysseek($handle, 0, SEEK_CUR);
-      };
+      # Reset position.
+      eval { sysseek($$handle, 0, SEEK_CUR) };
       $! = 0;
 
       TRACE_POLL and warn "<poll> " . time . " read ok";
 
-      if (defined(my $raw_input = $driver->get($handle))) {
+      # Read the next chunk, and return its data.  Go around again.
+      if (defined(my $raw_input = $driver->get($$handle))) {
         if (@$raw_input) {
           TRACE_POLL and warn "<poll> " . time . " raw input";
-          foreach my $cooked_input (@{$filter->get($raw_input)}) {
+          $filter->get_one_start($raw_input);
+          foreach my $cooked_input (@{$filter->get_one()}) {
             TRACE_POLL and warn "<poll> " . time . " cooked input";
             $k->call($ses, $$event_input, $cooked_input, $unique_id);
           }
         }
+
+        # Clear the filehandle's EOF status, if any.
+        IO::Handle::clearerr($$handle);
+
+        return;
       }
 
       # Error reading.  Report the error if it's not EOF, or if it's
       # EOF on a socket or TTY.  Shut down the select, too.
       else {
-        if ($! or (-S $handle) or (-t $handle)) {
+        if ($! or (-S $$handle) or (-t $$handle)) {
           TRACE_POLL and warn "<poll> " . time . " error: $!";
           $$event_error and
             $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
         }
-        $k->select_read($handle => undef);
-        eval { IO::Handle::clearerr($handle) }; # could be a globref
+        $k->select_read($$handle => undef);
+        eval { IO::Handle::clearerr($$handle) }; # could be a globref
       }
     }
   );
 
-  $poe_kernel->select_read($handle, $self->[SELF_STATE_READ]);
+  $poe_kernel->select_read($$handle, $self->[SELF_STATE_READ]);
 }
 
 ### Define the timer based polling loop.  This also relies on stupid
 ### closure tricks.
 
 sub _define_timer_states {
+  my $self = shift;
+
+  # Tail by filename.
+  if (defined $self->[SELF_FILENAME]) {
+    TRACE_POLL and warn "<poll> defining timer state for filename tail";
+    $self->_generate_filename_timer();
+  }
+  else {
+    TRACE_POLL and warn "<poll> defining timer state for handle tail";
+    $self->_generate_filehandle_timer();
+  }
+
+  # Fire up the loop.  The delay() aspect of the loop will prevent
+  # duplicate events from being significant for long.
+  $poe_kernel->delay($self->[SELF_STATE_READ], 0);
+}
+
+sub _generate_filehandle_timer {
+  my $self = shift;
+
+  my $filter        = $self->[SELF_FILTER];
+  my $driver        = $self->[SELF_DRIVER];
+  my $unique_id     = $self->[SELF_UNIQUE_ID];
+  my $poll_interval = $self->[SELF_INTERVAL];
+  my $last_stat     = $self->[SELF_LAST_STAT];
+
+  my $handle        = \$self->[SELF_HANDLE];
+  my $event_input   = \$self->[SELF_EVENT_INPUT];
+  my $event_error   = \$self->[SELF_EVENT_ERROR];
+  my $event_reset   = \$self->[SELF_EVENT_RESET];
+
+  $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> handle timer read";
+  my $state_read    = \$self->[SELF_STATE_READ];
+
+  $poe_kernel->state(
+    $$state_read,
+    sub {
+
+      # Protects against coredump on older perls.
+      0 && CRIMSON_SCOPE_HACK('<');
+
+      # The actual code starts here.
+      my ($k, $ses) = @_[KERNEL, SESSION];
+
+      # File isn't open?  We're done.
+      unless (defined $$handle and fileno $$handle) {
+        TRACE_POLL and warn "<poll> ", time, " $$handle closed";
+        $$event_error and
+          $k->call($ses, $$event_error, 'read', 0, "", $unique_id);
+        return;
+      }
+
+      # Reset position.
+      eval { sysseek($$handle, 0, SEEK_CUR) };
+      $! = 0;
+
+      # Read the next chunk, and return its data.  Go around again.
+      if (defined(my $raw_input = $driver->get($$handle))) {
+        TRACE_POLL and warn "<poll> " . time . " raw input";
+        $filter->get_one_start($raw_input);
+        foreach my $cooked_input (@{$filter->get_one()}) {
+          TRACE_POLL and warn "<poll> " . time . " cooked input";
+          $k->call($ses, $$event_input, $cooked_input, $unique_id);
+        }
+
+        # Clear the filehandle's EOF status, if any.
+        IO::Handle::clearerr($$handle);
+
+        # Must use a timer so that it can be cleared in DESTROY.
+        $k->delay($$state_read, 0) if defined $$state_read;
+        return;
+      }
+
+      # Some kind of important error?
+      if ($!) {
+        TRACE_POLL and warn "<poll> ", time, " $$handle error: $!";
+        $$event_error and
+          $k->call($ses, $$event_error, 'read', ($!+0), "$!", $unique_id);
+        return;
+      }
+
+      # Merely EOF.  Check for file rotation.
+      my @new_stat = stat($$handle);
+      unless (@new_stat) {
+        TRACE_POLL and warn "<poll> ", time, " $$handle stat error";
+        $$event_error and
+          $k->call($ses, $$event_error, 'stat', ($!+0), "$!", $unique_id);
+        return;
+      }
+
+      TRACE_STAT_VERBOSE and do {
+        my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
+        my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
+        warn "<stat> @test_new" if "@test_new" ne "@test_old";
+      };
+
+      # Ignore rdev changes for non-device files
+      eval {
+        if (!S_ISBLK($new_stat[2]) and !S_ISCHR($new_stat[2])) {
+          $last_stat->[6] = $new_stat[6];
+        }
+      };
+
+      # Something fundamental about the file changed.
+      # Consider it a reset, and try to rewind to the top of the file.
+      if (
+        $new_stat[1] != $last_stat->[1] or # inode's number
+        $new_stat[0] != $last_stat->[0] or # inode's device
+        $new_stat[6] != $last_stat->[6] or # device type
+        $new_stat[3] != $last_stat->[3] or # number of links
+        $new_stat[7] <  $last_stat->[7]    # size reduced
+      ) {
+        TRACE_STAT and do {
+          warn "<stat> inode $new_stat[1] != old $last_stat->[1]"
+            if $new_stat[1] != $last_stat->[1];
+          warn "<stat> inode device $new_stat[0] != old $last_stat->[0]"
+            if $new_stat[0] != $last_stat->[0];
+          warn "<stat> device type $new_stat[6] != old $last_stat->[6]"
+            if $new_stat[6] != $last_stat->[6];
+          warn "<stat> link count $new_stat[3] != old $last_stat->[3]"
+            if $new_stat[3] != $last_stat->[3];
+          warn "<stat> file size $new_stat[7] < old $last_stat->[7]"
+            if $new_stat[7] < $last_stat->[7];
+        };
+
+        # File has reset.
+        TRACE_RESET and warn "<reset> filehandle has reset";
+        $$event_reset and $k->call($ses, $$event_reset, $unique_id);
+
+        sysseek($$handle, 0, SEEK_SET);
+      }
+
+      # The file didn't roll.  Try again shortly.
+      @$last_stat = @new_stat;
+      IO::Handle::clearerr($$handle);
+      $k->delay($$state_read, $poll_interval) if defined $$state_read;
+      return;
+    }
+  );
+}
+
+# Tail by filehandle.
+
+sub _generate_filename_timer {
   my $self = shift;
 
   my $filter        = $self->[SELF_FILTER];
@@ -296,10 +446,8 @@ sub _define_timer_states {
   my $event_error   = \$self->[SELF_EVENT_ERROR];
   my $event_reset   = \$self->[SELF_EVENT_RESET];
 
-  $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> timer read";
+  $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> name timer read";
   my $state_read    = \$self->[SELF_STATE_READ];
-
-  TRACE_POLL and warn "<poll> defining timer state";
 
   $poe_kernel->state(
     $$state_read,
@@ -312,125 +460,110 @@ sub _define_timer_states {
       my ($k, $ses) = @_[KERNEL, SESSION];
 
       # File isn't open?  Try to open it.
-      $$handle = _open_file($filename) unless defined $$handle;
+      unless ($$handle) {
+        $$handle = _open_file($filename);
 
-      if (defined $filename) {
-        my @new_stat = stat($filename);
-        if (@new_stat) {
-          TRACE_STAT_VERBOSE and do {
-            my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
-            my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
-            warn "<stat> @test_new" if "@test_new" ne "@test_old";
-          };
-
-          my $did_reset;
-
-          # File shrank.  Consider it a reset.  Seek to the top of
-          # the file.
-          if ($new_stat[7] < $last_stat->[7]) {
-            $did_reset = 1;
-          }
-
-          $last_stat->[7] = $new_stat[7];
-
-          # Ignore rdev changes for non-device files
-          eval {
-            if (!S_ISBLK($new_stat[2]) and !S_ISCHR($new_stat[2])) {
-              $last_stat->[6] = $new_stat[6];
-            }
-          };
-
-          # Something fundamental about the file changed.  Reopen it.
-          if (
-            $new_stat[1] != $last_stat->[1] or # inode's number
-            $new_stat[0] != $last_stat->[0] or # inode's device
-            $new_stat[6] != $last_stat->[6] or # device type
-            $new_stat[3] != $last_stat->[3] or # number of links
-            $new_stat[7] <  $last_stat->[7]    # size reduced
-          ) {
-            TRACE_STAT and do {
-              warn "<stat> inode $new_stat[1] != old $last_stat->[1]"
-                if $new_stat[1] != $last_stat->[1];
-              warn "<stat> inode device $new_stat[0] != old $last_stat->[0]"
-                if $new_stat[0] != $last_stat->[0];
-              warn "<stat> device type $new_stat[6] != old $last_stat->[6]"
-                if $new_stat[6] != $last_stat->[6];
-              warn "<stat> link count $new_stat[3] != old $last_stat->[3]"
-                if $new_stat[3] != $last_stat->[3];
-              warn "<stat> file size $new_stat[7] < old $last_stat->[7]"
-                if $new_stat[7] < $last_stat->[7];
-            };
-
-            # The file may have rolled.  Try one more read before moving on.
-            if (
-              defined $$handle and
-              defined(my $raw_input = $driver->get($$handle))
-            ) {
-
-              # First read the remainder of the file.
-              # Got input.  Read a bunch of it, then poll again right away.
-              if (@$raw_input) {
-                TRACE_POLL and warn "<poll> " . time . " raw input";
-                foreach my $cooked_input (@{$filter->get($raw_input)}) {
-                  TRACE_POLL and warn "<poll> " . time . " cooked input";
-                  $k->call($ses, $$event_input, $cooked_input, $unique_id);
-                }
-              }
-              $k->delay($$state_read, 0) if defined $$state_read;
-            }
-
-            @$last_stat = @new_stat;
-            close $$handle if defined $$handle;
-            $$handle = _open_file($filename);
-
-            $did_reset = 1;
-          }
-
-          if ($did_reset) {
-            $$event_reset and $k->call($ses, $$event_reset, $unique_id);
-            sysseek($$handle, 0, SEEK_SET);
-          }
+        # Couldn't open yet.
+        unless ($$handle) {
+          $k->delay($$state_read, $poll_interval) if defined $$state_read;
+          return;
         }
+
+        @$last_stat = stat($$handle);
       }
-
-      $! = 0;
-      TRACE_POLL and warn "<poll> " . time . " read ok";
-
-      # No open file.  Go around again.
-      unless (defined $$handle) {
-        $k->delay($$state_read, $poll_interval) if defined $$state_read;
-      }
-
-      # Got input.  Read a bunch of it, then poll again right away.
-      elsif (defined(my $raw_input = $driver->get($$handle))) {
-        if (@$raw_input) {
-          TRACE_POLL and warn "<poll> " . time . " raw inputn";
-          foreach my $cooked_input (@{$filter->get($raw_input)}) {
-            TRACE_POLL and warn "<poll> " . time . " cooked inputn";
-            $k->call($ses, $$event_input, $cooked_input, $unique_id);
-          }
-        }
-        $k->delay($$state_read, 0) if defined $$state_read;
-      }
-
-      # Got an error of some sort.
       else {
-        TRACE_POLL and warn "<poll> " . time . " set delay";
-        if ($!) {
-          TRACE_POLL and warn "<poll> " . time . " error: $!n";
-          $$event_error and
-            $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
-        }
-        $k->select_read($$handle => undef);
-        $k->delay($$state_read, $poll_interval) if defined $$state_read;
-        IO::Handle::clearerr($$handle);
+        # Reset position.
+        eval { sysseek($$handle, 0, SEEK_CUR) };
+        $! = 0;
       }
+
+      # Read the next chunk, and return its data.  Go around again.
+      if (defined(my $raw_input = $driver->get($$handle))) {
+        TRACE_POLL and warn "<poll> " . time . " raw input";
+        $filter->get_one_start($raw_input);
+        foreach my $cooked_input (@{$filter->get_one()}) {
+          TRACE_POLL and warn "<poll> " . time . " cooked input";
+          $k->call($ses, $$event_input, $cooked_input, $unique_id);
+        }
+
+        # Clear the filehandle's EOF status, if any.
+        IO::Handle::clearerr($$handle);
+
+        # Must use a timer so that it can be cleared in DESTROY.
+        $k->delay($$state_read, 0) if defined $$state_read;
+        return;
+      }
+
+      # Some kind of important error?
+      if ($!) {
+        TRACE_POLL and warn "<poll> ", time, " $$handle error: $!";
+        $$event_error and
+          $k->call($ses, $$event_error, 'read', ($!+0), "$!", $unique_id);
+        return;
+      }
+
+      # Merely EOF.  Check for file rotation.
+      my @new_stat = stat($$handle);
+      unless (@new_stat) {
+        TRACE_POLL and warn "<poll> ", time, " $$handle stat error";
+        $$event_error and
+          $k->call($ses, $$event_error, 'stat', ($!+0), "$!", $unique_id);
+        return;
+      }
+
+      TRACE_STAT_VERBOSE and do {
+        my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
+        my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
+        warn "<stat> @test_new" if "@test_new" ne "@test_old";
+      };
+
+      # Ignore rdev changes for non-device files
+      eval {
+        if (!S_ISBLK($new_stat[2]) and !S_ISCHR($new_stat[2])) {
+          $last_stat->[6] = $new_stat[6];
+        }
+      };
+
+      # Something fundamental about the file changed.
+      # Consider it a reset, and close the file.
+      if (
+        $new_stat[1] != $last_stat->[1] or # inode's number
+        $new_stat[0] != $last_stat->[0] or # inode's device
+        $new_stat[6] != $last_stat->[6] or # device type
+        $new_stat[3] != $last_stat->[3] or # number of links
+        $new_stat[7] <  $last_stat->[7]    # size reduced
+      ) {
+        TRACE_STAT and do {
+          warn "<stat> inode $new_stat[1] != old $last_stat->[1]"
+            if $new_stat[1] != $last_stat->[1];
+          warn "<stat> inode device $new_stat[0] != old $last_stat->[0]"
+            if $new_stat[0] != $last_stat->[0];
+          warn "<stat> device type $new_stat[6] != old $last_stat->[6]"
+            if $new_stat[6] != $last_stat->[6];
+          warn "<stat> link count $new_stat[3] != old $last_stat->[3]"
+            if $new_stat[3] != $last_stat->[3];
+          warn "<stat> file size $new_stat[7] < old $last_stat->[7]"
+            if $new_stat[7] < $last_stat->[7];
+        };
+
+        $$handle = undef;
+
+        # File has reset.
+        TRACE_RESET and warn "<reset> file name has reset";
+        $$event_reset and $k->call($ses, $$event_reset, $unique_id);
+
+        # Must use a timer so that it can be cleared in DESTROY.
+        $k->delay($$state_read, 0) if defined $$state_read;
+        return;
+      }
+
+      # The file didn't roll.  Try again shortly.
+      @$last_stat = @new_stat;
+      IO::Handle::clearerr($$handle);
+      $k->delay($$state_read, $poll_interval) if defined $$state_read;
+      return;
     }
   );
-
-  # Fire up the loop.  The delay() aspect of the loop will prevent
-  # duplicate events from being significant for long.
-  $poe_kernel->delay($$state_read, 0);
 }
 
 #------------------------------------------------------------------------------
@@ -500,14 +633,12 @@ sub _open_file {
   # FIFOs (named pipes) are opened R/W so they don't report EOF.
   # Everything else is opened read-only.
   if (-p $filename) {
-    return unless open($handle, "+<$filename");
-  }
-  else {
-    use Carp qw(carp);
-    return unless open($handle, "<$filename");
+    return $handle if open $handle, "+<$filename";
+    return;
   }
 
-  return $handle;
+  return $handle if open $handle, "<$filename";
+  return;
 }
 
 1;
