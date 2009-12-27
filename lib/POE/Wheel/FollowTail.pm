@@ -11,6 +11,7 @@ use POSIX qw(SEEK_SET SEEK_CUR SEEK_END S_ISCHR S_ISBLK);
 use POE qw(Wheel Driver::SysRW Filter::Line);
 use base qw(POE::Wheel);
 use IO::Handle ();
+use Errno qw(ENOENT);
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 
@@ -471,6 +472,10 @@ sub _generate_filename_timer {
           return;
         }
 
+        # File has reset.
+        TRACE_RESET and warn "<reset> file name has reset";
+        $$event_reset and $k->call($ses, $$event_reset, $unique_id);
+
         @$last_stat = (stat $$handle)[0..7];
       }
       else {
@@ -508,9 +513,12 @@ sub _generate_filename_timer {
       my @new_stat = (stat $filename)[0..7];
       unless (@new_stat) {
         TRACE_POLL and warn "<poll> ", time, " $$handle stat error";
-        $$event_error and
-          $k->call($ses, $$event_error, 'stat', ($!+0), "$!", $unique_id);
-        return;
+        if ($! != ENOENT) {
+          $$event_error and
+            $k->call($ses, $$event_error, 'stat', ($!+0), "$!", $unique_id);
+          return;
+        }
+        @new_stat = (-1) x 8;
       }
 
       TRACE_STAT_VERBOSE and do {
@@ -551,11 +559,7 @@ sub _generate_filename_timer {
         };
 
         $$handle = undef;
-      @$last_stat = @new_stat;
-
-        # File has reset.
-        TRACE_RESET and warn "<reset> file name has reset";
-        $$event_reset and $k->call($ses, $$event_reset, $unique_id);
+        @$last_stat = @new_stat;
 
         # Must use a timer so that it can be cleared in DESTROY.
         $k->delay($$state_read, 0) if defined $$state_read;
