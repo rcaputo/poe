@@ -8,11 +8,11 @@ use Test::More tests => 1;
 
 my $filename = 'bingos-followtail';
 
-open FH, "> $filename" or die "$!\n";
+open FH, ">$filename" or die "$!\n";
 
 POE::Session->create(
   package_states => [
-        'main' => [qw(_start _input _error _shutdown)],
+    'main' => [qw(_start _input _error _shutdown)],
   ],
   heap => { filename => $filename, },
 );
@@ -23,9 +23,10 @@ exit 0;
 sub _start {
   my ($kernel,$heap) = @_[KERNEL,HEAP];
   $heap->{wheel} = POE::Wheel::FollowTail->new(
-        Filename     => $heap->{filename},
-        InputEvent   => '_input',
-        ErrorEvent   => '_error',
+    Filter      => POE::Filter::Line->new( Literal => "\n" ),
+    Filename    => $heap->{filename},
+    InputEvent  => '_input',
+    ErrorEvent  => '_error',
   );
   $heap->{counter} = 0;
   print FH "Cows go moo, yes they do\n";
