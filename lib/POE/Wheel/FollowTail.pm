@@ -112,10 +112,10 @@ sub new {
 
   if (defined $filename) {
     $handle = $self->[SELF_HANDLE] = _open_file($filename);
-    $self->[SELF_LAST_STAT] = [ stat $handle ] if $handle;
+    $self->[SELF_LAST_STAT] = [ (stat $handle)[0..7] ] if $handle;
   }
   elsif (defined $handle) {
-    $self->[SELF_LAST_STAT] = [ stat $handle ];
+    $self->[SELF_LAST_STAT] = [ (stat $handle)[0..7] ];
   }
 
   # We couldn't open a file.  SeekBack won't be used because it
@@ -275,6 +275,7 @@ sub _define_select_states {
           $$event_error and
             $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
         }
+
         $k->select_read($$handle => undef);
         eval { IO::Handle::clearerr($$handle) }; # could be a globref
       }
@@ -370,7 +371,8 @@ sub _generate_filehandle_timer {
       }
 
       # Merely EOF.  Check for file rotation.
-      my @new_stat = stat($$handle);
+
+      my @new_stat = (stat $$handle)[0..7];
       unless (@new_stat) {
         TRACE_POLL and warn "<poll> ", time, " $$handle stat error";
         $$event_error and
@@ -379,8 +381,8 @@ sub _generate_filehandle_timer {
       }
 
       TRACE_STAT_VERBOSE and do {
-        my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
-        my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
+        my @test_new = @new_stat;
+        my @test_old = @$last_stat;
         warn "<stat> @test_new" if "@test_new" ne "@test_old";
       };
 
@@ -429,8 +431,6 @@ sub _generate_filehandle_timer {
   );
 }
 
-# Tail by filehandle.
-
 sub _generate_filename_timer {
   my $self = shift;
 
@@ -469,7 +469,7 @@ sub _generate_filename_timer {
           return;
         }
 
-        @$last_stat = stat($$handle);
+        @$last_stat = (stat $$handle)[0..7];
       }
       else {
         # Reset position.
@@ -503,7 +503,7 @@ sub _generate_filename_timer {
       }
 
       # Merely EOF.  Check for file rotation.
-      my @new_stat = stat($$handle);
+      my @new_stat = (stat $filename)[0..7];
       unless (@new_stat) {
         TRACE_POLL and warn "<poll> ", time, " $$handle stat error";
         $$event_error and
@@ -512,8 +512,8 @@ sub _generate_filename_timer {
       }
 
       TRACE_STAT_VERBOSE and do {
-        my @test_new = @new_stat;   splice(@test_new, 8, 1, "(removed)");
-        my @test_old = @$last_stat; splice(@test_old, 8, 1, "(removed)");
+        my @test_new = @new_stat;
+        my @test_old = @$last_stat;
         warn "<stat> @test_new" if "@test_new" ne "@test_old";
       };
 
