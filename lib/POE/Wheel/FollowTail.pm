@@ -112,7 +112,7 @@ sub new {
 
   if (defined $filename) {
     $handle = $self->[SELF_HANDLE] = _open_file($filename);
-    $self->[SELF_LAST_STAT] = [ (stat $handle)[0..7] ] if $handle;
+    $self->[SELF_LAST_STAT] = [ (stat $filename)[0..7] ] if $handle;
   }
   elsif (defined $handle) {
     $self->[SELF_LAST_STAT] = [ (stat $handle)[0..7] ];
@@ -383,7 +383,9 @@ sub _generate_filehandle_timer {
       TRACE_STAT_VERBOSE and do {
         my @test_new = @new_stat;
         my @test_old = @$last_stat;
-        warn "<stat> @test_new" if "@test_new" ne "@test_old";
+        warn "<stat> from: @test_old\n<stat> to  : @test_new" if (
+          "@test_new" ne "@test_old"
+        );
       };
 
       # Ignore rdev changes for non-device files
@@ -514,7 +516,9 @@ sub _generate_filename_timer {
       TRACE_STAT_VERBOSE and do {
         my @test_new = @new_stat;
         my @test_old = @$last_stat;
-        warn "<stat> @test_new" if "@test_new" ne "@test_old";
+        warn "<stat> from: @test_old\n<stat> to  : @test_new" if (
+          "@test_new" ne "@test_old"
+        );
       };
 
       # Ignore rdev changes for non-device files
@@ -547,6 +551,7 @@ sub _generate_filename_timer {
         };
 
         $$handle = undef;
+      @$last_stat = @new_stat;
 
         # File has reset.
         TRACE_RESET and warn "<reset> file name has reset";
