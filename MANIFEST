@@ -101,6 +101,7 @@ t/10_units/03_base/15_kernel_internal.t
 t/10_units/03_base/16_explicit_loop.t
 t/10_units/03_base/17_explicit_loop_fail.t
 t/10_units/03_base/18_nfa_usage.t
+t/10_units/03_base/19_detach_start.t
 t/10_units/04_drivers/01_sysrw.t
 t/10_units/05_filters/01_block.t
 t/10_units/05_filters/02_grep.t

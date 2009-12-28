@@ -173,6 +173,7 @@ BEGIN {
 # functions that act on the current session.
 my $kr_active_session;
 my $kr_active_event;
+my $kr_active_event_type;
 
 # Needs to be lexical so that POE::Resource::Events can see it
 # change.  TODO - Something better?  Maybe we call a method in
@@ -197,21 +198,22 @@ sub MODE_EX () { 2 }  # exception/expedite
 # storage in some of the leaf objects, such as POE::Wheel.  All its
 # members are described in detail further on.
 
-sub KR_SESSIONS       () {  0 } # [ \%kr_sessions,
-sub KR_FILENOS        () {  1 } #   \%kr_filenos,
-sub KR_SIGNALS        () {  2 } #   \%kr_signals,
-sub KR_ALIASES        () {  3 } #   \%kr_aliases,
-sub KR_ACTIVE_SESSION () {  4 } #   \$kr_active_session,
-sub KR_QUEUE          () {  5 } #   \$kr_queue,
-sub KR_ID             () {  6 } #   $unique_kernel_id,
-sub KR_SESSION_IDS    () {  7 } #   \%kr_session_ids,
-sub KR_SID_SEQ        () {  8 } #   \$kr_sid_seq,
-sub KR_EXTRA_REFS     () {  9 } #   \$kr_extra_refs,
-sub KR_SIZE           () { 10 } #   XXX UNUSED ???
-sub KR_RUN            () { 11 } #   \$kr_run_warning
-sub KR_ACTIVE_EVENT   () { 12 } #   \$kr_active_event
-sub KR_PIDS           () { 13 } #   \%kr_pids_to_events
-                                # ]
+sub KR_SESSIONS          () {  0 } # [ \%kr_sessions,
+sub KR_FILENOS           () {  1 } #   \%kr_filenos,
+sub KR_SIGNALS           () {  2 } #   \%kr_signals,
+sub KR_ALIASES           () {  3 } #   \%kr_aliases,
+sub KR_ACTIVE_SESSION    () {  4 } #   \$kr_active_session,
+sub KR_QUEUE             () {  5 } #   \$kr_queue,
+sub KR_ID                () {  6 } #   $unique_kernel_id,
+sub KR_SESSION_IDS       () {  7 } #   \%kr_session_ids,
+sub KR_SID_SEQ           () {  8 } #   \$kr_sid_seq,
+sub KR_EXTRA_REFS        () {  9 } #   \$kr_extra_refs,
+sub KR_SIZE              () { 10 } #   XXX UNUSED ???
+sub KR_RUN               () { 11 } #   \$kr_run_warning
+sub KR_ACTIVE_EVENT      () { 12 } #   \$kr_active_event
+sub KR_PIDS              () { 13 } #   \%kr_pids_to_events
+sub KR_ACTIVE_EVENT_TYPE () { 14 } #   \$kr_active_event_type
+                                   # ]
 
 # This flag indicates that POE::Kernel's run() method was called.
 # It's used to warn about forgetting $poe_kernel->run().
@@ -861,19 +863,21 @@ sub new {
     # objects, such as KR_QUEUE is?
 
     my $self = $poe_kernel = bless [
-      undef,               # KR_SESSIONS - from POE::Resource::Sessions
-      undef,               # KR_FILENOS - from POE::Resource::FileHandles
-      undef,               # KR_SIGNALS - from POE::Resource::Signals
-      undef,               # KR_ALIASES - from POE::Resource::Aliases
-      \$kr_active_session, # KR_ACTIVE_SESSION
-      $kr_queue,           # KR_QUEUE - reference to an object
-      undef,               # KR_ID
-      undef,               # KR_SESSION_IDS - from POE::Resource::SIDS
-      undef,               # KR_SID_SEQ - scalar ref from POE::Resource::SIDS
-      undef,               # KR_EXTRA_REFS
-      undef,               # KR_SIZE
-      \$kr_run_warning,    # KR_RUN
-      \$kr_active_event,   # KR_ACTIVE_EVENT
+      undef,                  # KR_SESSIONS - from POE::Resource::Sessions
+      undef,                  # KR_FILENOS - from POE::Resource::FileHandles
+      undef,                  # KR_SIGNALS - from POE::Resource::Signals
+      undef,                  # KR_ALIASES - from POE::Resource::Aliases
+      \$kr_active_session,    # KR_ACTIVE_SESSION
+      $kr_queue,              # KR_QUEUE - reference to an object
+      undef,                  # KR_ID
+      undef,                  # KR_SESSION_IDS - from POE::Resource::SIDS
+      undef,                  # KR_SID_SEQ - from POE::Resource::SIDS
+      undef,                  # KR_EXTRA_REFS
+      undef,                  # KR_SIZE
+      \$kr_run_warning,       # KR_RUN
+      \$kr_active_event,      # KR_ACTIVE_EVENT
+      undef,                  # KR_PIDS
+      \$kr_active_event_type, # KR_ACTIVE_EVENT_TYPE
     ], $type;
 
     POE::Resources->load();
@@ -1051,8 +1055,12 @@ sub _dispatch_event {
   # Prepare to call the appropriate handler.  Push the current active
   # session on Perl's call stack.
 
-  my ($hold_active_session, $hold_active_event) = ($kr_active_session, $kr_active_event);
-  ($kr_active_session, $kr_active_event) = ($session, $event);
+  my ($hold_active_session, $hold_active_event, $hold_active_event_type) = (
+    $kr_active_session, $kr_active_event, $kr_active_event_type
+  );
+  (
+    $kr_active_session, $kr_active_event, $kr_active_event_type
+  ) = ($session, $event, $type);
 
   # Dispatch the event, at long last.
   my $before;
@@ -1164,8 +1172,8 @@ sub _dispatch_event {
   # Pop the active session and event, now that they're no longer
   # active.
 
-  ($kr_active_session, $kr_active_event) = (
-    $hold_active_session, $hold_active_event
+  ($kr_active_session, $kr_active_event, $kr_active_event_type) = (
+    $hold_active_session, $hold_active_event, $hold_active_event_type
   );
 
   if (TRACE_EVENTS) {
@@ -1533,11 +1541,14 @@ sub detach_myself {
   my $old_parent = $self->_data_ses_get_parent($kr_active_session);
 
   # Tell the old parent session that the child is departing.
+  # But not if the active event is ET_START, since that would generate
+  # a CHILD_LOSE without a CHILD_CREATE.
   $self->_dispatch_event(
     $old_parent, $self,
     EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session, undef ],
     (caller)[1,2], undef, time(), -__LINE__
-  );
+  )
+  unless $kr_active_event_type & ET_START;
 
   # Tell the new parent (kernel) that it's gaining a child.
   # (Actually it doesn't care, so we don't do that here, but this is
