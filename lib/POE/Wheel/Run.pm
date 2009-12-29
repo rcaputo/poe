@@ -1083,7 +1083,7 @@ sub kill {
   my ($self, $signal) = @_;
   $signal = 'TERM' unless defined $signal;
   if ( $self->[MSWIN32_GROUP_PID] ) {
-    Win32::Process::KillProcess( $self->[MSWIN32_GROUP_PID], 293 );
+    Win32::Process::KillProcess( $self->[MSWIN32_GROUP_PID], 293 ) ? 1 : 0;
   }
   else {
     eval { kill $signal, $self->[CHILD_PID] };
@@ -1832,7 +1832,11 @@ the object represents.  kill() is often used to force a reluctant
 program to terminate.  SIGNAL is one of the operating signal names
 present in %SIG.
 
-The kill() method will send SIGTERM if SIGNAL is undef or omitted.
+kill() returns the number of processes successfully signaled: 1 on
+success, or 0 on failure, since the POE::Wheel::Run object only
+affects at most a single process.
+
+kill() sends SIGTERM if SIGNAL is undef or omitted.
 
 =head2 get_driver_out_messages
 
