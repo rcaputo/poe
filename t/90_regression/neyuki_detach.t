@@ -15,109 +15,71 @@ BEGIN {
 }
 
 use POE;
+use Test::More tests => 11;
 
-print "1..10\n";
-
-my $test = 0;
+my $seq = 0;
 
 POE::Session->create(
   inline_states => {
     _start => sub {
-      $test++;
-      print "not " unless $test == 1;
-      print "ok $test # starting parent\n";
-
+      is(++$seq, 1, "starting parent in sequence");
       $_[KERNEL]->yield('parent');
     },
 
     _stop => sub {
-      $test++;
-      print "not " unless $test == 8;
-      print "ok $test # stopping parent\n";
+      is(++$seq, 8, "stopping parent in sequence");
     },
 
     _parent => sub {
-      $test++;
-      print "not ok $test # parent received _parent\n";
+      fail("parent received unexpected _parent");
     },
 
     _child => sub {
-
-      $test++;
-      if ($test == 4) {
-        print "not " unless (
-          $_[ARG1]->ID == 3 and
-          $_[ARG0] eq "create"
-        );
-        print "ok $test # parent should receive _child create\n";
+      if ($_[ARG0] eq "create") {
+        is(++$seq, 4, "parent received _child create in sequence");
         return;
       }
 
-      if ($test == 6) {
-        print "not " unless (
-          $_[ARG1]->ID == 3 and
-          $_[ARG0] eq "lose"
-        );
-        print "ok $test # parent should receive _child lose\n";
+      if ($_[ARG0] eq "lose") {
+        is(++$seq, 6, "parent received _child lose in sequence");
         return;
       }
 
-      print "not ok $test # parent received _child $_[ARG0]\n";
+      fail("parent received unexpected _child $_[ARG0]");
     },
 
     parent => sub {
-      $test++;
-      print "not " unless $test == 2;
-      print "ok $test # parent spawning child\n";
+      is(++$seq, 2, "parent spawning child in sequence");
 
       POE::Session->create(
         inline_states => {
           _start => sub {
-            $test++;
-            print "not " unless $test == 3;
-            print "ok $test # child starting\n";
-
+            is(++$seq, 3, "child started in sequence");
             $_[KERNEL]->yield('child');
           },
 
           _stop => sub {
-            $test++;
-            print "not " unless $test == 10;
-            print "ok $test # child stopping\n";
+            is(++$seq, 10, "child stopped in sequence");
           },
 
           _parent => sub {
-            $test++;
-            if ($test == 7) {
-              print "not " unless (
-                $_[ARG0]->ID == 2 and
-                $_[ARG1]->isa("POE::Kernel")
-              );
-              print "ok $test # child should receive _parent = kernel\n";
-              return;
-            }
-
-            print "not ok $test # child given to $_[ARG1]\n";
+            is(++$seq, 7, "child received _parent in sequence");
+            ok($_[ARG1]->isa("POE::Kernel"), "child parent is POE::Kernel");
           },
 
           _child => sub {
-            $test++;
-            print "not ok $test # child received _child $_[ARG0]\n";
+            fail("child received unexpected _child");
           },
 
           child => sub {
-            $test++;
-            print "not " unless $test == 5;
-            print "ok $test # child detaching itself\n";
+            is(++$seq, 5, "child detached itself in sequence");
 
             $_[KERNEL]->detach_myself;
             $_[KERNEL]->yield("done");
           },
 
           done => sub {
-            $test++;
-            print "not " unless $test == 9;
-            print "ok $test # child is done\n";
+            is(++$seq, 9, "child is done in sequence");
           },
         }
       );
@@ -125,4 +87,4 @@ POE::Session->create(
   } # inline_states
 );
 
-$poe_kernel->run;
+POE::Kernel->run();

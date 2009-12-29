@@ -1520,9 +1520,6 @@ sub session_alloc {
 # relationship between the current session and its parent.  Basically,
 # the current session is given to the Kernel session.  Unlike with
 # _stop, the current session's children follow their parent.
-#
-# TODO - Calling detach_myself() from _start means the parent receives
-# a "_child lose" event without ever seeing "_child create".
 
 sub detach_myself {
   my $self = shift;
