@@ -15,7 +15,7 @@ BEGIN {
 }
 
 use POE;
-use Test::More tests => 11;
+use Test::More tests => 12;
 
 my $seq = 0;
 
@@ -27,7 +27,7 @@ POE::Session->create(
     },
 
     _stop => sub {
-      is(++$seq, 8, "stopping parent in sequence");
+      is(++$seq, 9, "stopping parent in sequence");
     },
 
     _parent => sub {
@@ -48,6 +48,10 @@ POE::Session->create(
       fail("parent received unexpected _child $_[ARG0]");
     },
 
+    done => sub {
+      is(++$seq, 8, "parent done in sequence");
+    },
+
     parent => sub {
       is(++$seq, 2, "parent spawning child in sequence");
 
@@ -59,7 +63,7 @@ POE::Session->create(
           },
 
           _stop => sub {
-            is(++$seq, 10, "child stopped in sequence");
+            is(++$seq, 11, "child stopped in sequence");
           },
 
           _parent => sub {
@@ -79,10 +83,12 @@ POE::Session->create(
           },
 
           done => sub {
-            is(++$seq, 9, "child is done in sequence");
+            is(++$seq, 10, "child is done in sequence");
           },
         }
       );
+
+      $_[KERNEL]->yield("done");
     } # parent
   } # inline_states
 );
