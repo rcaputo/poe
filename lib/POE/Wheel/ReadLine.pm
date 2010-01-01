@@ -1063,8 +1063,11 @@ sub get {
   $self->[SELF_UNDO]           = [];
   $self->[SELF_LAST]           = '';
 
-  # Watch the filehandle.
+  # Watch the filehandle.  STDIN is made blocking to avoid buffer
+  # overruns when put()ing large quantities of data.
+  # TODO - Why does it matter to STDOUT whether STDIN is blocking?
   $poe_kernel->select($stdin, $self->[SELF_STATE_READ]);
+  $stdin->blocking(1);
 
   my $sp = $prompt;
   $sp =~ s{\\[\[\]]}{}g;
