@@ -2949,7 +2949,8 @@ code references that will generate POE events when called.
 Applications can pass these code references to event loops for use as
 callbacks.
 
-These are the four loops included in POE's distribution:
+POE's distribution includes two event loop interfaces.  CPAN holds
+several more:
 
 =head3 POE::Loop::Select
 
@@ -2957,19 +2958,24 @@ By default POE uses its select() based loop to drive its event system.
 This is perhaps the least efficient loop, but it is also the most
 portable.  POE optimizes for correctness above all.
 
-=head3 POE::Loop::Event
+=head3 POE::Loop::IO_Poll
+
+The L<IO::Poll|IO::Poll> event loop provides an alternative that
+theoretically scales better than select().
+
+=head3 POE::Loop::Event (separate distribution)
 
 This event loop provides interoperability with other modules that use
 L<Event>.  It may also provide a performance boost because L<Event> is
 written in a compiled language.  Unfortunately, this makes L<Event>
 less portable than Perl's built-in select().
 
-=head3 POE::Loop::Gtk
+=head3 POE::Loop::Gtk (separate distribution)
 
 This event loop allows programs to work under the L<Gtk> graphical
 toolkit.
 
-=head3 POE::Loop::Tk
+=head3 POE::Loop::Tk (separate distribution)
 
 This event loop allows programs to work under the L<Tk> graphical
 toolkit.  Tk has some restrictions that require POE to behave oddly.
@@ -2983,10 +2989,50 @@ need it other than for dispatching events.
 Creating and using a different MainWindow often has an undesired
 outcome.
 
-=head3 POE::Loop::IO_Poll
+=head3 POE::Loop::EV (separate distribution)
 
-The L<IO::Poll|IO::Poll> event loop provides an alternative that
-theoretically scales better than select().
+L<POE::Loop::EV> allows POE-based programs to use the EV event library
+with little or no change.
+
+=head3 POE::Loop::Glib (separate distribution)
+
+L<POE::Loop::Glib> allows POE-based programs to use Glib with little
+or no change.  It also supports embedding POE-based programs into
+applications that already use Glib.  For example, we have heard that
+POE has successfully embedded into vim, irssi and xchat via this loop.
+
+=head3 POE::Loop::Kqueue (separate distribution)
+
+L<POE::Loop::Kqueue> allows POE-based programs to transparently use
+the BSD kqueue event library on operating systems that support it.
+
+=head3 POE::Loop::Prima (separate distribution)
+
+L<POE::Loop::Prima> allows POE-based programs to use Prima's event
+loop with little or no change.  It allows POE libraries to be used
+within Prima applications.
+
+=head3 POE::Loop::Wx (separate distribution)
+
+L<POE::Loop::Wx> allows POE-based programs to use Wx's event loop with
+little or no change.  It allows POE libraries to be used within Wx
+applications, such as Padre.
+
+=head3 POE::XS::Loop::EPoll (separate distribution)
+
+L<POE::Loop::EPoll> allows POE components to trnasparently use the
+EPoll event library on operating systems that support it.
+
+=head3 POE::XS::Loop::Poll (separate distribution)
+
+L<POE::XS::Loop::Poll> is a higher-performance C-based libpoll event
+loop.  It replaces some of POE's hot Perl code with C for better
+performance.
+
+=head3 Other Event Loops (separate distributions)
+
+POE may be extended to handle other event loops.  Developers are
+invited to work with us to support their favorite loops.
 
 =head1 PUBLIC METHODS
 
@@ -5381,10 +5427,6 @@ names from clashing.
 =item *
 
 There is no mechanism to catch exceptions generated in another session.
-
-=item *
-
-Probably lots more.
 
 =back
 

@@ -824,12 +824,12 @@ Notice that the created POE::Session object has not been saved to a
 variable.  The new POE::Session object gives itself to POE::Kernel,
 which then manages it and all the resources it uses.
 
-It's possible to keep references to new POE::Session objects, but it's 
-not usually necessary.  If an application is not careful about 
-cleaning up these references you will create circular references, 
-which will leak memory when POE::Kernel would normally destroy 
-the POE::Session object.  It is recommended that you keep 
-the session's C</ID> instead.
+It's possible to keep references to new POE::Session objects, but it's
+not usually necessary.  If an application is not careful about
+cleaning up these references you will create circular references,
+which will leak memory when POE::Kernel would normally destroy the
+POE::Session object.  It is recommended that you keep the session's
+C</ID> instead.
 
 =head2 POE::Session's Calling Convention
 
@@ -841,16 +841,17 @@ POE::Session's unconventional calling convention.  For example:
     ...;
   }
 
-Or the use of CL</$_[KERNEL]>, CL</$_[HEAP]> and CL</$_[ARG0]> inline, as is done
-in most examples.
+Or the use of C</$_[KERNEL]>, C</$_[HEAP]> and C</$_[ARG0]> inline,
+as is done in most examples.
 
 What's going on here is rather basic.  Perl passes parameters into
-subroutines or methods using the @_ array.  C<KERNEL>, C<HEAP>, C<ARG0> and
-others are constants exported by POE::Session (which is included for
-free when a program uses POE).
+subroutines or methods using the @_ array.  C<KERNEL>, C<HEAP>,
+C<ARG0> and others are constants exported by POE::Session (which is
+included for free when a program uses POE).
 
-So CL</$_[KERNEL]> is an event handler's KERNELth parameter.  C<@_[HEAP,
-ARG0]> is a slice of @_ containing the HEAPth and ARG0th parameters.
+So C</$_[KERNEL]> is an event handler's KERNELth parameter.
+C<@_[HEAP, ARG0]> is a slice of @_ containing the HEAPth and ARG0th
+parameters.
 
 While this looks odd, it's perfectly plain and legal Perl syntax.  POE
 uses it for a few reasons:
@@ -905,11 +906,14 @@ methods in the same object.  C<$_[OBJECT]> helps this happen.
     $self->update_status_line();
   }
 
-You may also use method inheritance
+You may also use method inheritance.  Here we invoke
+$self->a_method(@_).  Since Perl's C<<->>> operator unshifts $self
+onto the beginning of @_, we must first shift a copy off to maintain
+POE's parameter offsets:
 
-  sub Amethod {
+  sub a_method {
     my $self = shift;
-    $self->SUPER::Amethod( @_ );
+    $self->SUPER::a_method( @_ );
     # ... more work ...
   }
 
@@ -917,11 +921,11 @@ You may also use method inheritance
 
 C<$_[SESSION]> is a reference to the current session object.  This lets event
 handlers access their session's methods.  Programs may also compare
-C<$_[SESSION]> to CL</$_[SENDER]> to verify that intra-session events did not
+C<$_[SESSION]> to C</$_[SENDER]> to verify that intra-session events did not
 come from other sessions.
 
 C<$_[SESSION]> may also be used as the destination for intra-session
-CL<post()|POE::Kernel/post> and CL<call()|POE::Kernel/call>.  CL<yield()|POE::Kernel/yield> is marginally more convenient and
+C<post()|POE::Kernel/post> and C<call()|POE::Kernel/call>.  C<yield()|POE::Kernel/yield> is marginally more convenient and
 efficient than C<post($_[SESSION], ...)> however.
 
 It is bad form to access another session directly.  The recommended
@@ -1078,7 +1082,7 @@ means anything stored there will be available to any other event
 handler regardless of the object.
 
 event_2a is handled by calling C<< $object_2->method_2a(...) >>.  In this
-case CL</$_[OBJECT]> is $object_2.  C<$_[HEAP]> is the same anonymous hashref
+case C</$_[OBJECT]> is $object_2.  C<$_[HEAP]> is the same anonymous hashref
 that was passed to the event_1a handler, though.  The methods are resolved
 when the event is handled (late-binding).
 

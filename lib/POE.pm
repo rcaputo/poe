@@ -365,10 +365,9 @@ see the GETTING HELP section if you run into a problem.
 POE is expected to work on most forms of UNIX, including FreeBSD,
 MacOS X, Linux, Solaris.  Maybe even AIX and QNX, but we're not sure.
 
-POE has also been tested on Windows XP, using the latest version of
-ActiveState Perl and Cygwin Perl.  Support for the Neopolitan Perls
-(Vanilla, Strawberry and Chocolate) is still early, but there should
-be no major show stoppers.
+POE is also tested on Windows XP, using the latest version of
+ActiveState, Strawberry and Cygwin Perl.  POE is fully supported with
+Strawberry Perl, as it's included in the Strawberry distribution.
 
 OS/2 and MacOS 9 have been reported to work in the past, but nobody
 seems to be testing there anymore.  Reports and patches are still
