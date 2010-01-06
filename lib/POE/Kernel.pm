@@ -3691,8 +3691,8 @@ or stringified), a session ID, or one or more symbolic names we call
 aliases.
 
 Every session is represented by an object, so session references are
-fairly straightforward.  POE supports the use of stringified session
-references for convenience and also as a form of weak reference.
+fairly straightforward.  POE::Kernel may reference these objects.  For
+instance, post() may use $_[SENDER] as a destination:
 
   POE::Session->create(
     inline_states => {
@@ -3703,7 +3703,9 @@ references for convenience and also as a form of weak reference.
     }
   );
 
-Or responding via stringified $_[SENDER]:
+POE also recognized stringified Session objects for convenience and as
+a form of weak reference.  Here $_[SENDER] is wrapped in quotes to
+stringify it:
 
   POE::Session->create(
     inline_states => {
