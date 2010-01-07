@@ -3,7 +3,7 @@ package POE::Wheel::ListenAccept;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.281'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.282'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use Symbol qw( gensym );
