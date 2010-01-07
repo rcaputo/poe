@@ -1066,8 +1066,9 @@ sub get {
   # Watch the filehandle.  STDIN is made blocking to avoid buffer
   # overruns when put()ing large quantities of data.
   # TODO - Why does it matter to STDOUT whether STDIN is blocking?
+  # TODO - Why does AIX require STDIN to be non-blocking?
   $poe_kernel->select($stdin, $self->[SELF_STATE_READ]);
-  $stdin->blocking(1);
+  $stdin->blocking(1) unless $^O eq 'aix';
 
   my $sp = $prompt;
   $sp =~ s{\\[\[\]]}{}g;
