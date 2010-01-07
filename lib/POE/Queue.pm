@@ -60,7 +60,7 @@ Sample output:
 =head1 DESCRIPTION
 
 Priority queues may be implemented a number of ways, but they tend to
-behave similiar to lists that are kept in order by some kind of
+behave similar to lists that are kept in order by some kind of
 "priority".  Enqueued items are stored such that the "next" item to be
 retrieved is the one with the highest priority.  Subsequent fetches
 return the next lowest priority, and so on, until the queue is
@@ -135,7 +135,7 @@ return the one that was given the priority first.
 
 =head2 get_next_priority
 
-Returns the priority of the item at the nead of the queue.  This is
+Returns the priority of the item at the head of the queue.  This is
 the lowest numeric priority in the queue.
 
 get_next_priority() can be useful for checking the queue to see if
