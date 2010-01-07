@@ -119,101 +119,103 @@ sub new {
     $self->[SELF_LAST_STAT] = [ (stat $handle)[0..7] ];
   }
 
-  # We couldn't open a file.  SeekBack won't be used because it
-  # assumes the file already exists.  If you need more complex
-  # seeking, consider opening and seeking yourself.  In fact, the
-  # whole SeekBack concept should be deprecated as it only opens a can
-  # full of arbitrarily complex worms.  Maybe later.
-
-  if (not (defined $self->[SELF_HANDLE]) or -f $self->[SELF_HANDLE]) {
-    carp "FollowTail does not support SeekBack on nonexistent files"
-      if defined $params{SeekBack};
-
-    $self->[SELF_FOLLOW_MODE] = MODE_TIMER;
-    $self->_define_timer_states();
-
-    return $self;
-  }
-
-  # Strange things that ought not be tailed?  Directories...
-
-  if (-d $self->[SELF_HANDLE]) {
-    croak "FollowTail does not tail directories";
-  }
-
-  # SeekBack only works with plain files.  We won't honor SeekBack,
-  # and we will use select_read to watch the handle rather than the
-  # polling interval.
-
-  unless (-f $self->[SELF_HANDLE]) {
-    carp "FollowTail does not support SeekBack on a special file"
-      if defined $params{SeekBack};
-    carp "FollowTail does not need PollInterval for special files"
-      if defined $params{PollInterval};
-
-    # Start the select loop.
-    $self->[SELF_FOLLOW_MODE] = MODE_SELECT;
-    $self->_define_select_states();
-
-    return $self;
-  }
-
-  # We only get this far with plain files that have successfully been
-  # opened at the time the wheel is created.  SeekBack and
-  # partial-input discarding work here.
+  # Honor SeekBack and discard partial input if we have a plain file
+  # that is successfully open at this point.
   #
   # SeekBack attempts to position the file pointer somewhere before
   # the end of the file.  If it's specified, we assume the user knows
   # where a record begins.  Otherwise we just seek back and discard
   # everything to EOF so we can frame the input record.
 
-  my $end = sysseek($self->[SELF_HANDLE], 0, SEEK_END);
+  if (defined $handle) {
 
-  # Seeking back from EOF.
-  if ($seek < 0) {
-    if (defined($end) and ($end < -$seek)) {
-      sysseek($self->[SELF_HANDLE], 0, SEEK_SET);
+    # Handle is a plain file.  Honor SeekBack and PollInterval.
+
+    if (-f $handle) {
+      my $end = sysseek($self->[SELF_HANDLE], 0, SEEK_END);
+
+      # Seeking back from EOF.
+      if ($seek < 0) {
+        if (defined($end) and ($end < -$seek)) {
+          sysseek($self->[SELF_HANDLE], 0, SEEK_SET);
+        }
+        else {
+          sysseek($self->[SELF_HANDLE], $seek, SEEK_END);
+        }
+      }
+
+      # Seeking forward from the beginning of the file.
+      elsif ($seek > 0) {
+        if ($seek > $end) {
+          sysseek($self->[SELF_HANDLE], 0, SEEK_END);
+        }
+        else {
+          sysseek($self->[SELF_HANDLE], $seek, SEEK_SET);
+        }
+      }
+
+      # If they set Seek to 0, we start at the beginning of the file.
+      # If it was SeekBack, we start at the end.
+      elsif (exists $params{Seek}) {
+        sysseek($self->[SELF_HANDLE], 0, SEEK_SET);
+      }
+      elsif (exists $params{SeekBack}) {
+        sysseek($self->[SELF_HANDLE], 0, SEEK_END);
+      }
+      else {
+        die;  # Should never happen.
+      }
+
+      # Discard partial input chunks unless a SeekBack was specified.
+      unless (defined $params{SeekBack} or defined $params{Seek}) {
+        while (defined(my $raw_input = $driver->get($self->[SELF_HANDLE]))) {
+          # Skip out if there's no more input.
+          last unless @$raw_input;
+          $filter->get($raw_input);
+        }
+      }
+
+      # Start the timer loop.
+      $self->[SELF_FOLLOW_MODE] = MODE_TIMER;
+      $self->_define_timer_states();
+
+      return $self;
     }
-    else {
-      sysseek($self->[SELF_HANDLE], $seek, SEEK_END);
+
+    # Strange things that ought not be tailed?  Directories...
+
+    if (-d $self->[SELF_HANDLE]) {
+      croak "FollowTail does not tail directories";
     }
+
+    # Handle is not a plain file.  Can't honor SeekBack.
+
+    carp "POE::Wheel::FollowTail can't SeekBack special files"
+      if defined $params{SeekBack};
+
+    # The handle isn't legal to multiplex on this platform.
+    if (POE::Kernel::RUNNING_IN_HELL and not -S $handle) {
+      $self->[SELF_FOLLOW_MODE] = MODE_TIMER;
+      $self->_define_timer_states();
+      return $self;
+    }
+
+    # Multiplexing should be more efficient where it's supported.
+
+    carp "FollowTail does not need PollInterval for special files"
+      if defined $params{PollInterval};
+
+    $self->[SELF_FOLLOW_MODE] = MODE_SELECT;
+    $self->_define_select_states();
+    return $self;
   }
 
-  # Seeking forward from the beginning of the file.
-  elsif ($seek > 0) {
-    if ($seek > $end) {
-      sysseek($self->[SELF_HANDLE], 0, SEEK_END);
-    }
-    else {
-      sysseek($self->[SELF_HANDLE], $seek, SEEK_SET);
-    }
-  }
+  # We don't have an open filehandle yet.  We can't tell whether
+  # multiplexing is legal, and we can't seek back yet.  Don't honor
+  # either.
 
-  # If they set Seek to 0, we start at the beginning of the file.
-  # If it was SeekBack, we start at the end.
-  elsif (exists $params{Seek}) {
-    sysseek($self->[SELF_HANDLE], 0, SEEK_SET);
-  }
-  elsif (exists $params{SeekBack}) {
-    sysseek($self->[SELF_HANDLE], 0, SEEK_END);
-  }
-  else {
-    die;  # Should never happen.
-  }
-
-  # Discard partial input chunks unless a SeekBack was specified.
-  unless (defined $params{SeekBack} or defined $params{Seek}) {
-    while (defined(my $raw_input = $driver->get($self->[SELF_HANDLE]))) {
-      # Skip out if there's no more input.
-      last unless @$raw_input;
-      $filter->get($raw_input);
-    }
-  }
-
-  # Start the timer loop.
   $self->[SELF_FOLLOW_MODE] = MODE_TIMER;
   $self->_define_timer_states();
-
   return $self;
 }
 

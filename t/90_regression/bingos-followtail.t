@@ -3,18 +3,25 @@
 
 use strict;
 
+sub POE::Kernel::ASSERT_DEFAULT () { 1 }
+
+use IO::Handle;
 use POE qw(Wheel::FollowTail);
 use Test::More tests => 2;
 
 my $filename = 'bingos-followtail';
 
 open FH, ">$filename" or die "$!\n";
-print FH "moocow - this line is skipped\n";
+FH->autoflush(1);
+print FH "moocow - this line should be skipped\n";
 
 POE::Session->create(
   package_states => [
     'main' => [qw(_start _input _error _shutdown)],
   ],
+  inline_states => {
+    _stop => sub { undef },
+  },
   heap => { filename => $filename, },
 );
 
