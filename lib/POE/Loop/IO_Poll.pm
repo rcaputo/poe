@@ -6,7 +6,7 @@
 package POE::Loop::IO_Poll;
 
 use vars qw($VERSION);
-$VERSION = '1.282'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.283'; # NOTE - Should be #.### (three decimal places)
 
 # Include common signal handling.
 use POE::Loop::PerlSignals;
