@@ -6,14 +6,15 @@ use strict;
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
 use IO::Handle;
-use POE qw(Wheel::FollowTail);
+use POE qw(Wheel::FollowTail Filter::Line);
 use Test::More tests => 2;
 
 my $filename = 'bingos-followtail';
 
+# Using "!" as a newline to avoid differences in opinion about "\n".
 open FH, ">$filename" or die "$!\n";
 FH->autoflush(1);
-print FH "moocow - this line should be skipped\n";
+print FH "moocow - this line should be skipped!";
 
 POE::Session->create(
   package_states => [
@@ -31,13 +32,13 @@ exit 0;
 sub _start {
   my ($kernel,$heap) = @_[KERNEL,HEAP];
   $heap->{wheel} = POE::Wheel::FollowTail->new(
-    Filter      => POE::Filter::Line->new( Literal => "\n" ),
+    Filter      => POE::Filter::Line->new( Literal => "!" ),
     Filename    => $heap->{filename},
     InputEvent  => '_input',
     ErrorEvent  => '_error',
   );
   $heap->{counter} = 0;
-  print FH "Cows go moo, yes they do\n";
+  print FH "Cows go moo, yes they do!";
   close FH;
   return;
 }
