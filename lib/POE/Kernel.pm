@@ -4709,7 +4709,7 @@ call sig_child() before returning from the event handler that forked
 the process.  Otherwise POE::Kernel may have an opportunity to call
 waitpid() before an appropriate event watcher has been registered.
 
-sig_chid() does not return a meaningful value.
+sig_child() does not return a meaningful value.
 
   sub forked_parent {
     my( $heap, $pid, $details ) = @_[ HEAP, ARG0, ARG1 ];
