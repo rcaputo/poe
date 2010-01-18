@@ -1072,9 +1072,9 @@ sub _dispatch_event {
   # ET_CALL.
 
   my $return;
-  my $wantarray = wantarray;
+  my $wantarray = wantarray();
 
-  if ($type & ET_CALL) {
+  if ($type & (ET_CALL | ET_START | ET_STOP)) {
     eval {
       if ($wantarray) {
         $return = [
@@ -1182,8 +1182,8 @@ sub _dispatch_event {
     _warn("<ev> event $seq ``$event'' returns ($string_ret)\n");
   }
 
-  # Return doesn't matter unless ET_CALL.
-  return unless $type & ET_CALL;
+  # Return doesn't matter unless ET_CALL, ET_START or ET_STOP.
+  return unless $type & (ET_CALL | ET_START | ET_STOP);
 
   # Return what the handler did.  This is used for call().
   return( $wantarray ? @$return : $return );
@@ -1478,6 +1478,7 @@ sub session_alloc {
   # _child create.
   #
   # TODO - Void the context if the parent has no _child handler?
+
   my $return = $self->_dispatch_event(
     $session, $kr_active_session,
     EN_START, ET_START, \@args,
