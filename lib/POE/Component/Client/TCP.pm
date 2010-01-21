@@ -405,7 +405,7 @@ C<Connected> callback to fire before transmitting data to the server.
 
 The client's constructor may seem to take a daunting number of
 parameters.  As with most POE modules, POE::Component::Client::TCP
-tries to do as much work in its constructor so that the runtime code
+tries to do as much work in its constructor so that the run-time code
 path is relatively light.
 
 =head3 Constructor Parameters Affecting the Session
@@ -701,7 +701,7 @@ is set.
 
 =head4 ServerInput
 
-C<ServerInput> is a requried callback.  It is called for each fully
+C<ServerInput> is a required callback.  It is called for each fully
 parsed input record received by POE::Wheel::ReadWrite.  $_[ARG0]
 contains the input record, the format of which is determined by the
 C<Filter> constructor parameter.
@@ -750,7 +750,7 @@ POE::Component::Client::TCP requires some heap space for its own
 bookkeeping.  The following members are used and should be used as
 directed, or with care.
 
-This sampe input handler is an example of most reserved heap members:
+This sample input handler is an example of most reserved heap members:
 
   sub handle_input {
     # Pending input from when we were connected.

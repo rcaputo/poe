@@ -1,4 +1,4 @@
-# Data and methods to collect runtime statistics about POE, allowing
+# Data and methods to collect run-time statistics about POE, allowing
 # clients to look at how much work their POE server is performing.
 # None of this stuff will activate unless TRACE_STATISTICS or
 # TRACE_PROFILE are enabled.
@@ -207,7 +207,7 @@ __END__
 
 =head1 NAME
 
-POE::Resource::Statistics -- experimental runtime statistics for POE
+POE::Resource::Statistics -- experimental run-time statistics for POE
 
 =head1 SYNOPSIS
 
@@ -217,11 +217,11 @@ POE::Resource::Statistics -- experimental runtime statistics for POE
 =head1 DESCRIPTION
 
 POE::Resource::Statistics is a mix-in class for POE::Kernel.  It
-provides features for gathering runtime statistics about POE::Kernel
+provides features for gathering run-time statistics about POE::Kernel
 and the applications that use it.
 
 Statistics gathering is enabled with the TRACE_STATISTICS constant.
-There is no runtime performance penalty when tracing is disabled.
+There is no run-time performance penalty when tracing is disabled.
 
 Statistics are totaled every 30 seconds, and a rolling average is
 maintained for the last two minutes.  The data may be retrieved at any
@@ -233,7 +233,7 @@ Time::HiRes is available, it will be used automatically.  Otherwise
 time is measured in whole seconds, and the resulting rounding errors
 will make the statistics much less useful.
 
-Runtime statistics gathering was added to POE 0.28.  It is considered
+Run-time statistics gathering was added to POE 0.28.  It is considered
 B<highly experimental>.  Please be advised that the statistics it
 gathers are quite likely wrong.  They may in fact be useless.  The
 reader is invited to investigate and improve the module's

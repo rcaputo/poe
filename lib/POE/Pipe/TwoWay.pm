@@ -171,7 +171,7 @@ the library.
 
 The upshot of all this is that an application can use
 POE::Pipe::TwoWay to create a bidirectional pipe without worrying
-about the mechanism that works in the current runtime environment.
+about the mechanism that works in the current run-time environment.
 
 By the way, POE::Pipe::TwoWay doesn't use POE internally, so it may be
 used in stand-alone applications without POE.

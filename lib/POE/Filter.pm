@@ -216,7 +216,7 @@ Here's the get() form of the SYNOPSIS stand-alone example:
 get() should not be used with wheels that support filter switching.
 Its greedy nature means that it often parses streams well in advance
 of a wheel's events.  By the time an application changes the wheel's
-filter, it's too late: The old fiter has already parsed the rest of
+filter, it's too late: The old filter has already parsed the rest of
 the received data.
 
 Consider a stream of letters, numbers, and periods.  The periods

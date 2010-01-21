@@ -690,10 +690,10 @@ POE::Wheel::FollowTail - follow the tail of an ever-growing file
 =head1 DESCRIPTION
 
 POE::Wheel::FollowTail objects watch for new data at the end of a file
-and generate new events when things happen to the file.  Its C<Filter>
-parameter defines how to parse data from the file.  Each new item is
-sent to the creator's session as an C<InputEvent> event.  Log rotatin
-will trigger a C<ResetEvent>.
+and generate new events when things happen to the file. Its C<Filter>
+parameter defines how to parse data from the file. Each new item is sent
+to the creator's session as an C<InputEvent> event. Log rotation will
+trigger a C<ResetEvent>.
 
 POE::Wheel::FollowTail only reads from a file, so it doesn't implement
 a put() method.
@@ -761,7 +761,7 @@ complete.
 
 C<Seek> may also be used with the wheel's tell() method to restore the
 file position after a program restart.  Save the tell() value prior to
-exiting, and load and C<Seek> back to it on subsequent startup.
+exiting, and load and C<Seek> back to it on subsequent start-up.
 
 TODO - Example.
 
@@ -783,7 +783,7 @@ TODO - Example.
 
 POE::Wheel::FollowTail may follow a previously opened file C<Handle>.
 Unfortunately it cannot follow log resets this way, as it won't be
-albe to reopen the file once it has been reset.  Applications that
+able to reopen the file once it has been reset.  Applications that
 must follow resets should use C<Filename> instead.
 
 C<Handle> is still useful for files that will never be reset, or for

@@ -752,7 +752,7 @@ classes that manage them.
 POE watches I/O based on filehandles rather than file descriptors,
 which means there can be clashes between its API and an underlying
 descriptor-based event loop.  This is usually not a problem, but it
-may require work-arounds in certain edge cases.
+may require a work-around in certain edge cases.
 
 =head1 AUTHORS & COPYRIGHTS
 

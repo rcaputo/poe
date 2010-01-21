@@ -865,8 +865,8 @@ hash or array references and then dereferencing them in the handler.
 
 =item 2
 
-Typos in hash-based parameter lists are either subtle runtime
-errors or requires constant runtime checking.  Constants are either
+Typos in hash-based parameter lists are either subtle run-time
+errors or requires constant run-time checking.  Constants are either
 known at compile time, or are clear compile-time errors.
 
 =item 3
@@ -883,7 +883,7 @@ use only the parameters they're interested in.
 
 =head2 POE::Session Parameters
 
-Event handlers receive most of their runtime context in up to nine
+Event handlers receive most of their run-time context in up to nine
 callback parameters.  POE::Kernel provides many of them.
 
 =head3 $_[OBJECT]
@@ -1243,7 +1243,7 @@ triggers $object->_stop():
   );
 
 Methods are verified when the session is created, but also resolved when the
-handler is called (late binding).  Most of the time, a method won't change. 
+handler is called (late binding).  Most of the time, a method won't change.
 But in some circumstance, such as dynamic inheritance, a method could
 resolve to a different subroutine.
 
@@ -1251,7 +1251,7 @@ resolve to a different subroutine.
 
 POE::Session sessions support a small number of options, which may be
 initially set with the C<option> constructor parameter and changed at
-runtime with the C<option()|/option> mehtod.
+run time with the C<option()|/option> mehtod.
 
 C<option> takes a hashref with option =E<gt> value pairs:
 

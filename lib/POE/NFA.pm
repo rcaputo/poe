@@ -854,18 +854,18 @@ non-deterministic finite automaton.  Let's break that down.
 
 A finite automaton is a state machine with a bounded number of states
 and transitions.  Technically, POE::NFA objects may modify themselves
-at runtime, so they aren't really "finite".  Runtime modification
+at run time, so they aren't really "finite".  Run-time modification
 isn't currently supported by the API, so plausible deniability is
 maintained!
 
 Deterministic state machines are ones where all possible transitions
 are known at compile time.  POE::NFA is "non-deterministic" because
-transitions may change based on runtime conditions.
+transitions may change based on run-time conditions.
 
 But more simply, POE::NFA is like POE::Session but with banks of event
-handlers that may be swapped according to the session's runtime state.
+handlers that may be swapped according to the session's run-time state.
 Consider the SYNOPSIS example, which has "on_entry" and "on_input"
-handlers that do different things depending on the runtime state.
+handlers that do different things depending on the run-time state.
 POE::Wheel::ReadLine throws "on_input", but different things happen
 depending whether the session is in its "login", "password" or
 "command" state.

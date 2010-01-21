@@ -100,7 +100,7 @@ the entire POE distribution.
 L<POE::Stage> is a nascent project to formalize POE components, make
 POE::Kernel more object-oriented, and provide syntactic and semantic
 sugar for many common aspects of POE::Component development.  It's
-also easier to type.  Please investigate the project.  Ideas and tuits
+also easier to type.  Please investigate the project.  Ideas and I<tuits>
 are badly needed to help get the project off the ground.
 
 =head1 TO DO

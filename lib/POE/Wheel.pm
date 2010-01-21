@@ -193,7 +193,7 @@ EVENT_TYPEs differ for each wheel and correspond to the constructor
 parameters that match /.*Event$/.  For example, POE::Wheel::ReadWrite
 may emit up to five different kinds of event: InputEvent, ErrorEvent,
 FlushedEvent, HighEvent, LowEvent.  The name of each emitted event may
-be changed at runtime.
+be changed at run time.
 
 This example changes the events to emit on new input and when output
 is flushed.  It stops the wheel from emitting events when errors

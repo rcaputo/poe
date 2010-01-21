@@ -726,7 +726,7 @@ sub _global_init {
   }
 
   # Terminal size.
-  # We initialize the values once on startup,
+  # We initialize the values once on start-up,
   # and then from then on, we check them on every entry into
   # the input state engine (so that we have valid values) and
   # before handing control back to the user (so that they get
@@ -3138,7 +3138,7 @@ display and Term::ReadKey to interact with the keyboard.
 POE::Wheel::ReadLine handles almost all common input editing keys.  It
 provides an input history list.  It has both vi and emacs modes.  It
 supports incremental input search.  It's fully customizable, and it's
-compatible with standard readline(3) implementions such as
+compatible with standard readline(3) implementations such as
 Term::ReadLine::Gnu.
 
 POE::Wheel::ReadLine is configured by placing commands in an "inputrc"
@@ -3292,7 +3292,7 @@ if desired.
 =head3 add_defun NAME FN
 
 add_defun(NAME, FUNCTION) defines a new global FUNCTION, giving it a
-specific NAME.  The function may then be bound to kestrokes by that
+specific NAME.  The function may then be bound to keystrokes by that
 NAME.
 
 =head2 Console I/O Methods

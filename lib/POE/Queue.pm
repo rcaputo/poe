@@ -121,7 +121,7 @@ In this example, a queue is used to manage a number of alarms.  The
 =head2 dequeue_next
 
 Removes the next item from the queue, returning it as three fields:
-priority, ID and payloade.
+priority, ID and payload.
 
 The "next" item is the one with the lowest priority number.  If
 multiple items exist with the same priority, dequeue_next() will
@@ -257,7 +257,7 @@ previous priority + DELTA.  DELTA may be negative.
 
 Returns undef if the item's priority could not be adjusted, and sets
 $! to explain why: ESRCH means that the ITEM_ID could not be found,
-and EPERM means that the FILTER_FUNCTION was not satsified.
+and EPERM means that the FILTER_FUNCTION was not satisfied.
 
 =head2 set_priority ITEM_ID, FILTER_FUNCTION, ABSOLUTE_PRIORITY
 
@@ -268,7 +268,7 @@ new priority, which should match ABSOLUTE_PRIORITY.
 
 Returns undef if the item's priority could not be set, and sets $! to
 explain why: ESRCH means that the ITEM_ID could not be found, and
-EPERM means that the FILTER_FUNCTION was not satsified.
+EPERM means that the FILTER_FUNCTION was not satisfied.
 
   my $new_priority = $queue->set_priority(
     $item_id, \&one_of_mine, time() + 60

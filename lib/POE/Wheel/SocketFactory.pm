@@ -1222,7 +1222,7 @@ work where establishing connections normally would block.
 
 =head2 new
 
-new() creats a new POE::Wheel::SocketFactory object.  For sockets
+new() creates a new POE::Wheel::SocketFactory object.  For sockets
 which listen() for and accept() connections, the wheel will generate
 new sockets for each accepted client.  Socket factories for one-shot
 sockets, such as UDP peers or clients established by connect() only
@@ -1350,7 +1350,7 @@ TODO - Example.
 
 =head3 Connecting the Socket to a Remote Endpoint
 
-A socket may either listen for connections to arrive, intitate
+A socket may either listen for connections to arrive, initiate
 connections to a remote endpoint, or be connectionless (such as in the
 case of UDP sockets).
 
@@ -1435,14 +1435,14 @@ client.
 =head4 FailureEvent
 
 C<FailureEvent> names the event POE::Wheel::SocketFactory will emit
-whenever something goes wrong.  It ususally represents some kind of
+whenever something goes wrong.  It usually represents some kind of
 built-in function call error.  See L</PUBLIC EVENTS> for details, as
 some errors are handled internally by this wheel.
 
 =head2 event
 
 event() allows a session to change the events emitted by a wheel
-without destrying and re-creating the wheel.  It accepts one or more
+without destroying and re-creating the wheel.  It accepts one or more
 of the events listed in L</PUBLIC EVENTS>.  Undefined event names
 disable those events.
 

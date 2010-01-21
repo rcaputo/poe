@@ -46,7 +46,7 @@ As POE::Kernel loads, it searches through %INC for event loop modules.
 POE::Kernel loads the most appropriate POE::Loop subclass for the
 event loop it finds.  The subclass slots its methods into POE::Kernel,
 completing the class at load time.  POE and POE::Kernel provide ways
-to state the desired event loop in case the autodetection makes a
+to state the desired event loop in case the auto-detection makes a
 mistake or the developer prefers to be explicit.  See
 L<POE::Kernel/"Using POE with Other Event Loops"> for instructions on
 how to actually use POE with other event loops, event loop naming
@@ -256,7 +256,7 @@ Watch for a given SIGNAL_NAME.  SIGNAL_NAME is the version found in
 "SIG" removed.
 
 POE::Loop::PerlSignals' implementation adds callbacks to %SIG except
-for CHLD/CLD, which begins a waitpid() pollng loop instead.
+for CHLD/CLD, which begins a waitpid() polling loop instead.
 
 As of this writing, all of the POE::Loop subclasses register their
 signal handlers through POE::Loop::PerlSignals.
@@ -337,8 +337,8 @@ dispatched.
 
 The time management methods may accept NEXT_EVENT_TIME.  This is the
 time the next event will become due, in UNIX epoch time.
-NEXT_EVENT_TIME is a real number and may have subsecond accuracy.  It
-is the bridge's responsibility to convert this value intos something
+NEXT_EVENT_TIME is a real number and may have sub-second accuracy.  It
+is the bridge's responsibility to convert this value into something
 the underlying event loop requires.
 
 =head3 loop_resume_time_watcher NEXT_EVENT_TIME
@@ -346,7 +346,7 @@ the underlying event loop requires.
 Resume an already active time watcher.  It is used with
 loop_pause_time_watcher() to provide less expensive timer toggling for
 frequent use cases.  As mentioned above, NEXT_EVENT_TIME is in UNIX
-epoch time and may have subsecond accuracy.
+epoch time and may have sub-second accuracy.
 
 loop_resume_time_watcher() is used by bridges that set them watchers
 in the underlying event loop.  For example, POE::Loop::Gtk implements

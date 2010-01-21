@@ -276,7 +276,7 @@ POE::Wheel::ListenAccept emits a couple events.
 C<AcceptEvent> names the event that will be emitted for each newly
 accepted client socket.  It is accompanied by three parameters:
 
-C<$_[ARG0]> contains the newly accpeted client socket handle.  It's up
+C<$_[ARG0]> contains the newly accepted client socket handle.  It's up
 to the application to do something with this socket.  Most use cases
 involve passing the socket to a L<POE::Wheel::ReadWrite> constructor.
 

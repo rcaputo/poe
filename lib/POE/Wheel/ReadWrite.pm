@@ -795,7 +795,7 @@ TODO - Example.
 =head4 OutputFilter
 
 InputFilter and OutputFilter may be used to specify different filters
-for input and output.  Please see L</InputFilter> for more informatin
+for input and output. Please see L</InputFilter> for more information
 and an example.
 
 =head4 InputEvent
@@ -954,7 +954,7 @@ syntax if HighMark isn't set: the application will fail spectacularly!
 
 event() allows an application to modify the events emitted by a
 POE::Wheel::ReadWrite object.  All constructor parameters ending in
-"Event" may be changed at runtime: L</InputEvent>, L</FlushedEvent>,
+"Event" may be changed at run time: L</InputEvent>, L</FlushedEvent>,
 L</ErrorEvent>, L</HighEvent>, and L</LowEvent>.
 
 Setting an event to undef will disable the code within the wheel that
@@ -1023,7 +1023,7 @@ TODO - Example.
 Sets the high water mark---the number of octets that designates a
 "full enough" output buffer.  A POE::Wheel::ReadWrite object will emit
 a HighEvent when its output buffer expands to reach this point.  All
-put() calls will reutrn true when the output buffer is equal or
+put() calls will return true when the output buffer is equal or
 greater than HIGH_MARK_OCTETS.
 
 Both HighEvent and put() indicate that it's unsafe to continue writing
@@ -1097,7 +1097,7 @@ Call shutdown($fh,0) on a POE::Wheel::ReadWrite object's input
 filehandle.  This only works for sockets; nothing will happen for
 other types of filehandle.
 
-tionally, the POE::Wheel::ReadWrite object will stop monitoring
+Occasionally, the POE::Wheel::ReadWrite object will stop monitoring
 its input filehandle for new data.  This occurs regardless of the
 filehandle type.
 
@@ -1109,8 +1109,8 @@ Call shutdown($fh,1) on a POE::Wheel::ReadWrite object's output
 filehandle.  This only works for sockets; nothing will happen for
 other types of filehandle.
 
-tionally, the POE::Wheel::ReadWrite object will stop monitoring its
-output filehandle for new data.  This occurs regardless of the
+Occasionally, the POE::Wheel::ReadWrite object will stop monitoring its
+output filehandle for new data. This occurs regardless of the
 filehandle type.
 
 TODO - Example.
@@ -1126,7 +1126,7 @@ TODO - Example.
 =head2 get_driver_out_messages
 
 L<POE::Driver> objects' output buffers may be message based.  Every put()
-call may be buffered individualy.  get_driver_out_messages() will
+call may be buffered individually.  get_driver_out_messages() will
 return the number of pending put() messages that remain to be sent.
 
 Stream-based drivers will simply return 1 if any data remains to be

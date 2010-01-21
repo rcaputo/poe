@@ -174,7 +174,7 @@ new() constructs a new POE::Filter::Map object.  It must either be
 called with a single Code parameter, or both a Put and a Get
 parameter.  The values for Code, Put and Get are code references that,
 when invoked, return transformed versions of their sole parameters.  A
-Code function will be used for both input and ouput, while Get and Put
+Code function will be used for both input and output, while Get and Put
 functions allow input and output to be filtered in different ways.
 
   # Decrypt rot13.
@@ -210,7 +210,7 @@ single Code function.
 
 =head2 modify
 
-modify() changes a POE::Filter::Map object's behavior at runtime.  It
+modify() changes a POE::Filter::Map object's behavior at run-time.  It
 accepts the same parameters as new(), and it replaces the existing
 transforms with new ones.
 

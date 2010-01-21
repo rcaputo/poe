@@ -1364,7 +1364,7 @@ available slots in the process table and requiring reboots.
 
 Because process leaks are so severe, POE::Kernel will check for this
 condition on exit and display a notice if it finds that processes are
-leaking.  Develpers should heed these warnings.
+leaking.  Developers should heed these warnings.
 
 POE::Wheel::Run communicates with the child process in a line-based
 fashion by default.  Programs may override this by specifying some
@@ -1390,8 +1390,9 @@ interface for asynchronously interacting with the process.
 Conduit specifies the inter-process communications mechanism that will
 be used to pass data between the parent and child process.  Conduit
 may be one of "pipe", "socketpair", "inet", "pty", or "pty-pipe".
-POE::Wheel::Run will use the most appropriate Conduit for the runtime
-operating system, but this varies from one OS to the next.
+POE::Wheel::Run will use the most appropriate Conduit for the run-time
+(not the compile-time) operating system, but this varies from one OS
+to the next.
 
 Internally, POE::Wheel::Run passes the Conduit type to
 L<POE::Pipe::OneWay> and L<POE::Pipe::TwoWay>.  These helper classes
@@ -1427,7 +1428,7 @@ TODO - Example.
 
 Winsize sets the child process' terminal size.  Its value should be an
 arrayref with two or four elements.  The first two elements must be
-the number of lines and columsn for the child's terminal window,
+the number of lines and columns for the child's terminal window,
 respectively.  The optional pair of elements describe the terminal's X
 and Y dimensions in pixels:
 
@@ -1552,7 +1553,7 @@ A sample error event handler:
     warn "Wheel $wheel_id generated $operation error $errnum: $errstr\n";
   }
 
-Note that unless you deactivate the signal pipe, you might allso see C<EIO>
+Note that unless you deactivate the signal pipe, you might also see C<EIO>
 (5) error during read operations.
 
 =head4 StdinEvent

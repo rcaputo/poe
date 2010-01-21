@@ -698,7 +698,7 @@ that manages such a hash.
   }
 
 The component's C<Started> callback is invoked at the end of the
-master session's startup routine.  The @_[ARG0..$#_] parameters are
+master session's start-up routine.  The @_[ARG0..$#_] parameters are
 set to a copy of the values in the server's C<ListenerArgs>
 constructor parameter.  The other parameters are standard for
 POE::Session's _start handlers.
@@ -813,7 +813,7 @@ C<Alias> parameter.
 
 POE::Component::Server::TCP does a lot of work in its constructor.
 The design goal is to push as much overhead into one-time construction
-so that ongoing runtime has less overhead.  Because of this, the
+so that ongoing run-time has less overhead.  Because of this, the
 server's constructor can take quite a daunting number of parameters.
 
 POE::Component::Server::TCP always returns a POE::Session ID for the
@@ -956,8 +956,8 @@ transactions.
 C<Hostname> is the optional non-packed name of the interface the TCP
 server will bind to.  The hostname will always be resolved via
 inet_aton() and so can either be a dotted quad or a name.  Name
-resolution is a one-time startup action; there are no ongoing runtime
-penalties for using it.
+resolution is a one-time start-up action; there are no ongoing
+run-time penalties for using it.
 
 C<Hostname> guarantees name resolution, where C<Address> does not.
 It's therefore preferred to use C<Hostname> in cases where resolution
@@ -969,7 +969,7 @@ C<InlineStates> is optional.  If specified, it must hold a hashref of
 named callbacks.  Its syntax is that of POE:Session->create()'s
 inline_states parameter.
 
-Remember: These InlineStates handlers will be added to the client 
+Remember: These InlineStates handlers will be added to the client
 sessions, not to the main listening session.  A yield() in the listener
 will not reach these handlers.
 
@@ -1048,10 +1048,10 @@ client's session is started and ready for operation.  Banners are
 often sent to the remote client from this callback.
 
 The @_[ARG0..$#_] parameters to C<ClientConnected> are a copy of the
-values in the C<ClientArgs> constructor parameter's array referece.
+values in the C<ClientArgs> constructor parameter's array reference.
 The other @_ members are standard for a POE::Session _start handler.
 
-C<ClientConnected> is called once per session startup.  It will never
+C<ClientConnected> is called once per session start-up.  It will never
 be called twice for the same connection.
 
   ClientConnected => sub {
@@ -1155,7 +1155,7 @@ flushed before finishing a client shutdown.
 C<ClientInput> defines a per-connection callback to handle client
 input.  This callback receives its parameters directly from
 POE::Wheel::ReadWrite's C<InputEvent>.  ARG0 contains the input
-recored, the format of which is defined by C<ClientFilter> or
+record, the format of which is defined by C<ClientFilter> or
 C<ClientInputFilter>.  ARG1 has the wheel's unique ID, and so on.
 Please see POE:Wheel::ReadWrite for an in-depth description of
 C<InputEvent>.
@@ -1332,7 +1332,7 @@ procedure.
 
 =head3 remote_ip
 
-$_[HEAP]{remote_ip} contains the remote client's nuermic address in
+$_[HEAP]{remote_ip} contains the remote client's numeric address in
 human-readable form.
 
 =head3 remote_port
@@ -1343,7 +1343,7 @@ in human-readable form.
 =head3 remote_addr
 
 $_[HEAP]{remote_addr} contains the remote client's packed socket
-address in computer-readabe form.
+address in computer-readable form.
 
 =head3 shutdown
 
