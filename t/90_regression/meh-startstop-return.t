@@ -48,6 +48,7 @@ POE::Session->create(
     _child => sub {
       push @results, [ $_[ARG0], $_[ARG2] ];
     },
+		_stop => sub { undef },
   }
 );
 
