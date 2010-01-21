@@ -590,6 +590,9 @@ support different serialization methods.  He has also improved POE's quality
 by finding and fixing several bugs.  He provided POE a much needed code
 review around version 0.06.
 
+Lately, Philip tracked down the race condition in signal handling and
+fixed it with the signal pipe.
+
 =item Arnar M. Hrafnkelsson
 
 Arnar is <addi@umich.edu>.  Addi tested POE and L<POE::Component::IRC|POE::Component::IRC> on
