@@ -1921,7 +1921,7 @@ This will bypass POE::Kernel's DESTROY, and the message it emits.
 
 =head3 Running POE::Kernel in the Child
 
-Calling c<< POE::Kernel->run() >> in the child process effectively
+Calling C<< POE::Kernel->run() >> in the child process effectively
 resumes the copy of the parent process.  This is rarely (if ever)
 desired.
 
