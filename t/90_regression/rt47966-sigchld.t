@@ -10,9 +10,8 @@ use Test::More;
 
 sub DEBUG () { 0 }
 
-unless ($ENV{TEST_MAINTAINER}) {
-  plan skip_all => 'Set TEST_MAINTAINER to run this test';
-  exit 0;
+unless ( $ENV{RELEASE_TESTING} ) {
+  plan skip_all => 'enable by setting RELEASE_TESTING';
 }
 
 my $N = 60;

@@ -28,3 +28,6 @@ run_network_tests
 test-output\.err$
 t/[23]0_.*\.t
 ~$
+
+# Work in Progress
+^lib/POE/Loader\.pm$

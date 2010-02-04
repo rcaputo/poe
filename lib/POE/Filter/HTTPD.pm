@@ -440,11 +440,15 @@ Some versions of libwww are known to generate invalid HTTP.  For
 example, this code (adapted from the HTTP::Request::Common
 documentation) will cause an error in a POE::Filter::HTTPD daemon:
 
+NOTE: Using this test with libwww-perl/5.834 showed that it added
+the proper HTTP/1.1 data! We're not sure which version of LWP fixed
+this. This example is valid for older LWP installations, beware!
+
   use HTTP::Request::Common;
   use LWP::UserAgent;
 
   my $ua = LWP::UserAgent->new();
-  $ua->request(POST 'http://some/poe/driven/site', [ foo => 'bar' ]);
+  $ua->request(POST 'http://example.com', [ foo => 'bar' ]);
 
 By default, HTTP::Request is HTTP version agnostic. It makes no
 attempt to add an HTTP version header unless you specifically declare

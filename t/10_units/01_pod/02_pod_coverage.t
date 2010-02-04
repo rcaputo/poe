@@ -6,6 +6,11 @@
 BEGIN { $^W = 0 }
 
 use Test::More;
+
+unless ( $ENV{RELEASE_TESTING} ) {
+  plan skip_all => 'enable by setting RELEASE_TESTING';
+}
+
 eval "use Test::Pod::Coverage 1.08";
 plan skip_all => "Test::Pod::Coverage 1.08 required for testing POD coverage" if $@;
 
