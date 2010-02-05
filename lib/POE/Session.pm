@@ -1500,7 +1500,7 @@ Rather, helper functions may use:
   use POE::Kernel; # exports $poe_kernel
   sub some_helper_function {
     my (@specific_parameters) = @_;
-    my $session = $kernel->get_active_session();
+    my $session = $poe_kernel->get_active_session();
     my $heap = $session->get_heap();
   }
 
