@@ -490,9 +490,12 @@ sub _generate_filename_timer {
       if (defined(my $raw_input = $driver->get($$handle))) {
         TRACE_POLL and warn "<poll> " . time . " raw input";
         $filter->get_one_start($raw_input);
-        foreach my $cooked_input (@{$filter->get_one()}) {
-          TRACE_POLL and warn "<poll> " . time . " cooked input";
-          $k->call($ses, $$event_input, $cooked_input, $unique_id);
+        my $cooked_array;
+        while (@{$cooked_array = $filter->get_one()}) {
+          foreach my $cooked_input (@$cooked_array) {
+            TRACE_POLL and warn "<poll> " . time . " cooked input";
+            $k->call($ses, $$event_input, $cooked_input, $unique_id);
+          }
         }
 
         # Clear the filehandle's EOF status, if any.
