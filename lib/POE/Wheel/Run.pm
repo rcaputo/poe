@@ -15,6 +15,12 @@ use POSIX qw(
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 use base qw(POE::Wheel);
 
+# http://rt.cpan.org/Ticket/Display.html?id=50068
+# Avoid using these constants in Windows' subprocesses (actually
+# interpreter threads).  Reported in the above ticket to avoid a
+# memory leak.
+my ($STD_INPUT_HANDLE, $STD_OUTPUT_HANDLE, $STD_ERROR_HANDLE);
+
 BEGIN {
   die "$^O does not support fork()\n" if $^O eq 'MacOS';
 
@@ -44,6 +50,10 @@ BEGIN {
 
     eval    { require Win32; Win32->import() };
     if ($@) { die "Win32.pm needed for POE::Wheel::Run on $^O:\n$@" }
+
+    $STD_INPUT_HANDLE  = STD_INPUT_HANDLE();
+    $STD_OUTPUT_HANDLE = STD_OUTPUT_HANDLE();
+    $STD_ERROR_HANDLE  = STD_ERROR_HANDLE();
   }
 
   # Determine the most file descriptors we can use.
@@ -1123,17 +1133,17 @@ sub _redirect_child_stdio_in_hell {
   # alternatives?
 
   Win32::Console::_SetStdHandle(
-    STD_INPUT_HANDLE(),
+    $STD_INPUT_HANDLE,
     FdGetOsFHandle(fileno($stdin_read))
   );
 
   Win32::Console::_SetStdHandle(
-    STD_OUTPUT_HANDLE(),
+    $STD_OUTPUT_HANDLE,
     FdGetOsFHandle(fileno($stdout_write))
   );
 
   Win32::Console::_SetStdHandle(
-    STD_ERROR_HANDLE(),
+    $STD_ERROR_HANDLE,
     FdGetOsFHandle(fileno($stderr_write))
   );
 }
