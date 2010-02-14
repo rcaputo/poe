@@ -7,7 +7,6 @@ use warnings;
 use strict;
 
 use Test::More tests => 1;
-use Test::Exception;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 use POE;
@@ -48,7 +47,7 @@ POE::Session->create(
     _child => sub {
       push @results, [ $_[ARG0], $_[ARG2] ];
     },
-		_stop => sub { undef },
+    _stop => sub { undef },
   }
 );
 
