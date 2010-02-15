@@ -151,32 +151,36 @@ sub import {
 
 sub _add_ref_states {
   my ($states, $refs) = @_;
-    foreach my $state (keys %$refs) {
-      $states->{$state} = {};
-      my $data = $refs->{$state};
-      croak "the data for state '$state' should be an array"
-        unless (ref $data eq 'ARRAY');
-      croak "the array for state '$state' has an odd number of elements"
-        if (@$data & 1);
 
-      while (my ($ref, $events) = splice(@$data, 0, 2)) {
-        if (ref $events eq 'ARRAY') {
-          foreach my $event (@$events) {
-            $states->{$state}->{$event} = [ $ref, $event ];
-          }
-        }
-        elsif (ref $events eq 'HASH') {
-          foreach my $event (keys %$events) {
-            my $method = $events->{$event};
-            $states->{$state}->{$event} = [ $ref, $method ];
-          }
-        }
-        else {
-          croak "events with '$ref' for state '$state' " .
-                "need to be a hash or array ref";
+  foreach my $state (keys %$refs) {
+    $states->{$state} = {};
+
+    my $data = $refs->{$state};
+    croak "the data for state '$state' should be an array" unless (
+      ref $data eq 'ARRAY'
+    );
+    croak "the array for state '$state' has an odd number of elements" if (
+      @$data & 1
+    );
+
+    while (my ($ref, $events) = splice(@$data, 0, 2)) {
+      if (ref $events eq 'ARRAY') {
+        foreach my $event (@$events) {
+          $states->{$state}->{$event} = [ $ref, $event ];
         }
       }
+      elsif (ref $events eq 'HASH') {
+        foreach my $event (keys %$events) {
+          my $method = $events->{$event};
+          $states->{$state}->{$event} = [ $ref, $method ];
+        }
+      }
+      else {
+        croak "events with '$ref' for state '$state' " .
+        "need to be a hash or array ref";
+      }
     }
+  }
 }
 
 sub spawn {
@@ -507,8 +511,9 @@ sub _register_state {
         "redefining handler for event($name) for session(",
         $POE::Kernel::poe_kernel->ID_session_to_id($self), ")"
       )
-      if ( $self->[SELF_OPTIONS]->{+OPT_DEBUG} &&
-           (exists $self->[SELF_INTERNALS]->{$name})
+      if (
+        $self->[SELF_OPTIONS]->{+OPT_DEBUG} and
+        (exists $self->[SELF_INTERNALS]->{$name})
       );
       $self->[SELF_INTERNALS]->{$name} = $handler;
     }
