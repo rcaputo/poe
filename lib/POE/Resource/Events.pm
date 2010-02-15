@@ -3,7 +3,7 @@
 package POE::Resource::Events;
 
 use vars qw($VERSION);
-$VERSION = '1.285'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.286'; # NOTE - Should be #.### (three decimal places)
 
 # These methods are folded into POE::Kernel;
 package POE::Kernel;

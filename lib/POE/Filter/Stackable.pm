@@ -12,7 +12,7 @@ use strict;
 use POE::Filter;
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.285'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.286'; # NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Filter);
 
 use Carp qw(croak);

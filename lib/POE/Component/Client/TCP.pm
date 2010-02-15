@@ -3,7 +3,7 @@ package POE::Component::Client::TCP;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.285'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.286'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw(carp croak);
 use Errno qw(ETIMEDOUT ECONNRESET);
