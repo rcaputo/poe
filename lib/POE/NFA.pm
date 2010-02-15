@@ -207,10 +207,7 @@ sub spawn {
     exists $params{+SPAWN_PACKAGES}
   );
 
-  my $states = delete $params{+SPAWN_INLINES} if (
-    exists $params{+SPAWN_INLINES}
-  );
-  $states ||= {};
+  my $states = delete($params{+SPAWN_INLINES}) || {};
 
   if (exists $params{+SPAWN_OBJECTS}) {
     my $objects = delete $params{+SPAWN_OBJECTS};
@@ -222,8 +219,7 @@ sub spawn {
     _add_ref_states($states, $packages);
   }
 
-  my $runstate = delete $params{+SPAWN_RUNSTATE};
-  $runstate ||= {};
+  my $runstate = delete($params{+SPAWN_RUNSTATE}) || {};
 
   # These are unknown.
   croak(
