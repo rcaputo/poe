@@ -327,6 +327,10 @@ sub _data_sig_pid_watch {
 
   $kr_sessions_to_pids{$session}{$pid} = 1;
   $self->_data_ses_refcount_inc($session);
+
+  # Assume there's a child process.  This will be corrected on the
+  # next polling interval.
+  $kr_child_procs++ unless USE_SIGCHLD;
 }
 
 sub _data_sig_pid_ignore {
