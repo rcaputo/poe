@@ -7,7 +7,7 @@ package POE::Driver::SysRW;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.286'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.287'; # NOTE - Should be #.### (three decimal places)
 
 use Errno qw(EAGAIN EWOULDBLOCK);
 use Carp qw(croak);
