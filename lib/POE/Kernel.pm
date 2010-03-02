@@ -2882,10 +2882,10 @@ returned implicitly by handle_error().
 
 =head2 Using POE with Other Event Loops
 
-POE::Kernel supports any number of event loops.  Four are included in
-the base distribution, but that may change in the future as the ones
-with less common dependencies are re-released in their own
-distributions.  Several others are already available on the CPAN.
+POE::Kernel supports any number of event loops.  Two are included in
+the base distribution.  Historically, POE included other loops but they
+were moved into a separate distribution.  You can find them and other
+loops on the CPAN.
 
 POE's public interfaces remain the same regardless of the event loop
 being used.  Since most graphical toolkits include some form of event
@@ -2915,14 +2915,26 @@ It's less mysterious to load the appropriate L<POE::Loop|POE::Loop>
 class directly. Their names follow the format
 C<POE::Loop::$loop_module_name>, where C<$loop_module_name> is the
 name of the event loop module after each C<::> has been substituted
-with an underscore.
-
-  use POE::Loop::Event_Lib;
-  use POE;
-
-It can be abbreviated using POE's loader magic.
+with an underscore. It can be abbreviated using POE's loader magic.
 
   use POE qw( Loop::Event_Lib );
+
+POE also recognizes XS loops, they reside in the
+C<POE::XS::Loop::$loop_module_name> namespace.  Using them may give
+you a performance improvement on your platform, as the eventloop
+are some of the hottest code in the system.  As always, benchmark
+your application against various loops to see which one is best for
+your workload and platform.
+
+  use POE qw( XS::Loop::EPoll );
+
+Please don't load the loop modules directly, because POE will not have
+a chance to initialize it's internal structures yet. Code written like
+this will throw errors on startup. It might look like a bug in POE, but
+it's just the way POE is designed.
+
+  use POE::Loop::IO_Poll;
+  use POE;
 
 POE::Kernel also supports configuration directives on its own C<use>
 line.  A loop explicitly specified this way will override the search
@@ -2953,13 +2965,13 @@ callbacks.
 POE's distribution includes two event loop interfaces.  CPAN holds
 several more:
 
-=head3 POE::Loop::Select
+=head3 POE::Loop::Select (bundled)
 
 By default POE uses its select() based loop to drive its event system.
 This is perhaps the least efficient loop, but it is also the most
 portable.  POE optimizes for correctness above all.
 
-=head3 POE::Loop::IO_Poll
+=head3 POE::Loop::IO_Poll (bundled)
 
 The L<IO::Poll|IO::Poll> event loop provides an alternative that
 theoretically scales better than select().

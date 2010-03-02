@@ -11,7 +11,7 @@ $VERSION = '1.287'; # NOTE - Should be #.### (three decimal places)
 sub import {
   my $self = shift;
 
-  my @loops    = grep(/^Loop\:\:/, @_);
+  my @loops    = grep(/^(?:XS\:\:)?Loop\:\:/, @_);
   my @sessions = grep(/^(Session|NFA)$/, @_);
   my @modules  = grep(!/^(Kernel|Session|NFA|Loop)$/, @_);
 
