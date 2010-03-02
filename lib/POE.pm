@@ -13,7 +13,7 @@ sub import {
 
   my @loops    = grep(/^(?:XS\:\:)?Loop\:\:/, @_);
   my @sessions = grep(/^(Session|NFA)$/, @_);
-  my @modules  = grep(!/^(Kernel|Session|NFA|Loop)$/, @_);
+  my @modules  = grep(!/^(Kernel|Session|NFA|Loop|XS)$/, @_);
 
   croak "can't use multiple event loops at once"
     if (@loops > 1);
