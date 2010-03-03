@@ -10,4 +10,10 @@ BEGIN {
   package POE::Kernel;
   use constant TRACE_DEFAULT => exists($INC{'Devel/Cover.pm'});
 }
-BEGIN { use_ok("POE", "Loop::Select") }
+
+# Hide warnings.
+{
+	local $SIG{__WARN__} = sub { undef };
+  eval "use POE::Kernel { loop => 'NightMooseDontExist' }";
+}
+ok($@, "loading a nonexistent loop throws an error");
