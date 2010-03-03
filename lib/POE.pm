@@ -11,14 +11,14 @@ $VERSION = '1.287'; # NOTE - Should be #.### (three decimal places)
 sub import {
   my $self = shift;
 
-  my @loops    = grep(/^(?:XS\:\:)?Loop\:\:/, @_);
+  my @loops    = grep(/^(?:XS::)?Loop::/, @_);
   my @sessions = grep(/^(Session|NFA)$/, @_);
-  my @modules  = grep(!/^(Kernel|Session|NFA|Loop|XS)$/, @_);
+  my @modules  = grep(!/^(Kernel|Session|NFA|(?:XS::)?Loop::[\w:]+)$/, @_);
 
   croak "can't use multiple event loops at once"
     if (@loops > 1);
   croak "POE::Session and POE::NFA export conflicting constants"
-    if grep(/^(Session|NFA)$/, @sessions) > 1;
+    if scalar @sessions > 1;
 
   # If a session was specified, use that.  Otherwise use Session.
   if (@sessions) {
