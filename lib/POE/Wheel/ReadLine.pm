@@ -3575,17 +3575,27 @@ threads.
 
 =head2 Cygwin Support
 
-Q: Why does POE::Wheel::ReadLine complain about my Cygwin terminal?
+Q: Why does POE::Wheel::ReadLine complain about my "dumb" terminal?
 
-A: Cygwin as of v1.7.1-1 comes default with no "fancy" terminals
-installed. This means your $ENV{TERM} will be set to 'dumb' and this
-results in a nonfunctional readline. What you can do is peruse the
-internet to find out how to install a better terminal.
+A: Do you have Strawberry Perl installed? Due to the way it works, on
+installation it sets a global environment variable in MSWin32 for
+TERM=dumb. ( it may be fixed in a future version, but it's here to stay
+for now, ha! ) In this case, logging into the Cygwin shell via the
+cygwin.bat launcher results in a nonfunctional readline.
 
-L<http://c2.com/cgi/wiki?BetterCygwinTerminal> is one good guide among
-many. Some preliminary testing showed that "ansi" or "xterm" seems to
-play nicely with Cygwin. Please let us know if you encounter problems
-using any terminal other than "dumb".
+Normally, Cygwin will set TERM=cygwin launcher. However, if the TERM was
+already set it will not alter the value. Hence, the "bug" appears! What
+you can do is to hack the cygwin.bat file to add this line:
+
+  SET TERM=cygwin
+
+Other users reported that you can have better results by editing the
+~/.bash_profile file to set TERM=cygwin because on a Cygwin upgrade it
+overwrites the cygwin.bat file.
+
+Alternatively, you could install different terminals like "xterm" or "rxvt"
+as shown here: L<http://c2.com/cgi/wiki?BetterCygwinTerminal>. Please let
+us know if you encounter problems using any terminal other than "dumb".
 
 If you feel brave, you can peruse the RT ticket at 
 L<http://rt.cpan.org/Ticket/Display.html?id=55365> for more information
