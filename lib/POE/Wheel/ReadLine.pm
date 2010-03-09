@@ -17,6 +17,18 @@ if ($^O eq "MSWin32") {
   die "$^O cannot run " . __PACKAGE__;
 }
 
+# After a massive hackathon on Cygwin/perl/windows/POE it was determined that
+# having TERM='dumb' is worthless and VERY problematic to work-around...
+# Actually, the problem lies deep in Term::Cap's internals - it blows up
+# when we try to do "$termcap->Trequire( qw( cl ku kd kl kr) )" in new()
+# eval{} will not catch the croak() in the sub
+# Cygwin v1.7.1-1 on Windows Server 2008 64bit with Perl v5.10.1 with Term::Cap v1.12 with POE v1.287
+# For detailed info, please consult RT#55365
+# sorry about the defined $ENV{TERM} check, it was needed to make sure we spew no warnings...
+if ($^O eq 'cygwin' and defined $ENV{TERM} and $ENV{TERM} eq 'dumb') {
+  die "$^O with TERM='$ENV{TERM}' cannot run " . __PACKAGE__;
+}
+
 # Things we'll need to interact with the terminal.
 use Term::Cap ();
 use Term::ReadKey qw( ReadKey ReadMode GetTerminalSize );
@@ -3560,6 +3572,24 @@ writing.  They involve writing a special POE::Loop for Windows that
 either uses a Win32-specific module for better multiplexing, that
 polls for input, or that uses blocking I/O watchers in separate
 threads.
+
+=head2 Cygwin Support
+
+Q: Why does POE::Wheel::ReadLine complain about my Cygwin terminal?
+
+A: Cygwin as of v1.7.1-1 comes default with no "fancy" terminals
+installed. This means your $ENV{TERM} will be set to 'dumb' and this
+results in a nonfunctional readline. What you can do is peruse the
+internet to find out how to install a better terminal.
+
+L<http://c2.com/cgi/wiki?BetterCygwinTerminal> is one good guide among
+many. Some preliminary testing showed that "ansi" or "xterm" seems to
+play nicely with Cygwin. Please let us know if you encounter problems
+using any terminal other than "dumb".
+
+If you feel brave, you can peruse the RT ticket at 
+L<http://rt.cpan.org/Ticket/Display.html?id=55365> for more information
+on this problem.
 
 =head1 AUTHORS & COPYRIGHTS
 
