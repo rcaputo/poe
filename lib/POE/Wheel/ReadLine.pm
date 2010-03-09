@@ -2221,7 +2221,7 @@ sub _complete_match {
   my ($self) = @_;
   my $lookfor = substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]);
   $lookfor =~ /(\S+)$/;
-  $lookfor = $1;
+  $lookfor = defined($1) ? $1 : "";
   my $point = $self->[SELF_CURSOR_INPUT] - length($lookfor);
 
   my @clist = ();
@@ -2281,7 +2281,7 @@ sub rl_complete {
 
   my $lookfor = substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]);
   $lookfor =~ /(\S+)$/;
-  $lookfor = $1;
+  $lookfor = defined($1) ? $1 : "";
   my $point = $self->[SELF_CURSOR_INPUT] - length($lookfor);
   my @poss = $self->_complete_match;
   if (scalar @poss == 0) {
