@@ -3583,9 +3583,9 @@ TERM=dumb. ( it may be fixed in a future version, but it's here to stay
 for now, ha! ) In this case, logging into the Cygwin shell via the
 cygwin.bat launcher results in a nonfunctional readline.
 
-Normally, Cygwin will set TERM=cygwin launcher. However, if the TERM was
-already set it will not alter the value. Hence, the "bug" appears! What
-you can do is to hack the cygwin.bat file to add this line:
+Normally, Cygwin will set TERM=cygwin in the launcher. However, if the 
+TERM was already set it will not alter the value. Hence, the "bug"
+appears! What you can do is to hack the cygwin.bat file to add this line:
 
   SET TERM=cygwin
 
