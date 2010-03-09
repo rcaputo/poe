@@ -875,11 +875,20 @@ error event is dispatched.
 C<ARG3> contains the wheel's unique ID.  The wheel's ID is used to
 differentiate between many wheels managed by a single session.
 
+ErrorEvent may also indicate EOF on a FileHandle by returning
+operation "read" error 0.  For sockets, this means the remote end has
+closed the connection.
+
 A sample ErrorEvent handler:
 
   sub error_state {
     my ($operation, $errnum, $errstr, $id) = @_[ARG0..ARG3];
-    warn "Wheel $id encountered $operation error $errnum: $errstr\n";
+    if ($operation eq "read" and $errnum == 0) {
+      print "EOF from wheel $id\n";
+    }
+    else {
+      warn "Wheel $id encountered $operation error $errnum: $errstr\n";
+    }
     delete $_[HEAP]{wheels}{$id}; # shut down that wheel
   }
 
