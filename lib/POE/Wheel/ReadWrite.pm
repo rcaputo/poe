@@ -1092,7 +1092,7 @@ TODO - Example.
 
 =head2 get_output_handle
 
-get_input_handle() returns the filehandle being watched for input.
+get_output_handle() returns the filehandle being watched for output.
 
 Manipulating filehandles that are managed by POE may cause nasty side
 effects, which may change from one POE release to the next.  Please
