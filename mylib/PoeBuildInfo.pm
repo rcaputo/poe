@@ -84,8 +84,6 @@ sub CLEAN_FILES () {
     t/30_loops/*/*
     t/30_loops/*
     t/30_loops
-    META.yml
-    CHANGES
   );
   "@clean_files";
 }
