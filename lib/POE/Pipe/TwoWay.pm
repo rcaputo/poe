@@ -6,7 +6,7 @@ package POE::Pipe::TwoWay;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.287'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.288'; # NOTE - Should be #.### (three decimal places)
 
 use Symbol qw(gensym);
 use IO::Socket qw( AF_UNIX SOCK_STREAM PF_UNSPEC );
