@@ -160,3 +160,4 @@ t/90_regression/suzman_windows.t
 t/90_regression/ton-stop-corruption.t
 t/90_regression/whelan-dieprop.t
 t/90_regression/whjackson-followtail.t
+t/90_regression/rt56417-wheel-run.t

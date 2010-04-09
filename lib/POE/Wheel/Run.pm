@@ -294,7 +294,11 @@ sub new {
 
   # Child.  Parent side continues after this block.
   unless ($pid) {
-    croak "couldn't fork: $!" unless defined $pid;
+    # removed the croak because it wasn't "safe" RT#56417
+    #croak "couldn't fork: $!" unless defined $pid;
+    # ANY OTHER DIE/CROAK/EXIT/WHATEVER in the child MUST use the helper!
+    __PACKAGE__->_warn_and_exit_child( "couldn't fork: $!" )
+      unless defined $pid;
 
     # Stdio should not be tied.  Resolves rt.cpan.org ticket 1648.
     if (tied *STDOUT) {
@@ -320,7 +324,8 @@ sub new {
 
       # Open the slave side of the pty.
       $stdin_read = $stdout_write = $stdin_write->slave();
-      croak "could not create slave pty: $!" unless defined $stdin_read;
+      __PACKAGE__->_warn_and_exit_child( "could not create slave pty: $!" )
+        unless defined $stdin_read;
 
       # For a simple pty conduit, stderr is wedged into stdout.
       $stderr_write = $stdout_write if $conduit eq 'pty';
@@ -428,7 +433,7 @@ sub new {
       close STDOUT if defined fileno(STDOUT);
       close STDERR if defined fileno(STDERR);
 
-      exit __PACKAGE__->_exit_child_any_way_we_can();
+      __PACKAGE__->_exit_child_any_way_we_can();
     }
 
     # Execute an external program.  This gets weird.
@@ -446,12 +451,14 @@ sub new {
     # exec(ARRAY)
     if (ref($program) eq 'ARRAY') {
       exec(@$program, @$prog_args)
-        or die "can't exec (@$program) in child pid $$: $!";
+         or __PACKAGE__->_warn_and_exit_child(
+           "can't exec (@$program) in child pid $$: $!" );
     }
 
     # exec(SCALAR)
     exec(join(" ", $program, @$prog_args))
-      or die "can't exec ($program) in child pid $$: $!";
+      or __PACKAGE__->warn_and_exit_child(
+        "can't exec ($program) in child pid $$: $!" );
   }
 
   # Parent here.  Close what the parent won't need.
@@ -1153,15 +1160,18 @@ sub _redirect_child_stdio_sanely {
 
   # Redirect STDIN from the read end of the stdin pipe.
   open( STDIN, "<&" . fileno($stdin_read) )
-    or die "can't redirect STDIN in child pid $$: $!";
+    or __PACKAGE__->_warn_and_exit_child(
+      "can't redirect STDIN in child pid $$: $!" );
 
   # Redirect STDOUT to the write end of the stdout pipe.
   open( STDOUT, ">&" . fileno($stdout_write) )
-    or die "can't redirect stdout in child pid $$: $!";
+    or __PACKAGE__->_warn_and_exit_child(
+      "can't redirect stdout in child pid $$: $!" );
 
   # Redirect STDERR to the write end of the stderr pipe.
   open( STDERR, ">&" . fileno($stderr_write) )
-    or die "can't redirect stderr in child: $!";
+    or __PACKAGE__->_warn_and_exit_child(
+      "can't redirect stderr in child pid $$: $!" );
 }
 
 sub _exit_child_any_way_we_can {
@@ -1172,9 +1182,19 @@ sub _exit_child_any_way_we_can {
 
   unless (POE::Kernel::RUNNING_IN_HELL) {
     # Try to avoid triggering END blocks and object destructors.
-    eval { POSIX::_exit(0);  };
-    eval { CORE::kill KILL => $$;  };
+    eval { POSIX::_exit(0); };
+    eval { CORE::kill KILL => $$; };
     eval { exec("$^X -e 0"); };
+  } else {
+    # sometimes we reach here via the "good" code path...
+    if ( defined fileno( STDERR ) ) {
+      warn "You are running " . __PACKAGE__ . " on '$^O' and Perl's pseudo-fork emulation is not perfect!\n";
+      warn "We cannot use the POSIX way to exit this pseudo-process.\n";
+      warn "THIS MEANS YOU ARE LEAKING APPROX 1KB PER EXEC!\n";
+      warn "Please look at rt.cpan.org bug #56417 for more information.\n";
+    }
+
+    eval { CORE::kill( KILL => $$ ); };
   }
 
   # Do what we must.
@@ -1226,9 +1246,10 @@ sub _exec_in_hell {
   my $w32job;
 
   unless ( $w32job = Win32::Job->new() ) {
-    print $sem_pipe_write "go\n\n";
+    print $sem_pipe_write "go\n\n"; # TODO why the double newline?
     close $sem_pipe_write;
-    die Win32::FormatMessage( Win32::GetLastError() );
+    __PACKAGE__->_warn_and_exit_child(
+      Win32::FormatMessage( Win32::GetLastError() ) );
   }
 
   my $w32pid;
@@ -1236,7 +1257,8 @@ sub _exec_in_hell {
   unless ( $w32pid = $w32job->spawn( $appname, $cmdline ) ) {
     print $sem_pipe_write "go\n";
     close $sem_pipe_write;
-    die Win32::FormatMessage( Win32::GetLastError() );
+    __PACKAGE__->_warn_and_exit_child(
+      Win32::FormatMessage( Win32::GetLastError() ) );
   }
 
   print $sem_pipe_write "$w32pid\n";
@@ -1250,7 +1272,15 @@ sub _exec_in_hell {
   close STDOUT if defined fileno(STDOUT);
   close STDERR if defined fileno(STDERR);
 
-  exit($exitcode);
+  __PACKAGE__->_exit_child_any_way_we_can();
+}
+
+# Simple helper to ease the pain of warn+exit
+sub _warn_and_exit_child {
+  my( $class, $warning ) = @_;
+
+  warn $warning, "\n";
+  $class->_exit_child_any_way_we_can();
 }
 
 1;
@@ -1866,6 +1896,40 @@ remaining in POE::Wheel::Run's POE::Driver output queue.  It is often
 used to tell whether the wheel has more input for the child process.
 
 =head1 TIPS AND TRICKS
+
+=head2 MSWin32 Support
+
+In the past POE::Wheel::Run did not support MSWin32 and users had to
+use custom work-arounds. Then Chris Williams ( BINGOS ) arrived and
+saved the day with his L<POE::Wheel::Run::Win32> module. After some
+testing, it was decided to merge the win32 code into POE::Wheel::Run.
+Everyone was happy!
+
+However, after some investigation Apocalypse ( APOCAL ) found out that
+in some situations it still didn't behave properly. The root cause was
+that the win32 code path in POE::Wheel::Run didn't exit cleanly. This
+means DESTROY and END blocks got executed! After talking with more
+people, the solution was not pretty.
+
+The problem is that there is no equivalent of POSIX::_exit() for MSWin32.
+Hopefully, in a future version of Perl this can be fixed! In the meantime,
+POE::Wheel::Run will use CORE::kill() to terminate the child. However,
+this comes with a caveat: you will leak around 1KB per exec. The code
+has been improved so the chance of this happening has been reduced.
+
+As of now the most reliable way to trigger this is to exec an invalid
+binary. The definition of "invalid binary" depends on different things,
+but what it means is that Win32::Job->spawn() failed to run. This will
+force POE::Wheel::Run to use the workaround to exit the child. If this
+happens, a very big warning will be printed to the STDERR of the child
+and the parent process will receive it.
+
+If you are a Perl MSWin32 hacker, PLEASE help us with this situation! Go
+read rt.cpan.org bug #56417 and talk with us/p5p to see where you can
+contribute.
+
+Thanks again for your patience as we continue to improve POE::Wheel::Run
+on MSWin32!
 
 =head2 Execution Environment
 
