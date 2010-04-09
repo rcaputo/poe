@@ -159,10 +159,9 @@ sub new {
     $conduit = "pipe";
   }
 
-  # TODO - $winsize is not actually used anywhere.  WTF?!
-  my $winsize = delete $params{Winsize};
-  croak "Winsize needs to be an array ref"
-    if (defined($winsize) and ref($winsize) ne 'ARRAY');
+  # TODO remove deprecation warning after some time
+  carp "Winsize is deprecated." if exists $params{Winsize};
+  delete $params{Winsize};  # so the unknown arg check doesn't complain
 
   my $stdin_event  = delete $params{StdinEvent};
   my $stdout_event = delete $params{StdoutEvent};
@@ -1465,6 +1464,19 @@ It's not a dependency until it's actually needed.
 TODO - Example.
 
 =head4 Winsize
+
+WARNING! This has been deprecated. WARNING!
+
+The reason for the deprecation is that the original code was crufty
+and unmaintained. It caused more problems than it helped. In the
+mists of time, the old code was silently removed. Actually, it was
+replaced with IO::Pty::clone_winsize_from(\*FH) which was more saner.
+Alas, the docs weren't updated and users were led to believe that
+this would do something. Now, POE::Wheel::Run will issue a warning
+if it sees this param. If you want the old behavior back, please help
+us fix it! Patches welcome :)
+
+WARNING! This has been deprecated. WARNING!
 
 Winsize sets the child process' terminal size.  Its value should be an
 arrayref with two or four elements.  The first two elements must be
