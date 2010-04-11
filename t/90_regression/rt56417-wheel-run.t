@@ -8,7 +8,7 @@ use Test::More;
 use File::Spec;
 use POE qw( Wheel::Run );
 
-plan tests => 2;
+plan tests => 4;
 
 foreach my $t ( qw( real fake ) ) {
   my_spawn( $t );
@@ -69,6 +69,14 @@ sub _wheel_closed {
 }
 
 sub _wheel_child {
+  my $exitval = $_[ARG2];
+
+  if ( $_[HEAP]->{type} eq 'real' ) {
+    ok( $exitval == 0, "Set proper exitval for '" . $_[HEAP]->{type} . "'" );
+  } else {
+    ok( $exitval > 0, "Set proper exitval for '" . $_[HEAP]->{type} . "'" );
+  }
+
 	$poe_kernel->sig_handled();
 	$poe_kernel->delay( '_timeout' );
 	return;

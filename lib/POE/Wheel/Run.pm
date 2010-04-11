@@ -296,7 +296,7 @@ sub new {
     # removed the croak because it wasn't "safe" RT#56417
     #croak "couldn't fork: $!" unless defined $pid;
     # ANY OTHER DIE/CROAK/EXIT/WHATEVER in the child MUST use the helper!
-    __PACKAGE__->_warn_and_exit_child( "couldn't fork: $!" )
+    __PACKAGE__->_warn_and_exit_child( "couldn't fork: $!", int( $! ) )
       unless defined $pid;
 
     # Stdio should not be tied.  Resolves rt.cpan.org ticket 1648.
@@ -323,7 +323,7 @@ sub new {
 
       # Open the slave side of the pty.
       $stdin_read = $stdout_write = $stdin_write->slave();
-      __PACKAGE__->_warn_and_exit_child( "could not create slave pty: $!" )
+      __PACKAGE__->_warn_and_exit_child( "could not create slave pty: $!", int( $! ) )
         unless defined $stdin_read;
 
       # For a simple pty conduit, stderr is wedged into stdout.
@@ -425,6 +425,11 @@ sub new {
         }
       }
 
+      # TODO what if the program tries to exit? It needs to use
+      # our _exit_child_any_way_we_can handler...
+      # Should we replace CORE::exit? CORE::die too? blahhhhhh
+      # We've documented that users should not do it, but who knows!
+      # Also, exceptions would screw this up - should it be eval'd?
       $program->(@$prog_args);
 
       # Try to force stdio flushing.
@@ -451,13 +456,13 @@ sub new {
     if (ref($program) eq 'ARRAY') {
       exec(@$program, @$prog_args)
          or __PACKAGE__->_warn_and_exit_child(
-           "can't exec (@$program) in child pid $$: $!" );
+           "can't exec (@$program) in child pid $$: $!", int( $! ) );
     }
 
     # exec(SCALAR)
     exec(join(" ", $program, @$prog_args))
       or __PACKAGE__->warn_and_exit_child(
-        "can't exec ($program) in child pid $$: $!" );
+        "can't exec ($program) in child pid $$: $!", int( $! ) );
   }
 
   # Parent here.  Close what the parent won't need.
@@ -1159,45 +1164,53 @@ sub _redirect_child_stdio_sanely {
 
   # Redirect STDIN from the read end of the stdin pipe.
   open( STDIN, "<&" . fileno($stdin_read) )
-    or __PACKAGE__->_warn_and_exit_child(
-      "can't redirect STDIN in child pid $$: $!" );
+    or $class->_warn_and_exit_child(
+      "can't redirect STDIN in child pid $$: $!", int( $! ) );
 
   # Redirect STDOUT to the write end of the stdout pipe.
   open( STDOUT, ">&" . fileno($stdout_write) )
-    or __PACKAGE__->_warn_and_exit_child(
-      "can't redirect stdout in child pid $$: $!" );
+    or $class->_warn_and_exit_child(
+      "can't redirect stdout in child pid $$: $!", int( $! ) );
 
   # Redirect STDERR to the write end of the stderr pipe.
   open( STDERR, ">&" . fileno($stderr_write) )
-    or __PACKAGE__->_warn_and_exit_child(
-      "can't redirect stderr in child pid $$: $!" );
+    or $class->_warn_and_exit_child(
+      "can't redirect stderr in child pid $$: $!", int( $! ) );
 }
 
 sub _exit_child_any_way_we_can {
   my $class = shift;
+  my $exitval = shift;
+  $exitval = 0 if ! defined $exitval;
 
   # On Windows, subprocesses run in separate threads.  All the "fancy"
   # methods act on entire processes, so they also exit the parent.
 
   unless (POE::Kernel::RUNNING_IN_HELL) {
     # Try to avoid triggering END blocks and object destructors.
-    eval { POSIX::_exit(0); };
+    eval { POSIX::_exit( $exitval ); };
+
+    # TODO those methods will not exit with $exitval... what to do?
     eval { CORE::kill KILL => $$; };
     eval { exec("$^X -e 0"); };
   } else {
     # sometimes we reach here via the "good" code path...
     if ( defined fileno( STDERR ) ) {
-      warn "You are running " . __PACKAGE__ . " on '$^O' and Perl's pseudo-fork emulation is not perfect!\n";
+      warn "You are running $class on '$^O' and Perl's pseudo-fork emulation is not perfect!\n";
       warn "We cannot use the POSIX way to exit this pseudo-process.\n";
       warn "THIS MEANS YOU ARE LEAKING APPROX 1KB PER EXEC!\n";
       warn "Please look at rt.cpan.org bug #56417 for more information.\n";
     }
 
     eval { CORE::kill( KILL => $$ ); };
+
+    # Interestingly enough, the KILL is not enough to terminate this process...
+    # However, it *is* enough to stop execution of END blocks/etc
+    # So we will end up falling through to the exit( $exitval ) below
   }
 
   # Do what we must.
-  exit(0);
+  exit( $exitval );
 }
 
 # RUNNING_IN_HELL use Win32::Process to create a pucker new shiny
@@ -1208,8 +1221,6 @@ sub _exec_in_hell {
     $class, $close_on_call, $sem_pipe_write,
     $program, $prog_args
   ) = @_;
-
-  my $exitcode = 0;
 
   # Close any close-on-exec file descriptors.
   # Except STDIN, STDOUT, and STDERR, of course.
@@ -1247,8 +1258,8 @@ sub _exec_in_hell {
   unless ( $w32job = Win32::Job->new() ) {
     print $sem_pipe_write "go\n\n"; # TODO why the double newline?
     close $sem_pipe_write;
-    __PACKAGE__->_warn_and_exit_child(
-      Win32::FormatMessage( Win32::GetLastError() ) );
+    $class->_warn_and_exit_child(
+      Win32::FormatMessage( Win32::GetLastError() ), Win32::GetLastError() );
   }
 
   my $w32pid;
@@ -1256,30 +1267,30 @@ sub _exec_in_hell {
   unless ( $w32pid = $w32job->spawn( $appname, $cmdline ) ) {
     print $sem_pipe_write "go\n";
     close $sem_pipe_write;
-    __PACKAGE__->_warn_and_exit_child(
-      Win32::FormatMessage( Win32::GetLastError() ) );
+    $class->_warn_and_exit_child(
+      Win32::FormatMessage( Win32::GetLastError() ), Win32::GetLastError() );
   }
 
   print $sem_pipe_write "$w32pid\n";
   close $sem_pipe_write;
 
+  # TODO why 60? Why not MAX_INT so we don't do unnecessary work?
   my $ok = $w32job->watch( sub { 0 }, 60 );
   my $hashref = $w32job->status();
-  $exitcode = $hashref->{$w32pid}->{exitcode};
 
   # In case flushing them wasn't good enough.
   close STDOUT if defined fileno(STDOUT);
   close STDERR if defined fileno(STDERR);
 
-  __PACKAGE__->_exit_child_any_way_we_can();
+  $class->_exit_child_any_way_we_can( $hashref->{$w32pid}->{exitcode} );
 }
 
 # Simple helper to ease the pain of warn+exit
 sub _warn_and_exit_child {
-  my( $class, $warning ) = @_;
+  my( $class, $warning, $exitval ) = @_;
 
   warn $warning, "\n";
-  $class->_exit_child_any_way_we_can();
+  $class->_exit_child_any_way_we_can( $exitval );
 }
 
 1;
