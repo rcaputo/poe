@@ -1194,17 +1194,9 @@ sub _exit_child_any_way_we_can {
     eval { CORE::kill KILL => $$; };
     eval { exec("$^X -e 0"); };
   } else {
-    # sometimes we reach here via the "good" code path...
-    if ( defined fileno( STDERR ) ) {
-      warn "You are running $class on '$^O' and Perl's pseudo-fork emulation is not perfect!\n";
-      warn "We cannot use the POSIX way to exit this pseudo-process.\n";
-      warn "THIS MEANS YOU ARE LEAKING APPROX 1KB PER EXEC!\n";
-      warn "Please look at rt.cpan.org bug #56417 for more information.\n";
-    }
-
     eval { CORE::kill( KILL => $$ ); };
 
-    # Interestingly enough, the KILL is not enough to terminate this process...
+    # TODO Interestingly enough, the KILL is not enough to terminate this process...
     # However, it *is* enough to stop execution of END blocks/etc
     # So we will end up falling through to the exit( $exitval ) below
   }
