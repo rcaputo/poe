@@ -3195,7 +3195,7 @@ The "after" C<PutMode> tells put() to wait until after the user enters
 or cancels her input.
 
 Finally, "idle" will allow put() to pre-empt user input if the user
-stops typing for C</IdleTime> seconds.  This mode behaves like "after"
+stops typing for L</IdleTime> seconds.  This mode behaves like "after"
 if the user can't stop typing long enough.  This is
 POE::Wheel::ReadLine's default mode.
 
@@ -3203,7 +3203,7 @@ POE::Wheel::ReadLine's default mode.
 
 C<IdleTime> tells POE::Wheel::ReadLine how long the keyboard must be
 idle before C<put()> becomes immediate or buffered text is flushed to
-the display.  It is only meaningful when L</InputMode> is "idle".
+the display.  It is only meaningful when L</PutMode> is "idle".
 C<IdleTime> defaults to 2 seconds.
 
 =head4 AppName
@@ -3229,7 +3229,7 @@ POE::Wheel::ReadLine supports an input history, with searching.
 
 add_history() accepts a list of lines to add to the input history.
 Generally it's called with a single line: the last line of input
-received from the terminal.  The C</SYNOPSIS> shows add_history() in
+received from the terminal.  The L</SYNOPSIS> shows add_history() in
 action.
 
 =head3 get_history

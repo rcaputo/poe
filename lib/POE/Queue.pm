@@ -87,8 +87,8 @@ items, and they take IDs to identify the items to alter.
 
 Item payloads are arbitrary application data.  POE::Queue does not
 examine or alter payloads itself.  Any methods that need to examine
-payloads will accept a filter function (see L<Filter Functions>).
-Filter functions examine payloads so POE::Queue need not.
+payloads will accept a filter function. Filter functions examine
+payloads so POE::Queue need not.
 
 =head1 Public Methods
 
@@ -220,8 +220,6 @@ nothing if FILTER_FUNCTION matched nothing.
 
 There is no guarantee which items will be removed if MAX_ITEM_COUNT is
 specified too low.
-
-See L<Filter Functions> for more details about filter functions.
 
 =head2 peek_items FILTER_FUNCTION [, MAX_ITEM_COUNT ]
 

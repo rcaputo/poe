@@ -1518,7 +1518,7 @@ listening or connecting.  See below for the differences.
 
 For INET sockets, C<$_[ARG1]> and C<$_[ARG2]> hold the socket's remote
 address and port, respectively.  The address is packed; see
-L<Socket/inet_nota()> if a human-readable version is needed.
+L<Socket/inet_ntoa> if a human-readable version is needed.
 
   sub handle_new_client {
     my $accepted_socket = $_[ARG0];

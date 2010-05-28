@@ -270,7 +270,7 @@ classes describe what's common among each class.  It's a good idea to at
 least skim the base class documentation since the subclasses tend not to
 rehash the common things.
 
-L<POE::Queue|POE::Queue>, L<POE::Resource|POE::Resource>, L<POE::Loop|POE::Loop>, and L<POE::API|POE::API> document the
+L<POE::Queue|POE::Queue>, L<POE::Resource|POE::Resource>, and L<POE::Loop|POE::Loop> document the
 concepts and sometimes the standard interfaces behind multiple
 subclasses.  You're encouraged to have a look.
 
@@ -494,8 +494,7 @@ L<POE::Queue>, L<POE::Queue::Array>
 
 L<POE::Resource>, L<POE::Resource::Aliases>, L<POE::Resource::Events>,
 L<POE::Resource::Extrefs>, L<POE::Resource::FileHandles>,
-L<POE::Resource::Performance>, L<POE::Resource::SIDs>,
-L<POE::Resource::Sessions>, L<POE::Resource::Signals>
+L<POE::Resource::SIDs>, L<POE::Resource::Sessions>, L<POE::Resource::Signals>
 
 =head2 Helpers
 
@@ -630,7 +629,7 @@ problem relating to anonymous subs, scope and @{} processing.
 
 =item Matt Sergeant
 
-Matt contributed L<POE::Kernel::Poll|POE::Kernel::Poll>, a more efficient way to watch
+Matt contributed C<POE::Kernel::Poll>, a more efficient way to watch
 multiple files than select().  It's since been moved to
 L<POE::Loop::IO_Poll|POE::Loop::IO_Poll>.
 

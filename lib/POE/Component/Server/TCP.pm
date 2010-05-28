@@ -706,8 +706,8 @@ POE::Session's _start handlers.
 The component's C<Error> callback is invoked when the server has a
 problem listening for connections.  C<Error> may also be called if the
 component's default acceptor has trouble accepting a connection.
-C<Error> receives the usual ones for POE::Wheel::SocketFactory and
-POE::Wheel::ReadWrite L<ErrorEvent>.
+C<Error> receives the usual ones for L<POE::Wheel::SocketFactory/FailureEvent> and
+L<POE::Wheel::ReadWrite/ErrorEvent>.
 
 =head2 Default Child Connection Sessions
 
@@ -894,7 +894,7 @@ connections.  This may be useful if a server must perform lengthy
 initialization before allowing connections.  When the initialization
 finishes, it can yield(set_concurrency => -1) to enable connections.
 Likewise, a running server may yield(set_concurrency => 0) or any
-other number to dynamically tune its concurrency.  See L<EVENTS> for
+other number to dynamically tune its concurrency.  See L</EVENTS> for
 more about the set_concurrency event.
 
 Note: For C<Concurrency> to work with a custom C<Acceptor>, the
@@ -1238,7 +1238,7 @@ in its L<Alias> parameter.
 =head3 disconnected
 
 The "disconnected" event informs the TCP server that a connection was
-closed.  It is needed when using L<Concurrency> with an L<Acceptor>
+closed.  It is needed when using L</Concurrency> with an L</Acceptor>
 callback.  The custom Acceptor must provide its own disconnect
 notification so that the server's connection counting logic works.
 
@@ -1248,7 +1248,7 @@ server will never know when clients have disconnected.
 =head3 set_concurrency
 
 "set_concurrency" set the number of simultaneous connections the
-server will be willing to accept.  See L<Concurrency> for more
+server will be willing to accept.  See L</Concurrency> for more
 details.  "set_concurrency" must have one parameter: the new maximum
 connection count.
 

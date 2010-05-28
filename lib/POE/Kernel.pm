@@ -2996,7 +2996,7 @@ toolkit.  Tk has some restrictions that require POE to behave oddly.
 Tk's event loop will not run unless one or more widgets are created.
 POE must therefore create such a widget before it can run. POE::Kernel
 exports $poe_main_window so that the application developer may use the
-widget (which is a L<MainWindow|Tk/MainWindow>), since POE doesn't
+widget (which is a L<MainWindow|Tk::MainWindow>), since POE doesn't
 need it other than for dispatching events.
 
 Creating and using a different MainWindow often has an undesired
@@ -3033,7 +3033,7 @@ applications, such as Padre.
 
 =head3 POE::XS::Loop::EPoll (separate distribution)
 
-L<POE::Loop::EPoll> allows POE components to transparently use the
+L<POE::XS::Loop::EPoll> allows POE components to transparently use the
 EPoll event library on operating systems that support it.
 
 =head3 POE::XS::Loop::Poll (separate distribution)
@@ -3196,8 +3196,8 @@ problematic, it will be removed without much notice.
 stop() is advanced magic.  Programmers who think they need it are
 invited to become familiar with its source.
 
-See L<POE::Wheel::Run/Nested POE Kernel> for an example of how to use this
-facility.
+See L<POE::Wheel::Run/Running POE::Kernel in the Child> for an example
+of how to use this facility.
 
 =head2 Asynchronous Messages (FIFO Events)
 
@@ -4116,11 +4116,12 @@ Every session has a parent, even the very first session created.
 Sessions without obvious parents are children of the program's
 POE::Kernel instance.
 
-Child sessions will keep their parents active.  See L<Session
+Child sessions will keep their parents active.  See L</Session
 Lifespans> for more about why sessions stay alive.
 
 The parent/child relationship tree also governs the way many signals
-are dispatched.  See L</Signal Watchers> for more information on that.
+are dispatched.  See L</Common Signal Dispatching> for more
+information on that.
 
 =head3 Session Management Events (_start, _stop, _parent, _child)
 
@@ -4346,7 +4347,7 @@ The CHILD_SESSION exists, but it is not a child of the current session.
 =back
 
 detach_child() will generate L</_parent> and/or L</_child> events to the
-appropriate sessions.  See L</"Session Management Events"> for a detailed
+appropriate sessions.  See L<Session Management Events|/Session Management> for a detailed
 explanation of these events.  See
 L<above|/"When a session is detached from its parent:">
 for the order the events are generated.
@@ -4368,7 +4369,7 @@ child of POE::Kernel, so it may not be detached.
 =back
 
 detach_child() will generate L</_parent> and/or L</_child> events to the
-appropriate sessions.  See L</"Session Management Events"> for a detailed
+appropriate sessions.  See L<Session Management Events|/Session Management> for a detailed
 explanation of these events.  See
 L<above|/"When a session is detached from its parent:">
 for the order the events are generated.
@@ -4540,7 +4541,7 @@ Example:
 
 By default, SIGCHLD is not handled by registering a C<%SIG> handler.
 Rather, waitpid() is called periodically to test for child process
-exits.  See the experimental L<USE_SIGCHLD> option if you would prefer
+exits.  See the experimental L</USE_SIGCHLD> option if you would prefer
 child processes to be reaped in a more timely fashion.
 
 =head4 SIGPIPE
@@ -5078,7 +5079,7 @@ widget to dispatch events.
 
 On a related note, POE will shut down if the widget in
 C<$poe_main_window> is destroyed.  This can be changed with
-POE::Kernel's C</signal_ui_destroy>() method.
+POE::Kernel's L</signal_ui_destroy> method.
 
 =head1 DEBUGGING POE AND PROGRAMS USING IT
 

@@ -813,7 +813,7 @@ dispatch interface to those handlers.
 Consider the L</SYNOPSIS> for example.  A POE::Session instance is
 created with two C<inline_states>, each mapping an event name
 ("_start" and "next") to an inline subroutine.  POE::Session ensures
-that C<$_[KERNEL]> and so on are meaningful within an event handler.
+that L</$_[KERNEL]> and so on are meaningful within an event handler.
 
 Event handlers may also be object or class methods, using
 L</object_states> and L</package_states> respectively.  The create()
@@ -829,7 +829,7 @@ not usually necessary.  If an application is not careful about
 cleaning up these references you will create circular references,
 which will leak memory when POE::Kernel would normally destroy the
 POE::Session object.  It is recommended that you keep the session's
-C</ID> instead.
+L<ID> instead.
 
 =head2 POE::Session's Calling Convention
 
@@ -841,7 +841,7 @@ POE::Session's unconventional calling convention.  For example:
     ...;
   }
 
-Or the use of C</$_[KERNEL]>, C</$_[HEAP]> and C</$_[ARG0]> inline,
+Or the use of C<$_[KERNEL]>, C<$_[HEAP]> and C<$_[ARG0]> inline,
 as is done in most examples.
 
 What's going on here is rather basic.  Perl passes parameters into
@@ -849,7 +849,7 @@ subroutines or methods using the @_ array.  C<KERNEL>, C<HEAP>,
 C<ARG0> and others are constants exported by POE::Session (which is
 included for free when a program uses POE).
 
-So C</$_[KERNEL]> is an event handler's KERNELth parameter.
+So C<$_[KERNEL]> is an event handler's KERNELth parameter.
 C<@_[HEAP, ARG0]> is a slice of @_ containing the HEAPth and ARG0th
 parameters.
 
@@ -921,11 +921,11 @@ POE's parameter offsets:
 
 C<$_[SESSION]> is a reference to the current session object.  This lets event
 handlers access their session's methods.  Programs may also compare
-C<$_[SESSION]> to C</$_[SENDER]> to verify that intra-session events did not
+C<$_[SESSION]> to C<$_[SENDER]> to verify that intra-session events did not
 come from other sessions.
 
 C<$_[SESSION]> may also be used as the destination for intra-session
-C<post()|POE::Kernel/post> and C<call()|POE::Kernel/call>.  C<yield()|POE::Kernel/yield> is marginally more convenient and
+L<post()|POE::Kernel/post> and L<call()|POE::Kernel/call>.  L<yield()|POE::Kernel/yield> is marginally more convenient and
 efficient than C<post($_[SESSION], ...)> however.
 
 It is bad form to access another session directly.  The recommended
@@ -1082,7 +1082,7 @@ means anything stored there will be available to any other event
 handler regardless of the object.
 
 event_2a is handled by calling C<< $object_2->method_2a(...) >>.  In this
-case C</$_[OBJECT]> is $object_2.  C<$_[HEAP]> is the same anonymous hashref
+case C<$_[OBJECT]> is $object_2.  C<$_[HEAP]> is the same anonymous hashref
 that was passed to the event_1a handler, though.  The methods are resolved
 when the event is handled (late-binding).
 
@@ -1122,7 +1122,7 @@ object upon success, but most applications won't need to save it.
 C<create()> invokes the newly started session's _start event handler
 before returning.
 
-C<create()> also passes the new POE::Session object to L</POE::Kernel>.
+C<create()> also passes the new POE::Session object to L<POE::Kernel>.
 POE's kernel holds onto the object in order to dispatch events to it.
 POE::Kernel will release the object when it detects the object has
 become moribund.  This should cause Perl to destroy the object if
@@ -1523,7 +1523,7 @@ parameters to C<create()>.
 
 Any parameters not recognized by C<create()> must be removed from the
 CREATE_PARAMETERS before C<instantiate()> returns.  C<create()> will
-L<croak|Carp/croak>
+L<croak|Carp>
 if it discovers unknown parameters.
 
 Be sure to return C<$self> from instantiate.
@@ -1719,7 +1719,7 @@ to post the event back to the current session:
     $_[KERNEL]->yield( $next );
   }
 
-Or the L<$_[SESSION]> parameter passed to every event handler, but
+Or the L</$_[SESSION]> parameter passed to every event handler, but
 yield() is more efficient.
 
   next => sub {
@@ -1728,8 +1728,8 @@ yield() is more efficient.
     $_[KERNEL]->post( $_[SESSION], $next );
   }
 
-Along the same lines as L<$_[SESSION]>, a session can respond back to
-the sender of an event by posting to L<$_[SENDER]>.  This is great for
+Along the same lines as L</$_[SESSION]>, a session can respond back to
+the sender of an event by posting to L</$_[SENDER]>.  This is great for
 responding to requests.
 
 If a program must hold onto some kind of dynamic session reference,

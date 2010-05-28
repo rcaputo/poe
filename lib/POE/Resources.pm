@@ -64,8 +64,8 @@ to use POE::Resources directly.
 POE::Kernel calls load() to loads all the known POE::Resource modules.
 
 Each resource may be handled by a pure perl module, or by an XS
-module.  For each resource class, load() first tires to load the
-L<POE::XS::Resource::...> version of the module.  If that fails,
+module.  For each resource class, load() first tries to load the
+C<POE::XS::Resource::...> version of the module.  If that fails,
 load() falls back to C<POE::Resource::...>.
 
 =head1 SEE ALSO
