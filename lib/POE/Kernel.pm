@@ -116,7 +116,18 @@ BEGIN {
   # automatic exception handling
   { no strict 'refs';
     unless (defined &CATCH_EXCEPTIONS) {
-      *CATCH_EXCEPTIONS = sub () { 1 };
+      my $catch_exceptions = (
+        (exists $ENV{POE_CATCH_EXCEPTIONS})
+        ? $ENV{POE_CATCH_EXCEPTIONS}
+        : 1
+      );
+
+      if ($catch_exceptions) {
+        *CATCH_EXCEPTIONS = sub () { 1 };
+      }
+      else {
+        *CATCH_EXCEPTIONS = sub () { 0 };
+      }
     }
   }
 
@@ -3701,7 +3712,7 @@ does.
     }
   );
 
-=head4 delay_adjust EVENT_NAME, SECONDS_FROM_NOW
+=head4 delay_adjust ALARM_ID, SECONDS_FROM_NOW
 
 delay_adjust() changes a timer's due time to be SECONDS_FROM_NOW.
 It's useful for refreshing watchdog- or timeout-style timers.  On
