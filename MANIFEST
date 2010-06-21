@@ -129,6 +129,7 @@ t/10_units/08_loops/07_kernel_loop_fail.t
 t/10_units/08_loops/08_kernel_loop_search_poll.t
 t/10_units/08_loops/09_naive_loop_load.t
 t/10_units/08_loops/10_naive_loop_load_poll.t
+t/10_units/08_loops/11_double_loop.t
 t/20_resources/00_base/aliases.pm
 t/20_resources/00_base/caller_state.pm
 t/20_resources/00_base/events.pm
