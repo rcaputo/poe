@@ -432,11 +432,6 @@ sub new {
       # Also, exceptions would screw this up - should it be eval'd?
       $program->(@$prog_args);
 
-      # Try to force stdio flushing.
-      close STDIN  if defined fileno(STDIN); # Voodoo?
-      close STDOUT if defined fileno(STDOUT);
-      close STDERR if defined fileno(STDERR);
-
       __PACKAGE__->_exit_child_any_way_we_can();
     }
 
@@ -461,7 +456,7 @@ sub new {
 
     # exec(SCALAR)
     exec(join(" ", $program, @$prog_args))
-      or __PACKAGE__->warn_and_exit_child(
+      or __PACKAGE__->_warn_and_exit_child(
         "can't exec ($program) in child pid $$: $!", int( $! ) );
   }
 
@@ -1181,7 +1176,12 @@ sub _redirect_child_stdio_sanely {
 sub _exit_child_any_way_we_can {
   my $class = shift;
   my $exitval = shift;
-  $exitval = 0 if ! defined $exitval;
+  $exitval = 0 unless defined $exitval;
+
+  # First make sure stdio are flushed.
+  close STDIN  if defined fileno(STDIN); # Voodoo?
+  close STDOUT if defined fileno(STDOUT);
+  close STDERR if defined fileno(STDERR);
 
   # On Windows, subprocesses run in separate threads.  All the "fancy"
   # methods act on entire processes, so they also exit the parent.
@@ -1281,7 +1281,8 @@ sub _exec_in_hell {
 sub _warn_and_exit_child {
   my( $class, $warning, $exitval ) = @_;
 
-  warn $warning, "\n";
+  warn "$warning\n";
+
   $class->_exit_child_any_way_we_can( $exitval );
 }
 
