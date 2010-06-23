@@ -429,10 +429,16 @@ sub new {
       # our _exit_child_any_way_we_can handler...
       # Should we replace CORE::exit? CORE::die too? blahhhhhh
       # We've documented that users should not do it, but who knows!
-      # Also, exceptions would screw this up - should it be eval'd?
-      $program->(@$prog_args);
+      eval { $program->(@$prog_args) };
 
-      __PACKAGE__->_exit_child_any_way_we_can();
+      my $exitval;
+      if ($@) {
+        chomp $@;
+        warn "$@\n";
+        $exitval = -1;
+      }
+
+      __PACKAGE__->_exit_child_any_way_we_can( $exitval || 0 );
     }
 
     # Execute an external program.  This gets weird.
@@ -1175,8 +1181,7 @@ sub _redirect_child_stdio_sanely {
 
 sub _exit_child_any_way_we_can {
   my $class = shift;
-  my $exitval = shift;
-  $exitval = 0 unless defined $exitval;
+  my $exitval = shift || 0;
 
   # First make sure stdio are flushed.
   close STDIN  if defined fileno(STDIN); # Voodoo?
