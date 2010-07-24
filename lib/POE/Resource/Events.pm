@@ -91,8 +91,10 @@ sub _data_ev_enqueue {
   $event_count{$session}++;
   $self->_data_ses_refcount_inc($session);
 
-  $post_count{$source_session}++;
-  $self->_data_ses_refcount_inc($source_session);
+  if ($session != $source_session) {
+    $post_count{$source_session}++;
+    $self->_data_ses_refcount_inc($source_session);
+  }
 
   return $new_id;
 }
@@ -206,8 +208,10 @@ sub _data_ev_refcount_dec {
   $event_count{$dest_session}--;
   $self->_data_ses_refcount_dec($dest_session);
 
-  $post_count{$source_session}--;
-  $self->_data_ses_refcount_dec($source_session);
+  if ($dest_session != $source_session) {
+    $post_count{$source_session}--;
+    $self->_data_ses_refcount_dec($source_session);
+  }
 }
 
 ### Fetch the number of pending events sent to a session.
@@ -255,9 +259,11 @@ sub _data_ev_dispatch_due {
     # being dispatched.  As far as I can tell, all events will be
     # "blocked" according to these rules.
 
-    if ($due_time < $now) {
-      $self->_data_stat_add('blocked', 1);
-      $self->_data_stat_add('blocked_seconds', $now - $due_time);
+    if (TRACE_STATISTICS) {
+      if ($due_time < $now) {
+        $self->_data_stat_add('blocked', 1);
+        $self->_data_stat_add('blocked_seconds', $now - $due_time);
+      }
     }
 
     # TODO - Can these two lines be reversed?
