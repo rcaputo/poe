@@ -202,13 +202,15 @@ sub _data_ev_refcount_dec {
 
   if (ASSERT_DATA) {
     _trap $dest_session unless exists $event_count{$dest_session};
-    _trap $source_session unless exists $post_count{$source_session};
   }
 
   $event_count{$dest_session}--;
   $self->_data_ses_refcount_dec($dest_session);
 
   if ($dest_session != $source_session) {
+    if (ASSERT_DATA) {
+      _trap $source_session unless exists $post_count{$source_session};
+    }
     $post_count{$source_session}--;
     $self->_data_ses_refcount_dec($source_session);
   }
@@ -266,8 +268,8 @@ sub _data_ev_dispatch_due {
       }
     }
 
-    # TODO - Can these two lines be reversed?
-    # TODO - May avoid entering/removing GC mark entries.
+    # TODO - Why can't we reverse these two lines?
+    # TODO - Reversing them could avoid entering and removing GC marks.
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
     $self->_dispatch_event(@$event, $due_time, $id);
 

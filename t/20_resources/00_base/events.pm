@@ -2,7 +2,7 @@
 use strict;
 
 use lib qw(./mylib ../mylib);
-use Test::More tests => 38;
+use Test::More tests => 48;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
@@ -45,11 +45,11 @@ $baseline_refcount += 2 if POE::Kernel::TRACE_STATISTICS; # stat poll event
     "first user created event has correct ID"
   );
 
-  # Kernel should therefore have two events due.  A nonexistent
-  # session should have zero.
+  # Kernel should therefore have one events due.
+  # A nonexistent session should have zero.
 
   is(
-    $poe_kernel->_data_ev_get_count_from($poe_kernel), $baseline_event + 1,
+    $poe_kernel->_data_ev_get_count_from($poe_kernel), $baseline_event,
     "POE::Kernel has enqueued correct number of events"
   );
 
@@ -68,11 +68,10 @@ $baseline_refcount += 2 if POE::Kernel::TRACE_STATISTICS; # stat poll event
     "unknown session has no events enqueued for it"
   );
 
-  # Performance timer (x2), session, and from/to for the event we
-  # enqueued.
+  # Performance timer only counts once now.
 
   is(
-    $poe_kernel->_data_ses_refcount($poe_kernel), $baseline_refcount + 2,
+    $poe_kernel->_data_ses_refcount($poe_kernel), $baseline_refcount + 1,
     "POE::Kernel's timer count is correct"
   );
 }
@@ -81,7 +80,7 @@ $baseline_refcount += 2 if POE::Kernel::TRACE_STATISTICS; # stat poll event
 
   $poe_kernel->_data_ev_dispatch_due();
   check_references(
-    $poe_kernel, 0, "after due events are dispatched"
+    $poe_kernel, 0, 0, 0, "after due events are dispatched"
   );
 }
 
@@ -116,7 +115,7 @@ for (1..4) {
 # The from and to counts should add up to the reference count.
 
 check_references(
-  $poe_kernel, 0, "after some timers are enqueued"
+  $poe_kernel, 0, 0, 4, "after some timers are enqueued"
 );
 
 { # Remove one of the alarms by its ID.
@@ -132,7 +131,7 @@ check_references(
   );
 
   check_references(
-    $poe_kernel, 0, "after a single named event is removed"
+    $poe_kernel, 0, 0, 3, "after a single named event is removed"
   );
 }
 
@@ -145,7 +144,7 @@ check_references(
 
   ok(!defined($time), "can't clear bogus alarm by nonexistent ID");
   check_references(
-    $poe_kernel, 0, "after trying to clear a bogus alarm"
+    $poe_kernel, 0, 0, 3, "after trying to clear a bogus alarm"
   );
 }
 
@@ -154,7 +153,7 @@ check_references(
 
 $poe_kernel->_data_ev_clear_alarm_by_name(BOGUS_SESSION, "timer");
 check_references(
-  $poe_kernel, 0, "after removing timers from a bogus session"
+  $poe_kernel, 0, 0, 3, "after removing timers from a bogus session"
 );
 
 is(
@@ -172,7 +171,7 @@ is(
 
 $poe_kernel->_data_ev_clear_alarm_by_name($poe_kernel, "timer");
 check_references(
-  $poe_kernel, 0, "after removing 'timer' by name"
+  $poe_kernel, 0, 0, 1, "after removing 'timer' by name"
 );
 
 { # Try to remove timers from some other (nonexistent should be ok)
@@ -195,7 +194,7 @@ check_references(
   is($removed_time, 4, "last alarm had the corrent due time");
 
   check_references(
-    $poe_kernel, 0, "after clearing all alarms for a session"
+    $poe_kernel, 0, 0, 0, "after clearing all alarms for a session"
   );
 }
 
@@ -259,19 +258,19 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
   );
 
   check_references(
-    $poe_kernel, 1, "after creating inter-session messages"
+    $poe_kernel, 1, 1, 1, "after creating inter-session messages"
   );
 
   $poe_kernel->_data_ev_clear_session($session);
 
   check_references(
-    $poe_kernel, 1, "after clearing inter-session messages"
+    $poe_kernel, 1, 0, 0, "after clearing inter-session messages"
   );
 
   $poe_kernel->_data_ev_clear_session($poe_kernel);
 
   check_references(
-    $poe_kernel, 1, "after clearing kernel messages"
+    $poe_kernel, 1, 0, 0, "after clearing kernel messages"
   );
 }
 
@@ -295,7 +294,7 @@ ok(
 # later tests, they're from the addition of another session.
 
 sub check_references {
-  my ($session, $base_ref, $when) = @_;
+  my ($session, $base_ref, $expected_from, $expected_to, $when) = @_;
 
   my $ref_count  = $poe_kernel->_data_ses_refcount($session);
   my $from_count = $poe_kernel->_data_ev_get_count_from($session);
@@ -303,7 +302,14 @@ sub check_references {
   my $check_sum  = $from_count + $to_count + $base_ref;
 
   is($check_sum, $ref_count, "refcnts $ref_count == $check_sum $when");
-  is($from_count, $to_count, "evcount $from_count == $to_count $when");
+  is(
+    $from_count, $expected_from,
+    "from evcount $from_count == $expected_from $when"
+  );
+  is(
+    $to_count, $expected_to,
+    "to evcount $to_count == $expected_to $when"
+  );
 }
 
 # We created a session, so run it.
