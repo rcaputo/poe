@@ -336,6 +336,8 @@ sub _data_ses_resolve_to_id {
 sub _data_ses_gc_sweep {
   my $self = shift;
 
+  my $queue_may_have_changed = 0;
+
   TRACE_REFCNT and _warn "<rc> trying sweep";
   while (@kr_marked_for_gc) {
     my %temp_marked = %kr_marked_for_gc;
@@ -350,8 +352,11 @@ sub _data_ses_gc_sweep {
     foreach my $session (@todo) {
       next unless delete $temp_marked{$session};
       $self->_data_ses_stop($session);
+      $queue_may_have_changed++;
     }
   }
+
+  return $queue_may_have_changed;
 }
 
 ### Decrement a session's main reference count.  This is called by

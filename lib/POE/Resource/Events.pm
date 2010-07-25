@@ -78,7 +78,7 @@ sub _data_ev_enqueue {
     );
   }
 
-  if ($kr_queue->get_item_count() == 1) {
+  unless (defined $old_head_priority) {
     $self->loop_resume_time_watcher($time);
   }
   elsif ($time < $old_head_priority) {
@@ -280,8 +280,7 @@ sub _data_ev_dispatch_due {
 
   # Sweep for dead sessions.  The sweep may alter the next queue time.
 
-  $self->_data_ses_gc_sweep();
-  $next_time = $kr_queue->get_next_priority();
+  $next_time = $kr_queue->get_next_priority() if $self->_data_ses_gc_sweep();
 
   # Tell the event loop to wait for the next event, if there is one.
   # Otherwise we're going to wait indefinitely for some other event.

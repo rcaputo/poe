@@ -119,8 +119,7 @@ sub get_next_priority {
 ### Return the number of items currently in the queue.
 
 sub get_item_count {
-  my $self = shift;
-  return scalar @$self;
+  return scalar @{$_[0]};
 }
 
 ### Internal method to insert an item using a binary seek and splice.
