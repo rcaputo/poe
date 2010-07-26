@@ -694,8 +694,8 @@ sub _test_if_kernel_is_idle {
   # that the tests short-circuit quickly.
 
   return if (
-    $self->_data_handle_count() or
     $self->_data_ev_get_pending_count() > $idle_queue_size or
+    $self->_data_handle_count() or
     $self->_data_extref_count() or
     $self->_data_sig_child_procs() or
     !$self->_data_ses_count()
