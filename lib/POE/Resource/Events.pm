@@ -48,6 +48,9 @@ sub _data_ev_finalize {
 
 ### Enqueue an event.
 
+my @new_fifo;
+my @old_fifo;
+
 sub _data_ev_enqueue {
   my (
     $self,
@@ -66,8 +69,15 @@ sub _data_ev_enqueue {
   # This is awkward, but faster than using the fields individually.
   my $event_to_enqueue = [ @_[1..8] ];
 
-  my $old_head_priority = $kr_queue->get_next_priority();
-  my $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
+  my $new_id;
+  my $old_head_priority = $self->_data_ev_get_next_due_time();
+
+  if ($type & ET_ALARM) {
+    $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
+  }
+  else {
+    push @new_fifo, [ $time, $new_id = -1, $event_to_enqueue ];
+  }
 
   if (TRACE_EVENTS) {
     _warn(
@@ -88,13 +98,13 @@ sub _data_ev_enqueue {
   # This is the counterpart to _data_ev_refcount_dec().  It's only
   # used in one place, so it's not in its own function.
 
-  $event_count{$session}++;
-  $self->_data_ses_refcount_inc($session);
+  $self->_data_ses_refcount_inc($session) unless $event_count{$session}++;
 
-  if ($session != $source_session) {
-    $post_count{$source_session}++;
-    $self->_data_ses_refcount_inc($source_session);
-  }
+  return $new_id if $session == $source_session;
+
+  $self->_data_ses_refcount_inc($source_session) unless (
+    $post_count{$source_session}++
+  );
 
   return $new_id;
 }
@@ -104,24 +114,106 @@ sub _data_ev_enqueue {
 sub _data_ev_clear_session {
   my ($self, $session) = @_;
 
-  my $my_event = sub {
-    ($_[0]->[EV_SESSION] == $session) || ($_[0]->[EV_SOURCE] == $session)
-  };
+  # Events sent to the session.
+  PENDING: {
+    my $pending_count = $event_count{$session};
+    last PENDING unless $pending_count;
 
-  # TODO - This is probably incorrect.  The total event count will be
-  # artificially inflated for events from/to the same session.  That
-  # is, a yield() will count twice.
-  my $total_event_count = (
-    ($event_count{$session} || 0) +
-    ($post_count{$session} || 0)
-  );
+    foreach (
+      $kr_queue->remove_items(
+        sub { $_[0][EV_SESSION] == $session },
+        $pending_count
+      )
+    ) {
+      $self->_data_ev_refcount_dec(
+        @{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION]
+      );
+      $pending_count--;
+    }
 
-  foreach ($kr_queue->remove_items($my_event, $total_event_count)) {
-    $self->_data_ev_refcount_dec(@{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION]);
+    last PENDING unless $pending_count;
+
+    if (@old_fifo) {
+      my $i = @old_fifo;
+      while ($i--) {
+        next unless $old_fifo[$i][2][EV_SESSION] == $session;
+        my $event = splice(@old_fifo, $i, 1);
+        $self->_data_ev_refcount_dec(
+          $event->[2][EV_SOURCE],
+          $event->[2][EV_SESSION],
+        );
+        $pending_count--;
+      }
+      last PENDING unless $pending_count;
+    }
+
+    if (@new_fifo) {
+      my $i = @new_fifo;
+      while ($i--) {
+        next unless $new_fifo[$i][2][EV_SESSION] == $session;
+        my $event = splice(@new_fifo, $i, 1);
+        $self->_data_ev_refcount_dec(
+          $event->[2][EV_SOURCE],
+          $event->[2][EV_SESSION],
+        );
+        $pending_count--;
+      }
+    }
+
+    croak "lingering pending count: $pending_count" if $pending_count;
   }
 
-  croak if delete $event_count{$session};
-  croak if delete $post_count{$session};
+  # Events sent by the session.
+  SENT: {
+    my $sent_count = $post_count{$session};
+    last SENT unless $sent_count;
+
+    foreach (
+      $kr_queue->remove_items(
+        sub { $_[0][EV_SOURCE] == $session },
+        $sent_count
+      )
+    ) {
+      $self->_data_ev_refcount_dec(
+        @{$_->[ITEM_PAYLOAD]}[EV_SOURCE, EV_SESSION]
+      );
+      $sent_count--;
+    }
+
+    last SENT unless $sent_count;
+
+    if (@old_fifo) {
+      my $i = @old_fifo;
+      while ($i--) {
+        next unless $old_fifo[$i][2][EV_SOURCE] == $session;
+        my $event = splice(@old_fifo, $i, 1);
+        $self->_data_ev_refcount_dec(
+          $event->[2][EV_SOURCE],
+          $event->[2][EV_SESSION],
+        );
+        $sent_count--;
+      }
+      last SENT unless $sent_count;
+    }
+
+    if (@new_fifo) {
+      my $i = @new_fifo;
+      while ($i--) {
+        next unless $new_fifo[$i][2][EV_SOURCE] == $session;
+        my $event = splice(@new_fifo, $i, 1);
+        $self->_data_ev_refcount_dec(
+          $event->[2][EV_SOURCE],
+          $event->[2][EV_SESSION],
+        );
+        $sent_count--;
+      }
+    }
+
+    croak "lingering sent count: $sent_count" if $sent_count;
+  }
+
+  croak "lingering event count" if delete $event_count{$session};
+  croak "lingering post count" if delete $post_count{$session};
 }
 
 # TODO Alarm maintenance functions may move out to a separate
@@ -204,16 +296,29 @@ sub _data_ev_refcount_dec {
     _trap $dest_session unless exists $event_count{$dest_session};
   }
 
-  $event_count{$dest_session}--;
-  $self->_data_ses_refcount_dec($dest_session);
+  $self->_data_ses_refcount_dec($dest_session) unless (
+    --$event_count{$dest_session}
+  );
 
-  if ($dest_session != $source_session) {
-    if (ASSERT_DATA) {
-      _trap $source_session unless exists $post_count{$source_session};
-    }
-    $post_count{$source_session}--;
-    $self->_data_ses_refcount_dec($source_session);
+  return if $dest_session == $source_session;
+
+  if (ASSERT_DATA) {
+    _trap $source_session unless exists $post_count{$source_session};
   }
+
+  $self->_data_ses_refcount_dec($source_session) unless (
+    --$post_count{$source_session}
+  );
+}
+
+sub _data_ev_get_pending_count {
+  return @old_fifo + @new_fifo + $kr_queue->get_item_count();
+}
+
+sub _data_ev_get_next_due_time {
+  return $old_fifo[0][0] if @old_fifo;
+  return $new_fifo[0][0] if @new_fifo;
+  return $kr_queue->get_next_priority();
 }
 
 ### Fetch the number of pending events sent to a session.
@@ -245,11 +350,31 @@ sub _data_ev_dispatch_due {
     }
   }
 
+  @old_fifo = splice(@new_fifo);
+  while (@old_fifo) {
+    my ($due_time, $id, $event) = @{shift @old_fifo};
+
+    if (TRACE_EVENTS) {
+      _warn("<ev> dispatching event $id ($event->[EV_NAME])");
+    }
+
+    # TODO - Why can't we reverse these two lines?
+    # TODO - Reversing them could avoid entering and removing GC marks.
+    $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
+    $self->_dispatch_event(@$event, $due_time, $id);
+
+    # Stop the system if an unhandled exception occurred.
+    # This wipes out all sessions and associated resources.
+    next unless $POE::Kernel::kr_exception;
+    POE::Kernel->stop();
+  }
+
   my $now = time();
   my $next_time;
-  while (defined($next_time = $kr_queue->get_next_priority())) {
-    last if $next_time > $now;
-
+  while (
+    defined($next_time = $kr_queue->get_next_priority()) and
+    $next_time <= $now
+  ) {
     my ($due_time, $id, $event) = $kr_queue->dequeue_next();
 
     if (TRACE_EVENTS) {
@@ -275,12 +400,14 @@ sub _data_ev_dispatch_due {
 
     # Stop the system if an unhandled exception occurred.
     # This wipes out all sessions and associated resources.
-    POE::Kernel->stop() if $POE::Kernel::kr_exception;
+    next unless $POE::Kernel::kr_exception;
+    POE::Kernel->stop();
   }
 
   # Sweep for dead sessions.  The sweep may alter the next queue time.
 
-  $next_time = $kr_queue->get_next_priority() if $self->_data_ses_gc_sweep();
+  $self->_data_ses_gc_sweep();
+  $next_time = $self->_data_ev_get_next_due_time();
 
   # Tell the event loop to wait for the next event, if there is one.
   # Otherwise we're going to wait indefinitely for some other event.

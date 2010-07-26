@@ -670,7 +670,7 @@ sub _test_if_kernel_is_idle {
   if (TRACE_REFCNT) {
     _warn(
       "<rc> ,----- Kernel Activity -----\n",
-      "<rc> | Events : ", $kr_queue->get_item_count(),
+      "<rc> | Events : ", $self->_data_evget_pending_count(),
       " (vs. idle size = ", $idle_queue_size, ")\n",
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
       "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
@@ -695,7 +695,7 @@ sub _test_if_kernel_is_idle {
 
   return if (
     $self->_data_handle_count() or
-    $kr_queue->get_item_count() > $idle_queue_size or
+    $self->_data_ev_get_pending_count() > $idle_queue_size or
     $self->_data_extref_count() or
     $self->_data_sig_child_procs() or
     !$self->_data_ses_count()
@@ -1429,7 +1429,7 @@ sub _invoke_state {
   elsif ($event eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
       unless (
-        $kr_queue->get_item_count() > $idle_queue_size or
+        $self->_data_ev_get_pending_count() > $idle_queue_size or
         $self->_data_handle_count()
       ) {
         $self->_data_ev_enqueue(
@@ -1642,12 +1642,12 @@ sub get_active_event {
 
 # FIXME - Should this exist?
 sub get_event_count {
-  return $kr_queue->get_item_count();
+  return shift()->_data_ev_get_pending_count();
 }
 
 # FIXME - Should this exist?
 sub get_next_event_time {
-  return $kr_queue->get_next_priority();
+  return shift()->_data_ev_get_next_due_time();
 }
 
 #==============================================================================
@@ -1845,7 +1845,7 @@ sub alarm {
   }
   else {
     # The event queue has become empty?  Stop the time watcher.
-    $self->loop_pause_time_watcher() unless $kr_queue->get_item_count();
+    $self->loop_pause_time_watcher() unless $self->_data_ev_get_pending_count();
   }
 
   return 0;

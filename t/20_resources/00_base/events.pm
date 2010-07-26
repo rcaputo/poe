@@ -31,7 +31,7 @@ $baseline_refcount += 2 if POE::Kernel::TRACE_STATISTICS; # stat poll event
     $poe_kernel,  # session
     $poe_kernel,  # source_session
     "event",      # event
-    0x80000000,   # event type (hopefully unused)
+    POE::Kernel::ET_ALARM,  # event type
     [],           # etc
     __FILE__,     # file
     __LINE__,     # line
@@ -296,12 +296,14 @@ ok(
 sub check_references {
   my ($session, $base_ref, $expected_from, $expected_to, $when) = @_;
 
-  my $ref_count  = $poe_kernel->_data_ses_refcount($session);
   my $from_count = $poe_kernel->_data_ev_get_count_from($session);
   my $to_count   = $poe_kernel->_data_ev_get_count_to($session);
-  my $check_sum  = $from_count + $to_count + $base_ref;
 
-  is($check_sum, $ref_count, "refcnts $ref_count == $check_sum $when");
+  # Reference count stopped being simply the from + to + base counts.
+  #my $ref_count  = $poe_kernel->_data_ses_refcount($session);
+  #my $check_sum  = $from_count + $to_count + $base_ref;
+  #is($check_sum, $ref_count, "refcnts $ref_count == $check_sum $when");
+
   is(
     $from_count, $expected_from,
     "from evcount $from_count == $expected_from $when"
