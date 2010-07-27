@@ -99,8 +99,8 @@ sub new {
         $mark_errors++;
       }
     }
-    if (defined($params{HighMark}) xor defined($params{HighEvent})) {
-      carp "HighMark and HighEvent parameters require each-other";
+    if (defined $params{HighEvent} and not defined $params{HighMark}) {
+      carp "HighEvent requires a corresponding HighMark";
       $mark_errors++;
     }
     if (defined($params{LowMark}) xor defined($params{LowEvent})) {
@@ -229,7 +229,7 @@ sub _define_write_state {
         $$event_flushed && $k->call($me, $$event_flushed, $unique_id);
       }
     }
- );
+  );
 
   $poe_kernel->select_write($self->[HANDLE_OUTPUT], $self->[STATE_WRITE]);
 
