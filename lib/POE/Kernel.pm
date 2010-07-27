@@ -4946,8 +4946,9 @@ For this to work, the session needs a way to remember the
 $_[SENDER]->ID for a given request.  Customarily the session generates
 a request ID and uses that to track the request until it is fulfilled.
 
-refcount_increment() returns true on success or false on failure.
-Furthermore, $! is set on failure to one of:
+refcount_increment() returns the resulting reference count (which may
+be zero) on success.  On failure, it returns undef and sets $! to be
+the reason for the error.
 
 ESRCH: The SESSION_ID does not refer to a currently active session.
 
@@ -4969,8 +4970,9 @@ The requester's $_[SENDER]->ID is remembered and removed from the heap
 (lest there be memory leaks).  It's used to decrement the reference
 counter that was incremented at the start of the request.
 
-refcount_decrement() returns true on success or false on failure.
-Furthermore, $! is set on failure to one of:
+refcount_decrement() returns the resulting reference count (which may
+be zero) on success.  On failure, it returns undef, and $! will be set
+to the reason for the failure:
 
 ESRCH: The SESSION_ID does not refer to a currently active session.
 
