@@ -670,7 +670,7 @@ sub _test_if_kernel_is_idle {
   if (TRACE_REFCNT) {
     _warn(
       "<rc> ,----- Kernel Activity -----\n",
-      "<rc> | Events : ", $self->_data_evget_pending_count(),
+      "<rc> | Events : ", $self->_data_ev_get_pending_count(),
       " (vs. idle size = ", $idle_queue_size, ")\n",
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
       "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
