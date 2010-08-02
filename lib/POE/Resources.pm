@@ -3,7 +3,7 @@ package POE::Resources;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.291'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.292'; # NOTE - Should be #.### (three decimal places)
 
 my @resources = qw(
   POE::XS::Resource::Aliases
