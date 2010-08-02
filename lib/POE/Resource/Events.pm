@@ -72,7 +72,7 @@ sub _data_ev_enqueue {
   my $new_id;
   my $old_head_priority = $self->_data_ev_get_next_due_time();
 
-  if ($type & ET_ALARM) {
+  if ($type & ET_MASK_DELAYED) {
     $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
   }
   else {
