@@ -72,9 +72,9 @@ sub _wheel_child {
   my $exitval = $_[ARG2];
 
   if ( $_[HEAP]->{type} eq 'real' ) {
-    ok( $exitval == 0, "Set proper exitval for '" . $_[HEAP]->{type} . "'" );
+    is( $exitval, 0, "Set proper exitval for '" . $_[HEAP]->{type} . "'" );
   } else {
-    ok( $exitval > 0, "Set proper exitval for '" . $_[HEAP]->{type} . "'" );
+    cmp_ok( $exitval, '>', 0, "Set proper exitval for '" . $_[HEAP]->{type} . "'" );
   }
 
 	$poe_kernel->sig_handled();
