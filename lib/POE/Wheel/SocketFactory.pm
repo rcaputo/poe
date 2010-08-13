@@ -9,7 +9,7 @@ use Carp qw( carp croak );
 use Symbol qw( gensym );
 
 use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
-use Errno qw(EWOULDBLOCK EADDRNOTAVAIL EINPROGRESS EADDRINUSE);
+use Errno qw(EWOULDBLOCK EADDRNOTAVAIL EINPROGRESS EADDRINUSE ECONNABORTED);
 use Socket qw(
   AF_INET SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 
   PF_INET SOCK_DGRAM SO_ERROR unpack_sockaddr_in 
@@ -182,7 +182,7 @@ sub _define_accept_state {
           $unique_id
         );
       }
-      elsif ($! != EWOULDBLOCK) {
+      elsif ($! != EWOULDBLOCK and $! != ECONNABORTED) {
         $$event_failure && $k->call(
           $me, $$event_failure,
           'accept', ($!+0), $!, $unique_id
