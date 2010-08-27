@@ -3905,7 +3905,7 @@ ID, or a session alias.
       $_[KERNEL]->alias_set("mi");
       print(
         "The names I call myself: ",
-        join(", ", $_[KERNEL]->alias_resolve()),
+        join(", ", $_[KERNEL]->alias_list()),
         "\n"
       );
     }
