@@ -48,8 +48,8 @@ sub _data_ev_finalize {
 
 ### Enqueue an event.
 
-my @new_fifo;
-my @old_fifo;
+sub FIFO_TIME_EPSILON () { 0.000001 }
+my $last_fifo_time = time();
 
 sub _data_ev_enqueue {
   my (
@@ -70,14 +70,14 @@ sub _data_ev_enqueue {
   my $event_to_enqueue = [ @_[1..8] ];
 
   my $new_id;
-  my $old_head_priority = $self->_data_ev_get_next_due_time();
+  my $old_head_priority = $kr_queue->get_next_priority();
 
-  if ($type & ET_MASK_DELAYED) {
-    $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
+  unless ($type & ET_MASK_DELAYED) {
+    $time = $last_fifo_time + FIFO_TIME_EPSILON if $time <= $last_fifo_time;
+    $last_fifo_time = $time;
   }
-  else {
-    push @new_fifo, [ $time, $new_id = -1, $event_to_enqueue ];
-  }
+
+  $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
 
   if (TRACE_EVENTS) {
     _warn(
@@ -133,33 +133,6 @@ sub _data_ev_clear_session {
 
     last PENDING unless $pending_count;
 
-    if (@old_fifo) {
-      my $i = @old_fifo;
-      while ($i--) {
-        next unless $old_fifo[$i][2][EV_SESSION] == $session;
-        my $event = splice(@old_fifo, $i, 1);
-        $self->_data_ev_refcount_dec(
-          $event->[2][EV_SOURCE],
-          $event->[2][EV_SESSION],
-        );
-        $pending_count--;
-      }
-      last PENDING unless $pending_count;
-    }
-
-    if (@new_fifo) {
-      my $i = @new_fifo;
-      while ($i--) {
-        next unless $new_fifo[$i][2][EV_SESSION] == $session;
-        my $event = splice(@new_fifo, $i, 1);
-        $self->_data_ev_refcount_dec(
-          $event->[2][EV_SOURCE],
-          $event->[2][EV_SESSION],
-        );
-        $pending_count--;
-      }
-    }
-
     croak "lingering pending count: $pending_count" if $pending_count;
   }
 
@@ -181,33 +154,6 @@ sub _data_ev_clear_session {
     }
 
     last SENT unless $sent_count;
-
-    if (@old_fifo) {
-      my $i = @old_fifo;
-      while ($i--) {
-        next unless $old_fifo[$i][2][EV_SOURCE] == $session;
-        my $event = splice(@old_fifo, $i, 1);
-        $self->_data_ev_refcount_dec(
-          $event->[2][EV_SOURCE],
-          $event->[2][EV_SESSION],
-        );
-        $sent_count--;
-      }
-      last SENT unless $sent_count;
-    }
-
-    if (@new_fifo) {
-      my $i = @new_fifo;
-      while ($i--) {
-        next unless $new_fifo[$i][2][EV_SOURCE] == $session;
-        my $event = splice(@new_fifo, $i, 1);
-        $self->_data_ev_refcount_dec(
-          $event->[2][EV_SOURCE],
-          $event->[2][EV_SESSION],
-        );
-        $sent_count--;
-      }
-    }
 
     croak "lingering sent count: $sent_count" if $sent_count;
   }
@@ -311,16 +257,6 @@ sub _data_ev_refcount_dec {
   );
 }
 
-sub _data_ev_get_pending_count {
-  return @old_fifo + @new_fifo + $kr_queue->get_item_count();
-}
-
-sub _data_ev_get_next_due_time {
-  return $old_fifo[0][0] if @old_fifo;
-  return $new_fifo[0][0] if @new_fifo;
-  return $kr_queue->get_next_priority();
-}
-
 ### Fetch the number of pending events sent to a session.
 
 sub _data_ev_get_count_to {
@@ -348,25 +284,6 @@ sub _data_ev_dispatch_due {
         "event(@event)\n"
       );
     }
-  }
-
-  @old_fifo = splice(@new_fifo);
-  while (@old_fifo) {
-    my ($due_time, $id, $event) = @{shift @old_fifo};
-
-    if (TRACE_EVENTS) {
-      _warn("<ev> dispatching event $id ($event->[EV_NAME])");
-    }
-
-    # TODO - Why can't we reverse these two lines?
-    # TODO - Reversing them could avoid entering and removing GC marks.
-    $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
-    $self->_dispatch_event(@$event, $due_time, $id);
-
-    # Stop the system if an unhandled exception occurred.
-    # This wipes out all sessions and associated resources.
-    next unless $POE::Kernel::kr_exception;
-    POE::Kernel->stop();
   }
 
   my $now = time();
@@ -407,7 +324,7 @@ sub _data_ev_dispatch_due {
   # Sweep for dead sessions.  The sweep may alter the next queue time.
 
   $self->_data_ses_gc_sweep();
-  $next_time = $self->_data_ev_get_next_due_time();
+  $next_time = $kr_queue->get_next_priority();
 
   # Tell the event loop to wait for the next event, if there is one.
   # Otherwise we're going to wait indefinitely for some other event.

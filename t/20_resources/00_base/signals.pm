@@ -46,8 +46,8 @@ sub create_session {
 # Add some signals for testing.
 
 my ($ses_1, $sid_1) = create_session();
-$poe_kernel->_data_sig_add($ses_1, "signal-1", "event-1");
-$poe_kernel->_data_sig_add($ses_1, "signal-2", "event-2");
+$poe_kernel->_data_sig_add($ses_1, "signal-1", "event-1", [ 1, 2, 3 ]);
+$poe_kernel->_data_sig_add($ses_1, "signal-2", "event-2", [ 4, 5, 6 ]);
 
 my ($ses_2, $sid_2) = create_session();
 $poe_kernel->_data_sig_add($ses_2, "signal-2", "event-3");
@@ -93,7 +93,7 @@ ok(
 # Single watcher test...
 { my %watchers = $poe_kernel->_data_sig_watchers("signal-1");
   ok(
-    eq_hash(\%watchers, { $ses_1 => "event-1" }),
+    eq_hash(\%watchers, { $ses_1 => [ "event-1", [ 1, 2, 3 ] ] }),
     "signal-1 maps to session 1 and event-1"
   );
 }
@@ -103,8 +103,8 @@ ok(
   ok(
     eq_hash(
       \%watchers, {
-        $ses_1 => "event-2",
-        $ses_2 => "event-3",
+        $ses_1 => [ "event-2", [ 4, 5, 6 ] ],
+        $ses_2 => [ "event-3", [ ] ],
       }
     ),
     "signal-2 maps to session 1 and event-2; session 2 and event-3"
@@ -120,7 +120,7 @@ $poe_kernel->_data_sig_remove($ses_1, "signal-2");
 
 { my %watchers = $poe_kernel->_data_sig_watchers("signal-1");
   ok(
-    eq_hash(\%watchers, { $ses_1 => "event-1" }),
+    eq_hash(\%watchers, { $ses_1 => [ "event-1", [ 1, 2, 3 ] ] }),
     "signal-1 still maps to session 1 and event-1"
   );
 }
@@ -129,7 +129,7 @@ $poe_kernel->_data_sig_remove($ses_1, "signal-2");
 
 { my %watchers = $poe_kernel->_data_sig_watchers("signal-2");
   ok(
-    eq_hash(\%watchers, { $ses_2 => "event-3" }),
+    eq_hash(\%watchers, { $ses_2 => [ "event-3", [ ] ] }),
     "signal-2 still maps to session 2 and event-3"
   );
 }
@@ -147,11 +147,11 @@ $poe_kernel->_data_sig_add($ses_1, "signal-6", "event-3");
   ok(
     eq_hash(
       \%watchers,
-      { "signal-1", "event-1",
-        "signal-3", "event-3",
-        "signal-4", "event-3",
-        "signal-5", "event-3",
-        "signal-6", "event-3",
+      { "signal-1", [ "event-1", [ 1, 2, 3 ] ],
+        "signal-3", [ "event-3", [ ] ],
+        "signal-4", [ "event-3", [ ] ],
+        "signal-5", [ "event-3", [ ] ],
+        "signal-6", [ "event-3", [ ] ],
       }
     ),
     "several signal watchers were added correctly"
@@ -162,7 +162,7 @@ $poe_kernel->_data_sig_clear_session($ses_1);
 
 { my %watchers = $poe_kernel->_data_sig_watchers("signal-2");
   ok(
-    eq_hash(\%watchers, { $ses_2 => "event-3" }),
+    eq_hash(\%watchers, { $ses_2 => [ "event-3", [ ] ] }),
     "cleared session isn't watching signal-2"
   );
 }

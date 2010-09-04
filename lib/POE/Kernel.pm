@@ -673,7 +673,7 @@ sub _test_if_kernel_is_idle {
   if (TRACE_REFCNT) {
     _warn(
       "<rc> ,----- Kernel Activity -----\n",
-      "<rc> | Events : ", $self->_data_ev_get_pending_count(),
+      "<rc> | Events : ", $kr_queue->get_item_count(),
       " (vs. idle size = ", $idle_queue_size, ")\n",
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
       "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
@@ -697,7 +697,7 @@ sub _test_if_kernel_is_idle {
   # that the tests short-circuit quickly.
 
   return if (
-    $self->_data_ev_get_pending_count() > $idle_queue_size or
+    $kr_queue->get_item_count() > $idle_queue_size or
     $self->_data_handle_count() or
     $self->_data_extref_count() or
     $self->_data_sig_child_procs() or
@@ -756,7 +756,7 @@ sub _explain_usage {
 # Public interface for adding or removing signal handlers.
 
 sub sig {
-  my ($self, $signal, $event_name) = @_;
+  my ($self, $signal, $event_name, @args) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> must call sig() from a running session"
@@ -769,7 +769,7 @@ sub sig {
   };
 
   if (defined $event_name) {
-    $self->_data_sig_add($kr_active_session, $signal, $event_name);
+    $self->_data_sig_add($kr_active_session, $signal, $event_name, \@args);
   }
   else {
     $self->_data_sig_remove($kr_active_session, $signal);
@@ -830,7 +830,7 @@ sub signal_ui_destroy {
 # Handle child PIDs being reaped.  Added 2006-09-15.
 
 sub sig_child {
-  my ($self, $pid, $event_name) = @_;
+  my ($self, $pid, $event_name, @args) = @_;
 
   if (ASSERT_USAGE) {
     _confess "<us> must call sig_chld() from a running session"
@@ -843,7 +843,7 @@ sub sig_child {
   };
 
   if (defined $event_name) {
-    $self->_data_sig_pid_watch($kr_active_session, $pid, $event_name);
+    $self->_data_sig_pid_watch($kr_active_session, $pid, $event_name, \@args);
   }
   elsif ($self->_data_sig_pids_is_ses_watching($kr_active_session, $pid)) {
     $self->_data_sig_pid_ignore($kr_active_session, $pid);
@@ -1016,12 +1016,12 @@ sub _dispatch_event {
         $self->_data_sig_touched_session($target_session);
 
         next unless exists $signal_watchers{$target_session};
-        my $target_event = $signal_watchers{$target_session};
+        my ($target_event, $target_etc) = @{$signal_watchers{$target_session}};
 
         if (TRACE_SIGNALS) {
           _warn(
             "<sg> propagating explicit signal $target_event ($signal) ",
-            "to ", $self->_data_alias_loggable($target_session)
+            "(@$target_etc) to ", $self->_data_alias_loggable($target_session)
           );
         }
 
@@ -1029,7 +1029,7 @@ sub _dispatch_event {
         # the signal ad nauseam.
         $self->_dispatch_event(
           $target_session, $self,
-          $target_event, ET_SIGNAL_RECURSIVE, [ @$etc ],
+          $target_event, ET_SIGNAL_RECURSIVE, [ @$etc, @$target_etc ],
           $file, $line, $fromstate, time(), -__LINE__
         );
       }
@@ -1432,7 +1432,7 @@ sub _invoke_state {
   elsif ($event eq EN_SIGNAL) {
     if ($etc->[0] eq 'IDLE') {
       unless (
-        $self->_data_ev_get_pending_count() > $idle_queue_size or
+        $kr_queue->get_item_count() > $idle_queue_size or
         $self->_data_handle_count()
       ) {
         $self->_data_ev_enqueue(
@@ -1645,12 +1645,12 @@ sub get_active_event {
 
 # FIXME - Should this exist?
 sub get_event_count {
-  return shift()->_data_ev_get_pending_count();
+  return $kr_queue->get_item_count();
 }
 
 # FIXME - Should this exist?
 sub get_next_event_time {
-  return shift()->_data_ev_get_next_due_time();
+  return $kr_queue->get_next_priority();
 }
 
 #==============================================================================
@@ -1848,7 +1848,7 @@ sub alarm {
   }
   else {
     # The event queue has become empty?  Stop the time watcher.
-    $self->loop_pause_time_watcher() unless $self->_data_ev_get_pending_count();
+    $self->loop_pause_time_watcher() unless $kr_queue->get_item_count();
   }
 
   return 0;
@@ -2864,8 +2864,6 @@ be sent from the kernel, from a wheel or from a session.
 An application creates an event with L</post>, L</yield>, L</call> or
 even L</signal>.  POE::Kernel creates events in response external
 stimulus (signals, select, etc).
-
-TODO - discuss the POE::Kernel queue
 
 =head3 Event Handlers
 
@@ -4021,8 +4019,6 @@ starts or stops a watcher that looks for write-readiness.  That is,
 when EVENT_NAME is delivered, it means that FILE_HANDLE is ready to be
 written to.
 
-TODO - Practical example here.
-
 select_write() does not return anything significant.
 
 =head3 select_expedite FILE_HANDLE [, EVENT_NAME [, ADDITIONAL_PARAMETERS] ]
@@ -4038,8 +4034,6 @@ because it is often ahead of a socket's normal data.
 
 select_expedite() does not return anything significant.
 
-TODO - Practical example here.
-
 =head3 select_pause_read FILE_HANDLE
 
 select_pause_read() is a lightweight way to pause a FILE_HANDLE input
@@ -4054,8 +4048,6 @@ paused FILE_HANDLE will not prematurely stop the current session.
 
 select_pause_read() does not return anything significant.
 
-TODO - Practical example here.
-
 =head3 select_resume_read FILE_HANDLE
 
 select_resume_read() resumes a FILE_HANDLE input watcher that was
@@ -4067,23 +4059,17 @@ call will become available after select_resume_read() is called.
 
 select_resume_read() does not return anything significant.
 
-TODO - Practical example here.
-
 =head3 select_pause_write FILE_HANDLE
 
 select_pause_write() pauses a FILE_HANDLE output watcher the same way
 select_pause_read() does for input.  Please see select_pause_read()
 for further discussion.
 
-TODO - Practical example here.
-
 =head3 select_resume_write FILE_HANDLE
 
 select_resume_write() resumes a FILE_HANDLE output watcher the same
 way that select_resume_read() does for input.  See
 select_resume_read() for further discussion.
-
-TODO - Practical example here.
 
 =head3 select FILE_HANDLE [, EV_READ [, EV_WRITE [, EV_EXPEDITE [, ARGS] ] ] ]
 
@@ -4680,13 +4666,18 @@ or
 
 And finally the methods themselves.
 
-=head3 sig SIGNAL_NAME [, EVENT_NAME]
+=head3 sig SIGNAL_NAME [, EVENT_NAME [, LIST] ]
 
 sig() registers or unregisters an EVENT_NAME event for a particular
-SIGNAL_NAME.  The event is registered if EVENT_NAME is defined, otherwise
-the SIGNAL_NAME handler is unregistered.  This means that a session can
-register only one handler per SIGNAL_NAME; subsequent registration attempts
-will replace the old handler.
+SIGNAL_NAME, with an optional LIST of parameters that will be passed
+to the signal's handler---after any data that comes wit the signal.
+
+If EVENT_NAME is defined, the signal handler is registered.  Otherwise
+it's unregistered.  
+
+Each session can register only one handler per SIGNAL_NAME.
+Subsequent registrations will replace previous ones.  Multiple
+sessions may however watch the same signal.
 
 SIGNAL_NAMEs are generally the same as members of C<%SIG>, with two
 exceptions.  First, C<CLD> is an alias for C<CHLD> (although see
@@ -4717,17 +4708,22 @@ other sessions.
 
 sig() does not return a meaningful value.
 
-=head3 sig_child PROCESS_ID [, EVENT_NAME]
+=head3 sig_child PROCESS_ID [, EVENT_NAME [, LIST] ]
 
 sig_child() is a convenient way to deliver an EVENT_NAME event when a
-particular PROCESS_ID has exited.  The watcher can be cleared
-prematurely by calling sig_child() with just the PROCESS_ID.
+particular PROCESS_ID has exited.  An optional LIST of parameters will
+be passed to the signal handler after the waitpid() information.
+
+The watcher can be cleared at any time by calling sig_child() with
+just the PROCESS_ID.
 
 A session may register as many sig_child() handlers as necessary, but
 a session may only have one per PROCESS_ID.
 
 sig_child() watchers are one-shot.  They automatically unregister
-themselves once the EVENT_NAME has been delivered.
+themselves once the EVENT_NAME has been delivered.  There's no point
+in continuing to watch for a signal that will never come again.  Other
+signal handlers persist until they are cleared.
 
 sig_child() watchers keep a session alive for as long as they are
 active.  This is unique among signal watchers.
@@ -4741,15 +4737,15 @@ sig_child() does not return a meaningful value.
 
   sub forked_parent {
     my( $heap, $pid, $details ) = @_[ HEAP, ARG0, ARG1 ];
-    $heap->{$pid} = $details;
-    $poe_kernel->sig_child( $pid, 'sig_child' );
+    $poe_kernel->sig_child( $pid, 'sig_child', $details );
   }
 
   sub sig_child {
-    my( $heap, $sig, $pid, $exit_val ) = @_[ HEAP, ARG0, ARG1, ARG2 ];
+    my( $heap, $sig, $pid, $exit_val, $details ) = @_[ HEAP, ARG0..ARG3 ];
     my $details = delete $heap->{ $pid };
     warn "$$: Child $pid exited"
-    # ....
+    # .... also, $details has been passed from forked_parent()
+    # through sig_child()
   }
 
 =head3 sig_handled
@@ -4828,10 +4824,6 @@ thereafter.
   }
 
 Detecting widget destruction is specific to each toolkit.
-
-=head3 TODO
-
-TODO - See if there is anything to migrate over from POE::Session?
 
 =head2 Event Handler Management
 

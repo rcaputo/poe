@@ -20,7 +20,7 @@ use POSIX qw(:sys_wait_h sigprocmask SIG_SETMASK);
 
 my %kr_signals;
 #  ( $signal_name =>
-#    { $session_reference => $event_name,
+#    { $session_reference => [ $event_name, $event_args, ],
 #      ...,
 #    },
 #    ...,
@@ -28,7 +28,7 @@ my %kr_signals;
 
 my %kr_sessions_to_signals;
 #  ( $session =>
-#    { $signal_name => $event_name,
+#    { $signal_name => [ $event_name, $event_args ],
 #      ...,
 #    },
 #    ...,
@@ -39,6 +39,7 @@ my %kr_pids_to_events;
 #   { $session =>
 #     [ $blessed_session,   # PID_SESSION
 #       $event_name,        # PID_EVENT
+#       $args,              # PID_ARGS
 #     ]
 #   }
 # }
@@ -48,6 +49,7 @@ my %kr_sessions_to_pids;
 
 sub PID_SESSION () { 0 }
 sub PID_EVENT   () { 1 }
+sub PID_ARGS    () { 2 }
 
 # Bookkeeping per dispatched signal.
 
@@ -184,16 +186,18 @@ sub _data_sig_finalize {
   while (my ($sig, $sig_rec) = each(%kr_signals)) {
     $finalized_ok = 0;
     _warn "!!! Leaked signal $sig\n";
-    while (my ($ses, $event) = each(%{$kr_signals{$sig}})) {
-      _warn "!!!\t$ses = $event\n";
+    while (my ($ses, $ses_rec) = each(%{$kr_signals{$sig}})) {
+      my ($event, $args) = @$ses_rec;
+      _warn "!!!\t$ses = $event (@$args)\n";
     }
   }
 
-  while (my ($ses, $sig_rec) = each(%kr_sessions_to_signals)) {
+  while (my ($ses, $ses_rec) = each(%kr_sessions_to_signals)) {
     $finalized_ok = 0;
     _warn "!!! Leaked signal cross-reference: $ses\n";
-    while (my ($sig, $event) = each(%{$kr_signals{$ses}})) {
-      _warn "!!!\t$sig = $event\n";
+    while (my ($sig, $sig_rec) = each(%{$kr_signals{$ses}})) {
+      my ($event, $args) = @$sig_rec;
+      _warn "!!!\t$sig = $event (@$args)\n";
     }
   }
 
@@ -206,8 +210,8 @@ sub _data_sig_finalize {
   while (my ($pid, $ses_rec) = each(%kr_pids_to_events)) {
     $finalized_ok = 0;
     _warn "!!! Leaked PID to event map: $pid\n";
-    while (my ($ses, $event_rec) = each %$ses_rec) {
-      _warn "!!!\t$ses -> $event_rec->[PID_EVENT]\n";
+    while (my ($ses, $ev_rec) = each %$ses_rec) {
+      _warn "!!!\t$ses -> $ev_rec->[PID_EVENT] (@{$ev_rec->[PID_ARGS]})\n";
     }
   }
 
@@ -240,11 +244,11 @@ sub _data_sig_finalize {
 ### Add a signal to a session.
 
 sub _data_sig_add {
-  my ($self, $session, $signal, $event) = @_;
+  my ($self, $session, $signal, $event, $args) = @_;
 
-  $kr_sessions_to_signals{$session}->{$signal} = $event;
+  $kr_sessions_to_signals{$session}->{$signal} = [ $event, $args || [] ];
   $self->_data_sig_signal_watch($session, $signal);
-  $kr_signals{$signal}->{$session} = $event;
+  $kr_signals{$signal}->{$session} = [ $event, $args || [] ];
 }
 
 sub _data_sig_signal_watch {
@@ -316,11 +320,12 @@ sub _data_sig_clear_session {
 ### Watch and ignore PIDs.
 
 sub _data_sig_pid_watch {
-  my ($self, $session, $pid, $event) = @_;
+  my ($self, $session, $pid, $event, $args) = @_;
 
   $kr_pids_to_events{$pid}{$session} = [
     $session, # PID_SESSION
     $event,   # PID_EVENT
+    $args,    # PID_ARGS
   ];
 
   $self->_data_sig_signal_watch($session, "CHLD");
@@ -551,7 +556,7 @@ sub _data_sig_handle_poll_event {
           while (my ($ses_key, $ses_rec) = each %{$kr_pids_to_events{$pid}}) {
             $self->_data_ev_enqueue(
               $ses_rec->[PID_SESSION], $self, $ses_rec->[PID_EVENT], ET_SIGCLD,
-              [ 'CHLD', $pid, $? ],
+              [ 'CHLD', $pid, $?, @{$ses_rec->[PID_ARGS]} ],
               __FILE__, __LINE__, undef, time(),
             );
             push @sessions_to_clear, $ses_rec->[PID_SESSION];
