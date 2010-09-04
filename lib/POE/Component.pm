@@ -5,7 +5,7 @@ package POE::Component;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.292'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.293'; # NOTE - Should be #.### (three decimal places)
 
 1;
 

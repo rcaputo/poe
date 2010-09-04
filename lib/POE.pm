@@ -6,7 +6,7 @@ use strict;
 use Carp qw( croak );
 
 use vars qw($VERSION);
-$VERSION = '1.292'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.293'; # NOTE - Should be #.### (three decimal places)
 
 sub import {
   my $self = shift;
