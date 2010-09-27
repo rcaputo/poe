@@ -838,7 +838,7 @@ C<SuccessEvent>.
 
 C<Acceptor> is optional; the default handler will create a new session
 for each connection.  All the "Client" constructor parameters are used
-to customize this session.  In other words, C<CleintInput> and such
+to customize this session.  In other words, C<ClientInput> and such
 B<are not used when C<Acceptor> is set>.
 
 The default C<Acceptor> adds significant convenience and flexibility
