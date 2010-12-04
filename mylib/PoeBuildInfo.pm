@@ -25,9 +25,7 @@ use vars qw(@EXPORT_OK);
 
 
 sub CONFIG_REQUIREMENTS () {
-  (
-    "POE::Test::Loops"  => '1.036',
-  )
+  ("POE::Test::Loops"  => '1.036')
 }
 
 sub CORE_REQUIREMENTS () {
@@ -67,7 +65,7 @@ sub DIST_AUTHOR () {
 }
 
 sub DIST_ABSTRACT () {
-  ( 'A portable networking and multitasking framework.' )
+  ( 'Portable, event-loop agnostic eventy networking and multitasking.' )
 }
 
 sub CLEAN_FILES () {
@@ -98,11 +96,11 @@ sub TEST_FILES () {
 }
 
 sub REPOSITORY () {
-  ( 'https://poe.svn.sourceforge.net/svnroot/poe/trunk' )
+  'https://github.com/rcaputo/poe'
 }
 
 sub HOMEPAGE () {
-  ( 'http://poe.perl.org/' )
+  'http://poe.perl.org/'
 }
 
 1;

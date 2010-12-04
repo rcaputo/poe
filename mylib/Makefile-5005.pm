@@ -112,7 +112,7 @@ WriteMakefile(
     COMPRESS => 'gzip -9f',
     SUFFIX   => 'gz',
     PREOP    => (
-      './mylib/svn-log.perl | ' .
+      'git-log.pl | ' .
       '/usr/bin/tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES; ' .
       "$^X mylib/gen-meta.perl; " .
       '/bin/cp -f ./META.yml ./$(DISTNAME)-$(VERSION)/META.yml'

@@ -2007,8 +2007,8 @@ sub alarm_remove {
   # value when someone needs something useful from it.
 
   return unless defined wantarray;
-  return ( $event->[EV_NAME], $time, @{$event->[EV_ARGS]} ) if wantarray;
-  return [ $event->[EV_NAME], $time, @{$event->[EV_ARGS]} ];
+  return ( $event->[EV_NAME], $time, $event->[EV_ARGS] ) if wantarray;
+  return [ $event->[EV_NAME], $time, $event->[EV_ARGS] ];
 }
 
 # Move an alarm to a new time.  This virtually removes the alarm and
