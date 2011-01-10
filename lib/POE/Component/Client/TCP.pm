@@ -378,7 +378,7 @@ POE::Component::Client::TCP implements a generic single-Session
 client.  Internally it uses POE::Wheel::SocketFactory to establish the
 connection and POE::Wheel::ReadWrite to interact with the server.
 
-POE::Component::Cilent::TCP is customized by providing callbacks for
+POE::Component::Client::TCP is customized by providing callbacks for
 common operations.  Most operations have sensible default callbacks,
 so clients may be created with as little work as possible.
 
