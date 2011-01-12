@@ -35,7 +35,7 @@ BEGIN {
 }
 
 sub import {
-  my ($class, $args) = @_;
+  my ($class, $args) = ($poe_kernel, @_[1..$#_]);
   my $package = caller();
 
   croak "POE::Kernel expects its arguments in a hash ref"
@@ -756,7 +756,7 @@ sub _explain_usage {
 # Public interface for adding or removing signal handlers.
 
 sub sig {
-  my ($self, $signal, $event_name, @args) = @_;
+  my ($self, $signal, $event_name, @args) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call sig() from a running session"
@@ -780,7 +780,7 @@ sub sig {
 # TODO - Like post(), signal() should return
 
 sub signal {
-  my ($self, $dest_session, $signal, @etc) = @_;
+  my ($self, $dest_session, $signal, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined destination in signal()"
@@ -807,7 +807,7 @@ sub signal {
 # it may be used as the last function in an event handler.
 
 sub sig_handled {
-  my $self = shift;
+  my $self = $poe_kernel;
   $self->_data_sig_handled();
 
   if ($kr_active_event eq EN_SIGNAL) {
@@ -830,7 +830,7 @@ sub signal_ui_destroy {
 # Handle child PIDs being reaped.  Added 2006-09-15.
 
 sub sig_child {
-  my ($self, $pid, $event_name, @args) = @_;
+  my ($self, $pid, $event_name, @args) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call sig_chld() from a running session"
@@ -1246,12 +1246,12 @@ sub _finalize_kernel {
 }
 
 sub run_while {
-  my ($self, $scalar_ref) = @_;
+  my ($self, $scalar_ref) = ($poe_kernel, @_[1..$#_]);
   1 while $$scalar_ref and $self->run_one_timeslice();
 }
 
 sub run_one_timeslice {
-  my $self = shift;
+  my $self = $poe_kernel;
 
   unless ($self->_data_ses_count()) {
     $self->_finalize_kernel();
@@ -1458,7 +1458,7 @@ sub _invoke_state {
 # structures as a side effect.
 
 sub session_alloc {
-  my ($self, $session, @args) = @_;
+  my ($self, $session, @args) = ($poe_kernel, @_[1..$#_]);
 
   # If we already returned, then we must reinitialize.  This is so
   # $poe_kernel->run() will work correctly more than once.
@@ -1537,7 +1537,7 @@ sub session_alloc {
 # _stop, the current session's children follow their parent.
 
 sub detach_myself {
-  my $self = shift;
+  my $self = $poe_kernel;
 
   if (ASSERT_USAGE) {
     _confess "<us> must call detach_myself() from a running session"
@@ -1583,7 +1583,7 @@ sub detach_myself {
 # must be a child of the current session.
 
 sub detach_child {
-  my ($self, $child) = @_;
+  my ($self, $child) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call detach_child() from a running session"
@@ -1661,7 +1661,7 @@ sub get_next_event_time {
 # Post an event to the queue.
 
 sub post {
-  my ($self, $dest_session, $event_name, @etc) = @_;
+  my ($self, $dest_session, $event_name, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> destination is undefined in post()"
@@ -1696,7 +1696,7 @@ sub post {
 # Post an event to the queue for the current session.
 
 sub yield {
-  my ($self, $event_name, @etc) = @_;
+  my ($self, $event_name, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call yield() from a running session"
@@ -1721,7 +1721,7 @@ sub yield {
 # Call an event handler directly.
 
 sub call {
-  my ($self, $dest_session, $event_name, @etc) = @_;
+  my ($self, $dest_session, $event_name, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> destination is undefined in call()"
@@ -1817,7 +1817,7 @@ sub call {
 #==============================================================================
 
 sub alarm {
-  my ($self, $event_name, $time, @etc) = @_;
+  my ($self, $event_name, $time, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call alarm() from a running session"
@@ -1856,7 +1856,7 @@ sub alarm {
 
 # Add an alarm without clobbering previous alarms of the same name.
 sub alarm_add {
-  my ($self, $event_name, $time, @etc) = @_;
+  my ($self, $event_name, $time, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call alarm_add() from a running session"
@@ -1886,7 +1886,7 @@ sub alarm_add {
 
 # Add a delay, which is just an alarm relative to the current time.
 sub delay {
-  my ($self, $event_name, $delay, @etc) = @_;
+  my ($self, $event_name, $delay, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call delay() from a running session"
@@ -1915,7 +1915,7 @@ sub delay {
 
 # Add a delay without clobbering previous delays of the same name.
 sub delay_add {
-  my ($self, $event_name, $delay, @etc) = @_;
+  my ($self, $event_name, $delay, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call delay_add() from a running session"
@@ -1947,7 +1947,7 @@ sub delay_add {
 # alarm ID (that's the more part).
 
 sub alarm_set {
-  my ($self, $event_name, $time, @etc) = @_;
+  my ($self, $event_name, $time, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call alarm_set() from a running session"
@@ -1984,7 +1984,7 @@ sub alarm_set {
 # nothing returns an event ID, so nobody knows what to remove.
 
 sub alarm_remove {
-  my ($self, $alarm_id) = @_;
+  my ($self, $alarm_id) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call alarm_remove() from a running session"
@@ -2016,7 +2016,7 @@ sub alarm_remove {
 # optimized for this sort of thing.
 
 sub alarm_adjust {
-  my ($self, $alarm_id, $delta) = @_;
+  my ($self, $alarm_id, $delta) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call alarm_adjust() from a running session"
@@ -2052,7 +2052,7 @@ sub delay_set {
   my $t = time();
 
   # And now continue as normal
-  my ($self, $event_name, $seconds, @etc) = @_;
+  my ($self, $event_name, $seconds, @etc) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call delay_set() from a running session"
@@ -2088,7 +2088,7 @@ sub delay_set {
 # this is optimized internally for this sort of activity.
 
 sub delay_adjust {
-  my ($self, $alarm_id, $seconds) = @_;
+  my ($self, $alarm_id, $seconds) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call delay_adjust() from a running session"
@@ -2121,7 +2121,7 @@ sub delay_adjust {
 # Remove all alarms for the current session.
 
 sub alarm_remove_all {
-  my $self = shift;
+  my $self = $poe_kernel;
 
   if (ASSERT_USAGE) {
     _confess "<us> must call alarm_remove_all() from a running session"
@@ -2163,7 +2163,9 @@ sub _internal_select {
 # selects together.
 
 sub select {
-  my ($self, $handle, $event_r, $event_w, $event_e, @args) = @_;
+  my ($self, $handle, $event_r, $event_w, $event_e, @args) = (
+    $poe_kernel, @_[1..$#_]
+  );
 
   if (ASSERT_USAGE) {
     _confess "<us> must call select() from a running session"
@@ -2194,7 +2196,7 @@ sub select {
 
 # Only manipulate the read select.
 sub select_read {
-  my ($self, $handle, $event_name, @args) = @_;
+  my ($self, $handle, $event_name, @args) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call select_read() from a running session"
@@ -2217,7 +2219,7 @@ sub select_read {
 
 # Only manipulate the write select.
 sub select_write {
-  my ($self, $handle, $event_name, @args) = @_;
+  my ($self, $handle, $event_name, @args) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call select_write() from a running session"
@@ -2240,7 +2242,7 @@ sub select_write {
 
 # Only manipulate the expedite select.
 sub select_expedite {
-  my ($self, $handle, $event_name, @args) = @_;
+  my ($self, $handle, $event_name, @args) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call select_expedite() from a running session"
@@ -2264,7 +2266,7 @@ sub select_expedite {
 # Turn off a handle's write mode bit without doing
 # garbage-collection things.
 sub select_pause_write {
-  my ($self, $handle) = @_;
+  my ($self, $handle) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call select_pause_write() from a running session"
@@ -2285,7 +2287,7 @@ sub select_pause_write {
 # Turn on a handle's write mode bit without doing garbage-collection
 # things.
 sub select_resume_write {
-  my ($self, $handle) = @_;
+  my ($self, $handle) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call select_resume_write() from a running session"
@@ -2306,7 +2308,7 @@ sub select_resume_write {
 # Turn off a handle's read mode bit without doing garbage-collection
 # things.
 sub select_pause_read {
-  my ($self, $handle) = @_;
+  my ($self, $handle) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call select_pause_read() from a running session"
@@ -2327,7 +2329,7 @@ sub select_pause_read {
 # Turn on a handle's read mode bit without doing garbage-collection
 # things.
 sub select_resume_read {
-  my ($self, $handle) = @_;
+  my ($self, $handle) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> must call select_resume_read() from a running session"
@@ -2353,7 +2355,7 @@ sub select_resume_read {
 ### Set an alias in the current session.
 
 sub alias_set {
-  my ($self, $name) = @_;
+  my ($self, $name) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined alias in alias_set()" unless defined $name;
@@ -2376,7 +2378,7 @@ sub alias_set {
 ### Remove an alias from the current session.
 
 sub alias_remove {
-  my ($self, $name) = @_;
+  my ($self, $name) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined alias in alias_remove()" unless defined $name;
@@ -2401,7 +2403,7 @@ sub alias_remove {
 ### Resolve an alias into a session.
 
 sub alias_resolve {
-  my ($self, $name) = @_;
+  my ($self, $name) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined alias in alias_resolve()" unless defined $name;
@@ -2419,7 +2421,7 @@ sub alias_resolve {
 ### List the aliases for a given session.
 
 sub alias_list {
-  my ($self, $search_session) = @_;
+  my ($self, $search_session) = ($poe_kernel, @_[1..$#_]);
   my $session =
     $self->_resolve_session($search_session || $kr_active_session);
 
@@ -2446,7 +2448,7 @@ sub alias_list {
 # he still can recognize it.
 
 sub ID {
-  my $self = shift;
+  my $self = $poe_kernel;
 
   # Recalculate the kernel ID if necessary.  stop() undefines it.
   unless (defined $self->[KR_ID]) {
@@ -2463,7 +2465,7 @@ sub ID {
 # be faster, though, so it's kept for things that can benefit from it.
 
 sub ID_id_to_session {
-  my ($self, $id) = @_;
+  my ($self, $id) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined ID in ID_id_to_session()" unless defined $id;
@@ -2480,7 +2482,7 @@ sub ID_id_to_session {
 # Resolve a session reference to its corresponding ID.
 
 sub ID_session_to_id {
-  my ($self, $session) = @_;
+  my ($self, $session) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined session in ID_session_to_id()"
@@ -2505,7 +2507,7 @@ sub ID_session_to_id {
 #==============================================================================
 
 sub refcount_increment {
-  my ($self, $session_id, $tag) = @_;
+  my ($self, $session_id, $tag) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined session ID in refcount_increment()"
@@ -2527,7 +2529,7 @@ sub refcount_increment {
 }
 
 sub refcount_decrement {
-  my ($self, $session_id, $tag) = @_;
+  my ($self, $session_id, $tag) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
     _confess "<us> undefined session ID in refcount_decrement()"
@@ -2555,7 +2557,7 @@ sub refcount_decrement {
 
 # Add or remove event handlers from sessions.
 sub state {
-  my ($self, $event, $state_code, $state_alias) = @_;
+  my ($self, $event, $state_code, $state_alias) = ($poe_kernel, @_[1..$#_]);
   $state_alias = $event unless defined $state_alias;
 
   if (ASSERT_USAGE) {
