@@ -822,7 +822,7 @@ session that will be listening for new connections.
 Many of the constructor parameters have been previously described.
 They are covered briefly again below.
 
-=head3 Server Sesson Configuration
+=head3 Server Session Configuration
 
 These constructor parameters affect POE::Component::Server::TCP's main
 listening session.
