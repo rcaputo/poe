@@ -2409,13 +2409,7 @@ sub alias_resolve {
     _confess "<us> undefined alias in alias_resolve()" unless defined $name;
   };
 
-  my $session = $self->_resolve_session($name);
-  unless (defined $session) {
-    $self->_explain_resolve_failure($name, "nonfatal");
-    return;
-  }
-
-  $session;
+  return $self->_resolve_session($name);
 }
 
 ### List the aliases for a given session.
