@@ -672,15 +672,27 @@ sub _data_sig_child_procs {
 ##  - a top handler, which sends the signal number over a one-way pipe.
 ##  - a bottom handler, which is called when this number is received in the
 ##  main loop.
+## The top handler will send a packet of PID and number.  We need the PID
+## because of the race condition with signals in perl; signals meant for the
+## parent end up in both the parent and child.  So we check the PID to make
+## sure it was intended for the child.  We use 'ii' (2 ints, aka 8 bytes)
+## and not 'iC' (int+byte, aka 5 bytes) because we want a small factor of
+## the buffer size in the hopes of never getting a short read.  Ever.
 
 use vars qw( $signal_pipe_read_fd );
-my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid,
+my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid, 
+    $signal_pipe_len, $signal_pipe_remainder, $signal_pipe_format, 
     $signal_mask_none, $signal_mask_all, %SIG2NUM, %NUM2SIG );
+
 
 sub _data_sig_pipe_build {
   my( $self ) = @_;
   return unless USE_SIGNAL_PIPE;
   my $fake = 128;
+
+  $signal_pipe_remainder = '';
+  $signal_pipe_format = "ii";   # pid_t is int on Linux
+  $signal_pipe_len = length pack $signal_pipe_format, 0, 0;
   
   unless( %SIG2NUM ) {
     foreach my $sig ( keys %_safe_signals ) {
@@ -797,16 +809,18 @@ sub _data_sig_pipe_send {
   return if $finalizing;
   
   if( not defined $signal_pipe_pid ) {
-    _trap "<sg> $$ _data_sig_pipe_send called before signal pipe was initialized.";
+    _trap "<sg> _data_sig_pipe_send called before signal pipe was initialized.";
   }
+  # ugh- has_forked() can't be called fast enough.  This warning might
+  # show up before it is called.  Should we just detect forking and do it
+  # for the user?  Probably not...
   if( $$ != $signal_pipe_pid ) {
-    _trap "<sg> Kernel now running in a different process (is=$$ was=$signal_pipe_pid).  You must call call \$poe_kernel->has_forked in the child process.";
+    _warn "<sg> Kernel now running in a different process (is=$$ was=$signal_pipe_pid ).  You must call call \$poe_kernel->has_forked in the child process.";
   }
 
-
-  my $count = _data_sig_pipe_syswrite( pack( "C", $n ) );
+  my $count = _data_sig_pipe_syswrite( pack( $signal_pipe_format, $$, $n ) );
   if( ASSERT_DATA ) {
-    if( $count != 1 ) {
+    if( $count != $signal_pipe_len ) {
       _trap "<sg> Wrote more than one byte (count=$count)";
     }
   }
@@ -850,8 +864,17 @@ sub _data_sig_pipe_read {
   }
   return unless $count;
 
-  for(my $q=0; $q< $count; $q++ ) {
-    my $n = unpack "C", substr( $data, $q, 1 );
+  $data = $signal_pipe_remainder . $data;
+  $signal_pipe_remainder = '';
+
+  $count = length $data;
+  for(my $q=0; $q< $count; $q+=$signal_pipe_len ) {
+    if( $q + $signal_pipe_len > $count ) {
+        $signal_pipe_remainder = substr( $data, $q );
+        last;
+    }
+    my($pid, $n) = unpack $signal_pipe_format, substr( $data, $q, $signal_pipe_len );
+    next if $pid != $$; # ignore a 'packet' meant for our parent
     next if $n == 0;
     if( ASSERT_DATA ) {
       _trap "Unknown signal number $n" unless $NUM2SIG{ $n };
@@ -875,7 +898,7 @@ sub _data_sig_pipe_sysread {
   # To avoid flooding the queue, we don't read the entire pipe at once
   # PG- Mind you, I doubt signal flooding is ever going to be much of
   # a problem, is it?
-  my $result = sysread( $signal_pipe_read, $data, 4096 ); # XXX
+  my $result = sysread( $signal_pipe_read, $data, 256*$signal_pipe_len ); # XXX
   if( defined $result ) {
     $! = 0;
     return $data;
