@@ -405,6 +405,26 @@ through contributions of time, patches, and other resources.  Some of
 them are: Sean Puckett, Douglas Couch, Andrew Chen, Uhlarik Ondoej,
 Nick Williams, and Chris Williams (no relation).
 
+=head2 Linux/Unix Issues
+
+=head3 pty woes
+
+Some distributions chose to not completely setup the pseudo-tty
+support. This is needed for L<POE::Wheel::Run> to interact with the
+subprocess. If you see something like this while running C<make test>
+please look at your distribution's documentation on how to fix it. For
+example, on Debian-based systems the solution was to execute 
+"sudo apt-get install udev".
+
+  t/30_loops/io_poll/wheel_run.t ..................... 1/99
+  pty_allocate(nonfatal): posix_openpt(): No such file or directory at /usr/local/lib/perl/5.10.0/IO/Pty.pm line 24.
+  ...
+  Cannot open a pty at /home/apoc/poe/blib/lib/POE/Wheel/Run.pm line 251
+  Compilation failed in require at t/30_loops/io_poll/wheel_run.t line 24.
+  # Looks like you planned 99 tests but ran 5.
+  # Looks like your test exited with 22 just after 5.
+  t/30_loops/io_poll/wheel_run.t ..................... Dubious, test returned 22 (wstat 5632, 0x1600)
+
 =head2 Other Compatibility Issues
 
 None currently known.  See GETTING HELP below if you've run into
