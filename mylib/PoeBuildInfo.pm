@@ -70,18 +70,26 @@ sub DIST_ABSTRACT () {
 
 sub CLEAN_FILES () {
   my @clean_files = qw(
+    */*/*/*/*~
+    */*/*/*~
+    */*/*/*~
+    */*/*~
+    */*~
+    *~
+    META.yml
+    Makefile.old
     bingos-followtail
     coverage.report
     poe_report.xml
     run_network_tests
-    test-output.err
     t/20_resources/10_perl
     t/20_resources/10_perl/*
     t/20_resources/20_xs
     t/20_resources/20_xs/*
-    t/30_loops/*/*
-    t/30_loops/*
     t/30_loops
+    t/30_loops/*
+    t/30_loops/*/*
+    test-output.err
   );
   "@clean_files";
 }

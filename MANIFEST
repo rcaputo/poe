@@ -69,8 +69,6 @@ lib/POE/Wheel/ReadWrite.pm
 lib/POE/Wheel/Run.pm
 lib/POE/Wheel/SocketFactory.pm
 mylib/Devel/Null.pm
-mylib/Makefile-5004.pm
-mylib/Makefile-5005.pm
 mylib/MyOtherFreezer.pm
 mylib/PoeBuildInfo.pm
 mylib/coverage.perl
