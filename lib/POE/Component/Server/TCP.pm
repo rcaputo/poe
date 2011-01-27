@@ -264,8 +264,9 @@ sub new {
                 $heap->{remote_ip} = inet_ntoa($remote_addr);
               }
               else {
-                $heap->{remote_ip} =
-                  Socket6::inet_ntop($domain, $remote_addr);
+                $heap->{remote_ip} = (
+                  Socket::GetAddrInfo::getaddrinfo($remote_addr)
+                )[1];
               }
 
               $heap->{remote_port} = $remote_port;
@@ -931,8 +932,9 @@ C<Domain> sets the address or protocol family within which to operate.
 The C<Domain> may be any value that POE::Wheel::SocketFactory
 supports.  AF_INET (Internet address space) is used by default.
 
-Use AF_INET6 for IPv6 support.  This constant is exported by Socket6,
-which must be loaded B<before> POE::Component::Server::TCP.
+Use AF_INET6 for IPv6 support.  This constant is exported by Socket.
+Also be sure to have Socket::GetAddrInfo installed, which is required
+by POE::Wheel::SocketFactory for IPv6 support.
 
 =head4 Error
 

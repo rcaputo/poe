@@ -13,12 +13,14 @@ use Errno qw(
   EWOULDBLOCK EADDRNOTAVAIL EINPROGRESS EADDRINUSE ECONNABORTED
   ESPIPE
 );
+
 use Socket qw(
-  AF_INET SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 
-  PF_INET SOCK_DGRAM SO_ERROR unpack_sockaddr_in 
+  AF_INET AF_INET6 SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 
+  PF_INET PF_INET6 SOCK_DGRAM SO_ERROR unpack_sockaddr_in 
   unpack_sockaddr_un PF_UNSPEC SO_REUSEADDR INADDR_ANY 
   pack_sockaddr_in pack_sockaddr_un inet_aton SOMAXCONN
 );
+
 use IO::Handle ();
 use FileHandle ();
 use POE qw( Wheel );
@@ -50,17 +52,7 @@ sub MY_SOCKET_SELECTED () { 12 }
 # Test and provide for each constant separately, per suggestion in
 # rt.cpan.org 27250.
 BEGIN {
-  eval { require Socket6 };
-  if ($@) {
-    *Socket6::AF_INET6 = sub () { ~0 };
-    *Socket6::PF_INET6 = sub () { ~0 };
-  }
-  else {
-    eval { my $x = &Socket6::AF_INET6 };
-    *Socket6::AF_INET6 = sub () { ~0 } if $@;
-    eval { my $x = &Socket6::PF_INET6 };
-    *Socket6::PF_INET6 = sub () { ~0 } if $@;
-  }
+  eval { require Socket::GetAddrInfo };
 }
 
 #------------------------------------------------------------------------------
@@ -76,8 +68,8 @@ sub DOM_INET6 () { 'inet6' }  # INET v6 domain socket
 my %map_family_to_domain = (
   AF_UNIX,  DOM_UNIX,  PF_UNIX,  DOM_UNIX,
   AF_INET,  DOM_INET,  PF_INET,  DOM_INET,
-  &Socket6::AF_INET6, DOM_INET6,
-  &Socket6::PF_INET6, DOM_INET6,
+  AF_INET6, DOM_INET6,
+  PF_INET6, DOM_INET6,
 );
 
 sub SVROP_LISTENS () { 'listens' }  # connect/listen sockets
@@ -174,7 +166,9 @@ sub _define_accept_state {
         }
         elsif ( $domain eq DOM_INET6 ) {
           $peer = getpeername($new_socket);
-          ($peer_port, $peer_addr) = Socket6::unpack_sockaddr_in6($peer);
+          (undef, $peer_port, $peer_addr) = (
+            Socket::GetAddrInfo::getnameinfo($peer)
+          );
         }
         else {
           die "sanity failure: socket domain == $domain";
@@ -294,7 +288,9 @@ sub _define_connect_state {
       elsif ($domain eq DOM_INET6) {
         if (defined $peer) {
           eval {
-            ($peer_port, $peer_addr) = Socket6::unpack_sockaddr_in6($peer);
+            (undef, $peer_port, $peer_addr) = (
+              Socket::GetAddrInfo::getnameinfo($peer)
+            );
           };
           if (length $@) {
             $peer_port = $peer_addr = undef;
@@ -780,7 +776,7 @@ sub new {
       $bind_address = (
         (defined $params{BindAddress})
         ? $params{BindAddress}
-        : Socket6::in6addr_any()
+        : "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"  # XXX - Only Socket6 has?
       );
 
       # Set the bind port, or default to 0 (any) if none specified.
@@ -802,12 +798,14 @@ sub new {
       BEGIN { eval { require bytes } and bytes->import; }
 
       # Resolve the bind address.
-      my @info = Socket6::getaddrinfo(
-        $bind_address, $bind_port,
-        $self->[MY_SOCKET_DOMAIN], $self->[MY_SOCKET_TYPE],
+      my ($error, @addresses) = Socket::GetAddrInfo::getaddrinfo(
+        $bind_address, $bind_port, {
+          family   => $self->[MY_SOCKET_DOMAIN],
+          socktype => $self->[MY_SOCKET_TYPE],
+        }
       );
 
-      if (@info < 5) {  # unless defined $bind_address
+      unless (@addresses) {
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield(
           $event_failure,
@@ -816,7 +814,7 @@ sub new {
         return $self;
       }
 
-      $bind_address = $info[3];
+      $bind_address = $addresses[0]->{addr};
     }
   }
 
@@ -904,16 +902,18 @@ sub new {
         $error_tag = "inet_aton";
       }
       elsif ($abstract_domain eq DOM_INET6) {
-        my @info = Socket6::getaddrinfo(
-          $params{RemoteAddress}, $remote_port,
-          $self->[MY_SOCKET_DOMAIN], $self->[MY_SOCKET_TYPE],
+        my ($error, @addresses) = Socket::GetAddrInfo::getaddrinfo(
+          $params{RemoteAddress}, $remote_port, {
+            family   => $self->[MY_SOCKET_DOMAIN],
+            socktype => $self->[MY_SOCKET_TYPE],
+          },
         );
 
-        if (@info < 5) {
+        unless (@addresses) {
           $connect_address = undef;
         }
         else {
-          $connect_address = $info[3];
+          $connect_address = $addresses[0]->{addr};
         }
 
         $error_tag = "getaddrinfo";
@@ -1257,9 +1257,12 @@ POE::Wheel::SocketFactory contains a table of supported domains and
 the instructions needed to create them.  Please send patches to
 support additional domains, as needed.
 
-Note: C<AF_INET6> and C<PF_INET6> are supplied by the L<Socket6>
-module, which is available on the CPAN.  You must have Socket6 loaded
-before SocketFactory can create IPv6 sockets.
+Note: C<AF_INET6> and C<PF_INET6> are supplied by the L<Socket>
+module included in Perl 5.8.0 or later.  Perl versions before 5.8.0
+should not attempt to use IPv6 until someone contributes a workaround.
+
+IPv6 support requires a 21st century Socket module and the presence of
+Socket::GetAddrInfo to resolve host names to IPv6 addresses.
 
 TODO - Example.
 
@@ -1522,7 +1525,9 @@ listening or connecting.  See below for the differences.
 
 For INET sockets, C<$_[ARG1]> and C<$_[ARG2]> hold the socket's remote
 address and port, respectively.  The address is packed; see
-L<Socket/inet_ntoa> if a human-readable version is needed.
+L<Socket/inet_ntoa> if a human-readable IPv4 address is needed.
+L<Socket::GetAddrInfo/getnameinfo> provides numeric addresses for IPv4
+and IPv6 addresses.
 
   sub handle_new_client {
     my $accepted_socket = $_[ARG0];
@@ -1581,9 +1586,10 @@ A sample FailureEvent handler:
 L<POE::Wheel> describes the basic operations of all wheels in more
 depth.  You need to know this.
 
-L<Socket6> is required for IPv6 work.  POE::Wheel::SocketFactory will
-load it automatically if it's installed, but applications will need to
-use it themselves to get access to AF_INET6.
+L<Socket::GetAddrInfo> is required for IPv6 work.
+POE::Wheel::SocketFactory will load it automatically if it's
+installed.  SocketDomain => AF_INET6 is required to trigger IPv6
+behaviors.  AF_INET6 is exported by the Socket module.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.

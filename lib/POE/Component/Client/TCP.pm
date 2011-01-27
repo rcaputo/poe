@@ -608,8 +608,9 @@ C<Domain> sets the address or protocol family within which to operate.
 The C<Domain> may be any value that POE::Wheel::SocketFactory
 supports.  AF_INET (Internet address space) is used by default.
 
-Use AF_INET6 for IPv6 support.  This constant is exported by Socket6,
-which must be loaded B<before> POE::Component::Client::TCP.
+Use AF_INET6 for IPv6 support.  This constant is exported by Socket.
+Also be sure to have Socket::GetAddrInfo installed, which is required
+by POE::Wheel::SocketFactory for IPv6 support.
 
 =head4 RemoteAddress
 

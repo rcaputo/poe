@@ -113,17 +113,17 @@ sub check_for_modules {
 check_for_modules("required", CORE_REQUIREMENTS);
 check_for_modules(
   "optional",
-  "Compress::Zlib"  => 1.33,
-  "Curses"          => 1.08,
-  "IO::Poll"        => 0.01,
-  "IO::Pty"         => 1.02,
-  "LWP"             => 5.79,
-  "Socket6"         => 0.14,
-  "Storable"        => 2.12,
-  "Term::Cap"       => 1.09,
-  "Term::ReadKey"   => 2.21,
+  "Compress::Zlib"        => 1.33,
+  "Curses"                => 1.08,
+  "IO::Poll"              => 0.01,
+  "IO::Pty"               => 1.02,
+  "LWP"                   => 5.79,
+  "Socket::GetAddrInfo"   => 0.19,
+  "Storable"              => 2.12,
+  "Term::Cap"             => 1.09,
+  "Term::ReadKey"         => 2.21,
   RECOMMENDED_TIME_HIRES,
-  "URI"             => 1.30,
+  "URI"                   => 1.30,
 );
 
 ### Generate Makefile.PL.
