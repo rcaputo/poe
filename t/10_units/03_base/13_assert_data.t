@@ -12,6 +12,7 @@ use lib qw(./mylib);
 
 use Test::More tests => 7;
 
+BEGIN { delete $ENV{POE_ASSERT_USAGE}; }
 sub POE::Kernel::ASSERT_DATA    () { 1 }
 BEGIN {
   package POE::Kernel;
