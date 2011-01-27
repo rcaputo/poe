@@ -76,12 +76,14 @@ sub _wheel_child {
   } else {
     # TODO win32 boxes wildly vary on their support for this
     # On XP + Vista it works, on win7 it doesn't? Need to verify this 110%
-    if ( $^O eq 'MSWin32' ) {
-      TODO: {
-        local $TODO = "MSWin32 is unreliable in regards to exit value for invalid binaries";
-        diag( "Received exitval($exitval) for fake binary" );
-        cmp_ok( $exitval, '>', 0, "Set proper exitval for '" . $_[HEAP]->{type} . "'" );
-      };
+    TODO: {
+      local $TODO = (
+        "MSWin32 is unreliable in regards to exit value for invalid binaries"
+      ) if $^O eq 'MSWin32';
+      diag( "Received exitval($exitval) for fake binary" ) if $^O eq 'MSWin32';
+      cmp_ok(
+        $exitval, '>', 0, "Set proper exitval for '" . $_[HEAP]->{type} . "'"
+      );
     }
   }
 
