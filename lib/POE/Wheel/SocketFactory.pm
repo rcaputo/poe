@@ -52,7 +52,13 @@ sub MY_SOCKET_SELECTED () { 12 }
 # Test and provide for each constant separately, per suggestion in
 # rt.cpan.org 27250.
 BEGIN {
-  eval { require Socket::GetAddrInfo };
+  eval "use Socket::GetAddrInfo qw(:newapi getaddrinfo getnameinfo)";
+  if ($@) {
+    my $why = $@;
+    $why =~ s/ at \(eval.* line 1\.\s*//;
+    *getaddrinfo = sub { return "Socket::GetAddrInfo not loaded: $why" };
+    *getnameinfo = sub { return "Socket::GetAddrInfo not loaded: $why" };
+  }
 }
 
 #------------------------------------------------------------------------------
@@ -166,9 +172,8 @@ sub _define_accept_state {
         }
         elsif ( $domain eq DOM_INET6 ) {
           $peer = getpeername($new_socket);
-          (undef, $peer_port, $peer_addr) = (
-            Socket::GetAddrInfo::getnameinfo($peer)
-          );
+          ((my $error), $peer_port, $peer_addr) =  getnameinfo($peer);
+          warn $error if $error;
         }
         else {
           die "sanity failure: socket domain == $domain";
@@ -287,12 +292,9 @@ sub _define_connect_state {
       # INET6 socket stacks tend not to.
       elsif ($domain eq DOM_INET6) {
         if (defined $peer) {
-          eval {
-            (undef, $peer_port, $peer_addr) = (
-              Socket::GetAddrInfo::getnameinfo($peer)
-            );
-          };
-          if (length $@) {
+          ((my $error), $peer_port, $peer_addr) = getnameinfo($peer);
+          if ($error) {
+            warn $error;
             $peer_port = $peer_addr = undef;
           }
         }
@@ -798,7 +800,7 @@ sub new {
       BEGIN { eval { require bytes } and bytes->import; }
 
       # Resolve the bind address.
-      my ($error, @addresses) = Socket::GetAddrInfo::getaddrinfo(
+      my ($error, @addresses) = getaddrinfo(
         $bind_address, $bind_port, {
           family   => $self->[MY_SOCKET_DOMAIN],
           socktype => $self->[MY_SOCKET_TYPE],
@@ -806,6 +808,8 @@ sub new {
       );
 
       unless (@addresses) {
+        warn $error if $error;
+
         $! = EADDRNOTAVAIL;
         $poe_kernel->yield(
           $event_failure,
@@ -902,7 +906,7 @@ sub new {
         $error_tag = "inet_aton";
       }
       elsif ($abstract_domain eq DOM_INET6) {
-        my ($error, @addresses) = Socket::GetAddrInfo::getaddrinfo(
+        my ($error, @addresses) = getaddrinfo(
           $params{RemoteAddress}, $remote_port, {
             family   => $self->[MY_SOCKET_DOMAIN],
             socktype => $self->[MY_SOCKET_TYPE],
@@ -910,6 +914,7 @@ sub new {
         );
 
         unless (@addresses) {
+          warn $error if $error;
           $connect_address = undef;
         }
         else {
