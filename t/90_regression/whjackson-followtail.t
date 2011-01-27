@@ -85,7 +85,7 @@ sub _start_handler {
   $kernel->delay_add('roll_log',       6      );
   $kernel->delay_add('append_to_log',  7,  'c');
   # poll log file                      8
-  $kernel->delay_add('done',           9      );
+  $kernel->delay_add('done',           10     );
 
   return;
 }
