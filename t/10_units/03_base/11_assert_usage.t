@@ -11,6 +11,7 @@ use Test::More tests => 76;
 
 use Symbol qw(gensym);
 
+BEGIN { delete $ENV{POE_ASSERT_USAGE}; }
 sub POE::Kernel::ASSERT_USAGE   () { 1 }
 #sub POE::Kernel::TRACE_REFCNT   () { 1 }
 BEGIN {
