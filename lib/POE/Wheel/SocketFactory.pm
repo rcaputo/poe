@@ -15,8 +15,8 @@ use Errno qw(
 );
 
 use Socket qw(
-  AF_INET AF_INET6 SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 
-  PF_INET PF_INET6 SOCK_DGRAM SO_ERROR unpack_sockaddr_in 
+  AF_INET SOCK_STREAM SOL_SOCKET AF_UNIX PF_UNIX 
+  PF_INET SOCK_DGRAM SO_ERROR unpack_sockaddr_in 
   unpack_sockaddr_un PF_UNSPEC SO_REUSEADDR INADDR_ANY 
   pack_sockaddr_in pack_sockaddr_un inet_aton SOMAXCONN
 );
@@ -43,21 +43,37 @@ sub MY_SOCKET_TYPE     () { 10 }
 sub MY_STATE_ERROR     () { 11 }
 sub MY_SOCKET_SELECTED () { 12 }
 
-# Fletch has subclassed SSLSocketFactory from SocketFactory.  He's
-# added new members after MY_SOCKET_SELECTED.  Be sure, if you extend
-# this, to extend add stuff BEFORE MY_SOCKET_SELECTED or let Fletch
-# know you've broken his module.
+# Fletch has subclassed SSLSocketFactory from SocketFactory.
+# He's added new members after MY_SOCKET_SELECTED.  Be sure, if you
+# extend this, to extend add stuff BEFORE MY_SOCKET_SELECTED or let
+# Fletch know you've broken his module.
 
-# Provide dummy constants for systems that don't have them.
-# Test and provide for each constant separately, per suggestion in
-# rt.cpan.org 27250.
+# If IPv6 support can't be loaded, then provide dummies so the code at
+# least compiles.  Suggested in rt.cpan.org 27250.
 BEGIN {
   eval "use Socket::GetAddrInfo qw(:newapi getaddrinfo getnameinfo)";
   if ($@) {
     my $why = $@;
-    $why =~ s/ at \(eval.* line 1\.\s*//;
+    $why =~ s/ at \(eval.* line \d+\.\s*//;
     *getaddrinfo = sub { return "Socket::GetAddrInfo not loaded: $why" };
     *getnameinfo = sub { return "Socket::GetAddrInfo not loaded: $why" };
+  }
+
+  # Socket6 provides AF_INET6 and PF_INET6 where earlier Perls' Socket don't.
+  eval "use Socket qw(AF_INET6)";
+  if ($@) {
+    eval "use Socket6 qw(AF_INET6)";
+    if ($@) {
+      *AF_INET6 = sub { ~0 };
+    }
+  }
+
+  eval "use Socket qw(PF_INET6)";
+  if ($@) {
+    eval "use Socket6 qw(PF_INET6)";
+    if ($@) {
+      *PF_INET6 = sub { ~0 };
+    }
   }
 }
 
@@ -1594,7 +1610,9 @@ depth.  You need to know this.
 L<Socket::GetAddrInfo> is required for IPv6 work.
 POE::Wheel::SocketFactory will load it automatically if it's
 installed.  SocketDomain => AF_INET6 is required to trigger IPv6
-behaviors.  AF_INET6 is exported by the Socket module.
+behaviors.  AF_INET6 is exported by the Socket module on all but the
+oldest versions of Perl 5.  If your Socket doesn't provide AF_INET6,
+try installing Socket6 instead.
 
 The SEE ALSO section in L<POE> contains a table of contents covering
 the entire POE distribution.
