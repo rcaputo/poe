@@ -5,7 +5,7 @@ package POE::Queue::Array;
 use strict;
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.294_314'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.294_512'; # NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Queue);
 
 use Errno qw(ESRCH EPERM);

@@ -8,7 +8,7 @@ package POE::Loop::PerlSignals;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.294_314'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.294_512'; # NOTE - Should be #.### (three decimal places)
 
 # Everything plugs into POE::Kernel.
 package POE::Kernel;

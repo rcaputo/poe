@@ -6,7 +6,7 @@
 package POE::Resource::Statistics;
 
 use vars qw($VERSION);
-$VERSION = '1.294_314'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.294_512'; # NOTE - Should be #.### (three decimal places)
 
 # We fold all this stuff back into POE::Kernel
 package POE::Kernel;
