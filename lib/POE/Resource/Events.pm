@@ -3,7 +3,7 @@
 package POE::Resource::Events;
 
 use vars qw($VERSION);
-$VERSION = '1.294_512'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.299'; # NOTE - Should be #.### (three decimal places)
 
 # These methods are folded into POE::Kernel;
 package POE::Kernel;
@@ -131,6 +131,7 @@ sub _data_ev_clear_session {
       $pending_count--;
     }
 
+    # TODO - fork() can make this go negative on some systems.
     last PENDING unless $pending_count;
 
     croak "lingering pending count: $pending_count" if $pending_count;

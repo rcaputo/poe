@@ -25,7 +25,7 @@ use vars qw(@EXPORT_OK);
 
 
 sub CONFIG_REQUIREMENTS () {
-  ("POE::Test::Loops"  => '1.036_314')
+  ("POE::Test::Loops"  => '1.040')
 }
 
 sub CORE_REQUIREMENTS () {
