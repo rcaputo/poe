@@ -18,9 +18,16 @@ use POSIX qw(:sys_wait_h sigprocmask SIG_SETMASK);
 ### Map watched signal names to the sessions that are watching them
 ### and the events that must be delivered when they occur.
 
+sub SEV_EVENT   () { 0 }
+sub SEV_ARGS    () { 1 }
+sub SEV_SESSION () { 2 }
+
 my %kr_signals;
 #  ( $signal_name =>
-#    { $session_reference => [ $event_name, $event_args, ],
+#    { $session_reference =>
+#     [ $event_name,    SEV_EVENT
+#       $event_args,    SEV_ARGS
+#     ],
 #      ...,
 #    },
 #    ...,
@@ -28,7 +35,10 @@ my %kr_signals;
 
 my %kr_sessions_to_signals;
 #  ( $session =>
-#    { $signal_name => [ $event_name, $event_args ],
+#    { $signal_name =>
+#      [ $event_name,   SEV_EVENT
+#        $event_args,   SEV_ARGS
+#      ],
 #      ...,
 #    },
 #    ...,
@@ -143,6 +153,40 @@ sub _data_sig_initialize {
 
     $self->_data_sig_pipe_build if USE_SIGNAL_PIPE;
   }
+}
+
+sub _data_sig_clone {
+  my ($self, $clone_map) = @_;
+
+  # Regular signals.
+
+  %kr_signals = ();
+  my %new_sessions_to_signals;
+
+  while (my ($old_ses, $sig_rec) = each %kr_sessions_to_signals) {
+    my $new_ses = $clone_map->{$old_ses};
+    $new_sessions_to_signals{$new_ses} = $sig_rec;
+
+    while (my ($signal, $event_rec) = each %$sig_rec) {
+      $kr_signals{$signal}{$new_ses} = $event_rec;
+    }
+  }
+
+  %kr_sessions_to_signals = %new_sessions_to_signals;
+
+  # PIDs.
+
+  while (my ($pid, $pid_rec) = each %kr_pids_to_events) {
+    my %new_ses_rec;
+    while (my ($old_ses, $ses_rec) = each %$pid_rec) {
+      $new_ses_rec{$clone_map->{$old_ses}} = $ses_rec;
+    }
+
+    # each() doesn't alias values.
+    %$pid_rec = %new_ses_rec;
+  }
+
+  undef;
 }
 
 sub _data_sig_has_forked {

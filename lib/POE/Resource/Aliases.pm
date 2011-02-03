@@ -30,6 +30,16 @@ sub _data_alias_initialize {
   $poe_kernel->[KR_ALIASES] = \%kr_aliases;
 }
 
+sub _data_alias_clone {
+  my ($self, $clone_map) = @_;
+
+  my %new_ses_to_alias;
+  while (my ($old_ses, $alias_rec) = each %kr_ses_to_alias) {
+    $new_ses_to_alias{$clone_map->{$old_ses}} = $alias_rec;
+  }
+  %kr_ses_to_alias = %new_ses_to_alias;
+}
+
 ### End-run leak checking.  Returns true if finalization was ok, or
 ### false if it failed.
 

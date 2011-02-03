@@ -31,6 +31,18 @@ sub _data_sid_initialize {
   $poe_kernel->[KR_SID_SEQ] = \$kr_sid_seq;
 }
 
+sub _data_sid_clone {
+  my ($self, $clone_map) = @_;
+
+  my %new_session_to_id;
+  while (my ($old_ses, $id) = each %kr_session_to_id) {
+    $new_session_to_id{$clone_map->{$old_ses}} = $id;
+  }
+  %kr_session_to_id = %new_session_to_id;
+
+  undef;
+}
+
 ### End-run leak checking.
 
 sub _data_sid_finalize {

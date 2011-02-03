@@ -34,6 +34,29 @@ sub SS_CHILDREN   () { 3 }
 sub SS_PROCESSES  () { 4 }
 sub SS_ID         () { 5 }
 
+sub _data_ses_clone {
+  my %new_sessions;
+  my %clone_map;
+
+  # Build the clone map and rename the session records.
+  while (my ($old_ses, $ses_rec) = each %kr_sessions) {
+    $clone_map{$old_ses} = (my $new_ses) = $ses_rec->[SS_SESSION];
+    $new_sessions{$new_ses} = $ses_rec;
+  }
+
+  foreach my $ses_rec (values %kr_sessions) {
+    my %new_children;
+    while (my ($child, $ref) = each %{$ses_rec->[SS_CHILDREN]}) {
+      $new_children{$clone_map{$child}} = $ref;
+    }
+    $ses_rec->[SS_CHILDREN] = \%new_children;
+  }
+
+  %kr_sessions = %new_sessions;
+
+  return \%clone_map;
+}
+
 BEGIN { $POE::Kernel::poe_kernel->[KR_SESSIONS] = \%kr_sessions; }
 
 ### End-run leak checking.

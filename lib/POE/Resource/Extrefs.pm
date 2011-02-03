@@ -36,6 +36,18 @@ sub _data_extref_finalize {
   return $finalized_ok;
 }
 
+sub _data_extref_clone {
+  my ($self, $clone_map) = @_;
+
+  my %new_extra_refs;
+  while (my ($old_ses, $extref_rec) = each %kr_extra_refs) {
+    $new_extra_refs{$clone_map->{$old_ses}} = $extref_rec;
+  }
+  %kr_extra_refs = %new_extra_refs;
+
+  undef;
+}
+
 # Increment a session's tagged reference count.  If this is the first
 # time the tag is used in the session, then increment the session's
 # reference count as well.  Returns the tag's new reference count.

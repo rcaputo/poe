@@ -30,6 +30,24 @@ sub _data_ev_initialize {
   $kr_queue = $queue;
 }
 
+sub _data_ev_clone {
+  my ($self, $clone_map) = @_;
+
+  my %new_event_count;
+  while (my ($old_ses, $count) = each %event_count) {
+    $new_event_count{$clone_map->{$old_ses}} = $count;
+  }
+  %event_count = %new_event_count;
+
+  my %new_post_count;
+  while (my ($old_ses, $count) = each %post_count) {
+    $new_post_count{$clone_map->{$old_ses}} = $count;
+  }
+  %post_count = %new_post_count;
+
+  undef;
+}
+
 ### End-run leak checking.
 
 sub _data_ev_finalize {

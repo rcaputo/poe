@@ -103,6 +103,26 @@ sub _data_handle_initialize {
   $kr_queue = $queue;
 }
 
+sub _data_handle_clone {
+  my ($self, $clone_map) = @_;
+
+  my %new_ses_to_handle;
+  while (my ($old_ses, $old_handle_rec) = each %kr_ses_to_handle) {
+    $new_ses_to_handle{$clone_map->{$old_ses}} = $old_handle_rec;
+  }
+  %kr_ses_to_handle = %new_ses_to_handle;
+
+  while (my ($fd, $fd_rec) = each %kr_filenos) {
+    foreach my $mode (MODE_RD, MODE_WR, MODE_EX) {
+      my %new_sessions;
+      while (my ($ses, $ses_rec) = each %{$fd_rec->[$mode][FMO_SESSIONS]}) {
+        $new_sessions{$ses_rec->[HSS_SESSION]} = $ses_rec;
+      }
+      $fd_rec->[$mode][FMO_SESSIONS] = \%new_sessions;
+    }
+  }
+}
+
 ### End-run leak checking.
 
 sub _data_handle_finalize {
