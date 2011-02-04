@@ -4557,11 +4557,6 @@ Example:
     # ...
   }
 
-By default, SIGCHLD is not handled by registering a C<%SIG> handler.
-Rather, waitpid() is called periodically to test for child process
-exits.  See the experimental L</USE_SIGCHLD> option if you would prefer
-child processes to be reaped in a more timely fashion.
-
 =head4 SIGPIPE
 
 SIGPIPE is rarely used since POE provides events that do the same
