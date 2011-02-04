@@ -115,8 +115,8 @@ sub _data_handle_clone {
   while (my ($fd, $fd_rec) = each %kr_filenos) {
     foreach my $mode (MODE_RD, MODE_WR, MODE_EX) {
       my %new_sessions;
-      while (my ($ses, $ses_rec) = each %{$fd_rec->[$mode][FMO_SESSIONS]}) {
-        $new_sessions{$ses_rec->[HSS_SESSION]} = $ses_rec;
+      while (my ($old_ses, $ses_rec) = each %{$fd_rec->[$mode][FMO_SESSIONS]}) {
+        $new_sessions{$clone_map->{$old_ses}} = $ses_rec;
       }
       $fd_rec->[$mode][FMO_SESSIONS] = \%new_sessions;
     }
