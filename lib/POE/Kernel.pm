@@ -140,11 +140,14 @@ BEGIN {
 
   { no strict 'refs';
     unless (defined &USE_SIGCHLD) {
-      #if ( exists($INC{'Apache.pm'}) ) { # or unsafe signals
-      *USE_SIGCHLD = sub () { 0 };
-      #} else {
-      #  *USE_SIGCHLD = sub () { 1 };
-      #}
+      # Perl >= 5.7.3 has safe signals support
+      # perlipc.pod#Deferred_Signals_(Safe_Signals)
+      # We decided to target 5.8.1 just to be safe :)
+      if ( $] >= 5.008001 ) {
+        *USE_SIGCHLD = sub () { 1 };
+      } else {
+        *USE_SIGCHLD = sub () { 0 };
+      }
     }
   }
   { no strict 'refs';
@@ -4545,11 +4548,6 @@ Example:
     # ...
   }
 
-By default, SIGCHLD is not handled by registering a C<%SIG> handler.
-Rather, waitpid() is called periodically to test for child process
-exits.  See the experimental L</USE_SIGCHLD> option if you would prefer
-child processes to be reaped in a more timely fashion.
-
 =head4 SIGPIPE
 
 SIGPIPE is rarely used since POE provides events that do the same
@@ -5334,9 +5332,12 @@ See L</"Using Time::HiRes">.
 
 Whether to use C<$SIG{CHLD}> or to poll at an interval.
 
-This flag is disabled by default, and enabling it may cause breakage
-under older perls with no safe signals, and under L<Apache> which uses
-C<$SIG{CHLD}>.
+This flag is enabled by default on Perl >= 5.8.1 as it has support
+for "safe signals". Please see L<perlipc> for the gory details.
+
+You might want to disable this if you are running a version of Perl that
+is known to have bad signal handling, or if anything hijacks C<$SIG{CHLD}>.
+One module that is known to do this is L<Apache>.
 
 Enabling this flag will cause child reaping to happen almost
 immediately, as opposed to once per L</CHILD_POLLING_INTERVAL>.
