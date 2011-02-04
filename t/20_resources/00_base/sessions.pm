@@ -24,6 +24,7 @@ is($poe_kernel->_data_ses_count(), 1, "only POE::Kernel exists");
 
 my $child     = bless [ ], "POE::Session";
 my $child_sid = $poe_kernel->_data_sid_allocate();
+$child->[POE::Session::SE_ID] = $child_sid;
 
 $poe_kernel->_data_ses_allocate(
   $child,      # session
@@ -106,7 +107,7 @@ ok(
 
 is(
   $poe_kernel->_data_ses_resolve_to_id($child), $child_sid,
-  "session reference resolves to ID"
+  "session reference $child resolves to ID"
 );
 
 ok(

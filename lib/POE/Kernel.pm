@@ -1483,6 +1483,7 @@ sub session_alloc {
   # Allocate the session's data structure.  This must be done before
   # we dispatch anything regarding the new session.
   my $new_sid = $self->_data_sid_allocate();
+  $session->_set_id($new_sid);
   $self->_data_ses_allocate($session, $new_sid, $kr_active_session);
 
   my $loggable = $self->_data_alias_loggable($session);

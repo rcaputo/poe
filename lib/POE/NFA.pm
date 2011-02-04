@@ -30,11 +30,12 @@ sub NFA_EN_STOP         () { 'poe_nfa_stop' }
 sub SELF_RUNSTATE       () { 0 }
 sub SELF_OPTIONS        () { 1 }
 sub SELF_STATES         () { 2 }
-sub SELF_CURRENT        () { 3 }
-sub SELF_STATE_STACK    () { 4 }
-sub SELF_INTERNALS      () { 5 }
-sub SELF_CURRENT_NAME   () { 6 }
-sub SELF_IS_IN_INTERNAL () { 7 }
+sub SELF_ID             () { 3 }
+sub SELF_CURRENT        () { 4 }
+sub SELF_STATE_STACK    () { 5 }
+sub SELF_INTERNALS      () { 6 }
+sub SELF_CURRENT_NAME   () { 7 }
+sub SELF_IS_IN_INTERNAL () { 8 }
 
 sub STACK_STATE         () { 0 }
 sub STACK_EVENT         () { 1 }
@@ -236,6 +237,7 @@ sub spawn {
     $runstate,  # SELF_RUNSTATE
     $options,   # SELF_OPTIONS
     $states,    # SELF_STATES
+    undef,      # SELF_ID
     undef,      # SELF_CURRENT
     [ ],        # SELF_STATE_STACK
     { },        # SELF_INTERNALS
@@ -570,8 +572,13 @@ sub _register_state {
 # Return the session's ID.  This is a thunk into POE::Kernel, where
 # the session ID really lies.  This is a good inheritance candidate.
 
+sub _set_id {
+  my ($self, $id) = @_;
+  $self->[SELF_ID] = $id;
+}
+
 sub ID {
-  $POE::Kernel::poe_kernel->ID_session_to_id(shift);
+  return shift()->[SELF_ID];
 }
 
 #------------------------------------------------------------------------------

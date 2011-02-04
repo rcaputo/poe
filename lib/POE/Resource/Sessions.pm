@@ -351,7 +351,7 @@ sub _data_ses_resolve {
 sub _data_ses_resolve_to_id {
   my ($self, $session) = @_;
   return undef unless exists $kr_sessions{$session}; # Prevents autoviv.
-  return $kr_sessions{$session}->[SS_ID];
+  return $kr_sessions{$session}->[SS_SESSION]->ID();
 }
 
 ### Sweep the GC marks.

@@ -11,6 +11,7 @@ use Errno;
 sub SE_NAMESPACE    () { 0 }
 sub SE_OPTIONS      () { 1 }
 sub SE_STATES       () { 2 }
+sub SE_ID           () { 3 }
 
 sub CREATE_ARGS     () { 'args' }
 sub CREATE_OPTIONS  () { 'options' }
@@ -589,8 +590,13 @@ sub _register_state {
 # Return the session's ID.  This is a thunk into POE::Kernel, where
 # the session ID really lies.
 
+sub _set_id {
+  my ($self, $id) = @_;
+  $self->[SE_ID] = $id;
+}
+
 sub ID {
-  $POE::Kernel::poe_kernel->ID_session_to_id(shift);
+  return shift()->[SE_ID];
 }
 
 #------------------------------------------------------------------------------
