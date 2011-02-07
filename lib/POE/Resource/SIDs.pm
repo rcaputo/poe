@@ -19,28 +19,11 @@ my %kr_session_ids;
 #    ...,
 #  );
 
-my %kr_session_to_id;
-#  ( $session_ref => $session_id,
-#    ...,
-#  );
-
-my $kr_sid_seq = 1;
+my $kr_sid_seq = 0;
 
 sub _data_sid_initialize {
   $poe_kernel->[KR_SESSION_IDS] = \%kr_session_ids;
   $poe_kernel->[KR_SID_SEQ] = \$kr_sid_seq;
-}
-
-sub _data_sid_clone {
-  my ($self, $clone_map) = @_;
-
-  my %new_session_to_id;
-  while (my ($old_ses, $id) = each %kr_session_to_id) {
-    $new_session_to_id{$clone_map->{$old_ses}} = $id;
-  }
-  %kr_session_to_id = %new_session_to_id;
-
-  undef;
 }
 
 ### End-run leak checking.
@@ -49,10 +32,6 @@ sub _data_sid_finalize {
   my $finalized_ok = 1;
   while (my ($sid, $ses) = each(%kr_session_ids)) {
     _warn "!!! Leaked session ID: $sid = $ses\n";
-    $finalized_ok = 0;
-  }
-  while (my ($ses, $sid) = each(%kr_session_to_id)) {
-    _warn "!!! Leak sid cross-reference: $ses = $sid\n";
     $finalized_ok = 0;
   }
   return $finalized_ok;
@@ -71,18 +50,18 @@ sub _data_sid_allocate {
 sub _data_sid_set {
   my ($self, $sid, $session) = @_;
   $kr_session_ids{$sid} = $session;
-  $kr_session_to_id{$session} = $sid;
 }
 
 ### Clear a session ID.
 
 sub _data_sid_clear {
-  my ($self, $session) = @_;
-  my $sid = delete $kr_session_to_id{$session};
-  if (ASSERT_DATA) {
-    _trap("SID not defined") unless defined $sid;
-  }
-  delete $kr_session_ids{$sid};
+  my ($self, $sid) = @_;
+
+  return delete $kr_session_ids{$sid} unless ASSERT_DATA;
+
+  my $removed = delete $kr_session_ids{$sid};
+  _trap("unknown SID '$sid'") unless defined $removed;
+  $removed;
 }
 
 ### Resolve a session ID into its session.

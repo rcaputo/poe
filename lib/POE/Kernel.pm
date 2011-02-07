@@ -898,6 +898,7 @@ sub new {
 
     POE::Resources->load();
 
+    $self->[KR_ID] = $self->_recalc_id();
     $self->_data_sid_set($self->ID(), $self);
 
     # Initialize subsystems.  The order is important.
@@ -1347,10 +1348,6 @@ sub stop {
   # So new sessions will not be child of the current defunct session.
   $kr_active_session = $self;
 
-  # Undefined the kernel ID so it will be recalculated on the next
-  # ID() call.
-  $self->[KR_ID] = undef;
-
   # The GC mark list may prevent sessions from DESTROYing.
   # Clean it up.
   $self->_data_ses_gc_sweep();
@@ -1359,7 +1356,12 @@ sub stop {
   # Program, before setting up for the next POE::Kernel->run().  When
   # the PID has changed, imply _data_sig_has_forked() during stop().
 
-  $poe_kernel->has_forked unless $kr_pid == $$;
+  if ($kr_pid == $$) {
+    $self->[KR_ID] = $self->_recalc_id();
+  }
+  else {
+    $poe_kernel->has_forked();
+  }
 
   # TODO - If we're polling for signals, then the reset gets it wrong.
   # The reset only counts statistics tracing, not sigchld polling.  If
@@ -1382,8 +1384,8 @@ sub has_forked {
 
   # Undefine the kernel ID so it will be recalculated on the next
   # ID() call.
-  $self->[KR_ID] = undef;
   $kr_pid = $$;
+  $self->[KR_ID] = $self->_recalc_id();
 
   # reset some stuff for the signals
   $poe_kernel->_data_sig_has_forked;
@@ -2444,18 +2446,20 @@ sub alias_list {
 # The Kernel and Session IDs are based on Philip Gwyn's code.  I hope
 # he still can recognize it.
 
+sub _recalc_id {
+  my $self = shift;
+  my $hostname = eval { (uname)[1] };
+  $hostname = hostname() unless defined $hostname;
+  join(
+    "-", $hostname,
+    map { unpack "H*", $_ }
+    map { pack "N" }
+    (time(), $$, ++$kr_id_seq)
+  );
+}
+
 sub ID {
   my $self = $poe_kernel;
-
-  # Recalculate the kernel ID if necessary.  stop() undefines it.
-  unless (defined $self->[KR_ID]) {
-    my $hostname = eval { (uname)[1] };
-    $hostname = hostname() unless defined $hostname;
-    $self->[KR_ID] = $hostname . '-' .  unpack(
-      'H*', pack('N*', time(), $$, ++$kr_id_seq)
-    );
-  }
-
   return $self->[KR_ID];
 }
 
@@ -2594,7 +2598,6 @@ sub CLONE {
 
   $poe_kernel->_data_handle_clone($clone_map);
   $poe_kernel->_data_ev_clone($clone_map);
-  $poe_kernel->_data_sid_clone($clone_map);
   $poe_kernel->_data_sig_clone($clone_map);
 
   # Not cloning POE::Resource::Statistics.

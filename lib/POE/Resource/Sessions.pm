@@ -208,7 +208,7 @@ sub _data_ses_free {
 
   # Things which do not hold reference counts.
 
-  $self->_data_sid_clear($session);            # Remove from SID tables.
+  $self->_data_sid_clear($sid);                # Remove from SID tables.
   $self->_data_sig_clear_session($session);    # Remove all leftover signals.
 
   # Things which do hold reference counts.

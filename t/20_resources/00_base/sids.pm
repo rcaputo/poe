@@ -17,7 +17,7 @@ BEGIN { use_ok("POE") }
 # session has already been allocated.
 
 my $sid = $poe_kernel->_data_sid_allocate();
-ok($sid == 2, "first user SID is 2 (POE::Kernel is 1)");
+ok($sid == 1, "first user SID is 1");
 
 # Set an ID for a session.
 
@@ -32,21 +32,21 @@ ok($resolved_session eq "session", "session ID resolves correctly");
 # remove function that returns the removed value.  That may change in
 # the future.
 
-my $removed = $poe_kernel->_data_sid_clear("session");
-ok($removed eq "session", "session ID removes correctly");
+my $removed = $poe_kernel->_data_sid_clear($sid);
+ok($removed eq "session", "session ID $sid removes $removed correctly");
 
 # What happens if a session doesn't exist?
 
 eval { $poe_kernel->_data_sid_clear("session") };
 ok(
-  $@ && $@ =~ /SID not defined/,
+  $@ && $@ =~ /unknown SID/,
   "can't clear a sid for a nonexistent session"
 );
 
 # POE::Kernel itself has allocated a SID.  Remove that.  This also
 # relies on undocumented side effects that can change at any time.
 
-$removed = $poe_kernel->_data_sid_clear($poe_kernel);
+$removed = $poe_kernel->_data_sid_clear($poe_kernel->ID);
 ok($removed eq $poe_kernel, "successfully removed POE::Kernel's SID");
 
 # Finalize the subsystem and ensure it shut down cleanly.
