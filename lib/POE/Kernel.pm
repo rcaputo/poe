@@ -209,6 +209,8 @@ sub MODE_EX () { 2 }  # exception/expedite
 # storage in some of the leaf objects, such as POE::Wheel.  All its
 # members are described in detail further on.
 
+my $kr_id_seq = 0;
+
 sub KR_SESSIONS          () {  0 } # [ \%kr_sessions,
 sub KR_FILENOS           () {  1 } #   \%kr_filenos,
 sub KR_SIGNALS           () {  2 } #   \%kr_signals,
@@ -2449,7 +2451,9 @@ sub ID {
   unless (defined $self->[KR_ID]) {
     my $hostname = eval { (uname)[1] };
     $hostname = hostname() unless defined $hostname;
-    $self->[KR_ID] = $hostname . '-' .  unpack('H*', pack('N*', time(), $$));
+    $self->[KR_ID] = $hostname . '-' .  unpack(
+      'H*', pack('N*', time(), $$, ++$kr_id_seq)
+    );
   }
 
   return $self->[KR_ID];
