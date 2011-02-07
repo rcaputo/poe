@@ -15,7 +15,7 @@ use strict;
 ### The count of all extra references used in the system.
 
 my %kr_extra_refs;
-#  ( $session =>
+#  ( $session_id =>
 #    { $tag => $count,
 #       ...,
 #     },
@@ -26,26 +26,14 @@ my %kr_extra_refs;
 
 sub _data_extref_finalize {
   my $finalized_ok = 1;
-  foreach my $session (keys %kr_extra_refs) {
+  foreach my $session_id (keys %kr_extra_refs) {
     $finalized_ok = 0;
-    _warn "!!! Leaked extref: $session\n";
-    foreach my $tag (keys %{$kr_extra_refs{$session}}) {
-      _warn "!!!\t`$tag' = $kr_extra_refs{$session}->{$tag}\n";
+    _warn "!!! Leaked extref: $session_id\n";
+    foreach my $tag (keys %{$kr_extra_refs{$session_id}}) {
+      _warn "!!!\t`$tag' = $kr_extra_refs{$session_id}->{$tag}\n";
     }
   }
   return $finalized_ok;
-}
-
-sub _data_extref_clone {
-  my ($self, $clone_map) = @_;
-
-  my %new_extra_refs;
-  while (my ($old_ses, $extref_rec) = each %kr_extra_refs) {
-    $new_extra_refs{$clone_map->{$old_ses}} = $extref_rec;
-  }
-  %kr_extra_refs = %new_extra_refs;
-
-  undef;
 }
 
 # Increment a session's tagged reference count.  If this is the first
@@ -64,7 +52,7 @@ sub _data_extref_clone {
 
 sub _data_extref_inc {
   my ($self, $session, $tag) = @_;
-  my $refcount = ++$kr_extra_refs{$session}->{$tag};
+  my $refcount = ++$kr_extra_refs{$session->ID}->{$tag};
 
   # TODO We could probably get away with only incrementing the
   # session's master refcount once, as long as any extra refcount is
@@ -92,12 +80,14 @@ sub _data_extref_inc {
 sub _data_extref_dec {
   my ($self, $session, $tag) = @_;
 
+  my $sid = $session->ID;
+
   if (ASSERT_DATA) {
     # Prevents autoviv.
     _trap("<dt> decrementing extref for session without any")
-      unless exists $kr_extra_refs{$session};
+      unless exists $kr_extra_refs{$sid};
 
-    unless (exists $kr_extra_refs{$session}->{$tag}) {
+    unless (exists $kr_extra_refs{$sid}->{$tag}) {
       _trap(
         "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
         $self->_data_alias_loggable($session)
@@ -105,7 +95,7 @@ sub _data_extref_dec {
     }
   }
 
-  my $refcount = --$kr_extra_refs{$session}->{$tag};
+  my $refcount = --$kr_extra_refs{$sid}->{$tag};
 
   if (TRACE_REFCNT) {
     _warn(
@@ -123,11 +113,13 @@ sub _data_extref_dec {
 sub _data_extref_remove {
   my ($self, $session, $tag) = @_;
 
+  my $sid = $session->ID;
+
   if (ASSERT_DATA) {
     # Prevents autoviv.
     _trap("<dt> removing extref from session without any")
-      unless exists $kr_extra_refs{$session};
-    unless (exists $kr_extra_refs{$session}->{$tag}) {
+      unless exists $kr_extra_refs{$sid};
+    unless (exists $kr_extra_refs{$sid}->{$tag}) {
       _trap(
         "<dt> removing extref for nonexistent tag ``$tag'' in ",
         $self->_data_alias_loggable($session)
@@ -135,9 +127,8 @@ sub _data_extref_remove {
     }
   }
 
-  delete $kr_extra_refs{$session}->{$tag};
-  delete $kr_extra_refs{$session}
-    unless scalar keys %{$kr_extra_refs{$session}};
+  delete $kr_extra_refs{$sid}->{$tag};
+  delete $kr_extra_refs{$sid} unless scalar keys %{$kr_extra_refs{$sid}};
   $self->_data_ses_refcount_dec($session);
 }
 
@@ -146,15 +137,17 @@ sub _data_extref_remove {
 sub _data_extref_clear_session {
   my ($self, $session) = @_;
 
+  my $sid = $session->ID;
+
   # TODO - Should there be a _trap here if the session doesn't exist?
 
-  return unless exists $kr_extra_refs{$session}; # avoid autoviv
-  foreach (keys %{$kr_extra_refs{$session}}) {
+  return unless exists $kr_extra_refs{$sid}; # avoid autoviv
+  foreach (keys %{$kr_extra_refs{$sid}}) {
     $self->_data_extref_remove($session, $_);
   }
 
   if (ASSERT_DATA) {
-    if (exists $kr_extra_refs{$session}) {
+    if (exists $kr_extra_refs{$sid}) {
       _trap(
         "<dt> extref clear did not remove session ",
         $self->_data_alias_loggable($session)
@@ -173,9 +166,9 @@ sub _data_extref_count {
 # Fetch whether a session has extra references.
 
 sub _data_extref_count_ses {
-  my ($self, $session) = @_;
-  return 0 unless exists $kr_extra_refs{$session};
-  return scalar keys %{$kr_extra_refs{$session}};
+  my ($self, $sid) = @_;
+  return 0 unless exists $kr_extra_refs{$sid};
+  return scalar keys %{$kr_extra_refs{$sid}};
 }
 
 1;

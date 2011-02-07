@@ -24,8 +24,8 @@ is($poe_kernel->_data_ses_count(), 1, "only POE::Kernel exists");
 
 my $child     = bless [ ], "POE::Session";
 my $child_sid = $poe_kernel->_data_sid_allocate();
-$child->[POE::Session::SE_ID] = $child_sid;
 
+$child->_set_id($child_sid);
 $poe_kernel->_data_ses_allocate(
   $child,      # session
   $child_sid,  # sid
@@ -121,6 +121,7 @@ ok(
 my $grand    = bless [ ], "POE::Session";
 my $grand_id = $poe_kernel->_data_sid_allocate();
 
+$grand->_set_id($grand_id);
 $poe_kernel->_data_ses_allocate(
   $grand,      # session
   $grand_id,   # sid
@@ -169,6 +170,7 @@ my $base_grand_refcount = $poe_kernel->_data_ses_refcount($grand);
 my $great    = bless [ ], "POE::Session";
 my $great_id = $poe_kernel->_data_sid_allocate();
 
+$great->_set_id($great_id);
 $poe_kernel->_data_ses_allocate(
   $great,      # session
   $great_id,   # sid

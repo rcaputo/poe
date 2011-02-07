@@ -111,7 +111,7 @@ is(
 # session should have none.
 
 is(
-  $poe_kernel->_data_extref_count_ses($poe_kernel), 2,
+  $poe_kernel->_data_extref_count_ses($poe_kernel->ID), 2,
   "POE::Kernel has two extra references"
 );
 
@@ -138,7 +138,7 @@ ok(
   );
 
   is(
-    $poe_kernel->_data_extref_count_ses($poe_kernel), 1,
+    $poe_kernel->_data_extref_count_ses($poe_kernel->ID), 1,
     "POE::Kernel has one extra reference"
   );
 
@@ -154,7 +154,7 @@ ok(
   );
 
   is(
-    $poe_kernel->_data_extref_count_ses($poe_kernel), 1,
+    $poe_kernel->_data_extref_count_ses($poe_kernel->ID), 1,
     "POE::Kernel still has one extra reference"
   );
 
@@ -170,7 +170,7 @@ ok(
   );
 
   is(
-    $poe_kernel->_data_extref_count_ses($poe_kernel), 0,
+    $poe_kernel->_data_extref_count_ses($poe_kernel->ID), 0,
     "POE::Kernel has no extra references"
   );
 

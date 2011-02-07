@@ -33,6 +33,7 @@ sub create_session {
   my $session = bless [ ], "POE::Session";
   my $sid     = $poe_kernel->_data_sid_allocate();
 
+  $session->_set_id($sid);
   $poe_kernel->_data_ses_allocate(
     $session,     # session
     $sid,         # sid
@@ -345,6 +346,7 @@ ok(
 { my $ses = bless [ ], "POE::Session";
   my $sid = $poe_kernel->_data_sid_allocate();
 
+  $ses->_set_id($sid);
   $poe_kernel->_data_ses_allocate(
     $ses,         # session
     $sid,         # sid

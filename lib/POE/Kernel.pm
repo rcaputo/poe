@@ -2590,7 +2590,6 @@ sub CLONE {
 
   $poe_kernel->_data_handle_clone($clone_map);
   $poe_kernel->_data_ev_clone($clone_map);
-  $poe_kernel->_data_extref_clone($clone_map);
   $poe_kernel->_data_sid_clone($clone_map);
   $poe_kernel->_data_sig_clone($clone_map);
 

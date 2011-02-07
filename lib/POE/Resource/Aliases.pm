@@ -122,9 +122,10 @@ sub _data_alias_loggable {
     _trap unless ref($session);
   }
 
-  "session " . $session->ID . " (" .
-    ( (exists $kr_ses_to_alias{$session->ID})
-      ? join(", ", $self->_data_alias_list($session->ID))
+  my $sid = $session->ID;
+  "session $sid (" .
+    ( (exists $kr_ses_to_alias{$sid})
+      ? join(", ", $self->_data_alias_list($sid))
       : $session
     ) . ")"
 }
