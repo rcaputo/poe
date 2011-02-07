@@ -2426,7 +2426,7 @@ sub alias_list {
   }
 
   # Return whatever can be found.
-  my @alias_list = $self->_data_alias_list($session);
+  my @alias_list = $self->_data_alias_list($session->ID);
   return wantarray() ? @alias_list : $alias_list[0];
 }
 
@@ -2589,7 +2589,6 @@ sub CLONE {
   my $clone_map = $poe_kernel->_data_ses_clone();
 
   $poe_kernel->_data_handle_clone($clone_map);
-  $poe_kernel->_data_alias_clone($clone_map);
   $poe_kernel->_data_ev_clone($clone_map);
   $poe_kernel->_data_extref_clone($clone_map);
   $poe_kernel->_data_sid_clone($clone_map);

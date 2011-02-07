@@ -203,6 +203,8 @@ sub _data_ses_free {
     _trap "no parent to give children to" if @children;
   }
 
+  my $sid = $session->ID;
+
   # Things which do not hold reference counts.
 
   $self->_data_sid_clear($session);            # Remove from SID tables.
@@ -210,7 +212,7 @@ sub _data_ses_free {
 
   # Things which do hold reference counts.
 
-  $self->_data_alias_clear_session($session);  # Remove all leftover aliases.
+  $self->_data_alias_clear_session($sid);      # Remove all leftover aliases.
   $self->_data_extref_clear_session($session); # Remove all leftover extrefs.
   $self->_data_handle_clear_session($session); # Remove all leftover handles.
   $self->_data_ev_clear_session($session);     # Remove all leftover events.
@@ -458,7 +460,7 @@ sub _data_ses_dump_refcounts {
     "<rc> | post count    : ", $self->_data_ev_get_count_from($session), "\n",
     "<rc> | child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
     "<rc> | handles in use: ", $self->_data_handle_count_ses($session), "\n",
-    "<rc> | aliases in use: ", $self->_data_alias_count_ses($session), "\n",
+    "<rc> | aliases in use: ", $self->_data_alias_count_ses($session->ID), "\n",
     "<rc> | extra refs    : ", $self->_data_extref_count_ses($session), "\n",
     "<rc> | pid count     : ", $self->_data_sig_pids_ses($session), "\n",
     "<rc> +---------------------------------------------------\n",

@@ -60,7 +60,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
   }
 
   is(
-    $poe_kernel->_data_alias_count_ses($poe_kernel), @multi_aliases,
+    $poe_kernel->_data_alias_count_ses($poe_kernel->ID), @multi_aliases,
     "correct number of aliases were recorded"
   );
 
@@ -69,7 +69,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
     "correct number of references were recorded"
   );
 
-  my @retrieved = $poe_kernel->_data_alias_list($poe_kernel);
+  my @retrieved = $poe_kernel->_data_alias_list($poe_kernel->ID);
   is_deeply(
     \@retrieved, \@multi_aliases,
     "the aliases were retrieved correctly"
@@ -78,9 +78,9 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
 
 # Clear all the aliases for the session, and make sure they're gone.
 
-{ $poe_kernel->_data_alias_clear_session($poe_kernel);
+{ $poe_kernel->_data_alias_clear_session($poe_kernel->ID);
 
-  my @retrieved = $poe_kernel->_data_alias_list($poe_kernel);
+  my @retrieved = $poe_kernel->_data_alias_list($poe_kernel->ID);
   is(scalar(@retrieved), 0, "aliases were cleared successfully");
 
   is(

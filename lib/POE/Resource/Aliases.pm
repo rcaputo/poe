@@ -19,8 +19,8 @@ my %kr_aliases;
 #  );
 
 my %kr_ses_to_alias;
-#  ( $session_ref =>
-#    { $alias => $placeholder_value,
+#  ( $session_id =>
+#    { $alias => $session_ref,
 #      ...,
 #    },
 #    ...,
@@ -28,16 +28,6 @@ my %kr_ses_to_alias;
 
 sub _data_alias_initialize {
   $poe_kernel->[KR_ALIASES] = \%kr_aliases;
-}
-
-sub _data_alias_clone {
-  my ($self, $clone_map) = @_;
-
-  my %new_ses_to_alias;
-  while (my ($old_ses, $alias_rec) = each %kr_ses_to_alias) {
-    $new_ses_to_alias{$clone_map->{$old_ses}} = $alias_rec;
-  }
-  %kr_ses_to_alias = %new_ses_to_alias;
 }
 
 ### End-run leak checking.  Returns true if finalization was ok, or
@@ -49,9 +39,9 @@ sub _data_alias_finalize {
     _warn "!!! Leaked alias: $alias = $ses\n";
     $finalized_ok = 0;
   }
-  while (my ($ses, $alias_rec) = each(%kr_ses_to_alias)) {
+  while (my ($ses_id, $alias_rec) = each(%kr_ses_to_alias)) {
     my @aliases = keys(%$alias_rec);
-    _warn "!!! Leaked alias cross-reference: $ses (@aliases)\n";
+    _warn "!!! Leaked alias cross-reference: $ses_id (@aliases)\n";
     $finalized_ok = 0;
   }
   return $finalized_ok;
@@ -73,7 +63,7 @@ sub _data_alias_add {
   my ($self, $session, $alias) = @_;
   $self->_data_ses_refcount_inc($session);
   $kr_aliases{$alias} = $session;
-  $kr_ses_to_alias{$session}->{$alias} = 1;
+  $kr_ses_to_alias{$session->ID}->{$alias} = $session;
 }
 
 # Remove an alias from a session.
@@ -84,19 +74,19 @@ sub _data_alias_add {
 sub _data_alias_remove {
   my ($self, $session, $alias) = @_;
   delete $kr_aliases{$alias};
-  delete $kr_ses_to_alias{$session}->{$alias};
+  delete $kr_ses_to_alias{$session->ID}->{$alias};
   $self->_data_ses_refcount_dec($session);
 }
 
 ### Clear all the aliases from a session.
 
 sub _data_alias_clear_session {
-  my ($self, $session) = @_;
-  return unless exists $kr_ses_to_alias{$session}; # avoid autoviv
-  foreach (keys %{$kr_ses_to_alias{$session}}) {
-    $self->_data_alias_remove($session, $_);
+  my ($self, $sid) = @_;
+  return unless exists $kr_ses_to_alias{$sid}; # avoid autoviv
+  while (my ($alias, $ses_ref) = each %{$kr_ses_to_alias{$sid}}) {
+    $self->_data_alias_remove($ses_ref, $alias);
   }
-  delete $kr_ses_to_alias{$session};
+  delete $kr_ses_to_alias{$sid};
 }
 
 ### Resolve an alias.  Just an alias.
@@ -110,17 +100,17 @@ sub _data_alias_resolve {
 ### Return a list of aliases for a session.
 
 sub _data_alias_list {
-  my ($self, $session) = @_;
-  return () unless exists $kr_ses_to_alias{$session};
-  return sort keys %{$kr_ses_to_alias{$session}};
+  my ($self, $sid) = @_;
+  return () unless exists $kr_ses_to_alias{$sid};
+  return sort keys %{$kr_ses_to_alias{$sid}};
 }
 
 ### Return the number of aliases for a session.
 
 sub _data_alias_count_ses {
-  my ($self, $session) = @_;
-  return 0 unless exists $kr_ses_to_alias{$session};
-  return scalar keys %{$kr_ses_to_alias{$session}};
+  my ($self, $sid) = @_;
+  return 0 unless exists $kr_ses_to_alias{$sid};
+  return scalar keys %{$kr_ses_to_alias{$sid}};
 }
 
 ### Return a session's ID in a form suitable for logging.
@@ -133,8 +123,8 @@ sub _data_alias_loggable {
   }
 
   "session " . $session->ID . " (" .
-    ( (exists $kr_ses_to_alias{$session})
-      ? join(", ", $self->_data_alias_list($session))
+    ( (exists $kr_ses_to_alias{$session->ID})
+      ? join(", ", $self->_data_alias_list($session->ID))
       : $session
     ) . ")"
 }
