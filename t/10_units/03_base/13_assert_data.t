@@ -55,14 +55,14 @@ ok(
 
 eval { $poe_kernel->session_alloc($poe_kernel) };
 ok(
-  $@ && $@ =~ /session .*? already exists/s,
+  $@ && $@ =~ /session .*? already allocated/s,
   "double session_alloc"
 );
 
 # Free POE::Kernel to catch some bizarre errors.  Requires us to force
 # POE::Kernel's instance to go away.
 
-$poe_kernel->_data_ses_free($poe_kernel);
+$poe_kernel->_data_ses_free($poe_kernel->ID);
 eval { $poe_kernel->alarm_remove_all() };
 ok(
   $@ && $@ =~ /unknown session in alarm_remove_all call/,

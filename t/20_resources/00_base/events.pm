@@ -15,11 +15,8 @@ BEGIN { use_ok("POE") }
 
 sub BOGUS_SESSION () { 31415 }
 
-my $baseline_event = 0;
-$baseline_event++ if POE::Kernel::TRACE_STATISTICS; # stat poll event
-
+my $baseline_event    = 0;
 my $baseline_refcount = 0;
-$baseline_refcount += 2 if POE::Kernel::TRACE_STATISTICS; # stat poll event
 
 # This subsystem is still very closely tied to POE::Kernel, so we
 # can't call initialize ourselves.  TODO Separate it, if possible,
@@ -71,7 +68,7 @@ $baseline_refcount += 2 if POE::Kernel::TRACE_STATISTICS; # stat poll event
   # Performance timer only counts once now.
 
   is(
-    $poe_kernel->_data_ses_refcount($poe_kernel), $baseline_refcount + 1,
+    $poe_kernel->_data_ses_refcount($poe_kernel->ID), $baseline_refcount + 1,
     "POE::Kernel's timer count is correct"
   );
 }
@@ -218,7 +215,7 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
     );
   };
   ok(
-    $@ && $@ =~ /can't enqueue event .*? for nonexistent session/,
+    $@ && $@ =~ /Can't locate object method "ID"/,
     "trap while enqueuing event for non-existent session"
   );
 }
@@ -300,7 +297,7 @@ sub check_references {
   my $to_count   = $poe_kernel->_data_ev_get_count_to($session->ID);
 
   # Reference count stopped being simply the from + to + base counts.
-  #my $ref_count  = $poe_kernel->_data_ses_refcount($session);
+  #my $ref_count  = $poe_kernel->_data_ses_refcount($session->ID);
   #my $check_sum  = $from_count + $to_count + $base_ref;
   #is($check_sum, $ref_count, "refcnts $ref_count == $check_sum $when");
 

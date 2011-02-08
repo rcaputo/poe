@@ -300,7 +300,7 @@ sub _invoke_state {
 
   # Stop request has come through the queue.  Shut us down.
   if ($event eq NFA_EN_STOP) {
-    $POE::Kernel::poe_kernel->_data_ses_stop( $self );
+    $POE::Kernel::poe_kernel->_data_ses_stop($self->ID);
     return;
   }
 

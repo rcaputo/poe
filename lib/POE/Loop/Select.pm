@@ -302,15 +302,6 @@ sub loop_do_timeslice {
     }
   }
 
-  if (TRACE_STATISTICS) {
-    # TODO - I think $now is too far ahead of select() and this call
-    # is too far afterwards.  Unless "idle" seconds means also the
-    # time POE::Kernel spends scheduling things.  Sent a note to Nick
-    # Williams asking for clarification on the definitions of various
-    # statistics.
-    $self->_data_stat_add('idle_seconds', time() - $now);
-  }
-
   # Dispatch whatever events are due.
   $self->_data_ev_dispatch_due();
 }

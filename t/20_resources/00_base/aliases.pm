@@ -2,7 +2,7 @@
 use strict;
 
 use lib qw(./mylib ../mylib);
-use Test::More tests => 15;
+use Test::More tests => 14;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
@@ -15,9 +15,8 @@ sub POE::Kernel::USE_SIGCHLD () { 0 }
 
 BEGIN { use_ok("POE") }
 
-# Base reference count = Statistics timer event.
+# Base reference count.
 my $base_refcount = 0;
-$base_refcount += 2 if POE::Kernel::TRACE_STATISTICS;
 
 # Set an alias and verify that it can be retrieved.  Also verify the
 # loggable version of it.
@@ -27,12 +26,12 @@ $base_refcount += 2 if POE::Kernel::TRACE_STATISTICS;
   is($session, $poe_kernel, "alias resolves to original reference");
 
   is(
-    $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount + 1,
+    $poe_kernel->_data_ses_refcount($poe_kernel->ID), $base_refcount + 1,
     "session reference count is to be expected"
   );
 
-  my $loggable = $poe_kernel->_data_alias_loggable($poe_kernel);
   my $kernel_id = $poe_kernel->ID;
+  my $loggable = $poe_kernel->_data_alias_loggable($kernel_id);
   ok(
     $loggable =~ /^session \Q$kernel_id\E \(alias-1\)$/,
     "loggable version of session is valid"
@@ -47,7 +46,7 @@ $base_refcount += 2 if POE::Kernel::TRACE_STATISTICS;
 
   # Should be 2.  See the rationale above.
   is(
-    $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount,
+    $poe_kernel->_data_ses_refcount($poe_kernel->ID), $base_refcount,
     "session reference count reduced correctly"
   );
 }
@@ -65,7 +64,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
   );
 
   is(
-    $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount + 3,
+    $poe_kernel->_data_ses_refcount($poe_kernel->ID), $base_refcount + 3,
     "correct number of references were recorded"
   );
 
@@ -84,7 +83,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
   is(scalar(@retrieved), 0, "aliases were cleared successfully");
 
   is(
-    $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount,
+    $poe_kernel->_data_ses_refcount($poe_kernel->ID), $base_refcount,
     "proper number of references after alias clear"
   );
 }
@@ -101,9 +100,6 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
     !defined($poe_kernel->_data_alias_resolve("nothing")),
     "unused alias does not resolve to anything"
   );
-
-  eval { $poe_kernel->_data_alias_loggable("moo") };
-  ok($@, "trap while attempting to make loggable version of bogus session");
 }
 
 # Finalize the subsystem.  Returns true if everything shut down

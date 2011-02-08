@@ -58,10 +58,13 @@ sub _data_ev_enqueue {
     $file, $line, $fromstate, $time
   ) = @_;
 
+  my $sid = $session->ID;
+
   if (ASSERT_DATA) {
-    unless ($self->_data_ses_exists($session)) {
+    unless ($self->_data_ses_exists($sid)) {
       _trap(
-        "<ev> can't enqueue event ``$event'' for nonexistent session $session\n"
+        "<ev> can't enqueue event ``$event'' for nonexistent",
+        $self->_data_alias_loggable($sid)
       );
     }
   }
@@ -82,8 +85,8 @@ sub _data_ev_enqueue {
   if (TRACE_EVENTS) {
     _warn(
       "<ev> enqueued event $new_id ``$event'' from ",
-      $self->_data_alias_loggable($source_session), " to ",
-      $self->_data_alias_loggable($session),
+      $self->_data_alias_loggable($source_session->ID), " to ",
+      $self->_data_alias_loggable($sid),
       " at $time"
     );
   }
@@ -98,11 +101,11 @@ sub _data_ev_enqueue {
   # This is the counterpart to _data_ev_refcount_dec().  It's only
   # used in one place, so it's not in its own function.
 
-  $self->_data_ses_refcount_inc($session) unless $event_count{$session->ID}++;
+  $self->_data_ses_refcount_inc($sid) unless $event_count{$sid}++;
 
   return $new_id if $session == $source_session;
 
-  $self->_data_ses_refcount_inc($source_session) unless (
+  $self->_data_ses_refcount_inc($source_session->ID) unless (
     $post_count{$source_session->ID}++
   );
 
@@ -113,6 +116,8 @@ sub _data_ev_enqueue {
 
 sub _data_ev_clear_session {
   my ($self, $session) = @_;
+
+  # TODO - Convert the event structure to SID too?
 
   # Events sent to the session.
   PENDING: {
@@ -205,7 +210,7 @@ sub _data_ev_clear_alarm_by_id {
   if (TRACE_EVENTS) {
     _warn(
       "<ev> removed event $id ``", $event->[EV_NAME], "'' to ",
-      $self->_data_alias_loggable($session), " at $time"
+      $self->_data_alias_loggable($session->ID), " at $time"
     );
   }
 
@@ -239,23 +244,21 @@ sub _data_ev_clear_alarm_by_session {
 sub _data_ev_refcount_dec {
   my ($self, $source_session, $dest_session) = @_;
 
-  if (ASSERT_DATA) {
-    _trap $dest_session unless exists $event_count{$dest_session->ID};
-  }
-
-  $self->_data_ses_refcount_dec($dest_session) unless (
-    --$event_count{$dest_session->ID}
-  );
-
-  return if $dest_session == $source_session;
+  my ($source_id, $dest_id) = ($source_session->ID, $dest_session->ID);
 
   if (ASSERT_DATA) {
-    _trap $source_session unless exists $post_count{$source_session->ID};
+    _trap $dest_session unless exists $event_count{$dest_id};
   }
 
-  $self->_data_ses_refcount_dec($source_session) unless (
-    --$post_count{$source_session->ID}
-  );
+  $self->_data_ses_refcount_dec($dest_id) unless --$event_count{$dest_id};
+
+  return if $dest_id eq $source_id;
+
+  if (ASSERT_DATA) {
+    _trap $source_session unless exists $post_count{$source_id};
+  }
+
+  $self->_data_ses_refcount_dec($source_id) unless --$post_count{$source_id};
 }
 
 ### Fetch the number of pending events sent to a session.
@@ -297,18 +300,6 @@ sub _data_ev_dispatch_due {
 
     if (TRACE_EVENTS) {
       _warn("<ev> dispatching event $id ($event->[EV_NAME])");
-    }
-
-    # An event is "blocked" if its due time is earlier than the
-    # current time.  This means that the event has had to wait before
-    # being dispatched.  As far as I can tell, all events will be
-    # "blocked" according to these rules.
-
-    if (TRACE_STATISTICS) {
-      if ($due_time < $now) {
-        $self->_data_stat_add('blocked', 1);
-        $self->_data_stat_add('blocked_seconds', $now - $due_time);
-      }
     }
 
     # TODO - Why can't we reverse these two lines?

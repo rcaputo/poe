@@ -61,7 +61,7 @@ sub _data_alias_finalize {
 
 sub _data_alias_add {
   my ($self, $session, $alias) = @_;
-  $self->_data_ses_refcount_inc($session);
+  $self->_data_ses_refcount_inc($session->ID);
   $kr_aliases{$alias} = $session;
   $kr_ses_to_alias{$session->ID}->{$alias} = $session;
 }
@@ -75,7 +75,7 @@ sub _data_alias_remove {
   my ($self, $session, $alias) = @_;
   delete $kr_aliases{$alias};
   delete $kr_ses_to_alias{$session->ID}->{$alias};
-  $self->_data_ses_refcount_dec($session);
+  $self->_data_ses_refcount_dec($session->ID);
 }
 
 ### Clear all the aliases from a session.
@@ -116,18 +116,12 @@ sub _data_alias_count_ses {
 ### Return a session's ID in a form suitable for logging.
 
 sub _data_alias_loggable {
-  my ($self, $session) = @_;
-
-  if (ASSERT_DATA) {
-    _trap unless ref($session);
-  }
-
-  my $sid = $session->ID;
-  "session $sid (" .
-    ( (exists $kr_ses_to_alias{$sid})
-      ? join(", ", $self->_data_alias_list($sid))
-      : $session
-    ) . ")"
+  my ($self, $sid) = @_;
+  "session $sid" . (
+    (exists $kr_ses_to_alias{$sid})
+    ? ( " (" . join(", ", $self->_data_alias_list($sid)) . ")" )
+    : ""
+  );
 }
 
 1;

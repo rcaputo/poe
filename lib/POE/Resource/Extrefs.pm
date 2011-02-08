@@ -51,19 +51,19 @@ sub _data_extref_finalize {
 # refcount loops and possibly prevent that.
 
 sub _data_extref_inc {
-  my ($self, $session, $tag) = @_;
-  my $refcount = ++$kr_extra_refs{$session->ID}->{$tag};
+  my ($self, $sid, $tag) = @_;
+  my $refcount = ++$kr_extra_refs{$sid}->{$tag};
 
   # TODO We could probably get away with only incrementing the
   # session's master refcount once, as long as any extra refcount is
   # positive.  Then the session reference count would be a flag
   # instead of a counter.
-  $self->_data_ses_refcount_inc($session) if $refcount == 1;
+  $self->_data_ses_refcount_inc($sid) if $refcount == 1;
 
   if (TRACE_REFCNT) {
     _warn(
       "<rc> incremented extref ``$tag'' (now $refcount) for ",
-      $self->_data_alias_loggable($session)
+      $self->_data_alias_loggable($sid)
     );
   }
 
@@ -78,9 +78,7 @@ sub _data_extref_inc {
 # Hopefully the public interface won't allow it.
 
 sub _data_extref_dec {
-  my ($self, $session, $tag) = @_;
-
-  my $sid = $session->ID;
+  my ($self, $sid, $tag) = @_;
 
   if (ASSERT_DATA) {
     # Prevents autoviv.
@@ -90,7 +88,7 @@ sub _data_extref_dec {
     unless (exists $kr_extra_refs{$sid}->{$tag}) {
       _trap(
         "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
-        $self->_data_alias_loggable($session)
+        $self->_data_alias_loggable($sid)
       );
     }
   }
@@ -100,20 +98,18 @@ sub _data_extref_dec {
   if (TRACE_REFCNT) {
     _warn(
       "<rc> decremented extref ``$tag'' (now $refcount) for ",
-      $self->_data_alias_loggable($session)
+      $self->_data_alias_loggable($sid)
     );
   }
 
-  $self->_data_extref_remove($session, $tag) unless $refcount;
+  $self->_data_extref_remove($sid, $tag) unless $refcount;
   return $refcount;
 }
 
 ### Remove an extra reference from a session, regardless of its count.
 
 sub _data_extref_remove {
-  my ($self, $session, $tag) = @_;
-
-  my $sid = $session->ID;
+  my ($self, $sid, $tag) = @_;
 
   if (ASSERT_DATA) {
     # Prevents autoviv.
@@ -122,35 +118,33 @@ sub _data_extref_remove {
     unless (exists $kr_extra_refs{$sid}->{$tag}) {
       _trap(
         "<dt> removing extref for nonexistent tag ``$tag'' in ",
-        $self->_data_alias_loggable($session)
+        $self->_data_alias_loggable($sid)
       );
     }
   }
 
   delete $kr_extra_refs{$sid}->{$tag};
   delete $kr_extra_refs{$sid} unless scalar keys %{$kr_extra_refs{$sid}};
-  $self->_data_ses_refcount_dec($session);
+  $self->_data_ses_refcount_dec($sid);
 }
 
 ### Clear all the extra references from a session.
 
 sub _data_extref_clear_session {
-  my ($self, $session) = @_;
-
-  my $sid = $session->ID;
+  my ($self, $sid) = @_;
 
   # TODO - Should there be a _trap here if the session doesn't exist?
 
   return unless exists $kr_extra_refs{$sid}; # avoid autoviv
   foreach (keys %{$kr_extra_refs{$sid}}) {
-    $self->_data_extref_remove($session, $_);
+    $self->_data_extref_remove($sid, $_);
   }
 
   if (ASSERT_DATA) {
     if (exists $kr_extra_refs{$sid}) {
       _trap(
         "<dt> extref clear did not remove session ",
-        $self->_data_alias_loggable($session)
+        $self->_data_alias_loggable($sid)
       );
     }
   }

@@ -35,9 +35,9 @@ sub create_session {
 
   $session->_set_id($sid);
   $poe_kernel->_data_ses_allocate(
-    $session,     # session
-    $sid,         # sid
-    $poe_kernel,  # parent
+    $session,         # session
+    $sid,             # sid
+    $poe_kernel->ID,  # parent
   );
 
   return($session, $sid);
@@ -75,17 +75,17 @@ ok(
 # proper session.
 
 ok(
-  $poe_kernel->_data_sig_is_watched_by_session("signal-1", $ses_1),
+  $poe_kernel->_data_sig_is_watched_by_session("signal-1", $ses_1->ID),
   "session 1 watches signal-1"
 );
 
 ok(
-  $poe_kernel->_data_sig_is_watched_by_session("signal-2", $ses_1),
+  $poe_kernel->_data_sig_is_watched_by_session("signal-2", $ses_1->ID),
   "session 1 watches signal-2"
 );
 
 ok(
-  !$poe_kernel->_data_sig_is_watched_by_session("signal-1", $ses_2),
+  !$poe_kernel->_data_sig_is_watched_by_session("signal-1", $ses_2->ID),
   "session 2 does not watch signal-1"
 );
 
@@ -94,7 +94,7 @@ ok(
 # Single watcher test...
 { my %watchers = $poe_kernel->_data_sig_watchers("signal-1");
   ok(
-    eq_hash(\%watchers, { $ses_1 => [ "event-1", [ 1, 2, 3 ] ] }),
+    eq_hash(\%watchers, { $ses_1->ID => [ "event-1", [ 1, 2, 3 ], $ses_1 ] }),
     "signal-1 maps to session 1 and event-1"
   );
 }
@@ -104,8 +104,8 @@ ok(
   ok(
     eq_hash(
       \%watchers, {
-        $ses_1 => [ "event-2", [ 4, 5, 6 ] ],
-        $ses_2 => [ "event-3", [ ] ],
+        $ses_1->ID => [ "event-2", [ 4, 5, 6 ], $ses_1 ],
+        $ses_2->ID => [ "event-3", [ ], $ses_2 ],
       }
     ),
     "signal-2 maps to session 1 and event-2; session 2 and event-3"
@@ -115,13 +115,13 @@ ok(
 # Remove one of the multiple signals, and verify that the remaining
 # ones are correct.
 
-$poe_kernel->_data_sig_remove($ses_1, "signal-2");
+$poe_kernel->_data_sig_remove($ses_1->ID, "signal-2");
 
 # Single watcher test...
 
 { my %watchers = $poe_kernel->_data_sig_watchers("signal-1");
   ok(
-    eq_hash(\%watchers, { $ses_1 => [ "event-1", [ 1, 2, 3 ] ] }),
+    eq_hash(\%watchers, { $ses_1->ID => [ "event-1", [ 1, 2, 3 ], $ses_1 ] }),
     "signal-1 still maps to session 1 and event-1"
   );
 }
@@ -130,7 +130,7 @@ $poe_kernel->_data_sig_remove($ses_1, "signal-2");
 
 { my %watchers = $poe_kernel->_data_sig_watchers("signal-2");
   ok(
-    eq_hash(\%watchers, { $ses_2 => [ "event-3", [ ] ] }),
+    eq_hash(\%watchers, { $ses_2->ID => [ "event-3", [ ], $ses_2 ] }),
     "signal-2 still maps to session 2 and event-3"
   );
 }
@@ -144,26 +144,26 @@ $poe_kernel->_data_sig_add($ses_1, "signal-4", "event-3");
 $poe_kernel->_data_sig_add($ses_1, "signal-5", "event-3");
 $poe_kernel->_data_sig_add($ses_1, "signal-6", "event-3");
 
-{ my %watchers = $poe_kernel->_data_sig_watched_by_session($ses_1);
+{ my %watchers = $poe_kernel->_data_sig_watched_by_session($ses_1->ID);
   ok(
     eq_hash(
       \%watchers,
-      { "signal-1", [ "event-1", [ 1, 2, 3 ] ],
-        "signal-3", [ "event-3", [ ] ],
-        "signal-4", [ "event-3", [ ] ],
-        "signal-5", [ "event-3", [ ] ],
-        "signal-6", [ "event-3", [ ] ],
+      { "signal-1", [ "event-1", [ 1, 2, 3 ], $ses_1 ],
+        "signal-3", [ "event-3", [ ], $ses_1 ],
+        "signal-4", [ "event-3", [ ], $ses_1 ],
+        "signal-5", [ "event-3", [ ], $ses_1 ],
+        "signal-6", [ "event-3", [ ], $ses_1 ],
       }
     ),
     "several signal watchers were added correctly"
   );
 }
 
-$poe_kernel->_data_sig_clear_session($ses_1);
+$poe_kernel->_data_sig_clear_session($ses_1->ID);
 
 { my %watchers = $poe_kernel->_data_sig_watchers("signal-2");
   ok(
-    eq_hash(\%watchers, { $ses_2 => [ "event-3", [ ] ] }),
+    eq_hash(\%watchers, { $ses_2->ID => [ "event-3", [ ], $ses_2 ] }),
     "cleared session isn't watching signal-2"
   );
 }
@@ -192,12 +192,7 @@ $poe_kernel->_data_sig_reset_handled("QUIT");
 
 # Touch a session with the signal.
 
-$poe_kernel->_data_sig_touched_session(
-  $ses_2,       # session
-  "some event", # event
-  0,            # handler retval (did not handle)
-  "QUIT",       # signal
-);
+$poe_kernel->_data_sig_touched_session($ses_2);
 
 { my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok(!defined($tot), "SIGQUIT handled by zero sessions");
@@ -248,12 +243,7 @@ TODO: {
   $poe_kernel->_data_sig_reset_handled("nonexistent");
 
   # Touch it again, but don't handle it.
-  $poe_kernel->_data_sig_touched_session(
-    $session,      # session
-    "some event",  # event
-    0,             # handler retval (did not handle)
-    "nonexistent", # signal
-  );
+  $poe_kernel->_data_sig_touched_session($session);
 
   my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok(!defined($tot), "nonexistent signal handled by zero sessions");
@@ -273,7 +263,7 @@ TODO: {
   todo_skip "benign signal free test is for future behavior", 1;
 
   ok(
-    $poe_kernel->_data_ses_exists($session),
+    $poe_kernel->_data_ses_exists($session->ID),
     "unhandled benign signal does not free session"
   );
 }
@@ -286,23 +276,13 @@ TODO: {
 TODO: {
   $poe_kernel->_data_sig_reset_handled("QUIT");
 
-  $poe_kernel->_data_sig_touched_session(
-    $ses_2,        # session
-    "some event",  # event
-    0,             # handler retval (did not handle)
-    "QUIT",        # signal
-  );
+  $poe_kernel->_data_sig_touched_session($ses_2);
 
   $poe_kernel->_data_sig_handled();
 
   # What happens if the session is handled explicitly and implicitly?
   # Well, the implicit deprecation warning should not be triggered.
-  $poe_kernel->_data_sig_touched_session(
-    $ses_2,        # session
-    "some event",  # event
-    1,             # handler retval (did not handle)
-    "QUIT",        # signal
-  );
+  $poe_kernel->_data_sig_touched_session($ses_2);
 
   # Now see if the session's freed.
   $poe_kernel->_data_sig_free_terminated_sessions();
@@ -312,7 +292,7 @@ TODO: {
   todo_skip "terminal signal free test is for future behavior", 1;
 
   ok(
-    $poe_kernel->_data_ses_exists($ses_2),
+    $poe_kernel->_data_ses_exists($ses_2->ID),
     "handled terminal signal does not free session"
   );
 }
@@ -322,12 +302,7 @@ TODO: {
 
 $poe_kernel->_data_sig_reset_handled("QUIT");
 
-$poe_kernel->_data_sig_touched_session(
-  $ses_2,        # session
-  "some event",  # event
-  0,             # handler retval (did not handle)
-  "QUIT",        # signal
-);
+$poe_kernel->_data_sig_touched_session($ses_2);
 
 { my ($tot, $type, $ses) = $poe_kernel->_data_sig_handled_status();
   ok(!defined($tot), "SIGQUIT handled by zero sessions");
@@ -337,7 +312,7 @@ $poe_kernel->_data_sig_touched_session(
 
 $poe_kernel->_data_sig_free_terminated_sessions();
 ok(
-  !$poe_kernel->_data_ses_exists($ses_2),
+  !$poe_kernel->_data_ses_exists($ses_2->ID),
   "unhandled terminal signal freed session 2"
 );
 
@@ -348,19 +323,14 @@ ok(
 
   $ses->_set_id($sid);
   $poe_kernel->_data_ses_allocate(
-    $ses,         # session
-    $sid,         # sid
-    $poe_kernel,  # parent
+    $ses,              # session
+    $sid,              # sid
+    $poe_kernel->ID,   # parent
   );
 
   $poe_kernel->_data_sig_reset_handled("UIDESTROY");
 
-  $poe_kernel->_data_sig_touched_session(
-    $ses,          # session
-    "some event",  # event
-    0,             # handler retval (did not handle)
-    "UIDESTROY",   # signal
-  );
+  $poe_kernel->_data_sig_touched_session($ses);
 
   $poe_kernel->_data_sig_handled();
 
@@ -377,7 +347,7 @@ ok(
 
   $poe_kernel->_data_sig_free_terminated_sessions();
   ok(
-    !$poe_kernel->_data_ses_exists($ses),
+    !$poe_kernel->_data_ses_exists($ses->ID),
     "handled SIGUIDESTROY freed target session anyway"
   );
 }
@@ -392,7 +362,7 @@ $poe_kernel->_data_sig_clear_session("nonexistent");
 # branch that's not normally taken in the tests.
 
 ok(
-  !$poe_kernel->_data_sig_is_watched_by_session("nonexistent", $ses_2),
+  !$poe_kernel->_data_sig_is_watched_by_session("nonexistent", $ses_2->ID),
   "session 2 isn't watching for a nonexistent signal"
 );
 

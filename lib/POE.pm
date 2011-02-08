@@ -220,11 +220,11 @@ L<POE::Component::IKC|POE::Component::IKC> and L<POE::TIKC|POE::TIKC>.
 
 =head2 Layer 0: POE's Internals
 
-POE's layered architecture continues below the surface.  POE's guts are
-broken into specific L<POE::Loop|POE::Loop> classes for each event loop it supports. 
-Internals are divided up by type, giving L<POE::Resource|POE::Resource> classes for
-Aliases, Controls, Events, Extrefs, FileHandles, SIDs, Sessions, Signals,
-and Statistics.
+POE's layered architecture continues below the surface.  POE's guts
+are broken into specific L<POE::Loop|POE::Loop> classes for each event
+loop it supports.  Internals are divided up by type, giving
+L<POE::Resource|POE::Resource> classes for Aliases, Controls, Events,
+Extrefs, FileHandles, SIDs, Sessions and Signals.
 
 POE::Kernel's APIs are extensible through POE::API mix-in classes.
 Some brave souls have even published new APIs on CPAN, such as

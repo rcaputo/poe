@@ -48,7 +48,7 @@ sub verify_handle_structure {
   my ($name, $handle_info) = @_;
 
   my $expected_handles = {
-    $poe_kernel => do {
+    $poe_kernel->ID => do {
       my %h;
       for (@$handle_info) {
         my ($fh, $modes) = @$_;
@@ -88,7 +88,7 @@ sub verify_handle_sessions {
     my ($event) = @_;
     return +{} unless defined $event;
     return +{
-      $poe_kernel => {
+      $poe_kernel->ID => {
         $fh => [
           $fh,           # HSS_HANDLE
           $poe_kernel,   # HSS_SESSION
@@ -173,7 +173,7 @@ sub verify_handle_state {
 
 # Get a baseline reference count for the session, to use as
 # comparison.
-my $base_refcount = $poe_kernel->_data_ses_refcount($poe_kernel);
+my $base_refcount = $poe_kernel->_data_ses_refcount($poe_kernel->ID);
 
 # We need some file handles to work with.
 my ($a_read, $a_write, $b_read, $b_write) = POE::Pipe::TwoWay->new("inet");
@@ -184,7 +184,7 @@ $poe_kernel->_data_handle_add($a_read, MODE_RD, $poe_kernel, "event-rd", []);
 
 # Verify reference counts.
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 1,
   "first read add: session reference count"
 );
 verify_handle_refcounts(
@@ -215,7 +215,7 @@ $poe_kernel->_data_handle_add($b_read, MODE_RD, $poe_kernel, "event-rd", []);
 # Verify reference counts.
 
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 2,
   "second read add: session reference count"
 );
 
@@ -251,7 +251,7 @@ die "woops, we've assumed that write handles have same fileno as read handles"
   unless fileno($a_write) == fileno($a_read);
 
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 2,
   "third write add: session reference count"
 );
 
@@ -283,7 +283,7 @@ $poe_kernel->_data_handle_add($b_write, MODE_EX, $poe_kernel, "event-ex", []);
 # Verify reference counts.
 
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 2,
   "fourth expedite add: session reference count"
 );
 
@@ -388,7 +388,7 @@ verify_handle_state(
 # Base refcount is not increased, because the event is actually
 # dispatched right away.
 is(
-  $poe_kernel->_data_ses_refcount($poe_kernel), $base_refcount + 2,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID), $base_refcount + 2,
   "dequeue one: session reference count"
 );
 
@@ -428,7 +428,7 @@ ok(
   "number of handles tracked"
 );
 ok(
-  $poe_kernel->_data_handle_count_ses($poe_kernel) == 2,
+  $poe_kernel->_data_handle_count_ses($poe_kernel->ID) == 2,
   "number of sessions tracking"
 );
 ok(
@@ -437,11 +437,11 @@ ok(
 );
 
 # Remove a filehandle and verify the structures.
-$poe_kernel->_data_handle_remove($a_read, MODE_RD, $poe_kernel);
+$poe_kernel->_data_handle_remove($a_read, MODE_RD, $poe_kernel->ID);
 
 # Verify reference counts.
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 2,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 2,
   "first remove: session reference count"
 );
 
@@ -467,11 +467,11 @@ verify_handle_structure(
 );
 
 # Remove a filehandle and verify the structures.
-$poe_kernel->_data_handle_remove($a_write, MODE_WR, $poe_kernel);
+$poe_kernel->_data_handle_remove($a_write, MODE_WR, $poe_kernel->ID);
 
 # Verify reference counts.
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 1,
   "second remove: session reference count"
 );
 ok(
@@ -481,9 +481,9 @@ ok(
 
 # Remove a nonexistent filehandle and verify the structures.  We just
 # make sure the reference count matches the previous one.
-$poe_kernel->_data_handle_remove(\*STDIN, MODE_RD, $poe_kernel);
+$poe_kernel->_data_handle_remove(\*STDIN, MODE_RD, $poe_kernel->ID);
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 1,
   "nonexistent remove: session reference count"
 );
 
@@ -519,11 +519,11 @@ ok(
     ok($@ ne '', "failure when adding different handle but same FD");
   }
 
-  $poe_kernel->_data_handle_remove($fh, MODE_RD, $poe_kernel);
-  $poe_kernel->_data_handle_remove($fh, MODE_WR, $poe_kernel);
+  $poe_kernel->_data_handle_remove($fh, MODE_RD, $poe_kernel->ID);
+  $poe_kernel->_data_handle_remove($fh, MODE_WR, $poe_kernel->ID);
 
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1,
+    $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 1,
     "regular file: session reference count"
   );
   ok(
@@ -554,11 +554,11 @@ SKIP: {
   verify_handle_structure("tied fh",
     [ [$fh => 'wx'], [$b_read => 'rx'] ]);
 
-  $poe_kernel->_data_handle_remove($fh, MODE_WR, $poe_kernel);
-  $poe_kernel->_data_handle_remove($fh, MODE_EX, $poe_kernel);
+  $poe_kernel->_data_handle_remove($fh, MODE_WR, $poe_kernel->ID);
+  $poe_kernel->_data_handle_remove($fh, MODE_EX, $poe_kernel->ID);
 
   ok(
-    $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount + 1,
+    $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount + 1,
     "tied fh: session reference count"
   );
   ok(
@@ -586,7 +586,7 @@ SKIP: {
 }
 
 # Remove all handles for the session.  And verify the structures.
-$poe_kernel->_data_handle_clear_session($poe_kernel);
+$poe_kernel->_data_handle_clear_session($poe_kernel->ID);
 ok(
   !$poe_kernel->_data_handle_is_good($b_write, MODE_EX),
   "final remove all: session reference count"
@@ -594,7 +594,7 @@ ok(
 
 # Check again that all handles are gone
 ok(
-  $poe_kernel->_data_ses_refcount($poe_kernel) == $base_refcount,
+  $poe_kernel->_data_ses_refcount($poe_kernel->ID) == $base_refcount,
   "session reference count is back to base count"
 );
 

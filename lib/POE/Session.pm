@@ -427,7 +427,7 @@ sub _invoke_state {
       $! = exists &Errno::ENOSYS ? &Errno::ENOSYS : &Errno::EIO;
       if ($self->[SE_OPTIONS]->{+OPT_DEFAULT} and $state ne EN_SIGNAL) {
         my $loggable_self =
-          $POE::Kernel::poe_kernel->_data_alias_loggable($self);
+          $POE::Kernel::poe_kernel->_data_alias_loggable($self->ID);
         POE::Kernel::_warn(
           "a '$state' event was sent from $file at $line to $loggable_self ",
           "but $loggable_self has neither a handler for it ",

@@ -17,7 +17,7 @@ BEGIN { use_ok("POE") }
 # session has already been allocated.
 
 my $sid = $poe_kernel->_data_sid_allocate();
-ok($sid == 1, "first user SID is 1");
+ok($sid == 2, "first user SID is 2");
 
 # Set an ID for a session.
 

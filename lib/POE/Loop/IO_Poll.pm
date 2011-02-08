@@ -370,10 +370,6 @@ sub loop_do_timeslice {
     }
   }
 
-  if (TRACE_STATISTICS) {
-    $self->_data_stat_add('idle_seconds', time() - $now);
-  }
-
   # Dispatch whatever events are due.
   $self->_data_ev_dispatch_due();
 }

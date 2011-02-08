@@ -51,7 +51,7 @@ sub FNO_MODE_RD      () { MODE_RD } # [ [ (fileno read mode structure)
 # --- BEGIN SUB STRUCT 1 ---        #
 sub FMO_REFCOUNT     () { 0      }  #     $fileno_total_use_count,
 sub FMO_ST_ACTUAL    () { 1      }  #     $requested_file_state (see HS_PAUSED)
-sub FMO_SESSIONS     () { 2      }  #     { $session_watching_this_handle =>
+sub FMO_SESSIONS     () { 2      }  #     { $session_id =>
                                     #       { $handle_watched_as =>
 # --- BEGIN SUB STRUCT 2 ---        #
 sub HSS_HANDLE       () { 0      }  #         [ $blessed_handle,
@@ -81,8 +81,7 @@ sub HS_RUNNING   () { 0x02 }   # The file is running and can generate events.
 ### Handle to session.
 
 my %kr_ses_to_handle;
-
-                            #    { $session =>
+                            #    { $session_id =>
                             #      $handle =>
 # --- BEGIN SUB STRUCT ---  #        [
 sub SH_HANDLE     () {  0 } #          $blessed_file_handle,
@@ -103,26 +102,6 @@ sub _data_handle_initialize {
   $kr_queue = $queue;
 }
 
-sub _data_handle_clone {
-  my ($self, $clone_map) = @_;
-
-  my %new_ses_to_handle;
-  while (my ($old_ses, $old_handle_rec) = each %kr_ses_to_handle) {
-    $new_ses_to_handle{$clone_map->{$old_ses}} = $old_handle_rec;
-  }
-  %kr_ses_to_handle = %new_ses_to_handle;
-
-  while (my ($fd, $fd_rec) = each %kr_filenos) {
-    foreach my $mode (MODE_RD, MODE_WR, MODE_EX) {
-      my %new_sessions;
-      while (my ($old_ses, $ses_rec) = each %{$fd_rec->[$mode][FMO_SESSIONS]}) {
-        $new_sessions{$clone_map->{$old_ses}} = $ses_rec;
-      }
-      $fd_rec->[$mode][FMO_SESSIONS] = \%new_sessions;
-    }
-  }
-}
-
 ### End-run leak checking.
 
 sub _data_handle_finalize {
@@ -138,8 +117,8 @@ sub _data_handle_finalize {
       "!!!\tRead:\n",
       "!!!\t\trefcnt  = $rd->[FMO_REFCOUNT]\n",
     );
-    while (my ($ses, $ses_rec) = each(%{$rd->[FMO_SESSIONS]})) {
-      _warn "!!!\t\tsession = $ses\n";
+    while (my ($sid, $ses_rec) = each(%{$rd->[FMO_SESSIONS]})) {
+      _warn "!!!\t\tsession $sid\n";
       while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
         _warn(
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
@@ -154,8 +133,8 @@ sub _data_handle_finalize {
       "!!!\tWrite:\n",
       "!!!\t\trefcnt  = $wr->[FMO_REFCOUNT]\n",
     );
-    while (my ($ses, $ses_rec) = each(%{$wr->[FMO_SESSIONS]})) {
-      _warn "!!!\t\tsession = $ses\n";
+    while (my ($sid, $ses_rec) = each(%{$wr->[FMO_SESSIONS]})) {
+      _warn "!!!\t\tsession = $sid\n";
       while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
         _warn(
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
@@ -170,8 +149,8 @@ sub _data_handle_finalize {
       "!!!\tException:\n",
       "!!!\t\trefcnt  = $ex->[FMO_REFCOUNT]\n",
     );
-    while (my ($ses, $ses_rec) = each(%{$ex->[FMO_SESSIONS]})) {
-      _warn "!!!\t\tsession = $ses\n";
+    while (my ($sid, $ses_rec) = each(%{$ex->[FMO_SESSIONS]})) {
+      _warn "!!!\t\tsession = $sid\n";
       while (my ($handle, $hnd_rec) = each(%{$ses_rec})) {
         _warn(
           "!!!\t\t\thandle  = $hnd_rec->[HSS_HANDLE]\n",
@@ -183,9 +162,9 @@ sub _data_handle_finalize {
     }
   }
 
-  while (my ($ses, $hnd_rec) = each(%kr_ses_to_handle)) {
+  while (my ($ses_id, $hnd_rec) = each(%kr_ses_to_handle)) {
     $finalized_ok = 0;
-    _warn "!!! Leaked handle in $ses\n";
+    _warn "!!! Leaked handle in $ses_id\n";
     while (my ($hnd, $rc) = each(%$hnd_rec)) {
       _warn(
         "!!!\tHandle: $hnd (tot refcnt=$rc->[SH_REFCOUNT])\n",
@@ -303,12 +282,13 @@ sub _data_handle_add {
 
   # The session is already watching this fileno in this mode.
 
-  if ($kr_fno_rec->[FMO_SESSIONS]->{$session}) {
+  my $sid = $session->ID;
+  if ($kr_fno_rec->[FMO_SESSIONS]->{$sid}) {
 
     # The session is also watching it by the same handle.  Treat this
     # as a "resume" in this mode.
 
-    if (exists $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle}) {
+    if (exists $kr_fno_rec->[FMO_SESSIONS]->{$sid}->{$handle}) {
       if (TRACE_FILES) {
         _warn("<fh> running $handle fileno($fd) mode($mode)");
       }
@@ -325,9 +305,9 @@ sub _data_handle_add {
     # have something registered for it here.
 
     else {
-      foreach my $watch_session (keys %{$kr_fno_rec->[FMO_SESSIONS]}) {
+      foreach my $watch_sid (keys %{$kr_fno_rec->[FMO_SESSIONS]}) {
         foreach my $hdl_rec (
-          values %{$kr_fno_rec->[FMO_SESSIONS]->{$watch_session}}
+          values %{$kr_fno_rec->[FMO_SESSIONS]->{$watch_sid}}
         ) {
           my $other_handle = $hdl_rec->[HSS_HANDLE];
 
@@ -342,7 +322,7 @@ sub _data_handle_add {
             $why = "open with different file descriptor";
           }
 
-          if ($session eq $watch_session) {
+          if ($sid eq $watch_sid) {
             _die(
               "A session was caught watching two different file handles that\n",
               "reference the same file descriptor in the same mode ($mode).\n",
@@ -351,7 +331,8 @@ sub _data_handle_add {
               "first unregistering it from POE.\n",
               "\n",
               "Some possibly helpful information:\n",
-              "  Session    : ", $self->_data_alias_loggable($session), "\n",
+              "  Session    : ",
+              $self->_data_alias_loggable($sid), "\n",
               "  Old handle : $other_handle (currently $why)\n",
               "  New handle : $handle\n",
               "\n",
@@ -367,9 +348,10 @@ sub _data_handle_add {
               "\n",
               "Some possibly helpful information:\n",
               "  Old session: ",
-              $self->_data_alias_loggable($hdl_rec->[HSS_SESSION]), "\n",
+              $self->_data_alias_loggable($hdl_rec->[HSS_SESSION]->ID), "\n",
               "  Old handle : $other_handle (currently $why)\n",
-              "  New session: ", $self->_data_alias_loggable($session), "\n",
+              "  New session: ",
+              $self->_data_alias_loggable($sid), "\n",
               "  New handle : $handle\n",
               "\n",
               "Please correct the program and try again.\n",
@@ -385,7 +367,7 @@ sub _data_handle_add {
   # the session/handle pair.
 
   else {
-    $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle} = [
+    $kr_fno_rec->[FMO_SESSIONS]->{$sid}->{$handle} = [
       $handle,   # HSS_HANDLE
       $session,  # HSS_SESSION
       $event,    # HSS_STATE
@@ -408,8 +390,8 @@ sub _data_handle_add {
   # If the session hasn't already been watching the filehandle, then
   # register the filehandle in the session's structure.
 
-  unless (exists $kr_ses_to_handle{$session}->{$handle}) {
-    $kr_ses_to_handle{$session}->{$handle} = [
+  unless (exists $kr_ses_to_handle{$sid}->{$handle}) {
+    $kr_ses_to_handle{$sid}->{$handle} = [
       $handle,  # SH_HANDLE
       0,        # SH_REFCOUNT
       [ 0,      # SH_MODECOUNT / MODE_RD
@@ -417,13 +399,13 @@ sub _data_handle_add {
         0       # SH_MODECOUNT / MODE_EX
       ]
     ];
-    $self->_data_ses_refcount_inc($session);
+    $self->_data_ses_refcount_inc($sid);
   }
 
   # Modify the session's handle structure's reference counts, so the
   # session knows it has a reason to live.
 
-  my $ss_handle = $kr_ses_to_handle{$session}->{$handle};
+  my $ss_handle = $kr_ses_to_handle{$sid}->{$handle};
   unless ($ss_handle->[SH_MODECOUNT]->[$mode]) {
     $ss_handle->[SH_MODECOUNT]->[$mode]++;
     $ss_handle->[SH_REFCOUNT]++;
@@ -477,13 +459,11 @@ sub _data_handle_condition {
     CORE::select((CORE::select($handle), $| = 1)[0]);
 }
 
-
-
 ### Remove a select from the kernel, and possibly trigger the
 ### session's destruction.
 
 sub _data_handle_remove {
-  my ($self, $handle, $mode, $session) = @_;
+  my ($self, $handle, $mode, $sid) = @_;
   my $fd = fileno($handle);
 
   # Make sure the handle is deregistered with the kernel.
@@ -495,8 +475,8 @@ sub _data_handle_remove {
     # Make sure the handle was registered to the requested session.
 
     if (
-      exists($kr_fno_rec->[FMO_SESSIONS]->{$session}) and
-      exists($kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle})
+      exists($kr_fno_rec->[FMO_SESSIONS]->{$sid}) and
+      exists($kr_fno_rec->[FMO_SESSIONS]->{$sid}->{$handle})
     ) {
 
       TRACE_FILES and
@@ -507,8 +487,7 @@ sub _data_handle_remove {
 
       # Remove the handle from the kernel's session record.
 
-      my $handle_rec =
-        delete $kr_fno_rec->[FMO_SESSIONS]->{$session}->{$handle};
+      my $handle_rec = delete $kr_fno_rec->[FMO_SESSIONS]->{$sid}->{$handle};
 
       my $kill_session = $handle_rec->[HSS_SESSION];
       my $kill_event   = $handle_rec->[HSS_STATE];
@@ -551,8 +530,8 @@ sub _data_handle_remove {
 
         # The session is not watching handles anymore.  Remove the
         # session entirely the fileno structure.
-        delete $kr_fno_rec->[FMO_SESSIONS]->{$session}
-          unless keys %{$kr_fno_rec->[FMO_SESSIONS]->{$session}};
+        delete $kr_fno_rec->[FMO_SESSIONS]->{$sid}
+          unless keys %{$kr_fno_rec->[FMO_SESSIONS]->{$sid}};
       }
 
       # Decrement the kernel record's handle reference count.  If the
@@ -590,13 +569,13 @@ sub _data_handle_remove {
   # a session to remove it from.  TODO Key it on fileno?
 
   if (
-    exists($kr_ses_to_handle{$session}) and
-    exists($kr_ses_to_handle{$session}->{$handle})
+    exists($kr_ses_to_handle{$sid}) and
+    exists($kr_ses_to_handle{$sid}->{$handle})
   ) {
 
     # Remove it from the session's read, write or expedite mode.
 
-    my $ss_handle = $kr_ses_to_handle{$session}->{$handle};
+    my $ss_handle = $kr_ses_to_handle{$sid}->{$handle};
     if ($ss_handle->[SH_MODECOUNT]->[$mode]) {
 
       # Hmm... what is this?  Was POE going to support multiple selects?
@@ -613,16 +592,16 @@ sub _data_handle_remove {
       }
 
       unless ($ss_handle->[SH_REFCOUNT]) {
-        delete $kr_ses_to_handle{$session}->{$handle};
-        $self->_data_ses_refcount_dec($session);
-        delete $kr_ses_to_handle{$session}
-          unless keys %{$kr_ses_to_handle{$session}};
+        delete $kr_ses_to_handle{$sid}->{$handle};
+        $self->_data_ses_refcount_dec($sid);
+        delete $kr_ses_to_handle{$sid}
+          unless keys %{$kr_ses_to_handle{$sid}};
       }
     }
     elsif (TRACE_FILES) {
       _warn(
         "<fh> handle ($handle) fileno ($fd) is not registered with",
-        $self->_data_alias_loggable($session)
+        $self->_data_alias_loggable($sid)
       );
     }
   }
@@ -677,27 +656,24 @@ sub _data_handle_count {
 ### Return the number of active handles for a single session.
 
 sub _data_handle_count_ses {
-  my ($self, $session) = @_;
-  return 0 unless exists $kr_ses_to_handle{$session};
-  return scalar keys %{$kr_ses_to_handle{$session}};
+  my ($self, $sid) = @_;
+  return 0 unless exists $kr_ses_to_handle{$sid};
+  return scalar keys %{$kr_ses_to_handle{$sid}};
 }
 
 ### Clear all the handles owned by a session.
 
 sub _data_handle_clear_session {
-  my ($self, $session) = @_;
-  return unless exists $kr_ses_to_handle{$session}; # avoid autoviv
-  my @handles = values %{$kr_ses_to_handle{$session}};
-  foreach (@handles) {
+  my ($self, $sid) = @_;
+
+  return unless exists $kr_ses_to_handle{$sid}; # avoid autoviv
+  foreach (values %{$kr_ses_to_handle{$sid}}) {
     my $handle = $_->[SH_HANDLE];
     my $refcount = $_->[SH_MODECOUNT];
 
-    $self->_data_handle_remove($handle, MODE_RD, $session)
-      if $refcount->[MODE_RD];
-    $self->_data_handle_remove($handle, MODE_WR, $session)
-      if $refcount->[MODE_WR];
-    $self->_data_handle_remove($handle, MODE_EX, $session)
-      if $refcount->[MODE_EX];
+    $self->_data_handle_remove($handle, MODE_RD, $sid) if $refcount->[MODE_RD];
+    $self->_data_handle_remove($handle, MODE_WR, $sid) if $refcount->[MODE_WR];
+    $self->_data_handle_remove($handle, MODE_EX, $sid) if $refcount->[MODE_EX];
   }
 }
 
