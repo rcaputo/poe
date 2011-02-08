@@ -49,12 +49,12 @@ $baseline_refcount += 2 if POE::Kernel::TRACE_STATISTICS; # stat poll event
   # A nonexistent session should have zero.
 
   is(
-    $poe_kernel->_data_ev_get_count_from($poe_kernel), $baseline_event,
+    $poe_kernel->_data_ev_get_count_from($poe_kernel->ID), $baseline_event,
     "POE::Kernel has enqueued correct number of events"
   );
 
   is(
-    $poe_kernel->_data_ev_get_count_to($poe_kernel), $baseline_event + 1,
+    $poe_kernel->_data_ev_get_count_to($poe_kernel->ID), $baseline_event + 1,
     "POE::Kernel has three events enqueued for it"
   );
 
@@ -296,8 +296,8 @@ ok(
 sub check_references {
   my ($session, $base_ref, $expected_from, $expected_to, $when) = @_;
 
-  my $from_count = $poe_kernel->_data_ev_get_count_from($session);
-  my $to_count   = $poe_kernel->_data_ev_get_count_to($session);
+  my $from_count = $poe_kernel->_data_ev_get_count_from($session->ID);
+  my $to_count   = $poe_kernel->_data_ev_get_count_to($session->ID);
 
   # Reference count stopped being simply the from + to + base counts.
   #my $ref_count  = $poe_kernel->_data_ses_refcount($session);

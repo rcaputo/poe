@@ -14,12 +14,12 @@ use strict;
 my $kr_queue;
 
 my %event_count;
-#  ( $session => $count,
+#  ( $session_id => $count,
 #    ...,
 #  );
 
 my %post_count;
-#  ( $session => $count,
+#  ( $session_id => $count,
 #    ...,
 #  );
 
@@ -30,36 +30,18 @@ sub _data_ev_initialize {
   $kr_queue = $queue;
 }
 
-sub _data_ev_clone {
-  my ($self, $clone_map) = @_;
-
-  my %new_event_count;
-  while (my ($old_ses, $count) = each %event_count) {
-    $new_event_count{$clone_map->{$old_ses}} = $count;
-  }
-  %event_count = %new_event_count;
-
-  my %new_post_count;
-  while (my ($old_ses, $count) = each %post_count) {
-    $new_post_count{$clone_map->{$old_ses}} = $count;
-  }
-  %post_count = %new_post_count;
-
-  undef;
-}
-
 ### End-run leak checking.
 
 sub _data_ev_finalize {
   my $finalized_ok = 1;
-  while (my ($ses, $cnt) = each(%event_count)) {
+  while (my ($ses_id, $cnt) = each(%event_count)) {
     $finalized_ok = 0;
-    _warn("!!! Leaked event-to count: $ses = $cnt\n");
+    _warn("!!! Leaked event-to count: $ses_id = $cnt\n");
   }
 
-  while (my ($ses, $cnt) = each(%post_count)) {
+  while (my ($ses_id, $cnt) = each(%post_count)) {
     $finalized_ok = 0;
-    _warn("!!! Leaked event-from count: $ses = $cnt\n");
+    _warn("!!! Leaked event-from count: $ses_id = $cnt\n");
   }
   return $finalized_ok;
 }
@@ -116,12 +98,12 @@ sub _data_ev_enqueue {
   # This is the counterpart to _data_ev_refcount_dec().  It's only
   # used in one place, so it's not in its own function.
 
-  $self->_data_ses_refcount_inc($session) unless $event_count{$session}++;
+  $self->_data_ses_refcount_inc($session) unless $event_count{$session->ID}++;
 
   return $new_id if $session == $source_session;
 
   $self->_data_ses_refcount_inc($source_session) unless (
-    $post_count{$source_session}++
+    $post_count{$source_session->ID}++
   );
 
   return $new_id;
@@ -134,7 +116,7 @@ sub _data_ev_clear_session {
 
   # Events sent to the session.
   PENDING: {
-    my $pending_count = $event_count{$session};
+    my $pending_count = $event_count{$session->ID};
     last PENDING unless $pending_count;
 
     foreach (
@@ -157,7 +139,7 @@ sub _data_ev_clear_session {
 
   # Events sent by the session.
   SENT: {
-    my $sent_count = $post_count{$session};
+    my $sent_count = $post_count{$session->ID};
     last SENT unless $sent_count;
 
     foreach (
@@ -177,8 +159,8 @@ sub _data_ev_clear_session {
     croak "lingering sent count: $sent_count" if $sent_count;
   }
 
-  croak "lingering event count" if delete $event_count{$session};
-  croak "lingering post count" if delete $post_count{$session};
+  croak "lingering event count" if delete $event_count{$session->ID};
+  croak "lingering post count" if delete $post_count{$session->ID};
 }
 
 # TODO Alarm maintenance functions may move out to a separate
@@ -258,36 +240,36 @@ sub _data_ev_refcount_dec {
   my ($self, $source_session, $dest_session) = @_;
 
   if (ASSERT_DATA) {
-    _trap $dest_session unless exists $event_count{$dest_session};
+    _trap $dest_session unless exists $event_count{$dest_session->ID};
   }
 
   $self->_data_ses_refcount_dec($dest_session) unless (
-    --$event_count{$dest_session}
+    --$event_count{$dest_session->ID}
   );
 
   return if $dest_session == $source_session;
 
   if (ASSERT_DATA) {
-    _trap $source_session unless exists $post_count{$source_session};
+    _trap $source_session unless exists $post_count{$source_session->ID};
   }
 
   $self->_data_ses_refcount_dec($source_session) unless (
-    --$post_count{$source_session}
+    --$post_count{$source_session->ID}
   );
 }
 
 ### Fetch the number of pending events sent to a session.
 
 sub _data_ev_get_count_to {
-  my ($self, $session) = @_;
-  return $event_count{$session} || 0;
+  my ($self, $sid) = @_;
+  return $event_count{$sid} || 0;
 }
 
 ### Fetch the number of pending events sent from a session.
 
 sub _data_ev_get_count_from {
-  my ($self, $session) = @_;
-  return $post_count{$session} || 0;
+  my ($self, $sid) = @_;
+  return $post_count{$sid} || 0;
 }
 
 ### Dispatch events that are due for "now" or earlier.

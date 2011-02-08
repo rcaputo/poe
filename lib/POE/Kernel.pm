@@ -2597,11 +2597,7 @@ sub CLONE {
   my $clone_map = $poe_kernel->_data_ses_clone();
 
   $poe_kernel->_data_handle_clone($clone_map);
-  $poe_kernel->_data_ev_clone($clone_map);
   $poe_kernel->_data_sig_clone($clone_map);
-
-  # Not cloning POE::Resource::Statistics.
-  # I just don't care.  Devel::NYTProf is SO much better.
 }
 
 1;
