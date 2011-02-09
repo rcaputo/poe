@@ -26,6 +26,12 @@ sub _data_sid_initialize {
   $poe_kernel->[KR_SID_SEQ] = \$kr_sid_seq;
 }
 
+sub _data_sid_relocate_kernel_id {
+  my ($self, $old_id, $new_id) = @_;
+  $kr_session_ids{$new_id} = delete $kr_session_ids{$old_id}
+    if exists $kr_session_ids{$old_id};
+}
+
 ### End-run leak checking.
 
 sub _data_sid_finalize {

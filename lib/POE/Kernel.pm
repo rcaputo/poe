@@ -897,7 +897,7 @@ sub new {
 
     POE::Resources->load();
 
-    $self->[KR_ID] = $self->_data_sid_allocate();
+    $self->_recalc_id();
     $self->_data_sid_set($self->[KR_ID], $self);
 
     # Initialize subsystems.  The order is important.
@@ -1362,6 +1362,7 @@ sub has_forked {
   my $self = $poe_kernel;
 
   $kr_pid = $$;
+  $self->_recalc_id();
 
   # reset some stuff for the signals
   $poe_kernel->_data_sig_has_forked;
@@ -2419,6 +2420,31 @@ sub alias_list {
 # The Kernel and Session IDs are based on Philip Gwyn's code.  I hope
 # he still can recognize it.
 
+sub _recalc_id {
+  my $self = shift;
+
+  my $old_id = $self->[KR_ID];
+
+  my $hostname = eval { (uname)[1] };
+  $hostname = hostname() unless defined $hostname;
+
+  my $new_id = $self->[KR_ID] = join(
+    "-", $hostname,
+    map { unpack "H*", $_ }
+    map { pack "N", $_ }
+    (time(), $$, ++$kr_id_seq)
+  );
+
+  if (defined $old_id) {
+    $self->_data_sig_relocate_kernel_id($old_id, $new_id);
+    $self->_data_ses_relocate_kernel_id($old_id, $new_id);
+    $self->_data_sid_relocate_kernel_id($old_id, $new_id);
+    $self->_data_handle_relocate_kernel_id($old_id, $new_id);
+    $self->_data_ev_relocate_kernel_id($old_id, $new_id);
+    $self->_data_alias_relocate_kernel_id($old_id, $new_id);
+  }
+}
+
 sub ID { $poe_kernel->[KR_ID] }
 
 # Resolve an ID to a session reference.  This function is virtually
@@ -3029,15 +3055,31 @@ each set of features is grouped by purpose.
 
 =head3 ID
 
-ID() returns the kernel's unique identifier.  Every POE::Kernel
-instance is assigned a (hopefully) globally unique ID at birth.
+ID() currently returns POE::Kernel's unique identifier.  Every
+Kernel instance is assigned a globally unique ID at birth.
+has_forked() alters the ID so that each forked process has a unique
+one, too.
 
   % perl -wl -MPOE -e 'print $poe_kernel->ID'
-  poerbook.local-46c89ad800000e21
+  macbookpoe.local-4d5305de-0000e6b8-00000001
 
-While the IDs are made globally unique by including hostname, time and
-PID, they should be considered an opaque but printable string.  That
-is, your code should not depend on the current format.
+The content of these IDs may change from time to time.  Your code
+should not depend upon the current format.
+
+B<Deprecation Warning 2011-02-09>
+
+Your code should not depend upon ID() remaining unique.  The
+uniqueness will be removed in a future release of POE.  If you require
+unique IDs, please see one of the fine GUID and/or UUID modules on the
+CPAN:
+
+  http://search.cpan.org/search?query=GUID&mode=dist
+  http://search.cpan.org/search?query=UUID&mode=dist
+
+POE doesn't require globally or universally unique kernel IDs.  The
+creation and maintenance of these IDs adds overhead to POE::Kernel's
+has_forked() method.  Other modules do it better, upon demand, without
+incurring overhead for those who don't need them.
 
 =head3 run
 

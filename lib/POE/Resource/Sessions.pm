@@ -38,6 +38,19 @@ sub SS_PROCESSES  () { 4 }
 
 BEGIN { $POE::Kernel::poe_kernel->[KR_SESSIONS] = \%kr_sessions; }
 
+sub _data_ses_relocate_kernel_id {
+  my ($self, $old_id, $new_id) = @_;
+
+  while (my ($sid, $ses_rec) = each %kr_sessions) {
+    my $children = $ses_rec->[SS_CHILDREN];
+    $children->{$new_id} = delete $children->{$old_id}
+      if exists $children->{$old_id};
+  }
+
+  $kr_sessions{$new_id} = delete $kr_sessions{$old_id}
+    if exists $kr_sessions{$old_id};
+}
+
 ### End-run leak checking.
 
 sub _data_ses_clone {

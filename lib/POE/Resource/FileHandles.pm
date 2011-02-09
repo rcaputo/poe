@@ -95,6 +95,24 @@ sub SH_MODECOUNT  () {  2 } #          [ $read_reference_count,     (MODE_RD)
                             #      },
                             #    },
 
+sub _data_handle_relocate_kernel_id {
+  my ($self, $old_id, $new_id) = @_;
+
+  foreach my $fd_rec (values %kr_filenos) {
+    my $rd_rec = $fd_rec->[FNO_MODE_RD][FMO_SESSIONS];
+    $rd_rec->{$new_id} = delete $rd_rec->{$old_id} if exists $rd_rec->{$old_id};
+
+    my $wr_rec = $fd_rec->[FNO_MODE_WR][FMO_SESSIONS];
+    $wr_rec->{$new_id} = delete $wr_rec->{$old_id} if exists $wr_rec->{$old_id};
+
+    my $ex_rec = $fd_rec->[FNO_MODE_EX][FMO_SESSIONS];
+    $ex_rec->{$new_id} = delete $ex_rec->{$old_id} if exists $ex_rec->{$old_id};
+  }
+
+  $kr_ses_to_handle{$new_id} = delete $kr_ses_to_handle{$old_id}
+    if exists $kr_ses_to_handle{$old_id};
+}
+
 ### Begin-run initialization.
 
 sub _data_handle_initialize {

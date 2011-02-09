@@ -32,6 +32,15 @@ sub _data_ev_initialize {
 
 ### End-run leak checking.
 
+sub _data_ev_relocate_kernel_id {
+  my ($self, $old_id, $new_id) = @_;
+
+  $event_count{$new_id} = delete $event_count{$old_id}
+    if exists $event_count{$old_id};
+  $post_count{$new_id} = delete $post_count{$old_id}
+    if exists $post_count{$old_id};
+}
+
 sub _data_ev_finalize {
   my $finalized_ok = 1;
   while (my ($ses_id, $cnt) = each(%event_count)) {

@@ -22,6 +22,12 @@ my %kr_extra_refs;
 #     ...,
 #   );
 
+sub _data_extref_relocate_kernel_id {
+  my ($self, $old_id, $new_id) = @_;
+  return unless exists $kr_extra_refs{$old_id};
+  $kr_extra_refs{$new_id} = delete $kr_extra_refs{$old_id};
+}
+
 ### End-run leak checking.
 
 sub _data_extref_finalize {

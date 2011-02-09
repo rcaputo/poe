@@ -30,6 +30,12 @@ sub _data_alias_initialize {
   $poe_kernel->[KR_ALIASES] = \%kr_aliases;
 }
 
+sub _data_alias_relocate_kernel_id {
+  my ($self, $old_id, $new_id) = @_;
+  return unless exists $kr_ses_to_alias{$old_id};
+  $kr_ses_to_alias{$new_id} = delete $kr_ses_to_alias{$old_id};
+}
+
 ### End-run leak checking.  Returns true if finalization was ok, or
 ### false if it failed.
 

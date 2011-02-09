@@ -63,6 +63,26 @@ sub PID_SESSION () { 0 }
 sub PID_EVENT   () { 1 }
 sub PID_ARGS    () { 2 }
 
+sub _data_sig_relocate_kernel_id {
+  my ($self, $old_id, $new_id) = @_;
+
+  while (my ($signal, $sig_rec) = each %kr_signals) {
+    next unless exists $sig_rec->{$old_id};
+    $sig_rec->{$new_id} = delete $sig_rec->{$old_id};
+  }
+
+  $kr_sessions_to_signals{$new_id} = delete $kr_sessions_to_signals{$old_id}
+    if exists $kr_sessions_to_signals{$old_id};
+
+  while (my ($pid, $pid_rec) = each %kr_pids_to_events) {
+    next unless exists $pid_rec->{$old_id};
+    $pid_rec->{$new_id} = delete $pid_rec->{$old_id};
+  }
+
+  $kr_sessions_to_pids{$new_id} = delete $kr_sessions_to_pids{$old_id}
+    if exists $kr_sessions_to_pids{$old_id};
+}
+
 # Bookkeeping per dispatched signal.
 
 # TODO - Why not lexicals?
