@@ -17,7 +17,9 @@ package POE::Kernel;
 =for poe_tests
 
 sub skip_tests {
-  return "IO::Poll is not 100% compatible with $^O" if $^O eq "MSWin32";
+  return "IO::Poll is not 100% compatible with $^O" if (
+    $^O eq "MSWin32" and not $ENV{POE_DANTIC}
+  );
   return "IO::Poll tests require the IO::Poll module" if (
     do { eval "use IO::Poll"; $@ }
   );
