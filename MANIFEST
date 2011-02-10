@@ -76,6 +76,7 @@ mylib/events_per_second.pl
 mylib/gen-meta.perl
 mylib/gen-tests.perl
 mylib/svn-log.perl
+mylib/ForkingDaemon.pm
 t/00_info.t
 t/10_units/01_pod/01_pod.t
 t/10_units/01_pod/02_pod_coverage.t
@@ -155,6 +156,7 @@ t/90_regression/rt19908-merlyn-stop.t
 t/90_regression/rt23181-sigchld-rc.t
 t/90_regression/rt47966-sigchld.t
 t/90_regression/rt56417-wheel-run.t
+t/90_regression/rt65460-forking.t
 t/90_regression/somni-poco-server-tcp.t
 t/90_regression/steinert-passed-wheel.t
 t/90_regression/suzman_windows.t
