@@ -1264,6 +1264,14 @@ sub run {
   # Flag that run() was called.
   $kr_run_warning |= KR_RUN_CALLED;
 
+  # TODO is this check expensive? ( do people run() more than 1 time? )
+  if( $kr_pid != $$ ) {
+    if ( ASSERT_USAGE ) {
+      _warn "Detected a fork, automatically calling ->has_forked()";
+    }
+    $self->has_forked;
+  }
+
   # Don't run the loop if we have no sessions
   # Loop::Event will blow up, so we're doing this sanity check
   if ( $self->_data_ses_count() == 0 ) {
@@ -1358,7 +1366,10 @@ sub stop {
 # Less invasive form of ->stop() + ->run()
 sub has_forked {
   if( $kr_pid == $$ ) {
-    _croak "You should only call ->has_forked() from the child process.";
+    if ( ASSERT_USAGE ) {
+      _warn "You should only call ->has_forked() from the child process.";
+    }
+    return;
   }
 
   # So has_forked() can be called as a class method.
