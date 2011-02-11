@@ -244,37 +244,8 @@ sub nonblocking {
   # tied handle that doesn't support binmode.
   eval { binmode *$handle };
 
-  # Turn off blocking unless it's tied or a plain file.
-  unless (tied *$handle or -f $handle) {
-    use POSIX;
-    use Fcntl;
-
-    unless ($^O eq "MSWin32") {
-      if ($] >= 5.008) {
-        $handle->blocking(0);
-      }
-      else {
-        # Long, drawn out, POSIX way.
-        my $flags = fcntl($handle, F_GETFL, 0)
-          or die "fcntl($handle, F_GETFL, etc.) fails: $!\n";
-        until (fcntl($handle, F_SETFL, $flags | O_NONBLOCK)) {
-          die "fcntl($handle, FSETFL, etc) fails: $!"
-            unless $! == EAGAIN or $! == EWOULDBLOCK;
-        }
-      }
-    }
-    else {
-      # Do it the Win32 way.
-      my $set_it = "1";
-
-      # 126 is FIONBIO (some docs say 0x7F << 16)
-      ioctl( $handle,
-             0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-             $set_it
-           )
-        or die "ioctl($handle, FIONBIO, $set_it) fails: $!\n";
-    }
-  }
+  # Turn off blocking.
+  eval { $handle->blocking(0) };
 
   # Turn off buffering.
   CORE::select((CORE::select($handle), $| = 1)[0]);

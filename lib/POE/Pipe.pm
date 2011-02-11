@@ -75,86 +75,6 @@ BEGIN {
   }
 }
 
-# Static member.  Call like a regular function.  Turn off blocking on
-# sockets created by make_socket.
-
-sub _stop_blocking {
-  my $socket_handle = shift;
-
-  # RCC 2002-12-19: Replace the complex blocking checks and methods
-  # with IO::Handle's blocking(0) method.  This is theoretically more
-  # portable and less maintenance than rolling our own.  If things
-  # work out, we'll replace this function entirely.
-
-  # RCC 2003-01-20: Perl 5.005_03 doesn't like blocking(), so we'll
-  # only call it in perl 5.8.0 and beyond.
-
-  # Do it the Win32 way.
-  if ($^O eq 'MSWin32') {
-    my $set_it = "1";
-
-    # 126 is FIONBIO (some docs say 0x7F << 16)
-    ioctl(
-      $socket_handle,
-      0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-      \$set_it
-    ) or die "ioctl fails: $!";
-    return;
-  }
-
-  # Do it the 5.8+ way.
-  if ($] >= 5.008) {
-    $socket_handle->blocking(0);
-    return;
-  }
-
-  # Do it the old way.
-  my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
-  $flags = fcntl($socket_handle, F_SETFL, $flags | O_NONBLOCK)
-    or die "setfl fails: $!";
-  return;
-}
-
-# Another static member.  Turn blocking on when we're done, in case
-# someone wants blocking pipes for some reason.
-
-sub _start_blocking {
-  my $socket_handle = shift;
-
-  # RCC 2002-12-19: Replace the complex blocking checks and methods
-  # with IO::Handle's blocking(1) method.  This is theoretically more
-  # portable and less maintenance than rolling our own.  If things
-  # work out, we'll replace this function entirely.
-
-  # RCC 2003-01-20: Perl 5.005_03 doesn't like blocking(), so we'll
-  # only call it in perl 5.8.0 and beyond.
-
-  # Do it the Win32 way.
-  if ($^O eq 'MSWin32') {
-    my $unset_it = "0";
-
-    # 126 is FIONBIO (some docs say 0x7F << 16)
-    ioctl(
-      $socket_handle,
-      0x80000000 | (4 << 16) | (ord('f') << 8) | 126,
-      \$unset_it
-    ) or die "ioctl fails: $!";
-    return;
-  }
-
-  # Do it the 5.8+ way.
-  if ($] >= 5.008) {
-    $socket_handle->blocking(1);
-    return;
-  }
-
-  # Do it the old way.
-  my $flags = fcntl($socket_handle, F_GETFL, 0) or die "getfl fails: $!";
-  $flags = fcntl($socket_handle, F_SETFL, $flags & ~O_NONBLOCK)
-    or die "setfl fails: $!";
-  return;
-}
-
 # Make a socket.  This is a homebrew socketpair() for systems that
 # don't support it.  The things I must do to make Windows happy.
 
@@ -176,7 +96,7 @@ sub _make_socket {
 
   bind( $acceptor, $server_addr ) or die "bind: $!";
 
-  _stop_blocking($acceptor);
+  $acceptor->blocking(0);
 
   $server_addr = getsockname($acceptor);
 
@@ -188,7 +108,7 @@ sub _make_socket {
 
   socket( $connector, PF_INET, SOCK_STREAM, $tcp ) or die "socket: $!";
 
-  _stop_blocking($connector) unless $^O eq 'MSWin32';
+  $connector->blocking(0);
 
   unless (connect( $connector, $server_addr )) {
     die "connect: $!" if $! and ($! != EINPROGRESS) and ($! != EWOULDBLOCK);
@@ -243,8 +163,8 @@ sub _make_socket {
   }
 
   # Turn blocking back on, damnit.
-  _start_blocking($accepted);
-  _start_blocking($connector);
+  $accepted->blocking(1);
+  $connector->blocking(1);
 
   return ($accepted, $connector);
 }
