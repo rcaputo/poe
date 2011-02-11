@@ -143,7 +143,7 @@ BEGIN {
       # Perl >= 5.7.3 has safe signals support
       # perlipc.pod#Deferred_Signals_(Safe_Signals)
       # We decided to target 5.8.1 just to be safe :)
-      if ( $] >= 5.008001 ) {
+      if ( $] >= 5.008001 and not RUNNING_IN_HELL ) {
         *USE_SIGCHLD = sub () { 1 };
       } else {
         *USE_SIGCHLD = sub () { 0 };
