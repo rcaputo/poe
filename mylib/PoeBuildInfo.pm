@@ -34,6 +34,7 @@ sub CORE_REQUIREMENTS () {
     "Errno"             => 1.09,
     "Exporter"          => 0,
     "File::Spec"        => 0.87,
+    "IO"                => 1.24,  # MSWin32 blocking(0)
     "IO::Handle"        => 1.27,
     "POSIX"             => 1.02,
     "Socket"            => 1.7,
