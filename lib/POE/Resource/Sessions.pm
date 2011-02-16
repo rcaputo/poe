@@ -312,7 +312,8 @@ sub _data_ses_move_child {
 
 sub _data_ses_get_parent {
   my ($self, $sid) = @_;
-  if (ASSERT_DATA) {
+  if (ASSERT_DATA || ASSERT_USAGE) {
+    _trap("undefined session ID") unless defined $sid;
     _trap("retrieving parent of a nonexistent session")
       unless exists $kr_sessions{$sid};
   }

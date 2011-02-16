@@ -429,103 +429,48 @@ sub _idle_queue_reset  { $idle_queue_size = 0; }
 # trace file we're using today.  _trap is reserved for internal
 # errors.
 
-{
-  # This block abstracts away a particular piece of voodoo, since we're about
-  # to call it many times. This is all a big closure around the following two
-  # variables, allowing us to swap out and replace handlers without the need
-  # for mucking up the namespace or the kernel itself.
-  my ($orig_warn_handler, $orig_die_handler);
-
-  # _trap_death replaces the current __WARN__ and __DIE__ handlers
-  # with our own.  We keep the defaults around so we can put them back
-  # when we're done.  Specifically this is necessary, it seems, for
-  # older perls that don't respect the C<local *STDERR = *TRACE_FILE>.
-  #
-  # TODO - The __DIE__ handler generates a double message if
-  # TRACE_FILE is STDERR and the die isn't caught by eval.  That's
-  # messy and needs to go.
-  sub _trap_death {
-    if ($trace_file_handle) {
-      $orig_warn_handler = $SIG{__WARN__};
-      $orig_die_handler = $SIG{__DIE__};
-
-      $SIG{__WARN__} = sub { print $trace_file_handle $_[0] };
-      $SIG{__DIE__} = sub { print $trace_file_handle $_[0]; die $_[0]; };
-    }
-  }
-
-  # _release_death puts the original __WARN__ and __DIE__ handlers back in
-  # place. Hopefully this is zero-impact camping. The hope is that we can
-  # do our trace magic without impacting anyone else.
-  sub _release_death {
-    if ($trace_file_handle) {
-      $SIG{__WARN__} = $orig_warn_handler;
-      $SIG{__DIE__} = $orig_die_handler;
-    }
-  }
-}
-
-
 sub _trap {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
 
-  _trap_death();
   confess(
-    "-----\n",
+    "=== ($$) ===\n",
     "Please address any warnings or errors above this message, and try\n",
     "again.  If there are none, or those messages are from within POE,\n",
     "then please mail them along with the following information\n",
     "to bug-POE\@rt.cpan.org:\n---\n@_\n-----\n"
   );
-  _release_death();
 }
 
 sub _croak {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
-
-  _trap_death();
-  croak @_;
-  _release_death();
+  croak "($$) ", @_;
 }
 
 sub _confess {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
-
-  _trap_death();
-  confess @_;
-  _release_death();
+  confess "($$) ", @_;
 }
 
 sub _cluck {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
-
-  _trap_death();
-  cluck @_;
-  _release_death();
+  cluck "($$) ", @_;
 }
 
 sub _carp {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
-
-  _trap_death();
-  carp @_;
-  _release_death();
+  carp "($$) ", @_;
 }
 
 sub _warn {
   my ($package, $file, $line) = caller();
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
-
-  _trap_death();
-  $message =~ s/^/$$: /mg;
-  warn $message;
-  _release_death();
+  warn "=== $$ === $message";
 }
 
 sub _die {
@@ -533,11 +478,7 @@ sub _die {
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
   local *STDERR = $trace_file_handle || *STDERR;
-
-  _trap_death();
-  $message =~ s/^/$$: /mg;
-  die $message;
-  _release_death();
+  die "($$) $message";
 }
 
 #------------------------------------------------------------------------------
@@ -817,7 +758,7 @@ sub sig_handled {
   if ($kr_active_event eq EN_SIGNAL) {
     _die(
       ",----- DEPRECATION ERROR -----\n",
-      "| Session ", $self->_data_alias_loggable($kr_active_session->ID), ":\n",
+      "| ", $self->_data_alias_loggable($kr_active_session->ID), ":\n",
       "| handled a _signal event.  You must register a handler with sig().\n",
       "`-----------------------------\n",
     );
@@ -1087,7 +1028,7 @@ sub _dispatch_event {
 
   my $return;
   my $wantarray = wantarray();
-
+confess unless defined $session;
   if ($type & (ET_CALL | ET_START | ET_STOP)) {
     eval {
       if ($wantarray) {
