@@ -14,6 +14,7 @@ use POSIX qw(
 
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 use base qw(POE::Wheel);
+use IO::Tty qw/TIOCSWINSZ/;
 
 # http://rt.cpan.org/Ticket/Display.html?id=50068
 # Avoid using these constants in Windows' subprocesses (actually
@@ -159,9 +160,16 @@ sub new {
     $conduit = "pipe";
   }
 
-  # TODO remove deprecation warning after some time
-  carp "Winsize is deprecated." if exists $params{Winsize};
-  delete $params{Winsize};  # so the unknown arg check doesn't complain
+#  carp "Winsize is deprecated." if exists $params{Winsize};
+  my $winsize = delete $params{Winsize};
+
+  if ($winsize) {
+      carp "winsize can only be specified for a Conduit of type pty"
+        if $conduit ne 'pty' and $winsize;
+
+      carp "winsize must be a 4 element arrayref" unless ref($winsize) eq 'ARRAY'
+        and scalar @$winsize == 4;
+  }
 
   my $stdin_event  = delete $params{StdinEvent};
   my $stdout_event = delete $params{StdoutEvent};
@@ -333,9 +341,16 @@ sub new {
       # per APITUE 19.4 and 11.10.
       $stdin_read->set_raw();
 
-      # Set the pty conduit (slave side) window size to our window
-      # size.  APITUE 19.4 and 19.5.
-      eval { $stdin_read->clone_winsize_from(\*STDIN) };
+      if ($winsize) {
+          my $wstruct = pack('vvvv', @$winsize);
+          ioctl($stdin_read, TIOCSWINSZ, $wstruct); 
+      } else {
+          # Set the pty conduit (slave side) window size to our window
+          # size.  APITUE 19.4 and 19.5.
+
+          eval { $stdin_read->clone_winsize_from(\*STDIN) };
+      }
+          
     }
     else {
       # TODO - Can this be block eval?  Or a do{} block?
