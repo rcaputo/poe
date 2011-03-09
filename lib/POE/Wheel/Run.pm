@@ -14,7 +14,6 @@ use POSIX qw(
 
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
 use base qw(POE::Wheel);
-use IO::Tty qw/TIOCSWINSZ/;
 
 # http://rt.cpan.org/Ticket/Display.html?id=50068
 # Avoid using these constants in Windows' subprocesses (actually
@@ -27,10 +26,24 @@ BEGIN {
 
   local $SIG{'__DIE__'} = 'DEFAULT';
   eval    { require IO::Pty; };
-  if ($@) { eval 'sub PTY_AVAILABLE () { 0 }';  }
+  if ($@) {
+    eval '
+      sub PTY_AVAILABLE () { 0 }
+      sub TIOCSWINSZ_AVAILABLE () { 0 }
+    ';
+  }
   else {
     IO::Pty->import();
     eval 'sub PTY_AVAILABLE () { 1 }';
+
+    eval { require IO::Tty; };
+    if ($@) {
+      eval 'sub TIOCSWINSZ_AVAILABLE () { 0 }';
+    }
+    else {
+      IO::Tty->import('TIOCSWINSZ');
+      eval 'sub TIOCSWINSZ_AVAILABLE () { 1 }';
+    }
   }
 
   if (POE::Kernel::RUNNING_IN_HELL) {
@@ -168,6 +181,9 @@ sub new {
 
     carp "winsize must be a 4 element arrayref" unless ref($winsize) eq 'ARRAY'
       and scalar @$winsize == 4;
+
+    carp "winsize only works when IO::Tty::TIOCSWINSZ is"
+      unless TIOCSWINSZ_AVAILABLE;
   }
 
   my $stdin_event  = delete $params{StdinEvent};
@@ -340,8 +356,10 @@ sub new {
       # per APITUE 19.4 and 11.10.
       $stdin_read->set_raw();
 
-      if ($winsize) {
-        ioctl($stdin_read, TIOCSWINSZ, pack('vvvv', @$winsize));
+      if (TIOCSWINSZ_AVAILABLE) {
+        if ($winsize) {
+          ioctl($stdin_read, TIOCSWINSZ, pack('vvvv', @$winsize));
+        }
       }
       else {
         # Set the pty conduit (slave side) window size to our window
