@@ -226,7 +226,7 @@ sub _data_ses_free {
   $self->_data_extref_clear_session($sid);     # Remove all leftover extrefs.
   $self->_data_handle_clear_session($sid);     # Remove all leftover handles.
 
-  $self->_data_ev_clear_session($session);     # Remove all leftover events.
+  $self->_data_ev_clear_session($sid);         # Remove all leftover events.
 
   # Remove the session itself.
 

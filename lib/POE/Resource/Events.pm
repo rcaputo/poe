@@ -112,7 +112,7 @@ sub _data_ev_enqueue {
 
   $self->_data_ses_refcount_inc($sid) unless $event_count{$sid}++;
 
-  return $new_id if $session == $source_session;
+  return $new_id if $sid eq $source_session->ID();
 
   $self->_data_ses_refcount_inc($source_session->ID) unless (
     $post_count{$source_session->ID}++
@@ -124,18 +124,16 @@ sub _data_ev_enqueue {
 ### Remove events sent to or from a specific session.
 
 sub _data_ev_clear_session {
-  my ($self, $session) = @_;
-
-  # TODO - Convert the event structure to SID too?
+  my ($self, $sid) = @_;
 
   # Events sent to the session.
   PENDING: {
-    my $pending_count = $event_count{$session->ID};
+    my $pending_count = $event_count{$sid};
     last PENDING unless $pending_count;
 
     foreach (
       $kr_queue->remove_items(
-        sub { $_[0][EV_SESSION] == $session },
+        sub { $_[0][EV_SESSION]->ID() eq $sid },
         $pending_count
       )
     ) {
@@ -153,12 +151,12 @@ sub _data_ev_clear_session {
 
   # Events sent by the session.
   SENT: {
-    my $sent_count = $post_count{$session->ID};
+    my $sent_count = $post_count{$sid};
     last SENT unless $sent_count;
 
     foreach (
       $kr_queue->remove_items(
-        sub { $_[0][EV_SOURCE] == $session },
+        sub { $_[0][EV_SOURCE]->ID() eq $sid },
         $sent_count
       )
     ) {
@@ -173,8 +171,8 @@ sub _data_ev_clear_session {
     croak "lingering sent count: $sent_count" if $sent_count;
   }
 
-  croak "lingering event count" if delete $event_count{$session->ID};
-  croak "lingering post count" if delete $post_count{$session->ID};
+  croak "lingering event count" if delete $event_count{$sid};
+  croak "lingering post count" if delete $post_count{$sid};
 }
 
 # TODO Alarm maintenance functions may move out to a separate
@@ -188,11 +186,11 @@ sub _data_ev_clear_session {
 ### future due times.
 
 sub _data_ev_clear_alarm_by_name {
-  my ($self, $session, $alarm_name) = @_;
+  my ($self, $sid, $alarm_name) = @_;
 
   my $my_alarm = sub {
     return 0 unless $_[0]->[EV_TYPE] & ET_ALARM;
-    return 0 unless $_[0]->[EV_SESSION] == $session;
+    return 0 unless $_[0]->[EV_SESSION]->ID() eq $sid;
     return 0 unless $_[0]->[EV_NAME] eq $alarm_name;
     return 1;
   };
@@ -207,10 +205,10 @@ sub _data_ev_clear_alarm_by_name {
 ### times.  TODO It's possible to remove non-alarms; is that wrong?
 
 sub _data_ev_clear_alarm_by_id {
-  my ($self, $session, $alarm_id) = @_;
+  my ($self, $sid, $alarm_id) = @_;
 
   my $my_alarm = sub {
-    $_[0]->[EV_SESSION] == $session;
+    $_[0]->[EV_SESSION]->ID() eq $sid;
   };
 
   my ($time, $id, $event) = $kr_queue->remove_item($alarm_id, $my_alarm);
@@ -219,7 +217,7 @@ sub _data_ev_clear_alarm_by_id {
   if (TRACE_EVENTS) {
     _warn(
       "<ev> removed event $id ``", $event->[EV_NAME], "'' to ",
-      $self->_data_alias_loggable($session->ID), " at $time"
+      $self->_data_alias_loggable($sid), " at $time"
     );
   }
 
@@ -230,11 +228,11 @@ sub _data_ev_clear_alarm_by_id {
 ### Remove all the alarms for a session.  Whoot!
 
 sub _data_ev_clear_alarm_by_session {
-  my ($self, $session) = @_;
+  my ($self, $sid) = @_;
 
   my $my_alarm = sub {
     return 0 unless $_[0]->[EV_TYPE] & ET_ALARM;
-    return 0 unless $_[0]->[EV_SESSION] == $session;
+    return 0 unless $_[0]->[EV_SESSION]->ID() eq $sid;
     return 1;
   };
 

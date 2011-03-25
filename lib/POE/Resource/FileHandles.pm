@@ -490,7 +490,10 @@ sub _data_handle_remove {
 
       foreach ($kr_queue->remove_items($my_select)) {
         my ($time, $id, $event) = @$_;
-        $self->_data_ev_refcount_dec( @$event[EV_SESSION, EV_SOURCE] );
+        $self->_data_ev_refcount_dec(
+          $event->[EV_SOURCE]->ID(),
+          $event->[EV_SESSION]->ID(),
+        );
 
         TRACE_EVENTS and _warn(
           "<ev> removing select event $id ``$event->[EV_NAME]''" .

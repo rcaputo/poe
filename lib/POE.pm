@@ -636,6 +636,12 @@ Filters.  He greatly improved L<POE::Wheel::FollowTail|POE::Wheel::FollowTail>, 
 contributions include the basic Block filter, as well as Stackable,
 RecordBlock, Grep and Map.
 
+=item Plixer International
+
+Plixer International is at L<http://plixer.com/>.  Their sponsorship
+has helped POE 1.300 and beyond be significantly more robust using
+iThreads, especially when using fork() in Windows.
+
 =item Robert Seifer
 
 Robert Seifer is <e-mail unknown>.  He rotates IRC nicknames

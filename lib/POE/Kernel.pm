@@ -1757,7 +1757,7 @@ sub alarm {
     return EINVAL;
   }
 
-  $self->_data_ev_clear_alarm_by_name($kr_active_session, $event_name);
+  $self->_data_ev_clear_alarm_by_name($kr_active_session->ID(), $event_name);
 
   # Add the new alarm if it includes a time.  Calling _data_ev_enqueue
   # directly is faster than calling alarm_set to enqueue it.
@@ -1920,7 +1920,7 @@ sub alarm_remove {
   }
 
   my ($time, $event) =
-    $self->_data_ev_clear_alarm_by_id($kr_active_session, $alarm_id);
+    $self->_data_ev_clear_alarm_by_id($kr_active_session->ID(), $alarm_id);
   return unless defined $time;
 
   # In a list context, return the alarm that was removed.  In a scalar
@@ -2058,7 +2058,9 @@ sub alarm_remove_all {
   # Free every alarm owned by the session.  This code is ripped off
   # from the _stop code to flush everything.
 
-  my @removed = $self->_data_ev_clear_alarm_by_session($kr_active_session);
+  my @removed = $self->_data_ev_clear_alarm_by_session(
+    $kr_active_session->ID()
+  );
 
   return unless defined wantarray;
   return @removed if wantarray;

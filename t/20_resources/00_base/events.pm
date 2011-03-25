@@ -118,7 +118,7 @@ check_references(
 { # Remove one of the alarms by its ID.
 
   my ($time, $event) = $poe_kernel->_data_ev_clear_alarm_by_id(
-    $poe_kernel, $ids[1]
+    $poe_kernel->ID(), $ids[1]
   );
 
   is($time, 2, "removed event has the expected due time");
@@ -136,7 +136,7 @@ check_references(
   # did exist, except it doesn't.
 
   my ($time, $event) = $poe_kernel->_data_ev_clear_alarm_by_id(
-    $poe_kernel, 8675309
+    $poe_kernel->ID(), 8675309
   );
 
   ok(!defined($time), "can't clear bogus alarm by nonexistent ID");
@@ -166,7 +166,7 @@ is(
 # Remove the alarm by name, for real.  We should be down to one timer
 # (the original poll thing).
 
-$poe_kernel->_data_ev_clear_alarm_by_name($poe_kernel, "timer");
+$poe_kernel->_data_ev_clear_alarm_by_name($poe_kernel->ID(), "timer");
 check_references(
   $poe_kernel, 0, 0, 1, "after removing 'timer' by name"
 );
@@ -181,7 +181,7 @@ check_references(
 { # Remove the last of the timers.  The Kernel session is the only
   # reference left for it.
 
-  my @removed = $poe_kernel->_data_ev_clear_alarm_by_session($poe_kernel);
+  my @removed = $poe_kernel->_data_ev_clear_alarm_by_session($poe_kernel->ID());
   is(@removed, 1, "removed the last alarm successfully");
 
   # Verify that the removed timer is the correct one.  We still have
@@ -258,13 +258,13 @@ $poe_kernel->_data_ev_clear_session($poe_kernel);
     $poe_kernel, 1, 1, 1, "after creating inter-session messages"
   );
 
-  $poe_kernel->_data_ev_clear_session($session);
+  $poe_kernel->_data_ev_clear_session($session->ID());
 
   check_references(
     $poe_kernel, 1, 0, 0, "after clearing inter-session messages"
   );
 
-  $poe_kernel->_data_ev_clear_session($poe_kernel);
+  $poe_kernel->_data_ev_clear_session($poe_kernel->ID());
 
   check_references(
     $poe_kernel, 1, 0, 0, "after clearing kernel messages"
