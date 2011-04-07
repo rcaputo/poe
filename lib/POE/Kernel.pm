@@ -3703,6 +3703,20 @@ There is no delay_remove_all().  Timers are all identical internally,
 so alarm_remove_all() clears them all regardless how they were
 created.
 
+=head3 Comparison
+
+Below is a table to help compare the various delayed message-sending methods
+
+  +-----------+------------------+---------------------+------------+
+  |           | time argument    | clears other events | returns on |
+  | method    | passed to method | of the same name    | success    |
+  +-----------+------------------+---------------------+------------+
+  | delay_set | seconds from now | N                   | alarm_id   |
+  | delay     | seconds from now | Y                   | 0 (false)  |
+  | alarm_set | unix epoch time  | N                   | alarm_id   |
+  | alarm     | unix epoch time  | Y                   | 0 (false)  |
+  +-----------+------------------+---------------------+------------+
+
 =head2 Session Identifiers (IDs and Aliases)
 
 A session may be referred to by its object references (either blessed
