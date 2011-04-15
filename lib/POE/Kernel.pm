@@ -1690,8 +1690,6 @@ sub call {
       )
     );
 
-    $self->_data_ses_gc_sweep();
-
     $! = 0;
     return @return_value;
   }
@@ -1709,8 +1707,6 @@ sub call {
         (caller)[1,2], $kr_active_event, time(), -__LINE__
       )
     );
-
-    $self->_data_ses_gc_sweep();
 
     $! = 0;
     return $return_value;
