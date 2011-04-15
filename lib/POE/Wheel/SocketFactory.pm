@@ -329,9 +329,9 @@ sub _define_connect_state {
     }
   );
 
-  # Cygwin expects an error state registered to expedite.  This code
-  # is nearly identical the stuff above.
-  if ($^O eq "cygwin") {
+  # Cygwin and Windows expect an error state registered to expedite.
+  # This code is nearly identical the stuff above.
+  if ($^O eq "cygwin" or $^O eq "MSWin32") {
     $poe_kernel->state(
       $self->[MY_STATE_ERROR] = (
         ref($self) .  "($unique_id) -> connect error"
@@ -423,7 +423,7 @@ sub event {
       $self->[MY_SOCKET_HANDLE],
       $self->[MY_STATE_CONNECT]
     );
-    if ($^O eq "cygwin") {
+    if ($^O eq "cygwin" or $^O eq "MSWin32") {
       $poe_kernel->select_expedite(
         $self->[MY_SOCKET_HANDLE],
         $self->[MY_STATE_ERROR]
