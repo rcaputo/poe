@@ -164,3 +164,4 @@ t/90_regression/ton-stop-corruption.t
 t/90_regression/whelan-dieprop.t
 t/90_regression/whjackson-followtail.t
 t/90_regression/tracing-sane-exit.t
+t/90_regression/socketfactory-timeout.t
