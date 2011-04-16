@@ -60,6 +60,7 @@ BEGIN {
   }
 
   # Socket6 provides AF_INET6 and PF_INET6 where earlier Perls' Socket don't.
+  local $SIG{__WARN__};
   eval "use Socket qw(AF_INET6)";
   if ($@) {
     eval "use Socket6 qw(AF_INET6)";
