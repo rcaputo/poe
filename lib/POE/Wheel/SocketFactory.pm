@@ -60,18 +60,19 @@ BEGIN {
   }
 
   # Socket6 provides AF_INET6 and PF_INET6 where earlier Perls' Socket don't.
-  local $SIG{__WARN__};
-  eval "use Socket qw(AF_INET6)";
+  # under perl-5.6.2 the warning "leaks" from the eval, while newer versions don't...
+  # "AF_INET6" is not exported by the Socket module at (eval 83) line 1
+  eval "local $SIG{__WARN__} = undef; use Socket qw(AF_INET6)";
   if ($@) {
-    eval "use Socket6 qw(AF_INET6)";
+    eval "local $SIG{__WARN__} = undef; use Socket6 qw(AF_INET6)";
     if ($@) {
       *AF_INET6 = sub { ~0 };
     }
   }
 
-  eval "use Socket qw(PF_INET6)";
+  eval "local $SIG{__WARN__} = undef; use Socket qw(PF_INET6)";
   if ($@) {
-    eval "use Socket6 qw(PF_INET6)";
+    eval "local $SIG{__WARN__} = undef; use Socket6 qw(PF_INET6)";
     if ($@) {
       *PF_INET6 = sub { ~0 };
     }
