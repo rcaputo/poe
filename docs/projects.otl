@@ -1,298 +1,98 @@
-* NAME #® -*- outline -*- ¯
-
-POE-TODO - To-Do List for POE
-
-* DESCRIPTION
-
-Random requests, suggestions and ideas.
-
-People who want to implement something for POE should check the latest
-version of this list (to see if anyone has claimed it already), and
-let Rocco know (so they can be added to the list).
-
-Also see the POE mailing list, which tends to be pretty quiet.
-
-* PROBLEMS
-
-** Infinite Loops
-
-The real world has multiple inconsistent event loops, all blocking.
-POE's loop cannot coexist with the others.
-
-Tk and POE could be made to half-cooperate by breaking POE's event
-loop open and allowing polled mode.  POE would register a
-Tk_DoWhenIdle callback, and some other ugliness.
-
-** Blocking
-
-Blocking procedural code is useful, even in an event driven world.
-How to say:
-
-  $line = readline($term);
-
-* MAJOR RESTRUCTURING
-
-I'm considering moving things around in a Big Way.
-
-** New Interface
-
-*** POE::Kernel
-
-In version 0.07, POE::Kernel holds the event queue and manages
-resources that it uses.
-
-The current Kernel's main responsibility is to manage resources.
-Sessions are resources, along with selects, alarms, aliases, signals
-and other things.  The current Kernel also holds POE's event loop.
-
-As more people use POE, the desire to use it for other purposes
-increases.  POE's Kernel, however, was designed for a particular task
-and is too rigid to be used for some things.
-
-There are two main problems with the current kernel.  First, the
-functions that make its programmer interface are too rigid.  It's
-really hard to change them, or to add new functions, because the
-Kernel class is a monolith.  Second, its event queue is hard-coded, so
-it's really difficult to cooperate with something like Tk.
-
-So first, let's make POE::Kernel a generic resource manager:
-
-  package POE::Kernel;
-  use strict;
-
-  my @resources;
-  my @sessions;
-
-  sub RES_NAME   () { 0 }
-  sub RES_FLAGS  () { 1 }
-  sub RES_RECORD () { 2 }
-
-  # Allocate a resource.  That is, let the Kernel know it should
-  # manage the "session uses resource" association for this resource.
-  # It is up to the resource to manage the "resource is used by
-  # session" association.
-
-  sub resource_alloc {
-    my $resource_name = shift;
-    # -><- lock @resources here
-    push @resources, [ $resource_name, \@_, {} ];
-    my $new_resource_id = @resources;
-    # -><- unlock @resources here
-    my $resource_record = $resources[$new_resource_id]->[RES_RECORD];
-    $resources{$resource_record} = $new_resource_id;
-    ( 'resource allocated okay',                 # status
-      $new_resource_id,                          # resource index
-      $resources[$new_resource_id]->[RES_RECORD] # resource record
-    );
-  }
-
-  # Free a resource.  This occurs when the program ends.  It ensures
-  # that session destructors have already cleaned up the references
-  # for each managed resources.
-
-  sub resource_free {
-    my ($resource_id) = @_;
-    my $resource = $resources[$resource_id];
-
-    if (keys %{$resource->[RES_RECORD]}) {
-      carp "leak in $resource->[RES_RECORD]->[RES_NAME] resource";
-    }
-
-    # -><- lock @resources here
-    $resources[$resource_id] = undef;
-    # -><- unlock @resources here
-  }
-
-  # Register a resource instance.  This lets the kernel know that a
-  # particular session uses a specific resource.
-
-  sub resource_associate {
-    my ($resource_id, $resource
-
-**** POE::Resource::Select
-
-The Select resource is somewhat equivalent to the current Kernel's
-select_* functions, but it has different semantics as a "resource"
-instead of a "function library".
-
-  package POE::Resource::Select;
-
-  use strict;
-  use POE::Kernel;
-
-  my $resource_serial = 0;
-  my $resource_record = undef;
-
-  ($status, $resource_record) = &POE::Kernel::resource_alloc( RES_SELECT );
-  die $status unless (defined $resource_record);
-
-  END {
-    # test $resource_record for leaks
-  }
-
-  sub new {
-    my ($package, %params) = @_;
-    my $current_session = &stupid_caller_trick();
-    my $self = $resource_serial++;
-    $self = bless \$self, $package;
-    &POE::Kernel::session_use($current_session, $self);
-    $resource_record->{$self} = [ $current_session ];
-  }
-
-  sub DESTROY {
-    my $self = shift;
-    &POE::Kernel::session_free($self);
-    delete $resource_record{$self};
-  }
-
-  package main;
-
-  use POE;
-  use POE::Resource::Select;
-
-  sub state_start {
-    $id = new POE::Resource::Select(
-      Handle        => $handle,
-      ReadState     => $read_state,
-      WriteState    => $write_state,
-      ExpediteState => $expedite_state,
-    );
-  }
-
-  $id->state( Read     => undef,     # Undef turns it off.
-              Write    => '',        # '' turns it on, using last state
-              Expedite => $new_state # scalar changes the state
-            );
-
-    
-
-**** POE::Kernel as Resource Manager
-
-  package POE::Kernel;
-
-  @resources;
-
-
-**** POE::K
-
-** Current Interface
-
-*** POE::Kernel
-
-The program's event loop and resource management stuff.
-
-  $k = new POE::Kernel();
-
-  $k->sig($signal, $state);
-  $k->signal($session, $signal);
-
-  $k->run();
-
-  $k->post($session, $state, @etc);
-  $k->yield($state, @etc);
-  $k->call($session, $state, @etc);
-
-  $k->alarm($state, $time, @etc);
-  $k->delay($state, $delay, @etc);
-
-  $k->select($handle, $state_r, $state_w, $state_e);
-  $k->select_read($handle, $state);
-  $k->select_write($handle, $state);
-  $k->select_expedite($handle, $state);
-
-  $k->alias_set($name);
-  $k->alias_remove($name);
-  $k->alias_resolve($name);
-
-  $k->state($state, $code);
-
-*** POE::Session
-
-A unit of execution in POE.
-
-  new POE::Session( ... );
-  create POE::Session( ... );
-
-  $s->option( ... );
-
-*** Sample Usage
-
-  use POE;
-
-  sub state_start {
-    $_[KERNEL]->yield('do_something');
-  }
-
-  sub state_something {
-    print "hello, world!\n";
-  }
-
-  new POE::Session( _start => \&state_start,
-                    do_something => \&state_something
-                  );
-
-  $poe_kernel->run();
-  exit;
-
-** Proposed Interface (being taken apart for parts)
-
-Live document defining next major step in POE's interface.
-
-*** POE::Session
-
-A unit of execution in POE.
-
-  new POE::Session( ... );
-  create POE::Session( ... );
-  $s->option( ... );
-
-** POE::Queue
-
-A pure virtual class that defines a generic queue interface.
-
-  $q = new POE::Queue::???( ... );
-  $q->post($session, $state, @etc);
-
-*** POE::Queue::Select
-
-A select-based queue.  Follows the POE::Queue interface.
-
-*** POE::Queue::Event
-
-An Event-based queue.  Follows the POE::Queue interface.
-
-*** POE::Queue::Tk
-
-A Tk-based queue.  Follows the POE::Queue interface.
-
-** POE::Alarm
-
-Alarm resources.
-
-  my $alarm = new POE::Alarm($time, $event, @etc);
-  $alarm->adjust($seconds_to_adjust);
-  $alarm->set($new_absolute_time);
-  undef $alarm;
-  my $alarm = new POE::Delay($seconds, $event, @etc);
-
-** POE::Delay
-
-Delay resources.
-
-  my $delay = new POE::Delay($seconds, $event, @etc);
-  $delay->adjust($seconds_to_adjust);
-  $delay->reset($seconds_from_now);
-
-
-** POE::Select
-
-Select resources.
-
-** POE::Alias
-
-Alias resources.
-
-* TUTORIALS, PAPERS AND OTHER DOCUMENTATION
+Abstract
+	A list of POE ideas and projects to be considered for future development.
+	Some of these ideas need a lot more thinking before implementing.
+	Potential Google Summer of Code (GSoC) projects.
+[_] 33% Overall Progress
+	[X] 100% Procedural Interface
+		my $input = non_blocking_readline();
+		Completed in Reflex, to the extent that a Perl program is able without ugly, deep hacks inside Perl's interpreter.
+	[_] 0% Make POE::Loop and subclasses more generic.
+		Rationale
+			There are 16 different POE::Loop classes on CPAN.
+			They are only available for direct use by POE.
+			There are use cases where generic, non-sessioned events are required.
+			In many cases, such as Reflex, it's very useful to also allow POE modules to run alongside.
+			Make POE::Loop more appropriate for direct use by other clients, such as Reflex.
+		Tasks
+			[_] 0% Revise the POE::Loop API for generic callbacks.
+			[_] 0% Document the new API.
+			[_] 0% Figure out how to version POE::Loop APIs.
+				Updating all loops at once will be hard work.
+				Coordination must happen with multiple module authors.
+				Versioned APIs would allow incremental migration.
+			[_] 0% Update POE::Test::Loops to use the new API.
+	[_] % Native OS event support.
+		Rationale
+			[_] % Why is this particularly good?
+		Tasks
+			[_] % How will it be implemented.
+	[_] 0% Enable CPAN testers support for development releases of POE.
+		Rationale
+			CPAN Testers are a wonderful QA resource.
+			Unfortunately it's impossible to depend upon development versions of dependencies.
+			So it's impossible to release development POE and POE::Test::Loops for testing.
+			The wrong tests---the previous production version---are loaded.
+		Tasks
+			[_] % Research how this might work.
+			[_] % Add new tasks to implement a solution, once one is found.
+	[_] % Migrate POE traces to a proper log dispatcher.
+		Rationale
+			POE has a lot of logging information that only a developer can love.
+			The tracing code is custom made from a time before decent logging modules existed.
+			Replacing tracing with off-the-shelf code would make it more accessible to more people.
+		Tasks
+			[_] % Decide upon a log dispatching module.
+				I'm partial to Log::Log4perl because Rocco uses it at work.
+				Nick Perez suggested Log::Dispatch but didn't offer rationale for its use.
+			[_] % Determine and document new logging classes.
+			[_] % Implement environment variable overrides.
+			[_] % Avoid making the log dispatcher module a hard dependency.
+				[_] % Wrap all logging in a single constant.
+				[_] % Only enable logging when the constant is set, either programmatically or through the environment.
+	[_] % Migrate POE::Resource mixin classes to proper objects.
+		Rationale
+			POE::Resource modules mainly implement private interfaces for private data.
+			The OO equivalent would be roles, but they're really discrete objects in their own rights.
+			Defining the interaction between POE::Kernel and POE::Resource::* may expose more interfaces.
+				Parts of POE::API::Peek may become obsolete.
+		Tasks
+			[_] % Define new encapsulation of resource data.
+				As mixed-in roles, resources are given access to things they ought not be.
+				This isn't good form; it leads to actions at a distance.
+			[_] % Define new APIs.
+				As mixed-in roles, resource classes tend to call each other in a tightly coupled way.
+				While the resource classes are separate, they behave monolithically.
+				Make them more of a toolkit for POE::Kernel to coordinate.
+	Merge POE::API::Peek into POE.
+		Rationale
+			It's useful.
+			It's tightly coupled to POE's internals, so it must be maintained in lockstep with POE.
+		Drawbacks
+			It publishes interfaces to private implementation details.
+			Inclusion in POE would make these details official.
+			Rocco would need to maintain it.
+				He's morally opposed to the idea.
+				He's not going to maintain it.
+				If it ever occurs and gets in his way, he's liable to delete it.
+		Tasks
+			Find a rationale that makes the design, implementation and maintenance costs worth the grief.
+	[_] % Replace POE explicit reference counting with Perl's references.
+		Rationale
+			POE can use Scalar::Util::weaken() now.
+			Perl reference counting is more efficient than rolling it ourselves.
+		Drawbacks
+			SIGIDLE becomes difficult or impossible.
+		Tasks
+			[_] % Determien whether SIGIDLE can be saved.
+				Pushing references down into Perl makes them opaque.
+				Removing reference introspection eliminates the ability to detect deadlocks.
+				Eliminating deadlock detection means we can't fire SIGIDLE at appropriate times.
+			[_] % Determine an implementation strategy that doesn't suck.
+				Document it here, and make it part of the tasks for this item.
+	poe-docs
+		See http://github.com/rcaputo/poe-docs
+
+-><- Old old old stuff after here.
 
 ** Tutorials
 
@@ -334,17 +134,14 @@ Golly, I *hope*, POE's design settles down.
 POE uses a lot of POSIX to be portable, but some systems don't seem to
 be POSIX enough.
 
-** MacOS support
-
-I contacted someone about this on Pudge's recommendation, but they
-never returned my e-mail.  As far as I can tell, MacOS support is
-stillborn.  If anyone would like to pick this up, let me know.  It's
-all POSIX-y inside, so how hard could it be?
-
 ** Win32 support
 
-Sean Puckett started work on a Win32 port then switched to Linux.  Now
-he's gone missing.  If anyone would like to pick this up, let me know.
+Native support for Windows events would make POE work much better on that platform.
+
+** OS X support
+
+Native support for OSX events might make POE work better there, but OSX has good multiplexer support at the moment.
+What would native OSX events give us that we can't already get?
 
 * PROGRAMS USING POE
 
@@ -362,18 +159,6 @@ module for writing quick network programs.
 He says, "Contrast LWP::Simple with the other modules."  Fair enough.
 
 * DEVELOPMENT METHODOLOGY CHANGES
-
-** CVS
-
-Development is now running out of a local CVS repository.  It's on my
-dialed-up machine, so the address changes all the time.
-
-The next step is to open the CVS server for anonymous updates,
-possibly moving it somewhere that doesn't move around all the time.
-
-After anonymous updates are working for a while, it should be okay to
-start giving authorship rights to some of the more dedicated POE
-kernel hackers.
 
 ** Event
 
@@ -410,48 +195,6 @@ modules including some C.  Plus POE will have XS to interface Event's,
 and then POE may be incompatibly outdated whenever perl or Event
 changes.  Blargh.
 
-** Namespaces
-
-*** Components
-
-Artur suggested reservinig a slice of the POE namespace for
-contributed and third-party modules.  This slice eventually became the
-POE::Component namespace.
-
-POE::Component things should be stand-alone daemon-able sessions that
-talk via call/post to some public states.  These would be "black box"
-sessions, like Visual Age or Digital Smalltalk "parts", or Java
-"beans".  See POE::Component::IRC, for example.
-
-Sean Puckett suggests that POE::Components have some facility for
-other sessions to query and grok their public interfaces.  This would
-be similar to CORBA, COM or SOM objects.  Sounds neat; I hope it's
-doable.  See the CORBA notes.
-
-*** Stand-Alone Programs
-
-Stand-alone programs (or "applications" or "apps" as they're called in
-some circles) don't need a special namespace.  If someone wants to
-write a whole program as an object, and have meta-programs manipulate
-things through an object interface, and they really need the object's
-package to starte with POE, then they can use POE::App.
-
-For example, uh, POE::App::Poepopper would be a POP3 daemon
-implemented as an object, with some public methods to tweak its
-configuration.
-
-This is not a recommendation.
-
-*** Core Contributions
-
-Filters, Drivers, Wheels and whatever.  Where do they go?  As long as
-there are corresponding test programs, I can absorb them into POE's
-core distribution.  Big ones may need to stay separate.
-
-With CVS fully implemented, people could maintain their bits in the
-core.  That could be real nice, except that huge, monolithic
-distributions tend to suck.
-
 * DESIGN CONSIDERATIONS
 
 ** Minor Interface Nits
@@ -465,19 +208,7 @@ a warning with $!.
 Consolidate FailureState and ErrorState, so people don't have to
 remember when to use one or the other.
 
-Add 'DEFAULT' and 'IGNORE' as special event handlers for
-POE::Kernel::sig().
-
-Make the Session::option(default) value mean things.  ($value & 1)
-would determine whether POE displaed internal events; ($value & 2)
-would determine if dropped user events were displayed.
-
 ** Major Nits
-
-It's becoming unfun to run samples/*.perl before each release.  POE
-badly needs some sort of automated test suite.
-
-SocketFactory doesn't support connectionless sockets.
 
 Wheels need to be able to stack things.
 
@@ -487,7 +218,7 @@ don't like it, and I don't have time to fix it right now.  Grrrr!
 
 ** Cascaded States
 
-Cherem <joeo@suninternet.com> wants this for NIRC.
+Cherem joeo@suninternet.com wants this for NIRC.
 
 I think building a cascading mechanism can be useful for non-POE
 programs, so building it into POE would limit its use.  Since POE
@@ -626,79 +357,6 @@ characters if it's working with a Filter::Line.  It might even go so
 far as to query the Filter::Line about the newline characters it needs
 to escape.
 
-** Tie %SIG
-
-Tom Christiansen says it's bad news to tie %SIG, but he didn't explain
-it.  I'll have to try it at least once to see why.
-
-Assume tied %SIG is bad.  Make it %SIGNAL instead.
-
-Storing to %SIGNAL would seem to work exactly like Perl's %SIG does
-now.  Internally, it would either register the state name or create a
-state for the coderef being stored.  For example:
-
-  $SIGNAL{HUP} = \&sighup_state;
-  $SIGNAL{HUP} = 'sighup_state';
-
-And 'DEFAULT' and 'IGNORE' would do the right things, too.
-
-** Fix Signals
-
-Write an XS that polls signals in the relative safety of C.  Use POSIX
-signal functions to block signals until a critical section of C code.
-Unblock them there, and the signals should hit in the C code.  That'll
-prevent them from corrupting perl, I hope.
-
-SIGPIPE can be faked.  Block it entirely, and simulate it when a file
-operation catches EPIPE.  No OS signals involved, and wheels can post
-signals to the appropriate sessions-- even in Concurrent POE with
-multiple kernels.
-
-SIGCH?LD can be faked.  Use SysV semaphores, SysV shared memory, pipes
-or sockets.  Lock files, maybe.  Or perhaps poll for children instead
-of waiting for the signal, as Sean Puckett suggests.
-
-** Fix Alarm Semantics
-
-There are three ways this could go:
-
-*** New Kernel Functions
-
-Depreciate &Kernel::alarm and &Kernel::delay.  Add these functions to
-replace them:
-
-  $alarm_id = $kernel->alarm_set($time, $event, @etc);
-  $kernel->alarm_adjust($alarm_id, $seconds_to_adjust);
-  $kernel->alarm_remove($alarm_id);
-  $alarm_id = $kernel->delay_set($seconds, $event, @etc);
-
-*** New Session Functions
-
-Alarms should really belong to sessions.  What if the Kernel is only
-used indirectly?  For that matter, what if all Session resources are
-manipulated with Session methods?
-
-  $alarm_id = $session->alarm_set($time, $event, @etc);
-  $session->alarm_adjust($alarm_id, $seconds_to_adjust);
-  $session->alarm_remove($alarm_id);
-  $alarm_id = $session->delay_set($seconds, $event, @etc);
-
-*** Resource Classes
-
-I'm preferring resource classes more and more.  Rather than manipulate
-resources with Kernel or Session methods, create them as their own
-objects:
-
-  my $alarm = new POE::Alarm($time, $event, @etc);
-  $alarm->adjust($seconds_to_adjust);
-  undef $alarm; # Calls DESTROY, which replaces alarm_remove()
-  my $alarm = new POE::Delay($seconds, $event, @etc);
-
-Resources would be proxy objects: blessed scalars containing the
-resource ID.  Their object methods would call the appropriate Kernel
-or Session functions to actually manipulate things.  Only the resource
-creator would have a reference to the object.
-
 ** Break Session Encapsulation
 
 There is a growing need to manipulate remote sessions with
@@ -720,6 +378,11 @@ _Advanced Programming in the UNIX Environment_ by W. Richard Stevens:
   chdir('/');
   umask(0);
   close(STDIN); close(STDOUT); close(STDERR); # if necessary
+
+** Kernel fork()
+
+POE::Kernel has some standard requirements for forking.
+Implement them as POE::Kernel::fork()?
 
 ** "Morphing" SocketFactory
 
@@ -814,25 +477,20 @@ enormously cool to revise this and make it work with POE.
 
 ** KST
 
-Fmh suggests looking at the Knowledge Server Toolkit, at
-<http://lambda.gsfc.nasa.gov/kst/kst.html>.  Apparently it is a
-socket-based application for monitor and control.
+Fmh suggests looking at the Knowledge Server Toolkit at http://lambda.gsfc.nasa.gov/kst/kst.html
+Apparently it is a socket-based application for monitor and control.
 
 ** Java Application Servers
 
-Fmh says POE needs Java Application Server functionality.  There's
-one, with explanation and overview and stuff, at
-<http://www.enhydra.org/>.
+Fmh says POE needs Java Application Server functionality.
+There's one, with explanation and overview and stuff, at http://www.enhydra.org/
 
 ** Object System Architecture
 
-Artur Bergman emphatically recommended the book _Object Database
-Development, Concepts and Principles_, by David W. Embley.  More
-information about it may be found at
-<http://cseng.awl.com/bookdetail.qry?ISBN=0-201-25829-3&ptype=0>.
+Artur Bergman emphatically recommended the book _Object Database Development, Concepts and Principles_, by David W. Embley.
+More information about it may be found at http://cseng.awl.com/bookdetail.qry?ISBN=0-201-25829-3&ptype=0
 
-<http://osm7.cs.byu.edu/~eric/allegro.html> talks about some of the
-topics in the book.  Namely "OSA":
+http://osm7.cs.byu.edu/~eric/allegro.html> talks about some of the topics in the book.  Namely "OSA":
 
   OSA has concepts to formalize just about everything one needs to
   model a real world situation.  Although OSA is an "integrated"
@@ -840,23 +498,9 @@ topics in the book.  Namely "OSA":
   conveniently be seen as consisting of three parts: ORM, OBM, and
   OIM.
 
-  ORM = Object-Relationship Model; OBM = Object-Behavior Model;
+  ORM = Object-Relationship Model
+  OBM = Object-Behavior Model;
   OIM = Object-Interaction Model
-
-** CORBA
-
-For the life of me, I can't remember who was pushing CORBA.  I did
-bookmark some links they gave me:
-
-  What CORBA is: <http://www.omg.org/corba/whatiscorba.html>
-  Open CORBA: <http://diamant-atm.vsb.cs.uni-frankfurt.de/~mico/>
-  Tutorial: <http://www.cs.wustl.edu/~schmidt/tutorials-corba.html>
-
-The one-line descriptions for the CORBA services look like a lot of
-fun.  I haven't made time to look at them in detail, though.  I'd like
-for the Object Layer to have CORBA capability, if it's possible.
-Perhaps something clever could be done to make certain objects
-automagically CORBA-compatible.
 
 ** Serial and Terminal Device
 
@@ -865,104 +509,6 @@ select logic can deal with.  The code is mostly written already; it
 just needs to be cleaned up and made available.
 
 Stacked filters would encompass this quite easily.
-
-** State Transition Tables
-
-Crimson would like to see predefined state transition tables.  It
-would seem that just adding a transition table to a session isn't
-saving much (if any) effort, because the code already knows the
-current state, new condition, and desired new state wherever post() is
-used.
-
-So, what if there was a wheel to do yacc-like things?  Here's a
-preliminary design:
-
-  my $yacker = new POE::Wheel::Yack
-    ( $reduction_state_1 => [ [ $token_1, $token_2, $token_3 ],
-                              [ $token_1, $token_2 ],
-                              [ $token_1 ]
-                            ],
-      $reduction_state_2 => [ [ $token_4, $token_5 ],
-                              [ $token_4 ]
-                            ],
-      $reduction_state_3 => [ undef ],  # undef signifies end of input
-    );
-
-  $yacker->shift($token_1);
-  $yacker->shift($token_2);
-  $yacker->shift($token_4);
-  # Before $yacker shifts $token_4, it first reduces $token_1 and
-  # $token_2 to:
-  # $kernel->yield($reduction_state_1, 2, $token_1, $token_2);
-  $yacker->shift(undef);
-  # Reduction: $kernel->yield($reduction_state_2, 1, $token_4);
-  # Reduction: $kernel->yield($reduction_state_3, 0);
-
-And of course, reduction states can do all sorts of things.  They can
-even shift more tokens.
-
-But what good is a Yack wheel without a lexer?  So how about allowing
-it to have one?
-
-  my $yacker = new POE::Wheel::Yack
-    ( ..., # Everything from the previous example
-      Lexer => new POE::Wheel::Lecks
-                 ( Tokens => { $token_1 => [ qr/[a-z][a-z_]/i ],
-                               $token_2 => [ qq(+ - * /) ],
-                               $token_3 => [ qr/".*?"/ ],
-                               $token_4 => [ qq(keyword1 keyword2 keyword3) ],
-                               $token_5 => [ qr/[\d+]/ ],
-                             },
-                   Handle => $filehandle,
-                   Driver => new POE::Driver::SysRW()
-                 ),
-    );
-
-Thus, the Yack wheel will use a Lecks wheel to read data from a Handle
-and parse it.  Perhaps Lecks has some default tokens for data not
-recognized as one of its Tokens.
-
-** UNIX Streams-Like I/O Abstraction
-
-Randal Schwartz doesn't like the Wheels abstraction.  His needs don't
-mesh with it, and he has neither the time nor inclination to write his
-own abstraction.  He did take the time to look at it and suggest
-things, though.
-
-I like this idea more and more as I think about it.
-
-  He needs something that has callbacks when the listen socket is
-  bound.  The bind callback should let him know what port was actually
-  bound to, which is useful in the case of binding to any port (0).
-
-  He suggests stream-ish and gram-ish sockets be separate
-  Wheel/Driver/Filter groups.  I like this and want to add a third
-  group: form-ish.
-
-  He suggests making filters work like SysV drivers.  That is, have a
-  low-level socket, then push protocols on top:
-
-    Create a raw socket.
-    Push "tcp socket with oob" on it.
-    Push "line oriented protocol" on it.
-    Push "irc client protocol" on it.
-
-    Create a raw socket.
-    Push "tcp with pre-connect buffer" on it.
-    Push "line oriented protocol" on it.
-    Push "ftp command channel" on it.
-
-    Create a raw tty filehandle.
-    Push "cooked mode".
-    Push "line oriented".
-    Push "irc client".
-
-  So the filter-to-filter protocol must be inclusive enough from the
-  start to let users write new filters.
-
-This seems to be more evolved than just chaining filters.  He suggests
-reading up on "SysV pushed drivers" and "Unix streams".  Eventually I
-will.
 
 *** General STREAMS Notes
 
@@ -990,8 +536,7 @@ General usage:
 
 *** Notes From DIGITAL's Network Programmer's Guide
 
-The URL is:
-<http://www.partner.digital.com/www-swdev/pages/Home/TECH/documents/Digital_UNIX/V4.0/AA-PS2WD-TET1_html/netprog6.html>
+http://www.partner.digital.com/www-swdev/pages/Home/TECH/documents/Digital_UNIX/V4.0/AA-PS2WD-TET1_html/netprog6.html
 
 **** Module Data Structures
 
@@ -1069,8 +614,7 @@ the same therad.  No concurrency at all.
 
 *** DMR's Streams Paper
 
-A Stream Input-Output System, by Dennis M. Ritchie:
-<http://cm.bell-labs.com/cm/cs/who/dmr/st.html>
+A Stream Input-Output System, by Dennis M. Ritchie: http://cm.bell-labs.com/cm/cs/who/dmr/st.html
 
 **** Overview
 
@@ -1392,10 +936,9 @@ general way to establish channels between processes.
 
 *** Unread Sources
 
-SUN's STREAMS Programming Guide:
-<http://docs.sun.com/ab2/coll.156.1/STREAMS/@Ab2TocView?>
+SUN's STREAMS Programming Guide: http://docs.sun.com/ab2/coll.156.1/STREAMS/@Ab2TocView?
 
-Mentat Performance Networking: <http://www.mentat.com/>
+Mentat Performance Networking: http://www.mentat.com/
 
 ** New Modules
 
@@ -1404,7 +947,6 @@ Mentat Performance Networking: <http://www.mentat.com/>
 Stacked filters would let you do neat things like IMAP through SSH.
 The mind boggles.  Here are some useful filter ideas:
 
-  POE::Filter::SSL
   POE::Filter::SSH
 
 For example:
@@ -1417,24 +959,9 @@ For example:
 
 And go to town!
 
-*** Axels
-
-Axels would let wheels work together, allowing events from one wheel
-to be sent to input events in another wheel.  I have no idea what this
-might be used for.
-
 *** New Components
 
 Some stand-alone components that might be useful:
-
-**** POE::Component::Cron
-
-This could automate many recurring tasks, using cron records instead
-of dorking with time math all the time.  It would also have an at()
-method for completeness.
-
-Actually, it'd be kind of silly once the alarms functions were fixed,
-but whatever. :)
 
 **** POE::Component::Authenticate
 
@@ -1463,14 +990,9 @@ Filter::HTTP (user agent).  This is the client side.  Randal thinks
 there's a non-blocking way to use LWP, possibly by suppling the select
 loop logic for it, which would work nicely.
 
-**** POE::Component::Named
-
-This might be a simple Net::DNS wrapper, providing a thin interface to
-the module's non-blocking name and number lookup features.
-
 **** POE::Component::VNC
 
-VNC's home is <http://www.uk.research.att.com/vnc/>.
+VNC's home is http://www.uk.research.att.com/vnc/>
 
 Something on the VNC site caught my eye, but I don't remember exactly
 where it is.  The site mentions that the VNC protocol doesn't really
@@ -1481,22 +1003,6 @@ It sure would be interesting if POE could serve virtual desktops or
 dialogs with VNC.  Interesting and scary, like a huge, mutant,
 radioactive lizard staring in your car window, wondering if maybe it
 wants a crunchy snack with a soft, gooey center.  Or something.
-
-** Kernel Extensions
-
-I'd like to see the Kernel be extensible through adding new objects.
-Artur has made excellent progress with this, but his code's not ready
-for the public yet.
-
-** Exception handling
-
-Artur suggests wrapping event handler invocations in block evals.
-This would let them throw exceptions with die, or perhaps an imported
-throw function which dies internally.
-
-The caught exception would be translated into an exception event, and
-posted or called back to the session.  Or maybe translated into a
-warning.
 
 ** Concurrent POE (Distributed Queue)
 
@@ -1595,33 +1101,6 @@ Function name conventions used in the following code snippets:
     # End
   }
 
-** Unique IDs
-
-Kernels need some unique ID.  Perhaps a directory service could be set
-up so that kernels can do name lookup.  Maybe regular DNS + port
-number could work.
-
-I'm of two minds with regards to Session IDs.
-
-*** No Unique Session IDs
-
-Sessions are just threads for the Object Layer.  When talking between
-POE systems, the unit of code is an Object.  For example, you wouldn't
-talk to a specific remote thread in a program.  Instead, you'd talk to
-a particular object (or program), and threads are created and
-destroyed as necessary.
-
-*** Unique Session IDs in the POE Core
-
-On the other hand, it's useful to know what's running in your Kernel,
-so session IDs are good for ps-like things.  Also, a lot of people use
-sessions as code objects.  This is my fault, because I blurred the
-distinction early on.
-
-A POE::Component would be good.  Register a session with the
-Component, and let the Component deal with publishing, retracting and
-event emitting/catching.
-
 * WILD IDEAS
 
 ** Scheme
@@ -1674,7 +1153,7 @@ That's the idea, anyway.  Perl may not like it.
 
 ** Automate State Creation
 
-***Translate plain procedural perl into POE event handlers
+*** Translate plain procedural perl into POE event handlers
 
 There is an easy way to translate blocking code into non-blocking
 code.  You just need identify all the jump/return destinations, and
@@ -1746,7 +1225,7 @@ maybe, and, uh, make sure stuff works.  :)
 
 Input parsing is hard.  I have some prototype code for Infocom-style
 command parsing, but it doesn't scale well when you consider that that
-existing infobots (see <http://www.cs.cmu.edu/~infobot>) already
+existing infobots (see http://www.cs.cmu.edu/~infobot ) already
 manage around 150,000 factiods.
 
 So consider the need to look up responses in a 150,000 factoid
