@@ -60,22 +60,25 @@ BEGIN {
   }
 
   # Socket6 provides AF_INET6 and PF_INET6 where earlier Perls' Socket don't.
-  # under perl-5.6.2 the warning "leaks" from the eval, while newer versions don't...
-  # "AF_INET6" is not exported by the Socket module at (eval 83) line 1
-  no warnings 'redefine';
-  eval 'local $SIG{__WARN__} = undef; local *Carp::carp = sub { die @_ }; require Socket; Socket->import("AF_INET6")';
-  if ($@) {
-    eval 'local $SIG{__WARN__} = undef; local *Carp::carp = sub { die @_ }; require Socket6; Socket6->import("AF_INET6")';
+  {
+    # under perl-5.6.2 the warning "leaks" from the eval, while newer versions don't...
+    # it's due to Exporter.pm behaving differently, so we have to shut it up
+    no warnings 'redefine';
+    local *Carp::carp = sub { die @_ };
+    eval { require Socket; Socket->import('AF_INET6') };
     if ($@) {
-      *AF_INET6 = sub { ~0 };
+      eval { require Socket6; Socket6->import('AF_INET6') };
+      if ($@) {
+        *AF_INET6 = sub { ~0 };
+      }
     }
-  }
 
-  eval 'local $SIG{__WARN__} = undef; local *Carp::carp = sub { die @_ }; require Socket; Socket->import("PF_INET6")';
-  if ($@) {
-    eval 'local $SIG{__WARN__} = undef; local *Carp::carp = sub { die @_ }; require Socket6; Socket6->import("PF_INET6")';
+    eval { require Socket; Socket->import('PF_INET6') };
     if ($@) {
-      *PF_INET6 = sub { ~0 };
+      eval { require Socket6; Socket6->import('PF_INET6') };
+      if ($@) {
+        *PF_INET6 = sub { ~0 };
+      }
     }
   }
 }
