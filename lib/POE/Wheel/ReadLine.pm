@@ -1054,7 +1054,15 @@ sub get {
   my ($self, $prompt) = @_;
 
   # Already reading a line here, people.  Sheesh!
-  return if $self->[SELF_READING_LINE];
+  if ($self->[SELF_READING_LINE]) {
+    # Let's update the prompt if the user changed it
+    if ($prompt ne $self->[SELF_PROMPT]) {
+      $self->_wipe_input_line;
+      $self->[SELF_PROMPT] = $prompt;
+      $self->_repaint_input_line;
+    }
+    return;
+  }
   # recheck the terminal size every prompt, in case the size
   # has changed
   eval { ($trk_cols, $trk_rows) = GetTerminalSize($stdout) };
@@ -3337,6 +3345,9 @@ After get() is called, the next line of input or exception on the
 console will trigger an C<InputEvent> with the appropriate parameters.
 POE::Wheel::ReadLine will then enter an inactive state until get() is
 called again.
+
+Calling get() again before a whole line of input is received will
+change the prompt on the fly.
 
 See the L</SYNOPSIS> for sample usage.
 
