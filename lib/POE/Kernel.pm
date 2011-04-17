@@ -107,10 +107,11 @@ BEGIN {
 
 # Second BEGIN block so that USE_TIME_HIRES is treated as a constant.
 BEGIN {
+  # the +0 is to shut up Useless use of a constant in void context warning in certain perls :(
   eval {
     require Time::HiRes;
     Time::HiRes->import(qw(time sleep));
-  } if USE_TIME_HIRES();
+  } if USE_TIME_HIRES() + 0;
 
   # Set up a "constant" sub that lets the user deactivate
   # automatic exception handling
