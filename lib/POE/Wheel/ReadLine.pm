@@ -1056,13 +1056,14 @@ sub get {
   # Already reading a line here, people.  Sheesh!
   if ($self->[SELF_READING_LINE]) {
     # Let's update the prompt if the user changed it
-    if ($prompt ne $self->[SELF_PROMPT]) {
+    if (defined $prompt && $prompt ne $self->[SELF_PROMPT]) {
       $self->_wipe_input_line;
       $self->[SELF_PROMPT] = $prompt;
       $self->_repaint_input_line;
     }
     return;
   }
+
   # recheck the terminal size every prompt, in case the size
   # has changed
   eval { ($trk_cols, $trk_rows) = GetTerminalSize($stdout) };
@@ -1074,7 +1075,7 @@ sub get {
 
   # Set up for the read.
   $self->[SELF_READING_LINE]   = 1;
-  $self->[SELF_PROMPT]         = $prompt;
+  $self->[SELF_PROMPT]         = $prompt if defined $prompt;
   $self->[SELF_INPUT]          = '';
   $self->[SELF_CURSOR_INPUT]   = 0;
   $self->[SELF_CURSOR_DISPLAY] = 0;
@@ -1090,7 +1091,7 @@ sub get {
   $poe_kernel->select($stdin, $self->[SELF_STATE_READ]);
   $stdin->blocking(1) unless $^O eq 'aix';
 
-  my $sp = $prompt;
+  my $sp = $self->[SELF_PROMPT];
   $sp =~ s{\\[\[\]]}{}g;
 
   print $stdout $sp;
@@ -3346,8 +3347,9 @@ console will trigger an C<InputEvent> with the appropriate parameters.
 POE::Wheel::ReadLine will then enter an inactive state until get() is
 called again.
 
-Calling get() again before a whole line of input is received will
-change the prompt on the fly.
+Calls to get() without an argument will preserve the current prompt.
+Calling get() with an argument before a whole line of input is
+received will change the prompt on the fly.
 
 See the L</SYNOPSIS> for sample usage.
 
