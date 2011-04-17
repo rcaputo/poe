@@ -8,8 +8,8 @@ package PoeBuildInfo;
 use strict;
 
 use Exporter;
-use base qw(Exporter);
-use vars qw(@EXPORT_OK);
+use vars qw(@ISA @EXPORT_OK);
+push @ISA, qw(Exporter);
 
 @EXPORT_OK = qw(
   TEST_FILES

@@ -4,7 +4,6 @@ use strict;
 
 use vars qw($VERSION @ISA);
 $VERSION = '1.299'; # NOTE - Should be #.### (three decimal places)
-@ISA = 'POE::Wheel';
 
 use Carp qw(carp croak);
 use POSIX qw(
@@ -13,7 +12,7 @@ use POSIX qw(
 );
 
 use POE qw( Wheel Pipe::TwoWay Pipe::OneWay Driver::SysRW Filter::Line );
-use base qw(POE::Wheel);
+push @ISA, qw(POE::Wheel);
 
 # http://rt.cpan.org/Ticket/Display.html?id=50068
 # Avoid using these constants in Windows' subprocesses (actually

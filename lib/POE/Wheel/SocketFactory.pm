@@ -2,7 +2,7 @@ package POE::Wheel::SocketFactory;
 
 use strict;
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = '1.299'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( carp croak );
@@ -24,7 +24,7 @@ use Socket qw(
 use IO::Handle ();
 use FileHandle ();
 use POE qw( Wheel );
-use base qw(POE::Wheel);
+push @ISA, qw(POE::Wheel);
 
 sub CRIMSON_SCOPE_HACK ($) { 0 }
 sub DEBUG () { 0 }

@@ -4,7 +4,7 @@ package POE::Wheel::Curses;
 
 use strict;
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = '1.299'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw(croak);
@@ -15,7 +15,7 @@ use Curses qw(
 );
 use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
 use POE qw( Wheel );
-use base qw(POE::Wheel);
+push @ISA, qw(POE::Wheel);
 
 sub SELF_STATE_READ  () { 0 }
 sub SELF_STATE_WRITE () { 1 }

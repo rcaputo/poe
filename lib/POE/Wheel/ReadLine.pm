@@ -4,13 +4,13 @@ use warnings;
 use strict;
 BEGIN { eval { require bytes } and bytes->import; }
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = '1.299'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use Symbol qw(gensym);
 use POE qw( Wheel );
-use base qw(POE::Wheel);
+push @ISA, qw(POE::Wheel);
 use POSIX ();
 
 if ($^O eq "MSWin32") {

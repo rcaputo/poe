@@ -2,12 +2,12 @@ package POE::Wheel::ReadWrite;
 
 use strict;
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = '1.299'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use POE qw(Wheel Driver::SysRW Filter::Line);
-use base qw(POE::Wheel);
+push @ISA, qw(POE::Wheel);
 
 # Offsets into $self.
 sub HANDLE_INPUT               () {  0 }

@@ -2,14 +2,14 @@ package POE::Wheel::FollowTail;
 
 use strict;
 
-use vars qw($VERSION);
+use vars qw($VERSION @ISA);
 $VERSION = '1.299'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use Symbol qw( gensym );
 use POSIX qw(SEEK_SET SEEK_CUR SEEK_END S_ISCHR S_ISBLK);
 use POE qw(Wheel Driver::SysRW Filter::Line);
-use base qw(POE::Wheel);
+push @ISA, qw(POE::Wheel);
 use IO::Handle ();
 use Errno qw(ENOENT);
 
