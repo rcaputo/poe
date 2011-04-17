@@ -61,7 +61,6 @@ use PoeBuildInfo qw(
   CORE_REQUIREMENTS
   DIST_ABSTRACT
   DIST_AUTHOR
-  RECOMMENDED_TIME_HIRES
 );
 
 ### Touch files that will be generated at "make dist" time.
@@ -122,7 +121,6 @@ check_for_modules(
   "Storable"              => 2.12,
   "Term::Cap"             => 1.09,
   "Term::ReadKey"         => 2.21,
-  RECOMMENDED_TIME_HIRES,
   "URI"                   => 1.30,
 );
 

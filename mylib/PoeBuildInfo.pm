@@ -17,7 +17,6 @@ push @ISA, qw(Exporter);
   CORE_REQUIREMENTS
   DIST_ABSTRACT
   DIST_AUTHOR
-  RECOMMENDED_TIME_HIRES
   CONFIG_REQUIREMENTS
   REPOSITORY
   HOMEPAGE
@@ -38,8 +37,9 @@ sub CORE_REQUIREMENTS () {
     "IO::Handle"        => 1.27,
     "POSIX"             => 1.02,
     "Socket"            => 1.7,
-    "Test::Harness"     => 2.26,
     "Storable"          => 2.16,
+    "Test::Harness"     => 2.26,
+    "Time::HiRes"       => 1.59,
     (
       ($^O eq "MSWin32")
       ? (
@@ -55,10 +55,6 @@ sub CORE_REQUIREMENTS () {
     ),
     CONFIG_REQUIREMENTS,
   )
-}
-
-sub RECOMMENDED_TIME_HIRES () {
-  ( "Time::HiRes" => 1.59 )
 }
 
 sub DIST_AUTHOR () {

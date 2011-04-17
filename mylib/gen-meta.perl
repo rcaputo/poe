@@ -11,7 +11,6 @@ use PoeBuildInfo qw(
   CORE_REQUIREMENTS
   DIST_ABSTRACT
   DIST_AUTHOR
-  RECOMMENDED_TIME_HIRES
   CONFIG_REQUIREMENTS
   REPOSITORY
   HOMEPAGE
@@ -23,9 +22,6 @@ my $build = Module::Build->new(
   dist_name         => 'POE',
   dist_version_from => 'lib/POE.pm',
   license           => 'perl',
-  recommends        => {
-    RECOMMENDED_TIME_HIRES,
-  },
   requires          => { CORE_REQUIREMENTS },
   build_requires    => { CONFIG_REQUIREMENTS },
   configure_requires => { CONFIG_REQUIREMENTS },

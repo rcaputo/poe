@@ -11,6 +11,7 @@ use Carp qw(carp croak confess cluck);
 use Sys::Hostname qw(hostname);
 use IO::Handle ();
 use File::Spec ();
+use Time::HiRes qw(time sleep);
 
 # People expect these to be lexical.
 
@@ -89,30 +90,9 @@ BEGIN {
         *{ __PACKAGE__ . '::RUNNING_IN_HELL' } = sub { 0 };
     }
   }
-
-  # POE runs better with Time::HiRes, but it also runs without it.
-  { no strict 'refs';
-
-    # Allow users to turn off Time::HiRes usage for whatever reason.
-    my $time_hires_default = 1;
-    $time_hires_default = $ENV{USE_TIME_HIRES} if defined $ENV{USE_TIME_HIRES};
-    if (defined &USE_TIME_HIRES) {
-      $time_hires_default = USE_TIME_HIRES();
-    }
-    else {
-      *USE_TIME_HIRES = sub () { $time_hires_default };
-    }
-  }
 }
 
-# Second BEGIN block so that USE_TIME_HIRES is treated as a constant.
 BEGIN {
-  # the +0 is to shut up Useless use of a constant in void context warning in certain perls :(
-  eval {
-    require Time::HiRes;
-    Time::HiRes->import(qw(time sleep));
-  } if USE_TIME_HIRES() + 0;
-
   # Set up a "constant" sub that lets the user deactivate
   # automatic exception handling
   { no strict 'refs';
@@ -3312,32 +3292,6 @@ sessions may not be trivial, especially if the sessions are separated
 by a network.  The destination can determine how much time remains on
 the requested timer and adjust its wait time accordingly.
 
-=head3 Using Time::HiRes
-
-POE::Kernel timers support sub-second accuracy, but don't expect too
-much here.  Perl is not the right language for realtime programming.
-
-Subsecond accuracy is supported through the use of select() timeouts
-and other event-loop features.  For increased accuracy, POE::Kernel
-uses L<Time::HiRes|Time::HiRes>'s time() internally, if it's available.
-
-You can disable POE's use of Time::HiRes by defining a constant in the
-POE::Kernel namespace.  This must be done before POE::Kernel is
-loaded, so that the compiler can use it.
-
-  BEGIN {
-    package POE::Kernel;
-    use constant USE_TIME_HIRES => 0;
-  }
-  use POE;
-
-Or the old-fashioned (and more concise) "constant subroutine" method.
-This doesn't need the C<BEGIN{}> block since subroutine definitions are
-done at compile time.
-
-  sub POE::Kernel::USE_TIME_HIRES () { 0 }
-  use POE;
-
 =head3 Name-Based Timers
 
 Name-based timers are identified by the event names used to set them.
@@ -3362,9 +3316,8 @@ clear the EVENT_NAME timers in the current session without setting a
 new one.
 
 EPOCH_TIME is the UNIX epoch time.  You know, seconds since midnight,
-1970-01-01.  "Now" is whatever time() returns, either the built-in or
-L<Time::HiRes|Time::HiRes> version.  POE will use Time::HiRes if it's
-available.
+1970-01-01.  POE uses Time::HiRes::time(), which allows EPOCH_TIME to
+be (or include) fractional seconds.
 
 POE supports fractional seconds, but accuracy falls off steeply after
 1/100 second.  Mileage will vary depending on your CPU speed and your
@@ -5282,16 +5235,6 @@ propagation and timing.
 Prefix: <sg>
 
 Environment variable: POE_TRACE_SIGNALS
-
-=head1 ADDITIONAL CONSTANTS
-
-These additional constants govern POE's operation.
-
-=head2 USE_TIME_HIRES
-
-Whether or not to use L<Time::HiRes> for timing purposes.
-
-See L</"Using Time::HiRes">.
 
 =head2 USE_SIGCHLD
 
