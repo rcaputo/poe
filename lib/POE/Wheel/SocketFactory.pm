@@ -445,7 +445,10 @@ sub event {
 
 sub getsockname {
   my $self = shift;
-  return undef unless defined $self->[MY_SOCKET_HANDLE];
+  return undef unless (
+    defined $self->[MY_SOCKET_HANDLE] and
+    fileno($self->[MY_SOCKET_HANDLE])
+  );
   return getsockname($self->[MY_SOCKET_HANDLE]);
 }
 
