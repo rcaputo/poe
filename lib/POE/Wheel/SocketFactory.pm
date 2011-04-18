@@ -655,20 +655,6 @@ sub new {
 
   # Don't block on socket operations, because the socket will be
   # driven by a select loop.
-
-  # RCC 2002-12-19: Replace the complex blocking checks and methods
-  # with IO::Handle's blocking(0) method.  This is theoretically more
-  # portable and less maintenance than rolling our own.  If things
-  # work out, we'll remove the commented out code.
-
-  # RCC 2003-01-20: Unfortunately, blocking() isn't available in perl
-  # 5.005_03, and people still use that.  We'll use blocking() for
-  # Perl 5.8.0 and beyond, since that's the first version of
-  # ActivePerl that has a problem.
-
-  # RCC 2011-02-11: It's the future.  We don't have to care about Perl
-  # 5.005_03 anymore.
-
   $socket_handle->blocking(0);
 
   # Make the socket reusable, if requested.
