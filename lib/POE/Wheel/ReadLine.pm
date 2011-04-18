@@ -1873,51 +1873,16 @@ sub rl_transpose_chars {
 
 sub rl_transpose_words {
   my ($self, $key) = @_;
-  my ($previous, $left, $space, $right, $rest);
 
-  # This bolus of code was written to replace a single
-  # regexp after finding out that the regexp's negative
-  # zero-width look-behind assertion doesn't work in
-  # perl 5.004_05.  For the record, this is that regexp:
-  # s/^(.{0,$cursor_sub_one})(?<!\S)(\S+)(\s+)(\S+)/$1$4$3$2/
-
-  if (substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT], 1) =~ /\s/) {
-    my ($left_space, $right_space);
-    ($previous, $left, $left_space) = (
-      substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]) =~ /^(.*?)(\S+)(\s*)$/
-    );
-    ($right_space, $right, $rest) = (
-      substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\s+)(\S+)(.*)$/
-    );
-    $space = $left_space . $right_space;
-  } elsif ( substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]) =~ /^(.*?)(\S+)(\s+)(\S*)$/ ) {
-    ($previous, $left, $space, $right) = ($1, $2, $3, $4);
-    if (substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\S*)(.*)$/) {
-      $right .= $1 if defined $1;
-      $rest = $2;
-    }
-  } elsif ( substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT]) =~ /^(\S+)(\s+)(\S+)(.*)$/ ) {
-    ($left, $space, $right, $rest) = ($1, $2, $3, $4);
-    if ( substr($self->[SELF_INPUT], 0, $self->[SELF_CURSOR_INPUT]) =~ /^(.*?)(\S+)$/ ) {
-      $previous = $1;
-      $left = $2 . $left;
-    }
+  my $cursor_sub_one = $self->[SELF_CURSOR_INPUT] - 1;
+  if ($self->[SELF_INPUT] =~ s/^(.{0,$cursor_sub_one})(?<!\S)(\S+)(\s+)(\S+)/$1$4$3$2/) {
+    $termcap->Tgoto('LE', 1, $self->[SELF_CURSOR_DISPLAY] - _display_width($1), *STDOUT);
+    print _normalize($4 . $3 . $2);
+    $self->[SELF_CURSOR_INPUT] = length($1 . $2 . $3 . $4);
+    $self->[SELF_CURSOR_DISPLAY] = _display_width($1 . $2 . $3 . $4);
   } else {
     $self->rl_ding;
-    return;
   }
-
-  $previous = '' unless defined $previous;
-  $rest     = '' unless defined $rest;
-
-  $self->[SELF_INPUT] = $previous . $right . $space . $left . $rest;
-
-  if ($self->[SELF_CURSOR_DISPLAY] - _display_width($previous)) {
-    _curs_left($self->[SELF_CURSOR_DISPLAY] - _display_width($previous));
-  }
-  print $stdout _normalize($right . $space . $left);
-  $self->[SELF_CURSOR_INPUT] = length($previous. $left . $space . $right);
-  $self->[SELF_CURSOR_DISPLAY] = _display_width($previous . $left . $space . $right);
 }
 
 sub rl_unix_line_discard {
