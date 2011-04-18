@@ -3903,7 +3903,10 @@ watcher.
 
 POE::Kernel conditions filehandles to be 8-bit clean and non-blocking.
 Programs that need them conditioned differently should set them up
-after starting POE I/O watchers.
+after starting POE I/O watchers. If you are running a Perl older than
+5.8.1 and is using tied filehandles, you need to set non-blocking mode
+yourself as L<IO::Handle> does not work well.
+See L<https://rt.cpan.org/Ticket/Display.html?id=67545> for more info.
 
 I/O watchers will prevent sessions from stopping.
 
