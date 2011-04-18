@@ -1904,7 +1904,7 @@ sub rl_transpose_words {
     }
   } else {
     $self->rl_ding;
-    next;
+    return;
   }
 
   $previous = '' unless defined $previous;
