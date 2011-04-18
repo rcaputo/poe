@@ -1874,6 +1874,8 @@ sub rl_transpose_chars {
 sub rl_transpose_words {
   my ($self, $key) = @_;
 
+  # TODO: move cursor forward after transposing
+  # TODO: when at end of line, transpose the last two characters
   my $cursor_sub_one = $self->[SELF_CURSOR_INPUT] - 1;
   if ($self->[SELF_INPUT] =~ s/^(.{0,$cursor_sub_one})(?<!\S)(\S+)(\s+)(\S+)/$1$4$3$2/) {
     $termcap->Tgoto('LE', 1, $self->[SELF_CURSOR_DISPLAY] - _display_width($1), *STDOUT);
