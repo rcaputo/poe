@@ -450,6 +450,7 @@ sub _data_handle_condition {
     }
 
     # Turn off buffering.
+    # you may be tempted to use $handle->autoflush(1) BUT DON'T DO THAT! ( things blow up )
     CORE::select((CORE::select($handle), $| = 1)[0]);
 }
 
