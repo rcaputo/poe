@@ -118,7 +118,6 @@ check_for_modules(
   "IO::Pty"               => 1.02,
   "LWP"                   => 5.79,
   "Socket::GetAddrInfo"   => 0.19,
-  "Storable"              => 2.12,
   "Term::Cap"             => 1.09,
   "Term::ReadKey"         => 2.21,
   "URI"                   => 1.30,
