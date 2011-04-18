@@ -36,7 +36,7 @@ use IO::Poll 0.01;
 
 # Hand off to POE::Loop::Select if we're running under ActivePerl.
 BEGIN {
-  if ($^O eq "MSWin32") {
+  if ($^O eq "MSWin32" and not $ENV{POE_DANTIC}) {
     warn "IO::Poll is defective on $^O.  Falling back to IO::Select.\n";
     require POE::Loop::Select;
     POE::Loop::Select->import();
