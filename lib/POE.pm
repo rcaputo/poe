@@ -374,10 +374,11 @@ seems to be testing there anymore.  Reports and patches are still
 welcome.
 
 Past versions of POE have been tested with Perl versions as far back
-as 5.004_03 and as recent as "blead", today's development build.  We
+as 5.6.2 and as recent as "blead", today's development build.  We
 can no longer guarantee each release will work everywhere, but we will
 be happy to work with you if you need special support for a really old
-system.
+system. You can always use older POE releases that works on your version,
+please check L<BackPAN|http://backpan.perl.org/authors/id/R/RC/RCAPUTO/>.
 
 POE's quality is due in large part to the fine work of Chris Williams
 and the other CPAN testers.  They have dedicated resources towards
