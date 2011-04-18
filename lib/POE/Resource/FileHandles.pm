@@ -438,8 +438,16 @@ sub _data_handle_condition {
     # tied handle that doesn't support binmode.
     eval { binmode *$handle };
 
-    # Turn off blocking unless it's tied or a plain file.
-    $handle->blocking(0);
+    # Turn off blocking on the handle
+    if ( $] < 5.008001 ) {
+      # Perl-5.6.2 and older seem to hate tied FHs or plain files, so we be careful!
+      # ok 115 - regular file: handle removed fully
+      # Bad filehandle: GEN11 at /home/cpan/poe/blib/lib/POE/Resource/FileHandles.pm line 442.
+      #  Compilation failed in require at t/20_resources/10_perl/filehandles.t line 9.
+      $handle->blocking(0) unless tied *$handle or -f $handle;
+    } else {
+      $handle->blocking(0);
+    }
 
     # Turn off buffering.
     CORE::select((CORE::select($handle), $| = 1)[0]);
