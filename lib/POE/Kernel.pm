@@ -5034,8 +5034,7 @@ The assertions and traces are useful for developing programs with POE,
 but they were originally added to debug POE itself.
 
 Each assertion and tracing group is enabled by setting a constant in
-the POE::Kernel namespace to a true value.  This is the same mechanism
-documented under L</"Using Time::HiRes">, namely:
+the POE::Kernel namespace to a true value.
 
   BEGIN {
     package POE::Kernel;
@@ -5043,15 +5042,16 @@ documented under L</"Using Time::HiRes">, namely:
   }
   use POE;
 
-or
+Or the old-fashioned (and more concise) "constant subroutine" method.
+This doesn't need the C<BEGIN{}> block since subroutine definitions are
+done at compile time.
 
   sub POE::Kernel::ASSERT_DEFAULT () { 1 }
   use POE;
 
-As mentioned in L</"Using Time::HiRes">, the switches must be defined as
-constants before POE::Kernel is first loaded.  Otherwise Perl's
-compiler will not see the constants when first compiling POE::Kernel,
-and the features will not be properly enabled.
+The switches must be defined as constants before POE::Kernel is first
+loaded.  Otherwise Perl's compiler will not see the constants when first
+compiling POE::Kernel, and the features will not be properly enabled.
 
 Assertions and traces may also be enabled by setting shell environment
 variables.  The environment variables are named after the POE::Kernel
