@@ -301,8 +301,8 @@ sub daemon_detach {
 
     # Avoid 'stdin reopened for output'
     # warning with newer perls
-    open( NULL, '/dev/null' );
-    <NULL> if (0);
+    open( NULLFH, '/dev/null' );
+    <NULLFH> if (0);
 
     # return success
     return 1;
