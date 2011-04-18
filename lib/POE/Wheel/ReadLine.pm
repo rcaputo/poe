@@ -1878,8 +1878,8 @@ sub rl_transpose_words {
 
   my $cursor_sub_one = $self->[SELF_CURSOR_INPUT] - 1;
   if ($self->[SELF_INPUT] =~ s/^(.{0,$cursor_sub_one})(?<!\S)(\S+)(\s+)(\S+)/$1$4$3$2/) {
-    $termcap->Tgoto('LE', 1, $self->[SELF_CURSOR_DISPLAY] - _display_width($1), *STDOUT);
-    print _normalize($4 . $3 . $2);
+    $termcap->Tgoto('LE', 1, $self->[SELF_CURSOR_DISPLAY] - _display_width($1), $stdout);
+    print $stdout _normalize($4 . $3 . $2);
     $self->[SELF_CURSOR_INPUT] = length($1 . $2 . $3 . $4);
     $self->[SELF_CURSOR_DISPLAY] = _display_width($1 . $2 . $3 . $4);
   } else {
