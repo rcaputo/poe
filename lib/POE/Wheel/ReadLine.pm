@@ -1857,9 +1857,12 @@ sub rl_clear_screen {
 
 sub rl_transpose_chars {
   my ($self, $key) = @_;
-  # TODO: move cursor forward after transposing
-  # TODO: when at end of line, transpose the last two characters
-  if ($self->[SELF_CURSOR_INPUT] > 0 and $self->[SELF_CURSOR_INPUT] < length($self->[SELF_INPUT])) {
+  if (length($self->[SELF_INPUT]) > 1 && length($self->[SELF_INPUT]) == $self->[SELF_CURSOR_INPUT]) {
+    my $transposition = reverse substr($self->[SELF_INPUT], -2, 2);
+    substr($self->[SELF_INPUT], -2, 2) = $transposition;
+    _curs_left(_display_width($transposition));
+    print $stdout _normalize($transposition);
+  } elsif (length($self->[SELF_INPUT]) > 1 && $self->[SELF_CURSOR_INPUT] > 0) {
     my $width_left = _display_width(substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT] - 1, 1));
 
     my $transposition = reverse substr($self->[SELF_INPUT], $self->[SELF_CURSOR_INPUT] - 1, 2);
