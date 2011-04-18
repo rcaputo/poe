@@ -454,6 +454,7 @@ sub _data_handle_condition {
     $handle->blocking(0) if $] >= 5.008001 or not (tied *$handle or -f $handle);
 
     # Turn off buffering.
+    # you may be tempted to use $handle->autoflush(1) BUT DON'T DO THAT! ( things blow up )
     CORE::select((CORE::select($handle), $| = 1)[0]);
 }
 
