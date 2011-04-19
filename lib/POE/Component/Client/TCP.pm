@@ -88,6 +88,7 @@ sub new {
   my $flush_callback      = delete $param{ServerFlushed};
   my $start_callback      = delete $param{Started};
   my $filter              = delete $param{Filter};
+  # TODO should we have ServerInputFilter/ServerOutputFilter like Server-TCP does?
 
   # Extra states.
 
