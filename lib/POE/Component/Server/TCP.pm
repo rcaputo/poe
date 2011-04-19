@@ -117,6 +117,16 @@ sub new {
 
   my $client_args = delete($param{ClientArgs}) || delete($param{Args});
 
+  if ( (defined $client_infilter and ! defined $client_outfilter) or
+    (defined $client_outfilter and ! defined $client_infilter) ) {
+    croak "ClientInputFilter must be used with ClientOutputFilter";
+  }
+
+  if (defined $client_filter and defined $client_infilter) {
+    carp "ClientFilter ignored with ClientInputFilter and ClientOutputFilter";
+    undef $client_filter;
+  }
+
   # Defaults.
 
   $concurrency = -1 unless defined $concurrency;
@@ -534,14 +544,9 @@ sub _get_filters {
         "InputFilter"  => _load_filter($client_infilter),
         "OutputFilter" => _load_filter($client_outfilter)
       );
-      if (defined $client_filter) {
-        carp(
-          "ClientFilter ignored with ClientInputFilter or ClientOutputFilter"
-        );
-      }
     }
     elsif (defined $client_filter) {
-     return ( "Filter" => _load_filter($client_filter) );
+      return ( "Filter" => _load_filter($client_filter) );
     }
     else {
       return ( Filter => POE::Filter::Line->new(), );
@@ -1123,7 +1128,9 @@ given object.
   ClientFilter => POE::Filter::Line->new(Literal => "\n"),
 
 C<ClientFilter> is optional.  The component will use
-"POE::Filter::Line" if it is omitted.
+"POE::Filter::Line" if it is omitted.  There is L</ClientInputFilter>
+and L</ClientOutputFilter> if you want to specify a different filter
+for both directions.
 
 Filter modules are not automatically loaded.  Be sure that the program
 loads the class before using it.
@@ -1174,7 +1181,8 @@ prohibits the other.
 
 C<ClientInputFilter> is used with C<ClientOutputFilter> to specify
 different protocols for input and output.  Both must be used together.
-Both follow the same usage as L</ClientFilter>.
+Both follow the same usage as L</ClientFilter>.  Overrides the filter set
+by L</ClientFilter>.
 
   ClientInputFilter  => [ "POE::Filter::Line", Literal => "\n" ],
   ClientOutputFilter => 'POE::Filter::Stream',
@@ -1183,7 +1191,8 @@ Both follow the same usage as L</ClientFilter>.
 
 C<ClientOutputFilter> is used with C<ClientInputFilter> to specify
 different protocols for input and output.  Both must be used together.
-Both follow the same usage as L</ClientFilter>.
+Both follow the same usage as L</ClientFilter>.  Overrides the filter set
+by L</ClientFilter>.
 
   ClientInputFilter  => POE::Filter::Line->new(Literal => "\n"),
   ClientOutputFilter => 'POE::Filter::Stream',
