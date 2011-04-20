@@ -10,9 +10,19 @@ use Socket qw(INADDR_ANY inet_ntoa inet_aton AF_INET AF_UNIX PF_UNIX);
 use Errno qw(ECONNABORTED ECONNRESET);
 
 BEGIN {
-  eval "use Socket::GetAddrInfo qw(:newapi getaddrinfo)";
+  # under perl-5.6.2 the warning "leaks" from the eval, while newer versions don't...
+  # it's due to Exporter.pm behaving differently, so we have to shut it up
+  no warnings 'redefine';
+  local *Carp::carp = sub { die @_ };
+
+  # Socket::GetAddrInfo provides getaddrinfo where earlier Perls' Socket don't.
+  eval { Socket->import('getaddrinfo') };
   if ($@) {
-    *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
+    # :newapi is legacy, but we include it to be sure in case the user has an old version of GAI
+    eval { require Socket::GetAddrInfo; Socket::GetAddrInfo->import( qw(:newapi getaddrinfo) ) };
+    if ($@) {
+      *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
+    }
   }
 }
 

@@ -51,32 +51,29 @@ sub MY_SOCKET_SELECTED () { 12 }
 # If IPv6 support can't be loaded, then provide dummies so the code at
 # least compiles.  Suggested in rt.cpan.org 27250.
 BEGIN {
-  eval "use Socket::GetAddrInfo qw(:newapi getaddrinfo getnameinfo)";
+  # under perl-5.6.2 the warning "leaks" from the eval, while newer versions don't...
+  # it's due to Exporter.pm behaving differently, so we have to shut it up
+  no warnings 'redefine';
+  local *Carp::carp = sub { die @_ };
+
+  # Socket::GetAddrInfo provides getaddrinfo where earlier Perls' Socket don't.
+  eval { Socket->import( qw(getaddrinfo getnameinfo) ) };
   if ($@) {
-    *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
-    *getnameinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
+    # :newapi is legacy, but we include it to be sure in case the user has an old version of GAI
+    eval { require Socket::GetAddrInfo; Socket::GetAddrInfo->import( qw(:newapi getaddrinfo getnameinfo) ) };
+    if ($@) {
+      *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
+      *getnameinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
+    }
   }
 
   # Socket6 provides AF_INET6 and PF_INET6 where earlier Perls' Socket don't.
-  {
-    # under perl-5.6.2 the warning "leaks" from the eval, while newer versions don't...
-    # it's due to Exporter.pm behaving differently, so we have to shut it up
-    no warnings 'redefine';
-    local *Carp::carp = sub { die @_ };
-    eval { require Socket; Socket->import('AF_INET6') };
+  eval { Socket->import( qw(AF_INET6 PF_INET6) ) };
+  if ($@) {
+    eval { require Socket6; Socket6->import( qw(AF_INET6 PF_INET6) ) };
     if ($@) {
-      eval { require Socket6; Socket6->import('AF_INET6') };
-      if ($@) {
-        *AF_INET6 = sub { Carp::confess("Unable to use IPv6: Socket6 not available") };
-      }
-    }
-
-    eval { require Socket; Socket->import('PF_INET6') };
-    if ($@) {
-      eval { require Socket6; Socket6->import('PF_INET6') };
-      if ($@) {
-        *PF_INET6 = sub { Carp::confess("Unable to use IPv6: Socket6 not available") };
-      }
+      *AF_INET6 = sub { Carp::confess("Unable to use IPv6: Socket6 not available") };
+      *PF_INET6 = sub { Carp::confess("Unable to use IPv6: Socket6 not available") };
     }
   }
 }
