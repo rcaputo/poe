@@ -117,11 +117,37 @@ check_for_modules(
   "IO::Poll"              => 0.01,
   "IO::Pty"               => 1.02,
   "LWP"                   => 5.79,
-  "Socket::GetAddrInfo"   => 0.19,
   "Term::Cap"             => 1.09,
   "Term::ReadKey"         => 2.21,
   "URI"                   => 1.30,
 );
+
+# check for optional IPv6 stuff
+{
+  # under perl-5.6.2 the warning "leaks" from the eval, while newer versions don't...
+  # it's due to Exporter.pm behaving differently, so we have to shut it up
+  no warnings 'redefine';
+  require Carp;
+  local *Carp::carp = sub { die @_ };
+
+  # On perl-5.14.0 Socket.pm provides getaddrinfo
+  # otherwise we need to use Socket::GetAddrInfo
+  eval { require Socket; Socket->import("getaddrinfo") };
+  if ($@) {
+    check_for_modules( "optional",
+      "Socket::GetAddrInfo" => "0.20",
+    );
+  }
+
+  # On perl-5.14.0 Socket.pm provides the needed IPv6 constants
+  # otherwise we need to use Socket6
+  eval { Socket->import( qw(AF_INET6 PF_INET6) ) };
+  if ($@) {
+    check_for_modules( "optional",
+      "Socket6" => "0.23",
+    );
+  }
+}
 
 ### Generate Makefile.PL.
 
