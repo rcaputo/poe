@@ -53,10 +53,8 @@ sub MY_SOCKET_SELECTED () { 12 }
 BEGIN {
   eval "use Socket::GetAddrInfo qw(:newapi getaddrinfo getnameinfo)";
   if ($@) {
-    my $why = $@;
-    $why =~ s/ at \(eval.* line \d+\.\s*//;
-    *getaddrinfo = sub { return "Socket::GetAddrInfo not loaded: $why" };
-    *getnameinfo = sub { return "Socket::GetAddrInfo not loaded: $why" };
+    *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
+    *getnameinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
   }
 
   # Socket6 provides AF_INET6 and PF_INET6 where earlier Perls' Socket don't.
@@ -69,7 +67,7 @@ BEGIN {
     if ($@) {
       eval { require Socket6; Socket6->import('AF_INET6') };
       if ($@) {
-        *AF_INET6 = sub { ~0 };
+        *AF_INET6 = sub { Carp::confess("Unable to use IPv6: Socket6 not available") };
       }
     }
 
@@ -77,7 +75,7 @@ BEGIN {
     if ($@) {
       eval { require Socket6; Socket6->import('PF_INET6') };
       if ($@) {
-        *PF_INET6 = sub { ~0 };
+        *PF_INET6 = sub { Carp::confess("Unable to use IPv6: Socket6 not available") };
       }
     }
   }
