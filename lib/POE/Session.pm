@@ -1680,7 +1680,7 @@ Reduced to its essence:
   my %event_handlers;
   $event_handler{_start} = sub { \%event_handlers };
 
-Note also that a anonymous sub creates a closure on all lexical
+Note also that an anonymous sub creates a closure on all lexical
 variables in the scope it was defined in, even if it doesn't reference
 them.  $session is still being held in a circular reference here:
 
