@@ -1028,8 +1028,8 @@ current ones.
     $_[KERNEL]->post( $_[SENDER], "echo", @_[ARG0..$#_] );
   }
 
-TODO - Document which events should have $_[SENDER] == $_[KERNEL].
-Probably in POE::Kernel.
+Z<TODO - Document which events should have $_[SENDER] == $_[KERNEL].
+Probably in POE::Kernel.>
 
 =head3 $_[CALLER_FILE], $_[CALLER_LINE] and $_[CALLER_STATE]
 
@@ -1039,7 +1039,7 @@ are fairly plain.  CALLER_STATE contains the name of the event that
 was being handled when the event was created, or when the event
 watcher that ultimately created the event was registered.
 
-TODO - Rename SENDER_FILE, SENDER_LINE, SENDER_STATE?
+Z<TODO - Rename SENDER_FILE, SENDER_LINE, SENDER_STATE?>
 
 =head3 @_[ARG0..ARG9] or @_[ARG0..$#_]
 
@@ -1137,27 +1137,24 @@ application code has not saved a copy of it.
 C<create()> accepts several named parameters, most of which are optional.
 Note however that the parameters are not part of a hashref.
 
-TODO - Is it time to bring new() back as a synonym for create()?
-TODO PG - NO!  IMHO ->new implies simply creating the object, and 
-TODO that you have to hold onto the object.  ->create implies other actions
-TODO are happening, and that you don't want to hold on to it.
+Z<< Is it time to bring new() back as a synonym for create()?
+PG - NO!  IMHO ->new implies simply creating the object, and
+that you have to hold onto the object.  ->create implies other actions
+are happening, and that you don't want to hold on to it. >>
 
-TODO - Provide forward-compatible "handler" options and methods as
+Z<TODO - Provide forward-compatible "handler" options and methods as
 synonyms for the "state" versions currently supported?
-TODO PG - No, that's for 1.01
+PG - No, that's for 1.01>
 
-TODO - Add a "class_handlers" as a synonym for "package_handlers"?
-TODO PG - Maybe. However, to many synonyms can be a pain for an API.  
+Z<TODO - Add a "class_handlers" as a synonym for "package_handlers"?
+PG - Maybe. However, to many synonyms can be a pain for an API.>
 
-TODO - The above TODOs may be summarized: "deprecate old language"?
-TODO PG - Oh, you are thinking of deprecating the old language... erm... no?
+Z<TODO - The above TODOs may be summarized: "deprecate old language"?
+PG - Oh, you are thinking of deprecating the old language... erm... no?>
 
-
-
-TODO PG - I notice these =head3 are in alphabetical order.  I think
+Z<TODO PG - I notice these =head3 are in alphabetical order.  I think
 TODO all the *_states options should be together.  Followed by heap, args,
-TODO options
-
+TODO options>
 
 =head3 args => ARRAYREF
 
@@ -1636,7 +1633,7 @@ ASSERT_STATES by defaulting the "default" option to true instead of
 false.  See the option() method earlier in this document for details
 about the "default" option.
 
-TODO - It's not much of an assertion if it only warns.
+Z<TODO - It's not much of an assertion if it only warns.>
 
 =head1 SEE ALSO
 

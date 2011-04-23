@@ -555,11 +555,13 @@ L<POE::Test::Loops> is POE's event loop tests released as a separate,
 reusable distribution.  POE::Loop authors are encouraged to use the
 tests for their own distributions.
 
-TODO - Link to CPAN for POE::Loop modules.
+Z<TODO - Link to CPAN for POE::Loop modules.>
 
 =head1 BUGS
 
-TODO - Link to POE bug queue.
+None known.
+
+Z<TODO - Link to POE bug queue.>
 
 =head1 AUTHORS & LICENSING
 

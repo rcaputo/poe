@@ -290,10 +290,10 @@ L<POE>, L<POE::Queue::Array>
 
 None known.
 
-TODO - Should set_priority return the old priority instead of the new
-one?
+Z<TODO - Should set_priority return the old priority instead of the new
+one?>
 
-TODO - Rename and repackage as its own distribution.
+Z<TODO - Rename and repackage as its own distribution.>
 
 =head1 AUTHORS & COPYRIGHTS
 

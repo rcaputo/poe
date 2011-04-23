@@ -1238,7 +1238,7 @@ should not attempt to use IPv6 until someone contributes a workaround.
 IPv6 support requires a 21st century Socket module and the presence of
 Socket::GetAddrInfo to resolve host names to IPv6 addresses.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head4 SocketType
 
@@ -1246,7 +1246,7 @@ C<SocketType> supplies the socket() call with a particular socket
 type, which may be C<SOCK_STREAM> or C<SOCK_DGRAM>.  C<SOCK_STREAM> is
 the default if C<SocketType> is not supplied.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head4 SocketProtocol
 
@@ -1257,7 +1257,7 @@ domain sockets.
 The protocol defaults to "tcp" for INET domain sockets.  There is no
 default for other socket domains.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head3 Setting Socket Options
 
@@ -1306,7 +1306,7 @@ contain a path describing the socket's filename.  This is required for
 server sockets and datagram client sockets.  C<BindAddress> has no
 default value for UNIX sockets.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head4 BindPort
 
@@ -1318,7 +1318,7 @@ choose an indeterminate unallocated port.
 C<BindPort> may be a port number or a name that can be looked up in
 the system's services (or equivalent) database.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head3 Connectionless Sockets
 
@@ -1327,7 +1327,7 @@ needing to listen() for connections or connect() to remote addresses.
 
 This class of sockets is complete after the bind() call.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head3 Connecting the Socket to a Remote Endpoint
 
@@ -1358,7 +1358,7 @@ Internet address, or a UNIX socket path.  It will be packed, with or
 without an accompanying C<RemotePort>, as necessary for the socket
 domain.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head4 RemotePort
 
@@ -1369,7 +1369,7 @@ contain both an address and a port.
 The remote port may be numeric, or it may be a symbolic name found in
 /etc/services or the equivalent for your operating system.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head3 Listening for Connections
 
@@ -1389,7 +1389,7 @@ than C<SOMAXCONN> will be clipped to C<SOMAXCONN>.  Excessively large
 C<ListenQueue> values are not necessarily portable, and may cause
 errors in some rare cases.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head3 Emitting Events
 
@@ -1429,7 +1429,7 @@ disable those events.
 
 event() is described in more depth in L<POE::Wheel>.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head2 getsockname
 
@@ -1443,7 +1443,7 @@ to which POE::Wheel::SocketFactory has bound its listening socket.
 Test applications may use getsockname() to find the server socket
 after POE::Wheel::SocketFactory has bound to INADDR_ANY port 0.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head2 ID
 
@@ -1451,7 +1451,7 @@ ID() returns the wheel's unique ID.  The ID will also be included in
 every event the wheel generates.  Applications can match events back
 to the objects that generated them.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head2 pause_accept
 
@@ -1468,7 +1468,7 @@ pause_accept() and resume_accept() is quicker and more reliable than
 dynamically destroying and re-creating a POE::Wheel::SocketFactory
 object.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head2 resume_accept
 

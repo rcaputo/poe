@@ -770,7 +770,7 @@ C<Seek> may also be used with the wheel's tell() method to restore the
 file position after a program restart.  Save the tell() value prior to
 exiting, and load and C<Seek> back to it on subsequent start-up.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head3 SeekBack
 
@@ -784,7 +784,7 @@ C<Seek> and C<SeekBack> are mutually exclusive.
 See L</Seek> for caveats, techniques, and an explanation of the magic
 that happens when neither C<Seek> nor C<SeekBack> is specified.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head3 Handle
 
@@ -800,7 +800,7 @@ purview.
 C<Handle> and C<Filename> are mutually exclusive.  One of them is
 required, however.
 
-TODO - Example.
+Z<TODO - Example.>
 
 =head3 Filename
 
