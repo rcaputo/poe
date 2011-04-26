@@ -1135,6 +1135,7 @@ sub kill {
   my ($self, $signal) = @_;
   $signal = 'TERM' unless defined $signal;
   if ( $self->[MSWIN32_GROUP_PID] ) {
+    # TODO use https://rt.cpan.org/Ticket/Display.html?id=67774 when available :)
     Win32::Process::KillProcess( $self->[MSWIN32_GROUP_PID], 293 ) ? 1 : 0;
   }
   else {
