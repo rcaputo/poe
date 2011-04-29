@@ -117,7 +117,7 @@ check_for_modules(
   "IO::Poll"              => 0.01,
   "IO::Pty"               => 1.02,
   "LWP"                   => 5.79,
-  "Term::Cap"             => 1.09,
+  "Term::Cap"             => 1.10,
   "Term::ReadKey"         => 2.21,
   "URI"                   => 1.30,
 );
