@@ -256,6 +256,16 @@ sub new {
     );
   }
 
+  # Did the user mangle stdio?
+  unless (ref($program) eq 'CODE') {
+    croak "Someone has closed or moved STDIN... exec() won't find it"
+      unless fileno(STDIN) or fileno(STDIN) != 0;
+    croak "Someone has closed or moved STDOUT... exec() won't find it"
+      unless fileno(STDOUT) or fileno(STDOUT) != 1;
+    croak "Someone has closed or moved STDERR... exec() won't find it"
+      unless fileno(STDERR) or fileno(STDERR) != 2;
+  }
+
   my (
     $stdin_read, $stdout_write, $stdout_read, $stdin_write,
     $stderr_read, $stderr_write,
