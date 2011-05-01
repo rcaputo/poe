@@ -89,6 +89,8 @@ Abstract
 				Eliminating deadlock detection means we can't fire SIGIDLE at appropriate times.
 			[_] % Determine an implementation strategy that doesn't suck.
 				Document it here, and make it part of the tasks for this item.
+	[_] % Convert the build process to Dist::Zilla
+		See notes at the start of Makefile.PL.
 	poe-docs
 		See http://github.com/rcaputo/poe-docs
 

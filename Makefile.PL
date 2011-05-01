@@ -1,6 +1,33 @@
 #!/usr/bin/perl
 # rocco // vim: ts=2 sw=2 expandtab
 
+# Note to Dist::Zilla fans - This is NOT a standard Makefile.PL by ANY
+# stretch of the imagination.  If you want to port it to Dist::Zilla,
+# you'll have a number of challenges ahead of you:
+#
+# - Custom Makefile.PL code.
+#
+# - Dynamic dependencies varying by $^O (see mylib/PoeBuildInfo.pm)
+# and by $] (see IPv6 dependencies below).
+#
+# - Dynamically generated tests.  See PREOP in WriteMakefile(), below.
+#
+# - Custom Makefile target "coverage".  See MY::postamble, below.
+#
+# I have tried using Dist::Zilla::Plugin::Makemaker::Awesome, but the
+# need to break encapsulation in order to make it work turned me away.
+#
+# People who love Dist::Zilla are welcome to replace this perfectly
+# fine Makefile.PL, but you should be aware of some requirements
+# before I'll accept the change:
+#
+# - Reproduce or improve upon all current Makefile.PL features.  It's
+# all there for one reason or another.  The reasons are still largely
+# pertinent.  When in doubt, ask.
+#
+# - Limit your changes to replacing Makefile.PL and $VERSION.  I'd
+# rather be able to rely on error message line numbers than to add
+# more moving parts to my build and test workflows.
 
 use strict;
 use ExtUtils::MakeMaker;
@@ -153,13 +180,6 @@ check_for_modules(
 
 sub MY::postamble {
   return <<EOF;
-
-ppmdist: pm_to_blib
-\cI\$(TAR) --exclude '*/man[13]*' -cvf \\
-\cI\cI\$(DISTVNAME)-win32ppd.tar blib
-\cI\$(COMPRESS) \$(DISTVNAME)-win32ppd.tar
-
-ppddist: ppmdist
 
 coverage: Makefile
 \cI$^X mylib/coverage.perl
