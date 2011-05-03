@@ -256,16 +256,15 @@ sub new {
     );
   }
 
-#  # Did the user mangle stdio?
-#  # TODO - This means well, but it doesn't realy work.
-#  unless (ref($program) eq 'CODE') {
-#    croak "Someone has closed or moved STDIN... exec() won't find it"
-#      unless fileno(STDIN) or fileno(STDIN) != 0;
-#    croak "Someone has closed or moved STDOUT... exec() won't find it"
-#      unless fileno(STDOUT) or fileno(STDOUT) != 1;
-#    croak "Someone has closed or moved STDERR... exec() won't find it"
-#      unless fileno(STDERR) or fileno(STDERR) != 2;
-#  }
+  # Did the user mangle stdio?
+  unless (ref($program) eq 'CODE') {
+    croak "Someone has closed or moved STDIN... exec() won't find it"
+      unless defined fileno(STDIN) && fileno(STDIN) == 0;
+    croak "Someone has closed or moved STDOUT... exec() won't find it"
+      unless tied(*STDOUT) || defined fileno(STDOUT) && fileno(STDOUT) == 1;
+    croak "Someone has closed or moved STDERR... exec() won't find it"
+      unless tied(*STDERR) || defined fileno(STDERR) && fileno(STDERR) == 2;
+  }
 
   my (
     $stdin_read, $stdout_write, $stdout_read, $stdin_write,
