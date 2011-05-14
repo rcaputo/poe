@@ -3,9 +3,12 @@
 use warnings;
 use strict;
 
-use Test::More tests => 2;
+use Test::More tests => 1;
+
 use_ok('POE');
-use_ok('POE::Test::Loops');
+
+eval "use POE::Test::Loops";
+$POE::Test::Loops::VERSION = "doesn't seem to be installed" if $@;
 
 # idea from Test::Harness, thanks!
 diag(
