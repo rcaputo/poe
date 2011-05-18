@@ -1009,7 +1009,11 @@ sub _dispatch_event {
 
   my $return;
   my $wantarray = wantarray();
-confess unless defined $session;
+
+  confess 'please report this stacktrace to bug-poe@rt.cpan.org' unless (
+    defined $session
+  );
+
   if ($type & (ET_CALL | ET_START | ET_STOP)) {
     eval {
       if ($wantarray) {
@@ -1076,7 +1080,11 @@ confess unless defined $session;
     }
   }
   else {
-    die "$@\n" if ref($@) or $@ ne '';
+    if (ref($@) or $@ ne '') {
+      # Avoid shenanigans at a distance.
+      local $SIG{__DIE__};
+      die "$@\n";
+    }
   }
 
   # Call with exception catching.
