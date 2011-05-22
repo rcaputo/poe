@@ -1443,7 +1443,20 @@ to which POE::Wheel::SocketFactory has bound its listening socket.
 Test applications may use getsockname() to find the server socket
 after POE::Wheel::SocketFactory has bound to INADDR_ANY port 0.
 
-Z<TODO - Example.>
+Since there is no event fired immediately after a successful creation of a
+listening socket, applications can use getsockname() to verify this.
+
+ use Socket 'unpack_sockaddr_in';
+
+ my $listener = POE::Wheel::SocketFactory->new(
+     BindPort     => 123,
+     SuccessEvent => 'got_client',
+     FailureEvent => 'listener_failed',
+     Reuse        => 'on',
+ );
+
+ my ($port, $addr) = unpack_sockaddr_in($listener->getsockname);
+ print "Socket successfully bound\n" if $port;
 
 =head2 ID
 
