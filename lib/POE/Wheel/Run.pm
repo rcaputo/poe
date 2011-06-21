@@ -1204,6 +1204,9 @@ sub _redirect_child_stdio_in_hell {
 sub _redirect_child_stdio_sanely {
   my ($class, $stdin_read, $stdout_write, $stderr_write) = @_;
 
+  # Note: we use 2-arg open() below because Perl 5.6 doesn't recognize
+  # the '>&' and '<&' modes with a 3-arg open()
+
   # Redirect STDIN from the read end of the stdin pipe.
   open( STDIN, "<&" . fileno($stdin_read) )
     or $class->_warn_and_exit_child(

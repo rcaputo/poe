@@ -39,6 +39,9 @@ my $tc_bell;         # How to ring the terminal.
 my $tc_visual_bell;  # How to ring the terminal.
 my $tc_has_ce;       # Termcap can clear to end of line.
 
+# Note: we use 2-arg open() below because Perl 5.6 doesn't recognize
+# the '>&' and '<&' modes with a 3-arg open()
+
 # Private STDIN and STDOUT.
 my $stdin  = gensym();
 open($stdin, "<&STDIN") or die "Can't open private STDIN: $!";
