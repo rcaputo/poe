@@ -481,7 +481,7 @@ sub _data_handle_remove {
       TRACE_FILES and
         _warn(
           "<fh> removing handle ($handle) fileno ($fd) mode ($mode) from " .
-          Carp::shortmess
+          $self->_data_alias_loggable($sid) . Carp::shortmess()
         );
 
       # Remove the handle from the kernel's session record.
@@ -563,7 +563,9 @@ sub _data_handle_remove {
   }
   elsif (TRACE_FILES) {
     _warn(
-      "<fh> handle ($handle) fileno ($fd) is not registered with POE::Kernel"
+      "<fh> handle ($handle) fileno ($fd) is not registered with POE::Kernel" .
+      Carp::shortmess()
+
     );
   }
 
