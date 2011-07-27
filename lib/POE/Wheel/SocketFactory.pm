@@ -189,7 +189,7 @@ sub _define_accept_state {
         }
         elsif ( $domain eq DOM_INET6 ) {
           $peer = getpeername($new_socket);
-          ((my $error), $peer_port, $peer_addr) =  getnameinfo($peer);
+          ((my $error), $peer_addr, $peer_port) =  getnameinfo($peer);
           warn $error if $error;
         }
         else {
@@ -309,7 +309,7 @@ sub _define_connect_state {
       # INET6 socket stacks tend not to.
       elsif ($domain eq DOM_INET6) {
         if (defined $peer) {
-          ((my $error), $peer_port, $peer_addr) = getnameinfo($peer);
+          ((my $error), $peer_addr, $peer_port) = getnameinfo($peer);
           if ($error) {
             warn $error;
             $peer_port = $peer_addr = undef;
