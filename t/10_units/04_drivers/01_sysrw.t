@@ -106,8 +106,8 @@ nonblocking($r);
 
 # Number of flushed octets == number of read octets.
 
-{ my $flushed_count = write_until_pipe_is_full($d, $w);
-  my $read_count    = read_until_pipe_is_empty($d, $r);
+{ my ($flushed_count, $full) = write_until_pipe_is_full($d, $w);
+  my ($read_count)           = read_until_pipe_is_empty($d, $r);
 
   ok(
     $flushed_count == $read_count,
@@ -174,6 +174,7 @@ exit 0;
 sub write_until_pipe_is_full {
   my ($driver, $handle) = @_;
 
+  # Hopefully bigger than any system buffer ever.
   my $big_chunk = "*" x (1024 * 1024);
 
   my $flushed   = 0;
@@ -181,18 +182,21 @@ sub write_until_pipe_is_full {
 
   while (1) {
     # Put a big chunk into the buffer.
-    my $buffered    = $driver->put([ $big_chunk ]);
+    my $buffered = $driver->put([ $big_chunk ]);
 
     # Try to flush it.
     my $after_flush = $driver->flush($handle);
 
-    # Flushed amount.
+    # How much was flushed?
     $flushed += $buffered - $after_flush;
 
-    # The pipe is full if there's data after the flush.
+    # If there's data left, then this flush failed.
     last if $after_flush;
   }
 
+  if (wantarray) {
+    return ($flushed, $full);
+  }
   return $flushed;
 }
 
@@ -245,7 +249,7 @@ sub nonblocking {
   eval { binmode *$handle };
 
   # Turn off blocking.
-  eval { $handle->blocking(0) };
+  eval { $handle->blocking(0); $handle->blocking(); };
 
   # Turn off buffering.
   CORE::select((CORE::select($handle), $| = 1)[0]);
