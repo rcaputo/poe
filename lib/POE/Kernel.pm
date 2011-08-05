@@ -496,7 +496,7 @@ sub _load_loop {
 
 sub _test_loop {
   my $used_first = shift;
-  local $SIG{__DIE__} = "DEFAULT";
+  local $SIG{__DIE__};
 
   # First see if someone wants to load a POE::Loop or XS version
   # explicitly.
@@ -1014,7 +1014,11 @@ sub _dispatch_event {
     defined $session
   );
 
+  my $new_sig_die;
   if ($type & (ET_CALL | ET_START | ET_STOP)) {
+    # Don't trigger $SIG{__DIE__} until we're ready to rethrow it.
+    local $SIG{__DIE__};
+
     eval {
       if ($wantarray) {
         $return = [
@@ -1034,14 +1038,24 @@ sub _dispatch_event {
         );
       }
     };
+
+    $new_sig_die = $SIG{__DIE__};
   }
   else {
+    # Don't trigger $SIG{__DIE__} until we're ready to rethrow it.
+    local $SIG{__DIE__};
+
     eval {
       $session->_invoke_state(
         $source_session, $event, $etc, $file, $line, $fromstate
       );
     };
+
+    $new_sig_die = $SIG{__DIE__};
   }
+
+  # If the user changed $SIG{__DIE__}, then we should honor that.
+  $SIG{__DIE__} = $new_sig_die if defined $new_sig_die;
 
   # local $@ doesn't work quite the way I expect, but there is a
   # bit of a problem if an eval{} occurs here because a signal is
@@ -1079,12 +1093,12 @@ sub _dispatch_event {
       }
     }
   }
-  else {
-    if (ref($@) or $@ ne '') {
-      # Avoid shenanigans at a distance.
-      local $SIG{__DIE__};
-      die "$@\n";
-    }
+  elsif (ref $@) {
+    die $@;
+  }
+  elsif ($@ ne '') {
+    # Stringification hides "...propagated at".
+    die "$@";
   }
 
   # Call with exception catching.
@@ -1236,7 +1250,7 @@ sub _rethrow_kr_exception {
   $kr_exception = undef;
 
   # Rethrow it.
-  die $exception if $exception;
+  die "rethrown by POE::Kernel: $exception" if $exception;
 }
 
 # Stops the kernel cold.  XXX Experimental!
