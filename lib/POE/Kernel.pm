@@ -1055,6 +1055,7 @@ sub _dispatch_event {
   }
 
   # If the user changed $SIG{__DIE__}, then we should honor that.
+  # Otherwise, by the time we get here, the last one is restored.
   $SIG{__DIE__} = $new_sig_die if defined $new_sig_die;
 
   # local $@ doesn't work quite the way I expect, but there is a
@@ -1073,7 +1074,9 @@ sub _dispatch_event {
 
       # Exceptions in _stop are rethrown unconditionally.
       # We can't enqueue them--the session is about to go away.
-      if ($type & ET_STOP) {
+      # Also if the active session has been forced back to $self via
+      # POE::Kernel->stop().
+      if ($type & ET_STOP or $kr_active_session eq $self) {
         $kr_exception = $exception;
       }
       else {
@@ -1098,7 +1101,7 @@ sub _dispatch_event {
   }
   elsif ($@ ne '') {
     # Stringification hides "...propagated at".
-    die "$@";
+    die $@;
   }
 
   # Call with exception catching.
@@ -1250,7 +1253,7 @@ sub _rethrow_kr_exception {
   $kr_exception = undef;
 
   # Rethrow it.
-  die "rethrown by POE::Kernel: $exception" if $exception;
+  die $exception if $exception;
 }
 
 # Stops the kernel cold.  XXX Experimental!
@@ -1298,10 +1301,9 @@ sub stop {
   $poe_kernel->has_forked() if $kr_pid != $$;
 
   # TODO - If we're polling for signals, then the reset gets it wrong.
-  # The reset only counts statistics tracing, not sigchld polling.  If
-  # we must put this back, it MUST account for all internal events
-  # currently in play, or the child process will stall if it reruns
-  # POE::Kernel's loop.
+  # The reset doesn't count sigchld polling.  If we must put this
+  # back, it MUST account for all internal events currently in play,
+  # or the child process will stall if it reruns POE::Kernel's loop.
   #_idle_queue_reset();
 
   return;
