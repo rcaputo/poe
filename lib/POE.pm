@@ -70,7 +70,7 @@ __END__
 
 =head1 NAME
 
-POE - portable multitasking and networking framework for any event loop
+POE - portable L<multitasking|http://en.wikipedia.org/wiki/Computer_multitasking#Cooperative_multitasking.2Ftime-sharing> and networking framework for any event loop
 
 =head1 SYNOPSIS
 
