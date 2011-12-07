@@ -602,7 +602,7 @@ sub _test_if_kernel_is_idle {
       " (vs. idle size = ", $idle_queue_size, ")\n",
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
       "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
-      "<rc> | Procs  : ", $self->_data_sig_child_procs(), "\n",
+      "<rc> | Procs  : ", $self->_data_sig_kernel_awaits_pids(), "\n",
       "<rc> | Sess   : ", $self->_data_ses_count(), "\n",
       "<rc> `---------------------------\n",
       "<rc> ..."
@@ -626,7 +626,7 @@ sub _test_if_kernel_is_idle {
     $kr_queue->get_item_count() > $idle_queue_size or
     $self->_data_handle_count() or
     $self->_data_extref_count() or
-    $self->_data_sig_child_procs() or
+    $self->_data_sig_kernel_awaits_pids() or
     !$self->_data_ses_count()
   );
 

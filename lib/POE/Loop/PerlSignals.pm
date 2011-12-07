@@ -45,6 +45,7 @@ sub _loop_signal_handler_generic_bottom {
 }
 
 ##
+
 sub _loop_signal_handler_pipe {
   if( USE_SIGNAL_PIPE ) {
     POE::Kernel->_data_sig_pipe_send( $_[0] );
@@ -67,6 +68,7 @@ sub _loop_signal_handler_pipe_bottom {
 }
 
 ## only used under USE_SIGCHLD
+
 sub _loop_signal_handler_chld {
   if( USE_SIGNAL_PIPE ) {
     POE::Kernel->_data_sig_pipe_send( 'CHLD' );
@@ -96,6 +98,11 @@ sub loop_watch_signal {
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
     if ( USE_SIGCHLD ) {
       # Poll once for signals.  Will set the signal handler when done.
+      # It would be more efficient to set $SIG{$signal} here and reap
+      # processes, but that would synchronously set the signal
+      # handler, and subsequent system() calls within the callback
+      # could fail with a -1 return value.  The polling event defers
+      # the setup until the current callback returns.
       $self->_data_sig_enqueue_poll_event($signal);
     } else {
       # We should never twiddle $SIG{CH?LD} under POE, unless we want to
@@ -123,7 +130,7 @@ sub loop_ignore_signal {
 
   if ($signal eq 'CHLD' or $signal eq 'CLD') {
     if ( USE_SIGCHLD ) {
-      if( $self->_data_sig_child_procs) {
+      if ($self->_data_sig_kernel_awaits_pids()) {
         # We need SIGCHLD to stay around after shutdown, so that
         # child processes may be reaped and kr_child_procs=0
         if (TRACE_SIGNALS) {

@@ -102,7 +102,11 @@ use vars (
 my $polling_for_signals = 0;
 
 # A flag determining whether there are child processes.
-my $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 );
+use constant BASE_SIGNAL_COUNT => (
+  exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 )
+);
+
+my $kr_has_child_procs = BASE_SIGNAL_COUNT;
 
 # A list of special signal types.  Signals that aren't listed here are
 # benign (they do not kill sessions at all).  "Terminal" signals are
@@ -195,7 +199,7 @@ sub _data_sig_reset_procs {
   # least once.  Starts false when running in an Apache handler so our
   # SIGCHLD hijinks don't interfere with the web server.
   $self->_data_sig_cease_polling();
-  $kr_child_procs = exists($INC{'Apache.pm'}) ? 0 : ( USE_SIGCHLD ? 0 : 1 );
+  $kr_has_child_procs = BASE_SIGNAL_COUNT;
 }
 
 
@@ -256,18 +260,28 @@ sub _data_sig_finalize {
 
     my $leaked_children = 0;
 
-    until ((my $pid = waitpid( -1, 0 )) == -1) {
-      _warn( "!!! Child process PID:$pid reaped: $!\n" ) if $pid;
+    PROCESS: until ((my $pid = waitpid( -1, WNOHANG )) == -1) {
       $finalized_ok = 0;
       $leaked_children++;
+
+      if ($pid == 0) {
+        _warn(
+          "!!! At least one child process is still running " .
+          "when POE::Kernel->run() is ready to return.\n"
+        );
+        last PROCESS;
+      }
+
+      _warn(
+        "!!! Stopped child process (PID $pid) reaped " .
+          "when POE::Kernel->run() is ready to return.\n"
+      );
     }
 
     if ($leaked_children) {
-      _warn(
-        "!!! Your program may not be using sig_child() to reap processes.\n",
-        "!!! In extreme cases, your program can force a system reboot\n",
-        "!!! if this resource leakage is not corrected.\n",
-      );
+      _warn("!!! Be sure to use sig_child() to reap child processes.\n");
+      _warn("!!! In extreme cases, failure to reap child processes has\n");
+      _warn("!!! resulted in a slow 'fork bomb' that has halted systems.\n");
     }
   }
 
@@ -375,7 +389,7 @@ sub _data_sig_pid_watch {
 
   # Assume there's a child process.  This will be corrected on the
   # next polling interval.
-  $kr_child_procs++ unless USE_SIGCHLD;
+  $kr_has_child_procs++ unless USE_SIGCHLD;
 }
 
 sub _data_sig_pid_ignore {
@@ -399,10 +413,22 @@ sub _data_sig_pid_ignore {
   $self->_data_ses_refcount_dec($sid);
 }
 
-sub _data_sig_pids_ses {
+sub _data_sig_session_awaits_pids {
   my ($self, $sid) = @_;
-  return 0 unless exists $kr_sessions_to_pids{$sid};
-  return scalar keys %{$kr_sessions_to_pids{$sid}};
+
+  # There must be child processes or pending signals.
+  # Watching PIDs doesn't matter if there are none to be reaped.
+  return 0 unless $kr_has_child_procs or $self->_data_sig_pipe_has_signals();
+
+  # This session is watching at least one PID with sig_child().
+  # TODO - Watching a non-existent PID is legal but ill-advised.
+  return 1 if exists $kr_sessions_to_pids{$sid};
+
+  # Is the session waiting for a blanket sig(CHLD)?
+  return(
+    (exists $kr_sessions_to_signals{$sid}) &&
+    (exists $kr_sessions_to_signals{$sid}{CHLD})
+  );
 }
 
 sub _data_sig_pids_is_ses_watching {
@@ -573,6 +599,40 @@ sub _data_sig_handle_poll_event {
     );
   }
 
+  $self->_data_sig_reap_pids();
+
+  # The poll loop is over.  Resume slowly polling for signals.
+
+  if (USE_SIGCHLD) {
+    if (TRACE_SIGNALS) {
+      _warn("<sg> POE::Kernel has reset the SIG$signal handler");
+    }
+    # Per https://rt.cpan.org/Ticket/Display.html?id=45109 setting the
+    # signal handler must be done after reaping the outstanding child
+    # processes, at least on SysV systems like HP-UX.
+    $SIG{$signal} = \&_loop_signal_handler_chld;
+  }
+  else {
+    # The poll loop is over.  Resume slowly polling for signals.
+
+    if ($polling_for_signals) {
+      if (TRACE_SIGNALS) {
+        _warn("<sg> POE::Kernel will poll again after a delay");
+      }
+      $self->_data_sig_enqueue_poll_event($signal);
+    }
+    else {
+      if (TRACE_SIGNALS) {
+        _warn("<sg> POE::Kernel SIGCHLD poll loop paused");
+      }
+      $self->_idle_queue_shrink();
+    }
+  }
+}
+
+sub _data_sig_reap_pids {
+  my $self = shift();
+
   # Reap children for as long as waitpid(2) says something
   # interesting has happened.
   # TODO This has a possibility of an infinite loop, but so far it
@@ -583,7 +643,7 @@ sub _data_sig_handle_poll_event {
     # waitpid(2) returned a process ID.  Emit an appropriate SIGCHLD
     # event and loop around again.
 
-    if ((RUNNING_IN_HELL and $pid < -1) or ($pid > 0)) {
+    if (($pid > 0) or (RUNNING_IN_HELL and $pid < -1)) {
       if (RUNNING_IN_HELL or WIFEXITED($?) or WIFSIGNALED($?)) {
 
         if (TRACE_SIGNALS) {
@@ -629,8 +689,7 @@ sub _data_sig_handle_poll_event {
     #
     # TODO - Find a way to test this.
 
-    _trap "internal consistency error: waitpid returned $pid"
-    if $pid != -1;
+    _trap "internal consistency error: waitpid returned $pid" if $pid != -1;
 
     # If the error is an interrupted syscall, poll again right away.
 
@@ -664,44 +723,28 @@ sub _data_sig_handle_poll_event {
     last;
   }
 
-  # If waitpid() returned 0, then we have child processes.
+  # Remember whether there are more processes to reap.
 
-  $kr_child_procs = !$pid;
-
-  if (USE_SIGCHLD) {
-    if (TRACE_SIGNALS) {
-      _warn("<sg> POE::Kernel has reset the SIG$signal handler");
-    }
-    # Per https://rt.cpan.org/Ticket/Display.html?id=45109 setting the
-    # signal handler must be done after reaping the outstanding child
-    # processes, at least on SysV systems like HP-UX.
-    $SIG{$signal} = \&_loop_signal_handler_chld;
-  }
-  else {
-    # The poll loop is over.  Resume slowly polling for signals.
-
-    if ($polling_for_signals) {
-      if (TRACE_SIGNALS) {
-        _warn("<sg> POE::Kernel will poll again after a delay");
-      }
-      $self->_data_sig_enqueue_poll_event($signal);
-    }
-    else {
-      if (TRACE_SIGNALS) {
-        _warn("<sg> POE::Kernel SIGCHLD poll loop paused");
-      }
-      $self->_idle_queue_shrink();
-    }
-  }
+  $kr_has_child_procs = !$pid;
 }
 
 # Are there child processes worth waiting for?
 # We don't really care if we're not polling for signals.
-# TODO - Will this change?
 
-sub _data_sig_child_procs {
-  return if !USE_SIGCHLD and !$polling_for_signals;
-  return $kr_child_procs;
+sub _data_sig_kernel_awaits_pids {
+  my $self = shift();
+
+  return 0 if !USE_SIGCHLD and !$polling_for_signals;
+
+  # There must be child processes or pending signals.
+  return 0 unless $kr_has_child_procs or $self->_data_sig_pipe_has_signals();
+
+  # At least one session is watching an explicit PID.
+  # TODO - Watching a non-existent PID is legal but ill-advised.
+  return 1 if scalar keys %kr_pids_to_events;
+
+  # Is the session waiting for a blanket sig(CHLD)?
+  return exists $kr_signals{CHLD};
 }
 
 ######################
@@ -725,6 +768,17 @@ use vars qw( $signal_pipe_read_fd );
 my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid, 
     $signal_pipe_len, $signal_pipe_remainder, $signal_pipe_format, 
     $signal_mask_none, $signal_mask_all, %SIG2NUM, %NUM2SIG );
+
+
+sub _data_sig_pipe_has_signals {
+  my $self = shift();
+  return unless $signal_pipe_read;
+  my $vec = '';
+  vec($vec, fileno($signal_pipe_read), 1) = 1;
+
+  # Ambiguous call resolved as CORE::select(), qualify as such or use &
+  return(CORE::select($vec, undef, undef, 0) > 0);
+}
 
 
 sub _data_sig_pipe_build {
