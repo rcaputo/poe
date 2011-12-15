@@ -3,7 +3,7 @@ package POE::Wheel::Run;
 use strict;
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.312'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.350'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw(carp croak);
 use POSIX qw(
