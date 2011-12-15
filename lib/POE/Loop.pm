@@ -3,7 +3,7 @@ package POE::Loop;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.312'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.350'; # NOTE - Should be #.### (three decimal places)
 
 1;
 
