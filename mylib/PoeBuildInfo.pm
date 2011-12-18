@@ -1,4 +1,4 @@
-# rocco // vim: ts=2 sw=2 expandtab
+# vim: ts=2 sw=2 expandtab
 
 # Build information for POE.  Moved into a library so it can be
 # required by Makefile.PL and gen-meta.perl.
@@ -24,7 +24,9 @@ push @ISA, qw(Exporter);
 
 
 sub CONFIG_REQUIREMENTS () {
-  ("POE::Test::Loops"  => '1.312')
+  (
+    "POE::Test::Loops"  => '1.350',
+  );
 }
 
 sub CORE_REQUIREMENTS () {

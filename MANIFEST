@@ -2,7 +2,6 @@ CHANGES
 HISTORY
 MANIFEST			This list of files
 MANIFEST.SKIP
-META.yml
 Makefile.PL
 README
 TODO
@@ -73,7 +72,6 @@ mylib/PoeBuildInfo.pm
 mylib/coverage.perl
 mylib/cpan-test.perl
 mylib/events_per_second.pl
-mylib/gen-meta.perl
 mylib/gen-tests.perl
 mylib/svn-log.perl
 mylib/ForkingDaemon.pm

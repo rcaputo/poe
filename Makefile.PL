@@ -88,14 +88,16 @@ use PoeBuildInfo qw(
   CORE_REQUIREMENTS
   DIST_ABSTRACT
   DIST_AUTHOR
+  CONFIG_REQUIREMENTS
+  HOMEPAGE
+  REPOSITORY
 );
 
 ### Touch files that will be generated at "make dist" time.
-### ExtUtils::MakeMaker and Module::Build will complain about them if
+### ExtUtils::MakeMaker will complain about them if
 ### they aren't present now.
 
 open(TOUCH, ">>CHANGES") and close TOUCH;
-open(TOUCH, ">>META.yml") and close TOUCH;
 
 ### Touch gen-tests.perl so it always triggers.
 
@@ -189,19 +191,21 @@ EOF
 }
 
 WriteMakefile(
-  NAME           => 'POE',
-  AUTHOR         => DIST_AUTHOR,
-  ABSTRACT       => DIST_ABSTRACT,
+  NAME               => 'POE',
+  AUTHOR             => DIST_AUTHOR,
+  ABSTRACT           => DIST_ABSTRACT,
+  LICENSE            => 'perl',
 
-  VERSION_FROM   => 'lib/POE.pm',
-  dist           => {
+  CONFIGURE_REQUIRES => { CONFIG_REQUIREMENTS },
+  BUILD_REQUIRES     => { CONFIG_REQUIREMENTS },
+
+  VERSION_FROM       => 'lib/POE.pm',
+  dist               => {
     COMPRESS => 'gzip -9f',
     SUFFIX   => 'gz',
     PREOP    => (
       'git-log.pl | ' .
-      '/usr/bin/tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES; ' .
-      "$^X mylib/gen-meta.perl; " .
-      '/bin/cp -f ./META.yml ./$(DISTNAME)-$(VERSION)/META.yml'
+      '/usr/bin/tee ./$(DISTNAME)-$(VERSION)/CHANGES > ./CHANGES; '
     ),
   },
 
@@ -211,9 +215,21 @@ WriteMakefile(
   # Not executed on "make test".
   PL_FILES       => { 'mylib/gen-tests.perl' => [ 'lib/POE.pm' ] },
 
-  # More for META.yml than anything.
-  NO_META        => 1,
   PREREQ_PM      => { CORE_REQUIREMENTS },
+
+  META_MERGE => {
+    no_index => {
+      directory => [ 'mylib' ],
+    },
+    resources => {
+      homepage   => HOMEPAGE,
+      license    => 'http://dev.perl.org/licenses/',
+      repository => REPOSITORY,
+    },
+  },
+
+  # TODO - ExtUtils::MakeMaker doesn't generate 'provides'.
+  # Module::Build did, but we're not using it anymore.
 );
 
 1;
