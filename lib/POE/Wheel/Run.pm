@@ -304,7 +304,12 @@ sub new {
 
   # Use IO::Pty if requested.  IO::Pty turns on autoflush for us.
   
-  if(defined $stdout_event or defined $stdin_event or defined $stderr_event) {
+  if(defined $stdout_event
+     or defined $stdin_event
+     or defined $stderr_event
+     or (!$no_stdin))
+  #Bypass all the conduit handling if the user does not care for child I/O
+  {  
     if ($conduit =~ /^pty(-pipe)?$/) {
       croak "IO::Pty is not available" unless PTY_AVAILABLE;
       
@@ -340,7 +345,7 @@ sub new {
             unless defined $$rfd_ref and defined $$wfd_ref;
         }
       }
-      unless (defined $redir_in or $no_stdin) {
+      unless (defined($redir_in) or $no_stdin) {
         ($stdin_read, $stdin_write) = POE::Pipe::OneWay->new();
         croak "could not make stdin pipe $!"
           unless defined $stdin_write and defined $stdin_read;
