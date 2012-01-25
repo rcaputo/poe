@@ -17,11 +17,16 @@ POE::Kernel->run;
 sub _start {
 	my ($kernel, $heap) = @_[KERNEL, HEAP];
 
-	$kernel->delay('timeout', 5);
 	$heap->{quickie} = WheelWrapper->new(
 		Program   => sub { die },
 		ExitEvent => 'exit',
 	);
+
+  # The delay goes after creating WheelWrapper.  Starting a process
+  # takes a little over 5sec on some Windows systems, and I don't know
+  # why.  This pretty much guarantees the timeout occurs.
+
+	$kernel->delay('timeout', 5);
 }
 
 sub exit {
