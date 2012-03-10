@@ -193,13 +193,10 @@ sub new {
     carp "ignoring StderrEvent with pty conduit";
     undef $stderr_event;
   }
-
-  croak "$type needs at least one of StdinEvent, StdoutEvent or StderrEvent"
-    unless(
-      defined($stdin_event) or defined($stdout_event) or
-      defined($stderr_event)
-    );
-
+  
+  #croak "$type needs at least one of StdinEvent, StdoutEvent or StderrEvent"
+  #  unless (defined($stdin_event) or defined($stdout_event) or defined ($stderr_event));
+  
   my $stdio_driver  = delete $params{StdioDriver}  || POE::Driver::SysRW->new();
   my $stdin_driver  = delete $params{StdinDriver}  || $stdio_driver;
   my $stdout_driver = delete $params{StdoutDriver} || $stdio_driver;
@@ -209,6 +206,25 @@ sub new {
   my $stdin_filter  = delete $params{StdinFilter};
   my $stdout_filter = delete $params{StdoutFilter};
   my $stderr_filter = delete $params{StderrFilter};
+  
+  #For optional redirection...
+  my $redir_err     = delete $params{RedirectStderr};
+  my $redir_out     = delete $params{RedirectStdout};
+  my $redir_in      = delete $params{RedirectStdin};
+  my $redir_output  = delete $params{RedirectOutput};
+  
+  my $no_stdin      = delete $params{NoStdin};
+  
+  if(defined $redir_output) {
+    $redir_out = $redir_err = $redir_output;
+  }
+  
+  #Sanity check. We can't wait for redirected filehandles
+  if( (defined $redir_in and defined $stdin_event) ||
+     (defined $redir_out and defined $stdout_event) ||
+     (defined $redir_err and defined $stderr_event) ) {
+    croak("Redirect* and *Event stdio options are mutually exclusive");
+  }
 
   if (defined $stdio_filter) {
     croak "Filter and StdioFilter cannot be used together"
@@ -270,47 +286,76 @@ sub new {
     $stdin_read, $stdout_write, $stdout_read, $stdin_write,
     $stderr_read, $stderr_write,
   );
-
+  
+  _filespec_to_fd(\$stdin_read, "<", $redir_in);
+  if($redir_output) {
+    _filespec_to_fd(\$stdout_write, ">", $redir_output);
+    _filespec_to_fd(\$stderr_write, ">", $stdout_write);
+  } else {
+    _filespec_to_fd(\$stdout_write, ">", $redir_out);
+    _filespec_to_fd(\$stderr_write, ">", $redir_err);
+  }
+  
   # Create a semaphore pipe.  This is used so that the parent doesn't
   # begin listening until the child's stdio has been set up.
+  
   my ($sem_pipe_read, $sem_pipe_write) = POE::Pipe::OneWay->new();
   croak "could not create semaphore pipe: $!" unless defined $sem_pipe_read;
 
   # Use IO::Pty if requested.  IO::Pty turns on autoflush for us.
-  if ($conduit =~ /^pty(-pipe)?$/) {
-    croak "IO::Pty is not available" unless PTY_AVAILABLE;
-
-    $stdin_write = $stdout_read = IO::Pty->new();
-    croak "could not create master pty: $!" unless defined $stdout_read;
-
-    if ($conduit eq "pty-pipe") {
-      ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
-      croak "could not make stderr pipes: $!"
-        unless defined $stderr_read and defined $stderr_write;
+  
+  if(defined $stdout_event
+     or defined $stdin_event
+     or defined $stderr_event
+     or (!$no_stdin))
+  #Bypass all the conduit handling if the user does not care for child I/O
+  {  
+    if ($conduit =~ /^pty(-pipe)?$/) {
+      croak "IO::Pty is not available" unless PTY_AVAILABLE;
+      
+      if(defined $redir_err or defined $redir_in or defined $redir_out) {
+        croak "Redirection with pty conduit is unsupported";
+      }
+      
+      $stdin_write = $stdout_read = IO::Pty->new();
+      croak "could not create master pty: $!" unless defined $stdout_read;
+      if ($conduit eq "pty-pipe") {
+        ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
+        croak "could not make stderr pipes: $!"
+          unless defined $stderr_read and defined $stderr_write;
+      }
     }
-  }
-
-  # Use pipes otherwise.
-  elsif ($conduit eq 'pipe') {
-    # We make more pipes than strictly necessary in case someone wants
-    # to turn some on later.  Uses a TwoWay pipe for STDIN/STDOUT and
-    # a OneWay pipe for STDERR.  This may save 2 filehandles if
-    # socketpair() is available and no other $stdio_type is selected.
-    ($stdin_read, $stdout_write, $stdout_read, $stdin_write) =
-      POE::Pipe::TwoWay->new($stdio_type);
-    croak "could not make stdin pipe: $!"
-      unless defined $stdin_read and defined $stdin_write;
-    croak "could not make stdout pipe: $!"
-      unless defined $stdout_read and defined $stdout_write;
-
-    ($stderr_read, $stderr_write) = POE::Pipe::OneWay->new();
-    croak "could not make stderr pipes: $!"
-      unless defined $stderr_read and defined $stderr_write;
-  }
-
-  # Sanity check.
-  else {
-    croak "unknown conduit type $conduit";
+  
+    # Use pipes otherwise.
+    elsif ($conduit eq 'pipe') {
+      # We make more pipes than strictly necessary in case someone wants
+      # to turn some on later.  Uses a TwoWay pipe for STDIN/STDOUT and
+      # a OneWay pipe for STDERR.  This may save 2 filehandles if
+      # socketpair() is available and no other $stdio_type is selected.
+      
+      foreach (
+        [\$redir_out, \$stdout_read, \$stdout_write, $stdout_event, "stdout"],
+        [\$redir_err, \$stderr_read, \$stderr_write, $stderr_event, "stderr"],
+        [\$redir_in, \$stdin_read, \$stdin_write, $stdin_event, "stdin"]
+        ) {
+        my ($redir_ref,$rfd_ref,$wfd_ref,$evname, $prettyprint) = @$_;
+        if(defined $evname && (!defined $$redir_ref)) {
+          ($$rfd_ref,$$wfd_ref) = POE::Pipe::OneWay->new();
+          croak "could not make $prettyprint pipe: $!"
+            unless defined $$rfd_ref and defined $$wfd_ref;
+        }
+      }
+      unless (defined($redir_in) or $no_stdin) {
+        ($stdin_read, $stdin_write) = POE::Pipe::OneWay->new();
+        croak "could not make stdin pipe $!"
+          unless defined $stdin_write and defined $stdin_read;
+      }
+    }
+  
+    # Sanity check.
+    else {
+      croak "unknown conduit type $conduit";
+    }
   }
 
   # Block signals until safe
@@ -381,7 +426,7 @@ sub new {
       # TODO - Can this be block eval?  Or a do{} block?
       eval 'setpgrp(0,0)' unless $no_setpgrp;
     }
-
+    
     # Reset all signals in the child process.  POE's own handlers are
     # silly to keep around in the child process since POE won't be
     # using them.
@@ -425,35 +470,37 @@ sub new {
     }
 
     # Close what the child won't need.
-    close $stdin_write;
-    close $stdout_read;
+    close $stdin_write if defined $stdin_write;
+    close $stdout_read if defined $stdout_read;
     close $stderr_read if defined $stderr_read;
-
+    
     if (POE::Kernel::RUNNING_IN_HELL) {
       __PACKAGE__->_redirect_child_stdio_in_hell(
         $stdin_read, $stdout_write, $stderr_write
       );
     }
+    
     else {
       __PACKAGE__->_redirect_child_stdio_sanely(
         $stdin_read, $stdout_write, $stderr_write
       );
     }
-
+    
     # Make STDOUT and/or STDERR auto-flush.
     select STDERR;  $| = 1;
     select STDOUT;  $| = 1;
-
+        
     # The child doesn't need to read from the semaphore pipe.
     $sem_pipe_read = undef;
 
     # Run Perl code.  This is farily consistent across most systems.
+    
     if (ref($program) eq 'CODE') {
 
       # Tell the parent that the stdio has been set up.
       print $sem_pipe_write "go\n";
       close $sem_pipe_write;
-
+      
       # Close any close-on-exec file descriptors.  Except STDIN,
       # STDOUT, and STDERR, of course.
       if ($close_on_call) {
@@ -507,10 +554,13 @@ sub new {
   }
 
   # Parent here.  Close what the parent won't need.
+  
   defined($stdin_read)   and close $stdin_read;
   defined($stdout_write) and close $stdout_write;
   defined($stderr_write) and close $stderr_write;
-
+  
+  
+  
   # Also close any slave ptys
   $stdout_read->close_slave() if (
     defined $stdout_read and ref($stdout_read) eq 'IO::Pty'
@@ -569,7 +619,7 @@ sub new {
   }
   close $sem_pipe_read;
 
-  $self->_define_stdin_flusher();
+  $self->_define_stdin_flusher() if defined $stdin_write;
   $self->_define_stdout_reader() if defined $stdout_read;
   $self->_define_stderr_reader() if defined $stderr_read;
 
@@ -892,12 +942,15 @@ sub event {
 
 sub DESTROY {
   my $self = shift;
-
+  
+  return if(ref POE::Kernel->get_active_session eq 'POE::Kernel');
+  
   # Turn off the STDIN thing.
   if ($self->[HANDLE_STDIN]) {
     $poe_kernel->select_write($self->[HANDLE_STDIN]);
     $self->[HANDLE_STDIN] = undef;
   }
+  
   if ($self->[STATE_STDIN]) {
     $poe_kernel->state($self->[STATE_STDIN]);
     $self->[STATE_STDIN] = undef;
@@ -1184,21 +1237,35 @@ sub _redirect_child_stdio_in_hell {
   # TODO - https://rt.cpan.org/Ticket/Display.html?id=50068 claims
   # that these _SetStdHandle() calls may leak memory.  Do we have
   # alternatives?
-
+  
   Win32::Console::_SetStdHandle(
     $STD_INPUT_HANDLE,
     FdGetOsFHandle(fileno($stdin_read))
-  );
+  ) if defined $stdin_read;
 
   Win32::Console::_SetStdHandle(
     $STD_OUTPUT_HANDLE,
     FdGetOsFHandle(fileno($stdout_write))
-  );
+  ) if defined $stdout_write;
 
   Win32::Console::_SetStdHandle(
     $STD_ERROR_HANDLE,
     FdGetOsFHandle(fileno($stderr_write))
-  );
+  ) if defined $stderr_write;
+}
+
+sub _filespec_to_fd {
+  my ($dest,$mode,$fspec) = @_;
+  return unless defined $fspec;
+  if(ref $fspec) {
+    if (ref $fspec eq 'GLOB') {
+      open $$dest, "$mode&", $fspec;
+    } else {
+      die("Bad file specifier '$fspec'");
+    }
+  } else {
+    open $$dest, $mode, $fspec;
+  }
 }
 
 sub _redirect_child_stdio_sanely {
@@ -1208,19 +1275,24 @@ sub _redirect_child_stdio_sanely {
   # the '>&' and '<&' modes with a 3-arg open()
 
   # Redirect STDIN from the read end of the stdin pipe.
-  open( STDIN, "<&" . fileno($stdin_read) )
-    or $class->_warn_and_exit_child(
-      "can't redirect STDIN in child pid $$: $!", int( $! ) );
+  if(defined $stdin_read) {
+    open( STDIN, "<&" . fileno($stdin_read) )
+      or $class->_warn_and_exit_child(
+        "can't redirect STDIN in child pid $$: $!", int( $! ) );
+  }
 
   # Redirect STDOUT to the write end of the stdout pipe.
-  open( STDOUT, ">&" . fileno($stdout_write) )
-    or $class->_warn_and_exit_child(
-      "can't redirect stdout in child pid $$: $!", int( $! ) );
-
-  # Redirect STDERR to the write end of the stderr pipe.
-  open( STDERR, ">&" . fileno($stderr_write) )
-    or $class->_warn_and_exit_child(
-      "can't redirect stderr in child pid $$: $!", int( $! ) );
+  if(defined $stdout_write) {
+    open( STDOUT, ">&" . fileno($stdout_write) )
+      or $class->_warn_and_exit_child(
+        "can't redirect stdout in child pid $$: $!", int( $! ) );
+  }
+    # Redirect STDERR to the write end of the stderr pipe.
+  if(defined $stderr_write) {
+    open( STDERR, ">&" . fileno($stderr_write) )
+      or $class->_warn_and_exit_child(
+        "can't redirect stderr in child pid $$: $!", int( $! ) );
+  }
 }
 
 sub _exit_child_any_way_we_can {
@@ -1688,6 +1760,39 @@ ID of the wheel that read the output.
     my ($heap, $input, $wheel_id) = @_[HEAP, ARG0, ARG1];
     print "Child process in wheel $wheel_id wrote to STDERR: $input\n";
   }
+
+=head4 RedirectStdout
+
+This is a filehandle or filename to which standard output will be redirected.
+It is an error to use this option together with StdoutEvent. This is useful
+in case your program needs to have standard I/O, but do not actually care for
+its contents to be visible to the parent.
+
+=head4 RedirectStderr
+
+Just like RedirectStdout, but with standard error. It is an error to use this
+together with StderrEvent
+
+=head4 RedirectStdin
+
+This is a filehandle or filename which the child process will use as its
+standard input. It is an error to use this option with StdinEvent
+
+=head4 RedirectOutput
+
+This will redirect stderr and stdout to the same filehandle. This is equivalent
+to do doing something like
+
+  $ something > /path/to/output 2>&1
+  
+in bourne shell.
+
+=head4 NoStdin
+
+While output filehandles will be closed if there are no events to be received on
+them, stdin is open by default - because lack of an event handler does not
+necessarily mean there is no desired input stream. This option explicitly
+disables the creation of an IPC stdin conduit.
 
 =head4 StdioFilter
 
