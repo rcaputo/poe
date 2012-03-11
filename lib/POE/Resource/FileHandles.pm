@@ -451,7 +451,9 @@ sub _data_handle_condition {
     # Compilation failed in require
     #   at t/20_resources/10_perl/filehandles.t line 9.
 
-    $handle->blocking(0) if $] >= 5.008001 or not (tied *$handle or -f $handle);
+    IO::Handle::blocking($handle, 0) if (
+      $] >= 5.008001 or not (tied *$handle or -f $handle)
+    );
 
     # Turn off buffering.
     # you may be tempted to use $handle->autoflush(1) BUT DON'T DO THAT! ( things blow up )
