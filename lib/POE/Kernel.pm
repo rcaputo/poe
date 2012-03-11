@@ -3,7 +3,7 @@ package POE::Kernel;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.350'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.351'; # NOTE - Should be #.### (three decimal places)
 
 use POSIX qw(uname);
 use Errno qw(ESRCH EINTR ECHILD EPERM EINVAL EEXIST EAGAIN EWOULDBLOCK);
