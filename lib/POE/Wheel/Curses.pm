@@ -5,7 +5,7 @@ package POE::Wheel::Curses;
 use strict;
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.351'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.352'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw(croak);
 use Curses qw(

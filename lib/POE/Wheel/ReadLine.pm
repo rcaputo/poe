@@ -5,7 +5,7 @@ use strict;
 BEGIN { eval { require bytes } and bytes->import; }
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.351'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.352'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use Symbol qw(gensym);
