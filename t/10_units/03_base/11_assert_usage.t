@@ -234,7 +234,7 @@ POE::Session->create(
 
       eval { $_[KERNEL]->alias_remove("moo") };
       ok(
-        $@ && $@ =~ /alias does not belong to current session/,
+        $@ && $@ =~ /alias 'moo' does not belong to current session/,
         "alias belongs to another session"
       );
     }
@@ -246,7 +246,7 @@ POE::Session->create(
     _start => sub {
       eval { $poe_kernel->alias_remove("narf") };
       ok(
-        $@ && $@ =~ /alias does not exist/,
+        $@ && $@ =~ /alias 'narf' does not exist/,
         "alias does not exist"
       );
     }

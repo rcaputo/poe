@@ -2324,12 +2324,12 @@ sub alias_remove {
   my $existing_session = $self->_data_alias_resolve($name);
 
   unless (defined $existing_session) {
-    $self->_explain_usage("alias does not exist");
+    $self->_explain_usage("alias '$name' does not exist");
     return ESRCH;
   }
 
   if ($existing_session != $kr_active_session) {
-    $self->_explain_usage("alias does not belong to current session");
+    $self->_explain_usage("alias '$name' does not belong to current session");
     return EPERM;
   }
 
