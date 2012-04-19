@@ -16,6 +16,7 @@ sub SPAWN_RUNSTATE      () { 'runstate' }
 sub OPT_TRACE           () { 'trace' }
 sub OPT_DEBUG           () { 'debug' }
 sub OPT_DEFAULT         () { 'default' }
+sub OPT_IMMEDIATE       () { 'immediate' }
 
 sub EN_DEFAULT          () { '_default' }
 sub EN_START            () { '_start' }
@@ -745,8 +746,7 @@ sub callback {
 
 sub goto_state {
   my ($self, $new_state, $entry_event, @entry_args) = @_;
-
-  if (defined $self->[SELF_CURRENT]) {
+  if (defined $self->[SELF_CURRENT] && !$self->[SELF_OPTIONS]->{+OPT_IMMEDIATE}) {
     $POE::Kernel::poe_kernel->post(
       $self, NFA_EN_GOTO_STATE,
       $new_state, $entry_event, @entry_args
@@ -767,16 +767,30 @@ sub stop {
 
 sub call_state {
   my ($self, $return_event, $new_state, $entry_event, @entry_args) = @_;
-  $POE::Kernel::poe_kernel->post(
-    $self, NFA_EN_PUSH_STATE,
-    $return_event,
-    $new_state, $entry_event, @entry_args
-  );
+  if ($self->[SELF_OPTIONS]->{+OPT_IMMEDIATE}) {
+    $POE::Kernel::poe_kernel->call(
+      $self, NFA_EN_PUSH_STATE,
+      $return_event,
+      $new_state, $entry_event, @entry_args
+    );
+  }
+  else {
+    $POE::Kernel::poe_kernel->post(
+      $self, NFA_EN_PUSH_STATE,
+      $return_event,
+      $new_state, $entry_event, @entry_args
+    );
+  }
 }
 
 sub return_state {
   my ($self, @entry_args) = @_;
-  $POE::Kernel::poe_kernel->post( $self, NFA_EN_POP_STATE, @entry_args );
+  if ($self->[SELF_OPTIONS]->{+OPT_IMMEDIATE}) {
+    $POE::Kernel::poe_kernel->call( $self, NFA_EN_POP_STATE, @entry_args );
+  }
+  else {
+    $POE::Kernel::poe_kernel->post( $self, NFA_EN_POP_STATE, @entry_args );
+  }
 }
 
 1;
@@ -951,8 +965,8 @@ machine is in C<state_2>, method C<method_1> will be called on $object_2.
 C<package_states> is very similar, but instead of using an $object, you
 pass in a C<Package::Name>
 
-The C<runstate> parameter allows C<RUNSTATE> to be initialized differently 
-at instantiation time. C<RUNSTATE>, like heaps, are usually anonymous hashrefs, 
+The C<runstate> parameter allows C<RUNSTATE> to be initialized differently
+at instantiation time. C<RUNSTATE>, like heaps, are usually anonymous hashrefs,
 but C<runstate> may set them to be array references or even objects.
 
 =head2 goto_state NEW_STATE[, ENTRY_EVENT[, EVENT_ARGS]]
