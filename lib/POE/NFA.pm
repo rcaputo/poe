@@ -985,6 +985,11 @@ event's handler via C<ARG0..$#_>.
   # Switch to the next state; call an entry point with some values.
   $_[MACHINE]->goto_state( 'next_state', 'entry_event', @parameters );
 
+State transitions are not necessarily executed immediately by default.  Rather,
+they are placed in POEs event queue behind any currently pending events.
+Enabling the C<immediate> option causes state transitions to occur immediately,
+regardless of any queued events.
+
 =head2 stop
 
 stop() forces a machine to stop.  The machine will also stop
