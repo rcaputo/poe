@@ -12,10 +12,11 @@ $VERSION = '1.352'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw(carp croak);
 
-sub BUFFER ()   { 0 }
-sub FREEZE ()   { 1 }
-sub THAW ()     { 2 }
-sub COMPRESS () { 3 }
+sub BUFFER    () { 0 }
+sub FREEZE    () { 1 }
+sub THAW      () { 2 }
+sub COMPRESS  () { 3 }
+sub NO_FATALS () { 4 }
 
 #------------------------------------------------------------------------------
 # Try to require one of the default freeze/thaw packages.
@@ -78,7 +79,7 @@ sub _get_methods {
 #------------------------------------------------------------------------------
 
 sub new {
-  my($type, $freezer, $compression) = @_;
+  my($type, $freezer, $compression, $no_fatals) = @_;
 
   my($freeze, $thaw);
   unless (defined $freezer) {
@@ -142,10 +143,11 @@ sub new {
   }
 
   my $self = bless [
-    '',           # BUFFER
-    $freeze,      # FREEZE
-    $thaw,        # THAW
-    $compression, # COMPRESS
+    '',              # BUFFER
+    $freeze,         # FREEZE
+    $thaw,           # THAW
+    $compression,    # COMPRESS
+    $no_fatals || 0, # NO_FATALS
   ], $type;
   $self;
 }
@@ -187,10 +189,17 @@ sub get_one {
     length($self->[BUFFER]) >= $1 + length($1) + 1
   ) {
     substr($self->[BUFFER], 0, length($1) + 1) = "";
-    my $return = substr($self->[BUFFER], 0, $1);
+    my $next_message = substr($self->[BUFFER], 0, $1);
     substr($self->[BUFFER], 0, $1) = "";
-    $return = uncompress($return) if $self->[COMPRESS];
-    return [ $self->[THAW]->($return) ];
+    $next_message = uncompress($next_message) if $self->[COMPRESS];
+
+    unless ($self->[NO_FATALS]) {
+      return [ $self->[THAW]->($next_message) ];
+    }
+
+    my $thawed = eval { $self->[THAW]->($next_message) };
+    return [ "$@" ] if $@;
+    return [ $thawed ];
   }
 
   return [ ];
@@ -280,7 +289,7 @@ different serializer may be specified at construction time.
 POE::Filter::Reference deviates from the standard POE::Filter API in
 the following ways.
 
-=head2 new [SERIALIZER [, COMPRESSION]]
+=head2 new [SERIALIZER [, COMPRESSION [, NO_FATALS]]]
 
 new() creates and initializes a POE::Filter::Reference object.  It
 will use Storable as its default SERIALIZER if none other is
@@ -289,6 +298,23 @@ specified.
 If COMPRESSION is true, Compress::Zlib will be called upon to reduce
 the size of serialized data.  It will also decompress the incoming
 stream data.
+
+If NO_FATALS is true, messages will be thawed inside a block eval.  By
+default, however, thaw() is allowed to die normally.  If an error
+occurs while NO_FATALS is in effect, POE::Filter::Reference will
+return a string containing the contents of $@ at the time the eval
+failed.  So when using NO_FATALS, it's important to check whether
+input is really a reference:
+
+  sub got_reference {
+    my $message = $_[ARG0];
+    if (ref $message) {
+      print "Got data:\n", YAML::Dump($message);
+    }
+    else {
+      warn "Input decode error: $message\n";
+    }
+  }
 
 Any class that supports nfreeze() (or freeze()) and thaw() may be used
 as a SERIALIZER.  If a SERIALIZER implements both nfreeze() and
@@ -382,8 +408,9 @@ connection.  Even different versions of the same serializer can break
 data in transit.
 
 Most (if not all) serializers will re-bless data at the destination,
-but many of them will not load the necessary classes to make their
-blessings work.
+but many of them will not load the necessary classes to make those
+blessings work.  Make sure the same classes and versions are available
+on either end of the wire.
 
 =head1 AUTHORS & COPYRIGHTS
 
