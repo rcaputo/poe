@@ -497,7 +497,7 @@ sub new {
   my $domain = delete $params{SocketDomain};
   if (defined $domain) {
     # [rt.cpan.org 76314] Untaint the domain.
-    ($domain) = ($domain =~ /\A(.*)\z/);
+    ($domain) = ($domain =~ /\A(.*)\z/s);
   }
   else {
     $domain = AF_INET;
