@@ -4675,12 +4675,16 @@ in continuing to watch for a signal that will never come again.  Other
 signal handlers persist until they are cleared.
 
 sig_child() watchers keep a session alive for as long as they are
-active.  This is unique among signal watchers.
+active.  This is unique among POE's signal watchers.
 
 Programs that wish to reliably reap child processes should be sure to
 call sig_child() before returning from the event handler that forked
 the process.  Otherwise POE::Kernel may have an opportunity to call
 waitpid() before an appropriate event watcher has been registered.
+
+Programs that reap processes with waitpid() must clear POE's watchers
+for the same process IDs, otherwise POE will wait indefinitely for
+processes that never send signals.
 
 sig_child() does not return a meaningful value.
 
