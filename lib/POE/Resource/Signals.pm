@@ -252,6 +252,22 @@ sub _data_sig_finalize {
     }
   }
 
+  if ($kr_has_child_procs) {
+    _warn "!!! Kernel has child processes.\n";
+  }
+
+  if ($polling_for_signals) {
+    _warn "!!! Finalizing signals while polling is active.\n";
+  }
+
+  if (USE_SIGNAL_PIPE and $self->_data_sig_pipe_has_signals()) {
+    _warn "!!! Finalizing signals while signal pipe contains messages.\n";
+  }
+
+  if (exists $kr_signals{CHLD}) {
+    _warn "!!! Finalizing signals while a blanket _child signal is watched.\n";
+  }
+
   %_safe_signals = ();
 
   unless (RUNNING_IN_HELL) {
