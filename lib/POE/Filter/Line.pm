@@ -15,10 +15,14 @@ sub FRAMING_BUFFER   () { 0 }
 sub INPUT_REGEXP     () { 1 }
 sub OUTPUT_LITERAL   () { 2 }
 sub AUTODETECT_STATE () { 3 }
+sub FIRST_UNUSED     () { 4 }  # First unused $self offset.
 
 sub AUTO_STATE_DONE   () { 0x00 }
 sub AUTO_STATE_FIRST  () { 0x01 }
 sub AUTO_STATE_SECOND () { 0x02 }
+
+use base 'Exporter';
+our @EXPORT_OK = qw( FIRST_UNUSED );
 
 #------------------------------------------------------------------------------
 
@@ -336,6 +340,13 @@ the paragraph separator is "---" on a line by itself.
 =head1 PUBLIC FILTER METHODS
 
 POE::Filter::Line has no additional public methods.
+
+=head1 SUBCLASSING
+
+POE::Filter::Line exports the FIRST_UNUSED constant.  This points to
+the first unused element in the $self array reference.  Subclasses
+should store their own data beginning here, and they should export
+their own FIRST_UNUSED constants to help future subclassers.
 
 =head1 SEE ALSO
 
