@@ -855,6 +855,8 @@ sub CLONE {
 
 # Dispatch an event to its session.  A lot of work goes on here.
 
+sub _dummy_sigdie_handler { 1 }
+
 sub _dispatch_event {
   my (
     $self,
@@ -1017,7 +1019,7 @@ sub _dispatch_event {
   my $new_sig_die;
   if ($type & (ET_CALL | ET_START | ET_STOP)) {
     # Don't trigger $SIG{__DIE__} until we're ready to rethrow it.
-    local $SIG{__DIE__};
+    local $SIG{__DIE__} = \&_dummy_sigdie_handler;
 
     eval {
       if ($wantarray) {
@@ -1039,11 +1041,12 @@ sub _dispatch_event {
       }
     };
 
+    # Save the __DIE__ handler so we can check it outside this scope.
     $new_sig_die = $SIG{__DIE__};
   }
   else {
     # Don't trigger $SIG{__DIE__} until we're ready to rethrow it.
-    local $SIG{__DIE__};
+    local $SIG{__DIE__} = \&_dummy_sigdie_handler;
 
     eval {
       $session->_invoke_state(
@@ -1051,12 +1054,13 @@ sub _dispatch_event {
       );
     };
 
+    # Save the __DIE__ handler so we can check it outside this scope.
     $new_sig_die = $SIG{__DIE__};
   }
 
   # If the user changed $SIG{__DIE__}, then we should honor that.
-  # Otherwise, by the time we get here, the last one is restored.
-  $SIG{__DIE__} = $new_sig_die if defined $new_sig_die;
+  # Otherwise, by the time we get here, the last one has been restored.
+  $SIG{__DIE__} = $new_sig_die if $new_sig_die ne \&_dummy_sigdie_handler;
 
   # local $@ doesn't work quite the way I expect, but there is a
   # bit of a problem if an eval{} occurs here because a signal is

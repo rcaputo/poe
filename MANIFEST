@@ -67,6 +67,7 @@ lib/POE/Wheel/ReadWrite.pm
 lib/POE/Wheel/Run.pm
 lib/POE/Wheel/SocketFactory.pm
 mylib/Devel/Null.pm
+mylib/ForkingDaemon.pm
 mylib/MyOtherFreezer.pm
 mylib/PoeBuildInfo.pm
 mylib/coverage.perl
@@ -74,7 +75,6 @@ mylib/cpan-test.perl
 mylib/events_per_second.pl
 mylib/gen-tests.perl
 mylib/svn-log.perl
-mylib/ForkingDaemon.pm
 t/00_info.t
 t/10_units/01_pod/01_pod.t
 t/10_units/01_pod/02_pod_coverage.t
@@ -145,6 +145,7 @@ t/90_regression/hinrik-wheel-run-die.t
 t/90_regression/kjeldahl-stop-start-polling.t
 t/90_regression/kjeldahl-stop-start-sig-nopipe.t
 t/90_regression/kjeldahl-stop-start-sig-pipe.t
+t/90_regression/leolo-sig-die.t
 t/90_regression/meh-startstop-return.t
 t/90_regression/neyuki_detach.t
 t/90_regression/rt14444-arg1.t
@@ -154,11 +155,11 @@ t/90_regression/rt23181-sigchld-rc.t
 t/90_regression/rt47966-sigchld.t
 t/90_regression/rt56417-wheel-run.t
 t/90_regression/rt65460-forking.t
+t/90_regression/socketfactory-timeout.t
 t/90_regression/somni-poco-server-tcp.t
 t/90_regression/steinert-passed-wheel.t
 t/90_regression/suzman_windows.t
 t/90_regression/ton-stop-corruption.t
+t/90_regression/tracing-sane-exit.t
 t/90_regression/whelan-dieprop.t
 t/90_regression/whjackson-followtail.t
-t/90_regression/tracing-sane-exit.t
-t/90_regression/socketfactory-timeout.t
