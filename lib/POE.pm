@@ -529,13 +529,27 @@ http://poe.perl.org/
 
 https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=POE
 
-=head2 Repository
+=head2 Repositories and Changes
 
-https://poe.svn.sourceforge.net/svnroot/poe/trunk/poe
+Thanks to the magic of distributed version control, POE is hosted at
+three locations for redundancy.  You can browse the source at any one
+of:
+
+https://github.com/rcaputo/poe
+
+https://gitorious.org/poe
+
+http://poe.git.sourceforge.net/git/gitweb-index.cgi
+
+Complete change logs can also be browsed at those sites.  They all
+provide RSS news feeds for those who want to follow development in
+near-realtime.
 
 =head2 Other Resources
 
-http://search.cpan.org/dist/POE/
+https://metacpan.org/module/POE
+
+http://search.cpan.org/dist/POE
 
 =head1 AUTHORS & COPYRIGHT
 
@@ -701,7 +715,7 @@ to thank you for your interest, and he has more thanks than he can
 count for all the people who have contributed.  POE would not be
 nearly as cool without you.
 
-Except where otherwise noted, POE is Copyright 1998-2009 Rocco Caputo.
+Except where otherwise noted, POE is Copyright 1998-2012 Rocco Caputo.
 All rights reserved.  POE is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 

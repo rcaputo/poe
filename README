@@ -58,6 +58,24 @@ it as an accurate gauge of quality.
 
   http://poe.perl.org/?POE's_test_coverage_report
 
+----------------
+Full Change Logs
+----------------
+
+Thanks to the magic of distributed version control, POE is hosted at
+three locations for redundancy.  You can browse the source at any one
+of:
+
+https://github.com/rcaputo/poe
+
+https://gitorious.org/poe
+
+http://poe.git.sourceforge.net/git/gitweb-index.cgi
+
+Complete change logs can also be browsed at those sites.  They all
+provide RSS news feeds for those who want to follow development in
+near-realtime.
+
 -----------
 What POE Is
 -----------
