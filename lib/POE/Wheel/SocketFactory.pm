@@ -62,8 +62,8 @@ BEGIN {
     # :newapi is legacy, but we include it to be sure in case the user has an old version of GAI
     eval { require Socket::GetAddrInfo; Socket::GetAddrInfo->import( qw(:newapi getaddrinfo getnameinfo) ) };
     if ($@) {
-      *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
-      *getnameinfo = sub { Carp::confess("Unable to use IPv6: Socket::GetAddrInfo not available") };
+      *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Neither Socket nor Socket::GetAddrInfo provides getaddrinfo()") };
+      *getnameinfo = sub { Carp::confess("Unable to use IPv6: Neither Socket nor Socket::GetAddrInfo provides getnameinfo()") };
     }
   }
 
@@ -72,8 +72,8 @@ BEGIN {
   if ($@) {
     eval { require Socket6; Socket6->import( qw(AF_INET6 PF_INET6) ) };
     if ($@) {
-      *AF_INET6 = sub { Carp::confess("Unable to use IPv6: Socket6 not available") };
-      *PF_INET6 = sub { Carp::confess("Unable to use IPv6: Socket6 not available") };
+      *AF_INET6 = sub { -1 };
+      *PF_INET6 = sub { -1 };
     }
   }
 }
@@ -509,7 +509,11 @@ sub new {
   my $abstract_domain = $map_family_to_domain{$self->[MY_SOCKET_DOMAIN]};
   unless (defined $abstract_domain) {
     $poe_kernel->yield(
-      $event_failure, 'domain', 0, '', $self->[MY_UNIQUE_ID]
+      $event_failure,
+      'domain',
+      0,
+      "SocketDomain $domain is currently unsupported on this platform",
+      $self->[MY_UNIQUE_ID]
     );
     return $self;
   }
