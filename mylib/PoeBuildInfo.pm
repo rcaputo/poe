@@ -30,7 +30,7 @@ sub CONFIG_REQUIREMENTS () {
 }
 
 sub CORE_REQUIREMENTS () {
-  (
+  my @core_requirements = (
     "Carp"              => 0,
     "Errno"             => 1.09,
     "Exporter"          => 0,
@@ -42,21 +42,28 @@ sub CORE_REQUIREMENTS () {
     "Storable"          => 2.16,
     "Test::Harness"     => 2.26,
     "Time::HiRes"       => 1.59,
-    (
-      ($^O eq "MSWin32")
-      ? (
-        "Win32::Console" => 0.031,
-        "Win32API::File" => 0.05,
-        "Win32::Job"     => 0.03,
-        "Win32::Process" => 0,
-        "Win32"          => 0,
-      )
-      : (
-        "IO::Tty"        => 1.08, # avoids crashes on fbsd
-      )
-    ),
     CONFIG_REQUIREMENTS,
-  )
+  );
+
+  if ($^O eq "MSWin32") {
+    push @core_requirements, (
+      "Win32::Console" => 0.031,
+      "Win32API::File" => 0.05,
+      "Win32::Job"     => 0.03,
+      "Win32::Process" => 0,
+      "Win32"          => 0,
+    );
+  }
+  elsif ($^O eq 'cygwin') {
+    # Skip IO::Tty.  It has trouble building as of this writing.
+  }
+  else {
+    push @core_requirements, (
+      "IO::Tty"        => 1.08, # avoids crashes on fbsd
+    );
+  }
+
+  return @core_requirements;
 }
 
 sub DIST_AUTHOR () {
