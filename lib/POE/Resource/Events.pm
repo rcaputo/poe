@@ -58,13 +58,13 @@ sub _data_ev_finalize {
 ### Enqueue an event.
 
 sub FIFO_TIME_EPSILON () { 0.000001 }
-my $last_fifo_time = time();
+my $last_fifo_time = monotime();
 
 sub _data_ev_enqueue {
   my (
     $self,
     $session, $source_session, $event, $type, $etc,
-    $file, $line, $fromstate, $time
+    $file, $line, $fromstate, $time, $delta, $priority
   ) = @_;
 
   my $sid = $session->ID;
@@ -79,32 +79,42 @@ sub _data_ev_enqueue {
   }
 
   # This is awkward, but faster than using the fields individually.
-  my $event_to_enqueue = [ @_[1..8] ];
+  my $event_to_enqueue = [ @_[(1+EV_SESSION) .. (1+EV_FROMSTATE)] ];
+  if( defined $time ) {
+    $event_to_enqueue->[EV_WALLTIME] = $time;
+    $event_to_enqueue->[EV_DELTA]    = $delta;
+    $priority ||= wall2mono( $time + ($delta||0) );
+  }
+  else {
+    $priority ||= monotime();
+  }
 
   my $new_id;
   my $old_head_priority = $kr_queue->get_next_priority();
 
   unless ($type & ET_MASK_DELAYED) {
-    $time = $last_fifo_time + FIFO_TIME_EPSILON if $time <= $last_fifo_time;
-    $last_fifo_time = $time;
+    $priority = $last_fifo_time + FIFO_TIME_EPSILON if $priority <= $last_fifo_time;
+    $last_fifo_time = $priority;
   }
 
-  $new_id = $kr_queue->enqueue($time, $event_to_enqueue);
+  $new_id = $kr_queue->enqueue($priority, $event_to_enqueue);
+  $event_to_enqueue->[EV_SEQ] = $new_id;
 
-  if (TRACE_EVENTS) {
+  #_carp( Carp::longmess( "<ev> priority is much to far in the future" ) ) if $priority > 1354569908;
+  if (TRACE_EVENTS ) {
     _warn(
       "<ev> enqueued event $new_id ``$event'' from ",
       $self->_data_alias_loggable($source_session->ID), " to ",
       $self->_data_alias_loggable($sid),
-      " at $time"
+      " at $time, priority=$priority"
     );
   }
 
   unless (defined $old_head_priority) {
-    $self->loop_resume_time_watcher($time);
+    $self->loop_resume_time_watcher($priority);
   }
-  elsif ($time < $old_head_priority) {
-    $self->loop_reset_time_watcher($time);
+  elsif ($priority < $old_head_priority) {
+    $self->loop_reset_time_watcher($priority);
   }
 
   # This is the counterpart to _data_ev_refcount_dec().  It's only
@@ -119,6 +129,20 @@ sub _data_ev_enqueue {
   );
 
   return $new_id;
+}
+
+sub _data_ev_adjust
+{
+    my( $self, $alarm_id, $my_alarm, $time, $delta ) = @_;
+    # Doing it this way is faster
+    # XXX- However, if there has been a clock skew, the priority will have changed
+    # and we should recalculate priority from time+delta
+    $kr_queue->adjust_priority( $alarm_id, $my_alarm, $delta );
+    my $event = $kr_queue->get_item( $alarm_id, $my_alarm );
+    return unless $event;
+    $event->[EV_WALLTIME] = $time if defined $time;
+    $event->[EV_DELTA] += $delta if defined $delta;
+    return $event->[EV_WALLTIME]+$event->[EV_DELTA];
 }
 
 ### Remove events sent to or from a specific session.
@@ -211,17 +235,18 @@ sub _data_ev_clear_alarm_by_id {
     $_[0]->[EV_SESSION]->ID() eq $sid;
   };
 
-  my ($time, $id, $event) = $kr_queue->remove_item($alarm_id, $my_alarm);
-  return unless defined $time;
+  my ($pri, $id, $event) = $kr_queue->remove_item($alarm_id, $my_alarm);
+  return unless defined $pri;
 
   if (TRACE_EVENTS) {
     _warn(
       "<ev> removed event $id ``", $event->[EV_NAME], "'' to ",
-      $self->_data_alias_loggable($sid), " at $time"
+      $self->_data_alias_loggable($sid), " at $pri"
     );
   }
 
   $self->_data_ev_refcount_dec( @$event[EV_SOURCE, EV_SESSION] );
+  my $time = $event->[EV_WALLTIME] + ($event->[EV_DELTA]||0);
   return ($time, $event);
 }
 
@@ -238,8 +263,9 @@ sub _data_ev_clear_alarm_by_session {
 
   my @removed;
   foreach ($kr_queue->remove_items($my_alarm)) {
-    my ($time, $event) = @$_[ITEM_PRIORITY, ITEM_PAYLOAD];
+    my ($pri, $event) = @$_[ITEM_PRIORITY, ITEM_PAYLOAD];
     $self->_data_ev_refcount_dec( @$event[EV_SOURCE, EV_SESSION] );
+    my $time = $event->[EV_WALLTIME] + ($event->[EV_DELTA]||0);
     push @removed, [ $event->[EV_NAME], $time, @{$event->[EV_ARGS]} ];
   }
 
@@ -297,13 +323,13 @@ sub _data_ev_dispatch_due {
     }
   }
 
-  my $now = time();
+  my $now = monotime();
   my $next_time;
   while (
     defined($next_time = $kr_queue->get_next_priority()) and
     $next_time <= $now
   ) {
-    my ($due_time, $id, $event) = $kr_queue->dequeue_next();
+    my ($priority, $id, $event) = $kr_queue->dequeue_next();
 
     if (TRACE_EVENTS) {
       _warn("<ev> dispatching event $id ($event->[EV_NAME])");
@@ -312,7 +338,7 @@ sub _data_ev_dispatch_due {
     # TODO - Why can't we reverse these two lines?
     # TODO - Reversing them could avoid entering and removing GC marks.
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
-    $self->_dispatch_event(@$event, $due_time, $id);
+    $self->_dispatch_event(@{$event}[EV_SESSION..EV_FROMSTATE], $priority, $id);
 
     # Stop the system if an unhandled exception occurred.
     # This wipes out all sessions and associated resources.

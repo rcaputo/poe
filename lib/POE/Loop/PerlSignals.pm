@@ -39,7 +39,7 @@ sub _loop_signal_handler_generic_bottom {
 
   $poe_kernel->_data_ev_enqueue(
     $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
-    __FILE__, __LINE__, undef, time()
+    __FILE__, __LINE__, undef
   );
   $SIG{$_[0]} = \&_loop_signal_handler_generic;
 }
@@ -62,7 +62,7 @@ sub _loop_signal_handler_pipe_bottom {
 
   $poe_kernel->_data_ev_enqueue(
     $poe_kernel, $poe_kernel, EN_SIGNAL, ET_SIGNAL, [ $_[0] ],
-    __FILE__, __LINE__, undef, time()
+    __FILE__, __LINE__, undef
   );
   $SIG{$_[0]} = \&_loop_signal_handler_pipe;
 }

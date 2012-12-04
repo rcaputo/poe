@@ -588,7 +588,7 @@ sub _data_sig_enqueue_poll_event {
 
     $self->_data_ev_enqueue(
       $self, $self, EN_SCPOLL, ET_SCPOLL, [ $signal ],
-      __FILE__, __LINE__, undef, time(),
+      __FILE__, __LINE__, undef
     );
   } else {
     return if $self->_data_ses_count() < 1;
@@ -596,7 +596,7 @@ sub _data_sig_enqueue_poll_event {
 
     $self->_data_ev_enqueue(
       $self, $self, EN_SCPOLL, ET_SCPOLL, [ $signal ],
-      __FILE__, __LINE__, undef, time() + POE::Kernel::CHILD_POLLING_INTERVAL(),
+      __FILE__, __LINE__, undef, walltime(), POE::Kernel::CHILD_POLLING_INTERVAL(),
     );
   }
 }
@@ -610,7 +610,7 @@ sub _data_sig_handle_poll_event {
 
   if (TRACE_SIGNALS) {
     _warn(
-      "<sg> POE::Kernel is polling for signals at " . time() .
+      "<sg> POE::Kernel is polling for signals at " . monotime() .
       (USE_SIGCHLD ? " due to SIGCHLD" : "")
     );
   }
@@ -675,7 +675,7 @@ sub _data_sig_reap_pids {
             $self->_data_ev_enqueue(
               $ses_rec->[PID_SESSION], $self, $ses_rec->[PID_EVENT], ET_SIGCLD,
               [ 'CHLD', $pid, $?, @{$ses_rec->[PID_ARGS]} ],
-              __FILE__, __LINE__, undef, time(),
+              __FILE__, __LINE__, undef
             );
             push @sessions_to_clear, $sid;
           }
@@ -685,7 +685,7 @@ sub _data_sig_reap_pids {
         # Kick off a SIGCHLD cascade.
         $self->_data_ev_enqueue(
           $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'CHLD', $pid, $? ],
-          __FILE__, __LINE__, undef, time(),
+          __FILE__, __LINE__, undef
         );
       }
       elsif (TRACE_SIGNALS) {

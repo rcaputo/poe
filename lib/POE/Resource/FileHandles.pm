@@ -202,7 +202,7 @@ sub _data_handle_finalize {
 sub _data_handle_enqueue_ready {
   my ($self, $mode) = splice(@_, 0, 2);
 
-  my $now = time();
+  my $now = monotime();
   foreach my $fileno (@_) {
     if (ASSERT_DATA) {
       _trap "internal inconsistency: undefined fileno" unless defined $fileno;

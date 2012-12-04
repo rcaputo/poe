@@ -8,6 +8,7 @@ use vars qw($VERSION @ISA);
 $VERSION = '1.354'; # NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Queue);
 
+use POE::Resource::Clock qw( wall2mono mono2wall monotime walltime time sleep );
 use Errno qw(ESRCH EPERM);
 use Carp qw(confess);
 
@@ -417,6 +418,23 @@ sub peek_items {
   }
 
   return @items;
+}
+
+### Get one item from the queue
+
+sub get_item {
+  my ($self, $id, $filter) = @_;
+
+  my $priority = $item_priority{$id};
+  unless (defined $priority) {
+    $! = ESRCH;
+    return;
+  }
+
+  # Find that darn item.
+  my $item_index = $self->_find_item($id, $priority);
+  return unless defined $item_index;
+  return $self->[$item_index]->[ITEM_PAYLOAD];
 }
 
 1;

@@ -315,7 +315,7 @@ Here's Gtk's:
           $self->_dispatch_event(
             $self, $self,
             EN_SIGNAL, ET_SIGNAL, [ 'UIDESTROY' ],
-            __FILE__, __LINE__, undef, time(), -__LINE__
+            __FILE__, __LINE__, undef, monotime(), -__LINE__
           );
         }
         return 0;
