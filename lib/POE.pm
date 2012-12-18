@@ -121,7 +121,7 @@ L<Wx>, and L<Gtk2>.  Many of these event loop interfaces were written
 by others, with the help of POE::Test::Loops.  They may be found on
 the CPAN.
 
-POE achieves its its high degree of portability to different operating
+POE achieves its high degree of portability to different operating
 systems and Perl versions by being written entirely in Perl.  CPAN
 hosts optional XS modules for POE if speed is more desirable than
 portability.
