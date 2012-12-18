@@ -913,7 +913,7 @@ methods in the same object.  C<$_[OBJECT]> helps this happen.
   }
 
 You may also use method inheritance.  Here we invoke
-$self->a_method(@_).  Since Perl's C<<->>> operator unshifts $self
+$self->a_method(@_).  Since Perl's C<< -> >> operator unshifts $self
 onto the beginning of @_, we must first shift a copy off to maintain
 POE's parameter offsets:
 
