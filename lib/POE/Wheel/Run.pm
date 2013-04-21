@@ -1586,7 +1586,8 @@ from STDOUT.
 The L<IO::Pty> module is only loaded if "pty" or "pty-pipe" is used.
 It's not a dependency until it's actually needed.
 
-Z<TODO - Example.>
+=for comment
+TODO - Example.
 
 =head4 Winsize
 

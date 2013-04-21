@@ -324,7 +324,8 @@ L<POE::Wheel::Run> - Non-blocking process creation and management.
 L<POE::Wheel::SocketFactory> - Non-blocking socket creation,
 supporting most protocols and modes.
 
-Z<TODO - Link to POE::Wheel search.cpan.org module search.>
+=for comment
+TODO - Link to POE::Wheel search.cpan.org module search.
 
 =head1 BUGS
 

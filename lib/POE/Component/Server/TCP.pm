@@ -744,8 +744,9 @@ connection---and not in the master listening session.  This has been a
 major point of confusion.  We welcome suggestions for making this
 clearer.
 
-Z<TODO - Document some of the implications of having each connection
-handled by a separate session.>
+=for comment
+TODO - Document some of the implications of having each connection
+handled by a separate session.
 
 The component's C<ClientInput> callback defines how child sessions
 will handle input from their clients.  Its parameters are that of
@@ -848,7 +849,8 @@ They are covered briefly again below.
 These constructor parameters affect POE::Component::Server::TCP's main
 listening session.
 
-Z<TODO - Document the shutdown procedure somewhere.>
+=for comment
+TODO - Document the shutdown procedure somewhere.
 
 =head4 Acceptor
 
@@ -885,7 +887,8 @@ supports.  At the time of this writing, that may be a dotted IPv4
 quad, an IPv6 address, a host name, or a packed Internet address.  See
 also L</Hostname>.
 
-Z<TODO - Example, using the lines below.>
+=for comment
+TODO - Example, using the lines below.
 
   Address => '127.0.0.1'   # Localhost IPv4
   Address => "::1"         # Localhost IPv6
@@ -1410,7 +1413,8 @@ Some use cases require different session classes for the listener and
 the connection handlers.  This isn't currently supported.  Please send
 patches. :)
 
-Z<TODO - Document that Reuse is set implicitly.>
+=for comment
+TODO - Document that Reuse is set implicitly.
 
 =head1 AUTHORS & COPYRIGHTS
 

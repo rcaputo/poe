@@ -3219,7 +3219,8 @@ action.
 get_history() returns a list containing POE::Wheel::ReadLine's current
 input history.  It may not contain everything entered into the wheel
 
-Z<TODO - Example.>
+=for comment
+TODO - Example.
 
 =head3 write_history
 
@@ -3497,13 +3498,15 @@ Dissociating the input and display cursors introduced a lot of code.
 Much of this code was thrown in hastily, and things can probably be
 done with less work.
 
-Z<TODO: Apply some thought to what's already been done.>
+=for comment
+TODO: Apply some thought to what's already been done.
 
-Z<TODO: Ensure that the screen updates as quickly as possible,
+=for comment
+TODO: Ensure that the screen updates as quickly as possible,
 especially on slow systems.  Do little or no calculation during
 displaying; either put it all before or after the display.  Do it
 consistently for each handled keystroke, so that certain pairs of
-editing commands don't have extra perceived latency.>
+editing commands don't have extra perceived latency.
 
 =head2 Unimplemented Features
 

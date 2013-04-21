@@ -699,8 +699,9 @@ author of L<Sprocket>, a networking framework built on POE.
 Please contact the author if you've been forgotten and would like to
 be included here.
 
-Z<TODO - This section has fallen into disrepair.  A POE historian needs
-to cull the CHANGES for the names of major contributors.>
+=for comment
+TODO - This section has fallen into disrepair.  A POE historian needs
+to cull the CHANGES for the names of major contributors.
 
 =back
 
