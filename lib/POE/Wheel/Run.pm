@@ -2089,6 +2089,25 @@ contribute.
 Thanks again for your patience as we continue to improve POE::Wheel::Run
 on MSWin32!
 
+=head3 kill() and ClosedEvent on Windows
+
+Windows will often fail to report EOF on pipes when subprocesses are
+killed.  The work-around is to catch the signal in the subprocess, and
+exit normally:
+
+  my $child = POE::Wheel::Run->new(
+    Program => sub {
+      $SIG{INT} = sub { exit };
+      ...;
+    },
+    ...,
+  );
+
+Be sure to kill() the subprocess using the same signal that it catches
+and exits upon.  Remember, not all signals can be caught by user code.
+
+  $child->kill("INT");
+
 =head2 Execution Environment
 
 It's common to scrub a child process' environment, so that only
