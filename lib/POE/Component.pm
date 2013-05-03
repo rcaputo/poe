@@ -40,14 +40,19 @@ even use Moose, but older ones are solely message driven.
 
 One way to create object-oriented components is to embed a
 POE::Session instance within an object.  This is done by creating the
-session during the object's constructor, and setting the session's
-alias to a stringified version of the object reference.
+session during the object's constructor, setting the session's alias
+to something unique, and saving a copy of the alias in the object.
 
   package Asynchrotron;
 
+  my $alias_index = 0;
+
   sub new {
     my $class = shift;
-    my $self = bless { }, $class;
+    my $self = bless {
+      alias => __PACKAGE__ . " " . ++$alias_index;
+    }, $class;
+
     POE::Session->create(
       object_states => [
         $self => {
@@ -60,7 +65,7 @@ alias to a stringified version of the object reference.
   }
 
   sub _poe_start {
-    $_[KERNEL]->alias_set("$_[OBJECT]");
+    $_[KERNEL]->alias_set($_[OBJECT]->{alias});
   }
 
 The alias allows object methods to pass events into the session
@@ -71,7 +76,7 @@ component's session.
   sub do_something {
     my $self = shift;
     print "Inside the caller's session right now: @_\n";
-    $poe_kernel->call("$self", "do_something", @_);
+    $poe_kernel->call($self->{alias}, "do_something", @_);
   }
 
   sub _poe_do_something {
