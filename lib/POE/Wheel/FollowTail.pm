@@ -318,6 +318,7 @@ sub _generate_filehandle_timer {
   my $poll_interval = $self->[SELF_INTERVAL];
   my $last_stat     = $self->[SELF_LAST_STAT];
 
+  my $filename      = \$self->[SELF_FILENAME];
   my $handle        = \$self->[SELF_HANDLE];
   my $event_input   = \$self->[SELF_EVENT_INPUT];
   my $event_error   = \$self->[SELF_EVENT_ERROR];
@@ -379,7 +380,12 @@ sub _generate_filehandle_timer {
 
       # Merely EOF.  Check for file rotation.
 
-      my @new_stat = (stat $$handle)[0..7];
+      my @new_stat = (
+        (defined $$filename)
+        ? ((stat $$filename)[0..7])
+        : ((stat $$handle)[0..7])
+      );
+
       unless (@new_stat) {
         TRACE_POLL and warn "<poll> ", time, " $$handle stat error";
         $$event_error and
@@ -482,7 +488,7 @@ sub _generate_filename_timer {
         TRACE_RESET and warn "<reset> file name has reset";
         $$event_reset and $k->call($ses, $$event_reset, $unique_id);
 
-        @$last_stat = (stat $$handle)[0..7];
+        @$last_stat = (stat $filename)[0..7];
       }
       else {
         # Reset position.
