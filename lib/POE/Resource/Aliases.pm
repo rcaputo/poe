@@ -67,6 +67,7 @@ sub _data_alias_finalize {
 
 sub _data_alias_add {
   my ($self, $session, $alias) = @_;
+#  _warn( "Session ", $session->ID, " is alias $alias\n" );
   $self->_data_ses_refcount_inc($session->ID);
   $kr_aliases{$alias} = $session;
   $kr_ses_to_alias{$session->ID}->{$alias} = $session;
@@ -79,6 +80,7 @@ sub _data_alias_add {
 
 sub _data_alias_remove {
   my ($self, $session, $alias) = @_;
+#  _warn( "Session ", $session->ID, " was alias $alias\n" );
   delete $kr_aliases{$alias};
   delete $kr_ses_to_alias{$session->ID}->{$alias};
   $self->_data_ses_refcount_dec($session->ID);

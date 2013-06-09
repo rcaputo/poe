@@ -5,13 +5,15 @@ use strict;
 use vars qw($VERSION);
 $VERSION = '1.354'; # NOTE - Should be #.### (three decimal places)
 
+use POE::Resource::Clock qw( monotime sleep mono2wall wall2mono walltime time );
+
 use POSIX qw(uname);
 use Errno qw(ESRCH EINTR ECHILD EPERM EINVAL EEXIST EAGAIN EWOULDBLOCK);
 use Carp qw(carp croak confess cluck);
 use Sys::Hostname qw(hostname);
 use IO::Handle ();
 use File::Spec ();
-use Time::HiRes qw(time sleep);
+#use Time::HiRes qw(time sleep);
 
 # People expect these to be lexical.
 
@@ -235,8 +237,10 @@ sub EV_ARGS       () { 4 }  #   \@event_parameters_arg0_etc,
                             #
 sub EV_OWNER_FILE () { 5 }  #   $caller_filename_where_enqueued,
 sub EV_OWNER_LINE () { 6 }  #   $caller_line_where_enqueued,
-sub EV_TIME       () { 7 }  #   Maintained by POE::Queue (create time)
+sub EV_FROMSTATE  () { 7 }  #   $fromstate
 sub EV_SEQ        () { 8 }  #   Maintained by POE::Queue (unique event ID)
+sub EV_WALLTIME   () { 9 }  #   Walltime when event was created (for alarms)
+sub EV_DELTA      () { 10 } #   Seconds past walltime for event (for alarms)
                             # ]
 
 # These are the names of POE's internal events.  They're in constants
@@ -632,7 +636,7 @@ sub _test_if_kernel_is_idle {
 
   $self->_data_ev_enqueue(
     $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'IDLE' ],
-    __FILE__, __LINE__, undef, time(),
+    __FILE__, __LINE__, undef
   );
 }
 
@@ -723,7 +727,7 @@ sub signal {
   $self->_data_ev_enqueue(
     $session, $kr_active_session,
     EN_SIGNAL, ET_SIGNAL, [ $signal, @etc ],
-    (caller)[1,2], $kr_active_event, time(),
+    (caller)[1,2], $kr_active_event
   );
   return 1;
 }
@@ -861,7 +865,7 @@ sub _dispatch_event {
   my (
     $self,
     $session, $source_session, $event, $type, $etc,
-    $file, $line, $fromstate, $time, $seq
+    $file, $line, $fromstate, $priority, $seq
   ) = @_;
 
   if (ASSERT_EVENTS) {
@@ -960,7 +964,7 @@ sub _dispatch_event {
         $self->_dispatch_event(
           $target_session, $self,
           $target_event, ET_SIGNAL_RECURSIVE, [ @$etc, @$target_etc ],
-          $file, $line, $fromstate, time(), -__LINE__
+          $file, $line, $fromstate, monotime(), -__LINE__
         );
       }
     }
@@ -1095,7 +1099,7 @@ sub _dispatch_event {
               from_state => $fromstate,
               error_str => $exception,
             },
-          ], __FILE__, __LINE__, undef, time()
+          ], __FILE__, __LINE__, undef
         );
       }
     }
@@ -1382,7 +1386,7 @@ sub _invoke_state {
       ) {
         $self->_data_ev_enqueue(
           $self, $self, EN_SIGNAL, ET_SIGNAL, [ 'ZOMBIE' ],
-          __FILE__, __LINE__, undef, time(),
+          __FILE__, __LINE__, undef
         );
       }
     }
@@ -1438,7 +1442,7 @@ sub session_alloc {
   my $return = $self->_dispatch_event(
     $session, $kr_active_session,
     EN_START, ET_START, \@args,
-    __FILE__, __LINE__, undef, time(), -__LINE__
+    __FILE__, __LINE__, undef, monotime(), -__LINE__
   );
 
   unless($self->_data_ses_exists($new_sid)) {
@@ -1455,7 +1459,7 @@ sub session_alloc {
   $self->_dispatch_event(
     $self->_data_ses_get_parent($session->ID), $self,
     EN_CHILD, ET_CHILD, [ CHILD_CREATE, $session, $return ],
-    __FILE__, __LINE__, undef, time(), -__LINE__
+    __FILE__, __LINE__, undef, monotime(), -__LINE__
   );
 
   unless ($self->_data_ses_exists($new_sid)) {
@@ -1469,7 +1473,7 @@ sub session_alloc {
   # to do its thing before it goes.
   $self->_data_ev_enqueue(
     $session, $session, EN_GC, ET_GC, [],
-    __FILE__, __LINE__, undef, time(),
+    __FILE__, __LINE__, undef
   );
 }
 
@@ -1500,7 +1504,7 @@ sub detach_myself {
   $self->_dispatch_event(
     $old_parent, $self,
     EN_CHILD, ET_CHILD, [ CHILD_LOSE, $kr_active_session, undef ],
-    (caller)[1,2], undef, time(), -__LINE__
+    (caller)[1,2], undef, monotime(), -__LINE__
   )
   unless $kr_active_event_type & ET_START;
 
@@ -1512,7 +1516,7 @@ sub detach_myself {
   $self->_dispatch_event(
     $kr_active_session, $self,
     EN_PARENT, ET_PARENT, [ $old_parent, $self ],
-    (caller)[1,2], undef, time(), -__LINE__
+    (caller)[1,2], undef, monotime(), -__LINE__
   );
 
   $self->_data_ses_move_child($kr_active_session->ID, $self->ID);
@@ -1557,7 +1561,7 @@ sub detach_child {
   $self->_dispatch_event(
     $kr_active_session, $self,
     EN_CHILD, ET_CHILD, [ CHILD_LOSE, $child_session, undef ],
-    (caller)[1,2], undef, time(), -__LINE__
+    (caller)[1,2], undef, monotime(), -__LINE__
   );
 
   # Tell the new parent (kernel) that it's gaining a child.
@@ -1568,7 +1572,7 @@ sub detach_child {
   $self->_dispatch_event(
     $child_session, $self,
     EN_PARENT, ET_PARENT, [ $kr_active_session, $self ],
-    (caller)[1,2], undef, time(), -__LINE__
+    (caller)[1,2], undef, monotime(), -__LINE__
   );
 
   $self->_data_ses_move_child($child_session->ID, $self->ID);
@@ -1631,7 +1635,7 @@ sub post {
 
   $self->_data_ev_enqueue(
     $session, $kr_active_session, $event_name, ET_POST, \@etc,
-    (caller)[1,2], $kr_active_event, time(),
+    (caller)[1,2], $kr_active_event
   );
   return 1;
 }
@@ -1655,7 +1659,7 @@ sub yield {
 
   $self->_data_ev_enqueue(
     $kr_active_session, $kr_active_session, $event_name, ET_POST, \@etc,
-    (caller)[1,2], $kr_active_event, time(),
+    (caller)[1,2], $kr_active_event
   );
 
   undef;
@@ -1706,7 +1710,7 @@ sub call {
       : $self->_dispatch_event(
         $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
-        (caller)[1,2], $kr_active_event, time(), -__LINE__
+        (caller)[1,2], $kr_active_event, monotime(), -__LINE__
       )
     );
 
@@ -1724,7 +1728,7 @@ sub call {
       : $self->_dispatch_event(
         $session, $kr_active_session,
         $event_name, ET_CALL, \@etc,
-        (caller)[1,2], $kr_active_event, time(), -__LINE__
+        (caller)[1,2], $kr_active_event, monotime(), -__LINE__
       )
     );
 
@@ -1742,7 +1746,7 @@ sub call {
     $self->_dispatch_event(
       $session, $kr_active_session,
       $event_name, ET_CALL, \@etc,
-      (caller)[1,2], $kr_active_event, time(), -__LINE__
+      (caller)[1,2], $kr_active_event, monotime(), -__LINE__
     );
   }
 
@@ -1822,9 +1826,10 @@ sub alarm_add {
   return 0;
 }
 
-# Add a delay, which is just an alarm relative to the current time.
+# Add a delay, which is like an alarm relative to the current time.
 sub delay {
   my ($self, $event_name, $delay, @etc) = ($poe_kernel, @_[1..$#_]);
+  my $pri = monotime();
 
   if (ASSERT_USAGE) {
     _confess "<us> must call delay() from a running session"
@@ -1842,7 +1847,15 @@ sub delay {
   }
 
   if (defined $delay) {
-    $self->alarm($event_name, time() + $delay, @etc);
+    $self->_data_ev_clear_alarm_by_name($kr_active_session->ID(), $event_name);
+
+    # Add the new alarm if it includes a time.  Calling _data_ev_enqueue
+    # directly is faster than calling alarm_set to enqueue it.
+    $self->_data_ev_enqueue
+      ( $kr_active_session, $kr_active_session,
+        $event_name, ET_ALARM, [ @etc ],
+        (caller)[1,2], $kr_active_event, undef, $delay, $pri+$delay
+      );
   }
   else {
     $self->alarm($event_name);
@@ -1854,6 +1867,7 @@ sub delay {
 # Add a delay without clobbering previous delays of the same name.
 sub delay_add {
   my ($self, $event_name, $delay, @etc) = ($poe_kernel, @_[1..$#_]);
+  my $pri = monotime();
 
   if (ASSERT_USAGE) {
     _confess "<us> must call delay_add() from a running session"
@@ -1872,7 +1886,11 @@ sub delay_add {
     return EINVAL;
   }
 
-  $self->alarm_add($event_name, time() + $delay, @etc);
+  $self->_data_ev_enqueue
+    ( $kr_active_session, $kr_active_session,
+      $event_name, ET_ALARM, [ @etc ],
+      (caller)[1,2], $kr_active_event, undef, $delay, $pri+$delay
+    );
 
   return 0;
 }
@@ -1976,7 +1994,8 @@ sub alarm_adjust {
   my $my_alarm = sub {
     $_[0]->[EV_SESSION] == $kr_active_session;
   };
-  return $kr_queue->adjust_priority($alarm_id, $my_alarm, $delta);
+  
+  return $self->_data_ev_adjust( $alarm_id, $my_alarm, undef(), $delta );
 }
 
 # A convenient function for setting alarms relative to now.  It also
@@ -1987,7 +2006,8 @@ sub delay_set {
   # Always always always grab time() ASAP, so that the eventual
   # time we set the alarm for is as close as possible to the time
   # at which they ASKED for the delay, not when we actually set it.
-  my $t = time();
+  my $t = walltime();
+  my $pri = monotime();
 
   # And now continue as normal
   my ($self, $event_name, $seconds, @etc) = ($poe_kernel, @_[1..$#_]);
@@ -2018,7 +2038,7 @@ sub delay_set {
 
   return $self->_data_ev_enqueue
     ( $kr_active_session, $kr_active_session, $event_name, ET_ALARM, [ @etc ],
-      (caller)[1,2], $kr_active_event, $t + $seconds,
+      (caller)[1,2], $kr_active_event, $t, $seconds, $pri+$seconds
     );
 }
 
@@ -2053,7 +2073,7 @@ sub delay_adjust {
     _warn("<ev> adjusted event $alarm_id by $seconds seconds");
   }
 
-  return $kr_queue->set_priority($alarm_id, $my_delay, time() + $seconds);
+  return $kr_queue->_data_ev_adjust($alarm_id, $my_delay, undef, $seconds );
 }
 
 # Remove all alarms for the current session.
@@ -2394,7 +2414,7 @@ sub _recalc_id {
     "-", $hostname,
     map { unpack "H*", $_ }
     map { pack "N", $_ }
-    (time(), $$, ++$kr_id_seq)
+    (monotime(), $$, ++$kr_id_seq)
   );
 
   if (defined $old_id) {
