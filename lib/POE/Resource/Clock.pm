@@ -12,7 +12,7 @@ use POSIX;
 use POE::Pipe::OneWay;
 use File::Spec;
 
-sub DEBUG () { 1 }
+sub DEBUG () { 0 }
 
 sub CLK_TIMEOUT () { 0 }
 sub CLK_SKEW    () { 1 }
