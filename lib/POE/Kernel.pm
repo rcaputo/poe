@@ -2073,7 +2073,7 @@ sub delay_adjust {
     _warn("<ev> adjusted event $alarm_id by $seconds seconds");
   }
 
-  return $kr_queue->_data_ev_adjust($alarm_id, $my_delay, undef, $seconds );
+  return $self->_data_ev_adjust($alarm_id, $my_delay, undef, $seconds );
 }
 
 # Remove all alarms for the current session.
