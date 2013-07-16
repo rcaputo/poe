@@ -359,6 +359,7 @@ BEGIN {
 
     # Copy so we don't hurt our environment.
     my $value = $val;
+    ($value) = ($value =~ /^([-\@\w.]+)$/); # Untaint per rt.cpan.org 81550
     $value =~ tr['"][]d;
     $value = 0 + $value if $value =~ /^\s*-?\d+(?:\.\d+)?\s*$/;
 
