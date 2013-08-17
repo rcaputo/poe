@@ -50,6 +50,7 @@ lib/POE/Queue.pm
 lib/POE/Queue/Array.pm
 lib/POE/Resource.pm
 lib/POE/Resource/Aliases.pm
+lib/POE/Resource/Clock.pm
 lib/POE/Resource/Events.pm
 lib/POE/Resource/Extrefs.pm
 lib/POE/Resource/FileHandles.pm
