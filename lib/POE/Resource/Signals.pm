@@ -781,9 +781,18 @@ sub _data_sig_kernel_awaits_pids {
 ## the buffer size in the hopes of never getting a short read.  Ever.
 
 use vars qw( $signal_pipe_read_fd );
-my( $signal_pipe_write, $signal_pipe_read, $signal_pipe_pid, 
-    $signal_pipe_len, $signal_pipe_remainder, $signal_pipe_format, 
-    $signal_mask_none, $signal_mask_all, %SIG2NUM, %NUM2SIG );
+my(
+  $signal_pipe_write,
+  $signal_pipe_read,
+  $signal_pipe_pid,
+  $signal_mask_none,
+  $signal_mask_all,
+
+  @pending_signals,
+);
+
+sub SIGINFO_NAME    () { 0 }
+sub SIGINFO_SRC_PID () { 1 }
 
 
 sub _data_sig_pipe_has_signals {
@@ -802,49 +811,25 @@ sub _data_sig_pipe_build {
   return unless USE_SIGNAL_PIPE;
   my $fake = 128;
 
-  $signal_pipe_remainder = '';
-  $signal_pipe_format = "ii";   # pid_t is int on Linux
-  $signal_pipe_len = length pack $signal_pipe_format, 0, 0;
-  
-  unless( %SIG2NUM ) {
-    foreach my $sig ( keys %_safe_signals ) {
-      my $n = eval "POSIX::SIG$sig()";
-      # warn $@;
-      if( $@ ) {    # AKA : RUNNING_IN_HELL
-          # The number used is less important then the fact that it has
-          # a unique number assigned to it
-          $n = $fake++;
-          _trap "<sg> SIG$sig not defined and $n > 255" if $n > 255;
-      }
-      else {
-          # paranoid check
-          _trap "<sg> SIG$sig is out of range ($n)" if $n > 127;
-      }
-      $SIG2NUM{ $sig } = $n;
-      $NUM2SIG{ $n } = $sig;
-    }
-    # warn join "\n", map { "$_: $SIG2NUM{$_}" } sort keys %SIG2NUM;
-    # we need CLD to be named CHLD
-    $SIG2NUM{ CLD } = $SIG2NUM{ CHLD };
-    $NUM2SIG{ $SIG2NUM{ CHLD } } = 'CHLD';
-    $NUM2SIG{ $SIG2NUM{ CLD } } = 'CHLD' if $SIG2NUM{ CLD };
-    # warn join "\n", map { "$_: $_safe_signals{$_}" } sort keys %_safe_signals;
-  }
-
   # Associate the pipe with this PID
   $signal_pipe_pid = $$;
 
   # Mess with the signal mask
   $self->_data_sig_mask_all;
 
-  # Open the signal pipe
+  # Open the signal pipe.
+  # TODO - Normally POE::Pipe::OneWay will do the right thing.  Why
+  # are we overriding its per-platform autodetection?
   if (RUNNING_IN_HELL) {
     ( $signal_pipe_read, $signal_pipe_write ) = POE::Pipe::OneWay->new('inet');
   }
   else {
     ( $signal_pipe_read, $signal_pipe_write ) = POE::Pipe::OneWay->new('pipe');
   }
-  _trap "<sg> Error " . ($!+0) . " trying to create the signal pipe: $!" unless $signal_pipe_write;
+
+  unless ($signal_pipe_write) {
+    _trap "<sg> Error " . ($!+0) . " trying to create the signal pipe: $!";
+  }
 
   # Allows Resource::FileHandles to by-pass the queue
   $signal_pipe_read_fd = fileno $signal_pipe_read;
@@ -910,123 +895,132 @@ sub _data_sig_pipe_finalize {
 ### Send a signal "message" to the main thread
 ### Called from the top signal handlers
 sub _data_sig_pipe_send {
-  my $n = $SIG2NUM{ $_[1] };
-  if( ASSERT_DATA ) {
-    _trap "<sg> Unknown signal $_[1]" unless defined $n;
-  }
+  local $!;
+
+  my $signal_name = $_[1];
+
   if( TRACE_SIGNALS ) {
-    _warn "<sg> Caught SIG$_[1] ($n)";
+    _warn "<sg> Caught SIG$signal_name";
   }
-  
+
   return if $finalizing;
-  
+
   if( not defined $signal_pipe_pid ) {
     _trap "<sg> _data_sig_pipe_send called before signal pipe was initialized.";
   }
+
   # ugh- has_forked() can't be called fast enough.  This warning might
   # show up before it is called.  Should we just detect forking and do it
   # for the user?  Probably not...
+
   if( $$ != $signal_pipe_pid ) {
-    _warn "<sg> Kernel now running in a different process (is=$$ was=$signal_pipe_pid ).  You must call call \$poe_kernel->has_forked in the child process.";
+    _warn(
+      "<sg> Kernel now running in a different process " .
+      "(is=$$ was=$signal_pipe_pid ).  " .
+      "You must call call \$poe_kernel->has_forked() in the child process."
+    );
   }
 
-  my $count = _data_sig_pipe_syswrite( pack( $signal_pipe_format, $$, $n ) );
-  if( ASSERT_DATA ) {
-    if( $count != $signal_pipe_len ) {
-      _trap "<sg> Wrote more than one byte (count=$count)";
+  # We're registering signals in a list.  Pipes have more finite
+  # capacity, so we'll just write a single-byte semaphore-like token.
+  # It's up to the reader to process the list.  Duplicates are
+  # permitted, and their ordering may be significant.  Precedent:
+  # http://search.cpan.org/perldoc?IPC%3A%3AMorseSignals
+
+  push @pending_signals, [
+    $signal_name, # SIGINFO_NAME
+    $$,           # SIGINFO_SRC_PID
+  ];
+
+  if (TRACE_SIGNALS) {
+    _warn "<sg> Attempting signal pipe write";
+  }
+
+  my $count = syswrite( $signal_pipe_write, '!' );
+
+  # TODO - We need to crash gracefully if the write fails, but not if
+  # it's due to the pipe being full.  We might solve this by only
+  # writing on the edge of @pending_signals == 1 after the push().
+  # We assume @pending_signals > 1 means there's a byte in the pipe,
+  # so the reader will wake up to catch 'em all.
+
+  if ( ASSERT_DATA ) {
+    unless (defined $count and $count == 1) {
+      _trap "<sg> Signal pipe write failed: $!";
     }
   }
-}
-
-### write one signal number to the pipe
-sub _data_sig_pipe_syswrite {
-  my( $data ) = @_;
-  my $count = syswrite( $signal_pipe_write, $data );
-  if( defined $count and $count > 0 ) {
-    $! = 0;
-    if( TRACE_SIGNALS ) {
-      _warn "<sg> Wrote $count byte(s) to signal pipe";
-    }
-
-    return $count;
-  }
-
-  # if we got here, something bad happened
-  if( $! == EAGAIN or $! == EWOULDBLOCK ) {
-    _trap "<sg> Excessive signals detected; signal pipe full: $!";
-  }
-  _trap "<sg> Error " . ($!+0) . " writing to signal pipe: $!";
 }
 
 ### Read all signal numbers.
 ### Call the related bottom handler.  That is, inside the kernel loop.
 sub _data_sig_pipe_read {
   my( $self, $fileno, $mode ) = @_;
+
   if( ASSERT_DATA ) {
     _trap "Illegal mode=$mode on fileno=$fileno" unless
                                     $fileno == $signal_pipe_read_fd
                                 and $mode eq MODE_RD;
   }
-  my $data = $self->_data_sig_pipe_sysread();
-  return unless defined $data;
 
-  my $count = length $data;
-  if( TRACE_SIGNALS ) {
-    _warn "<sg> Read $count bytes from signal pipe";
+  # Read all data from the signal pipe.
+  # The data itself doesn't matter.
+  # TODO - If writes can happen on the edge of @pending_signals (from
+  # 0 to 1 element), then we oughtn't need to loop here.
+
+  while (1) {
+    my $octets_count = sysread( $signal_pipe_read, (my $data), 65536 );
+
+    next if $octets_count;
+    last if defined $octets_count;
+
+    last if $! == EAGAIN or $! == EWOULDBLOCK;
+
+    if (ASSERT_DATA) {
+      _trap "<sg> Error " . ($!+0) . " reading from signal pipe: $!";
+    }
+    elsif(TRACE_SIGNALS) {
+      _warn "<sg> Error " . ($!+0) . " reading from signal pipe: $!";
+    }
+
+    last;
   }
-  return unless $count;
 
-  $data = $signal_pipe_remainder . $data;
-  $signal_pipe_remainder = '';
+  # Double buffer signals.
+  # The intent is to avoid a race condition by processing the same
+  # buffer that new signals go into.
 
-  $count = length $data;
-  for(my $q=0; $q< $count; $q+=$signal_pipe_len ) {
-    if( $q + $signal_pipe_len > $count ) {
-        $signal_pipe_remainder = substr( $data, $q );
-        last;
+  return unless @pending_signals;
+  my @signals = @pending_signals;
+  @pending_signals = ();
+
+  if (TRACE_SIGNALS) {
+    _warn "<sg> Read " . scalar(@signals) . " signals from the list";
+  }
+
+  foreach my $signal (@signals) {
+    my $signal_name    = $signal->[SIGINFO_NAME];
+    my $signal_src_pid = $signal->[SIGINFO_SRC_PID];
+
+    # Ignore signals from other processes.
+    # This can happen if we've fork()ed without calling has_forked()
+    # to reset the signals subsystem.
+    #
+    # TODO - We might be able to get rid of has_forked() if PID
+    # mismatches are detected.
+
+    next if $signal_src_pid != $$;
+
+    if( $signal_name eq 'CHLD' ) {
+      _loop_signal_handler_chld_bottom( $signal_name );
     }
-    my($pid, $n) = unpack $signal_pipe_format, substr( $data, $q, $signal_pipe_len );
-    next if $pid != $$; # ignore a 'packet' meant for our parent
-    next if $n == 0;
-    if( ASSERT_DATA ) {
-      _trap "Unknown signal number $n" unless $NUM2SIG{ $n };
-    }
-    my $sig = $NUM2SIG{ $n };
-    if( $sig eq 'CHLD' ) {
-      _loop_signal_handler_chld_bottom( $sig );
-    }
-    elsif( $sig eq 'PIPE' ) {
-      _loop_signal_handler_pipe_bottom( $sig );
+    elsif( $signal_name eq 'PIPE' ) {
+      _loop_signal_handler_pipe_bottom( $signal_name );
     }
     else {
-      _loop_signal_handler_generic_bottom( $sig );
+      _loop_signal_handler_generic_bottom( $signal_name );
     }
   }
 }
-
-### Read all signal numbers from the pipe
-sub _data_sig_pipe_sysread {
-  my $data = '';
-  # To avoid flooding the queue, we don't read the entire pipe at once
-  # PG- Mind you, I doubt signal flooding is ever going to be much of
-  # a problem, is it?
-  my $result = sysread( $signal_pipe_read, $data, 256*$signal_pipe_len ); # XXX
-  if( defined $result ) {
-    $! = 0;
-    return $data;
-  }
-  # Nonfatal sysread() error.  Return an empty list.
-  return '' if $! == EAGAIN or $! == EWOULDBLOCK;
-
-  if( ASSERT_DATA ) {
-    _trap "<sg> Error " . ($!+0) . " reading from signal pipe: $!";
-  }
-  elsif( TRACE_SIGNALS ) {
-    _warn "<sg> Error " . ($!+0) . " reading from signal pipe: $!";
-  }
-  return;
-}
-
 
 1;
 
