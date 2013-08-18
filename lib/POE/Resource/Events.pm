@@ -265,7 +265,7 @@ sub _data_ev_clear_alarm_by_session {
   foreach ($kr_queue->remove_items($my_alarm)) {
     my ($pri, $event) = @$_[ITEM_PRIORITY, ITEM_PAYLOAD];
     $self->_data_ev_refcount_dec( @$event[EV_SOURCE, EV_SESSION] );
-    my $time = $event->[EV_WALLTIME] + ($event->[EV_DELTA]||0);
+    my $time = ($event->[EV_WALLTIME]||0) + ($event->[EV_DELTA]||0);
     push @removed, [ $event->[EV_NAME], $time, @{$event->[EV_ARGS]} ];
   }
 
