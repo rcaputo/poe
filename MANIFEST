@@ -110,6 +110,7 @@ t/10_units/05_filters/06_recordblock.t
 t/10_units/05_filters/07_reference.t
 t/10_units/05_filters/08_stream.t
 t/10_units/05_filters/50_stackable.t
+t/10_units/05_filters/51_reference_die.t
 t/10_units/05_filters/99_filterchange.t
 t/10_units/05_filters/TestFilter.pm
 t/10_units/06_queues/01_array.t
