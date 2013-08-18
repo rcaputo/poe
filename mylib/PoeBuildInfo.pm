@@ -37,6 +37,7 @@ sub CORE_REQUIREMENTS () {
     "File::Spec"        => 0.87,
     "IO"                => 1.24,  # MSWin32 blocking(0)
     "IO::Handle"        => 1.27,
+    "IO::Pipely"        => 0.005,
     "POSIX"             => 1.02,
     "Socket"            => 1.7,
     "Storable"          => 2.16,
