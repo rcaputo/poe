@@ -127,36 +127,33 @@ sub poe_write_chunk {
   # write-chunk events are posted asynchronously.  So it may not be
   # okay to write a chunk when we get a write-chunk event.
 
-  if ($_[HEAP]->{okay_to_send}) {
+  return unless $_[HEAP]->{okay_to_send};
 
-    # Enqueue chunks until ReadWrite->put() signals that its driver's
-    # buffer has reached (or exceeded) its high-water mark.
+	# Enqueue chunks until ReadWrite->put() signals that its driver's
+	# buffer has reached (or exceeded) its high-water mark.
 
-    while (1) {
+	while (1) {
 
-      # Create a chargen line.  Build a 72-column line of consecutive
-      # characters, starting with whatever character code we have
-      # stored.  Wrap characters beyond "~" around to " ".
-      my $chargen_line =
-        join( '',
-              map { chr }
-              ($_[HEAP]->{start_character} .. ($_[HEAP]->{start_character}+71))
-            );
-      $chargen_line =~ tr[\x7F-\xDD][\x20-\x7E];
+		# Create a chargen line.  Build a 72-column line of consecutive
+		# characters, starting with whatever character code we have
+		# stored.  Wrap characters beyond "~" around to " ".
+		my $chargen_line =
+			join( '',
+						map { chr }
+						($_[HEAP]->{start_character} .. ($_[HEAP]->{start_character}+71))
+					);
+		$chargen_line =~ tr[\x7F-\xDD][\x20-\x7E];
 
-      # Increment the start character, wrapping \x7F to \x20.
-      $_[HEAP]->{start_character} = 32
-        if (++$_[HEAP]->{start_character} > 126);
+		# Increment the start character, wrapping \x7F to \x20.
+		$_[HEAP]->{start_character} = 32
+			if (++$_[HEAP]->{start_character} > 126);
 
-      # Enqueue the line for output.  Stop enqueuing lines if the
-      # buffer's high water mark is reached.
-      last if $_[HEAP]->{wheel}->put($chargen_line);
-    }
+		# Enqueue the line for output.  Stop enqueuing lines if the
+		# buffer's high water mark is reached.
+		last if $_[HEAP]->{wheel}->put($chargen_line);
+	}
 
-    # Go around again!
-    $_[KERNEL]->yield('write_chunk');
-  }
-
+	warn "Chargen session ", $_[SESSION]->ID, " writes are paused.\n";
 }
 
 # Be impressive.  Log that the session has throttled, and set a flag
@@ -186,8 +183,8 @@ sub poe_resume {
 package main;
 
 print( "*** If all goes well, a watermarked (self-throttling) chargen\n",
-       "*** service will be listening on localhost port 32019.  You can\n",
-       "*** watch it perform flow control by connecting to it over a slow\n",
+       "*** service will be listening on localhost port $chargen_port.\n",
+       "*** Watch it perform flow control by connecting to it over a slow\n",
        "*** connection or with a client you can pause.  The server will\n",
        "*** throttle itself when its output buffer becomes too large, and\n",
        "*** it will resume output when the client receives enough data.\n",

@@ -34,13 +34,13 @@ my $chargen_port = 32100;
 # a connection comes in.
 
 #------------------------------------------------------------------------------
-# Start the chargen session.
+# Start the chargen connection.
 
-sub session_start {
+sub connection_start {
   my ($kernel, $heap, $socket_handle, $peer_host, $peer_port) =
     @_[KERNEL, HEAP, ARG0, ARG1, ARG2];
                                         # hello, world!
-  print "Starting chargen session with $peer_host:$peer_port ...\n";
+  print "Starting chargen connection with $peer_host:$peer_port ...\n";
                                         # watch for SIGINT and SIGPIPE
   $kernel->sig('INT', 'signal');
   $kernel->sig('PIPE', 'signal');
@@ -57,12 +57,12 @@ sub session_start {
 #------------------------------------------------------------------------------
 # Stop the session.
 
-sub session_stop {
+sub connection_stop {
   my $heap = $_[HEAP];
                                         # goodbye, world!
   my $peer_host = $heap->{'host'};
   my $peer_port = $heap->{'port'};
-  print "Stopped chargen session with $peer_host:$peer_port\n";
+  print "Stopped chargen connection with $peer_host:$peer_port\n";
 }
 
 #------------------------------------------------------------------------------
@@ -70,10 +70,10 @@ sub session_stop {
 # _default.  This _default handler just displays the nature of the
 # unknown event.  It exists in this program mainly for debugging.
 
-sub session_default {
+sub connection_default {
   my ($state, $params) = @_[ARG0, ARG1];
 
-  print "The chargen session has received a _default event.\n";
+  print "The chargen connection has received a _default event.\n";
   print "The original event was $state, with the following parameters:",
         join('; ', @$params), "\n";
                                         # returns 0 in case it was a signal
@@ -83,7 +83,7 @@ sub session_default {
 #------------------------------------------------------------------------------
 # The client is sending some information.  Read and discard it.
 
-sub session_read {
+sub connection_read {
   my $handle = $_[ARG0];
   1 while (sysread($handle, my $buffer = '', 32000));
 }
@@ -92,7 +92,7 @@ sub session_read {
 # The client connection can accept more information.  Write a line of
 # generated characters to it.
 
-sub session_write {
+sub connection_write {
   my ($kernel, $heap, $handle) = @_[KERNEL, HEAP, ARG0];
                                         # create a chargen line
   my $output_string = join('',
@@ -112,7 +112,7 @@ sub session_write {
     }
     elsif ($!) {
                                         # close session on error
-      print( "The chargen session has encountered write error ",
+      print( "The chargen connection has encountered write error ",
              ($!+0), ": $!\n"
            );
       $kernel->select($handle);
@@ -125,11 +125,9 @@ sub session_write {
 # The session received a signal.  Display the signal, and tell the
 # kernel that it can stop the session.
 
-sub session_signal {
+sub connection_signal {
   my $signal_name = $_[ARG0];
-  print "The chargen session received SIG$signal_name\n";
-                                        # 0 means the signal was not handled
-  return 0;
+  print "The chargen connection received SIG$signal_name\n";
 }
 
 #==============================================================================
@@ -179,7 +177,7 @@ sub server_stop {
 }
 
 #------------------------------------------------------------------------------
-# Take note when chargen sessions come and go.
+# Take note when chargen connection come and go.
 
 my %english = ( gain => 'gained', lose => 'lost', create => 'created' );
 
@@ -225,12 +223,12 @@ sub server_accept {
                                         # create a session to handle I/O
     my $new = POE::Session->create(
       inline_states => {
-        _start     => \&session_start,
-        _stop      => \&session_stop,
-        _default   => \&session_default,
-        'read'     => \&session_read,
-        'write'    => \&session_write,
-        signal     => \&session_signal,
+        _start     => \&connection_start,
+        _stop      => \&connection_stop,
+        _default   => \&connection_default,
+        'read'     => \&connection_read,
+        'write'    => \&connection_write,
+        signal     => \&connection_signal,
       },
 
       # ARG0, ARG1 and ARG2
@@ -240,7 +238,7 @@ sub server_accept {
   else {
     if ($! == EAGAIN) {
       print "Incoming chargen server connection not ready... try again!\n";
-      $kernel->post($session, 'accept', $handle);
+      $kernel->yield('accept', $handle);
     }
     else {
       print "Incoming chargen server connection failed: $!\n";
@@ -357,21 +355,27 @@ sub client_signal {
 #==============================================================================
 # Start a server and a client, and run indefinitely.
 
-new POE::Session( _start     => \&server_start,
-                  _stop      => \&server_stop,
-                  _default   => \&server_default,
-                  _child     => \&server_child,
-                  'accept'   => \&server_accept,
-                  signal     => \&server_signal,
-                );
+POE::Session->create(
+	inline_states => {
+		_start     => \&server_start,
+		_stop      => \&server_stop,
+		_default   => \&server_default,
+		_child     => \&server_child,
+		'accept'   => \&server_accept,
+		signal     => \&server_signal,
+	},
+);
 
-new POE::Session( _start     => \&client_start,
-                  _stop      => \&client_stop,
-                  _default   => \&client_default,
-                  'read'     => \&client_read,
-                  signal     => \&client_signal,
-                );
+POE::Session->create(
+	inline_states => {
+		_start     => \&client_start,
+		_stop      => \&client_stop,
+		_default   => \&client_default,
+		'read'     => \&client_read,
+		signal     => \&client_signal,
+	},
+);
 
-$poe_kernel->run();
+POE::Kernel->run();
 
 exit;
