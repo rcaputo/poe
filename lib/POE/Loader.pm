@@ -81,7 +81,7 @@ L<POE>, L<POE::XS::Queue::Array>.
 
 =head1 AUTHOR & COPYRIGHT
 
-POE::Loader is Copyright 2004-2008 by Rocco Caputo.  All rights
+POE::Loader is Copyright 2004-2013 by Rocco Caputo.  All rights
 reserved.  POE::Loader is released under the same terms as POE itself.
 
 =cut

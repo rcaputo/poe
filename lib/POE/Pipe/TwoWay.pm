@@ -208,7 +208,7 @@ L<POE::Pipe>, L<POE::Pipe::OneWay>.
 
 =head1 AUTHOR & COPYRIGHT
 
-POE::Pipe::TwoWay is copyright 2000-2008 by Rocco Caputo.  All rights
+POE::Pipe::TwoWay is copyright 2000-2013 by Rocco Caputo.  All rights
 reserved.  POE::Pipe::TwoWay is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 

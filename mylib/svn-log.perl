@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# This program is Copyright 2005 by Rocco Caputo.  All rights are
+# This program is Copyright 2005-2013 by Rocco Caputo.  All rights are
 # reserved.  This program is free software.  It may be modified, used,
 # and redistributed under the same terms as Perl itself.
 

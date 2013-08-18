@@ -1,4 +1,4 @@
-# Copyright 1998 Rocco Caputo <rcaputo@cpan.org>.  All rights
+# Copyright 1998-2013 Rocco Caputo <rcaputo@cpan.org>.  All rights
 # reserved.  This program is free software; you can redistribute it
 # and/or modify it under the same terms as Perl itself.
 

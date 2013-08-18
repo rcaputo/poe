@@ -1418,7 +1418,7 @@ TODO - Document that Reuse is set implicitly.
 
 =head1 AUTHORS & COPYRIGHTS
 
-POE::Component::Server::TCP is Copyright 2000-2009 by Rocco Caputo.
+POE::Component::Server::TCP is Copyright 2000-2013 by Rocco Caputo.
 All rights are reserved.  POE::Component::Server::TCP is free
 software, and it may be redistributed and/or modified under the same
 terms as Perl itself.

@@ -50,6 +50,6 @@ This document is the result of feedback from POE users.  If you have
 questions or comments that aren't covered by this hints file, please
 contact the author.  Even better, subscribe to the POE mailing list.
 
-This document is Copyright 1999 Rocco Caputo <troc@netrus.net>.  All
-rights reserved.  This document is free text; you may redistribute it
-and/or modify it under the same terms as Perl itself.
+This document is Copyright 1999-2013 Rocco Caputo <rcaputo@cpan.org>.
+All rights reserved.  This document is free text; you may redistribute
+it and/or modify it under the same terms as Perl itself.

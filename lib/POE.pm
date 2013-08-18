@@ -718,7 +718,7 @@ to thank you for your interest, and he has more thanks than he can
 count for all the people who have contributed.  POE would not be
 nearly as cool without you.
 
-Except where otherwise noted, POE is Copyright 1998-2012 Rocco Caputo.
+Except where otherwise noted, POE is Copyright 1998-2013 Rocco Caputo.
 All rights reserved.  POE is free software; you may redistribute it
 and/or modify it under the same terms as Perl itself.
 

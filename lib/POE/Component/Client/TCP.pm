@@ -820,7 +820,7 @@ and with a minimum of code, it may not be suitable for everything.
 
 =head1 AUTHORS & COPYRIGHTS
 
-POE::Component::Client::TCP is Copyright 2001-2009 by Rocco Caputo.
+POE::Component::Client::TCP is Copyright 2001-2013 by Rocco Caputo.
 All rights are reserved.  POE::Component::Client::TCP is free
 software, and it may be redistributed and/or modified under the same
 terms as Perl itself.
