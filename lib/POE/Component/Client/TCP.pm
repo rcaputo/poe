@@ -210,14 +210,16 @@ sub new {
               InputEvent   => 'got_server_input',
               ErrorEvent   => 'got_server_error',
               FlushedEvent => 'got_server_flush',
-              do {
-                  $using_watermarks ? return (
-                    HighMark => $high_mark_level,
-                    HighEvent => 'got_high',
-                    LowMark => $low_mark_level,
-                    LowEvent => 'got_low',
-                  ) : ();
-                },
+              (
+                $using_watermarks
+                ? (
+                  HighMark  => $high_mark_level,
+                  HighEvent => 'got_high',
+                  LowMark   => $low_mark_level,
+                  LowEvent  => 'got_low',
+                )
+                : ()
+              )
             );
 
           $heap->{connected} = 1;
