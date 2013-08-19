@@ -134,11 +134,14 @@ sub _data_ev_enqueue {
 sub _data_ev_adjust
 {
     my( $self, $alarm_id, $my_alarm, $time, $delta ) = @_;
-    # Doing it this way is faster
-    # XXX- However, if there has been a clock skew, the priority will have changed
-    # and we should recalculate priority from time+delta
+
+    # Doing it this way is faster.
+
+    # XXX - However, if there has been a clock skew, the priority will
+    # have changed and we should recalculate priority from time+delta
+
     $kr_queue->adjust_priority( $alarm_id, $my_alarm, $delta );
-    my $event = $kr_queue->get_item( $alarm_id, $my_alarm );
+    my $event = $kr_queue->_peek_one_item( $alarm_id, $my_alarm );
     return unless $event;
     $event->[EV_WALLTIME] = $time if defined $time;
     $event->[EV_DELTA] += $delta if defined $delta;

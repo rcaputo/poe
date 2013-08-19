@@ -422,7 +422,7 @@ sub peek_items {
 
 ### Get one item from the queue
 
-sub get_item {
+sub _peek_one_item {
   my ($self, $id, $filter) = @_;
 
   my $priority = $item_priority{$id};
@@ -434,7 +434,11 @@ sub get_item {
   # Find that darn item.
   my $item_index = $self->_find_item($id, $priority);
   return unless defined $item_index;
-  return $self->[$item_index]->[ITEM_PAYLOAD];
+
+  my $item = $self->[$item_index]->[ITEM_PAYLOAD];
+  return unless $filter->($item);
+
+  return $item;
 }
 
 1;
@@ -466,7 +470,8 @@ L<POE>, L<POE::Queue>
 
 =head1 BUGS
 
-None known.
+The stand-alone nature of this module is currently broken, as it
+depends upon POE::Resource::Clock.
 
 =head1 AUTHORS & COPYRIGHTS
 
