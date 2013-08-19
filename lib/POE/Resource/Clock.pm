@@ -12,6 +12,10 @@ use POSIX;
 use POE::Pipe::OneWay;
 use File::Spec;
 
+require Exporter;
+our @EXPORT_OK = qw( monotime sleep walltime wall2mono mono2wall time );
+our @ISA = qw( Exporter );
+
 sub DEBUG () { 0 }
 
 sub CLK_TIMEOUT () { 0 }
@@ -20,7 +24,7 @@ sub CLK_SKEW    () { 1 }
 sub CLK_EN_READ () { "rt-lock-read" }
 
 #########################################
-sub do_X 
+sub _do_X 
 {
     my( $X, $default ) = @_;
     my $m = $X;
@@ -32,15 +36,17 @@ sub do_X
 }
 
 #########################################
-sub exact_epoch
+sub _exact_epoch
 {
     my( $monoclock ) = @_;
-           
-    # Try to get the exact difference between the monotonic clock's epoch
-    # and the system clock's epoch.  We do this by comparing the 2 for 0.25 second
-    # or 10 samples.  To compensate for delays between calling time and get_time,
-    # we run in both order.  Even so, I still see up to 10 mS divergence in my dev VM
-    # between invocations
+
+    # Try to get the exact difference between the monotonic clock's
+    # epoch and the system clock's epoch.  We do this by comparing the
+    # 2 for 0.25 second or 10 samples.  To compensate for delays
+    # between calling time and get_time, we run in both order.  Even
+    # so, I still see up to 10 mS divergence in my dev VM between
+    # invocations.
+
     my $N=0;
     my $total = 0;
     my $end = $monoclock->get_time() + 0.25;
@@ -59,25 +65,16 @@ sub exact_epoch
 }
 
 #########################################
-sub get_epoch
+sub _get_epoch
 {
     my( $monoclock, $wallclock ) = @_;
     return $wallclock->get_time - $monoclock->get_time;
 }
 
-
-#########################################
-sub build_pipe
-{
-    my( $read, $write ) = POE::Pipe::OneWay->new();
-    die "Unable to build pipe: $!" unless defined $read;
-    return ( $read, $write );
-}
-
 #########################################
 our $FORMAT = 'iF';
 our $LENGTH = length pack $FORMAT, 0, 0;
-sub pipe_write
+sub _pipe_write
 {
     my( $write, $op, $skew ) = @_;
     DEBUG and POE::Kernel::_warn( "<ck> write op=$op" );
@@ -86,7 +83,7 @@ sub pipe_write
 }
 
 #########################################
-sub pipe_read
+sub _pipe_read
 {
     my( $read ) = @_;
     my $buffer;
@@ -95,20 +92,20 @@ sub pipe_read
     return unpack $FORMAT, $buffer;
 }
 
-#########################################
+
 our( $SIGACT, $SIGSET );
-sub build_sig
+sub _build_sig
 {
     my( $write ) = @_;
-    my $handler = sub { 
+    my $handler = sub {
             DEBUG and POE::Kernel::_warn( "<ck> timeout" );
-            pipe_write( $write, CLK_TIMEOUT, 0 ); 
+            _pipe_write( $write, CLK_TIMEOUT, 0 );
         };
-    my $default = eval { sig_number( 'RTMIN' ) } ||
-                  eval { sig_number( 'RTALRM' ) } ||
+    my $default = eval { _sig_number( 'RTMIN' ) } ||
+                  eval { _sig_number( 'RTALRM' ) } ||
                   SIGALRM;
 
-    my $signal = do_X( 'CLOCK_SIGNAL', $default ) || $default;
+    my $signal = _do_X( 'CLOCK_SIGNAL', $default ) || $default;
     $SIGSET = POSIX::SigSet->new( $signal );
     $SIGACT = POSIX::SigAction->new( $handler, $SIGSET, 0 );
     $SIGACT->safe(1);
@@ -116,20 +113,9 @@ sub build_sig
     return $signal;
 }
 
-#########################################
-sub build_timer
-{
-    my( $signal ) = @_;
-    return POSIX::RT::Timer->new( 
-                    value => 0,
-                    interval => 0,
-                    clock => 'monotonic',
-                    signal => $signal
-                );
-}
 
 #########################################
-sub rt_setup
+sub _rt_setup
 {
     my( $read, $kernel ) = @_;
     $kernel->loop_pause_time_watcher();
@@ -140,7 +126,7 @@ sub rt_setup
 }
 
 our $EPSILON = 0.0001;
-sub rt_resume
+sub _rt_resume
 {
     my( $what, $timer, $kernel, $pri ) = @_;
     DEBUG and POE::Kernel::_warn( "<ck> $what pri=$pri" );
@@ -153,7 +139,7 @@ sub rt_resume
     }
 }
 
-sub rt_pause
+sub _rt_pause
 {
     my( $timer, $kernel ) = @_;
     DEBUG and POE::Kernel::_warn( "<ck> Pause" );
@@ -162,12 +148,12 @@ sub rt_pause
 }
 
 #########################################
-sub rt_read_pipe
+sub _rt_read_pipe
 {
     my( $kernel, $read ) = @_;
     my $dispatch_once;
     while( 1 ) {
-        my( $op, $skew ) = pipe_read( $read );
+        my( $op, $skew ) = _pipe_read( $read );
         return unless defined $op;
         DEBUG and POE::Kernel::_warn( "<ck> Read pipe op=$op" );
         if( $op == CLK_TIMEOUT ) {
@@ -186,37 +172,17 @@ sub rt_read_pipe
 }
 
 #########################################
-sub rt_ready
+sub _rt_ready
 {
     my( $read, $frd, $kernel, $fileno ) = @_;
     return 0 unless $frd == $fileno;
-    rt_read_pipe( $kernel, $read );
+    _rt_read_pipe( $kernel, $read );
     return 1;
-}
-
-
-#########################################
-sub loop_pause
-{
-    my( $kernel ) = @_;
-    $kernel->loop_pause_time_watcher;
-}
-
-sub loop_reset
-{
-    my( $kernel, $pri ) = @_;
-    $kernel->loop_reset_time_watcher( mono2wall( $pri ) );
-}
-
-sub loop_resume
-{
-    my( $kernel, $pri ) = @_;
-    $kernel->loop_resume_time_watcher( mono2wall( $pri ) );
 }
 
 #########################################
 my %SIGnames;
-sub sig_number
+sub _sig_number
 {
     my( $name ) = @_;
     return $name if $name =~ /^\d+$/;
@@ -236,7 +202,7 @@ sub sig_number
 BEGIN {
     my $done;
     my $have_clock;
-    if( do_X( 'USE_POSIXRT' ) ) {
+    if( _do_X( 'USE_POSIXRT' ) ) {
         eval {
             require File::Spec->catfile( qw( POSIX RT Clock.pm ) );
             require File::Spec->catfile( qw( POSIX RT Timer.pm ) );
@@ -245,36 +211,45 @@ BEGIN {
             *monotime = sub { return $monoclock->get_time; };
             *walltime = sub { return $wallclock->get_time; };
             *sleep = sub { $monoclock->sleep_deeply(@_) };
-            if( do_X( 'USE_STATIC_EPOCH' ) ) {
+            if( _do_X( 'USE_STATIC_EPOCH' ) ) {
                 # This is where we cheat:  without a static epoch the tests fail
                 # because they expect alarm(), alarm_set() to arrive in order
-                # Calling get_epoch() each time would preclude this
+                # Calling _get_epoch() each time would preclude this
                 my $epoch = 0;
-                if( do_X( 'USE_EXACT_EPOCH', 0 ) ) {
-                    $epoch = exact_epoch( $monoclock, $wallclock );
+                if( _do_X( 'USE_EXACT_EPOCH', 0 ) ) {
+                    $epoch = _exact_epoch( $monoclock, $wallclock );
                 }
                 else {
-                    $epoch = get_epoch( $monoclock, $wallclock );
+                    $epoch = _get_epoch( $monoclock, $wallclock );
                 }
                 DEBUG and warn( "<ck> epoch=$epoch" );
                 *wall2mono = sub { $_[0] - $epoch };
                 *mono2wall = sub { $_[0] + $epoch };
             }
             else {
-                *wall2mono = sub { $_[0] - get_epoch($monoclock, $wallclock) };
-                *mono2wall = sub { $_[0] + get_epoch($monoclock, $wallclock) };
+                *wall2mono = sub { $_[0] - _get_epoch($monoclock, $wallclock) };
+                *mono2wall = sub { $_[0] + _get_epoch($monoclock, $wallclock) };
 
-                my( $rd, $wr ) = build_pipe();
-                my $signal = build_sig( $wr );
-                my $timer = build_timer( $signal );
+                my ($rd, $wr) = POE::Pipe::OneWay->new();
+                die "Unable to build pipe: $!" unless defined $rd;
+
+                my $signal = _build_sig( $wr );
+
+                my $timer = POSIX::RT::Timer->new(
+                  value    => 0,
+                  interval => 0,
+                  clock    => 'monotonic',
+                  signal   => $signal
+                );
+
                 $EPSILON = $monoclock->get_resolution();
                 DEBUG and warn( "<ck> epsilon=$EPSILON" );
-                *clock_pause = sub { rt_pause( $timer, @_ ); };
-                *clock_reset = sub { rt_resume( Reset => $timer, @_ ); };
-                *clock_resume = sub { rt_resume( Resume => $timer, @_ ); };
-                *clock_setup = sub { rt_setup( $rd, @_ ) };
+                #*clock_pause  = sub { _rt_pause( $timer, @_ ); };
+                #*clock_reset  = sub { _rt_resume( Reset           = > $timer, @_ ); };
+                #*clock_resume = sub { _rt_resume( Resume          = > $timer, @_ ); };
+                #*clock_setup  = sub { _rt_setup( $rd, @_ ) };
                 my $frd = fileno( $rd );
-                *clock_read = sub { rt_ready( $rd, $frd, @_ ) };
+                #*clock_read = sub { _rt_ready( $rd, $frd, @_ ) };
                 $have_clock = 1;
             }
             $done = 1;
@@ -284,7 +259,7 @@ BEGIN {
             warn( "<ck> using POSIX::RT::Clock" ) if $done;
         }
     }
-    if( !$done and do_X( 'USE_HIRES' ) ) {
+    if( !$done and _do_X( 'USE_HIRES' ) ) {
         eval {
             require File::Spec->catfile( qw( Time HiRes.pm ) );
             *monotime = \&Time::HiRes::time;
@@ -310,20 +285,16 @@ BEGIN {
     }
 
     unless( $have_clock ) {
-        *clock_pause = \&loop_pause;
-        *clock_reset = \&loop_reset;
-        *clock_resume = \&loop_resume;
-        *clock_setup = sub { 0 };
-        *clock_read = sub { 0 };
+        #*clock_pause  = sub { $_[0]->loop_pause_time_watcher() };
+        #*clock_reset  = sub { $_[0]->loop_reset_time_watcher(mono2wall($_[1])) };
+        #*clock_resume = sub { $_[0]->loop_resume_time_watcher(mono2wall($_[1])) };
+        #*clock_setup  = sub { 0 };
+        #*clock_read   = sub { 0 };
     }
 
     # *time = sub { Carp::confess( "This should be monotime" ) };
     *time = \&walltime;
 }
-
-require Exporter;
-our @EXPORT_OK = qw( monotime sleep walltime wall2mono mono2wall time );
-our @ISA = qw( Exporter );
 
 1;
 
@@ -407,7 +378,6 @@ realtime, realtime then monotonic) to try and get a more eact value.
 
 Defaults to false.  Only relevant if L</USE_STATIC_EPOCH> is true.
 
-
 =head2 USE_HIRES
 
     export POE_USE_HIRES=0
@@ -420,6 +390,52 @@ previous default clock.
 Defaults to true.  Only relevant if L</USE_POSIXRT> is false.  Set this to false to use
 L<perlfunc/time>.
 
+=head1 EXPORTS
+
+This module optionally exports a few timekeeping helper functions.
+
+=head2 mono2wall
+
+mono2wall() converts a monotonic time to an epoch wall time.
+
+  my $wall = mono2wall( $monotonic );
+
+=head2 monotime
+
+monotime() makes a best-effort attempt to return the time from a
+monotonic system clock.  It may fall back to non-monotonic time if
+there are no monotonic clocks available.
+
+  my $monotonic = monotime();
+
+=head2 sleep
+
+sleep() makes a best-effort attempt to sleep a particular amount of
+high-resolution time using a monotonic clock.  This feature will
+degrade gracefully to non-monotonic high-resolution clocks, then
+low-resolution clocks, depending on available libraries.
+
+  sleep( 3.141 );
+
+=head2 time
+
+time() is a backwards compatible alias for walltime().  Please see
+walltime()'s documentation for details.
+
+=head2 wall2mono
+
+wall2mono() makes a best-effort attempt to convert wall time to its
+equivalent monotonic-clock time.  Its feature degrades gracefully
+depending on clock availability.
+
+  my $monotonic = wall2mono( $epoch );
+
+=head2 walltime
+
+time() makes a best-effort attempt to return non-monotonic wall time
+at the highest available resolution known.
+
+  my $epoch = walltime();
 
 =head1 SEE ALSO
 
