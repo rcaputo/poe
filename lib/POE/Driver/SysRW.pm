@@ -120,6 +120,10 @@ sub flush {
   # Need to check lengths in octets, not characters.
   BEGIN { eval { require bytes } and bytes->import; }
 
+  # Reset errno in case there is nothing to write.
+  # https://rt.cpan.org/Public/Bug/Display.html?id=87721
+  $! = 0;
+
   # syswrite() it, like we're supposed to
   while (@{$self->[OUTPUT_QUEUE]}) {
     my $wrote_count = syswrite(
