@@ -299,9 +299,11 @@ sub new {
               my $socket = $_[ARG0];
               if ($client_pre_connect) {
                 $socket = $client_pre_connect->(@_);
-                unless (fileno($socket)) {
-                  # TODO - Error callback?  Disconnected callback?
-                  # TODO - Should we do this before starting the child?
+                unless (defined($socket) and ref($socket) and fileno($socket)) {
+                  # TODO - The user ought to know what's going on
+                  # here, since it's triggered by something their
+                  # callback has done.  Should we expose a callback
+                  # anyway to avoid potential confusion?
                   return;
                 }
               }
@@ -763,15 +765,21 @@ included in C<ClientConnected>'s parameters as @_[ARG0..$#_].
     ...
   }
 
-C<ClientPreConnect> is called before C<ClientConnected>, and it has
-different parameters: $_[ARG0] contains a copy of the client socket
-before it's given to POE::Wheel::ReadWrite for management.  Most HEAP
-members are set, except of course $_[HEAP]{client}, because the
-POE::Wheel::ReadWrite has not yet been created yet.
-C<ClientPreConnect> may enable SSL on the socket, using
-POE::Component::SSLify.  C<ClientPreConnect> must return a valid
-socket to complete the connection; the client will be disconnected if
-anything else is returned.
+C<ClientPreConnect> is called before C<ClientConnected>, and its
+purpose is to allow programs to reject connections or condition
+sockets before they're given to POE::Wheel::ReadWrite for management.
+
+The C<ClientPreConnect> handler is called with the client socket in
+$_[ARG0], and its return value is significant.  It must return a
+valid client socket if the connection is acceptable.  It must return
+undef to reject the connection.
+
+Most $_[HEAP] values are valid in the C<ClientPreConnect> handler.
+Obviously, $_[HEAP]{client} is not because that wheel hasn't been
+created yet.
+
+In the following example, the C<ClientPreConnect> handler returns the
+client socket after it has been upgraded to an SSL connection.
 
   sub handle_client_pre_connect {
 
