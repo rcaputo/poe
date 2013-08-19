@@ -191,7 +191,6 @@ sub _find_item {
   }
 
   die "should never get here... maybe the queue is out of order";
-
 }
 
 ### Remove an item by its ID.  Takes a coderef filter, too, for
@@ -417,27 +416,6 @@ sub peek_items {
   }
 
   return @items;
-}
-
-### Get one item from the queue
-
-sub _peek_one_item {
-  my ($self, $id, $filter) = @_;
-
-  my $priority = $item_priority{$id};
-  unless (defined $priority) {
-    $! = ESRCH;
-    return;
-  }
-
-  # Find that darn item.
-  my $item_index = $self->_find_item($id, $priority);
-  return unless defined $item_index;
-
-  my $item = $self->[$item_index]->[ITEM_PAYLOAD];
-  return unless $filter->($item);
-
-  return $item;
 }
 
 1;

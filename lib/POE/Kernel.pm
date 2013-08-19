@@ -1996,7 +1996,7 @@ sub alarm_adjust {
     $_[0]->[EV_SESSION] == $kr_active_session;
   };
   
-  return $self->_data_ev_adjust( $alarm_id, $my_alarm, undef(), $delta );
+  return $self->_data_ev_adjust( $alarm_id, $my_alarm, undef, $delta );
 }
 
 # A convenient function for setting alarms relative to now.  It also
