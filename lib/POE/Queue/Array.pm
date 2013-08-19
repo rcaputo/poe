@@ -8,7 +8,6 @@ use vars qw($VERSION @ISA);
 $VERSION = '1.354'; # NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Queue);
 
-use POE::Resource::Clock qw( wall2mono mono2wall monotime walltime time sleep );
 use Errno qw(ESRCH EPERM);
 use Carp qw(confess);
 
@@ -470,8 +469,7 @@ L<POE>, L<POE::Queue>
 
 =head1 BUGS
 
-The stand-alone nature of this module is currently broken, as it
-depends upon POE::Resource::Clock.
+None currently known.
 
 =head1 AUTHORS & COPYRIGHTS
 
