@@ -40,6 +40,14 @@ my %special = (
     %$default_opts,
     trustme => [ qr/^loop_/ ], # mixed in from POE::Loop
   },
+  'POE::Pipe::OneWay' => {
+    %$default_opts,
+    trustme => [ qr/^new$/ ],
+  },
+  'POE::Pipe::TwoWay' => {
+    %$default_opts,
+    trustme => [ qr/^new$/ ],
+  },
 );
 
 # Get the list of modules
