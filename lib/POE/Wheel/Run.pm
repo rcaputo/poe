@@ -377,6 +377,11 @@ sub new {
       unless defined $pid;
 
     # Stdio should not be tied.  Resolves rt.cpan.org ticket 1648.
+    if (tied *STDIN) {
+      carp "Cannot redirect out of tied STDIN.  Untying it";
+      untie *STDIN;
+    }
+
     if (tied *STDOUT) {
       carp "Cannot redirect into tied STDOUT.  Untying it";
       untie *STDOUT;
