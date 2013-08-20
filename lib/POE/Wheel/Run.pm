@@ -193,10 +193,10 @@ sub new {
     carp "ignoring StderrEvent with pty conduit";
     undef $stderr_event;
   }
-  
+
   #croak "$type needs at least one of StdinEvent, StdoutEvent or StderrEvent"
   #  unless (defined($stdin_event) or defined($stdout_event) or defined ($stderr_event));
-  
+
   my $stdio_driver  = delete $params{StdioDriver}  || POE::Driver::SysRW->new();
   my $stdin_driver  = delete $params{StdinDriver}  || $stdio_driver;
   my $stdout_driver = delete $params{StdoutDriver} || $stdio_driver;
@@ -206,19 +206,19 @@ sub new {
   my $stdin_filter  = delete $params{StdinFilter};
   my $stdout_filter = delete $params{StdoutFilter};
   my $stderr_filter = delete $params{StderrFilter};
-  
+
   #For optional redirection...
   my $redir_err     = delete $params{RedirectStderr};
   my $redir_out     = delete $params{RedirectStdout};
   my $redir_in      = delete $params{RedirectStdin};
   my $redir_output  = delete $params{RedirectOutput};
-  
+
   my $no_stdin      = delete $params{NoStdin};
-  
+
   if(defined $redir_output) {
     $redir_out = $redir_err = $redir_output;
   }
-  
+
   #Sanity check. We can't wait for redirected filehandles
   if( (defined $redir_in and defined $stdin_event) ||
      (defined $redir_out and defined $stdout_event) ||
@@ -286,7 +286,7 @@ sub new {
     $stdin_read, $stdout_write, $stdout_read, $stdin_write,
     $stderr_read, $stderr_write,
   );
-  
+
   _filespec_to_fh(\$stdin_read, "<", $redir_in);
   if($redir_output) {
     _filespec_to_fh(\$stdout_write, ">", $redir_output);
@@ -295,28 +295,28 @@ sub new {
     _filespec_to_fh(\$stdout_write, ">", $redir_out);
     _filespec_to_fh(\$stderr_write, ">", $redir_err);
   }
-  
+
   # Create a semaphore pipe.  This is used so that the parent doesn't
   # begin listening until the child's stdio has been set up.
-  
+
   my ($sem_pipe_read, $sem_pipe_write) = POE::Pipe::OneWay->new();
   croak "could not create semaphore pipe: $!" unless defined $sem_pipe_read;
 
   # Use IO::Pty if requested.  IO::Pty turns on autoflush for us.
-  
+
   if(defined $stdout_event
      or defined $stdin_event
      or defined $stderr_event
      or (!$no_stdin))
   #Bypass all the conduit handling if the user does not care for child I/O
-  {  
+  {
     if ($conduit =~ /^pty(-pipe)?$/) {
       croak "IO::Pty is not available" unless PTY_AVAILABLE;
-      
+
       if(defined $redir_err or defined $redir_in or defined $redir_out) {
         croak "Redirection with pty conduit is unsupported";
       }
-      
+
       $stdin_write = $stdout_read = IO::Pty->new();
       croak "could not create master pty: $!" unless defined $stdout_read;
       if ($conduit eq "pty-pipe") {
@@ -325,14 +325,14 @@ sub new {
           unless defined $stderr_read and defined $stderr_write;
       }
     }
-  
+
     # Use pipes otherwise.
     elsif ($conduit eq 'pipe') {
       # We make more pipes than strictly necessary in case someone wants
       # to turn some on later.  Uses a TwoWay pipe for STDIN/STDOUT and
       # a OneWay pipe for STDERR.  This may save 2 filehandles if
       # socketpair() is available and no other $stdio_type is selected.
-      
+
       foreach (
         [\$redir_out, \$stdout_read, \$stdout_write, $stdout_event, "stdout"],
         [\$redir_err, \$stderr_read, \$stderr_write, $stderr_event, "stderr"],
@@ -351,7 +351,7 @@ sub new {
           unless defined $stdin_write and defined $stdin_read;
       }
     }
-  
+
     # Sanity check.
     else {
       croak "unknown conduit type $conduit";
@@ -426,7 +426,7 @@ sub new {
       # TODO - Can this be block eval?  Or a do{} block?
       eval 'setpgrp(0,0)' unless $no_setpgrp;
     }
-    
+
     # Reset all signals in the child process.  POE's own handlers are
     # silly to keep around in the child process since POE won't be
     # using them.
@@ -473,34 +473,34 @@ sub new {
     close $stdin_write if defined $stdin_write;
     close $stdout_read if defined $stdout_read;
     close $stderr_read if defined $stderr_read;
-    
+
     if (POE::Kernel::RUNNING_IN_HELL) {
       __PACKAGE__->_redirect_child_stdio_in_hell(
         $stdin_read, $stdout_write, $stderr_write
       );
     }
-    
+
     else {
       __PACKAGE__->_redirect_child_stdio_sanely(
         $stdin_read, $stdout_write, $stderr_write
       );
     }
-    
+
     # Make STDOUT and/or STDERR auto-flush.
     select STDERR;  $| = 1;
     select STDOUT;  $| = 1;
-        
+
     # The child doesn't need to read from the semaphore pipe.
     $sem_pipe_read = undef;
 
     # Run Perl code.  This is farily consistent across most systems.
-    
+
     if (ref($program) eq 'CODE') {
 
       # Tell the parent that the stdio has been set up.
       print $sem_pipe_write "go\n";
       close $sem_pipe_write;
-      
+
       # Close any close-on-exec file descriptors.  Except STDIN,
       # STDOUT, and STDERR, of course.
       if ($close_on_call) {
@@ -554,13 +554,13 @@ sub new {
   }
 
   # Parent here.  Close what the parent won't need.
-  
+
   defined($stdin_read)   and close $stdin_read;
   defined($stdout_write) and close $stdout_write;
   defined($stderr_write) and close $stderr_write;
-  
-  
-  
+
+
+
   # Also close any slave ptys
   $stdout_read->close_slave() if (
     defined $stdout_read and ref($stdout_read) eq 'IO::Pty'
@@ -942,15 +942,15 @@ sub event {
 
 sub DESTROY {
   my $self = shift;
-  
+
   return if(ref POE::Kernel->get_active_session eq 'POE::Kernel');
-  
+
   # Turn off the STDIN thing.
   if ($self->[HANDLE_STDIN]) {
     $poe_kernel->select_write($self->[HANDLE_STDIN]);
     $self->[HANDLE_STDIN] = undef;
   }
-  
+
   if ($self->[STATE_STDIN]) {
     $poe_kernel->state($self->[STATE_STDIN]);
     $self->[STATE_STDIN] = undef;
@@ -1237,7 +1237,7 @@ sub _redirect_child_stdio_in_hell {
   # TODO - https://rt.cpan.org/Ticket/Display.html?id=50068 claims
   # that these _SetStdHandle() calls may leak memory.  Do we have
   # alternatives?
-  
+
   Win32::Console::_SetStdHandle(
     $STD_INPUT_HANDLE,
     FdGetOsFHandle(fileno($stdin_read))
@@ -1785,7 +1785,7 @@ This will redirect stderr and stdout to the same filehandle. This is equivalent
 to do doing something like
 
   $ something > /path/to/output 2>&1
-  
+
 in bourne shell.
 
 =head4 NoStdin
