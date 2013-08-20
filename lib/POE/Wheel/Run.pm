@@ -287,13 +287,13 @@ sub new {
     $stderr_read, $stderr_write,
   );
   
-  _filespec_to_fd(\$stdin_read, "<", $redir_in);
+  _filespec_to_fh(\$stdin_read, "<", $redir_in);
   if($redir_output) {
-    _filespec_to_fd(\$stdout_write, ">", $redir_output);
-    _filespec_to_fd(\$stderr_write, ">", $stdout_write);
+    _filespec_to_fh(\$stdout_write, ">", $redir_output);
+    _filespec_to_fh(\$stderr_write, ">", $stdout_write);
   } else {
-    _filespec_to_fd(\$stdout_write, ">", $redir_out);
-    _filespec_to_fd(\$stderr_write, ">", $redir_err);
+    _filespec_to_fh(\$stdout_write, ">", $redir_out);
+    _filespec_to_fh(\$stderr_write, ">", $redir_err);
   }
   
   # Create a semaphore pipe.  This is used so that the parent doesn't
@@ -1254,7 +1254,7 @@ sub _redirect_child_stdio_in_hell {
   ) if defined $stderr_write;
 }
 
-sub _filespec_to_fd {
+sub _filespec_to_fh {
   my ($dest,$mode,$fspec) = @_;
   return unless defined $fspec;
   if(ref $fspec) {
