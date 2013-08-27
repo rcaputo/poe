@@ -255,10 +255,11 @@ sub _define_select_states {
 
       # Read the next chunk, and return its data.  Go around again.
       if (defined(my $raw_input = $driver->get($$handle))) {
-        if (@$raw_input) {
-          TRACE_POLL and warn "<poll> " . time . " raw input";
-          $filter->get_one_start($raw_input);
-          foreach my $cooked_input (@{$filter->get_one()}) {
+        TRACE_POLL and warn "<poll> " . time . " raw input";
+        $filter->get_one_start($raw_input);
+        my $cooked_array;
+        while (@{$cooked_array = $filter->get_one()}) {
+          foreach my $cooked_input (@$cooked_array) {
             TRACE_POLL and warn "<poll> " . time . " cooked input";
             $k->call($ses, $$event_input, $cooked_input, $unique_id);
           }
