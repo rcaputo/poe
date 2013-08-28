@@ -150,6 +150,7 @@ t/90_regression/kjeldahl-stop-start-sig-pipe.t
 t/90_regression/leolo-sig-die.t
 t/90_regression/meh-startstop-return.t
 t/90_regression/neyuki_detach.t
+t/90_regression/pipe-followtail.t
 t/90_regression/prumike-win32-stat.t
 t/90_regression/rt14444-arg1.t
 t/90_regression/rt1648-tied-stderr.t
