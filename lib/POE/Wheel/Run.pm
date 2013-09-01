@@ -677,7 +677,7 @@ sub _define_stdin_flusher {
       else {
 
         # All chunks written; fire off a "flushed" event.
-        unless ($$stdin_octets) {
+        if (!$$stdin_octets) {
           $k->select_pause_write($handle);
           $$stdin_event && $k->call($me, $$stdin_event, $unique_id);
         }
