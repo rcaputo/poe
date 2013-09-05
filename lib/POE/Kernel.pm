@@ -1055,60 +1055,42 @@ sub _dispatch_event {
     defined $session
   );
 
-  my $new_sig_die;
-  if ($type & (ET_CALL | ET_START | ET_STOP)) {
-    # Don't trigger $SIG{__DIE__} until we're ready to rethrow it.
-    local $SIG{__DIE__} = \&_dummy_sigdie_handler;
+  # Quiet SIGDIE if it's DEFAULT.  If it's something special, then
+  # someone had better know what they're doing.
 
-    eval {
-      if ($wantarray) {
-        $return = [
-          $session->_invoke_state(
-            $source_session, $event, $etc, $file, $line, $fromstate
-          )
-        ];
-      }
-      elsif (defined $wantarray) {
-        $return = $session->_invoke_state(
-          $source_session, $event, $etc, $file, $line, $fromstate
-        );
-      }
-      else {
+  my $old_sig_die = $SIG{__DIE__};
+  $SIG{__DIE__} = \&_dummy_sigdie_handler if (
+    not defined $old_sig_die or $old_sig_die eq 'DEFAULT'
+  );
+
+  eval {
+    if ($wantarray) {
+      $return = [
         $session->_invoke_state(
           $source_session, $event, $etc, $file, $line, $fromstate
-        );
-      }
-    };
-
-    # Save the __DIE__ handler so we can check it outside this scope.
-    $new_sig_die = $SIG{__DIE__};
-  }
-  else {
-    # Don't trigger $SIG{__DIE__} until we're ready to rethrow it.
-    local $SIG{__DIE__} = \&_dummy_sigdie_handler;
-
-    eval {
+        )
+      ];
+    }
+    elsif (defined $wantarray) {
+      $return = $session->_invoke_state(
+        $source_session, $event, $etc, $file, $line, $fromstate
+      );
+    }
+    else {
       $session->_invoke_state(
         $source_session, $event, $etc, $file, $line, $fromstate
       );
-    };
+    }
+  };
 
-    # Save the __DIE__ handler so we can check it outside this scope.
-    $new_sig_die = $SIG{__DIE__};
-  }
+  # An exception happened?
+  # It was intially thrown under the $SIG{__DIE__} conditions that the
+  # user wanted.  Any formatting, logging, etc. is already done.
 
-  # If the user changed $SIG{__DIE__}, then we should honor that.
-  # Otherwise, by the time we get here, the last one has been restored.
-  $SIG{__DIE__} = $new_sig_die if $new_sig_die ne \&_dummy_sigdie_handler;
+  if (ref($@) or $@ ne '') {
 
-  # local $@ doesn't work quite the way I expect, but there is a
-  # bit of a problem if an eval{} occurs here because a signal is
-  # dispatched or something.
-
-  if (CATCH_EXCEPTIONS) {
-    if (ref($@) or $@ ne '') {
-      my $exception = $@;
-      if(TRACE_EVENTS) {
+    if (CATCH_EXCEPTIONS) {
+      if (TRACE_EVENTS) {
         _warn(
           "<ev> exception occurred in $event when invoked on ",
           $self->_data_alias_loggable($session->ID)
@@ -1120,7 +1102,8 @@ sub _dispatch_event {
       # Also if the active session has been forced back to $self via
       # POE::Kernel->stop().
       if ($type & ET_STOP or $kr_active_session eq $self) {
-        $kr_exception = $exception;
+        # Propagate the exception up to the safe rethrow point.
+        $kr_exception = $@;
       }
       else {
         $self->_data_ev_enqueue(
@@ -1132,22 +1115,35 @@ sub _dispatch_event {
               file => $file,
               line => $line,
               from_state => $fromstate,
-              error_str => $exception,
+              error_str => $@,
             },
           ], __FILE__, __LINE__, undef
         );
       }
     }
-  }
-  elsif (ref $@) {
-    die $@;
-  }
-  elsif ($@ ne '') {
-    # Stringification hides "...propagated at".
-    die $@;
+    else {
+      # Propagate the exception up to the safe rethrow point.
+      $kr_exception = $@;
+    }
   }
 
-  # Call with exception catching.
+  # Global $sig{__DIE__} changed?  For shame!
+  # TODO - This warning is only needed if a SIGDIE handler is active.
+  # TODO - Likewise, setting a SIGDIE with a __DIE__ handler in play
+  # will be tricky or impossible.  There should be some message.
+
+  if (
+    (not defined $old_sig_die or $old_sig_die eq 'DEFAULT') and
+    $SIG{__DIE__} ne \&_dummy_sigdie_handler
+  ) {
+    _warn(
+      "<sg> Event handler redefined global __DIE__ signal handler.\n",
+      "<sg> This may conflict with CATCH_EXCEPTIONS handling.\n",
+      "<sg> If global redefinition is necessary, do it in global code.\n",
+    );
+
+    $SIG{__DIE__} = $old_sig_die;
+  }
 
   # Clear out the event arguments list, in case there are POE-ish
   # things in it. This allows them to destruct happily before we set
@@ -1290,13 +1286,17 @@ sub run {
 sub _rethrow_kr_exception {
   my $self = shift;
 
-  # Save the exception lexically.
-  # Clear it so it doesn't linger if run() is called again.
+  # It's quite common to see people wrap POE::Kernel->run() in an eval
+  # block and start things again if an exception is caught.
+  #
+  # This little lexical dance is actually important.  It allows
+  # $kr_exception to be cleared if the die() is caught.
+
   my $exception = $kr_exception;
   $kr_exception = undef;
 
-  # Rethrow it.
-  die $exception if $exception;
+  # The die is cast.
+  die $exception;
 }
 
 # Stops the kernel cold.  XXX Experimental!
