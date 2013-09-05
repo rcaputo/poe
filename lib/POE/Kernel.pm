@@ -420,51 +420,61 @@ sub _trap {
   local *STDERR = $trace_file_handle || *STDERR;
 
   confess(
-    "=== ($$) ===\n",
-    "Please address any warnings or errors above this message, and try\n",
-    "again.  If there are none, or those messages are from within POE,\n",
-    "then please mail them along with the following information\n",
-    "to bug-POE\@rt.cpan.org:\n---\n@_\n-----\n"
+    "=== $$ === Please address any warnings or errors above this message,\n",
+    "=== $$ === and try again.  If there are no previous messages, or they\n",
+    "=== $$ === are from within POE, then please mail them along with the\n",
+    "=== $$ === following information to bug-POE\@rt.cpan.org:\n",
+    "---\n@_\n-----\n"
   );
 }
 
 sub _croak {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
-  croak "($$) ", @_;
+  my $message = join("", @_);
+  $message =~ s/^/=== $$ === /mg;
+  croak $message;
 }
 
 sub _confess {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
-  confess "($$) ", @_;
+  my $message = join("", @_);
+  $message =~ s/^/=== $$ === /mg;
+  confess $message;
 }
 
 sub _cluck {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
-  cluck "($$) ", @_;
+  my $message = join("", @_);
+  $message =~ s/^/=== $$ === /mg;
+  cluck $message;
 }
 
 sub _carp {
   local $Carp::CarpLevel = $Carp::CarpLevel + 1;
   local *STDERR = $trace_file_handle || *STDERR;
-  carp "($$) ", @_;
+  my $message = join("", @_);
+  $message =~ s/^/=== $$ === /mg;
+  carp $message;
 }
 
 sub _warn {
   my ($package, $file, $line) = caller();
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
-  warn "=== $$ === $message";
+  $message =~ s/^/=== $$ === /mg;
+  warn $message;
 }
 
 sub _die {
   my ($package, $file, $line) = caller();
   my $message = join("", @_);
   $message .= " at $file line $line\n" unless $message =~ /\n$/;
+  $message =~ s/^/=== $$ === /mg;
   local *STDERR = $trace_file_handle || *STDERR;
-  die "($$) $message";
+  die $message;
 }
 
 #------------------------------------------------------------------------------
