@@ -95,69 +95,67 @@ BEGIN {
 }
 
 BEGIN {
-  # Set up a "constant" sub that lets the user deactivate
-  # automatic exception handling
-  { no strict 'refs';
-    unless (defined &CATCH_EXCEPTIONS) {
-      my $catch_exceptions = (
-        (exists $ENV{POE_CATCH_EXCEPTIONS})
-        ? $ENV{POE_CATCH_EXCEPTIONS}
-        : 1
-      );
+  # The entire BEGIN block is a no-strict-refs zone.
 
-      if ($catch_exceptions) {
-        *CATCH_EXCEPTIONS = sub () { 1 };
-      }
-      else {
-        *CATCH_EXCEPTIONS = sub () { 0 };
-      }
+  no strict 'refs';
+
+  # Set up a constant that lets the user deactivate automatic
+  # exception handling.
+
+  unless (defined &CATCH_EXCEPTIONS) {
+    my $catch_exceptions = (
+      (exists $ENV{POE_CATCH_EXCEPTIONS})
+      ? $ENV{POE_CATCH_EXCEPTIONS}
+      : 1
+    );
+
+    if ($catch_exceptions) {
+      *CATCH_EXCEPTIONS = sub () { 1 };
+    }
+    else {
+      *CATCH_EXCEPTIONS = sub () { 0 };
     }
   }
 
-  { no strict 'refs';
-    unless (defined &CHILD_POLLING_INTERVAL) {
-      # That's one second, not a true value.
-      *CHILD_POLLING_INTERVAL = sub () { 1 };
+  unless (defined &CHILD_POLLING_INTERVAL) {
+    # That's one second, not a true value.
+    *CHILD_POLLING_INTERVAL = sub () { 1 };
+  }
+
+  unless (defined &USE_SIGCHLD) {
+    # Perl >= 5.7.3 has safe signals support
+    # perlipc.pod#Deferred_Signals_(Safe_Signals)
+    # We decided to target 5.8.1 just to be safe :)
+    if ( $] >= 5.008001 and not RUNNING_IN_HELL ) {
+      *USE_SIGCHLD = sub () { 1 };
+    } else {
+      *USE_SIGCHLD = sub () { 0 };
     }
   }
 
-  { no strict 'refs';
-    unless (defined &USE_SIGCHLD) {
-      # Perl >= 5.7.3 has safe signals support
-      # perlipc.pod#Deferred_Signals_(Safe_Signals)
-      # We decided to target 5.8.1 just to be safe :)
-      if ( $] >= 5.008001 and not RUNNING_IN_HELL ) {
-        *USE_SIGCHLD = sub () { 1 };
-      } else {
-        *USE_SIGCHLD = sub () { 0 };
-      }
+  unless (defined &USE_SIGNAL_PIPE) {
+    my $use_signal_pipe;
+    if ( exists $ENV{POE_USE_SIGNAL_PIPE} ) {
+      $use_signal_pipe = $ENV{POE_USE_SIGNAL_PIPE};
     }
-  }
-  { no strict 'refs';
-    unless (defined &USE_SIGNAL_PIPE) {
-      my $use_signal_pipe;
-      if ( exists $ENV{POE_USE_SIGNAL_PIPE} ) {
-        $use_signal_pipe = $ENV{POE_USE_SIGNAL_PIPE};
+
+    if (RUNNING_IN_HELL) {
+      if ($use_signal_pipe) {
+        _warn(
+          "Sorry, disabling USE_SIGNAL_PIPE on $^O.\n",
+          "Programs are reported to hang when it's enabled.\n",
+        );
       }
 
-      if (RUNNING_IN_HELL) {
-        if ($use_signal_pipe) {
-          _warn(
-            "Sorry, disabling USE_SIGNAL_PIPE on $^O.\n",
-            "Programs are reported to hang when it's enabled.\n",
-          );
-        }
+      # Must be defined to supersede the default.
+      $use_signal_pipe = 0;
+    }
 
-        # Must be defined to supersede the default.
-        $use_signal_pipe = 0;
-      }
-
-      if ($use_signal_pipe or not defined $use_signal_pipe) {
-        *USE_SIGNAL_PIPE = sub () { 1 };
-      }
-      else {
-        *USE_SIGNAL_PIPE = sub () { 0 };
-      }
+    if ($use_signal_pipe or not defined $use_signal_pipe) {
+      *USE_SIGNAL_PIPE = sub () { 1 };
+    }
+    else {
+      *USE_SIGNAL_PIPE = sub () { 0 };
     }
   }
 }
