@@ -348,7 +348,13 @@ sub _data_ev_dispatch_due {
     # TODO - Why can't we reverse these two lines?
     # TODO - Reversing them could avoid entering and removing GC marks.
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
-    $self->_dispatch_event(@{$event}[EV_SESSION..EV_FROMSTATE], $priority, $id);
+
+    if ($event->[EV_TYPE] & ET_SIGNAL) {
+      $self->_dispatch_signal_event(@{$event}[EV_SESSION..EV_FROMSTATE], $priority, $id);
+    }
+    else {
+      $self->_dispatch_event(@{$event}[EV_SESSION..EV_FROMSTATE], $priority, $id);
+    }
 
     # Stop the system if an unhandled exception occurred.
     # This wipes out all sessions and associated resources.

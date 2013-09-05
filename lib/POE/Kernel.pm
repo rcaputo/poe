@@ -872,6 +872,124 @@ sub CLONE {
 
 sub _dummy_sigdie_handler { 1 }
 
+sub _dispatch_signal_event {
+  my (
+    $self,
+    $session, $source_session, $event, $type, $etc,
+    $file, $line, $fromstate, $priority, $seq
+  ) = @_;
+
+  # TODO - Regrettably, duplicate checking code in:
+  # _dispatch_signal_event(), _dispatch_event().
+
+  if (ASSERT_EVENTS) {
+    _confess "<ev> undefined dest session" unless defined $session;
+    _confess "<ev> undefined source session" unless defined $source_session;
+  };
+
+  if (TRACE_EVENTS) {
+    my $log_session = $session;
+    $log_session =  $self->_data_alias_loggable($session->ID) unless (
+      $type & ET_START
+    );
+    my $string_etc = join(" ", map { defined() ? $_ : "(undef)" } @$etc);
+    _warn(
+      "<ev> Dispatching event $seq ``$event'' ($string_etc) from ",
+      $self->_data_alias_loggable($source_session->ID), " to $log_session"
+    );
+  }
+
+  my $signal = $etc->[0];
+
+  if (TRACE_SIGNALS) {
+    _warn(
+      "<sg> dispatching ET_SIGNAL ($signal) to ",
+      $self->_data_alias_loggable($session->ID)
+    );
+  }
+
+  # Step 1a: Reset the handled-signal flags.
+
+  local @POE::Kernel::kr_signaled_sessions;
+  local $POE::Kernel::kr_signal_total_handled;
+  local $POE::Kernel::kr_signal_type;
+
+  $self->_data_sig_reset_handled($signal);
+
+  # Step 1b: Collect a list of sessions to receive the signal.
+
+  my @touched_sessions = ($session);
+  my $touched_index = 0;
+  while ($touched_index < @touched_sessions) {
+    my $next_target = $touched_sessions[$touched_index]->ID;
+    push @touched_sessions, $self->_data_ses_get_children($next_target);
+    $touched_index++;
+  }
+
+  # Step 1c: The DIE signal propagates up through parents, too.
+
+  if ($signal eq "DIE") {
+    my $next_target = $self->_data_ses_get_parent($session->ID);
+    while (defined($next_target) and $next_target != $self) {
+      unshift @touched_sessions, $next_target;
+      $next_target = $self->_data_ses_get_parent($next_target->ID);
+    }
+  }
+
+  # Step 2: Propagate the signal to the explicit watchers in the
+  # child tree.  Ensure the full tree is touched regardless
+  # whether there are explicit watchers.
+
+  if ($self->_data_sig_explicitly_watched($signal)) {
+    my %signal_watchers = $self->_data_sig_watchers($signal);
+
+    $touched_index = @touched_sessions;
+    while ($touched_index--) {
+      my $target_session = $touched_sessions[$touched_index];
+      $self->_data_sig_touched_session($target_session);
+
+      my $target_sid = $target_session->ID;
+      next unless exists $signal_watchers{$target_sid};
+      my ($target_event, $target_etc) = @{$signal_watchers{$target_sid}};
+
+      if (TRACE_SIGNALS) {
+        _warn(
+          "<sg> propagating explicit signal $target_event ($signal) ",
+          "(@$target_etc) to ", $self->_data_alias_loggable($target_sid)
+        );
+      }
+
+      # ET_SIGNAL_RECURSIVE is used here to avoid repropagating
+      # the signal ad nauseam.
+      $self->_dispatch_event(
+        $target_session, $self,
+        $target_event, ET_SIGNAL_RECURSIVE, [ @$etc, @$target_etc ],
+        $file, $line, $fromstate, monotime(), -__LINE__
+      );
+    }
+  }
+  else {
+    $touched_index = @touched_sessions;
+    while ($touched_index--) {
+      $self->_data_sig_touched_session($touched_sessions[$touched_index]);
+    }
+  }
+
+  # Step 3: Check to see if the signal was handled.
+
+  $self->_data_sig_free_terminated_sessions();
+
+  # If the signal was SIGDIE, then propagate the exception.
+
+  my $handled_session_count = (_data_sig_handled_status())[0];
+  if ($signal eq "DIE" and !$handled_session_count) {
+    $kr_exception = $etc->[1]{error_str};
+  }
+
+  # Signal completely dispatched.  Thanks for flying!
+  return;
+}
+
 sub _dispatch_event {
   my (
     $self,
@@ -908,98 +1026,6 @@ sub _dispatch_event {
 
   # Preprocess signals.  This is where _signal is translated into
   # its registered handler's event name, if there is one.
-
-  if ($type & ET_SIGNAL) {
-    my $signal = $etc->[0];
-
-    if (TRACE_SIGNALS) {
-      _warn(
-        "<sg> dispatching ET_SIGNAL ($signal) to ",
-        $self->_data_alias_loggable($session->ID)
-      );
-    }
-
-    # Step 1a: Reset the handled-signal flags.
-
-    local @POE::Kernel::kr_signaled_sessions;
-    local $POE::Kernel::kr_signal_total_handled;
-    local $POE::Kernel::kr_signal_type;
-
-    $self->_data_sig_reset_handled($signal);
-
-    # Step 1b: Collect a list of sessions to receive the signal.
-
-    my @touched_sessions = ($session);
-    my $touched_index = 0;
-    while ($touched_index < @touched_sessions) {
-      my $next_target = $touched_sessions[$touched_index]->ID;
-      push @touched_sessions, $self->_data_ses_get_children($next_target);
-      $touched_index++;
-    }
-
-    # Step 1c: The DIE signal propagates up through parents, too.
-
-    if ($signal eq "DIE") {
-      my $next_target = $self->_data_ses_get_parent($session->ID);
-      while (defined($next_target) and $next_target != $self) {
-        unshift @touched_sessions, $next_target;
-        $next_target = $self->_data_ses_get_parent($next_target->ID);
-      }
-    }
-
-    # Step 2: Propagate the signal to the explicit watchers in the
-    # child tree.  Ensure the full tree is touched regardless
-    # whether there are explicit watchers.
-
-    if ($self->_data_sig_explicitly_watched($signal)) {
-      my %signal_watchers = $self->_data_sig_watchers($signal);
-
-      $touched_index = @touched_sessions;
-      while ($touched_index--) {
-        my $target_session = $touched_sessions[$touched_index];
-        $self->_data_sig_touched_session($target_session);
-
-        my $target_sid = $target_session->ID;
-        next unless exists $signal_watchers{$target_sid};
-        my ($target_event, $target_etc) = @{$signal_watchers{$target_sid}};
-
-        if (TRACE_SIGNALS) {
-          _warn(
-            "<sg> propagating explicit signal $target_event ($signal) ",
-            "(@$target_etc) to ", $self->_data_alias_loggable($target_sid)
-          );
-        }
-
-        # ET_SIGNAL_RECURSIVE is used here to avoid repropagating
-        # the signal ad nauseam.
-        $self->_dispatch_event(
-          $target_session, $self,
-          $target_event, ET_SIGNAL_RECURSIVE, [ @$etc, @$target_etc ],
-          $file, $line, $fromstate, monotime(), -__LINE__
-        );
-      }
-    }
-    else {
-      $touched_index = @touched_sessions;
-      while ($touched_index--) {
-        $self->_data_sig_touched_session($touched_sessions[$touched_index]);
-      }
-    }
-
-    # Step 3: Check to see if the signal was handled.
-
-    $self->_data_sig_free_terminated_sessions();
-
-    # If the signal was SIGDIE, then propagate the exception.
-
-    my $handled_session_count = (_data_sig_handled_status())[0];
-    if ($signal eq "DIE" and !$handled_session_count) {
-      $kr_exception = $etc->[1]{error_str};
-    }
-
-    # Signal completely dispatched.  Thanks for flying!
-    return;
-  }
 
   if (TRACE_EVENTS) {
     _warn(
