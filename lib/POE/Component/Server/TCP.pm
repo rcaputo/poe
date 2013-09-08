@@ -116,6 +116,7 @@ sub new {
   my $session_type        = delete $param{SessionType};
   my $session_params      = delete $param{SessionParams};
   my $server_started      = delete $param{Started};
+  my $server_stopped      = delete $param{Stopped};
   my $listener_args       = delete $param{ListenerArgs};
 
   $listener_args = [] unless defined $listener_args;
@@ -541,6 +542,7 @@ sub new {
       # Dummy states to prevent warnings.
       _stop   => sub {
         DEBUG and warn "$$: $_[HEAP]->{alias} _stop";
+        $server_stopped and $server_stopped->(@_);
         undef($accept_session_id);
         return 0;
       },
@@ -725,6 +727,10 @@ master session's start-up routine.  The @_[ARG0..$#_] parameters are
 set to a copy of the values in the server's C<ListenerArgs>
 constructor parameter.  The other parameters are standard for
 POE::Session's _start handlers.
+
+The component's C<Stopped> callback is invoked at the beginning of the
+master session's _stop routine. The parameters are standard for
+POE::Session's _stop handlers.
 
 The component's C<Error> callback is invoked when the server has a
 problem listening for connections.  C<Error> may also be called if the
@@ -1009,7 +1015,8 @@ will not reach these handlers.
 
 If POE::Kernel::ASSERT_USAGE is enabled, the constructor will croak() if it
 detects a state that it uses internally. For example, please use the "Started"
-callback if you want to specify your own "_start" event.
+and "Stopped" callbacks if you want to specify your own "_start" and "_stop"
+events respectively.
 
 =head4 ObjectStates
 
@@ -1023,7 +1030,8 @@ will not reach these handlers.
 
 If POE::Kernel::ASSERT_USAGE is enabled, the constructor will croak() if it
 detects a state that it uses internally. For example, please use the "Started"
-callback if you want to specify your own "_start" event.
+and "Stopped" callbacks if you want to specify your own "_start" and "_stop"
+events respectively.
 
 =head4 PackageStates
 
@@ -1038,7 +1046,8 @@ will not reach these handlers.
 
 If POE::Kernel::ASSERT_USAGE is enabled, the constructor will croak() if it
 detects a state that it uses internally. For example, please use the "Started"
-callback if you want to specify your own "_start" event.
+and "Stopped" callbacks if you want to specify your own "_start" and "_stop"
+events respectively.
 
 =head4 Port
 
@@ -1056,6 +1065,13 @@ C<Started> sets an optional callback that will be invoked within the
 main server session's context.  It notifies the server that it has
 fully started.  The callback's parameters are the usual for a
 session's _start handler.
+
+=head4 Stopped
+
+C<Stopped> sets an optional callback that will be invoked within the
+main server session's context.  It notifies the server that it has
+fully stopped.  The callback's parameters are the usual for a
+session's _stop handler.
 
 =head4 ListenerArgs
 
