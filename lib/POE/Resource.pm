@@ -64,7 +64,7 @@ L<POE::Resource::SIDs>,
 L<POE::Resource::Sessions>,
 L<POE::Resource::Signals>
 
-Also see L<POE::Kernel/Resources> for for public information about POE
+Also see L<POE::Kernel/Resources> for public information about POE
 resources.
 
 =head1 BUGS
