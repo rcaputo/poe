@@ -517,7 +517,7 @@ versions.
 =head3 loop_resume_filehandle FILE_HANDLE, IO_MODE
 
 This is a lightweight form of loop_watch_filehandle().  It is used
-along with loop_pause_filehandle() to temporarily toggle a a watcher's
+along with loop_pause_filehandle() to temporarily toggle a watcher's
 state for a FILE_HANDLE in a particular IO_MODE.
 
 =head1 HOW POE FINDS EVENT LOOP BRIDGES
