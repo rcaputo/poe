@@ -1048,7 +1048,7 @@ handling.
 See L<POE::Kernel/Signal Watcher Methods> for POE's public signals
 API.
 
-See L<POE::Kernel/Resources> for for public information about POE
+See L<POE::Kernel/Resources> for public information about POE
 resources.
 
 See L<POE::Resource> for general discussion about resources and the
