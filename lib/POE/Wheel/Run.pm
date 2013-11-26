@@ -498,7 +498,7 @@ sub new {
     # The child doesn't need to read from the semaphore pipe.
     $sem_pipe_read = undef;
 
-    # Run Perl code.  This is farily consistent across most systems.
+    # Run Perl code.  This is fairly consistent across most systems.
 
     if (ref($program) eq 'CODE') {
 

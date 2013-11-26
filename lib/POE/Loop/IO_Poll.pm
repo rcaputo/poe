@@ -30,7 +30,7 @@ sub skip_tests {
 use strict;
 
 # Be sure we're using a contemporary version of IO::Poll.  There were
-# issues with certain versios of IO::Poll prior to 0.05.  The latest
+# issues with certain versions of IO::Poll prior to 0.05.  The latest
 # version is 0.01, however.
 use IO::Poll 0.01;
 

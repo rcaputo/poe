@@ -483,7 +483,7 @@ sub new {
       # We accepted a connection.  Do something with it.
       tcp_server_got_connection => $accept_callback,
 
-      # conncurrency on close.
+      # concurrency on close.
       disconnected => sub {
         $_[HEAP]->{connections}--;
         DEBUG and warn(
@@ -983,8 +983,7 @@ parameters as discussed there.
 
 A default error handler will be provided if Error is omitted.  The
 default handler will log the error to STDERR and shut down the server.
-Active connections will be permitted to to complete their
-transactions.
+Active connections will be permitted to complete their transactions.
 
   Error => sub {
     my ($syscall_name, $err_num, $err_str) = @_[ARG0..ARG2];
@@ -1076,7 +1075,7 @@ session's _stop handler.
 =head4 ListenerArgs
 
 C<ListenerArgs> is passed to the listener session as the C<args> parameter.  In
-other words, it must be an arrayref, and the values are are passed into the
+other words, it must be an arrayref, and the values are passed into the
 C<Started> handler as ARG0, ARG1, etc.
 
 =head3 Connection Session Configuration

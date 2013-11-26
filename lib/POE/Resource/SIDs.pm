@@ -100,7 +100,7 @@ by POE::Kernel, so it has no public interface.
 See L<POE::Kernel/Session Identifiers (IDs and Aliases)> for more
 information about session IDs.
 
-See L<POE::Kernel/Resources> for for public information about POE
+See L<POE::Kernel/Resources> for public information about POE
 resources.
 
 See L<POE::Resource> for general discussion about resources and the

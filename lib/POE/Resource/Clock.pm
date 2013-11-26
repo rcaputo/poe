@@ -316,15 +316,15 @@ features to keep an internal monotonic clock and a wall clock.  It also
 converts between this monotonic clock and the wall clock.
 
 The monotonic clock is used to keep an ordered queue of events.  The wall
-clock is used to comunicate the time with user code
+clock is used to communicate the time with user code
 (L<POE::Kernel/alarm_set>, L<POE::Kernel/alarm_remove>).
 
 There are 3 possible clock sources in order of preference:
 L<POSIX::RT::Clock>, L<Time::HiRes> and L<perlfunc/time>.  Only
-C<POSIX::RT::Clock> has a seperate monotonic and wall clock; the other two use the
+C<POSIX::RT::Clock> has a separate monotonic and wall clock; the other two use the
 same source for both clocks.
 
-Clock selection and behaviour is controled with the following:
+Clock selection and behaviour is controlled with the following:
 
 =head2 USE_POSIXRT
 
@@ -366,7 +366,7 @@ the following two alarms is undefined.
 
     export POE_USE_EXACT_EPOCH=1
         or
-    sub POE::Kernel::USE_EACT_EPOCH { 1 }
+    sub POE::Kernel::USE_EXACT_EPOCH { 1 }
 
 There currently no way to exactly get the monotonic clock's epoch.  Instead
 the difference between the current monotonic clock value to the realtime
@@ -374,7 +374,7 @@ clock's value is used.  This is obviously inexact because there is a slight
 delay between the 2 system calls.  Setting USE_EXACT_EPOCH to true will
 calculate an average of this difference over 250 ms or at least 20 samples. 
 What's more, the system calls are done in both orders (monotonic then
-realtime, realtime then monotonic) to try and get a more eact value.
+realtime, realtime then monotonic) to try and get a more exact value.
 
 Defaults to false.  Only relevant if L</USE_STATIC_EPOCH> is true.
 

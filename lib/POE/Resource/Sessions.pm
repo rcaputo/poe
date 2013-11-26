@@ -632,7 +632,7 @@ come and go.
 See L<POE::Kernel/Session Helper Methods> for friend methods between
 POE::Kernel and POE::Session classes.
 
-See L<POE::Kernel/Resources> for for public information about POE
+See L<POE::Kernel/Resources> for public information about POE
 resources.
 
 See L<POE::Resource> for general discussion about resources and the

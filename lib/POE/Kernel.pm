@@ -1730,7 +1730,7 @@ sub call {
 
   # TODO The difference between synchronous and asynchronous events
   # should be made more clear in the documentation, so that people
-  # have a tendency not to abuse them.  I discovered in xws that that
+  # have a tendency not to abuse them.  I discovered in xws that
   # mixing the two types makes it harder than necessary to write
   # deterministic programs, but the difficulty can be ameliorated if
   # programmers set some base rules and stick to them.

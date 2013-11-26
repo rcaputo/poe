@@ -439,7 +439,7 @@ inline_states parameter.
 
 =head4 ObjectStates
 
-If C<ObjectStates> is specified, it must holde an arrayref of objects
+If C<ObjectStates> is specified, it must hold an arrayref of objects
 and the events they will handle.  The arrayref must follow the syntax
 for POE::Session->create()'s object_states parameter.
 

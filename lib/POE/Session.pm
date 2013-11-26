@@ -1018,7 +1018,7 @@ C<$_[SENDER]> is commonly used as a return address for responses.  It may
 also be compared against C<$_[KERNEL]> to verify that timers and other
 POE::Kernel-generated events were not spoofed.
 
-This C<echo_handler()> reponds to the sender with an "echo" event that
+This C<echo_handler()> responds to the sender with an "echo" event that
 contains all the parameters it received.  It avoids a feedback loop by
 ensuring the sender session and event (STATE) are not identical to the
 current ones.
@@ -1261,7 +1261,7 @@ resolve to a different subroutine.
 
 POE::Session sessions support a small number of options, which may be
 initially set with the C<option> constructor parameter and changed at
-run time with the C<option()|/option> mehtod.
+run time with the C<option()|/option> method.
 
 C<option> takes a hashref with option =E<gt> value pairs:
 

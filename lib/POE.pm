@@ -197,8 +197,8 @@ POE components are often just plain Perl objects.  The previously
 mentioned L<POE::Component::DirWatch::Object|POE::Component::DirWatch::Object> uses L<Moose|Moose>.  Other object
 and meta-object frameworks are compatible.
 
-Also of interest is L<POE::Component::Generic|POE::Component::Generic>, which is allows you to create
-a POE component from nearly nearly any blocking module.
+Also of interest is L<POE::Component::Generic|POE::Component::Generic>, which allows you to create
+a POE component from nearly any blocking module.
 
 There are quite a lot of components on the CPAN.  
 L<http://search.cpan.org/search?query=poe+component&mode=all>

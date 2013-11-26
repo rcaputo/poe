@@ -20,7 +20,7 @@ $VERSION = '1.356';
 sub BUFFER        () { 0 } # raw data buffer to build requests
 sub STATE         () { 1 } # built a full request
 sub REQUEST       () { 2 } # partial request being built
-sub CLIENT_PROTO  () { 3 } # client protoco version requested
+sub CLIENT_PROTO  () { 3 } # client protocol version requested
 sub CONTENT_LEN   () { 4 } # expected content length
 sub CONTENT_ADDED () { 5 } # amount of content added to request
 
