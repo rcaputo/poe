@@ -372,7 +372,7 @@ There currently no way to exactly get the monotonic clock's epoch.  Instead
 the difference between the current monotonic clock value to the realtime
 clock's value is used.  This is obviously inexact because there is a slight
 delay between the 2 system calls.  Setting USE_EXACT_EPOCH to true will
-calculate an average of this difference over 250 ms or at least 20 samples. 
+calculate an average of this difference over 250 ms or at least 20 samples.
 What's more, the system calls are done in both orders (monotonic then
 realtime, realtime then monotonic) to try and get a more exact value.
 
