@@ -1,7 +1,7 @@
 package POE::Queue;
 
 use vars qw($VERSION);
-$VERSION = '1.356'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.357'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw(croak);
 
