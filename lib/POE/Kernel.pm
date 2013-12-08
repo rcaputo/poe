@@ -1088,7 +1088,6 @@ sub _dispatch_event {
   # user wanted.  Any formatting, logging, etc. is already done.
 
   if (ref($@) or $@ ne '') {
-
     if (CATCH_EXCEPTIONS) {
       if (TRACE_EVENTS) {
         _warn(
@@ -1749,6 +1748,8 @@ sub call {
       )
     );
 
+    $kr_exception and $self->_rethrow_kr_exception();
+
     $! = 0;
     return @return_value;
   }
@@ -1767,6 +1768,8 @@ sub call {
       )
     );
 
+    $kr_exception and $self->_rethrow_kr_exception();
+
     $! = 0;
     return $return_value;
   }
@@ -1784,6 +1787,8 @@ sub call {
       (caller)[1,2], $kr_active_event, monotime(), -__LINE__
     );
   }
+
+  $kr_exception and $self->_rethrow_kr_exception();
 
   $! = 0;
   return;
