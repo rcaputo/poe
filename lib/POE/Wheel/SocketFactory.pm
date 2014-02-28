@@ -51,20 +51,11 @@ sub MY_SOCKET_SELECTED () { 12 }
 # If IPv6 support can't be loaded, then provide dummies so the code at
 # least compiles.  Suggested in rt.cpan.org 27250.
 BEGIN {
-  # under perl-5.6.2 the warning "leaks" from the eval, while newer versions don't...
-  # it's due to Exporter.pm behaving differently, so we have to shut it up
-  no warnings 'redefine';
-  local *Carp::carp = sub { die @_ };
 
-  # Socket::GetAddrInfo provides getaddrinfo where earlier Perls' Socket don't.
-  eval { Socket->import( qw(getaddrinfo getnameinfo) ) };
+  eval { Socket->import( qw(getaddrinfo unpack_sockaddr_in6) ) };
   if ($@) {
-    # :newapi is legacy, but we include it to be sure in case the user has an old version of GAI
-    eval { require Socket::GetAddrInfo; Socket::GetAddrInfo->import( qw(:newapi getaddrinfo getnameinfo) ) };
-    if ($@) {
-      *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Neither Socket nor Socket::GetAddrInfo provides getaddrinfo()") };
-      *getnameinfo = sub { Carp::confess("Unable to use IPv6: Neither Socket nor Socket::GetAddrInfo provides getnameinfo()") };
-    }
+    *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Socket doesn't provide getaddrinfo()") };
+    *unpack_sockaddr_in6 = sub { Carp::confess("Unable to use IPv6: Socket doesn't provide unpack_sockaddr_in6()") };
   }
 
   # Socket6 provides AF_INET6 and PF_INET6 where earlier Perls' Socket don't.
@@ -182,15 +173,15 @@ sub _define_accept_state {
       if ($peer) {
         my ($peer_addr, $peer_port);
         if ( $domain eq DOM_UNIX ) {
-          $peer_addr = $peer_port = undef;
+          $peer_port = undef;
+          eval { $peer_addr = unpack_sockaddr_un($peer) };
+          $peer_addr = undef if length $@;
         }
         elsif ( $domain eq DOM_INET ) {
           ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
         }
         elsif ( $domain eq DOM_INET6 ) {
-          $peer = getpeername($new_socket);
-          ((my $error), $peer_addr, $peer_port) =  getnameinfo($peer);
-          warn $error if $error;
+          ($peer_addr, $peer_port) = unpack_sockaddr_in6($peer);
         }
         else {
           die "sanity failure: socket domain == $domain";
@@ -287,10 +278,8 @@ sub _define_connect_state {
       # UNIX sockets have some trouble with peer addresses.
       if ($domain eq DOM_UNIX) {
         if (defined $peer) {
-          eval {
-            $peer_addr = unpack_sockaddr_un($peer);
-          };
-          undef $peer_addr if length $@;
+          eval { $peer_addr = unpack_sockaddr_un($peer) };
+          $peer_addr = undef if length $@;
         }
       }
 
@@ -1245,8 +1234,10 @@ Note: C<AF_INET6> and C<PF_INET6> are supplied by the L<Socket>
 module included in Perl 5.8.0 or later.  Perl versions before 5.8.0
 should not attempt to use IPv6 until someone contributes a workaround.
 
-IPv6 support requires a 21st century Socket module and the presence of
-Socket::GetAddrInfo to resolve host names to IPv6 addresses.
+IPv6 support requires a Socket module that implements getaddrinfo()
+and unpack_sockaddr_in6().  There may be other modules that perform
+these functions, but most if not all of them have been deprecated with
+the advent of proper core Socket support for IPv6.
 
 =for comment
 TODO - Example.
