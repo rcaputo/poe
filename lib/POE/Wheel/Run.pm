@@ -176,8 +176,14 @@ sub new {
 
   if ($winsize) {
     carp "winsize can only be specified for a Conduit of type pty"
-      if $conduit ne 'pty' and $winsize;
+      if $conduit !~ /^pty(-pipe)?$/ and $winsize;
 
+    if( 'ARRAY' eq ref $winsize and 2==@$winsize ) {
+        # Standard VGA cell in 9x16
+        # http://en.wikipedia.org/wiki/VGA-compatible_text_mode#Fonts
+        $winsize->[2] = $winsize->[1]*9;
+        $winsize->[3] = $winsize->[0]*16;
+    }
     carp "winsize must be a 4 element arrayref" unless ref($winsize) eq 'ARRAY'
       and scalar @$winsize == 4;
 
@@ -1600,11 +1606,12 @@ Winsize sets the child process' terminal size.  Its value should be an
 arrayref with four elements.  The first two elements must be the
 number of lines and columns for the child's terminal window,
 respectively.  The second pair of elements describe the terminal's X
-and Y dimensions in pixels:
+and Y dimensions in pixels.  If the last pair is missing, they will be calculated 
+from the lines and columns using a 9x16 cell size.
 
   $_[HEAP]{child} = POE::Wheel::Run->new(
     # ... among other things ...
-    Winsize => [ 25, 80, 1024, 768 ],
+    Winsize => [ 25, 80, 720, 400 ],
   );
 
 Winsize is only valid for conduits that use pseudo-ttys: "pty" and
