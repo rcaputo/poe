@@ -2117,7 +2117,7 @@ sub delay_adjust {
   };
 
   if (TRACE_EVENTS) {
-    _warn("<ev> adjusted event $alarm_id by $seconds seconds");
+    _warn("<ev> adjusted event $alarm_id by $seconds seconds from $t");
   }
 
   return $self->_data_ev_set($alarm_id, $my_delay, $t, $pri, $seconds );

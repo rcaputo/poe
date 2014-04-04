@@ -147,7 +147,7 @@ sub _data_ev_set
     # XXX - However, if there has been a clock skew, the priority will
     # have changed and we should recalculate priority from time+delta
 
-    $delta ||= $payload->[EV_DELTA] || 0;
+    $delta = $payload->[EV_DELTA] || 0 unless defined $delta;
     $kr_queue->set_priority( $alarm_id, $my_alarm, $pri+$delta );
     $payload->[EV_WALLTIME] = $time;
     $payload->[EV_DELTA]    = $delta;
