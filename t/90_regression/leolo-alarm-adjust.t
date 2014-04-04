@@ -12,7 +12,7 @@ POE::Session->create( inline_states => {
         _start => sub {
                 my $heap = $_[HEAP];
                 $heap->{started} = time;
-                $heap->{alarm} = $poe_kernel->delay_set( 'the_alarm' => time+10 );
+                $heap->{alarm} = $poe_kernel->alarm_set( 'the_alarm' => time+10 );
                 $heap->{delay} = $poe_kernel->delay_set( 'the_delay' => 10 );
                 $poe_kernel->yield( 'adjust_them' );
             },
