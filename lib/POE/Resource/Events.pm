@@ -131,14 +131,43 @@ sub _data_ev_enqueue {
   return $new_id;
 }
 
+sub _data_ev_set
+{
+    my( $self, $alarm_id, $my_alarm, $time, $pri, $delta ) = @_;
+
+    my $event = (
+      grep { $_->[1] == $alarm_id }
+      $kr_queue->peek_items( $my_alarm )
+    )[0];
+
+    return unless $event;
+
+    my $payload = $event->[ITEM_PAYLOAD];
+
+    # XXX - However, if there has been a clock skew, the priority will
+    # have changed and we should recalculate priority from time+delta
+
+    $delta ||= $payload->[EV_DELTA] || 0;
+    $kr_queue->set_priority( $alarm_id, $my_alarm, $pri+$delta );
+    $payload->[EV_WALLTIME] = $time;
+    $payload->[EV_DELTA]    = $delta;
+
+    return( ($payload->[EV_WALLTIME] || 0) + ($payload->[EV_DELTA] || 0) );
+}
+
 sub _data_ev_adjust
 {
     my( $self, $alarm_id, $my_alarm, $time, $delta ) = @_;
 
     # XXX - However, if there has been a clock skew, the priority will
     # have changed and we should recalculate priority from time+delta
-
-    $kr_queue->adjust_priority( $alarm_id, $my_alarm, $delta );
+    if( $time ) {
+        # PG - We are never invoked with $time anyway.  
+        $kr_queue->set_priority( $alarm_id, $my_alarm, $time+$delta );
+    }
+    else {
+        $kr_queue->adjust_priority( $alarm_id, $my_alarm, $delta );
+    }
 
     my $event = (
       grep { $_->[1] == $alarm_id }

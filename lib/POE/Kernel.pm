@@ -2044,7 +2044,7 @@ sub alarm_adjust {
 
 sub delay_set {
   # Always always always grab time() ASAP, so that the eventual
-  # time we set the alarm for is as close as possible to the time
+  # time we set the delay for is as close as possible to the time
   # at which they ASKED for the delay, not when we actually set it.
   my $t = walltime();
   my $pri = monotime();
@@ -2086,6 +2086,13 @@ sub delay_set {
 # this is optimized internally for this sort of activity.
 
 sub delay_adjust {
+  # Always always always grab time() ASAP, so that the eventual
+  # time we set the delay for is as close as possible to the time
+  # at which they ASKED for the delay, not when we actually set it.
+  my $t = walltime();
+  my $pri = monotime();
+
+  # And now continue as normal
   my ($self, $alarm_id, $seconds) = ($poe_kernel, @_[1..$#_]);
 
   if (ASSERT_USAGE) {
@@ -2113,7 +2120,7 @@ sub delay_adjust {
     _warn("<ev> adjusted event $alarm_id by $seconds seconds");
   }
 
-  return $self->_data_ev_adjust($alarm_id, $my_delay, undef, $seconds );
+  return $self->_data_ev_set($alarm_id, $my_delay, $t, $pri, $seconds );
 }
 
 # Remove all alarms for the current session.
