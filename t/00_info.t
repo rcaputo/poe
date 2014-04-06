@@ -17,3 +17,11 @@ diag(
   "Perl $], ",
   "$^X on $^O"
 );
+
+# Benchmark the device under test.
+
+my $done = 0;
+my $x    = 0;
+$SIG{ALRM} = sub { diag "pogomips: $x"; $done = 1; };
+alarm(1);
+++$x until $done;
