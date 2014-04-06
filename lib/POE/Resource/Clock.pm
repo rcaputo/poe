@@ -23,7 +23,15 @@ sub CLK_SKEW    () { 1 }
 
 sub CLK_EN_READ () { "rt-lock-read" }
 
-#########################################
+
+# Perform a runtime check for a compile-time flag.
+#
+# TODO - Enable compiler optimization of all calls to this function.
+# The customary way to do this is to migrate the environment variable
+# value into a constant at compile time, then for all callers to check
+# the constant directly.  This is such a common thing to do that POE
+# should define a utility library for it.
+
 sub _do_X 
 {
     my( $X, $default ) = @_;
@@ -35,27 +43,28 @@ sub _do_X
     return 1;
 }
 
-#########################################
+
+# Try to get the exact difference between the monotonic clock's epoch
+# and the system clock's epoch.  We do this by comparing the 2 for
+# 0.25 second or 10 samples.  To compensate for delays between calling
+# time and get_time, we run in both order.  Even so, I still see up to
+# 10 mS divergence in my dev VM between invocations.
+#
+# Only called once, at compile time.
+
 sub _exact_epoch
 {
     my( $monoclock ) = @_;
-
-    # Try to get the exact difference between the monotonic clock's
-    # epoch and the system clock's epoch.  We do this by comparing the
-    # 2 for 0.25 second or 10 samples.  To compensate for delays
-    # between calling time and get_time, we run in both order.  Even
-    # so, I still see up to 10 mS divergence in my dev VM between
-    # invocations.
 
     my $N=0;
     my $total = 0;
     my $end = $monoclock->get_time() + 0.25;
     while( $end > $monoclock->get_time() or $N < 20) {
         my $hr = Time::HiRes::time();
-        my $mono = $monoclock->get_time;
+        my $mono = $monoclock->get_time();
         $total += $hr - $mono;
         $N++;
-        $mono = $monoclock->get_time;
+        $mono = $monoclock->get_time();
         $hr = Time::HiRes::time();
         $total += $hr - $mono;
         $N++;
@@ -64,12 +73,14 @@ sub _exact_epoch
     return $total/$N;
 }
 
+
 #########################################
 sub _get_epoch
 {
     my( $monoclock, $wallclock ) = @_;
-    return $wallclock->get_time - $monoclock->get_time;
+    return $wallclock->get_time() - $monoclock->get_time();
 }
+
 
 #########################################
 our $FORMAT = 'iF';
@@ -81,6 +92,7 @@ sub _pipe_write
     my $buffer = pack $FORMAT, $op, $skew;
     syswrite( $write, $buffer, $LENGTH );
 }
+
 
 #########################################
 sub _pipe_read
@@ -125,12 +137,13 @@ sub _rt_setup
     $kernel->loop_watch_filehandle( $read, POE::Kernel::MODE_RD() );
 }
 
+
 our $EPSILON = 0.0001;
 sub _rt_resume
 {
     my( $what, $timer, $kernel, $pri ) = @_;
     DEBUG and POE::Kernel::_warn( "<ck> $what pri=$pri" );
-    $kernel->loop_pause_time_watcher;
+    $kernel->loop_pause_time_watcher();
     if( $pri <= monotime() ) {
         $timer->set_timeout( $EPSILON );
     }
@@ -139,13 +152,15 @@ sub _rt_resume
     }
 }
 
+
 sub _rt_pause
 {
     my( $timer, $kernel ) = @_;
     DEBUG and POE::Kernel::_warn( "<ck> Pause" );
     $timer->set_timeout( 60 );
-    $kernel->loop_pause_time_watcher
+    $kernel->loop_pause_time_watcher();
 }
+
 
 #########################################
 sub _rt_read_pipe
@@ -171,6 +186,7 @@ sub _rt_read_pipe
     }
 }
 
+
 #########################################
 sub _rt_ready
 {
@@ -179,6 +195,7 @@ sub _rt_ready
     _rt_read_pipe( $kernel, $read );
     return 1;
 }
+
 
 #########################################
 my %SIGnames;
@@ -198,6 +215,7 @@ sub _sig_number
     return $SIGnames{ $name }+$X;
 }
 
+
 #########################################
 BEGIN {
     my $done;
@@ -208,8 +226,8 @@ BEGIN {
             require File::Spec->catfile( qw( POSIX RT Timer.pm ) );
             my $monoclock = POSIX::RT::Clock->new( 'monotonic' );
             my $wallclock = POSIX::RT::Clock->new( 'realtime' );
-            *monotime = sub { return $monoclock->get_time; };
-            *walltime = sub { return $wallclock->get_time; };
+            *monotime = sub { return $monoclock->get_time(); };
+            *walltime = sub { return $wallclock->get_time(); };
             *sleep = sub { $monoclock->sleep_deeply(@_) };
             if( _do_X( 'USE_STATIC_EPOCH' ) ) {
                 # This is where we cheat:  without a static epoch the tests fail
