@@ -217,13 +217,13 @@ sub _data_ses_free {
 
   # Things which do not hold reference counts.
 
-  $self->[KR_SESSION_IDS]->clear($sid);                # Remove from SID tables.
+  $self->[KR_SESSION_IDS]->clear($sid);        # Remove from SID tables.
   $self->_data_sig_clear_session($sid);        # Remove all leftover signals.
 
   # Things which do hold reference counts.
 
   $self->_data_alias_clear_session($sid);      # Remove all leftover aliases.
-  $self->_data_extref_clear_session($sid);     # Remove all leftover extrefs.
+  $self->[KR_EXTRA_REFS]->clear_session($sid); # Remove all leftover extrefs.
   $self->_data_handle_clear_session($sid);     # Remove all leftover handles.
 
   $self->_data_ev_clear_session($sid);         # Remove all leftover events.
@@ -476,7 +476,8 @@ sub _data_ses_dump_refcounts {
     "<rc> | child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
     "<rc> | handles in use: ", $self->_data_handle_count_ses($sid), "\n",
     "<rc> | aliases in use: ", $self->_data_alias_count_ses($sid), "\n",
-    "<rc> | extra refs    : ", $self->_data_extref_count_ses($sid), "\n",
+    "<rc> | extra refs    : ",
+      $self->[KR_EXTRA_REFS]->count_session_refs($sid), "\n",
     "<rc> | pid count     : ", $self->_data_sig_session_awaits_pids($sid), "\n",
     "<rc> +---------------------------------------------------\n",
   );

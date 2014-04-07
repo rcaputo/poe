@@ -44,4 +44,4 @@ $SIG{ALRM} = sub { die 'timeout' };
 alarm(10); # set to 10 for slow VMs, lower at your own peril :)
 eval { POE::Kernel->run };
 $SIG{ALRM} = "IGNORE";
-ok( ! $@, "POE exited in time" );
+ok( ! $@, "POE exited in time: $@" );
