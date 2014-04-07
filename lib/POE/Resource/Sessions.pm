@@ -115,7 +115,7 @@ sub _data_ses_allocate {
     ];
 
   # For the ID to session reference lookup.
-  $self->_data_sid_set($sid, $session);
+  $self->[KR_SESSION_IDS]->set($sid, $session);
 
   # For the stringy to blessed session reference lookup.
   $kr_session_refs{$session} = $session;
@@ -217,7 +217,7 @@ sub _data_ses_free {
 
   # Things which do not hold reference counts.
 
-  $self->_data_sid_clear($sid);                # Remove from SID tables.
+  $self->[KR_SESSION_IDS]->clear($sid);                # Remove from SID tables.
   $self->_data_sig_clear_session($sid);        # Remove all leftover signals.
 
   # Things which do hold reference counts.
