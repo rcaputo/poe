@@ -24,7 +24,7 @@ BEGIN {
 }
 
 BEGIN {
-  plan tests => 112;
+  plan tests => 124;
 }
 
 use_ok('POE::Filter::HTTPD');
@@ -517,4 +517,63 @@ SKIP: { # wishlist for supporting get_pending! {{{
     },
     "HEAD with body"
   );
+} # }}}
+
+
+{ # bad request: POST with a content-length {{{
+  my $filter = POE::Filter::HTTPD->new; # default 1 mb max
+
+  my $req = HTTP::Request->new("POST", "/");
+  $req->protocol('HTTP/1.1');
+
+  $req->header( 'Content-Length' => 1024*1024*1024 );   # 1 GB
+  $req->header( 'Content-Type' => 'text/plain' );
+  $req->content( "Nothing much" );  # but don't put a real 1 GB into content
+                                    # (yes, the Content-Length is a lie!) 
+  my $data = $filter->get( [ $req->as_string ] );
+  use Data::Dump qw( pp );
+  isa_ok( $data->[0], 'HTTP::Response' );
+  ok( !$data->[0]->is_success, "Failed" );
+  is( $data->[0]->code, 413, "Content to big" );
+
+  # now try setting a different max size
+  $filter = POE::Filter::HTTPD->new( MaxContent => 10 );
+
+  # make sure it stuck
+  $req->header( 'Content-Length' => 5 );
+  $req->content( "honk\x0a" );
+  $data = $filter->get( [ $req->as_string ] );
+  isa_ok( $data->[0], 'HTTP::Request' );
+  is( $data->[0]->content, "honk\x0a", "Correct content" );
+
+  # make sure it fails
+  $req->header( 'Content-Length' => 15 ); # doesn't take much to go over
+  $req->content( "honk honk honk\x0a" );
+  $data = $filter->get( [ $req->as_string ] );
+  isa_ok( $data->[0], 'HTTP::Response' );
+  is( $data->[0]->code, 413, "Content to big" );
+
+  # now we play with a bad content-length
+  $req->header( 'Content-Length' => 'fifteen' );
+  $data = $filter->get( [ $req->as_string ] );
+  isa_ok( $data->[0], 'HTTP::Response' );
+  is( $data->[0]->code, 400, "Bad request" );
+} # }}}
+
+
+{ # Streaming content upload {{{
+
+  my $filter = POE::Filter::HTTPD->new( Streaming=>1 ); # default 1 mb max
+
+  my $req = HTTP::Request->new("POST", "/");
+  $req->protocol('HTTP/1.1');
+
+  $req->header( 'Content-Length' => 12 );
+  $req->header( 'Content-Type' => 'text/plain' );
+  $req->content( "Nothing much" );
+
+  my $data = $filter->get( [ $req->as_string ] );
+  isa_ok( $data->[0], 'HTTP::Request' );
+  is( $data->[0]->content, "", "No content" );
+  is_deeply( $filter->get_pending, ["Nothing much\n"], "The content is pending" );
 } # }}}

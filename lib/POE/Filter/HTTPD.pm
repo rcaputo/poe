@@ -316,8 +316,8 @@ sub put {
 
 sub get_pending {
   my $self = shift;
-  croak ref($self)." does not support the get_pending() method\n";
-  return;
+  return [ $self->[BUFFER] ] if length $self->[BUFFER];
+  return undef;
 }
 
 #------------------------------------------------------------------------------
