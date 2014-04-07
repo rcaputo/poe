@@ -135,8 +135,15 @@ sub get_one {
 
     my $cl = $r->content_length();
     if( defined $cl ) {
-        $cl =~ s/\D.*$//;
-        $cl ||= 0;
+        unless( $cl =~ /^\s*(\d+)\s*$/ ) {
+            $r = $self->_build_error(RC_BAD_REQUEST, 
+                                 "Content-Length is not a number.",
+                                 $r);
+            $self->[BUFFER] = '';
+            $self->_reset();
+            return [ $r ];
+        }
+        $cl = $1 || 0;
     }
     my $ce = $r->content_encoding();
     
@@ -192,6 +199,7 @@ sub get_one {
                                  "No content length found.",
                                  $r);
       }
+      $self->[BUFFER] = '';
       $self->_reset();
       return [ $r ];
     }
@@ -199,8 +207,10 @@ sub get_one {
     # Prevent DOS of a server by malicious clients
     if( $cl > $self->[CONTENT_MAX] ) {
         $r = $self->_build_error(RC_REQUEST_ENTITY_TOO_LARGE, 
-                                 "Content is too large.",
+                                 "Content of $cl octets not accepted.",
                                  $r);
+        $self->[BUFFER] = '';
+        $self->_reset();
         return [ $r ];
     }
 
