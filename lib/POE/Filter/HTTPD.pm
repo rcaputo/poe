@@ -23,6 +23,8 @@ sub REQUEST       () { 2 } # partial request being built
 sub CLIENT_PROTO  () { 3 } # client protocol version requested
 sub CONTENT_LEN   () { 4 } # expected content length
 sub CONTENT_ADDED () { 5 } # amount of content added to request
+sub CONTENT_MAX   () { 6 } # max amount of content
+sub STREAMING     () { 7 } # we want to work in streaming mode
 
 sub ST_HEADERS    () { 0x01 } # waiting for complete header block
 sub ST_CONTENT    () { 0x02 } # waiting for complete body
@@ -42,6 +44,12 @@ my $HTTP_1_1 = _http_version("HTTP/1.1");
 
 sub new {
   my $type = shift;
+  croak "$type requires an even number of parameters" if @_ and @_ & 1;
+  my %params = @_;
+
+  my $max = $params{MaxContent} || 1024*1024;    # max 1 MB
+  my $streaming = $params{Streaming} || 0;
+
   return bless(
     [
       '',         # BUFFER
@@ -50,6 +58,8 @@ sub new {
       undef,      # CLIENT_PROTO
       0,          # CONTENT_LEN
       0,          # CONTENT_ADDED
+      $max,       # CONTENT_MAX
+      $streaming  # STREAMING
     ],
     $type
   );
@@ -184,6 +194,20 @@ sub get_one {
       }
       $self->_reset();
       return [ $r ];
+    }
+
+    # Prevent DOS of a server by malicious clients
+    if( $cl > $self->[CONTENT_MAX] ) {
+        $r = $self->_build_error(RC_REQUEST_ENTITY_TOO_LARGE, 
+                                 "Content is too large.",
+                                 $r);
+        return [ $r ];
+    }
+
+    # Switch into streaming mode for the request content
+    if( $self->[STREAMING] ) {
+        $self->_reset;
+        return [ $r ];
     }
 
     $self->[REQUEST] = $r;
@@ -433,6 +457,19 @@ how to use these objects.
 =head1 PUBLIC FILTER METHODS
 
 POE::Filter::HTTPD implements the basic POE::Filter interface.
+
+=head2 new
+
+new() accepts a list of named parameters.
+
+C<MaxLength> sets the maximum size of the content of an HTTP request. 
+Defaults to 1 MB (1038336 octets).  Because POE::Filter::HTTPD copies all
+data into memory, setting this number to high would allow an HTTPD client to
+trivially fill all server memory and swap.
+
+C<Streaming> turns on request streaming mode.  Defaults to off.  In streaming mode
+a new request is accepted as soon as the header is read.  It is up to user code
+to read the rest of the request.
 
 =head1 CAVEATS
 
