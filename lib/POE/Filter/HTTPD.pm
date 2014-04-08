@@ -205,18 +205,12 @@ sub get_one {
     }
 
     # Prevent DOS of a server by malicious clients
-    if( $cl > $self->[CONTENT_MAX] ) {
+    if( not $self->[STREAMING] and $cl > $self->[CONTENT_MAX] ) {
         $r = $self->_build_error(RC_REQUEST_ENTITY_TOO_LARGE, 
                                  "Content of $cl octets not accepted.",
                                  $r);
         $self->[BUFFER] = '';
         $self->_reset();
-        return [ $r ];
-    }
-
-    # Switch into streaming mode for the request content
-    if( $self->[STREAMING] ) {
-        $self->_reset;
         return [ $r ];
     }
 
@@ -231,6 +225,29 @@ sub get_one {
     my $r         = $self->[REQUEST];
     my $cl_needed = $self->[CONTENT_LEN] - $self->[CONTENT_ADDED];
     die "already got enough content ($cl_needed needed)" if $cl_needed < 1;
+
+    if( $self->[STREAMING] ) {
+        my @ret;
+        # do we have a request?
+        if( $self->[REQUEST] ) {
+            push @ret, $self->[REQUEST];    # send it to the wheel
+            $self->[REQUEST] = undef;
+        }
+        # do we have some content ?
+        if( length( $self->[BUFFER] ) ) {   # send it to the wheel
+            my $more = substr($self->[BUFFER], 0, $cl_needed);
+            push @ret, $more;
+            $self->[CONTENT_ADDED] += length($more);
+            substr( $self->[BUFFER], 0, length($more) ) = "";
+            # is that enough content?
+            if( $self->[CONTENT_ADDED] >= $self->[CONTENT_LEN] ) {
+                # Strip MSIE 5.01's extra CRLFs
+                $self->[BUFFER] =~ s/^\s+//;
+                $self->_reset;
+            } 
+        }
+        return \@ret;
+    }
 
     # Not enough content to complete the request.  Add it to the
     # request content, and return an incomplete status.
@@ -472,14 +489,18 @@ POE::Filter::HTTPD implements the basic POE::Filter interface.
 
 new() accepts a list of named parameters.
 
-C<MaxLength> sets the maximum size of the content of an HTTP request. 
+C<MaxContent> sets the maximum size of the content of an HTTP request. 
 Defaults to 1 MB (1038336 octets).  Because POE::Filter::HTTPD copies all
 data into memory, setting this number to high would allow an HTTPD client to
-trivially fill all server memory and swap.
+trivially fill all server memory and swap.  Ignored if L</Streaming> is set.
 
-C<Streaming> turns on request streaming mode.  Defaults to off.  In streaming mode
-a new request is accepted as soon as the header is read.  It is up to user code
-to read the rest of the request.
+C<Streaming> turns on request streaming mode.  Defaults to off.  In
+streaming mode this filter will return either an HTTP::Request object or a
+block of content.  The HTTP::Request object will have no content.  The
+blocks of content will be parts of the request's body, up to Content-Length
+in size.  You distinguish between request objects and content blocks using
+C<Scalar::Util/bless> (See L</Streaming request> below).  This option
+superceeds L</MaxContent>.
 
 =head1 CAVEATS
 
@@ -511,14 +532,147 @@ Upon handling a request error, it is most expedient and reliable to
 respond with the error and shut down the connection.  Invalid HTTP
 requests may corrupt the request stream.  For example, the absence of
 a Content-Length header signals that a request has no content.
-Requests with content but not that header will be broken into a
+Requests with content but without that header will be broken into a
 content-less request and invalid data.  The invalid data may also
 appear to be a request!  Hilarity will ensue, possibly repeatedly,
 until the filter can find the next valid request.  By shutting down
 the connection on the first sign of error, the client can retry its
 request with a clean connection and filter.
 
-=head1 Streaming Media
+
+=head1 Streaming Request
+
+Normally POE::Filter::HTTPD reads the entire request content into memory
+before returning the HTTP::Request to your code.  In streaming mode, it will
+return the content seprately, as unblessed scalars.  The content may be
+split up into blocks of varying sizes, depending on OS and transport
+constraints.  Your code can distinguish the request object from the content
+blocks using L<Scalar::Util/blessed>.
+
+    use Scalar::Util;
+    use POE::Wheel::ReadWrite;
+    use POE::Filter:HTTPD;
+
+    $heap->{wheel} = POE::Wheel::ReadWrite->new( 
+                        InputEvent => 'http_input',
+                        Filter => POE::Filter::HTTPD->new( Streaming => 1 ),
+                        # ....
+                );
+
+    sub http_input_handler
+    {
+        my( $heap, $req_or_data ) = @_[ HEAP, ARG0 ];
+        if( blessed $req_or_data ) {
+            my $request = $req_or_data;
+            if( $request->isa( 'HTTP::Response') ) {
+                # HTTP error
+                $heap->{wheel}->put( $request );
+            }
+            else {
+                # HTTP request
+                # ....
+            }
+        }
+        else {
+            my $data = $req_or_data;
+            # ....
+        }
+    }
+
+You may trivally create a DoS bug if you hold all content in memory but do
+not impose a maximum Content-Length.  An attacker could send
+C<Content-Length: 1099511627776> (aka 1 TB) and keep sending data until all
+your system's memory and swap is filled.
+
+Content-Length has been sanitized by POE::Filter::HTTPD so checking it is trivial :
+
+    if( $request->headers( 'Content-Length' ) > 1024*1024 ) {
+        my $resp = HTTP::Response->new( RC_REQUEST_ENTITY_TOO_LARGE ), 
+                                             "So much content!" ) 
+        $heap->{wheel}->put( $resp );
+        return;
+    }
+    
+If you want to handle large amounts of data, you should save the content to a file 
+before processing it.  You still need to check Content-Length or an attacker might
+fill up the partition.
+
+    use File::Temp qw(tempfile);
+
+    if( bless $_[ARG0] ) {
+        $heap->{request} = $_[ARG0];
+        if( $heap->{request}->method eq 'GET' ) {
+            handle_get( $heap );
+            delete $heap->{request};
+            return;
+        }
+        my( $fh, $file ) = tempfile( "httpd-XXXXXXXX", TMPDIR=>1 );
+        $heap->{content_file} = $file;
+        $heap->{content_fh} = $fh;
+        $heap->{content_size} = 0;
+    }
+    else {
+        return unless $heap->{request};
+
+        $heap->{content_size} += length( $_[ARG0] );
+        $heap->{content_fh}->print( $_[ARG0] );
+        if( $heap->{content_size} >= $heap->{request}->headers( 'content-length' ) ) {
+            delete $heap->{content_fh};
+            delete $heap->{content_size};
+
+            # Now we can parse $heap->{content_file}
+            if( $heap->{request}->method eq 'POST' ) {
+                handle_post( $heap );
+            }
+            else {
+                # error ...
+            }
+        }
+    }
+
+    sub handle_post
+    {
+        my( $heap ) = @_;
+        # Now we have to load and parse $heap->{content_file}            
+
+        # Next 6 lines make the data available to CGI->init
+        local $ENV{REQUEST_METHOD} = 'POST';
+        local $CGI::PERLEX = $CGI::PERLEX = "CGI-PerlEx/Fake";
+        local $ENV{CONTENT_TYPE} = $heap->{req}->header( 'content-type' );
+        local $ENV{CONTENT_LENGTH} = $heap->{req}->header( 'content-length' );
+        my $keep = IO::File->new( "<&STDIN" ) or die "Unable to reopen STDIN: $!";
+        open STDIN, "<$heap->{content_file}" or die "Reopening STDIN failed: $!";
+
+        my $qcgi = CGI->new();
+
+        # cleanup
+        open STDIN, "<&".$keep->fileno or die "Unable to reopen $keep: $!";
+        undef $keep;
+        unlink delete $heap->{content_file};
+
+        # now use $q as you would normaly
+        my $file = $q->upload( 'field_name' );
+        
+        # ....
+    }
+
+    sub handle_get
+    {
+        my( $heap ) = @_;
+
+        # 4 lines to get data into CGI->init
+        local $ENV{REQUEST_METHOD} = 'GET';
+        local $CGI::PERLEX = $CGI::PERLEX = "CGI-PerlEx/Fake";   
+        local $ENV{CONTENT_TYPE} = $heap->{req}->header( 'content-type' );
+        local $ENV{'QUERY_STRING'} = $heap->{req}->uri->query;
+
+        my $q = CGI->new();
+
+        # now use $q as you would normaly
+        # ....
+    }
+
+=head1 Streaming Response
 
 It is possible to use POE::Filter::HTTPD for streaming content, but an
 application can use it to send headers and then switch to

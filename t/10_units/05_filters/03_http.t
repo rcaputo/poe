@@ -568,12 +568,12 @@ SKIP: { # wishlist for supporting get_pending! {{{
   my $req = HTTP::Request->new("POST", "/");
   $req->protocol('HTTP/1.1');
 
-  $req->header( 'Content-Length' => 12 );
+  $req->header( 'Content-Length' => 13 );
   $req->header( 'Content-Type' => 'text/plain' );
-  $req->content( "Nothing much" );
+  $req->content( "Nothing much\n" );
 
   my $data = $filter->get( [ $req->as_string ] );
   isa_ok( $data->[0], 'HTTP::Request' );
   is( $data->[0]->content, "", "No content" );
-  is_deeply( $filter->get_pending, ["Nothing much\n"], "The content is pending" );
+  is( $data->[1], "Nothing much\n", "The content comes next" );
 } # }}}
