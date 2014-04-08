@@ -198,13 +198,13 @@ my $kr_id_seq = 0;
 sub KR_SESSIONS          () {  0 } # [ \%kr_sessions,
 sub KR_FILENOS           () {  1 } #   \%kr_filenos,
 sub KR_SIGNALS           () {  2 } #   \%kr_signals,
-sub KR_ALIASES           () {  3 } #   \%kr_aliases,
+sub KR_ALIASES           () {  3 } #   POE::Resources::Alias object.
 sub KR_ACTIVE_SESSION    () {  4 } #   \$kr_active_session,
 sub KR_QUEUE             () {  5 } #   \$kr_queue,
 sub KR_ID                () {  6 } #   $unique_kernel_id,
 sub KR_SESSION_IDS       () {  7 } #   POE::Resource::SIDs object,
 sub KR_SID_SEQ           () {  8 } #   \$kr_sid_seq,
-sub KR_EXTRA_REFS        () {  9 } #   \$kr_extra_refs,
+sub KR_EXTRA_REFS        () {  9 } #   POE::Resource::Extrefs object.
 sub KR_SIZE              () { 10 } #   XXX UNUSED ???
 sub KR_RUN               () { 11 } #   \$kr_run_warning
 sub KR_ACTIVE_EVENT      () { 12 } #   \$kr_active_event
@@ -592,7 +592,7 @@ sub _resolve_session {
   return $session if defined $session;
 
   # Resolve against aliases.
-  $session = $self->_data_alias_resolve($whatever);
+  $session = $self->[KR_ALIASES]->resolve($whatever);
   return $session if defined $session;
 
   # Resolve against the Kernel itself.  Use "eq" instead of "==" here
@@ -752,7 +752,7 @@ sub sig_handled {
   if ($kr_active_event eq EN_SIGNAL) {
     _die(
       ",----- DEPRECATION ERROR -----\n",
-      "| ", $self->_data_alias_loggable($kr_active_session->ID), ":\n",
+      "| ", $self->[KR_ALIASES]->loggable_sid($kr_active_session->ID), ":\n",
       "| handled a _signal event.  You must register a handler with sig().\n",
       "`-----------------------------\n",
     );
@@ -837,19 +837,20 @@ sub new {
 
     $self->_recalc_id();
 
+    # Initialize subsystems.  The order is important.
+
     $self->[KR_SESSION_IDS] = POE::Resource::SIDs->new();
     $self->[KR_SESSION_IDS]->set( $self->[KR_ID], $self );
 
     $self->[KR_EXTRA_REFS] = POE::Resource::Extrefs->new();
 
-    # Initialize subsystems.  The order is important.
+    $self->[KR_ALIASES] = POE::Resource::Aliases->new();
 
     # We need events before sessions, and the kernel's session before
     # it can start polling for signals.
     $self->_data_ev_initialize($kr_queue);
     $self->_initialize_kernel_session();
     $self->_data_sig_initialize();
-    $self->_data_alias_initialize();
 
     # These other subsystems don't have strange interactions.
     $self->_data_handle_initialize($kr_queue);
@@ -891,13 +892,13 @@ sub _dispatch_signal_event {
 
   if (TRACE_EVENTS) {
     my $log_session = $session;
-    $log_session =  $self->_data_alias_loggable($session->ID) unless (
+    $log_session =  $self->[KR_ALIASES]->loggable_sid($session->ID) unless (
       $type & ET_START
     );
     my $string_etc = join(" ", map { defined() ? $_ : "(undef)" } @$etc);
     _warn(
       "<ev> Dispatching event $seq ``$event'' ($string_etc) from ",
-      $self->_data_alias_loggable($source_session->ID), " to $log_session"
+      $self->[KR_ALIASES]->loggable_sid($source_session->ID), " to $log_session"
     );
   }
 
@@ -906,7 +907,7 @@ sub _dispatch_signal_event {
   if (TRACE_SIGNALS) {
     _warn(
       "<sg> dispatching ET_SIGNAL ($signal) to ",
-      $self->_data_alias_loggable($session->ID)
+      $self->[KR_ALIASES]->loggable_sid($session->ID)
     );
   }
 
@@ -957,7 +958,7 @@ sub _dispatch_signal_event {
       if (TRACE_SIGNALS) {
         _warn(
           "<sg> propagating explicit signal $target_event ($signal) ",
-          "(@$target_etc) to ", $self->_data_alias_loggable($target_sid)
+          "(@$target_etc) to ", $self->[KR_ALIASES]->loggable_sid($target_sid)
         );
       }
 
@@ -1006,13 +1007,13 @@ sub _dispatch_event {
 
   if (TRACE_EVENTS) {
     my $log_session = $session;
-    $log_session =  $self->_data_alias_loggable($session->ID) unless (
+    $log_session =  $self->[KR_ALIASES]->loggable_sid($session->ID) unless (
       $type & ET_START
     );
     my $string_etc = join(" ", map { defined() ? $_ : "(undef)" } @$etc);
     _warn(
       "<ev> Dispatching event $seq ``$event'' ($string_etc) from ",
-      $self->_data_alias_loggable($source_session->ID), " to $log_session"
+      $self->[KR_ALIASES]->loggable_sid($source_session->ID), " to $log_session"
     );
   }
 
@@ -1032,7 +1033,7 @@ sub _dispatch_event {
   if (TRACE_EVENTS) {
     _warn(
     "<ev> dispatching event $seq ``$event'' to ",
-      $self->_data_alias_loggable($session->ID)
+      $self->[KR_ALIASES]->loggable_sid($session->ID)
     );
     if ($event eq EN_SIGNAL) {
       _warn("<ev>     signal($etc->[0])");
@@ -1096,7 +1097,7 @@ sub _dispatch_event {
       if (TRACE_EVENTS) {
         _warn(
           "<ev> exception occurred in $event when invoked on ",
-          $self->_data_alias_loggable($session->ID)
+          $self->[KR_ALIASES]->loggable_sid($session->ID)
         );
       }
 
@@ -1218,7 +1219,7 @@ sub _finalize_kernel {
   $self->loop_finalize();
   $self->[KR_EXTRA_REFS]->finalize();
   $self->[KR_SESSION_IDS]->finalize();
-  $self->_data_alias_finalize();
+  $self->[KR_ALIASES]->finalize();
   $self->_data_handle_finalize();
   $self->_data_ev_finalize();
   $self->_data_ses_finalize();
@@ -1454,7 +1455,7 @@ sub session_alloc {
   if (ASSERT_DATA) {
     if (defined $session->ID) {
       _trap(
-        "<ss> ", $self->_data_alias_loggable($session->ID),
+        "<ss> ", $self->[KR_ALIASES]->loggable_sid($session->ID),
         " already allocated\a"
       );
     }
@@ -1469,7 +1470,7 @@ sub session_alloc {
   $session->_set_id($new_sid);
   $self->_data_ses_allocate($session, $new_sid, $kr_active_session->ID);
 
-  my $loggable = $self->_data_alias_loggable($new_sid);
+  my $loggable = $self->[KR_ALIASES]->loggable_sid($new_sid);
 
   # Tell the new session that it has been created.  Catch the _start
   # state's return value so we can pass it to the parent with the
@@ -2374,7 +2375,7 @@ sub alias_set {
   };
 
   # Don't overwrite another session's alias.
-  my $existing_session = $self->_data_alias_resolve($name);
+  my $existing_session = $self->[KR_ALIASES]->resolve($name);
   if (defined $existing_session) {
     if ($existing_session != $kr_active_session) {
       $self->_explain_usage("alias '$name' is in use by another session");
@@ -2383,7 +2384,7 @@ sub alias_set {
     return 0;
   }
 
-  $self->_data_alias_add($kr_active_session, $name);
+  $self->[KR_ALIASES]->add($kr_active_session, $name);
   return 0;
 }
 
@@ -2396,7 +2397,7 @@ sub alias_remove {
     _confess "<us> undefined alias in alias_remove()" unless defined $name;
   };
 
-  my $existing_session = $self->_data_alias_resolve($name);
+  my $existing_session = $self->[KR_ALIASES]->resolve($name);
 
   unless (defined $existing_session) {
     $self->_explain_usage("alias '$name' does not exist");
@@ -2408,7 +2409,7 @@ sub alias_remove {
     return EPERM;
   }
 
-  $self->_data_alias_remove($kr_active_session, $name);
+  $self->[KR_ALIASES]->remove($kr_active_session, $name);
   return 0;
 }
 
@@ -2437,7 +2438,7 @@ sub alias_list {
   }
 
   # Return whatever can be found.
-  my @alias_list = $self->_data_alias_list($session->ID);
+  my @alias_list = $self->[KR_ALIASES]->get_sid_aliases($session->ID);
   return wantarray() ? @alias_list : $alias_list[0];
 }
 
@@ -2474,7 +2475,7 @@ sub _recalc_id {
     $self->[KR_SESSION_IDS]->reset_id($old_id, $new_id);
     $self->_data_handle_relocate_kernel_id($old_id, $new_id);
     $self->_data_ev_relocate_kernel_id($old_id, $new_id);
-    $self->_data_alias_relocate_kernel_id($old_id, $new_id);
+    $self->[KR_ALIASES]->reset_id($old_id, $new_id);
   }
 }
 

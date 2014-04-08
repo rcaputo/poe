@@ -350,7 +350,7 @@ sub _data_handle_add {
               "\n",
               "Some possibly helpful information:\n",
               "  Session    : ",
-              $self->_data_alias_loggable($sid), "\n",
+              $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($sid), "\n",
               "  Old handle : $other_handle (currently $why)\n",
               "  New handle : $handle\n",
               "\n",
@@ -366,10 +366,12 @@ sub _data_handle_add {
               "\n",
               "Some possibly helpful information:\n",
               "  Old session: ",
-              $self->_data_alias_loggable($hdl_rec->[HSS_SESSION]->ID), "\n",
+              $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid(
+                $hdl_rec->[HSS_SESSION]->ID()
+              ), "\n",
               "  Old handle : $other_handle (currently $why)\n",
               "  New session: ",
-              $self->_data_alias_loggable($sid), "\n",
+              $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($sid), "\n",
               "  New handle : $handle\n",
               "\n",
               "Please correct the program and try again.\n",
@@ -483,7 +485,9 @@ sub _data_handle_remove {
       TRACE_FILES and
         _warn(
           "<fh> removing handle ($handle) fileno ($fd) mode ($mode) from " .
-          $self->_data_alias_loggable($sid) . Carp::shortmess()
+          $self->[KR_ALIASES]->loggable_sid($sid) .
+          $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($sid) .
+          Carp::shortmess()
         );
 
       # Remove the handle from the kernel's session record.
@@ -607,7 +611,7 @@ sub _data_handle_remove {
     elsif (TRACE_FILES) {
       _warn(
         "<fh> handle ($handle) fileno ($fd) is not registered with",
-        $self->_data_alias_loggable($sid)
+        $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($sid)
       );
     }
   }

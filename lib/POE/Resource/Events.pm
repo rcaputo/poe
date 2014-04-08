@@ -73,7 +73,7 @@ sub _data_ev_enqueue {
     unless ($self->_data_ses_exists($sid)) {
       _trap(
         "<ev> can't enqueue event ``$event'' for nonexistent",
-        $self->_data_alias_loggable($sid)
+        $self->[KR_ALIASES]->loggable_sid($sid)
       );
     }
   }
@@ -104,8 +104,8 @@ sub _data_ev_enqueue {
   if (TRACE_EVENTS ) {
     _warn(
       "<ev> enqueued event $new_id ``$event'' from ",
-      $self->_data_alias_loggable($source_session->ID), " to ",
-      $self->_data_alias_loggable($sid),
+      $self->[KR_ALIASES]->loggable_sid($source_session->ID), " to ",
+      $self->[KR_ALIASES]->loggable_sid($sid),
       " at $time, priority=$priority"
     );
   }
@@ -280,7 +280,7 @@ sub _data_ev_clear_alarm_by_id {
   if (TRACE_EVENTS) {
     _warn(
       "<ev> removed event $id ``", $event->[EV_NAME], "'' to ",
-      $self->_data_alias_loggable($sid), " at $pri"
+      $self->[KR_ALIASES]->loggable_sid($sid), " at $pri"
     );
   }
 
