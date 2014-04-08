@@ -59,7 +59,7 @@ sub set {
 }
 
 
-sub clear {
+sub clear_session {
   my ($self, $sid) = @_;
 
   return delete $self->[MEMB_SESSIONS]{$sid} unless ASSERT_DATA;

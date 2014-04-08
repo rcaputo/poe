@@ -18,11 +18,13 @@ BEGIN { use_ok("POE") }
 # Base reference count.
 my $base_refcount = 0;
 
+my $kr_aliases = $poe_kernel->[POE::Kernel::KR_ALIASES()];
+
 # Set an alias and verify that it can be retrieved.  Also verify the
 # loggable version of it.
 
-{ $poe_kernel->_data_alias_add($poe_kernel, "alias-1");
-  my $session = $poe_kernel->_data_alias_resolve("alias-1");
+{ $kr_aliases->add($poe_kernel, "alias-1");
+  my $session = $kr_aliases->resolve("alias-1");
   is($session, $poe_kernel, "alias resolves to original reference");
 
   is(
@@ -31,7 +33,7 @@ my $base_refcount = 0;
   );
 
   my $kernel_id = $poe_kernel->ID;
-  my $loggable = $poe_kernel->_data_alias_loggable($kernel_id);
+  my $loggable = $kr_aliases->loggable_sid($kernel_id);
   ok(
     $loggable =~ /^session \Q$kernel_id\E \(alias-1\)$/,
     "loggable version of session is valid"
@@ -40,8 +42,8 @@ my $base_refcount = 0;
 
 # Remove the alias and verify that it is gone.
 
-{ $poe_kernel->_data_alias_remove($poe_kernel, "alias-1");
-  my $session = $poe_kernel->_data_alias_resolve("alias-1");
+{ $kr_aliases->remove($poe_kernel, "alias-1");
+  my $session = $kr_aliases->resolve("alias-1");
   ok(!defined($session), "removed alias does not resolve");
 
   # Should be 2.  See the rationale above.
@@ -55,11 +57,11 @@ my $base_refcount = 0;
 
 my @multi_aliases = qw( alias-1 alias-2 alias-3 );
 { foreach (@multi_aliases) {
-    $poe_kernel->_data_alias_add($poe_kernel, $_);
+    $kr_aliases->add($poe_kernel, $_);
   }
 
   is(
-    $poe_kernel->_data_alias_count_ses($poe_kernel->ID), @multi_aliases,
+    $kr_aliases->count_for_session($poe_kernel->ID), @multi_aliases,
     "correct number of aliases were recorded"
   );
 
@@ -68,7 +70,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
     "correct number of references were recorded"
   );
 
-  my @retrieved = $poe_kernel->_data_alias_list($poe_kernel->ID);
+  my @retrieved = $kr_aliases->get_sid_aliases($poe_kernel->ID);
   is_deeply(
     \@retrieved, \@multi_aliases,
     "the aliases were retrieved correctly"
@@ -77,9 +79,9 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
 
 # Clear all the aliases for the session, and make sure they're gone.
 
-{ $poe_kernel->_data_alias_clear_session($poe_kernel->ID);
+{ $kr_aliases->clear_session($poe_kernel->ID);
 
-  my @retrieved = $poe_kernel->_data_alias_list($poe_kernel->ID);
+  my @retrieved = $kr_aliases->get_sid_aliases($poe_kernel->ID);
   is(scalar(@retrieved), 0, "aliases were cleared successfully");
 
   is(
@@ -91,13 +93,13 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
 # Some tests and testless instrumentation on nonexistent sessions.
 
 { is(
-    $poe_kernel->_data_alias_count_ses("nothing"), 0,
+    $kr_aliases->count_for_session("nothing"), 0,
     "unknown session has no aliases"
   );
 
-  $poe_kernel->_data_alias_clear_session("nothing");
+  $kr_aliases->clear_session("nothing");
   ok(
-    !defined($poe_kernel->_data_alias_resolve("nothing")),
+    !defined($kr_aliases->resolve("nothing")),
     "unused alias does not resolve to anything"
   );
 }
@@ -105,7 +107,7 @@ my @multi_aliases = qw( alias-1 alias-2 alias-3 );
 # Finalize the subsystem.  Returns true if everything shut down
 # cleanly, or false if it didn't.
 ok(
-  $poe_kernel->_data_alias_finalize(),
+  $kr_aliases->finalize(),
   "POE::Resource::Aliases finalizes cleanly"
 );
 
