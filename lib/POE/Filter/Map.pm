@@ -15,6 +15,12 @@ sub BUFFER   () { 0 }
 sub CODEGET  () { 1 }
 sub CODEPUT  () { 2 }
 
+sub FIRST_UNUSED     () { 3 }  # First unused $self offset.
+
+use base 'Exporter';
+our @EXPORT_OK = qw( FIRST_UNUSED );
+
+
 #------------------------------------------------------------------------------
 
 sub new {
@@ -32,10 +38,18 @@ sub new {
     unless ((defined $params{Get} ? (ref $params{Get} eq 'CODE') : 1)
       and   (defined $params{Put} ? (ref $params{Put} eq 'CODE') : 1));
 
+  my $get = $params{Code} || $params{Get};
+  my $put = $params{Code} || $params{Put};
+
+  delete @params{qw(Code Get Put)};
+  carp("$type ignores unknown parameters: ", join(', ', sort keys %params))
+    if scalar keys %params;
+
+
   my $self = bless [
-    [ ],           # BUFFER
-    $params{Code} || $params{Get},  # CODEGET
-    $params{Code} || $params{Put},  # CODEPUT
+    [ ],    # BUFFER
+    $get,   # CODEGET
+    $put,   # CODEPUT
   ], $type;
 }
 

@@ -78,6 +78,9 @@ sub new {
         unless $max_buffer >= $max_length + length( $max_length ) + 1;
   }
 
+  delete @params{qw(MaxLength MaxBuffer LengthCode BlockSize)};
+  carp("$type ignores unknown parameters: ", join(', ', sort keys %params))
+    if scalar keys %params;
 
   my $self = bless [
     '',           # FRAMING_BUFFER

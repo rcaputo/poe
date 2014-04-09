@@ -19,6 +19,11 @@ use Carp qw(croak);
 
 sub FILTERS () { 0 }
 
+sub FIRST_UNUSED () { 1 }  # First unused $self offset.
+
+use base 'Exporter';
+our @EXPORT_OK = qw( FIRST_UNUSED );
+
 #------------------------------------------------------------------------------
 
 sub new {
