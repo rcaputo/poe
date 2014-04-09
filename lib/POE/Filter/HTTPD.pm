@@ -40,6 +40,8 @@ use URI ();
 my $HTTP_1_0 = _http_version("HTTP/1.0");
 my $HTTP_1_1 = _http_version("HTTP/1.1");
 
+sub DEBUG () { 0 }
+
 #------------------------------------------------------------------------------
 
 sub new {
@@ -69,7 +71,9 @@ sub new {
 
 sub get_one_start {
   my ($self, $stream) = @_;
+    
   $self->[BUFFER] .= join( '', @$stream );
+  DEBUG and warn "$$:poe-filter-httpd: Buffered ".length( $self->[BUFFER] )." bytes";
 }
 
 sub get_one {
@@ -80,6 +84,7 @@ sub get_one {
 
   # Waiting for a complete suite of headers.
   if ($self->[STATE] & ST_HEADERS) {
+    DEBUG and warn "$$:poe-filter-httpd: Looking for headers";
     # Strip leading whitespace.
     $self->[BUFFER] =~ s/^\s+//;
 
@@ -227,20 +232,24 @@ sub get_one {
     die "already got enough content ($cl_needed needed)" if $cl_needed < 1;
 
     if( $self->[STREAMING] ) {
+        DEBUG and warn "$$:poe-filter-httpd: Streaming request content";
         my @ret;
         # do we have a request?
         if( $self->[REQUEST] ) {
+            DEBUG and warn "$$:poe-filter-httpd: Sending request";
             push @ret, $self->[REQUEST];    # send it to the wheel
             $self->[REQUEST] = undef;
         }
         # do we have some content ?
         if( length( $self->[BUFFER] ) ) {   # send it to the wheel
             my $more = substr($self->[BUFFER], 0, $cl_needed);
+            DEBUG and warn "$$:poe-filter-httpd: Sending content";
             push @ret, $more;
             $self->[CONTENT_ADDED] += length($more);
             substr( $self->[BUFFER], 0, length($more) ) = "";
             # is that enough content?
             if( $self->[CONTENT_ADDED] >= $self->[CONTENT_LEN] ) {
+                DEBUG and warn "$$:poe-filter-httpd: All content received ($self->[CONTENT_ADDED] >= $self->[CONTENT_LEN])";
                 # Strip MSIE 5.01's extra CRLFs
                 $self->[BUFFER] =~ s/^\s+//;
                 $self->_reset;
