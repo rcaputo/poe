@@ -15,7 +15,9 @@ sub FRAMING_BUFFER   () { 0 }
 sub INPUT_REGEXP     () { 1 }
 sub OUTPUT_LITERAL   () { 2 }
 sub AUTODETECT_STATE () { 3 }
-sub FIRST_UNUSED     () { 4 }  # First unused $self offset.
+sub MAX_LENGTH       () { 4 }
+sub MAX_BUFFER       () { 5 }
+sub FIRST_UNUSED     () { 6 }  # First unused $self offset.
 
 sub AUTO_STATE_DONE   () { 0x00 }
 sub AUTO_STATE_FIRST  () { 0x01 }
@@ -93,7 +95,12 @@ sub new {
     }
   }
 
-  delete @params{qw(Literal InputLiteral OutputLiteral InputRegexp)};
+  my $max_buffer = $type->__param_max( MaxBuffer => 512*1024*1024, \%params );
+  my $max_length = $type->__param_max( MaxLength => 64*1024*1024, \%params );
+  croak "MaxBuffer is not large enough for MaxLength blocks"
+        unless $max_buffer >= $max_length;
+
+  delete @params{qw(Literal InputLiteral OutputLiteral InputRegexp MaxLength MaxBuffer)};
   carp("$type ignores unknown parameters: ", join(', ', sort keys %params))
     if scalar keys %params;
 
@@ -102,6 +109,8 @@ sub new {
     $input_regexp,   # INPUT_REGEXP
     $output_literal, # OUTPUT_LITERAL
     $autodetect,     # AUTODETECT_STATE
+    $max_length,     # MAX_LENGTH
+    $max_buffer      # MAX_BUFFER
   ], $type;
 
   DEBUG and warn join ':', @$self;
@@ -127,6 +136,8 @@ sub get_one_start {
   };
 
   $self->[FRAMING_BUFFER] .= join '', @$stream;
+  die "Framing buffer exceeds the limit"
+    if $self->[MAX_BUFFER] < length( $self->[FRAMING_BUFFER] );
 }
 
 # TODO There is a lot of code duplicated here.  What can be done?
@@ -143,8 +154,11 @@ sub get_one {
       last LINE
         unless $self->[FRAMING_BUFFER] =~ s/^(.*?)$self->[INPUT_REGEXP]//s;
       DEBUG and warn "got line: <<", unpack('H*', $1), ">>\n";
+      my $line = $1;
+      die "Next line exceeds maximum line length"
+            if length( $line ) > $self->[MAX_LENGTH];
 
-      return [ $1 ];
+      return [ $line ];
     }
 
     # Waiting for the first line ending.  Look for a generic newline.
@@ -173,6 +187,8 @@ sub get_one {
         $self->[INPUT_REGEXP] = $2;
         $self->[AUTODETECT_STATE] = AUTO_STATE_SECOND;
       }
+      die "Next line exceeds maximum line length"
+            if length( $line ) > $self->[MAX_LENGTH];
 
       return [ $line ];
     }
@@ -336,6 +352,15 @@ the paragraph separator is "---" on a line by itself.
     InputRegexp => "([\x0D\x0A]{2,})",
     OutputLiteral => "\n---\n",
   );
+
+C<MaxBuffer> sets the maximum amount of data that the filter will hold onto 
+while trying to find a line ending.  Defaults to 512 MB.
+
+C<MaxLength> sets the maximum length of a line.  Defaults to 64 MB.
+
+If either the C<MaxLength> or C<MaxBuffer> constraint is exceeded,
+C<POE::Filter::Line> will throw an exception.
+
 
 =head1 PUBLIC FILTER METHODS
 

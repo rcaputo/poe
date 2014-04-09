@@ -15,7 +15,7 @@ BEGIN {
 }
 
 use TestFilter;
-use Test::More tests => 18 + $COUNT_FILTER_INTERFACE + 2*$COUNT_FILTER_STANDARD;
+use Test::More tests => 28 + $COUNT_FILTER_INTERFACE + 2*$COUNT_FILTER_STANDARD;
 
 use_ok("POE::Filter::Line");
 test_filter_interface("POE::Filter::Line");
@@ -194,4 +194,48 @@ SKIP: {
     [ "a!", "b\x0D!", "c\x0D!" ],
     "autodetected Unix newlines parsed and reserialized"
   );
+}
+
+# Test param constraints
+{
+    my $filter = eval {
+            new POE::Filter::Line(
+                        MaxLength => 10,
+                        MaxBuffer => 5 );
+        };
+    ok( $@, "MaxLength must not exceed MaxBuffer" );
+    ok( !$filter, "No object on error" );
+
+    $filter = eval { new POE::Filter::Line( MaxLength => -1 ) };
+    ok( $@, "MaxLength must be positive" );
+
+    $filter = eval { new POE::Filter::Line( MaxLength => 'something' ) };
+    ok( $@, "MaxLength must be a number" );
+
+    $filter = eval { new POE::Filter::Line( MaxBuffer => 0 ) };
+    ok( $@, "MaxBuffer must be positive" );
+
+    $filter = eval { new POE::Filter::Line( MaxBuffer => 'something' ) };
+    ok( $@, "MaxBuffer must be a number" );
+}
+
+# Test MaxLength
+{
+    my $filter = new POE::Filter::Line( MaxLength => 10 );
+    isa_ok( $filter, 'POE::Filter::Line' );
+
+    my $data = "This line is going to be to long for our filter\n";
+    my $blocks = eval { $filter->get( [ $data ] ) };
+    like( $@, qr/line exceeds/, "Line is to large" );
+}
+
+# Test MaxBuffer
+{
+    my $filter = new POE::Filter::Line( MaxBuffer => 10,
+                                         MaxLength => 5 );
+    isa_ok( $filter, 'POE::Filter::Line' );
+
+    my $data = "This line is going to be to long for our filter\n";
+    my $blocks = eval { $filter->get( [ $data ] ) };
+    like( $@, qr/buffer exceeds/, "buffer grew to large" );
 }
