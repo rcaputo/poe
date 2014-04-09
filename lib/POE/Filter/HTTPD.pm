@@ -25,6 +25,8 @@ sub CONTENT_LEN   () { 4 } # expected content length
 sub CONTENT_ADDED () { 5 } # amount of content added to request
 sub CONTENT_MAX   () { 6 } # max amount of content
 sub STREAMING     () { 7 } # we want to work in streaming mode
+sub MAX_BUFFER    () { 8 } # max size of framing buffer
+sub FIRST_UNUSED  () { 9 }
 
 sub ST_HEADERS    () { 0x01 } # waiting for complete header block
 sub ST_CONTENT    () { 0x02 } # waiting for complete body
@@ -42,6 +44,11 @@ my $HTTP_1_1 = _http_version("HTTP/1.1");
 
 sub DEBUG () { 0 }
 
+use base 'Exporter';
+our @EXPORT_OK = qw( FIRST_UNUSED );
+
+
+
 #------------------------------------------------------------------------------
 
 sub new {
@@ -49,8 +56,16 @@ sub new {
   croak "$type requires an even number of parameters" if @_ and @_ & 1;
   my %params = @_;
 
-  my $max = $params{MaxContent} || 1024*1024;    # max 1 MB
+  my $max_content = $type->__param_max( MaxContent => 1024*1024, \%params );
+  my $max_buffer = $type->__param_max( MaxBuffer => 512*1024*1024, \%params );
   my $streaming = $params{Streaming} || 0;
+
+  croak "MaxBuffer is not large enough for MaxContent"
+        unless $max_buffer >= $max_content + length( $max_content ) + 1;
+
+  delete @params{qw(MaxContent MaxBuffer Streaming)};
+  carp("$type ignores unknown parameters: ", join(', ', sort keys %params))
+    if scalar keys %params;
 
   return bless(
     [
@@ -60,8 +75,9 @@ sub new {
       undef,      # CLIENT_PROTO
       0,          # CONTENT_LEN
       0,          # CONTENT_ADDED
-      $max,       # CONTENT_MAX
-      $streaming  # STREAMING
+      $max_content, # CONTENT_MAX
+      $streaming, # STREAMING
+      $max_buffer # MAX_BUFFER
     ],
     $type
   );
@@ -74,6 +90,8 @@ sub get_one_start {
     
   $self->[BUFFER] .= join( '', @$stream );
   DEBUG and warn "$$:poe-filter-httpd: Buffered ".length( $self->[BUFFER] )." bytes";
+  die "Framing buffer exceeds the limit"
+    if $self->[MAX_BUFFER] < length( $self->[BUFFER] );
 }
 
 sub get_one {
@@ -498,10 +516,15 @@ POE::Filter::HTTPD implements the basic POE::Filter interface.
 
 new() accepts a list of named parameters.
 
+C<MaxBuffer> sets the maximum amount of data the filter will hold in memory. 
+Defaults to 512 MB (536870912 octets).  Because POE::Filter::HTTPD copies
+all data into memory, setting this number to high would allow a malicious
+HTTPD client to fill all server memory and swap.
+
 C<MaxContent> sets the maximum size of the content of an HTTP request. 
 Defaults to 1 MB (1038336 octets).  Because POE::Filter::HTTPD copies all
-data into memory, setting this number to high would allow an HTTPD client to
-trivially fill all server memory and swap.  Ignored if L</Streaming> is set.
+data into memory, setting this number to high would allow a malicious HTTPD
+client to fill all server memory and swap.  Ignored if L</Streaming> is set.
 
 C<Streaming> turns on request streaming mode.  Defaults to off.  In
 streaming mode this filter will return either an HTTP::Request object or a

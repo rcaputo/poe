@@ -24,7 +24,7 @@ BEGIN {
 }
 
 BEGIN {
-  plan tests => 124;
+  plan tests => 132;
 }
 
 use_ok('POE::Filter::HTTPD');
@@ -577,3 +577,37 @@ SKIP: { # wishlist for supporting get_pending! {{{
   is( $data->[0]->content, "", "No content" );
   is( $data->[1], "Nothing much\n", "The content comes next" );
 } # }}}
+
+# Test param constraints
+{
+    my $filter = eval {
+            new POE::Filter::HTTPD(
+                        MaxLength => 10,
+                        MaxBuffer => 5 );
+        };
+    ok( $@, "MaxContent must not exceed MaxBuffer" );
+    ok( !$filter, "No object on error" );
+
+    $filter = eval { new POE::Filter::HTTPD( MaxContent => -1 ) };
+    ok( $@, "MaxContent must be positive" );
+
+    $filter = eval { new POE::Filter::HTTPD( MaxContent => 'something' ) };
+    ok( $@, "MaxContent must be a number" );
+
+    $filter = eval { new POE::Filter::HTTPD( MaxBuffer => 0 ) };
+    ok( $@, "MaxBuffer must be positive" );
+
+    $filter = eval { new POE::Filter::HTTPD( MaxBuffer => 'something' ) };
+    ok( $@, "MaxBuffer must be a number" );
+}
+
+# Test MaxBuffer
+{
+    my $filter = new POE::Filter::HTTPD( MaxBuffer => 10,
+                                         MaxContent => 5 );
+    isa_ok( $filter, 'POE::Filter::HTTPD' );
+
+    my $data = "This line is going to be to long for our filter\n";
+    my $blocks = eval { $filter->get( [ $data ] ) };
+    like( $@, qr/buffer exceeds/, "buffer grew to large" );
+}
