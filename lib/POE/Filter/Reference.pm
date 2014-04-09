@@ -17,6 +17,19 @@ sub FREEZE    () { 1 }
 sub THAW      () { 2 }
 sub COMPRESS  () { 3 }
 sub NO_FATALS () { 4 }
+sub MAX_BUFFER () { 5 }
+sub BAD_BUFFER () { 6 }
+sub FIRST_UNUSED   () { 7 }
+
+use base 'Exporter';
+our @EXPORT_OK = qw( FIRST_UNUSED );
+
+my %KNOWN_PARAMS = (
+    Compression => 1,
+    Serializer  => 1,
+    NoFatals    => 1,
+    MaxBuffer   => 1 
+);
 
 #------------------------------------------------------------------------------
 # Try to require one of the default freeze/thaw packages.
@@ -78,10 +91,42 @@ sub _get_methods {
 
 #------------------------------------------------------------------------------
 
-sub new {
-  my($type, $freezer, $compression, $no_fatals) = @_;
+sub new
+{
+  my $type = shift;
+
+  # Convert from old style to new style
+  # $l == 1
+  #     ->new( undef ) => (Serializer => undef)
+  #     ->new( $class ) => (Serializer => class)
+  # not defined $_[0]
+  #     ->new( undef, 1 ) => (Serializer => undef, Compression => 1)
+  #     ->new( undef, undef, 1 ) => (Serializer => undef, Compression => undef, NoFatals =>1)
+  # $l == 3
+  #     ->new( $class, 1, 1 ) => (Serializer => undef, Compression => 1, NoFatals =>1)
+  # ($l <= 3 and not $KNOWN_PARAMS{$_[0]})
+  #     ->new( $class, 1 ) 
+  my %params;
+  my $l = scalar @_;
+  if( $l == 1 or $l == 3 or not defined $_[0] or 
+        ( $l<=3 and not $KNOWN_PARAMS{$_[0]}) ) { 
+    if( 'HASH' eq ref $_[0] ) {     # do we 
+        %params = %{ $_[0] };
+    }
+    else {
+        %params = ( Serializer  => $_[0],
+                    Compression => $_[1],
+                    NoFatals    => $_[2]
+                  );
+    }
+  } 
+  else {
+    croak "$type requires an even number of parameters" if @_ and @_ & 1;
+    %params = @_;
+  }
 
   my($freeze, $thaw);
+  my $freezer = $params{Serializer};
   unless (defined $freezer) {
     # Okay, load the default one!
     $freezer = $DEF_FREEZER;
@@ -131,8 +176,11 @@ sub new {
   # wants?
   return unless $freeze and $thaw;
 
+  # Maximum buffer
+  my $max_buffer = $type->__param_max( MaxBuffer => 512*1024*1024, \%params );
+
   # Compression
-  $compression ||= 0;
+  my $compression = $params{Compression}||0;
   if ($compression) {
     my $zlib_status = _include_zlib();
     if ($zlib_status ne '') {
@@ -142,12 +190,21 @@ sub new {
     }
   }
 
+  # No fatals
+  my $no_fatals = $params{NoFatals}||0;
+
+  delete @params{ keys %KNOWN_PARAMS };
+  carp("$type ignores unknown parameters: ", join(', ', sort keys %params))
+    if scalar keys %params;
+
   my $self = bless [
     '',              # BUFFER
     $freeze,         # FREEZE
     $thaw,           # THAW
     $compression,    # COMPRESS
-    $no_fatals || 0, # NO_FATALS
+    $no_fatals,      # NO_FATALS
+    $max_buffer,     # MAX_BUFFER
+    ''               # BAD_BUFFER
   ], $type;
   $self;
 }
@@ -176,6 +233,10 @@ sub get {
 sub get_one_start {
   my ($self, $stream) = @_;
   $self->[BUFFER] .= join('', @$stream);
+  if( $self->[MAX_BUFFER] < length( $self->[BUFFER] ) ) {
+    $self->[BAD_BUFFER] = "Framing buffer exceeds the limit";
+    die $self->[BAD_BUFFER] unless $self->[NO_FATALS];
+  }
 }
 
 sub get_one {
@@ -183,6 +244,12 @@ sub get_one {
 
   # Need to check lengths in octets, not characters.
   BEGIN { eval { require bytes } and bytes->import; }
+
+  if( $self->[BAD_BUFFER] ) {
+    my $err = $self->[BAD_BUFFER];
+    $self->[BAD_BUFFER] = '';
+    return [ $err ];
+  }
 
   if (
     $self->[BUFFER] =~ /^(\d+)\0/ and
@@ -287,24 +354,55 @@ different serializer may be specified at construction time.
 
 =head1 PUBLIC FILTER METHODS
 
-POE::Filter::Reference deviates from the standard POE::Filter API in
-the following ways.
-
-=head2 new [SERIALIZER [, COMPRESSION [, NO_FATALS]]]
+=head2 new
 
 new() creates and initializes a POE::Filter::Reference object.  It
-will use Storable as its default SERIALIZER if none other is
-specified.
+accepts a list of named parameters.
 
-If COMPRESSION is true, Compress::Zlib will be called upon to reduce
+=head3 Serializer    
+
+Any class that supports nfreeze() (or freeze()) and thaw() may be used
+as a Serializer.  If a Serializer implements both nfreeze() and
+freeze(), then the "network" (nfreeze) version will be used.
+
+Serializer may be a class name:
+
+  # Use Storable explicitly, specified by package name.
+  my $filter = POE::Filter::Reference->newer( Serializer=>"Storable" );
+
+  # Use YAML instead.  Compress its output, as it may be verbose.
+  my $filter = POE::Filter::Reference->new("YAML", 1);
+
+Serializer may also be an object:
+
+  # Use an object.
+  my $serializer = Data::Serializer::Something->new();
+  my $filter = POE::Filter::Reference->newer( Serializer => $serializer );
+
+If Serializer is omitted or undef, the Reference filter will try to
+use Storable, FreezeThaw, and YAML in that order.
+POE::Filter::Reference will die if it cannot find one of these
+serializers, but this rarely happens now that Storable and YAML are
+bundled with Perl.
+
+=head3 Compression
+
+If Compression is true, Compress::Zlib will be called upon to reduce
 the size of serialized data.  It will also decompress the incoming
 stream data.
 
-If NO_FATALS is true, messages will be thawed inside a block eval.  By
+=head3 MaxBuffer
+
+C<MaxBuffer> sets the maximum amount of data that the filter will hold onto 
+while trying to build a new reference.  Defaults to 512 MB.
+
+=head3 NoFatals
+
+If NoFatals is true, messages will be thawed inside a block eval.  By
 default, however, thaw() is allowed to die normally.  If an error
-occurs while NO_FATALS is in effect, POE::Filter::Reference will
+occurs while NoFatals is in effect, POE::Filter::Reference will
 return a string containing the contents of $@ at the time the eval
-failed.  So when using NO_FATALS, it's important to check whether
+failed.  So when using NoFatals, it's important to check whether
 input is really a reference:
 
   sub got_reference {
@@ -317,40 +415,24 @@ input is really a reference:
     }
   }
 
-Any class that supports nfreeze() (or freeze()) and thaw() may be used
-as a SERIALIZER.  If a SERIALIZER implements both nfreeze() and
-freeze(), then the "network" version will be used.
 
-SERIALIZER may be a class name:
+new() will try to load any classes it needs for L</Compression> or L</Serializer>.
 
-  # Use Storable explicitly, specified by package name.
-  my $filter = POE::Filter::Reference->new("Storable");
 
-  # Use YAML instead.  Compress its output, as it may be verbose.
-  my $filter = POE::Filter::Reference->new("YAML", 1);
+=head2 new [SERIALIZER [, COMPRESSION [, NO_FATALS]]]
 
-SERIALIZER may also be an object:
+This is the old constructor synatx.  It does not conform to the normal
+POE::Filter constructor parameter syntax.  Please use the new syntax
+instead.
 
-  # Use an object.
-  my $serializer = Data::Serializer::Something->new();
-  my $filter = POE::Filter::Reference->new($serializer);
+Calling C<new> like this is equivalent to
 
-If SERIALIZER is omitted or undef, the Reference filter will try to
-use Storable, FreezeThaw, and YAML in that order.
-POE::Filter::Reference will die if it cannot find one of these
-serializers, but this rarely happens now that Storable and YAML are
-bundled with Perl.
+    POE::Filter::Reference->new( Serializer => SERIALIZER,
+                                 Compression => COMPRESSION,
+                                 NoFatals  => NO_FATALS );
 
-  # A choose-your-own-serializer adventure!
-  # We'll still deal with compressed data, however.
-  my $filter = POE::Filter::Reference->new(undef, 1);
-
-POE::Filter::Reference will try to compress frozen strings and
-uncompress them before thawing if COMPRESSION is true.  It uses
-Compress::Zlib for this.  POE::Filter::Reference doesn't need
-Compress::Zlib if COMPRESSION is false.
-
-new() will try to load any classes it needs.
+Please note that if you have a custom serializer class called C<Serializer>
+you will have to update your code to the new syntax.
 
 =head1 SERIALIZER API
 

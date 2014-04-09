@@ -34,7 +34,7 @@ BEGIN {
 }
 
 BEGIN {
-  plan tests => 11 + $COUNT_FILTER_INTERFACE;
+  plan tests => 26 + $COUNT_FILTER_INTERFACE;
 }
 
 test_filter_interface('POE::Filter::Reference');
@@ -73,7 +73,7 @@ sub test_freeze_and_thaw {
   eval {
     # Hide warnings.
     local $SIG{__WARN__} = sub { };
-    $filter = POE::Filter::Reference->new( $freezer, $compression );
+    $filter = POE::Filter::Reference->new( Serializer=>$freezer, Compession=>$compression );
     die "filter not created with freezer=$freezer" unless $filter;
   };
 
@@ -137,5 +137,54 @@ die if $@;
 # Test each combination of things.
 test_freeze_and_thaw('MyOtherFreezer', undef);
 test_freeze_and_thaw('MyOtherFreezer', 9    );
+
+# Test old constructor syntax
+{
+    my $F1 = POE::Filter::Reference->new( 'Storable' );
+    isa_ok( $F1, "POE::Filter::Reference" );
+    my $F2 = POE::Filter::Reference->new( 'Storable', 1 );
+    isa_ok( $F2, "POE::Filter::Reference" );
+
+    my $d1 = $F1->put( [ ['honk honk honk honk'] ] )->[0];
+    my $d2 = $F2->put( [ ['honk honk honk honk'] ] )->[0];
+    isnt( $d1, $d2, "Different outputs with Compression on" );
+    ok( length( $d1 ) > length( $d2 ), "Compressed is (obviously) shorter" );
+
+    $F1 = POE::Filter::Reference->new( undef );
+    isa_ok( $F1, "POE::Filter::Reference" );
+    $F2 = POE::Filter::Reference->new( undef, undef, undef );
+    isa_ok( $F2, "POE::Filter::Reference" );
+
+    $d1 = $F1->put( [ ['honk honk honk honk'] ] )->[0];
+    $d2 = $F2->put( [ ['honk honk honk honk'] ] )->[0];
+    is( $d1, $d2, "Outputs are the same" );
+
+    $F1 = POE::Filter::Reference->new( undef, undef );
+    isa_ok( $F1, "POE::Filter::Reference" );
+    $F2 = POE::Filter::Reference->new( undef, undef, 1 );
+    isa_ok( $F2, "POE::Filter::Reference" );
+
+    $d1 = $F1->put( [ ['honk honk honk honk'] ] )->[0];
+    $d2 = $F2->put( [ ['honk honk honk honk'] ] )->[0];
+    is( $d1, $d2, "Outputs are the same" );
+}
+
+# Test NoFatal
+{
+    my $F1 = POE::Filter::Reference->new( NoFatals => 1 );
+    isa_ok( $F1, "POE::Filter::Reference" );
+
+    my $raw = "12\x00123456789012"; 
+    my $d = eval { $F1->get( [ $raw ] )->[0] }; 
+    ok( !$@, "Obvious error didn't explode" ); 
+    ok( !ref $d, "Instead it returned an error string" );
+
+
+    $F1 = POE::Filter::Reference->new( NoFatals => 1, MaxBuffer => 10 );
+    $d = eval { $F1->get( [ $raw ] )->[0] }; 
+    ok( !$@, "Buffer error didn't explode" ); 
+    like( $d, qr/buffer exceeds/, "Instead it returned an error string" );
+
+}
 
 exit;
