@@ -15,6 +15,11 @@ sub BLOCKSIZE () { 0 };
 sub GETBUFFER () { 1 };
 sub PUTBUFFER () { 2 };
 sub CHECKPUT  () { 3 };
+sub FIRST_UNUSED () { 4 }
+
+use base 'Exporter';
+our @EXPORT_OK = qw( FIRST_UNUSED );
+
 
 #------------------------------------------------------------------------------
 
@@ -24,15 +29,24 @@ sub new {
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
 
+  # Block size
   croak "BlockSize must be greater than 0" unless (
     defined($params{BlockSize}) && ($params{BlockSize} > 0)
   );
+  my $block_size = $params{BlockSize};
+
+  # check put
+  my $check_put = $params{CheckPut};
+
+  delete @params{ qw( BlockSize CheckPut ) };
+  carp("$type ignores unknown parameters: ", join(', ', sort keys %params))
+    if scalar keys %params;
 
   my $self = bless [
-    $params{BlockSize}, # BLOCKSIZE
+    $block_size,        # BLOCKSIZE
     [],                 # GETBUFFER
     [],                 # PUTBUFFER
-    $params{CheckPut},  # CHECKPUT
+    $check_put         # CHECKPUT
   ], $type;
 }
 
@@ -42,7 +56,7 @@ sub clone {
     $self->[0], # BLOCKSIZE
     [],         # GETBUFFER
     [],         # PUTBUFFER
-    $self->[3], # CHECKPUT
+    $self->[3]  # CHECKPUT
   ], ref $self;
   $clone;
 }
