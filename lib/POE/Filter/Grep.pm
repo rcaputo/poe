@@ -15,6 +15,12 @@ sub BUFFER   () { 0 }
 sub CODEGET  () { 1 }
 sub CODEPUT  () { 2 }
 
+sub FIRST_UNUSED     () { 3 }  # First unused $self offset.
+
+use base 'Exporter';
+our @EXPORT_OK = qw( FIRST_UNUSED );
+
+
 #------------------------------------------------------------------------------
 
 sub new {
