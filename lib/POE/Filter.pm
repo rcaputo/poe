@@ -42,6 +42,23 @@ sub clone {
   return $nself;
 }
 
+
+sub __param_max
+
+{
+    my( $type, $name, $default, $params ) = @_;
+    return $default    # 512 MB
+        unless defined $params->{$name};
+
+    my $ret = $params->{$name};
+    croak "$name must be a number"
+            unless $ret =~ /^\d+$/;
+    croak "$name must greater then 0"
+            unless $ret > 0;
+    return $ret;
+}
+
+
 1;
 
 __END__

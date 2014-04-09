@@ -9,7 +9,7 @@ use lib qw(./mylib ../mylib);
 use lib qw(t/10_units/05_filters);
 
 use TestFilter;
-use Test::More tests => 20 + $COUNT_FILTER_INTERFACE;
+use Test::More tests => 34 + $COUNT_FILTER_INTERFACE;
 
 sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
@@ -24,6 +24,7 @@ test_filter_interface("POE::Filter::Block");
 # Test block filter in fixed-length mode.
 {
   my $filter = new POE::Filter::Block( BlockSize => 4 );
+  isa_ok( $filter, 'POE::Filter::Block' );
   my $raw    = $filter->put( [ "12345678" ] );
 
   my $cooked = $filter->get( $raw );
@@ -36,6 +37,7 @@ test_filter_interface("POE::Filter::Block");
 # Test block filter with get_one() functions.
 {
   my $filter = new POE::Filter::Block( BlockSize => 4 );
+  isa_ok( $filter, 'POE::Filter::Block' );
   my $raw = $filter->put( [ "12345678" ] );
 
   $filter->get_one_start( $raw );
@@ -50,6 +52,7 @@ test_filter_interface("POE::Filter::Block");
 # Test block filter in variable-length mode, without a custom codec.
 {
   my $filter = new POE::Filter::Block( );
+  isa_ok( $filter, 'POE::Filter::Block' );
   my $raw = $filter->put([ "a", "bc", "def", "ghij" ]);
 
   my $cooked = $filter->get( $raw );
@@ -99,6 +102,7 @@ test_filter_interface("POE::Filter::Block");
   my $filter = new POE::Filter::Block(
     LengthCodec => [ \&encoder, \&decoder ],
   );
+  isa_ok( $filter, 'POE::Filter::Block' );
 
   my $raw = $filter->put([ "a", "bc", "def", "ghij" ]);
 
@@ -139,6 +143,50 @@ test_filter_interface("POE::Filter::Block");
     ],
     "custom serializer serialized multiple payloads"
   );
+}
+
+# Test param constraints
+{
+    my $filter = eval {
+            new POE::Filter::Block(
+                        MaxLength => 10,
+                        MaxBuffer => 5 );
+        };
+    ok( $@, "MaxLength must not exceed MaxBuffer" );
+    ok( !$filter, "No object on error" );
+
+    $filter = eval { new POE::Filter::Block( MaxLength => -1 ) };
+    ok( $@, "MaxLength must be positive" );
+
+    $filter = eval { new POE::Filter::Block( MaxLength => 'something' ) };
+    ok( $@, "MaxLength must be a number" );
+
+    $filter = eval { new POE::Filter::Block( MaxBuffer => 0 ) };
+    ok( $@, "MaxBuffer must be positive" );
+
+    $filter = eval { new POE::Filter::Block( MaxBuffer => 'something' ) };
+    ok( $@, "MaxBuffer must be a number" );
+}
+
+# Test MaxLength
+{
+    my $filter = new POE::Filter::Block( MaxLength => 10 );
+    isa_ok( $filter, 'POE::Filter::Block' );
+
+    my $data = "134\0a bunch of data here"; # partial block
+    my $blocks = eval { $filter->get( [ $data ] ) };
+    like( $@, qr/block exceeds/, "Block is to large" );
+}
+
+# Test MaxBuffer
+{
+    my $filter = new POE::Filter::Block( MaxBuffer => 10,
+                                         MaxLength => 5 );
+    isa_ok( $filter, 'POE::Filter::Block' );
+
+    my $data = "134\0a bunch of data here"; # partial block
+    my $blocks = eval { $filter->get( [ $data ] ) };
+    like( $@, qr/buffer exceeds/, "buffer grew to large" );
 }
 
 exit;

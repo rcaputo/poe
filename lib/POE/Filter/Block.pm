@@ -14,6 +14,12 @@ sub BLOCK_SIZE     () { 1 }
 sub EXPECTED_SIZE  () { 2 }
 sub ENCODER        () { 3 }
 sub DECODER        () { 4 }
+sub MAX_LENGTH     () { 5 }
+sub MAX_BUFFER     () { 6 }
+sub FIRST_UNUSED   () { 7 }
+
+use base 'Exporter';
+our @EXPORT_OK = qw( FIRST_UNUSED );
 
 #------------------------------------------------------------------------------
 
@@ -38,13 +44,17 @@ sub new {
   croak "$type must be given an even number of parameters" if @_ & 1;
   my %params = @_;
 
-  my ($encoder, $decoder);
+  my $max_buffer = $type->__param_max( MaxBuffer => 512*1024*1024, \%params );
+
+  my ($encoder, $decoder, $max_length);
   my $block_size = delete $params{BlockSize};
   if (defined $block_size) {
     croak "$type doesn't support zero or negative block sizes"
       if $block_size < 1;
     croak "Can't use both LengthCodec and BlockSize at the same time"
       if exists $params{LengthCodec};
+    croak "Can't use both MaxLength and BlockSize at the same time"
+      if exists $params{MaxLength};
   }
   else {
     my $codec = delete $params{LengthCodec};
@@ -63,7 +73,11 @@ sub new {
       $encoder = \&_default_encoder;
       $decoder = \&_default_decoder;
     }
+    $max_length = $type->__param_max( MaxLength => 64*1024*1024, \%params );
+    croak "MaxBuffer is not large enough for MaxLength blocks"
+        unless $max_buffer >= $max_length + length( $max_length ) + 1;
   }
+
 
   my $self = bless [
     '',           # FRAMING_BUFFER
@@ -71,6 +85,8 @@ sub new {
     undef,        # EXPECTED_SIZE
     $encoder,     # ENCODER
     $decoder,     # DECODER
+    $max_length,  # MAX_LENGTH
+    $max_buffer   # MAX_BUFFER
   ], $type;
 
   $self;
@@ -88,6 +104,8 @@ sub new {
 sub get_one_start {
   my ($self, $stream) = @_;
   $self->[FRAMING_BUFFER] .= join '', @$stream;
+  die "Framing buffer exceeds the limit"
+    if $self->[MAX_BUFFER] < length( $self->[FRAMING_BUFFER] );
 }
 
 sub get_one {
@@ -109,12 +127,13 @@ sub get_one {
   # Otherwise we're doing the variable-length block thing.  Look for a
   # length marker, and then pull off a chunk of that length.  Repeat.
 
-  if (
-    defined($self->[EXPECTED_SIZE]) ||
-    defined(
-      $self->[EXPECTED_SIZE] = $self->[DECODER]->(\$self->[FRAMING_BUFFER])
-    )
-  ) {
+  unless( defined($self->[EXPECTED_SIZE]) ) {
+    $self->[EXPECTED_SIZE] = $self->[DECODER]->(\$self->[FRAMING_BUFFER]);
+    die "Expected size of next block exceeds the limit"
+        if defined($self->[EXPECTED_SIZE]) and 
+           $self->[EXPECTED_SIZE] > $self->[MAX_LENGTH];
+  }
+  if ( defined($self->[EXPECTED_SIZE]) ) {
     return [ ] if length($self->[FRAMING_BUFFER]) < $self->[EXPECTED_SIZE];
 
     # Four-arg substr() would be better here, but it's not compatible
@@ -249,7 +268,25 @@ can be determined.
     return $1;
   }
 
-This filter holds onto incomplete blocks until they are completed.
+This filter holds onto incomplete blocks until they are completed in a
+framing buffer.  To control memory usage, a maximum framing buffer size is
+imposed.  This maximum size defaults to 512 MB (512*1024*1024 octets).  You
+may change this size limit with the C<MaxBuffer> parameter.
+
+    MaxBuffer => 1099511627776  # One terabyte!
+
+The size of each individual block is also limited.  By default, each block
+may be no more then 64 MB.  You may change this size limit with the
+C<MaxLength> parameter.
+
+    MaxLength => 10             # small blocks
+
+Remember that MaxBuffer needs to be larger then MaxLength.  What's more, it
+needs to have room for the length prefix.
+
+If either the C<MaxLength> or C<MaxBuffer> constraint is exceeded,
+C<POE::Filter::Bock> will throw an exception.
+
 
 =head1 PUBLIC FILTER METHODS
 
