@@ -24,7 +24,7 @@ BEGIN {
 }
 
 BEGIN {
-  plan tests => 132;
+  plan tests => 137;
 }
 
 use_ok('POE::Filter::HTTPD');
@@ -407,6 +407,29 @@ SKIP: { # wishlist for supporting get_pending! {{{
   my $chunks = $filter->put([$res]);
   is(ref($chunks), 'ARRAY', 'put: returns arrayref');
 } # }}}
+
+SKIP:
+{ # make sure the headers are encoded {{{
+    eval "use utf8";
+    skip "Don't have utf8", 5 if $@;
+
+    my $utf8 = "En \xE9t\xE9";
+    utf8::upgrade( $utf8 );
+    ok( utf8::is_utf8( $utf8 ), "Make sure this is utf8" );
+
+    my $resp = HTTP::Response->new( "200", "OK" );
+    $resp->header( "X-Subject", $utf8 );
+    $resp->content( "\x00\xC3\xE7\xFF\x00" );
+
+    my $filter = POE::Filter::HTTPD->new;
+
+    my $chunks = $filter->put([$resp]);
+    is(ref($chunks), 'ARRAY', 'put: returns arrayref');
+    is( $#$chunks, 0, "One chunk" );
+    ok( !utf8::is_utf8( $chunks->[0] ), "Header was converted to iso-latin-1" );
+    like( $chunks->[0], qr/\x00\xC3\xE7\xFF\x00/, "Content wasn't corrupted" );
+} # }}}
+
 
 { # really, really garbage requests get rejected, but goofy ones accepted {{{
   {

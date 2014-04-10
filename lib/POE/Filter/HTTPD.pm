@@ -17,6 +17,8 @@ $VERSION = '1.358';
 # NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Filter);
 
+sub DEBUG () { 0 }
+
 sub BUFFER        () { 0 } # raw data buffer to build requests
 sub STATE         () { 1 } # built a full request
 sub REQUEST       () { 2 } # partial request being built
@@ -42,11 +44,42 @@ use URI ();
 my $HTTP_1_0 = _http_version("HTTP/1.0");
 my $HTTP_1_1 = _http_version("HTTP/1.1");
 
-sub DEBUG () { 0 }
-
 use base 'Exporter';
 our @EXPORT_OK = qw( FIRST_UNUSED );
 
+
+
+#------------------------------------------------------------------------------
+# Set up some routines for convert wide chars (which aren't allowed in HTTP headers)
+# into MIME encoded equivalents.
+# See ->headers_as_strings
+BEGIN {
+    eval "use utf8";
+    if( $@ ) {
+        DEBUG and warn "We don't have utf8.";
+        *HAVE_UTF8 = sub { 0 };
+    }
+    else {        
+        *HAVE_UTF8 = sub { 1 };
+        my $downgrade = sub {   
+                        my $ret = $_[0];
+                        utf8::downgrade( $ret );
+                        return $ret 
+                    };
+        eval "use Email::MIME::RFC2047::Encoder";
+        if( $@ ) {
+            DEBUG and warn "We don't have Email::MIME::RFC2047::Encoder";
+            *encode_value = sub { Carp::cluck( "Wide characters in HTTP header" ); 
+                                  $downgrade->( @_ ) };
+        }
+        else {
+            my $encoder = Email::MIME::RFC2047::Encoder->new( encoding => 'iso-8859-1', 
+                                                              method => 'Q'
+                                                            );
+            *encode_value = sub { $downgrade->( $encoder->encode_text( @_ ) ) };
+        }
+    }
+}
 
 
 #------------------------------------------------------------------------------
@@ -348,12 +381,85 @@ sub put {
 
     my @headers;
     push @headers, $status_line;
-    push @headers, $_->headers_as_string("\x0D\x0A");
 
-    push @raw, join("\x0D\x0A", @headers, "") . $_->content;
+    # Perl can magically promote a string to UTF-8 if it is concatinated
+    # with another UTF-8 string.  This behaviour changed between 5.8.8 and
+    # 5.10.1.  This is normaly not a problem, but POE::Driver::SysRW uses
+    # syswrite(), which sends POE's internal buffer as-is.  
+    # In other words, if the header contains UTF-8, the content will be
+    # promoted to UTF-8 and syswrite() will send those wide bytes, which
+    # will corrupt any images.
+    # For instance, 00 e7 ff 00 00 00 05
+    # will become,  00 c3 a7 c3 bf 00 00 00 05
+    #
+    # The real bug is in HTTP::Message->headers_as_string, which doesn't respect
+    # the following:
+    # 
+    # "The TEXT rule is only used for descriptive field contents and values
+    #  that are not intended to be interpreted by the message parser.  Words
+    #  of *TEXT MAY contain characters from character sets other than ISO-
+    #  8859-1 [22] only when encoded according to the rules of RFC 2047
+    #  [14]. " -- RFC2616 section 2.2
+    # http://www.ietf.org/rfc/rfc2616.txt
+    # http://www.ietf.org/rfc/rfc2047.txt
+    my $endl = "\x0D\x0A";
+    push @headers, $self->headers_as_strings( $_->headers, $endl );
+    push @raw, join( $endl, @headers, "", "") . $_->content;
   }
 
   \@raw;
+}
+
+sub headers_as_strings
+{
+    my( $self, $H, $endl ) = @_;
+    my @ret;
+    # $H is a HTTP::Headers object
+    foreach my $name ( $H->header_field_names ) {
+        # message-header = field-name ":" [ field-value ]
+        # field-name     = token
+        # RFC2616 section 4.2
+        #
+        # token          = 1*<any CHAR except CTLs or separators>
+        # separators     = "(" | ")" | "<" | ">" | "@"
+        #                  | "," | ";" | ":" | "\" | <">
+        #                  | "/" | "[" | "]" | "?" | "="
+        #                  | "{" | "}" | SP | HT
+        # CHAR           = <any US-ASCII character (octets 0 - 127)>        
+        # CTL            = <any US-ASCII control character
+        #                                (octets 0 - 31) and DEL (127)> 
+        # SP             = <US-ASCII SP, space (32)> 
+        # HT             = <US-ASCII HT, horizontal-tab (9)>
+        # RFC2616 section 2.2 
+
+        # In other words, plain ascii text.  HTTP::Headers doesn't check for
+        # this, of course.  So if we complain here, the cluck ends up in
+        # the wrong place.  Doing the simplest thing
+        utf8::downgrade( $name ) if HAVE_UTF8;
+
+        # Deal with header values
+        foreach my $value ( $H->header( $name ) ) {
+            if( HAVE_UTF8 and utf8::is_utf8( $value ) ) {
+                DEBUG and warn "$$: Header $name is UTF-8";
+                $value = encode_value( $value );
+            }
+            
+            push @ret, join ": ", $name, _process_newline( $value, $endl );
+        }
+    }
+    return @ret;
+}
+
+# This routine is lifted as-is from HTTP::Headers
+sub _process_newline {
+    local $_ = shift;
+    my $endl = shift;
+    # must handle header values with embedded newlines with care
+    s/\s+$//;        # trailing newlines and space must go
+    s/\n(\x0d?\n)+/\n/g;     # no empty lines
+    s/\n([^\040\t])/\n $1/g; # initial space for continuation
+    s/\n/$endl/g;    # substitute with requested line ending
+    $_;
 }
 
 #------------------------------------------------------------------------------
@@ -507,6 +613,15 @@ returns their corresponding streams.
 
 Please see L<HTTP::Request> and L<HTTP::Response> for details about
 how to use these objects.
+
+HTTP headers are not allowed to have UTF-8 characters; they must be
+ISO-8859-1.  POE::Filter::HTTPD will convert all UTF-8 into the MIME encoded
+equivalent.  It uses L<utf8::is_utf8> for detection-8 and
+L<Email::MIME::RFC2047::Encoder> for convertion.  If L<utf8> is not
+installed, no conversion happens.  If L<Email::MIME::RFC2047::Encoder> is
+not installed, L<utf8::downgrade> is used instead.  In this last case, you will
+see a warning if you try to send UTF-8 headers.
+
 
 =head1 PUBLIC FILTER METHODS
 

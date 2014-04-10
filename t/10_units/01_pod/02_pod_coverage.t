@@ -48,6 +48,10 @@ my %special = (
     %$default_opts,
     trustme => [ qr/^new$/ ],
   },
+  'POE::Filter::HTTPD' => {
+    %$default_opts,
+    trustme => [ qw( headers_as_string encode_value get_one get_one_start get_pending put ) ]
+  },
 );
 
 # Get the list of modules
