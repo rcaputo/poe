@@ -34,12 +34,12 @@ ok($resolved_session eq "session", "session ID resolves correctly");
 # remove function that returns the removed value.  That may change in
 # the future.
 
-my $removed = $kr_sids->clear_session($sid);
+my $removed = $kr_sids->clear($sid);
 ok($removed eq "session", "session ID $sid removes $removed correctly");
 
 # What happens if a session doesn't exist?
 
-eval { $kr_sids->clear_session("session") };
+eval { $kr_sids->clear("session") };
 ok(
   $@ && $@ =~ /unknown SID/,
   "can't clear a sid for a nonexistent session"
@@ -48,7 +48,7 @@ ok(
 # POE::Kernel itself has allocated a SID.  Remove that.  This also
 # relies on undocumented side effects that can change at any time.
 
-$removed = $kr_sids->clear_session($poe_kernel->ID());
+$removed = $kr_sids->clear($poe_kernel->ID());
 ok($removed eq $poe_kernel, "successfully removed POE::Kernel's SID");
 
 # Finalize the subsystem and ensure it shut down cleanly.

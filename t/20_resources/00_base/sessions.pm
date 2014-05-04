@@ -120,6 +120,8 @@ ok(
 # Create a grandchild session (child of child).  Verify that its place
 # in the grand scheme of things is secure.
 
+my $kr_sids = $poe_kernel->[POE::Kernel::KR_SESSION_IDS];
+
 my $grand    = bless [ ], "POE::Session";
 my $grand_id = $kr_sids->allocate();
 $grand->_set_id($grand_id);

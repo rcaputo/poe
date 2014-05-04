@@ -125,9 +125,8 @@ sub _data_ses_allocate {
     if (TRACE_SESSIONS) {
       _warn(
         "<ss> ",
-        $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($sid),
-        " has parent ",
-        $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($parent_id),
+        $self->_data_alias_loggable($sid), " has parent ",
+        $self->_data_alias_loggable($parent_id)
       );
     }
 
@@ -161,8 +160,7 @@ sub _data_ses_free {
   };
 
   if (TRACE_SESSIONS) {
-    _warn "<ss> freeing ",
-    $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($sid),
+    _warn "<ss> freeing ", $self->_data_alias_loggable($sid);
   }
 
   # Manage parent/child relationships.
@@ -180,13 +178,9 @@ sub _data_ses_free {
 
       unless ($self->_data_ses_is_child($parent_id, $sid)) {
         _trap(
-          $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($sid),
-          " isn't a child of ",
-          $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($parent_id),
-          " (it's a child of ",
-          $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid(
-            $self->_data_ses_get_parent($sid)->ID()
-          ),
+          $self->_data_alias_loggable($sid), " isn't a child of ",
+          $self->_data_alias_loggable($parent_id), " (it's a child of ",
+          $self->_data_alias_loggable($self->_data_ses_get_parent($sid)->ID),
           ")"
         );
       }
@@ -202,8 +196,8 @@ sub _data_ses_free {
     if (TRACE_SESSIONS) {
       _cluck(
         "<ss> removed ",
-        $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($sid), " from ",
-        $POE::Kernel::poe_kernel->[KR_ALIASES]->loggable_sid($parent_id),
+        $self->_data_alias_loggable($sid), " from ",
+        $self->_data_alias_loggable($parent_id)
       );
     }
 
@@ -223,12 +217,12 @@ sub _data_ses_free {
 
   # Things which do not hold reference counts.
 
-  $self->[KR_SESSION_IDS]->clear_session($sid); # Remove from SID tables.
-  $self->_data_sig_clear_session($sid);         # Remove all leftover signals.
+  $self->[KR_SESSION_IDS]->clear($sid);        # Remove from SID tables.
+  $self->_data_sig_clear_session($sid);        # Remove all leftover signals.
 
   # Things which do hold reference counts.
 
-  $self->[KR_ALIASES]->clear_session($sid);
+  $self->_data_alias_clear_session($sid);      # Remove all leftover aliases.
   $self->[KR_EXTRA_REFS]->clear_session($sid); # Remove all leftover extrefs.
   $self->_data_handle_clear_session($sid);     # Remove all leftover handles.
 
@@ -256,8 +250,8 @@ sub _data_ses_move_child {
   if (TRACE_SESSIONS) {
     _warn(
       "<ss> moving ",
-      $self->[KR_ALIASES]->loggable_sid($sid), " to ",
-      $self->[KR_ALIASES]->loggable_sid($new_parent_id)
+      $self->_data_alias_loggable($sid), " to ",
+      $self->_data_alias_loggable($new_parent_id)
     );
   }
 
@@ -274,8 +268,8 @@ sub _data_ses_move_child {
   if (TRACE_SESSIONS) {
     _warn(
       "<ss> removed ",
-      $self->[KR_ALIASES]->loggable_sid($sid), " from ",
-      $self->[KR_ALIASES]->loggable_sid($old_parent_id)
+      $self->_data_alias_loggable($sid), " from ",
+      $self->_data_alias_loggable($old_parent_id)
     );
   }
 
@@ -287,8 +281,8 @@ sub _data_ses_move_child {
   if (TRACE_SESSIONS) {
     _warn(
       "<ss> changed parent of ",
-      $self->[KR_ALIASES]->loggable_sid($sid), " to ",
-      $self->[KR_ALIASES]->loggable_sid($new_parent_id)
+      $self->_data_alias_loggable($sid), " to ",
+      $self->_data_alias_loggable($new_parent_id)
     );
   }
 
@@ -300,8 +294,8 @@ sub _data_ses_move_child {
   if (TRACE_SESSIONS) {
     _warn(
       "<ss> added ",
-      $self->[KR_ALIASES]->loggable_sid($sid), " as child of ",
-      $self->[KR_ALIASES]->loggable_sid($new_parent_id)
+      $self->_data_alias_loggable($sid), " as child of ",
+      $self->_data_alias_loggable($new_parent_id)
     );
   }
 
@@ -417,7 +411,7 @@ sub _data_ses_refcount_dec {
   if (TRACE_REFCNT) {
     _cluck(
       "<rc> decrementing refcount for ",
-      $self->[KR_ALIASES]->loggable_sid($sid)
+      $self->_data_alias_loggable($sid)
     );
   }
 
@@ -433,7 +427,7 @@ sub _data_ses_refcount_dec {
 
   if (ASSERT_DATA and $kr_sessions{$sid}->[SS_REFCOUNT] < 0) {
     _trap(
-      $self->[KR_ALIASES]->loggable_sid($sid),
+      $self->_data_alias_loggable($sid),
      " reference count went below zero"
    );
   }
@@ -452,7 +446,7 @@ sub _data_ses_refcount_inc {
   if (TRACE_REFCNT) {
     _cluck(
       "<rc> incrementing refcount for ",
-      $self->[KR_ALIASES]->loggable_sid($sid)
+      $self->_data_alias_loggable($sid)
     );
   }
 
@@ -475,14 +469,13 @@ sub _data_ses_dump_refcounts {
   my $ss = $kr_sessions{$sid};
 
   _warn(
-    "<rc> +----- GC test for ", $self->[KR_ALIASES]->loggable_sid($sid),
-    "-----\n",
+    "<rc> +----- GC test for ", $self->_data_alias_loggable($sid), "-----\n",
     "<rc> | total refcnt  : ", $ss->[SS_REFCOUNT], "\n",
     "<rc> | event count   : ", $self->_data_ev_get_count_to($sid), "\n",
     "<rc> | post count    : ", $self->_data_ev_get_count_from($sid), "\n",
     "<rc> | child sessions: ", scalar(keys(%{$ss->[SS_CHILDREN]})), "\n",
     "<rc> | handles in use: ", $self->_data_handle_count_ses($sid), "\n",
-    "<rc> | aliases in use: ", $self->[KR_ALIASES]->loggable_sid($sid), "\n",
+    "<rc> | aliases in use: ", $self->_data_alias_count_ses($sid), "\n",
     "<rc> | extra refs    : ",
       $self->[KR_EXTRA_REFS]->count_session_refs($sid), "\n",
     "<rc> | pid count     : ", $self->_data_sig_session_awaits_pids($sid), "\n",
@@ -491,7 +484,7 @@ sub _data_ses_dump_refcounts {
 
   unless ($ss->[SS_REFCOUNT] and $self->_data_sig_session_awaits_pids($sid)) {
     _warn(
-      "<rc> | ", $self->[KR_ALIASES]->loggable_sid($sid),
+      "<rc> | ", $self->_data_alias_loggable($sid),
       " is eligible for garbage collection.\n",
       "<rc> +---------------------------------------------------\n",
     );
@@ -548,7 +541,7 @@ sub _data_ses_stop {
   }
 
   if (TRACE_SESSIONS) {
-    _warn("<ss> stopping ", $self->[KR_ALIASES]->loggable_sid($sid));
+    _warn("<ss> stopping ", $self->_data_alias_loggable($sid));
   }
 
   # Maintain referential integrity between parents and children.

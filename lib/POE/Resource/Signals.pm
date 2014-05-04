@@ -544,7 +544,7 @@ sub _data_sig_free_terminated_sessions {
       if (TRACE_SIGNALS) {
         _warn(
           "<sg> stopping signaled session ",
-          $self->[KR_ALIASES]->loggable_sid($dead_session->ID)
+          $self->_data_alias_loggable($dead_session->ID)
         );
       }
 

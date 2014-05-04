@@ -72,7 +72,7 @@ sub increment {
   if (TRACE_REFCNT) {
     POE::Kernel::_warn(
       "<rc> incremented extref ``$tag'' (now $new_refcount) for ",
-      $POE::Kernel::poe_kernel->[POE::Kernel::KR_ALIASES()]->loggable_sid($sid)
+      $POE::Kernel::poe_kernel->_data_alias_loggable($sid)
     );
   }
 
@@ -98,9 +98,7 @@ sub decrement {
     unless (exists $self->[MEMB_REFERENCES]{$sid}{$tag}) {
       POE::Kernel::_trap(
         "<dt> decrementing extref for nonexistent tag ``$tag'' in ",
-        $POE::Kernel::poe_kernel->[POE::Kernel::KR_ALIASES()]->loggable_sid(
-          $sid
-        )
+        POE::Kernel->_data_alias_loggable($sid)
       );
     }
   }
@@ -110,7 +108,7 @@ sub decrement {
   if (TRACE_REFCNT) {
     POE::Kernel::_warn(
       "<rc> decremented extref ``$tag'' (now $refcount) for ",
-      $POE::Kernel::poe_kernel->[POE::Kernel::KR_ALIASES()]->loggable_sid($sid)
+      POE::Kernel->_data_alias_loggable($sid)
     );
   }
 
@@ -133,9 +131,7 @@ sub remove {
     unless (exists $self->[MEMB_REFERENCES]{$sid}{$tag}) {
       POE::Kernel::_trap(
         "<dt> removing extref for nonexistent tag ``$tag'' in ",
-        $POE::Kernel::poe_kernel->[POE::Kernel::KR_ALIASES()]->loggable_sid(
-          $sid
-        )
+        POE::Kernel->_data_alias_loggable($sid)
       );
     }
   }
@@ -164,9 +160,7 @@ sub clear_session {
     if (exists $self->[MEMB_REFERENCES]{$sid}) {
       POE::Kernel::_trap(
         "<dt> extref clear did not remove session ",
-        $POE::Kernel::poe_kernel->[POE::Kernel::KR_ALIASES()]->loggable_sid(
-          $sid
-        )
+        POE::Kernel->_data_alias_loggable($sid)
       );
     }
   }

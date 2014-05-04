@@ -3,60 +3,55 @@
 
 package POE::Resource::Aliases;
 
-use warnings;
-use strict;
-
-
 use vars qw($VERSION);
 $VERSION = '1.358'; # NOTE - Should be #.### (three decimal places)
 
+# These methods are folded into POE::Kernel;
+package POE::Kernel;
 
-use constant {
-  MEMB_ALIAS_TO_SESSION => 0,
-  MEMB_SID_ALIASES      => 1,
-};
+use strict;
 
+### The table of session aliases, and the sessions they refer to.
 
-sub new {
-  my ($class) = @_;
+my %kr_aliases;
+#  ( $alias => $session_ref,
+#    ...,
+#  );
 
-  return bless [
-    { }, # MEMB_ALIAS_TO_SESSION
-    { }, # MEMB_SID_ALIASES
-  ], $class;
+my %kr_ses_to_alias;
+#  ( $session_id =>
+#    { $alias => $session_ref,
+#      ...,
+#    },
+#    ...,
+#  );
+
+sub _data_alias_initialize {
+  $poe_kernel->[KR_ALIASES] = \%kr_aliases;
 }
 
-
-sub reset_id {
+sub _data_alias_relocate_kernel_id {
   my ($self, $old_id, $new_id) = @_;
-
-  return unless exists $self->[MEMB_SID_ALIASES]{$old_id};
-  $self->[MEMB_SID_ALIASES]{$new_id} = delete(
-    $self->[MEMB_SID_ALIASES]{$old_id}
-  );
+  return unless exists $kr_ses_to_alias{$old_id};
+  $kr_ses_to_alias{$new_id} = delete $kr_ses_to_alias{$old_id};
 }
 
+### End-run leak checking.  Returns true if finalization was ok, or
+### false if it failed.
 
-sub finalize {
-  my ($self) = @_;
-
+sub _data_alias_finalize {
   my $finalized_ok = 1;
-  while (my ($alias, $ses) = each(%{ $self->[MEMB_ALIAS_TO_SESSION] })) {
-    POE::Kernel::_warn("!!! Leaked alias: $alias = $ses\n");
+  while (my ($alias, $ses) = each(%kr_aliases)) {
+    _warn "!!! Leaked alias: $alias = $ses\n";
     $finalized_ok = 0;
   }
-
-  while (my ($ses_id, $alias_rec) = each(%{ $self->[MEMB_SID_ALIASES] })) {
+  while (my ($ses_id, $alias_rec) = each(%kr_ses_to_alias)) {
     my @aliases = keys(%$alias_rec);
-    POE::Kernel::_warn(
-      "!!! Leaked alias cross-reference: $ses_id (@aliases)\n"
-    );
+    _warn "!!! Leaked alias cross-reference: $ses_id (@aliases)\n";
     $finalized_ok = 0;
   }
-
   return $finalized_ok;
 }
-
 
 # Add an alias to a session.
 #
@@ -70,84 +65,72 @@ sub finalize {
 # TODO It is possible to add aliases to sessions that do not exist.
 # The public alias_set() function prevents this from happening.
 
-sub add {
+sub _data_alias_add {
   my ($self, $session, $alias) = @_;
-  my $sid = $session->ID();
-  $POE::Kernel::poe_kernel->_data_ses_refcount_inc($sid);
-  $self->[MEMB_ALIAS_TO_SESSION]{$alias} = $session;
-  $self->[MEMB_SID_ALIASES]{$sid}{$alias} = $session;
+#  _warn( "Session ", $session->ID, " is alias $alias\n" );
+  $self->_data_ses_refcount_inc($session->ID);
+  $kr_aliases{$alias} = $session;
+  $kr_ses_to_alias{$session->ID}->{$alias} = $session;
 }
-
 
 # Remove an alias from a session.
 #
 # TODO Happily allows the removal of aliases from sessions that don't
 # exist.  This will cause problems with reference counting.
 
-sub remove {
+sub _data_alias_remove {
   my ($self, $session, $alias) = @_;
-  my $sid = $session->ID();
-  delete $self->[MEMB_ALIAS_TO_SESSION]{$alias};
-  delete $self->[MEMB_SID_ALIASES]{$sid}{$alias};
-  delete $self->[MEMB_SID_ALIASES]{$sid} unless (
-    scalar keys %{ $self->[MEMB_SID_ALIASES]{$sid} }
-  );
-
-  $POE::Kernel::poe_kernel->_data_ses_refcount_dec($sid);
+#  _warn( "Session ", $session->ID, " was alias $alias\n" );
+  delete $kr_aliases{$alias};
+  delete $kr_ses_to_alias{$session->ID}->{$alias};
+  $self->_data_ses_refcount_dec($session->ID);
 }
-
 
 ### Clear all the aliases from a session.
 
-sub clear_session {
+sub _data_alias_clear_session {
   my ($self, $sid) = @_;
-  return unless exists $self->[MEMB_SID_ALIASES]{$sid}; # avoid autoviv
-  while (my ($alias, $ses_ref) = each %{ $self->[MEMB_ALIAS_TO_SESSION] }) {
-    $self->remove($ses_ref, $alias);
+  return unless exists $kr_ses_to_alias{$sid}; # avoid autoviv
+  while (my ($alias, $ses_ref) = each %{$kr_ses_to_alias{$sid}}) {
+    $self->_data_alias_remove($ses_ref, $alias);
   }
-  delete $self->[MEMB_SID_ALIASES]{$sid};
+  delete $kr_ses_to_alias{$sid};
 }
 
+### Resolve an alias.  Just an alias.
 
-sub resolve {
+sub _data_alias_resolve {
   my ($self, $alias) = @_;
-  return(
-    (exists $self->[MEMB_ALIAS_TO_SESSION]{$alias})
-    ? $self->[MEMB_ALIAS_TO_SESSION]{$alias}
-    : undef
-  );
+  return undef unless exists $kr_aliases{$alias};
+  return $kr_aliases{$alias};
 }
 
+### Return a list of aliases for a session.
 
-sub get_sid_aliases {
+sub _data_alias_list {
   my ($self, $sid) = @_;
-
-  return () unless exists $self->[MEMB_SID_ALIASES]{$sid};
-
-  # Sorted for determinism.
-  # TODO - Not everyone needs them sorted.
-  # TODO - Probably should delegate the sort to the users who do.
-  return sort keys %{$self->[MEMB_SID_ALIASES]{$sid}};
+  return () unless exists $kr_ses_to_alias{$sid};
+  return sort keys %{$kr_ses_to_alias{$sid}};
 }
 
+### Return the number of aliases for a session.
 
-sub count_for_session {
+sub _data_alias_count_ses {
   my ($self, $sid) = @_;
-  return 0 unless exists $self->[MEMB_SID_ALIASES]{$sid};
-  return scalar keys %{$self->[MEMB_SID_ALIASES]{$sid}};
+  return 0 unless exists $kr_ses_to_alias{$sid};
+  return scalar keys %{$kr_ses_to_alias{$sid}};
 }
 
+### Return a session's ID in a form suitable for logging.
 
-sub loggable_sid {
+sub _data_alias_loggable {
   my ($self, $sid) = @_;
-  my @aliases = $self->get_sid_aliases($sid);
   "session $sid" . (
-    (@aliases)
-    ? ( " (" . join(", ", @aliases). ")" )
+    (exists $kr_ses_to_alias{$sid})
+    ? ( " (" . join(", ", $self->_data_alias_list($sid)) . ")" )
     : ""
   );
 }
-
 
 1;
 
