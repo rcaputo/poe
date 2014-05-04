@@ -22,10 +22,8 @@ is($poe_kernel->_data_ses_count(), 1, "only POE::Kernel exists");
 
 # Allocate a dummy session for testing.
 
-my $kr_sids = $poe_kernel->[POE::Kernel::KR_SESSION_IDS];
-
 my $child     = bless [ ], "POE::Session";
-my $child_sid = $kr_sids->allocate();
+my $child_sid = $poe_kernel->_data_sid_allocate();
 $child->_set_id($child_sid);
 
 $poe_kernel->_data_ses_allocate(
@@ -59,7 +57,7 @@ is(
 # Ensure that the session's ID was set.
 
 is(
-  $kr_sids->resolve($child_sid), $child,
+  $poe_kernel->_data_sid_resolve($child_sid), $child,
   "child session's ID is correct"
 );
 
@@ -120,10 +118,8 @@ ok(
 # Create a grandchild session (child of child).  Verify that its place
 # in the grand scheme of things is secure.
 
-my $kr_sids = $poe_kernel->[POE::Kernel::KR_SESSION_IDS];
-
 my $grand    = bless [ ], "POE::Session";
-my $grand_id = $kr_sids->allocate();
+my $grand_id = $poe_kernel->_data_sid_allocate();
 $grand->_set_id($grand_id);
 
 $poe_kernel->_data_ses_allocate(
@@ -172,7 +168,7 @@ my $base_grand_refcount = $poe_kernel->_data_ses_refcount($grand_id);
 # that its place in the grand scheme of things is secure.
 
 my $great    = bless [ ], "POE::Session";
-my $great_id = $kr_sids->allocate();
+my $great_id = $poe_kernel->_data_sid_allocate();
 $great->_set_id($great_id);
 
 $poe_kernel->_data_ses_allocate(
@@ -364,7 +360,7 @@ ok(
 # Attempt to allocate a session for a nonexistent parent.
 
 my $bogus     = bless [ ], "POE::Session";
-my $bogus_sid = $kr_sids->allocate();
+my $bogus_sid = $poe_kernel->_data_sid_allocate();
 $bogus->_set_id($bogus_sid);
 
 eval {

@@ -3,98 +3,79 @@
 
 package POE::Resource::SIDs;
 
-use warnings;
-use strict;
-
-
 use vars qw($VERSION);
 $VERSION = '1.358'; # NOTE - Should be #.### (three decimal places)
 
+# These methods are folded into POE::Kernel;
+package POE::Kernel;
 
-use constant {
-  MEMB_SESSIONS => 0,
-  MEMB_SEQUENCE => 1,
+use strict;
 
-  ASSERT_DATA   => POE::Kernel::ASSERT_DATA(),
-};
+### Map session IDs to sessions.  Map sessions to session IDs.
+### Maintain a sequence number for determining the next session ID.
 
+my %kr_session_ids;
+#  ( $session_id => $session_reference,
+#    ...,
+#  );
 
-sub new {
-  my ($class) = @_;
+my $kr_sid_seq = 0;
 
-  return bless [
-    { }, # MEMB_SESSIONS
-    0,   # MEMB_SEQUENCE
-  ], $class;
+sub _data_sid_initialize {
+  $poe_kernel->[KR_SESSION_IDS] = \%kr_session_ids;
+  $poe_kernel->[KR_SID_SEQ] = \$kr_sid_seq;
 }
 
+sub _data_sid_relocate_kernel_id {
+  my ($self, $old_id, $new_id) = @_;
+  $kr_session_ids{$new_id} = delete $kr_session_ids{$old_id}
+    if exists $kr_session_ids{$old_id};
+}
 
-sub finalize {
-  my ($self) = @_;
+### End-run leak checking.
 
+sub _data_sid_finalize {
   my $finalized_ok = 1;
-  while (my ($sid, $ses) = each(%{ $self->[MEMB_SESSIONS] })) {
-    POE::Kernel::_warn("!!! Leaked session ID: $sid = $ses\n");
+  while (my ($sid, $ses) = each(%kr_session_ids)) {
+    _warn "!!! Leaked session ID: $sid = $ses\n";
     $finalized_ok = 0;
   }
-
   return $finalized_ok;
 }
 
+### Allocate a new session ID.
 
-sub allocate {
-  my ($self) = @_;
-
-  my $seq = $self->[MEMB_SEQUENCE];
-  1 while exists $self->[MEMB_SESSIONS]{++$seq};
-  $self->[MEMB_SEQUENCE] = $seq;
-
-  return $seq;
+sub _data_sid_allocate {
+  my $self = shift;
+  1 while exists $kr_session_ids{++$kr_sid_seq};
+  return $kr_sid_seq;
 }
 
+### Set a session ID.
 
-sub set {
+sub _data_sid_set {
   my ($self, $sid, $session) = @_;
-  $self->[MEMB_SESSIONS]{$sid} = $session;
+  $kr_session_ids{$sid} = $session;
 }
 
+### Clear a session ID.
 
-sub clear {
+sub _data_sid_clear {
   my ($self, $sid) = @_;
 
-  return delete $self->[MEMB_SESSIONS]{$sid} unless ASSERT_DATA;
+  return delete $kr_session_ids{$sid} unless ASSERT_DATA;
 
-  my $removed = delete $self->[MEMB_SESSIONS]{$sid};
-  POE::Kernel::_trap("unknown SID '$sid'") unless defined $removed;
+  my $removed = delete $kr_session_ids{$sid};
+  _trap("unknown SID '$sid'") unless defined $removed;
   $removed;
 }
 
+### Resolve a session ID into its session.
 
-sub resolve {
+sub _data_sid_resolve {
   my ($self, $sid) = @_;
-  return(
-    exists($self->[MEMB_SESSIONS]{$sid})
-    ? $self->[MEMB_SESSIONS]{$sid}
-    : undef
-  );
+  return $kr_session_ids{$sid};
 }
-
-
-sub reset_id {
-  my ($self, $old_id, $new_id) = @_;
-
-  if (ASSERT_DATA) {
-    POE::Kernel::_trap("unknown old SID '$old_id'") unless (
-      exists $self->[MEMB_SESSIONS]{$old_id}
-    );
-    POE::Kernel::_trap("new SID '$new_id' already taken'") if (
-      exists $self->[MEMB_SESSIONS]{$new_id}
-    );
-  }
-
-  $self->[MEMB_SESSIONS]{$new_id} = delete $self->[MEMB_SESSIONS]{$old_id};
-}
-
 
 1;
 
@@ -102,7 +83,7 @@ __END__
 
 =head1 NAME
 
-POE::Resource::SIDs - Helper class to manage session IDs for POE::Kernel
+POE::Resource::SIDs - internal session ID manager for POE::Kernel
 
 =head1 SYNOPSIS
 
@@ -110,7 +91,9 @@ There is no public API.
 
 =head1 DESCRIPTION
 
-POE uses POE::Resource::SIDs internally to manage session IDs.
+POE::Resource::SIDs is a mix-in class for POE::Kernel.  It provides
+the features necessary to manage session IDs.  It is used internally
+by POE::Kernel, so it has no public interface.
 
 =head1 SEE ALSO
 

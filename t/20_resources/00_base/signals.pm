@@ -31,7 +31,7 @@ $poe_kernel->_data_sig_initialize();
 
 sub create_session {
   my $session = bless [ ], "POE::Session";
-  my $sid     = $poe_kernel->[POE::Kernel::KR_SESSION_IDS]->allocate();
+  my $sid     = $poe_kernel->_data_sid_allocate();
 
   $session->_set_id($sid);
   $poe_kernel->_data_ses_allocate(
@@ -319,7 +319,7 @@ ok(
 # Nonmaskable signals terminate sessions no matter what.
 
 { my $ses = bless [ ], "POE::Session";
-  my $sid = $poe_kernel->[POE::Kernel::KR_SESSION_IDS]->allocate();
+  my $sid = $poe_kernel->_data_sid_allocate();
 
   $ses->_set_id($sid);
   $poe_kernel->_data_ses_allocate(

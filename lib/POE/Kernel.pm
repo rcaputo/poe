@@ -202,7 +202,7 @@ sub KR_ALIASES           () {  3 } #   \%kr_aliases,
 sub KR_ACTIVE_SESSION    () {  4 } #   \$kr_active_session,
 sub KR_QUEUE             () {  5 } #   \$kr_queue,
 sub KR_ID                () {  6 } #   $unique_kernel_id,
-sub KR_SESSION_IDS       () {  7 } #   POE::Resource::SIDs object,
+sub KR_SESSION_IDS       () {  7 } #   \%kr_session_ids,
 sub KR_SID_SEQ           () {  8 } #   \$kr_sid_seq,
 sub KR_EXTRA_REFS        () {  9 } #   \$kr_extra_refs,
 sub KR_SIZE              () { 10 } #   XXX UNUSED ???
@@ -588,7 +588,7 @@ sub _resolve_session {
   return $session if defined $session;
 
   # Resolve against IDs.
-  $session = $self->[KR_SESSION_IDS]->resolve($whatever);
+  $session = $self->_data_sid_resolve($whatever);
   return $session if defined $session;
 
   # Resolve against aliases.
@@ -823,7 +823,7 @@ sub new {
       \$kr_active_session,    # KR_ACTIVE_SESSION
       $kr_queue,              # KR_QUEUE - reference to an object
       undef,                  # KR_ID
-      undef,                  # KR_SESSION_IDS
+      undef,                  # KR_SESSION_IDS - from POE::Resource::SIDS
       undef,                  # KR_SID_SEQ - from POE::Resource::SIDS
       undef,                  # KR_EXTRA_REFS
       undef,                  # KR_SIZE
@@ -836,9 +836,7 @@ sub new {
     POE::Resources->load();
 
     $self->_recalc_id();
-
-    $self->[KR_SESSION_IDS] = POE::Resource::SIDs->new();
-    $self->[KR_SESSION_IDS]->set( $self->[KR_ID], $self );
+    $self->_data_sid_set($self->[KR_ID], $self);
 
     # Initialize subsystems.  The order is important.
 
@@ -1215,7 +1213,7 @@ sub _finalize_kernel {
   $self->_data_sig_finalize();
   $self->loop_finalize();
   $self->_data_extref_finalize();
-  $self->[KR_SESSION_IDS]->finalize();
+  $self->_data_sid_finalize();
   $self->_data_alias_finalize();
   $self->_data_handle_finalize();
   $self->_data_ev_finalize();
@@ -1463,7 +1461,7 @@ sub session_alloc {
 
   # Allocate the session's data structure.  This must be done before
   # we dispatch anything regarding the new session.
-  my $new_sid = $self->[KR_SESSION_IDS]->allocate();
+  my $new_sid = $self->_data_sid_allocate();
   $session->_set_id($new_sid);
   $self->_data_ses_allocate($session, $new_sid, $kr_active_session->ID);
 
@@ -2469,7 +2467,7 @@ sub _recalc_id {
   if (defined $old_id) {
     $self->_data_sig_relocate_kernel_id($old_id, $new_id);
     $self->_data_ses_relocate_kernel_id($old_id, $new_id);
-    $self->[KR_SESSION_IDS]->reset_id($old_id, $new_id);
+    $self->_data_sid_relocate_kernel_id($old_id, $new_id);
     $self->_data_handle_relocate_kernel_id($old_id, $new_id);
     $self->_data_ev_relocate_kernel_id($old_id, $new_id);
     $self->_data_alias_relocate_kernel_id($old_id, $new_id);
@@ -2489,7 +2487,7 @@ sub ID_id_to_session {
     _confess "<us> undefined ID in ID_id_to_session()" unless defined $id;
   };
 
-  my $session = $self->[KR_SESSION_IDS]->resolve($id);
+  my $session = $self->_data_sid_resolve($id);
   return $session if defined $session;
 
   $self->_explain_return("ID does not exist");
