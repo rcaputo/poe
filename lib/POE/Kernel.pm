@@ -614,7 +614,7 @@ sub _test_if_kernel_is_idle {
       "<rc> | Events : ", $kr_queue->get_item_count(),
       " (vs. idle size = ", $idle_queue_size, ")\n",
       "<rc> | Files  : ", $self->_data_handle_count(), "\n",
-      "<rc> | Extra  : ", $self->[KR_EXTRA_REFS]->count_sessions(), "\n",
+      "<rc> | Extra  : ", $self->_data_extref_count(), "\n",
       "<rc> | Procs  : ", $self->_data_sig_kernel_awaits_pids(), "\n",
       "<rc> | Sess   : ", $self->_data_ses_count(), "\n",
       "<rc> `---------------------------\n",
@@ -638,7 +638,7 @@ sub _test_if_kernel_is_idle {
   return if (
     $kr_queue->get_item_count() > $idle_queue_size or
     $self->_data_handle_count() or
-    $self->[KR_EXTRA_REFS]->count_sessions() or
+    $self->_data_extref_count() or
     $self->_data_sig_kernel_awaits_pids() or
     !$self->_data_ses_count()
   );
@@ -839,8 +839,6 @@ sub new {
 
     $self->[KR_SESSION_IDS] = POE::Resource::SIDs->new();
     $self->[KR_SESSION_IDS]->set( $self->[KR_ID], $self );
-
-    $self->[KR_EXTRA_REFS] = POE::Resource::Extrefs->new();
 
     # Initialize subsystems.  The order is important.
 
@@ -1216,7 +1214,7 @@ sub _finalize_kernel {
   # sig before loop so that it clears the signal_pipe file handler
   $self->_data_sig_finalize();
   $self->loop_finalize();
-  $self->[KR_EXTRA_REFS]->finalize();
+  $self->_data_extref_finalize();
   $self->[KR_SESSION_IDS]->finalize();
   $self->_data_alias_finalize();
   $self->_data_handle_finalize();
@@ -2542,7 +2540,7 @@ sub refcount_increment {
     return;
   }
 
-  my $refcount = $self->[KR_EXTRA_REFS]->increment($session_id, $tag);
+  my $refcount = $self->_data_extref_inc($session_id, $tag);
   # TODO trace it here
   return $refcount;
 }
@@ -2563,7 +2561,7 @@ sub refcount_decrement {
     return;
   }
 
-  my $refcount = $self->[KR_EXTRA_REFS]->decrement($session_id, $tag);
+  my $refcount = $self->_data_extref_dec($session_id, $tag);
 
   # TODO trace it here
   return $refcount;
