@@ -643,11 +643,11 @@ client to fill all server memory and swap.  Ignored if L</Streaming> is set.
 
 C<Streaming> turns on request streaming mode.  Defaults to off.  In
 streaming mode this filter will return either an HTTP::Request object or a
-block of content.  The HTTP::Request object will have no content.  The
-blocks of content will be parts of the request's body, up to Content-Length
-in size.  You distinguish between request objects and content blocks using
-C<Scalar::Util/bless> (See L</Streaming request> below).  This option
-superceeds L</MaxContent>.
+block of content.  The HTTP::Request object's content will return empty. 
+The blocks of content will be parts of the request's body, up to
+Content-Length in size.  You distinguish between request objects and content
+blocks using C<Scalar::Util/bless> (See L</Streaming request> below).  This
+option superceeds L</MaxContent>.
 
 =head1 CAVEATS
 
@@ -746,7 +746,7 @@ fill up the partition.
 
     use File::Temp qw(tempfile);
 
-    if( bless $_[ARG0] ) {
+    if( blessed $_[ARG0] ) {
         $heap->{request} = $_[ARG0];
         if( $heap->{request}->method eq 'GET' ) {
             handle_get( $heap );
