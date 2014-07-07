@@ -21,7 +21,11 @@ foreach my $package ( qw( LWP::UserAgent HTTP::Request::Common CGI
     exit 0;
 }
 
-my $socket = IO::Socket::INET->new( LocalAddr => 0, Listen => 1, ReuseAddr => 1 );
+my $socket = IO::Socket::INET->new(
+	LocalAddr => '127.0.0.1',
+	Listen => 1,
+	ReuseAddr => 1
+);
 unless( $socket ) {
     plan skip_all => "Unable to create socket: $!";
     exit 0;
