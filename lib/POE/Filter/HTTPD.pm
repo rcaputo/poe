@@ -13,7 +13,7 @@ use strict;
 use POE::Filter;
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.358';
+$VERSION = '1.359';
 # NOTE - Should be #.### (three decimal places)
 @ISA = qw(POE::Filter);
 

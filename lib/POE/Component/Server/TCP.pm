@@ -3,7 +3,7 @@ package POE::Component::Server::TCP;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.358'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.359'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw(carp croak);
 use Socket qw(INADDR_ANY inet_ntoa inet_aton AF_INET AF_UNIX PF_UNIX);
