@@ -8,7 +8,7 @@ use strict;
 use base qw( POE::Pipe );
 
 use vars qw($VERSION);
-$VERSION = '1.359'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.360'; # NOTE - Should be #.### (three decimal places)
 
 use IO::Pipely qw(socketpairly);
 
