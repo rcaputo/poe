@@ -69,8 +69,13 @@ BEGIN {
         eval "use Email::MIME::RFC2047::Encoder";
         if( $@ ) {
             DEBUG and warn "We don't have Email::MIME::RFC2047::Encoder";
-            *encode_value = sub { Carp::cluck( "Wide characters in HTTP header" ); 
-                                  $downgrade->( @_ ) };
+            *encode_value = sub {
+              Carp::cluck(
+                "Downgrading wide characters in HTTP header. " .
+                "Consier installing Email::MIME::RFC2047::Encoder"
+              );
+              $downgrade->( @_ );
+            };
         }
         else {
             my $encoder = Email::MIME::RFC2047::Encoder->new( encoding => 'iso-8859-1', 
