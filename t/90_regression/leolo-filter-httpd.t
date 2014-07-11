@@ -22,14 +22,17 @@ foreach my $package ( qw( LWP::UserAgent HTTP::Request::Common CGI
 }
 
 my $socket = IO::Socket::INET->new(
-	LocalAddr => '127.0.0.1',
-	Listen => 1,
-	ReuseAddr => 1
+    LocalAddr => '127.0.0.1',
+    Listen => 1,
+    ReuseAddr => 1
 );
 unless( $socket ) {
     plan skip_all => "Unable to create socket: $!";
     exit 0;
 }
+
+my $sockhost = $socket->sockhost();
+my $sockport = $socket->sockport();
 
 # $DB::fork_TTY = '/dev/pts/1';
 my $pid = fork();
@@ -44,7 +47,7 @@ if( $pid ) {
     parent( $socket, $pid );
 }
 else {
-    child( $socket );
+    child( $sockhost, $sockport );
     exit 0;
 }
 
@@ -53,9 +56,9 @@ pass( "DONE" );
 #################################################
 sub child
 {
-    my( $sock ) = @_;
-    my $uri = URI->new( "http://".$sock->sockhost.":".$sock->sockport."/upload" );
-    undef( $sock );
+    my( $sockhost, $sockport ) = @_;
+
+    my $uri = URI->new( "http://$sockhost:$sockport/upload" );
 
     my $UA = LWP::UserAgent->new;
     $UA->agent("$0/0.1 " . $UA->agent);
