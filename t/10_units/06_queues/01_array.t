@@ -269,7 +269,6 @@ sub verify_queue {
 # Verify that the queue remains in order, and that the adjusted
 # priorities are correct.
 
-print "!!!!!!!! 1\n";
 verify_queue(1000);
 
 # Now set priorities to absolute values.  The values are
