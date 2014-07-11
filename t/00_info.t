@@ -12,8 +12,8 @@ $POE::Test::Loops::VERSION = "doesn't seem to be installed" if $@;
 
 # idea from Test::Harness, thanks!
 diag(
-  "Testing POE $POE::VERSION, ",
-  "POE::Test::Loops $POE::Test::Loops::VERSION, ",
+  "Testing POE ", ($POE::VERSION || -1), ", ",
+  "POE::Test::Loops ", ($POE::Test::Loops::VERSION || -1), ", ",
   "Perl $], ",
   "$^X on $^O"
 );
