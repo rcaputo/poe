@@ -27,6 +27,7 @@ sub SELF_UNIQUE_ID   () {  8 }
 sub SELF_STATE_READ  () {  9 }
 sub SELF_LAST_STAT   () { 10 }
 sub SELF_FOLLOW_MODE () { 11 }
+sub SELF_EVENT_IDLE  () { 12 }
 
 sub MODE_TIMER  () { 0x01 } # Follow on a timer loop.
 sub MODE_SELECT () { 0x02 } # Follow via select().
@@ -109,6 +110,7 @@ sub new {
     undef,                            # SELF_STATE_READ
     [ (-1) x 8 ],                     # SELF_LAST_STAT
     undef,                            # SELF_FOLLOW_MODE
+    delete $params{IdleEvent},        # SELF_EVENT_IDLE
   ], $type;
 
   if (defined $filename) {
@@ -234,6 +236,7 @@ sub _define_select_states {
   my $event_input = \$self->[SELF_EVENT_INPUT];
   my $event_error = \$self->[SELF_EVENT_ERROR];
   my $event_reset = \$self->[SELF_EVENT_RESET];
+  my $event_idle  = \$self->[SELF_EVENT_IDLE];
 
   TRACE_POLL and warn "<poll> defining select state";
 
@@ -278,6 +281,9 @@ sub _define_select_states {
           TRACE_POLL and warn "<poll> " . time . " error: $!";
           $$event_error and
             $k->call($ses, $$event_error, 'read', ($!+0), $!, $unique_id);
+        }
+        elsif (defined $$event_idle) {
+          $k->call($ses, $$event_idle, $unique_id);
         }
 
         $k->select_read($$handle => undef);
@@ -324,6 +330,7 @@ sub _generate_filehandle_timer {
   my $event_input   = \$self->[SELF_EVENT_INPUT];
   my $event_error   = \$self->[SELF_EVENT_ERROR];
   my $event_reset   = \$self->[SELF_EVENT_RESET];
+  my $event_idle    = \$self->[SELF_EVENT_IDLE];
 
   $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> handle timer read";
   my $state_read    = \$self->[SELF_STATE_READ];
@@ -437,6 +444,9 @@ sub _generate_filehandle_timer {
 
         sysseek($$handle, 0, SEEK_SET);
       }
+      else {
+        $k->call($ses, $$event_idle, $unique_id);
+      }
 
       # The file didn't roll.  Try again shortly.
       @$last_stat = @new_stat;
@@ -461,6 +471,7 @@ sub _generate_filename_timer {
   my $event_input   = \$self->[SELF_EVENT_INPUT];
   my $event_error   = \$self->[SELF_EVENT_ERROR];
   my $event_reset   = \$self->[SELF_EVENT_RESET];
+  my $event_idle    = \$self->[SELF_EVENT_IDLE];
 
   $self->[SELF_STATE_READ] = ref($self) . "($unique_id) -> name timer read";
   my $state_read    = \$self->[SELF_STATE_READ];
@@ -481,6 +492,7 @@ sub _generate_filename_timer {
 
         # Couldn't open yet.
         unless ($$handle) {
+          $k->call($ses, $$event_idle, $unique_id) if defined $$event_idle;
           $k->delay($$state_read, $poll_interval) if defined $$state_read;
           return;
         }
@@ -581,6 +593,9 @@ sub _generate_filename_timer {
         $k->delay($$state_read, 0) if defined $$state_read;
         return;
       }
+      else {
+        $k->call($ses, $$event_idle, $unique_id);
+      }
 
       # The file didn't roll.  Try again shortly.
       @$last_stat = @new_stat;
@@ -613,6 +628,9 @@ sub event {
     }
     elsif ($name eq 'ResetEvent') {
       $self->[SELF_EVENT_RESET] = $event;
+    }
+    elsif ($name eq 'IdleEvent') {
+      $self->[SELF_EVENT_IDLE] = $event;
     }
     else {
       carp "ignoring unknown FollowTail parameter '$name'";
@@ -825,6 +843,15 @@ required, however.
 
 See the L</SYNOPSIS> for an example.
 
+=head3 IdleEvent
+
+C<IdleEvent> is an optional event.  If specified, it will fire
+whenever POE::Wheel::FollowTail checks for activity but sees nothing.
+It was added in POE 1.362 as a way to advance certain test programs
+without needing to wait conservatively large amounts of time.
+
+C<IdleEvent> is described in L</PUBLIC EVENTS>.
+
 =head3 InputEvent
 
 The C<InputEvent> parameter is required, and it specifies the event to
@@ -899,6 +926,14 @@ resume watching the file where tell() left off.
 =head1 PUBLIC EVENTS
 
 POE::Wheel::FollowTail emits a small number of events.
+
+=head2 IdleEvent
+
+C<IdleEvent> specifies the name of an event to be fired when
+POE::Wheel::FollowTail doesn't detect activity on the watched file.
+
+C<$_[ARG0]> contains the ID of the POE::Wheel::FollowTail object that
+fired the event.
 
 =head2 InputEvent
 
