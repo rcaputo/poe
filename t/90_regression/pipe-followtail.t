@@ -46,7 +46,7 @@ sub _start_handler {
   print $fh "foo\nbar\n";
   close $fh or die "close failed: $!";
 
-  $kernel->delay_add('done', 2);
+  $kernel->delay('done', 3);
   return;
 }
 
@@ -55,6 +55,7 @@ sub input_handler {
   my ($kernel, $line) = @_[KERNEL, ARG0];
   my $next = shift @EXPECTED;
   is($line, $next);
+  $kernel->delay('done', 1);
   return;
 }
 
