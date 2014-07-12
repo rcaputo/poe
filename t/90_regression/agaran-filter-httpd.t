@@ -42,6 +42,7 @@ POE::Component::Server::TCP->new(
     my ( $kernel, $heap, $request ) = @_[ KERNEL, HEAP, ARG0 ];
     isa_ok( $request, 'HTTP::Message', $request);
     ok( $request->uri() eq '/foo/bar', 'Double striped' );
+    POE::Kernel->yield('shutdown');
   },
 );
 
@@ -49,9 +50,10 @@ POE::Component::Client::TCP->new (
   Alias         => 'c0',
   RemoteAddress => '127.0.0.1',
   RemotePort => $port,
-  ServerInput => sub {
-    diag("Server Input: $_[ARG0]");
-  }
+  ServerInput => sub { fail("client c0 got input from server: $_[ARG0]"); },
+
+  # Silence errors.
+  ServerError => sub { undef },
 );
 
 POE::Component::Client::TCP->new (
@@ -62,21 +64,15 @@ POE::Component::Client::TCP->new (
     ok 1, 'client connected';
     $_[HEAP]->{server}->put( "GET //foo/bar 1.0\015\012\015\012");
   },
-  ServerInput => sub {
-    ok 1, "client got $_[ARG0]";
-  }
-);
+  Disconnected => sub {
+    # Shutdown step 2: Kill the server and all remaining connections
+    note "client c1 disconnected";
+    POE::Kernel->signal( s0 => 'KILL' );
+  },
+  ServerInput => sub { fail("client c1 got input from server: $_[ARG0]"); },
 
-POE::Session->create(
-  inline_states => {
-    _start => sub {
-      $_[KERNEL]->delay_add( done => 3 );
-    },
-    done => sub {
-      $_[KERNEL]->post( $_ => 'shutdown' )
-        for qw/ s0 c0 c1 /;
-    }
-  }
+  # Silence errors.
+  ServerError => sub { undef },
 );
 
 $poe_kernel->run();
