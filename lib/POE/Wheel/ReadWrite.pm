@@ -3,7 +3,7 @@ package POE::Wheel::ReadWrite;
 use strict;
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.362'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.363'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use POE qw(Wheel Driver::SysRW Filter::Line);
