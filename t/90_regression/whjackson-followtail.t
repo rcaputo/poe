@@ -17,6 +17,7 @@ sub POE::Kernel::ASSERT_DEFAULT () { 1 }
 
 use Test::More;
 use POE qw(Wheel::FollowTail);
+use POE::Test::Sequence;
 
 use constant LOG     => 'test_log';
 use constant OLD_LOG => 'test_log.1';
@@ -34,106 +35,64 @@ use constant OLD_LOG => 'test_log.1';
   unlink LOG, OLD_LOG;
 }
 
-my @expected_results = (
-  [ got_start_event => 0, sub {
-      $_[HEAP]{wheel} = POE::Wheel::FollowTail->new(
-        InputEvent   => 'input_event',
-        ResetEvent   => 'reset_event',
-        IdleEvent    => 'idle_event',
-        Filename     => LOG,
-        PollInterval => 1,
-      );
-    }
-  ],
-  [ got_idle_event  => 0,   sub { append_to_log("a") } ],
-  [ did_log_append  => "a", sub { undef } ],
-  [ got_reset_event => 0,   sub { undef } ], # Initial open is a reset.
-  [ got_input_event => "a", sub { undef} ],
-  [ got_idle_event  => 0,   sub {
-      append_to_log("b");
-      roll_log();
-      append_to_log("c");
-    }
-  ],
-  [ did_log_append  => "b", sub { undef } ],
-  [ did_log_roll    => 0,   sub { undef } ],
-  [ did_log_append  => "c", sub { undef } ],
-  [ got_input_event => "b", sub { undef } ],
-  [ got_reset_event => 0,   sub { undef } ],
-  [ got_input_event => "c", sub { append_to_log("d") } ],
-  [ did_log_append  => "d", sub { undef } ],
-  [ got_input_event => "d", sub { delete $_[HEAP]{wheel} } ],
-  [ got_stop_event  => 0,   sub {
-      # Clean up test log files, if we can.
-      unlink LOG     or die "unlink failed: $!";
-      unlink OLD_LOG or die "unlink failed: $!";
-    }
+my $sequence = POE::Test::Sequence->new(
+  sequence => [
+    [ got_start_event => 0, sub {
+        $_[HEAP]{wheel} = POE::Wheel::FollowTail->new(
+          InputEvent   => 'input_event',
+          ResetEvent   => 'reset_event',
+          IdleEvent    => 'idle_event',
+          Filename     => LOG,
+          PollInterval => 1,
+        );
+      }
+    ],
+    [ got_idle_event  => 0,   sub { append_to_log("a") } ],
+    [ did_log_append  => "a", undef ],
+    [ got_reset_event => 0,   undef ], # Initial open is a reset.
+    [ got_input_event => "a", undef ],
+    [ got_idle_event  => 0,   sub {
+        append_to_log("b");
+        roll_log();
+        append_to_log("c");
+      }
+    ],
+    [ did_log_append  => "b", undef ],
+    [ did_log_roll    => 0,   undef ],
+    [ did_log_append  => "c", undef ],
+    [ got_input_event => "b", undef ],
+    [ got_reset_event => 0,   undef ],
+    [ got_input_event => "c", sub { append_to_log("d") } ],
+    [ did_log_append  => "d", undef ],
+    [ got_input_event => "d", sub { delete $_[HEAP]{wheel} } ],
+    [ got_stop_event  => 0,   sub {
+        # Clean up test log files, if we can.
+        unlink LOG     or die "unlink failed: $!";
+        unlink OLD_LOG or die "unlink failed: $!";
+      }
+    ],
   ],
 );
 
-plan tests => scalar @expected_results;
+plan tests => $sequence->test_count();
 
 POE::Session->create(
   inline_states => {
-    _start      => \&handle_start_event,
-    _stop       => \&handle_stop_event,
-    input_event => \&handle_input_event,
-    reset_event => \&handle_reset_event,
-    idle_event  => \&handle_idle_event,
+    _start      => sub { goto $sequence->next("got_start_event", 0) },
+    _stop       => sub { goto $sequence->next("got_stop_event",  0) },
+    input_event => sub { goto $sequence->next("got_input_event", $_[ARG0]) },
+    reset_event => sub { goto $sequence->next("got_reset_event", 0) },
+    idle_event  => sub { goto $sequence->next("got_idle_event",  0) },
   }
 );
 
 POE::Kernel->run();
 exit;
 
-#
-# subs
-#
-
-sub test_event {
-  my ($event, $parameter) = @_;
-  my $expected_result = shift @expected_results;
-  unless (defined $expected_result) {
-    fail("Got an unexpected result ($event, $parameter). Time to bye.");
-    exit;
-  }
-
-  my $next_action = pop @$expected_result;
-
-  note "Testing (@$expected_result)";
-
-  is_deeply( [ $event, $parameter ], $expected_result );
-
-  return $next_action;
-}
-
-sub handle_reset_event {
-  my $next_action = test_event("got_reset_event", 0);
-  goto $next_action;
-}
-
-sub handle_idle_event {
-  my $next_action = test_event("got_idle_event", 0);
-  goto $next_action;
-}
-
-sub handle_input_event {
-  my $next_action = test_event("got_input_event", $_[ARG0]);
-  goto $next_action;
-}
-
-sub handle_start_event {
-  my $next_action = test_event("got_start_event", 0);
-  goto $next_action;
-}
-
-sub handle_stop_event {
-  my $next_action = test_event("got_stop_event", 0);
-  goto $next_action;
-}
+# Helpers.
 
 sub roll_log {
-  test_event did_log_roll => 0;
+  $sequence->next("did_log_roll", 0);
   rename LOG, OLD_LOG or die "rename failed: $!";
   return;
 }
@@ -141,7 +100,7 @@ sub roll_log {
 sub append_to_log {
   my ($line) = @_;
 
-  test_event did_log_append => $line;
+  $sequence->next("did_log_append", $line);
 
   open my $fh, '>>', LOG      or die "open failed: $!";
   print {$fh} "$line\n";
@@ -149,6 +108,5 @@ sub append_to_log {
 
   return;
 }
-
 
 1;

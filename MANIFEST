@@ -59,6 +59,7 @@ lib/POE/Resource/Sessions.pm
 lib/POE/Resource/Signals.pm
 lib/POE/Resources.pm
 lib/POE/Session.pm
+lib/POE/Test/Sequence.pm
 lib/POE/Wheel.pm
 lib/POE/Wheel/Curses.pm
 lib/POE/Wheel/FollowTail.pm
