@@ -1,40 +1,56 @@
 #!/usr/bin/perl
-
+# vim: ts=2 sw=2 expandtab
+#
 use strict;
 use warnings;
 
+use Time::HiRes qw(time);
 use POE;
 
-use Test::More ( tests => 4 );
+use Test::More;
 
-pass( "BEGIN" );
-POE::Session->create( inline_states => {
-        _start => sub {
-                my $heap = $_[HEAP];
-                $heap->{started} = time;
-                $heap->{alarm} = $poe_kernel->alarm_set( 'the_alarm' => time+10 );
-                $heap->{delay} = $poe_kernel->delay_set( 'the_delay' => 10 );
-                $poe_kernel->yield( 'adjust_them' );
-            },
-        adjust_them => sub {
-                my $heap = $_[HEAP];
-                $poe_kernel->delay_adjust( $heap->{delay}, 3 );  # 3 seconds from now
-                $poe_kernel->alarm_adjust( $heap->{alarm}, -7 ); # 10-7 seconds
-                diag( "Waiting 3 seconds (or 10)" );
-            },
+use POE::Test::Sequence;
 
-        the_delay => sub {
-                my $heap = $_[HEAP];
-                my $took = time - $heap->{started};
-                ok( $took < 5, "Short delay ($took)" );
-            },
-        the_alarm => sub {
-                my $heap = $_[HEAP];
-                my $took = time - $heap->{started};
-                ok( $took < 5, "Short alarm ($took)" );
-            },
-    } );
-       
-$poe_kernel->run;
+my $sequence = POE::Test::Sequence->new(
+  sequence => [
+    [
+      '_start', 0, sub {
+        my $heap = $_[HEAP];
+        my $now = $heap->{started} = time();
+        $heap->{alarm}   = POE::Kernel->alarm_set( 'the_alarm' => $now+10 );
+        $heap->{delay}   = POE::Kernel->delay_set( 'the_delay' => 10 );
+        POE::Kernel->yield( 'adjust_them' );
+      },
+    ],
+    [
+      'adjust_them', 0, sub {
+        my $heap = $_[HEAP];
+        POE::Kernel->delay_adjust( $heap->{delay}, 1 );  # 1 seconds from now
+        POE::Kernel->alarm_adjust( $heap->{alarm}, -9 ); # 10-9 seconds
+        note( "Waiting 1 second (or 10)" );
+      },
+    ],
+    [
+      'the_alarm', 0, sub {
+        my $heap = $_[HEAP];
+        my $took = time() - $heap->{started};
+        ok( $took < 2, "Short alarm ($took)" );
+      },
+    ],
+    [
+      'the_delay', 0, sub {
+        my $heap = $_[HEAP];
+        my $took = time() - $heap->{started};
+        ok( $took < 2, "Short delay ($took)" );
+      },
+    ],
+    [ '_stop', 0, undef ],
+  ],
+);
 
-pass( "END" );
+# Two additional tests for short delays.
+plan tests => $sequence->test_count() + 2;
+
+$sequence->create_generic_session();
+POE::Kernel->run();
+exit;

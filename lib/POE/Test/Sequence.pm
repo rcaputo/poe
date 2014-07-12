@@ -4,6 +4,7 @@ use warnings;
 use strict;
 
 use Carp qw(croak);
+use POE;
 
 sub new {
   my ($class, %args) = @_;
@@ -41,6 +42,17 @@ sub test_count {
   return $_[0]{test_count};
 }
 
+sub create_generic_session {
+  my ($self) = @_;
+
+  POE::Session->create(
+    inline_states => {
+      _start   => sub { goto $self->next( $_[STATE], 0 ) },
+      _default => sub { goto $self->next( $_[ARG0],  0 ) },
+    }
+  );
+}
+
 1;
 
 __END__
@@ -52,7 +64,7 @@ POE::Test::Sequence - POE test helper to verify a sequence of events
 =head1 SYNOPSIS
 
   Sorry, there isn't a synopsis at this time.
-  
+
   However, see t/90_regression/whjackson-followtail.t in POE's test
   suite for a full example.
 
@@ -63,6 +75,20 @@ tedious trickery needed to verify the relative ordering of events.
 
 With this module, one can test the sequence of events without
 necessarily relying on specific times elapsing between them.
+
+=head2 create_generic_session
+
+The create_generic_session() method creates a POE::Session that routes
+all vents through the POE::Test::Sequence object.  It returns the
+POE::Session object, but the test program does not need to store it
+anywhere.  In fact, it's recommended not to do that without
+understanding the implications.
+
+The implications can be found in the documentation for POE::Kernel and
+POE::Session.
+
+An example of create_generic_session() can be found in
+POE's t/90_regression/leolo-alarm-adjust.t test program.
 
 =head2 new
 
@@ -105,7 +131,9 @@ It's intended to be used for test planning.
 
 =head1 BUGS
 
-None known.
+create_generic_session() is hard-coded to pass only the event name and
+the numeric value 0 to next().  This is fine for only the most generic
+sequences.
 
 =head1 AUTHORS & LICENSING
 
