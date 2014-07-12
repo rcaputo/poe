@@ -554,7 +554,6 @@ SKIP:
   $req->content( "Nothing much" );  # but don't put a real 1 GB into content
                                     # (yes, the Content-Length is a lie!) 
   my $data = $filter->get( [ $req->as_string ] );
-  use Data::Dump qw( pp );
   isa_ok( $data->[0], 'HTTP::Response' );
   ok( !$data->[0]->is_success, "Failed" );
   is( $data->[0]->code, 413, "Content to big" );
