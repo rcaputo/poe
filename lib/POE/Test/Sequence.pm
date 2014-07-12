@@ -35,7 +35,7 @@ sub next {
 
   Test::More::is_deeply( [ $event, $parameter ], $expected_result );
 
-  return $next_action // sub { undef };
+  return $next_action || sub { undef };
 }
 
 sub test_count {
