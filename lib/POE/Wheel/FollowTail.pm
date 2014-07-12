@@ -444,7 +444,7 @@ sub _generate_filehandle_timer {
 
         sysseek($$handle, 0, SEEK_SET);
       }
-      else {
+      elsif (defined $$event_idle) {
         $k->call($ses, $$event_idle, $unique_id);
       }
 
@@ -593,7 +593,7 @@ sub _generate_filename_timer {
         $k->delay($$state_read, 0) if defined $$state_read;
         return;
       }
-      else {
+      elsif (defined $$event_idle) {
         $k->call($ses, $$event_idle, $unique_id);
       }
 
