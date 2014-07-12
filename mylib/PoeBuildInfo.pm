@@ -25,7 +25,7 @@ push @ISA, qw(Exporter);
 
 sub CONFIG_REQUIREMENTS () {
   (
-    "POE::Test::Loops"  => '1.357',
+    "POE::Test::Loops"  => '1.358',
   );
 }
 
