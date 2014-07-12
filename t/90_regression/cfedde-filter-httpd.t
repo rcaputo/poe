@@ -16,7 +16,7 @@ BEGIN {
   }
 }
 
-use Test::More tests => 2;
+use Test::More tests => 3;
 
 my $port;
 
@@ -41,10 +41,12 @@ POE::Component::Server::TCP->new(
       sockaddr_in($_[HEAP]->{listener}->getsockname())
     )[0];
   },
-
+  Stopped => sub { note "server s0 stopped"; },
   ClientInput => sub {
+    # Shutdown step 1: Close client c1's connection after receiving input.
     my ( $kernel, $heap, $request ) = @_[ KERNEL, HEAP, ARG0 ];
-    isa_ok( $request, 'HTTP::Message', $request);
+    isa_ok( $request, 'HTTP::Message', "server s0 request $request");
+    POE::Kernel->yield( 'shutdown' );
   },
 );
 
@@ -52,34 +54,32 @@ POE::Component::Client::TCP->new (
   Alias => 'c0',
   RemoteAddress => '127.0.0.1',
   RemotePort => $port,
-  ServerInput => sub {
-    diag("Server Input: $_[ARG0]");
-  }
+  ServerInput => sub { fail("client c0 got input from server s0: $_[ARG0]") },
+  Connected => sub { note "client c0 connected"; },
+  Disconnected => sub {
+    ok( 3, "client c0 disconnected" );
+    POE::Kernel->post( c0 => 'shutdown' );
+  },
+  # Silence errors.
+  ServerError => sub { undef },
 );
 
 POE::Component::Client::TCP->new (
   Alias => 'c1',
   RemoteAddress => '127.0.0.1',
   RemotePort => $port,
+  ServerInput => sub { fail("client c1 got input from server s0: $_[ARG0]") },
   Connected => sub {
-    ok 1, 'client connected';
+    ok 1, 'client c1 connected';
     $_[HEAP]->{server}->put( "GET / 1.0\015\012\015\012");
   },
-  ServerInput => sub {
-    ok 1, "client got $_[ARG0]";
-  }
-);
-
-POE::Session->create(
-  inline_states => {
-    _start => sub {
-      $_[KERNEL]->delay_add( done => 3 );
-    },
-    done => sub {
-      $_[KERNEL]->post( $_ => 'shutdown' )
-        for qw/ s0 c0 c1 /;
-    }
-  }
+  Disconnected => sub {
+    # Shutdown step 2: Kill the server and all remaining connections
+    note "client c1 disconnected";
+    POE::Kernel->signal( s0 => 'KILL' );
+  },
+  # Silence errors.
+  ServerError => sub { undef },
 );
 
 $poe_kernel->run();
