@@ -537,8 +537,14 @@ sub new {
       : 'tcp'
     );
 
+    # Dance for systems without getprotobyname
+    my %proto_by_name = (
+        tcp => Socket::IPPROTO_TCP,
+        udp => Socket::IPPROTO_UDP,
+    );
+    my %proto_by_number = reverse %proto_by_name;
     if ($socket_protocol !~ /^\d+$/) {
-      unless ($socket_protocol = getprotobyname($socket_protocol)) {
+      unless ($socket_protocol = $proto_by_name{$socket_protocol} || eval { getprotobyname($socket_protocol) }) {
         $poe_kernel->yield(
           $event_failure, 'getprotobyname', $!+0, $!, $self->[MY_UNIQUE_ID]
         );
@@ -549,7 +555,7 @@ sub new {
     # Get the protocol's name regardless of what was provided.  If the
     # protocol isn't supported, croak now instead of making the
     # programmer wonder why things fail later.
-    $protocol_name = lc(getprotobynumber($socket_protocol));
+    $protocol_name = $proto_by_number{$socket_protocol} || eval { lc(getprotobynumber($socket_protocol)) };
     unless ($protocol_name) {
       $poe_kernel->yield(
         $event_failure, 'getprotobynumber', $!+0, $!, $self->[MY_UNIQUE_ID]
@@ -598,7 +604,7 @@ sub new {
     # Turn on socket overlapped IO attribute per MSKB: Q181611. 
 
     eval {
-      socket(POE, AF_INET, SOCK_STREAM, getprotobyname("tcp"))
+      socket(POE, AF_INET, SOCK_STREAM, Socket::IPPROTO_TCP)
         or die "socket failed: $!";
       my $opt = unpack("I", getsockopt(POE, SOL_SOCKET, SO_OPENTYPE()));
       $win32_socket_opt = $opt;
@@ -630,7 +636,7 @@ sub new {
   # the socket we created... and not all subsequent sockets.
   if ( POE::Kernel::RUNNING_IN_HELL) {
     eval {
-      socket(POE, AF_INET, SOCK_STREAM, getprotobyname("tcp"))
+      socket(POE, AF_INET, SOCK_STREAM, Socket::IPPROTO_TCP)
         or die "socket failed: $!";
       setsockopt(POE, SOL_SOCKET, SO_OPENTYPE(), $win32_socket_opt);
       close POE;
