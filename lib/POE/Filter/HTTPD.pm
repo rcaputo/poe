@@ -33,7 +33,7 @@ sub FIRST_UNUSED  () { 9 }
 sub ST_HEADERS    () { 0x01 } # waiting for complete header block
 sub ST_CONTENT    () { 0x02 } # waiting for complete body
 
-use Carp qw(croak);
+use Carp qw(croak cluck carp);
 use HTTP::Status qw( status_message RC_BAD_REQUEST RC_OK RC_LENGTH_REQUIRED 
                                     RC_REQUEST_ENTITY_TOO_LARGE );
 use HTTP::Request ();
@@ -70,7 +70,7 @@ BEGIN {
         if( $@ ) {
             DEBUG and warn "We don't have Email::MIME::RFC2047::Encoder";
             *encode_value = sub {
-              Carp::cluck(
+              cluck(
                 "Downgrading wide characters in HTTP header. " .
                 "Consier installing Email::MIME::RFC2047::Encoder"
               );
