@@ -144,6 +144,7 @@ t/90_regression/bingos-followtail.t
 t/90_regression/broeren-win32-nbio.t
 t/90_regression/cfedde-filter-httpd.t
 t/90_regression/ferrari-server-unix.t
+t/90_regression/grinnz-die-in-die.t
 t/90_regression/hinrik-wheel-run-die.t
 t/90_regression/kjeldahl-stop-start-polling.t
 t/90_regression/kjeldahl-stop-start-sig-nopipe.t
