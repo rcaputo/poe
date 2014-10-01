@@ -6,7 +6,7 @@ use warnings;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.364'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.365'; # NOTE - Should be #.### (three decimal places)
 
 use IO::Pipely;
 
