@@ -378,7 +378,7 @@ sub _data_ev_dispatch_due {
     # TODO - Reversing them could avoid entering and removing GC marks.
     $self->_data_ev_refcount_dec($event->[EV_SOURCE], $event->[EV_SESSION]);
 
-    if ($event->[EV_TYPE] & ET_SIGNAL) {
+    if ($event->[EV_TYPE] & (ET_SIGNAL | ET_SIGDIE)) {
       $self->_dispatch_signal_event(@{$event}[EV_SESSION..EV_FROMSTATE], $priority, $id);
     }
     else {
