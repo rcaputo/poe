@@ -917,9 +917,12 @@ sub _data_sig_pipe_send {
 
   if( $$ != $signal_pipe_pid ) {
     _warn(
-      "<sg> Kernel now running in a different process " .
-      "(is=$$ was=$signal_pipe_pid ).  " .
-      "You must call call \$poe_kernel->has_forked() in the child process."
+      "<sg> Signal caught in different process than POE::Kernel initialized " .
+      "(newPID=$$ oldPID=$signal_pipe_pid sig=$signal_name).\n"
+    );
+    _warn(
+      "Call POE::Kernel->has_forked() in the child process " .
+      "to relocate the signal handler.\n"
     );
   }
 
