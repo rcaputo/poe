@@ -1327,7 +1327,7 @@ sub stop {
 
     # Walk backwards to avoid inconsistency errors.
     foreach my $session (reverse @children) {
-      $self->_data_ses_free($session->ID);
+      $self->_data_ses_stop($session->ID);
     }
   }
 

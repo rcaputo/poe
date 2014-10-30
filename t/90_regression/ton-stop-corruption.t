@@ -45,6 +45,6 @@ close $wr;
 
 POE::Kernel->run();
 
-ok( !$stop_was_called, "stop was not called" );
+is( $stop_was_called, 1, "stop was only called once" );
 
 exit;

@@ -1,5 +1,5 @@
 # vim: ts=2 sw=2 filetype=perl expandtab
-use Test::More tests => 3;
+use Test::More tests => 4;
 
 sub POE::Kernel::CATCH_EXCEPTIONS () { 0 }
 use POE;
