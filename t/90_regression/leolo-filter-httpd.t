@@ -8,7 +8,6 @@ use POE;
 use POE::Wheel::ReadWrite;
 use POE::Filter::HTTPD;
 use IO::Socket::INET;
-use Data::Dump qw( pp );
 
 sub DEBUG () { 0 }
 
@@ -128,7 +127,6 @@ use HTTP::Request::Common qw( POST GET );
 
 use HTTP::Status qw( status_message RC_BAD_REQUEST RC_OK RC_LENGTH_REQUIRED  
                                     RC_REQUEST_ENTITY_TOO_LARGE );
-use Data::Dump qw( pp );
 
 ##############
 sub _start
