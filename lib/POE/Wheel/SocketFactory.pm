@@ -68,7 +68,26 @@ BEGIN {
       *PF_INET6 = sub { -1 };
     }
   }
+
+  eval { Socket->import( 'IPPROTO_TCP' ) };
+  if ($@) {
+    *IPPROTO_TCP = (getprotobyname 'tcp')[2];
+  }
+
+  eval { Socket->import( 'IPPROTO_UDP' ) };
+  if ($@) {
+    *IPPROTO_UDP = (getprotobyname 'udp')[2];
+  }
 }
+
+# Common protocols to help support systems that don't have
+# getprotobyname().
+my %proto_by_name = (
+    tcp => IPPROTO_TCP,
+    udp => IPPROTO_UDP,
+);
+
+my %proto_by_number = reverse %proto_by_name;
 
 #------------------------------------------------------------------------------
 # These tables customize the socketfactory.  Many protocols share the
@@ -537,12 +556,7 @@ sub new {
       : 'tcp'
     );
 
-    # Dance for systems without getprotobyname
-    my %proto_by_name = (
-        tcp => Socket::IPPROTO_TCP,
-        udp => Socket::IPPROTO_UDP,
-    );
-    my %proto_by_number = reverse %proto_by_name;
+
     if ($socket_protocol !~ /^\d+$/) {
       unless ($socket_protocol = $proto_by_name{$socket_protocol} || eval { getprotobyname($socket_protocol) }) {
         $poe_kernel->yield(
@@ -604,7 +618,7 @@ sub new {
     # Turn on socket overlapped IO attribute per MSKB: Q181611. 
 
     eval {
-      socket(POE, AF_INET, SOCK_STREAM, Socket::IPPROTO_TCP)
+      socket(POE, AF_INET, SOCK_STREAM, IPPROTO_TCP)
         or die "socket failed: $!";
       my $opt = unpack("I", getsockopt(POE, SOL_SOCKET, SO_OPENTYPE()));
       $win32_socket_opt = $opt;
@@ -636,7 +650,7 @@ sub new {
   # the socket we created... and not all subsequent sockets.
   if ( POE::Kernel::RUNNING_IN_HELL) {
     eval {
-      socket(POE, AF_INET, SOCK_STREAM, Socket::IPPROTO_TCP)
+      socket(POE, AF_INET, SOCK_STREAM, IPPROTO_TCP)
         or die "socket failed: $!";
       setsockopt(POE, SOL_SOCKET, SO_OPENTYPE(), $win32_socket_opt);
       close POE;
