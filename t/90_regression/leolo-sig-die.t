@@ -71,7 +71,8 @@ POE::Session->create(
       is( $ret, 42, 'scalar_ctx3 return value' );
 
       # Undefine SIGDIE handler to cause a hard death.
-      $SIG{__DIE__} = undef;
+      # Really setting it to an empty string for compatibility reasons.
+      $SIG{__DIE__} = '';
       my @ret = $poe_kernel->call( $_[SESSION], 'array_ctx3' );
       fail( 'array_ctx3 returned unexpectedly' );
     },
@@ -84,7 +85,7 @@ POE::Session->create(
 
     array_ctx3 => sub {
       # now we throw an execption up to our __DIE__ handler
-      is($SIG{__DIE__}, undef, 'array_ctx3');
+      is($SIG{__DIE__}, '', 'array_ctx3');
       $WANT = "array_ctx3";
       die "$WANT\nmore\n";
       return ( 1..17 );
