@@ -153,11 +153,10 @@ sub get_one {
       DEBUG and warn unpack 'H*', $self->[INPUT_REGEXP];
 
       if ($self->[FRAMING_BUFFER] =~ $self->[INPUT_REGEXP]) {
+        die "Next line exceeds maximum line length" if $-[0] > $self->[MAX_LENGTH];
         my $line = substr($self->[FRAMING_BUFFER], 0, $-[0]);
         $self->[FRAMING_BUFFER] = substr($self->[FRAMING_BUFFER], $+[0]);
         DEBUG and warn "got line: <<", unpack('H*', $line), ">>\n";
-        die "Next line exceeds maximum line length"
-            if length( $line ) > $self->[MAX_LENGTH];
         return [ $line ];
       } else {
         last LINE;
@@ -166,6 +165,11 @@ sub get_one {
 
     # Waiting for the first line ending.  Look for a generic newline.
     if ($self->[AUTODETECT_STATE] & AUTO_STATE_FIRST) {
+      # avoid the backtracking regex below, APOCAL didn't change it to the
+      # magic substr tricks employed above because of the interactions between
+      # the line and autodetection of the INPUT_REGEXP so this is the lazy
+      # solution as autodetection only happens once at "startup" :)
+      last LINE unless $self->[FRAMING_BUFFER] =~ /(?:\x0D\x0A?|\x0A\x0D?)/;
       last LINE
         unless $self->[FRAMING_BUFFER] =~ s/^(.*?)(\x0D\x0A?|\x0A\x0D?)//;
 
