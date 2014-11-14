@@ -151,8 +151,12 @@ sub get_one {
     # Autodetect is done, or it never started.  Parse some buffer!
     unless ($self->[AUTODETECT_STATE]) {
       DEBUG and warn unpack 'H*', $self->[INPUT_REGEXP];
+
+      # Avoid running the super-backtracking regex which is slow!
+      last LINE unless $self->[FRAMING_BUFFER] =~ $self->[INPUT_REGEXP];
       last LINE
         unless $self->[FRAMING_BUFFER] =~ s/^(.*?)$self->[INPUT_REGEXP]//s;
+
       DEBUG and warn "got line: <<", unpack('H*', $1), ">>\n";
       my $line = $1;
       die "Next line exceeds maximum line length"
