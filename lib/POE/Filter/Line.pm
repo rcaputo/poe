@@ -152,17 +152,16 @@ sub get_one {
     unless ($self->[AUTODETECT_STATE]) {
       DEBUG and warn unpack 'H*', $self->[INPUT_REGEXP];
 
-      # Avoid running the super-backtracking regex which is slow!
-      last LINE unless $self->[FRAMING_BUFFER] =~ $self->[INPUT_REGEXP];
-      last LINE
-        unless $self->[FRAMING_BUFFER] =~ s/^(.*?)$self->[INPUT_REGEXP]//s;
-
-      DEBUG and warn "got line: <<", unpack('H*', $1), ">>\n";
-      my $line = $1;
-      die "Next line exceeds maximum line length"
+      if ($self->[FRAMING_BUFFER] =~ $self->[INPUT_REGEXP]) {
+        my $line = substr($self->[FRAMING_BUFFER], 0, $-[0]);
+        $self->[FRAMING_BUFFER] = substr($self->[FRAMING_BUFFER], $+[0]);
+        DEBUG and warn "got line: <<", unpack('H*', $line), ">>\n";
+        die "Next line exceeds maximum line length"
             if length( $line ) > $self->[MAX_LENGTH];
-
-      return [ $line ];
+        return [ $line ];
+      } else {
+        last LINE;
+      }
     }
 
     # Waiting for the first line ending.  Look for a generic newline.
