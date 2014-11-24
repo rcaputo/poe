@@ -72,7 +72,7 @@ BEGIN {
             *encode_value = sub {
               cluck(
                 "Downgrading wide characters in HTTP header. " .
-                "Consier installing Email::MIME::RFC2047::Encoder"
+                "Consider installing Email::MIME::RFC2047::Encoder"
               );
               $downgrade->( @_ );
             };
