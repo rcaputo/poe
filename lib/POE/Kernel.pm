@@ -479,12 +479,23 @@ sub _die {
 #------------------------------------------------------------------------------
 # Adapt POE::Kernel's personality to whichever event loop is present.
 
+my @has_poe_loop;
 sub _find_loop {
   my ($mod) = @_;
 
-  foreach my $dir (@INC) {
+  # Turns O(M*N) into O(M+N).  I've seen the old way take over 30
+  # seconds according to Devel::NYTProf, with egregiously long @INCs.
+  unless (@has_poe_loop) {
+    @has_poe_loop = (
+      grep { (-d "$_/POE/Loop") || (-d "$_/POE/XS/Loop") }
+      @INC
+    );
+  }
+
+  foreach my $dir (@has_poe_loop) {
     return 1 if (-r "$dir/$mod");
   }
+
   return 0;
 }
 
