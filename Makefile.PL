@@ -184,7 +184,7 @@ sub MY::postamble {
   return <<EOF;
 
 coverage: Makefile
-\cI$^X mylib/coverage.perl
+\cI$^X "mylib/coverage.perl"
 
 cover: coverage
 EOF
@@ -213,7 +213,7 @@ WriteMakefile(
   test           => { TESTS => TEST_FILES  },
 
   # Not executed on "make test".
-  PL_FILES       => { 'mylib/gen-tests.perl' => [ 'lib/POE.pm' ] },
+  PL_FILES       => { '"mylib/gen-tests.perl"' => [ 'lib/POE.pm' ] },
 
   PREREQ_PM      => { CORE_REQUIREMENTS },
 
