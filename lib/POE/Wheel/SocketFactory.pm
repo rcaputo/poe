@@ -788,11 +788,17 @@ sub new {
       # Need to check lengths in octets, not characters.
       BEGIN { eval { require bytes } and bytes->import; }
 
+      # Undef $bind_address if IN6ADDR_ANY and handle with AI_PASSIVE
+      if ( $bind_address eq '::' || $bind_address eq "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0" ) {
+        $bind_address = undef;
+      }
+
       # Resolve the bind address.
       my ($error, @addresses) = getaddrinfo(
         $bind_address, $bind_port, {
           family   => $self->[MY_SOCKET_DOMAIN],
           socktype => $self->[MY_SOCKET_TYPE],
+          ( defined $bind_address ? () : ( flags => 1 ) ),
         }
       );
 
