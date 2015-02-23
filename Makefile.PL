@@ -32,6 +32,7 @@
 use strict;
 use ExtUtils::MakeMaker;
 use Config;
+use File::Spec;
 
 # Switch to default behavior if STDIN isn't a tty.
 
@@ -181,10 +182,11 @@ check_for_modules(
 ### Generate Makefile.PL.
 
 sub MY::postamble {
+  my $cov = File::Spec->catfile(mylib => 'coverage.perl');
   return <<EOF;
 
 coverage: Makefile
-\cI$^X mylib/coverage.perl
+\cI$^X $cov
 
 cover: coverage
 EOF
@@ -213,7 +215,7 @@ WriteMakefile(
   test           => { TESTS => TEST_FILES  },
 
   # Not executed on "make test".
-  PL_FILES       => { 'mylib/gen-tests.perl' => [ 'lib/POE.pm' ] },
+  PL_FILES       => { File::Spec->catfile(mylib => 'gen-tests.perl') => [ 'lib/POE.pm' ] },
 
   PREREQ_PM      => { CORE_REQUIREMENTS },
 
