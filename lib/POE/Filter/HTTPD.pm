@@ -652,7 +652,7 @@ block of content.  The HTTP::Request object's content will return empty.
 The blocks of content will be parts of the request's body, up to
 Content-Length in size.  You distinguish between request objects and content
 blocks using C<Scalar::Util/bless> (See L</Streaming request> below).  This
-option superceeds L</MaxContent>.
+option supersedes L</MaxContent>.
 
 =head1 CAVEATS
 
@@ -696,7 +696,7 @@ request with a clean connection and filter.
 
 Normally POE::Filter::HTTPD reads the entire request content into memory
 before returning the HTTP::Request to your code.  In streaming mode, it will
-return the content seprately, as unblessed scalars.  The content may be
+return the content separately, as unblessed scalars.  The content may be
 split up into blocks of varying sizes, depending on OS and transport
 constraints.  Your code can distinguish the request object from the content
 blocks using L<Scalar::Util/blessed>.
