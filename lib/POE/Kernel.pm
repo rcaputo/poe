@@ -1274,8 +1274,9 @@ sub run {
     $self->has_forked;
   }
 
-  # Don't run the loop if we have no sessions
-  # Loop::Event will blow up, so we're doing this sanity check
+  # Don't run the loop if we have no sessions.
+  # Loop::Event will blow up, so we're doing this sanity check.
+  # It may never trigger, however: See rt.cpan.org 101227.
   if ( $self->_data_ses_count() == 0 ) {
     # Emit noise only if we are under debug mode
     if ( ASSERT_DATA ) {
