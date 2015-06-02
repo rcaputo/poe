@@ -43,8 +43,12 @@ sub _start_handler {
   );
 
   open my $fh, '>', $PIPENAME or die "open failed: $!";
+  $fh->autoflush(1);
+
   print $fh "foo\nbar\n";
-  close $fh or die "close failed: $!";
+
+  # rt.cpan.org 96039: Save the filehandle so it remains open.
+  $heap->{write_fh} = $fh;
 
   $kernel->delay('done', 3);
   return;
@@ -63,7 +67,10 @@ sub input_handler {
 sub done {
   my ($kernel, $heap) = @_[KERNEL, HEAP];
 
-  # cleanup the test pipe file
+  # Cleanup the test pipe file.
+  # Must be closed for the unlink() to work on Windows.
+  my $write_fh = delete $heap->{write_fh};
+  close $write_fh or die "close failed: $!";
   unlink $PIPENAME or die "unlink failed: $!";
 
   # delete the wheel so the POE session can end
