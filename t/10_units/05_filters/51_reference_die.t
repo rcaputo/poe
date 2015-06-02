@@ -42,6 +42,10 @@ ok(
   my $no_newline_yaml = $basic_yaml;
   chomp $no_newline_yaml;
 
+ SKIP: {
+  skip 'Missing newlines are allowed since YAML 1.15', 2
+      if $YAML::VERSION >= 1.15;
+
   ok(
     dies_when_allowed($no_newline_yaml),
     "yaml without newlines dies when allowed"
@@ -51,6 +55,7 @@ ok(
     exception_caught($no_newline_yaml),
     "yaml without newlines returns error when caught"
   );
+ }
 }
 
 # YAML supports a "...\n" record terminator.
