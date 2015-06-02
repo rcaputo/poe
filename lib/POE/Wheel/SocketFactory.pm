@@ -52,10 +52,9 @@ sub MY_SOCKET_SELECTED () { 12 }
 # least compiles.  Suggested in rt.cpan.org 27250.
 BEGIN {
 
-  eval { Socket->import( qw(getaddrinfo getnameinfo unpack_sockaddr_in6) ) };
+  eval { Socket->import( qw(getaddrinfo unpack_sockaddr_in6) ) };
   if ($@) {
     *getaddrinfo = sub { Carp::confess("Unable to use IPv6: Socket doesn't provide getaddrinfo()") };
-    *getnameinfo = sub { Carp::confess("Unable to use IPv6: Socket doesn't provide getnameinfo()") };
     *unpack_sockaddr_in6 = sub { Carp::confess("Unable to use IPv6: Socket doesn't provide unpack_sockaddr_in6()") };
   }
 
@@ -201,7 +200,7 @@ sub _define_accept_state {
           ($peer_port, $peer_addr) = unpack_sockaddr_in($peer);
         }
         elsif ( $domain eq DOM_INET6 ) {
-          ($peer_addr, $peer_port) = unpack_sockaddr_in6($peer);
+          ($peer_port, $peer_addr) = unpack_sockaddr_in6($peer);
         }
         else {
           die "sanity failure: socket domain == $domain";
@@ -318,9 +317,10 @@ sub _define_connect_state {
       # INET6 socket stacks tend not to.
       elsif ($domain eq DOM_INET6) {
         if (defined $peer) {
-          ((my $error), $peer_addr, $peer_port) = getnameinfo($peer);
-          if ($error) {
-            warn $error;
+          eval {
+            ($peer_port, $peer_addr) = unpack_sockaddr_in6($peer);
+          };
+          if (length $@) {
             $peer_port = $peer_addr = undef;
           }
         }
@@ -1552,14 +1552,16 @@ listening or connecting.  See below for the differences.
 
 For INET sockets, C<$_[ARG1]> and C<$_[ARG2]> hold the socket's remote
 address and port, respectively.  The address is packed; see
-L<Socket/inet_ntoa> if a human-readable IPv4 address is needed.
-L<Socket::GetAddrInfo/getnameinfo> provides numeric addresses for IPv4
-and IPv6 addresses.
+L<Socket/inet_ntop> if a human-readable address is needed.
 
   sub handle_new_client {
     my $accepted_socket = $_[ARG0];
 
-    my $peer_host = inet_ntoa($_[ARG1]);
+    my $peer_host = inet_ntop(
+      ((length($_[ARG1]) == 4) ? AF_INET : AF_INET6),
+      $_[ARG1]
+    );
+
     print(
       "Wheel $_[ARG3] accepted a connection from ",
       "$peer_host port $peer_port\n"
