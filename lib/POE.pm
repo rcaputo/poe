@@ -76,7 +76,9 @@ POE - portable multitasking and networking framework for any event loop
 
 =head1 SYNOPSIS
 
-  #!/usr/bin/perl -w
+  #!/usr/bin/perl
+
+  use warnings;
   use strict;
 
   use POE;  # Auto-includes POE::Kernel and POE::Session.
