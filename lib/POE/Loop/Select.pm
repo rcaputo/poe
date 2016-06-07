@@ -13,7 +13,12 @@ $VERSION = '1.367'; # NOTE - Should be #.### (three decimal places)
 
 =for poe_tests
 
-sub skip_tests { return }
+sub skip_tests {
+  my($test_name) = @_;
+  return "$test_name tests hang on $^O" if (
+    $test_name eq 'wheel_tail' && $^O eq "MSWin32"
+  );
+}
 
 =cut
 
