@@ -465,7 +465,7 @@ code snippets there as well.
 The following command will fetch the most current version of POE into
 the "poe" subdirectory:
 
-  svn co https://poe.svn.sourceforge.net/svnroot/poe poe
+  git clone https://github.com/rcaputo/poe.git
 
 =head2 SourceForge
 
@@ -535,18 +535,9 @@ https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=POE
 
 =head2 Repositories and Changes
 
-Thanks to the magic of distributed version control, POE is hosted at
-three locations for redundancy.  You can browse the source at any one
-of:
-
-https://github.com/rcaputo/poe
-
-https://gitorious.org/poe
-
-http://poe.git.sourceforge.net/git/gitweb-index.cgi
-
-Complete change logs can also be browsed at those sites.  They all
-provide RSS news feeds for those who want to follow development in
+You can browse the POE source and complete change logs at
+https://github.com/rcaputo/poe. It also provides an RSS
+news feed for those who want to follow development in
 near-realtime.
 
 =head2 Other Resources
