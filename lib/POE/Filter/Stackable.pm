@@ -331,7 +331,7 @@ handle output last.
 filters() returns a list of the filters inside the Stackable filter,
 in the stack's native order.
 
-Calling C<<$filter_stack->filters()>> in the L</SYNOPSIS> would return
+Calling C<< $filter_stack-E<gt>filters() >> in the L</SYNOPSIS> would return
 a list of two filter objects:
 
   POE::Filter::Line=ARRAY(0x8b5ee0)
@@ -342,7 +342,7 @@ a list of two filter objects:
 filter_types() returns a list of class names for each filter in the
 stack, in the stack's native order.
 
-Calling C<<$filter_stack->filter_types()>> in the L</SYNOPSIS> would
+Calling C<< $filter_stack-E<gt>filter_types() >> in the L</SYNOPSIS> would
 return a list of two class names:
 
   POE::FIlter::Line
