@@ -365,7 +365,7 @@ BEGIN {
     no strict 'refs';
     local $^W = 0;
     local $SIG{__WARN__} = sub { }; # redefine
-    *$const = sub () { $value };
+    *$const = sub () { return $value };
   }
 
   # TRACE_FILENAME is special.
