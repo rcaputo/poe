@@ -536,12 +536,10 @@ https://rt.cpan.org/Dist/Display.html?Status=Active&Queue=POE
 =head2 Repositories and Changes
 
 Thanks to the magic of distributed version control, POE is hosted at
-three locations for redundancy.  You can browse the source at any one
+two locations for redundancy.  You can browse the source at any one
 of:
 
 https://github.com/rcaputo/poe
-
-https://gitorious.org/poe
 
 http://poe.git.sourceforge.net/git/gitweb-index.cgi
 
