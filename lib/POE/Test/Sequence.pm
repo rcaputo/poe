@@ -6,6 +6,9 @@ use strict;
 use Carp qw(croak);
 use POE;
 
+use vars qw($VERSION);
+$VERSION = '1.368'; # NOTE - Should be #.### (three decimal places)
+
 sub new {
   my ($class, %args) = @_;
 
