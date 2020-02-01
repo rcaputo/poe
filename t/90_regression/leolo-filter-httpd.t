@@ -6,18 +6,18 @@ use warnings;
 use Test::More;
 use POE;
 use POE::Wheel::ReadWrite;
-use POE::Filter::HTTPD;
 use IO::Socket::INET;
 
 sub DEBUG () { 0 }
 
-
-foreach my $package ( qw( LWP::UserAgent HTTP::Request::Common CGI 
-                          File::Temp LWP::ConnCache ) ) {
+BEGIN {
+  foreach my $package ( qw( LWP::UserAgent HTTP::Request::Common CGI
+                            HTTP::Status File::Temp LWP::ConnCache ) ) {
     eval "use $package";
     next unless $@;
     plan skip_all => "$package isn't available";
     exit 0;
+  }
 }
 
 my $socket = IO::Socket::INET->new(
@@ -29,6 +29,8 @@ unless( $socket ) {
     plan skip_all => "Unable to create socket: $!";
     exit 0;
 }
+
+require POE::Filter::HTTPD;
 
 my $sockhost = $socket->sockhost();
 my $sockport = $socket->sockport();
