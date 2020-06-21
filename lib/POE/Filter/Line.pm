@@ -84,7 +84,7 @@ sub new {
         if defined $params{InputLiteral};
     }
     else {
-      $input_regexp = "(\\x0D\\x0A?|\\x0A\\x0D?)";
+      $input_regexp = "(?:\\x0D\\x0A?|\\x0A\\x0D?)";
     }
 
     if (defined $params{OutputLiteral}) {
@@ -105,12 +105,12 @@ sub new {
     if scalar keys %params;
 
   my $self = bless [
-    '',              # FRAMING_BUFFER
-    $input_regexp,   # INPUT_REGEXP
-    $output_literal, # OUTPUT_LITERAL
-    $autodetect,     # AUTODETECT_STATE
-    $max_length,     # MAX_LENGTH
-    $max_buffer      # MAX_BUFFER
+    '',                # FRAMING_BUFFER
+    qr/$input_regexp/, # INPUT_REGEXP
+    $output_literal,   # OUTPUT_LITERAL
+    $autodetect,       # AUTODETECT_STATE
+    $max_length,       # MAX_LENGTH
+    $max_buffer        # MAX_BUFFER
   ], $type;
 
   DEBUG and warn join ':', @$self;
@@ -151,21 +151,29 @@ sub get_one {
     # Autodetect is done, or it never started.  Parse some buffer!
     unless ($self->[AUTODETECT_STATE]) {
       DEBUG and warn unpack 'H*', $self->[INPUT_REGEXP];
-      last LINE
-        unless $self->[FRAMING_BUFFER] =~ s/^(.*?)$self->[INPUT_REGEXP]//s;
-      DEBUG and warn "got line: <<", unpack('H*', $1), ">>\n";
-      my $line = $1;
-      die "Next line exceeds maximum line length"
-            if length( $line ) > $self->[MAX_LENGTH];
 
-      return [ $line ];
+      if ($self->[FRAMING_BUFFER] =~ $self->[INPUT_REGEXP]) {
+        die "Next line exceeds maximum line length" if $-[0] > $self->[MAX_LENGTH];
+        my $line = substr($self->[FRAMING_BUFFER], 0, $-[0]);
+        $self->[FRAMING_BUFFER] = substr($self->[FRAMING_BUFFER], $+[0]);
+        DEBUG and warn "got line: <<", unpack('H*', $line), ">>\n";
+        return [ $line ];
+      } else {
+        last LINE;
+      }
     }
 
     # Waiting for the first line ending.  Look for a generic newline.
     if ($self->[AUTODETECT_STATE] & AUTO_STATE_FIRST) {
+      # avoid the backtracking regex below, APOCAL didn't change it to the
+      # magic substr tricks employed above because of the interactions between
+      # the line and autodetection of the INPUT_REGEXP so this is the lazy
+      # solution as autodetection only happens once at "startup" :)
+      last LINE unless $self->[FRAMING_BUFFER] =~ /(?:\x0D\x0A?|\x0A\x0D?)/;
       last LINE
         unless $self->[FRAMING_BUFFER] =~ s/^(.*?)(\x0D\x0A?|\x0A\x0D?)//;
-
+      die "Next line exceeds maximum line length"
+            if length( $1 ) > $self->[MAX_LENGTH];
       my $line = $1;
 
       # The newline can be complete under two conditions.  First: If
@@ -175,7 +183,7 @@ sub get_one {
            (length $self->[FRAMING_BUFFER])
          ) {
         DEBUG and warn "detected complete newline after line: <<$1>>\n";
-        $self->[INPUT_REGEXP] = $2;
+        $self->[INPUT_REGEXP] = qr/$2/;
         $self->[AUTODETECT_STATE] = AUTO_STATE_DONE;
       }
 
@@ -187,8 +195,6 @@ sub get_one {
         $self->[INPUT_REGEXP] = $2;
         $self->[AUTODETECT_STATE] = AUTO_STATE_SECOND;
       }
-      die "Next line exceeds maximum line length"
-            if length( $line ) > $self->[MAX_LENGTH];
 
       return [ $line ];
     }
@@ -219,7 +225,7 @@ sub get_one {
       # Regardless, whatever is in INPUT_REGEXP is now a complete
       # newline.  End autodetection, post-process the found newline,
       # and loop to see if there are other lines in the buffer.
-      $self->[INPUT_REGEXP] = $self->[INPUT_REGEXP];
+      $self->[INPUT_REGEXP] = qr/$self->[INPUT_REGEXP]/;
       $self->[AUTODETECT_STATE] = AUTO_STATE_DONE;
       next LINE;
     }
@@ -344,12 +350,14 @@ undef:
   );
 
 C<InputRegexp> may be used in place of C<InputLiteral> to recognize
-line terminators based on a regular expression.  In this example,
-input is terminated by two or more consecutive newlines.  On output,
-the paragraph separator is "---" on a line by itself.
+line terminators based on a regular expression. Please make sure the regexp
+is a sane one and doesn't capture anything in order to boost performance!
+
+In this example, input is terminated by two or more consecutive newlines.
+On output, the paragraph separator is "---" on a line by itself.
 
   my $paragraph_filter = POE::Filter::Line->new(
-    InputRegexp => "([\x0D\x0A]{2,})",
+    InputRegexp => "[\x0D\x0A]{2,}",
     OutputLiteral => "\n---\n",
   );
 
