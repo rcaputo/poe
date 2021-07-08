@@ -98,6 +98,11 @@ ok( $d->get_out_messages_buffered() == 1, "one message buffered" );
 
 # Remaining tests require some live handles.
 
+SKIP: { 
+if ($^O eq "MSWin32") {
+  skip "remaining tests hang on $^O", 6;
+}
+  
 my ($r, $w) = POE::Pipe::OneWay->new();
 die "can't open a pipe: $!" unless $r;
 
@@ -164,6 +169,8 @@ while (flush_remaining_buffer($d, $w)) {
   open(STDERR, ">&SAVE_STDERR") or die $!;
   close(SAVE_STDERR) or die $!;
 }
+
+} # SKIP
 
 exit 0;
 
