@@ -105,22 +105,24 @@ sub CORE_REQUIREMENTS () {
     CONFIG_REQUIREMENTS,
   );
 
-  if ($^O eq "MSWin32") {
-    push @core_requirements, (
-      "Win32::Console" => 0.031,
-      "Win32API::File" => 0.05,
-      "Win32::Job"     => 0.03,
-      "Win32::Process" => 0,
-      "Win32"          => 0,
-    );
-  }
-  elsif ($^O eq 'cygwin') {
-    # Skip IO::Tty.  It has trouble building as of this writing.
-  }
-  else {
-    push @core_requirements, (
-      "IO::Tty"        => 1.08, # avoids crashes on fbsd
-    );
+  if (-f 'META.yml') { # only include dynamic deps when installing
+    if ($^O eq "MSWin32") {
+      push @core_requirements, (
+        "Win32::Console" => 0.031,
+        "Win32API::File" => 0.05,
+        "Win32::Job"     => 0.03,
+        "Win32::Process" => 0,
+        "Win32"          => 0,
+      );
+    }
+    elsif ($^O eq 'cygwin') {
+      # Skip IO::Tty.  It has trouble building as of this writing.
+    }
+    else {
+      push @core_requirements, (
+        "IO::Tty"        => 1.08, # avoids crashes on fbsd
+      );
+    }
   }
 
   return @core_requirements;
