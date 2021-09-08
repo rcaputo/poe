@@ -91,26 +91,26 @@ sub CONFIG_REQUIREMENTS () {
 sub CORE_REQUIREMENTS () {
   my @core_requirements = (
     "Carp"              => 0,
-    "Errno"             => 1.09,
+    "Errno"             => '1.09',
     "Exporter"          => 0,
-    "File::Spec"        => 0.87,
-    "IO"                => 1.24,  # MSWin32 blocking(0)
-    "IO::Handle"        => 1.27,
-    "IO::Pipely"        => 0.005,
-    "POSIX"             => 1.02,
-    "Socket"            => 1.7,
-    "Storable"          => 2.16,
-    "Test::Harness"     => 2.26,
-    "Time::HiRes"       => 1.59,
+    "File::Spec"        => '0.87',
+    "IO"                => '1.24',  # MSWin32 blocking(0)
+    "IO::Handle"        => '1.27',
+    "IO::Pipely"        => '0.005',
+    "POSIX"             => '1.02',
+    "Socket"            => '1.7',
+    "Storable"          => '2.16',
+    "Test::Harness"     => '2.26',
+    "Time::HiRes"       => '1.59',
     CONFIG_REQUIREMENTS,
   );
 
   if (-f 'META.yml') { # only include dynamic deps when installing
     if ($^O eq "MSWin32") {
       push @core_requirements, (
-        "Win32::Console" => 0.031,
-        "Win32API::File" => 0.05,
-        "Win32::Job"     => 0.03,
+        "Win32::Console" => '0.031',
+        "Win32API::File" => '0.05',
+        "Win32::Job"     => '0.03',
         "Win32::Process" => 0,
         "Win32"          => 0,
       );
@@ -120,7 +120,7 @@ sub CORE_REQUIREMENTS () {
     }
     else {
       push @core_requirements, (
-        "IO::Tty"        => 1.08, # avoids crashes on fbsd
+        "IO::Tty"        => '1.08', # avoids crashes on fbsd
       );
     }
   }
@@ -227,14 +227,14 @@ sub check_for_modules {
 check_for_modules("required", CORE_REQUIREMENTS);
 check_for_modules(
   "optional",
-  "Compress::Zlib"        => 1.33,
-  "Curses"                => 1.08,
-  "IO::Poll"              => 0.01,
-  "IO::Pty"               => 1.02,
-  "LWP"                   => 5.79,
-  "Term::Cap"             => 1.10,
-  "Term::ReadKey"         => 2.21,
-  "URI"                   => 1.30,
+  "Compress::Zlib"        => '1.33',
+  "Curses"                => '1.08',
+  "IO::Poll"              => '0.01',
+  "IO::Pty"               => '1.02',
+  "LWP"                   => '5.79',
+  "Term::Cap"             => '1.10',
+  "Term::ReadKey"         => '2.21',
+  "URI"                   => '1.30',
 );
 
 # check for optional IPv6 stuff
