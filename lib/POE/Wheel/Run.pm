@@ -404,7 +404,7 @@ sub new {
 
       # Become a new unix session.
       # Program 19.3, APITUE.  W. Richard Stevens built my hot rod.
-      eval 'setsid()' unless $no_setsid;
+      #eval 'setsid()' unless $no_setsid;
 
       # Acquire a controlling terminal.  Program 19.3, APITUE.
       $stdin_write->make_slave_controlling_terminal();
@@ -1872,6 +1872,9 @@ elevated privileges for the child to be able to change users.
 When true, NoSetSid disables setsid() in the child process.  By
 default, the child process calls setsid() is called so that it may
 execute in a separate UNIX session.
+
+This option is deprecated. As L<IO::Pty> uses C<setsid()> this module
+has no control on whether it is invoked or not.
 
 =head4 NoSetPgrp
 
