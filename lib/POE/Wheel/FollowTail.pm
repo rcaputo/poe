@@ -3,7 +3,7 @@ package POE::Wheel::FollowTail;
 use strict;
 
 use vars qw($VERSION @ISA);
-$VERSION = '1.368'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.370'; # NOTE - Should be #.### (three decimal places)
 
 use Carp qw( croak carp );
 use Symbol qw( gensym );

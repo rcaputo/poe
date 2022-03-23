@@ -3,7 +3,7 @@ package POE::Kernel;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '1.368'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.370'; # NOTE - Should be #.### (three decimal places)
 
 use POE::Resource::Clock qw( monotime sleep mono2wall wall2mono walltime time );
 
