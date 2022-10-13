@@ -58,6 +58,7 @@ sub new {
   my $port    = delete $param{Port};
   my $domain  = delete($param{Domain}) || AF_INET;
   my $concurrency = delete $param{Concurrency};
+  my $listen_queue = delete $param{ListenQueue};
 
   $port = 0 unless defined $port;
 
@@ -474,6 +475,7 @@ sub new {
           Reuse        => 'yes',
           SuccessEvent => 'tcp_server_got_connection',
           FailureEvent => 'tcp_server_got_error',
+          ListenQueue => $listen_queue,
         );
         $server_started and $server_started->(@_);
       },
