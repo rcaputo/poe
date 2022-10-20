@@ -71,7 +71,6 @@ lib/POE/Wheel/SocketFactory.pm
 mylib/Devel/Null.pm
 mylib/ForkingDaemon.pm
 mylib/MyOtherFreezer.pm
-mylib/PoeBuildInfo.pm
 mylib/coverage.perl
 mylib/cpan-test.perl
 mylib/events_per_second.pl
